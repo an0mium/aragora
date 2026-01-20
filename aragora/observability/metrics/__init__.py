@@ -4,26 +4,29 @@ Metrics package for Aragora observability.
 This package provides Prometheus metrics for monitoring request rates, latencies,
 agent performance, and debate statistics.
 
-The metrics module has been refactored into domain-specific submodules:
-- base: Shared utilities (NoOpMetric, initialization helpers)
-- core: Request, agent, debate, and cache metrics
+Submodules:
+- base: NoOpMetric class, initialization helpers
+- core: Request, agent, debate, cache metrics
 - bridge: Cross-pollination bridge metrics
 - km: Knowledge Mound metrics
 - notification: Notification delivery metrics
 - stores: Task queue, governance, checkpoint, user mapping metrics
 - gauntlet: Gauntlet export and workflow template metrics
-
-For backward compatibility, all metrics and functions are re-exported from
-the parent metrics module (aragora.observability.metrics).
 """
 
+from __future__ import annotations
+
+# Base utilities
 from aragora.observability.metrics.base import (
     NoOpMetric,
     get_metrics_enabled,
     ensure_metrics_initialized,
+    normalize_endpoint,
 )
+
+# Core metrics
 from aragora.observability.metrics.core import (
-    # Metrics
+    # Metric instances
     REQUEST_COUNT,
     REQUEST_LATENCY,
     AGENT_CALLS,
@@ -56,52 +59,108 @@ from aragora.observability.metrics.core import (
     DEBATE_ROUND_LATENCY,
     TTS_SYNTHESIS_TOTAL,
     TTS_SYNTHESIS_LATENCY,
-    CONVERGENCE_CHECKS_TOTAL,
-    EVIDENCE_CITATION_BONUSES,
-    PROCESS_EVALUATION_BONUSES,
-    RLM_READY_QUORUM_EVENTS,
-    # Functions
+    CONVERGENCE_DETECTIONS,
+    VOTE_BONUS_ADJUSTMENTS,
+    PROXY_FALLBACK_COUNT,
+    RATE_LIMIT_EVENTS,
+    MEMORY_TIER_TRANSITIONS,
+    INSIGHT_LEARNING_EVENTS,
+    TEAM_COMPOSITION_METRICS,
+    DYNAMIC_WEIGHTS_APPLIED,
+    BENCHMARK_CYCLES_TOTAL,
+    BENCHMARK_CYCLE_LATENCY,
+    UNCERTAINTY_ESTIMATES,
+    ADAPTIVE_ROUNDS_TRIGGERED,
+    PARTICIPANT_VOTES_TOTAL,
+    PARTICIPANT_SUGGESTIONS_TOTAL,
+    PARTICIPANT_FEEDBACK_LATENCY,
+    CIRCUIT_BREAKER_TRIPS,
+    CIRCUIT_BREAKER_STATE,
+    OBSERVABILITY_HEALTH,
+    METRICS_COLLECTION_ERRORS,
+    # KM metrics
+    KM_OPERATIONS_TOTAL,
+    KM_OPERATION_LATENCY,
+    KM_CACHE_HITS_TOTAL,
+    KM_CACHE_MISSES_TOTAL,
+    KM_HEALTH_STATUS,
+    KM_ADAPTER_SYNCS_TOTAL,
+    KM_FEDERATED_QUERIES_TOTAL,
+    KM_EVENTS_EMITTED_TOTAL,
+    KM_ACTIVE_ADAPTERS,
+    # Recording functions
     record_request,
     record_agent_call,
-    track_debate,
-    set_consensus_rate,
+    record_agent_latency,
+    record_debate_started,
+    record_debate_completed,
     record_memory_operation,
-    track_websocket_connection,
-    measure_latency,
-    measure_async_latency,
-    record_debate_completion,
-    record_phase_duration,
+    record_ws_connection,
+    record_ws_disconnection,
+    record_debate_phase_duration,
     record_agent_participation,
-    track_phase,
     record_cache_hit,
     record_cache_miss,
+    record_slow_debate,
+    record_slow_round,
+    record_debate_round_latency,
+    record_tts_synthesis,
+    record_convergence_detection,
+    record_vote_bonus_adjustment,
     record_knowledge_cache_hit,
     record_knowledge_cache_miss,
     record_memory_coordinator_write,
     record_selection_feedback_adjustment,
     record_workflow_trigger,
     record_evidence_stored,
-    record_culture_patterns,
-    record_rlm_cache_hit,
-    record_rlm_cache_miss,
+    record_culture_pattern,
+    record_rlm_cache_access,
     record_calibration_adjustment,
     record_learning_bonus,
     record_voting_accuracy_update,
     record_adaptive_round_change,
-    record_slow_debate,
-    record_slow_round,
-    record_round_latency,
-    record_tts_synthesis,
-    record_tts_latency,
-    record_convergence_check,
-    record_evidence_citation_bonus,
-    record_process_evaluation_bonus,
-    record_rlm_ready_quorum,
-    start_metrics_server,
+    record_proxy_fallback,
+    record_rate_limit_event,
+    record_memory_tier_transition,
+    record_insight_learning_event,
+    record_team_composition,
+    record_dynamic_weights,
+    record_benchmark_cycle,
+    record_uncertainty_estimate,
+    record_adaptive_rounds_triggered,
+    record_participant_vote,
+    record_participant_suggestion,
+    record_participant_feedback_latency,
+    record_circuit_breaker_trip,
+    set_circuit_breaker_state,
+    record_observability_health,
+    record_metrics_collection_error,
+    record_km_operation,
+    record_km_cache_access,
+    record_km_adapter_sync,
+    record_km_federated_query,
+    record_km_event_emitted,
+    sync_km_metrics_to_prometheus,
+    record_km_inbound_event,
+    record_km_circuit_breaker_trip,
+    record_km_retry,
+    record_km_cache_invalidation,
+    record_km_integrity_error,
+    record_km_integrity_repair,
+    # Context managers
+    track_request,
+    track_agent_call,
+    track_debate,
+    # Decorators
+    track_latency,
+    # Init functions
     init_core_metrics,
+    start_metrics_server,
+    shutdown_metrics_server,
 )
+
+# Bridge metrics
 from aragora.observability.metrics.bridge import (
-    # Metrics
     BRIDGE_SYNCS,
     BRIDGE_SYNC_LATENCY,
     BRIDGE_ERRORS,
@@ -116,7 +175,6 @@ from aragora.observability.metrics.bridge import (
     RLM_SELECTION_RECOMMENDATIONS,
     CALIBRATION_COST_CALCULATIONS,
     BUDGET_FILTERING_EVENTS,
-    # Functions
     record_bridge_sync,
     record_bridge_sync_latency,
     record_bridge_error,
@@ -134,95 +192,73 @@ from aragora.observability.metrics.bridge import (
     track_bridge_sync,
     init_bridge_metrics,
 )
-from aragora.observability.metrics.km import (
-    # Metrics
-    KM_OPERATIONS_TOTAL,
-    KM_OPERATION_LATENCY,
-    KM_CACHE_HITS_TOTAL,
-    KM_CACHE_MISSES_TOTAL,
-    KM_HEALTH_STATUS,
-    KM_ADAPTER_SYNCS_TOTAL,
-    KM_FEDERATED_QUERIES_TOTAL,
-    KM_EVENTS_EMITTED_TOTAL,
-    KM_ACTIVE_ADAPTERS,
-    # Functions
-    record_km_operation,
-    record_km_cache_access,
-    set_km_health_status,
-    record_km_adapter_sync,
-    record_km_federated_query,
-    record_km_event_emitted,
-    set_km_active_adapters,
-    sync_km_metrics_to_prometheus,
-    init_km_metrics,
-)
+
+# Notification metrics
 from aragora.observability.metrics.notification import (
-    # Metrics
     NOTIFICATION_SENT_TOTAL,
     NOTIFICATION_LATENCY,
     NOTIFICATION_ERRORS_TOTAL,
     NOTIFICATION_QUEUE_SIZE,
-    # Functions
     record_notification_sent,
     record_notification_error,
     set_notification_queue_size,
     track_notification_delivery,
     init_notification_metrics,
 )
+
+# Store metrics
 from aragora.observability.metrics.stores import (
-    # Task Queue Metrics
+    # Task queue
     TASK_QUEUE_OPERATIONS_TOTAL,
     TASK_QUEUE_OPERATION_LATENCY,
     TASK_QUEUE_SIZE,
     TASK_QUEUE_RECOVERED_TOTAL,
     TASK_QUEUE_CLEANUP_TOTAL,
-    # Governance Metrics
+    record_task_queue_operation,
+    set_task_queue_size,
+    record_task_recovered,
+    record_task_cleanup,
+    track_task_queue_operation,
+    # Governance
     GOVERNANCE_DECISIONS_TOTAL,
     GOVERNANCE_VERIFICATIONS_TOTAL,
     GOVERNANCE_APPROVALS_TOTAL,
     GOVERNANCE_STORE_LATENCY,
     GOVERNANCE_ARTIFACTS_ACTIVE,
-    # User Mapping Metrics
+    record_governance_decision,
+    record_governance_verification,
+    record_governance_approval,
+    set_governance_artifacts_active,
+    track_governance_operation,
+    # User mapping
     USER_MAPPING_OPERATIONS_TOTAL,
     USER_MAPPING_CACHE_HITS_TOTAL,
     USER_MAPPING_CACHE_MISSES_TOTAL,
     USER_MAPPINGS_ACTIVE,
-    # Checkpoint Metrics
-    CHECKPOINT_OPERATIONS,
-    CHECKPOINT_OPERATION_LATENCY,
-    CHECKPOINT_SIZE,
-    CHECKPOINT_RESTORE_RESULTS,
-    # Functions
-    record_task_queue_operation,
-    set_task_queue_size,
-    record_task_queue_recovery,
-    record_task_queue_cleanup,
-    track_task_queue_operation,
-    record_governance_decision,
-    record_governance_verification,
-    record_governance_approval,
-    record_governance_store_latency,
-    set_governance_artifacts_active,
-    track_governance_store_operation,
     record_user_mapping_operation,
     record_user_mapping_cache_hit,
     record_user_mapping_cache_miss,
     set_user_mappings_active,
+    # Checkpoint
+    CHECKPOINT_OPERATIONS,
+    CHECKPOINT_OPERATION_LATENCY,
+    CHECKPOINT_SIZE,
+    CHECKPOINT_RESTORE_RESULTS,
     record_checkpoint_operation,
-    record_checkpoint_restore_result,
+    record_checkpoint_restore,
     track_checkpoint_operation,
+    # Init
     init_store_metrics,
 )
+
+# Gauntlet metrics
 from aragora.observability.metrics.gauntlet import (
-    # Gauntlet Metrics
     GAUNTLET_EXPORTS_TOTAL,
     GAUNTLET_EXPORT_LATENCY,
     GAUNTLET_EXPORT_SIZE,
-    # Workflow Metrics
     WORKFLOW_TEMPLATES_CREATED,
     WORKFLOW_TEMPLATE_EXECUTIONS,
     WORKFLOW_TEMPLATE_EXECUTION_LATENCY,
-    # Consensus Ingestion Metrics
     CONSENSUS_INGESTION_TOTAL,
     CONSENSUS_INGESTION_LATENCY,
     CONSENSUS_INGESTION_CLAIMS,
@@ -230,7 +266,6 @@ from aragora.observability.metrics.gauntlet import (
     CONSENSUS_EVOLUTION_TRACKED,
     CONSENSUS_EVIDENCE_LINKED,
     CONSENSUS_AGREEMENT_RATIO,
-    # Functions
     record_gauntlet_export,
     track_gauntlet_export,
     record_workflow_template_created,
@@ -241,15 +276,64 @@ from aragora.observability.metrics.gauntlet import (
     record_consensus_evolution,
     record_consensus_evidence_linked,
     record_consensus_agreement_ratio,
-    record_km_inbound_event,
     init_gauntlet_metrics,
 )
+
+# KM metrics (re-exported from km module for explicit imports)
+from aragora.observability.metrics.km import (
+    init_km_metrics,
+    set_km_health_status,
+    set_km_active_adapters,
+)
+
+
+# =============================================================================
+# Backward Compatibility Shims
+# =============================================================================
+
+
+def _init_metrics() -> bool:
+    """Initialize all metrics (backward compatibility shim).
+
+    Returns:
+        True if metrics are enabled, False otherwise.
+    """
+    if not get_metrics_enabled():
+        _init_noop_metrics()
+        return False
+
+    init_core_metrics()
+    init_bridge_metrics()
+    init_km_metrics()
+    init_notification_metrics()
+    init_store_metrics()
+    init_gauntlet_metrics()
+    return True
+
+
+def _init_noop_metrics() -> None:
+    """Initialize NoOp metrics when prometheus is disabled (backward compatibility shim)."""
+    from aragora.observability.metrics.bridge import _init_noop_metrics as _init_bridge_noop
+    from aragora.observability.metrics.km import _init_noop_metrics as _init_km_noop
+    from aragora.observability.metrics.notification import _init_noop_metrics as _init_notification_noop
+    from aragora.observability.metrics.stores import _init_noop_metrics as _init_store_noop
+    from aragora.observability.metrics.gauntlet import _init_noop_metrics as _init_gauntlet_noop
+    from aragora.observability.metrics.core import _init_noop_metrics as _init_core_noop
+
+    _init_core_noop()
+    _init_bridge_noop()
+    _init_km_noop()
+    _init_notification_noop()
+    _init_store_noop()
+    _init_gauntlet_noop()
+
 
 __all__ = [
     # Base
     "NoOpMetric",
     "get_metrics_enabled",
     "ensure_metrics_initialized",
+    "normalize_endpoint",
     # Core metrics
     "REQUEST_COUNT",
     "REQUEST_LATENCY",
@@ -283,49 +367,82 @@ __all__ = [
     "DEBATE_ROUND_LATENCY",
     "TTS_SYNTHESIS_TOTAL",
     "TTS_SYNTHESIS_LATENCY",
-    "CONVERGENCE_CHECKS_TOTAL",
-    "EVIDENCE_CITATION_BONUSES",
-    "PROCESS_EVALUATION_BONUSES",
-    "RLM_READY_QUORUM_EVENTS",
-    # Core functions
+    "CONVERGENCE_DETECTIONS",
+    "VOTE_BONUS_ADJUSTMENTS",
+    "PROXY_FALLBACK_COUNT",
+    "RATE_LIMIT_EVENTS",
+    "MEMORY_TIER_TRANSITIONS",
+    "INSIGHT_LEARNING_EVENTS",
+    "TEAM_COMPOSITION_METRICS",
+    "DYNAMIC_WEIGHTS_APPLIED",
+    "BENCHMARK_CYCLES_TOTAL",
+    "BENCHMARK_CYCLE_LATENCY",
+    "UNCERTAINTY_ESTIMATES",
+    "ADAPTIVE_ROUNDS_TRIGGERED",
+    "PARTICIPANT_VOTES_TOTAL",
+    "PARTICIPANT_SUGGESTIONS_TOTAL",
+    "PARTICIPANT_FEEDBACK_LATENCY",
+    "CIRCUIT_BREAKER_TRIPS",
+    "CIRCUIT_BREAKER_STATE",
+    "OBSERVABILITY_HEALTH",
+    "METRICS_COLLECTION_ERRORS",
+    # Core recording functions
     "record_request",
     "record_agent_call",
-    "track_debate",
-    "set_consensus_rate",
+    "record_agent_latency",
+    "record_debate_started",
+    "record_debate_completed",
     "record_memory_operation",
-    "track_websocket_connection",
-    "measure_latency",
-    "measure_async_latency",
-    "record_debate_completion",
-    "record_phase_duration",
+    "record_ws_connection",
+    "record_ws_disconnection",
+    "record_debate_phase_duration",
     "record_agent_participation",
-    "track_phase",
     "record_cache_hit",
     "record_cache_miss",
+    "record_slow_debate",
+    "record_slow_round",
+    "record_debate_round_latency",
+    "record_tts_synthesis",
+    "record_convergence_detection",
+    "record_vote_bonus_adjustment",
     "record_knowledge_cache_hit",
     "record_knowledge_cache_miss",
     "record_memory_coordinator_write",
     "record_selection_feedback_adjustment",
     "record_workflow_trigger",
     "record_evidence_stored",
-    "record_culture_patterns",
-    "record_rlm_cache_hit",
-    "record_rlm_cache_miss",
+    "record_culture_pattern",
+    "record_rlm_cache_access",
     "record_calibration_adjustment",
     "record_learning_bonus",
     "record_voting_accuracy_update",
     "record_adaptive_round_change",
-    "record_slow_debate",
-    "record_slow_round",
-    "record_round_latency",
-    "record_tts_synthesis",
-    "record_tts_latency",
-    "record_convergence_check",
-    "record_evidence_citation_bonus",
-    "record_process_evaluation_bonus",
-    "record_rlm_ready_quorum",
-    "start_metrics_server",
+    "record_proxy_fallback",
+    "record_rate_limit_event",
+    "record_memory_tier_transition",
+    "record_insight_learning_event",
+    "record_team_composition",
+    "record_dynamic_weights",
+    "record_benchmark_cycle",
+    "record_uncertainty_estimate",
+    "record_adaptive_rounds_triggered",
+    "record_participant_vote",
+    "record_participant_suggestion",
+    "record_participant_feedback_latency",
+    "record_circuit_breaker_trip",
+    "set_circuit_breaker_state",
+    "record_observability_health",
+    "record_metrics_collection_error",
+    # Core context managers
+    "track_request",
+    "track_agent_call",
+    "track_debate",
+    # Core decorators
+    "track_latency",
+    # Core init
     "init_core_metrics",
+    "start_metrics_server",
+    "shutdown_metrics_server",
     # Bridge metrics
     "BRIDGE_SYNCS",
     "BRIDGE_SYNC_LATENCY",
@@ -341,7 +458,6 @@ __all__ = [
     "RLM_SELECTION_RECOMMENDATIONS",
     "CALIBRATION_COST_CALCULATIONS",
     "BUDGET_FILTERING_EVENTS",
-    # Bridge functions
     "record_bridge_sync",
     "record_bridge_sync_latency",
     "record_bridge_error",
@@ -368,22 +484,26 @@ __all__ = [
     "KM_FEDERATED_QUERIES_TOTAL",
     "KM_EVENTS_EMITTED_TOTAL",
     "KM_ACTIVE_ADAPTERS",
-    # KM functions
     "record_km_operation",
     "record_km_cache_access",
-    "set_km_health_status",
     "record_km_adapter_sync",
     "record_km_federated_query",
     "record_km_event_emitted",
-    "set_km_active_adapters",
     "sync_km_metrics_to_prometheus",
+    "record_km_inbound_event",
+    "record_km_circuit_breaker_trip",
+    "record_km_retry",
+    "record_km_cache_invalidation",
+    "record_km_integrity_error",
+    "record_km_integrity_repair",
     "init_km_metrics",
+    "set_km_health_status",
+    "set_km_active_adapters",
     # Notification metrics
     "NOTIFICATION_SENT_TOTAL",
     "NOTIFICATION_LATENCY",
     "NOTIFICATION_ERRORS_TOTAL",
     "NOTIFICATION_QUEUE_SIZE",
-    # Notification functions
     "record_notification_sent",
     "record_notification_error",
     "set_notification_queue_size",
@@ -395,37 +515,35 @@ __all__ = [
     "TASK_QUEUE_SIZE",
     "TASK_QUEUE_RECOVERED_TOTAL",
     "TASK_QUEUE_CLEANUP_TOTAL",
+    "record_task_queue_operation",
+    "set_task_queue_size",
+    "record_task_recovered",
+    "record_task_cleanup",
+    "track_task_queue_operation",
     "GOVERNANCE_DECISIONS_TOTAL",
     "GOVERNANCE_VERIFICATIONS_TOTAL",
     "GOVERNANCE_APPROVALS_TOTAL",
     "GOVERNANCE_STORE_LATENCY",
     "GOVERNANCE_ARTIFACTS_ACTIVE",
+    "record_governance_decision",
+    "record_governance_verification",
+    "record_governance_approval",
+    "set_governance_artifacts_active",
+    "track_governance_operation",
     "USER_MAPPING_OPERATIONS_TOTAL",
     "USER_MAPPING_CACHE_HITS_TOTAL",
     "USER_MAPPING_CACHE_MISSES_TOTAL",
     "USER_MAPPINGS_ACTIVE",
-    "CHECKPOINT_OPERATIONS",
-    "CHECKPOINT_OPERATION_LATENCY",
-    "CHECKPOINT_SIZE",
-    "CHECKPOINT_RESTORE_RESULTS",
-    # Store functions
-    "record_task_queue_operation",
-    "set_task_queue_size",
-    "record_task_queue_recovery",
-    "record_task_queue_cleanup",
-    "track_task_queue_operation",
-    "record_governance_decision",
-    "record_governance_verification",
-    "record_governance_approval",
-    "record_governance_store_latency",
-    "set_governance_artifacts_active",
-    "track_governance_store_operation",
     "record_user_mapping_operation",
     "record_user_mapping_cache_hit",
     "record_user_mapping_cache_miss",
     "set_user_mappings_active",
+    "CHECKPOINT_OPERATIONS",
+    "CHECKPOINT_OPERATION_LATENCY",
+    "CHECKPOINT_SIZE",
+    "CHECKPOINT_RESTORE_RESULTS",
     "record_checkpoint_operation",
-    "record_checkpoint_restore_result",
+    "record_checkpoint_restore",
     "track_checkpoint_operation",
     "init_store_metrics",
     # Gauntlet metrics
@@ -442,7 +560,6 @@ __all__ = [
     "CONSENSUS_EVOLUTION_TRACKED",
     "CONSENSUS_EVIDENCE_LINKED",
     "CONSENSUS_AGREEMENT_RATIO",
-    # Gauntlet functions
     "record_gauntlet_export",
     "track_gauntlet_export",
     "record_workflow_template_created",
@@ -453,6 +570,5 @@ __all__ = [
     "record_consensus_evolution",
     "record_consensus_evidence_linked",
     "record_consensus_agreement_ratio",
-    "record_km_inbound_event",
     "init_gauntlet_metrics",
 ]

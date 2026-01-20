@@ -1,6 +1,6 @@
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-18 (added OAuth, Workflows, Workspace endpoints)
+> **Last Updated:** 2026-01-20 (added Explainability, Workflow Templates, Gauntlet Receipts endpoints)
 
 
 This document describes the HTTP and WebSocket APIs for the Aragora AI red team / decision stress-test platform.
@@ -22,10 +22,10 @@ This document describes the HTTP and WebSocket APIs for the Aragora AI red team 
 
 | Category | Count | Notes |
 |----------|-------|-------|
-| **Total Endpoints** | 297 | All API routes from 78 handler modules |
-| **Actively Used** | ~40 | Called from frontend components |
+| **Total Endpoints** | 316 | All API routes from 78+ handler modules |
+| **Actively Used** | ~55 | Called from frontend components |
 | **Ready to Wire** | ~10 | High-value, not yet connected to frontend |
-| **Advanced/Analytics** | ~247 | Specialized features, plugins, analytics |
+| **Advanced/Analytics** | ~251 | Specialized features, plugins, analytics |
 
 ## OpenAPI Specification
 
@@ -79,6 +79,30 @@ add or change endpoints, update both to keep tests and docs in sync.
 | `POST /api/evolution/ab-tests/:id/record` | Record debate result | NEW |
 | `POST /api/evolution/ab-tests/:id/conclude` | Conclude test | NEW |
 | `DELETE /api/evolution/ab-tests/:id` | Cancel test | NEW |
+
+### New Endpoints (2026-01-20)
+
+| Endpoint | Description | Status |
+|----------|-------------|--------|
+| `GET /api/debates/:id/explainability` | Get full decision explanation | NEW |
+| `GET /api/debates/:id/explainability/factors` | Get contributing factors | NEW |
+| `GET /api/debates/:id/explainability/counterfactual` | Get counterfactual scenarios | NEW |
+| `POST /api/debates/:id/explainability/counterfactual` | Generate custom counterfactual | NEW |
+| `GET /api/debates/:id/explainability/provenance` | Get decision provenance chain | NEW |
+| `GET /api/debates/:id/explainability/narrative` | Get natural language narrative | NEW |
+| `GET /api/workflow/templates` | List workflow templates | NEW |
+| `GET /api/workflow/templates/:id` | Get template details | NEW |
+| `GET /api/workflow/templates/:id/package` | Get full template package | NEW |
+| `POST /api/workflow/templates/:id/run` | Execute workflow template | NEW |
+| `GET /api/workflow/categories` | List template categories | NEW |
+| `GET /api/workflow/patterns` | List workflow patterns | NEW |
+| `POST /api/workflow/patterns/:id/instantiate` | Create template from pattern | NEW |
+| `GET /api/gauntlet/receipts` | List gauntlet receipts | NEW |
+| `GET /api/gauntlet/receipts/:id` | Get receipt details | NEW |
+| `GET /api/gauntlet/receipts/:id/verify` | Verify receipt integrity | NEW |
+| `GET /api/gauntlet/receipts/:id/export` | Export receipt (JSON/HTML/MD/SARIF) | NEW |
+| `POST /api/gauntlet/receipts/:id/share` | Create shareable receipt link | NEW |
+| `GET /api/gauntlet/receipts/stats` | Get receipt statistics | NEW |
 
 ### New Endpoints (2026-01-18)
 
@@ -4484,6 +4508,527 @@ POST /api/training/jobs/{id}/start
 POST /api/training/jobs/{id}/complete
 GET /api/training/jobs/{id}/metrics
 GET /api/training/jobs/{id}/artifacts
+```
+
+---
+
+## Explainability API
+
+Get detailed explanations of debate decisions including factors, counterfactuals, and provenance.
+
+### Get Full Explanation
+
+```http
+GET /api/debates/{debate_id}/explainability
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `include_factors` (boolean, default: true): Include factor decomposition
+- `include_counterfactuals` (boolean, default: true): Include counterfactual scenarios
+- `include_provenance` (boolean, default: true): Include decision provenance chain
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "narrative": "The debate concluded with consensus favoring...",
+  "factors": [
+    {
+      "name": "evidence_quality",
+      "contribution": 0.35,
+      "description": "Quality of cited evidence",
+      "evidence": ["Source A demonstrated...", "Source B corroborated..."]
+    }
+  ],
+  "counterfactuals": [
+    {
+      "scenario": "If Agent A had cited additional sources...",
+      "outcome": "Consensus would have been stronger",
+      "probability": 0.72
+    }
+  ],
+  "provenance": [
+    {
+      "step": 1,
+      "action": "Initial arguments presented",
+      "timestamp": "2026-01-20T10:00:00Z",
+      "agent": "anthropic-api",
+      "confidence": 0.85
+    }
+  ]
+}
+```
+
+### Get Contributing Factors
+
+```http
+GET /api/debates/{debate_id}/explainability/factors
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `min_contribution` (float, 0-1): Minimum contribution threshold
+- `sort_by` (string): Sort by "contribution", "name", or "type"
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "factors": [
+    {
+      "name": "argument_strength",
+      "contribution": 0.45,
+      "type": "rhetorical",
+      "description": "Logical coherence of arguments"
+    }
+  ],
+  "total_factors": 8
+}
+```
+
+### Get Counterfactual Scenarios
+
+```http
+GET /api/debates/{debate_id}/explainability/counterfactual
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `max_scenarios` (int, default: 5, max: 20): Maximum scenarios to generate
+- `min_probability` (float, default: 0.3): Minimum probability threshold
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "counterfactuals": [
+    {
+      "scenario": "What if GPT-4 had participated instead of Claude?",
+      "outcome": "Similar consensus with different reasoning path",
+      "probability": 0.68,
+      "affected_factors": ["agent_diversity", "reasoning_style"]
+    }
+  ]
+}
+```
+
+### Generate Custom Counterfactual
+
+```http
+POST /api/debates/{debate_id}/explainability/counterfactual
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "hypothesis": "What if the debate had one more round?",
+  "affected_agents": ["anthropic-api"]
+}
+```
+
+### Get Decision Provenance
+
+```http
+GET /api/debates/{debate_id}/explainability/provenance
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `include_timestamps` (boolean, default: true)
+- `include_agents` (boolean, default: true)
+- `include_confidence` (boolean, default: true)
+
+### Get Narrative Explanation
+
+```http
+GET /api/debates/{debate_id}/explainability/narrative
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `format` (string): "brief", "detailed", or "executive_summary"
+- `language` (string, default: "en"): ISO 639-1 language code
+
+**Response:**
+```json
+{
+  "debate_id": "debate-123",
+  "narrative": "The debate reached consensus after 3 rounds...",
+  "confidence": 0.87,
+  "format": "detailed",
+  "word_count": 250
+}
+```
+
+---
+
+## Workflow Templates API
+
+Manage and execute reusable workflow templates with pre-built patterns.
+
+### List Workflow Templates
+
+```http
+GET /api/workflow/templates
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `category` (string): Filter by category
+- `pattern` (string): Filter by pattern type (hive_mind, map_reduce, review_cycle, pipeline, parallel)
+- `search` (string): Search by name or description
+- `tags` (string): Filter by tags (comma-separated)
+- `limit` (int, default: 50, max: 100)
+- `offset` (int, default: 0)
+
+**Response:**
+```json
+{
+  "templates": [
+    {
+      "id": "security/code-review",
+      "name": "Security Code Review",
+      "description": "Multi-agent security analysis workflow",
+      "category": "security",
+      "pattern": "review_cycle",
+      "tags": ["security", "code", "audit"]
+    }
+  ],
+  "total": 15,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### Get Template Details
+
+```http
+GET /api/workflow/templates/{template_id}
+Authorization: Bearer <token>
+```
+
+### Get Template Package
+
+```http
+GET /api/workflow/templates/{template_id}/package
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `include_examples` (boolean, default: true): Include usage examples
+
+**Response:**
+```json
+{
+  "id": "security/code-review",
+  "name": "Security Code Review",
+  "description": "Multi-agent security analysis workflow",
+  "workflow_definition": {
+    "nodes": [...],
+    "edges": [...],
+    "config": {...}
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "code_path": {"type": "string"},
+      "severity_threshold": {"type": "string", "enum": ["low", "medium", "high"]}
+    }
+  },
+  "output_schema": {...},
+  "documentation": "# Security Code Review\n\nThis workflow...",
+  "examples": [
+    {
+      "name": "Basic usage",
+      "inputs": {"code_path": "src/auth.py"},
+      "description": "Review authentication module"
+    }
+  ],
+  "version": "1.2.0"
+}
+```
+
+### Run Workflow Template
+
+```http
+POST /api/workflow/templates/{template_id}/run
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "inputs": {
+    "code_path": "src/api/handlers.py",
+    "severity_threshold": "medium"
+  },
+  "config": {
+    "timeout": 300,
+    "priority": "high",
+    "async": false
+  },
+  "workspace_id": "ws-123"
+}
+```
+
+**Response (sync):**
+```json
+{
+  "execution_id": "exec-456",
+  "status": "completed",
+  "result": {
+    "findings": [...],
+    "summary": "Found 3 potential vulnerabilities"
+  },
+  "duration_ms": 45200
+}
+```
+
+**Response (async):**
+```json
+{
+  "execution_id": "exec-456",
+  "status": "running",
+  "status_url": "/api/workflow-executions/exec-456"
+}
+```
+
+### List Template Categories
+
+```http
+GET /api/workflow/categories
+```
+
+**Response:**
+```json
+{
+  "categories": [
+    {
+      "id": "security",
+      "name": "Security",
+      "description": "Security analysis workflows",
+      "template_count": 8,
+      "icon": "shield"
+    },
+    {
+      "id": "research",
+      "name": "Research",
+      "description": "Research and analysis workflows",
+      "template_count": 12,
+      "icon": "search"
+    }
+  ]
+}
+```
+
+### List Workflow Patterns
+
+```http
+GET /api/workflow/patterns
+```
+
+**Response:**
+```json
+{
+  "patterns": [
+    {
+      "id": "hive_mind",
+      "name": "Hive Mind",
+      "description": "Parallel agent consultation with aggregation",
+      "available": true,
+      "use_cases": ["Research", "Brainstorming", "Consensus building"]
+    },
+    {
+      "id": "map_reduce",
+      "name": "Map-Reduce",
+      "description": "Distribute work, combine results",
+      "available": true,
+      "use_cases": ["Large document analysis", "Batch processing"]
+    }
+  ]
+}
+```
+
+### Instantiate Pattern
+
+```http
+POST /api/workflow/patterns/{pattern_id}/instantiate
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "My Security Review",
+  "description": "Custom security review workflow",
+  "category": "security",
+  "config": {
+    "max_agents": 5,
+    "consensus_threshold": 0.7
+  },
+  "agents": ["anthropic-api", "openai-api", "mistral-api"]
+}
+```
+
+---
+
+## Gauntlet Receipts API
+
+Access and export gauntlet verification receipts with cryptographic integrity verification.
+
+### List Gauntlet Receipts
+
+```http
+GET /api/gauntlet/receipts
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `verdict` (string): Filter by verdict (pass, fail, warn)
+- `from_date` (string): Start date (ISO 8601)
+- `to_date` (string): End date (ISO 8601)
+- `limit` (int, default: 50)
+- `offset` (int, default: 0)
+
+**Response:**
+```json
+{
+  "receipts": [
+    {
+      "id": "receipt-789",
+      "debate_id": "debate-123",
+      "verdict": "pass",
+      "confidence": 0.92,
+      "timestamp": "2026-01-20T10:30:00Z",
+      "hash": "sha256:a1b2c3..."
+    }
+  ],
+  "total": 42,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### Get Receipt Details
+
+```http
+GET /api/gauntlet/receipts/{receipt_id}
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "id": "receipt-789",
+  "debate_id": "debate-123",
+  "verdict": "pass",
+  "confidence": 0.92,
+  "timestamp": "2026-01-20T10:30:00Z",
+  "hash": "sha256:a1b2c3d4e5f6...",
+  "agents": ["anthropic-api", "openai-api"],
+  "rounds": 3,
+  "consensus_type": "majority",
+  "findings": [
+    {
+      "type": "security",
+      "severity": "low",
+      "description": "Input validation could be strengthened"
+    }
+  ],
+  "metadata": {
+    "duration_ms": 45000,
+    "token_count": 12500
+  }
+}
+```
+
+### Verify Receipt Integrity
+
+```http
+GET /api/gauntlet/receipts/{receipt_id}/verify
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "valid": true,
+  "hash": "sha256:a1b2c3d4e5f6...",
+  "computed_hash": "sha256:a1b2c3d4e5f6...",
+  "verification_timestamp": "2026-01-20T11:00:00Z"
+}
+```
+
+### Export Receipt
+
+```http
+GET /api/gauntlet/receipts/{receipt_id}/export
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `format` (string, required): "json", "html", "markdown", or "sarif"
+
+**Response (format=sarif):**
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Aragora Gauntlet",
+          "version": "1.0.0"
+        }
+      },
+      "results": [...]
+    }
+  ]
+}
+```
+
+### Create Shareable Link
+
+```http
+POST /api/gauntlet/receipts/{receipt_id}/share
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "expires_in": 86400,
+  "allow_download": true
+}
+```
+
+**Response:**
+```json
+{
+  "share_url": "https://app.aragora.ai/receipts/share/abc123",
+  "expires_at": "2026-01-21T11:00:00Z",
+  "token": "abc123"
+}
+```
+
+### Get Receipt Statistics
+
+```http
+GET /api/gauntlet/receipts/stats
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `period` (string): "day", "week", "month"
+
+**Response:**
+```json
+{
+  "period": "week",
+  "total": 156,
+  "by_verdict": {
+    "pass": 120,
+    "fail": 24,
+    "warn": 12
+  },
+  "average_confidence": 0.87,
+  "average_duration_ms": 42000
+}
 ```
 
 ---

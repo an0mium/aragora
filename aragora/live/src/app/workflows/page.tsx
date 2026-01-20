@@ -130,7 +130,11 @@ export default function WorkflowsPage() {
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/workflow-templates`);
+      // Try new canonical endpoint first, fallback to legacy
+      let response = await fetch(`${API_BASE_URL}/api/workflow/templates`);
+      if (!response.ok) {
+        response = await fetch(`${API_BASE_URL}/api/workflow-templates`);
+      }
       if (!response.ok) throw new Error('Failed to fetch templates');
 
       const data = await response.json();

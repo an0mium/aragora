@@ -17,6 +17,7 @@ import { MetricsPanel } from '@/components/MetricsPanel';
 import { BroadcastPanel } from '@/components/broadcast/BroadcastPanel';
 import { EvidencePanel } from '@/components/EvidencePanel';
 import { ForkVisualizer } from '@/components/fork-visualizer';
+import { ExplainabilityPanel } from '@/components/ExplainabilityPanel';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -147,6 +148,13 @@ export function DebateViewerWrapper() {
       {/* Collapsible Analysis Section - only for archived debates */}
       {!isLiveDebate && showAnalysis && (
         <div className="container mx-auto px-4 pb-8">
+          {/* Explainability Panel - Full Width */}
+          <div className="mb-4">
+            <PanelErrorBoundary panelName="Decision Explainability">
+              <ExplainabilityPanel debateId={debateId} apiBase={config.api} />
+            </PanelErrorBoundary>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Crux Analysis Panel */}
             <div className="lg:col-span-1">

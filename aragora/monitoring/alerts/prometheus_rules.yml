@@ -522,3 +522,240 @@ groups:
         annotations:
           summary: "High Redis cluster reconnection rate"
           description: "{{ $value }} reconnections in the last 5 minutes. Check network stability."
+
+  # =========================================================================
+  # Knowledge Mound Resilience Alerts
+  # =========================================================================
+  - name: aragora_km_resilience
+    rules:
+      - alert: KMCircuitBreakerOpen
+        expr: |
+          aragora_km_circuit_breaker_state{service="postgres"} == 2
+        for: 1m
+        labels:
+          severity: critical
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "PostgreSQL circuit breaker is OPEN"
+          description: "KM circuit breaker for PostgreSQL is open. Database may be unavailable. Check connectivity and health."
+          runbook_url: "https://docs.aragora.io/runbooks/km-circuit-breaker"
+
+      - alert: KMCircuitBreakerHalfOpen
+        expr: |
+          aragora_km_circuit_breaker_state{service="postgres"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "PostgreSQL circuit breaker is half-open"
+          description: "KM circuit breaker is in recovery mode. Monitor for full recovery or failure."
+
+      - alert: KMHighRetryRate
+        expr: |
+          (
+            sum(rate(aragora_km_retry_total{outcome!="success"}[5m]))
+            /
+            sum(rate(aragora_km_retry_total[5m]))
+          ) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "High KM retry failure rate ({{ $value | humanizePercentage }})"
+          description: "More than 30% of KM operations require retries. Check database health and connectivity."
+
+      - alert: KMRetryExhaustion
+        expr: |
+          increase(aragora_km_retry_total{outcome="exhausted"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "KM operations exhausting retries"
+          description: "{{ $value }} operations exhausted all retries in the last 5 minutes. Database may be unavailable."
+
+      - alert: KMHighCacheInvalidation
+        expr: |
+          sum(rate(aragora_km_cache_invalidation_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: info
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "High cache invalidation rate"
+          description: "{{ $value }} cache invalidations per second. May indicate heavy write activity or cache thrashing."
+
+      - alert: KMConnectionPoolExhaustion
+        expr: |
+          aragora_km_connection_pool_usage_ratio > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "KM connection pool near exhaustion ({{ $value | humanizePercentage }})"
+          description: "Connection pool usage is above 90%. Consider increasing pool size or optimizing queries."
+
+      - alert: KMConnectionPoolCritical
+        expr: |
+          aragora_km_connection_pool_usage_ratio > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "KM connection pool critically exhausted"
+          description: "Connection pool usage is above 95%. Operations may fail. Immediate action required."
+
+      - alert: KMIntegrityErrors
+        expr: |
+          increase(aragora_km_integrity_check_errors_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "KM integrity check errors detected"
+          description: "{{ $value }} integrity errors detected in the last hour. Data consistency may be compromised."
+
+      - alert: KMFrequentCircuitBreakerTrips
+        expr: |
+          increase(aragora_km_circuit_breaker_trips_total[1h]) > 5
+        for: 10m
+        labels:
+          severity: warning
+          service: aragora
+          component: knowledge_mound
+        annotations:
+          summary: "Frequent circuit breaker trips"
+          description: "{{ $value }} circuit breaker trips in the last hour. Investigate underlying connectivity issues."
+
+  # =========================================================================
+  # Explainability API Alerts
+  # =========================================================================
+  - name: aragora_explainability
+    rules:
+      - alert: ExplainabilityHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_explainability_latency_seconds_bucket[5m])) by (le, endpoint)
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: explainability
+        annotations:
+          summary: "High explainability API latency (p95 > 10s)"
+          description: "Endpoint {{ $labels.endpoint }} p95 latency is {{ $value | humanizeDuration }}. Check LLM provider performance."
+
+      - alert: ExplainabilityHighErrorRate
+        expr: |
+          (
+            sum(rate(aragora_explainability_requests_total{status="error"}[5m])) by (endpoint)
+            /
+            sum(rate(aragora_explainability_requests_total[5m])) by (endpoint)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: explainability
+        annotations:
+          summary: "High explainability error rate on {{ $labels.endpoint }}"
+          description: "Error rate is {{ $value | humanizePercentage }}. Check debate data availability and LLM connectivity."
+
+      - alert: ExplainabilityNoRequests
+        expr: |
+          increase(aragora_explainability_requests_total[1h]) == 0
+          and
+          increase(aragora_debates_completed_total[1h]) > 10
+        for: 1h
+        labels:
+          severity: info
+          service: aragora
+          component: explainability
+        annotations:
+          summary: "No explainability requests despite active debates"
+          description: "Explainability feature may be disabled or underutilized."
+
+  # =========================================================================
+  # Workflow Template Alerts
+  # =========================================================================
+  - name: aragora_workflow_templates
+    rules:
+      - alert: WorkflowTemplateHighFailureRate
+        expr: |
+          (
+            sum(rate(aragora_workflow_template_executions_total{status="error"}[5m]))
+            /
+            sum(rate(aragora_workflow_template_executions_total[5m]))
+          ) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: aragora
+          component: workflow_templates
+        annotations:
+          summary: "High workflow template failure rate ({{ $value | humanizePercentage }})"
+          description: "More than 20% of workflow template executions are failing. Check workflow engine logs."
+
+      - alert: WorkflowTemplateSlowExecution
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_workflow_template_execution_latency_seconds_bucket[5m])) by (le, pattern)
+          ) > 300
+        for: 10m
+        labels:
+          severity: warning
+          service: aragora
+          component: workflow_templates
+        annotations:
+          summary: "Slow workflow template execution ({{ $labels.pattern }})"
+          description: "Pattern {{ $labels.pattern }} p95 execution time is {{ $value | humanizeDuration }}. Check for bottlenecks."
+
+  # =========================================================================
+  # Gauntlet Export Alerts
+  # =========================================================================
+  - name: aragora_gauntlet
+    rules:
+      - alert: GauntletExportFailures
+        expr: |
+          (
+            sum(rate(aragora_gauntlet_exports_total{status="error"}[5m]))
+            /
+            sum(rate(aragora_gauntlet_exports_total[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          component: gauntlet
+        annotations:
+          summary: "High gauntlet export failure rate ({{ $value | humanizePercentage }})"
+          description: "More than 10% of gauntlet exports are failing. Check receipt data integrity."
+
+      - alert: GauntletExportSlowLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_gauntlet_export_latency_seconds_bucket[5m])) by (le, format)
+          ) > 5
+        for: 5m
+        labels:
+          severity: info
+          service: aragora
+          component: gauntlet
+        annotations:
+          summary: "Slow gauntlet export ({{ $labels.format }})"
+          description: "Export format {{ $labels.format }} p95 latency is {{ $value | humanizeDuration }}."

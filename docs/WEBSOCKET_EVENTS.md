@@ -280,6 +280,101 @@ analytics events emitted directly by the debate pipeline.
 - `gauntlet_verdict`
 - `gauntlet_complete`
 
+### Explainability (2026-01-20)
+Real-time events during explanation generation:
+- `explainability_started` - Explanation generation started for debate
+- `explainability_factors` - Contributing factors have been computed
+- `explainability_counterfactual` - Counterfactual scenario generated
+- `explainability_provenance` - Decision provenance chain built
+- `explainability_narrative` - Natural language narrative ready
+- `explainability_complete` - Full explanation ready
+
+Example:
+```json
+{
+  "type": "explainability_factors",
+  "data": {
+    "debate_id": "debate-123",
+    "factors_count": 8,
+    "top_factor": {
+      "name": "evidence_quality",
+      "contribution": 0.35
+    }
+  },
+  "timestamp": 1737356400.0
+}
+```
+
+### Workflow Templates (2026-01-20)
+Template execution lifecycle events:
+- `template_execution_started` - Template execution began
+- `template_execution_progress` - Progress update (percentage, current step)
+- `template_execution_step` - Individual step completed
+- `template_execution_complete` - Execution finished successfully
+- `template_execution_failed` - Execution failed with error
+- `template_instantiated` - New template created from pattern
+
+Example:
+```json
+{
+  "type": "template_execution_progress",
+  "data": {
+    "execution_id": "exec-456",
+    "template_id": "security/code-review",
+    "progress_pct": 45,
+    "current_step": "vulnerability_scan",
+    "steps_completed": 3,
+    "steps_total": 7
+  },
+  "timestamp": 1737356400.0
+}
+```
+
+### Gauntlet Receipts (2026-01-20)
+Receipt lifecycle events:
+- `receipt_generated` - New receipt generated for completed gauntlet
+- `receipt_verified` - Receipt integrity successfully verified
+- `receipt_exported` - Receipt exported to format (json/html/md/sarif)
+- `receipt_shared` - Shareable link created for receipt
+- `receipt_integrity_failed` - Receipt integrity verification failed
+
+Example:
+```json
+{
+  "type": "receipt_generated",
+  "data": {
+    "receipt_id": "receipt-789",
+    "debate_id": "debate-123",
+    "verdict": "pass",
+    "confidence": 0.92,
+    "hash": "sha256:a1b2c3..."
+  },
+  "timestamp": 1737356400.0
+}
+```
+
+### KM Resilience (2026-01-20)
+Real-time resilience status events:
+- `km_circuit_breaker_state` - Circuit breaker state changed
+- `km_retry_exhausted` - All retries exhausted for operation
+- `km_cache_invalidated` - Cache was invalidated
+- `km_integrity_error` - Data integrity error detected
+
+Example:
+```json
+{
+  "type": "km_circuit_breaker_state",
+  "data": {
+    "service": "postgres",
+    "state": "open",
+    "previous_state": "closed",
+    "failures": 5,
+    "recovery_at": "2026-01-20T11:30:00Z"
+  },
+  "timestamp": 1737356400.0
+}
+```
+
 Some events are emitted only when the corresponding feature is enabled. Use
 `loop_list` and `sync` control messages to seed UI state before processing
 stream events.

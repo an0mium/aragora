@@ -269,6 +269,35 @@ class StreamEventType(Enum):
     ANOMALY_DETECTED = "anomaly_detected"  # Anomaly detected in metrics
     METRIC_RECORDED = "metric_recorded"  # Metric value recorded
 
+    # Explainability Events (real-time explanation generation)
+    EXPLAINABILITY_STARTED = "explainability_started"  # Explanation generation started
+    EXPLAINABILITY_FACTORS = "explainability_factors"  # Contributing factors computed
+    EXPLAINABILITY_COUNTERFACTUAL = "explainability_counterfactual"  # Counterfactual generated
+    EXPLAINABILITY_PROVENANCE = "explainability_provenance"  # Provenance chain built
+    EXPLAINABILITY_NARRATIVE = "explainability_narrative"  # Narrative explanation ready
+    EXPLAINABILITY_COMPLETE = "explainability_complete"  # Full explanation ready
+
+    # Workflow Template Events (template execution updates)
+    TEMPLATE_EXECUTION_STARTED = "template_execution_started"  # Template execution began
+    TEMPLATE_EXECUTION_PROGRESS = "template_execution_progress"  # Execution progress update
+    TEMPLATE_EXECUTION_STEP = "template_execution_step"  # Individual step completed
+    TEMPLATE_EXECUTION_COMPLETE = "template_execution_complete"  # Execution finished
+    TEMPLATE_EXECUTION_FAILED = "template_execution_failed"  # Execution failed
+    TEMPLATE_INSTANTIATED = "template_instantiated"  # New template created from pattern
+
+    # Gauntlet Receipt Events (receipt lifecycle updates)
+    RECEIPT_GENERATED = "receipt_generated"  # New receipt generated
+    RECEIPT_VERIFIED = "receipt_verified"  # Receipt integrity verified
+    RECEIPT_EXPORTED = "receipt_exported"  # Receipt exported to format
+    RECEIPT_SHARED = "receipt_shared"  # Receipt share link created
+    RECEIPT_INTEGRITY_FAILED = "receipt_integrity_failed"  # Receipt integrity check failed
+
+    # KM Resilience Events (real-time resilience status)
+    KM_CIRCUIT_BREAKER_STATE = "km_circuit_breaker_state"  # Circuit breaker state changed
+    KM_RETRY_EXHAUSTED = "km_retry_exhausted"  # All retries exhausted
+    KM_CACHE_INVALIDATED = "km_cache_invalidated"  # Cache was invalidated
+    KM_INTEGRITY_ERROR = "km_integrity_error"  # Integrity error detected
+
 
 @dataclass
 class StreamEvent:
