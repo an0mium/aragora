@@ -187,6 +187,37 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Voice streaming handler for speech-to-text
         self._voice_handler = VoiceStreamHandler(self)
 
+        # Wire TTS integration to voice handler
+        self._wire_tts_integration()
+
+    def _wire_tts_integration(self) -> None:
+        """Wire the voice handler to the TTS integration for live voice responses.
+
+        This enables agent messages to be automatically synthesized to speech
+        and sent to connected voice clients.
+        """
+        try:
+            from aragora.server.stream.tts_integration import (
+                get_tts_integration,
+                set_tts_integration,
+                TTSIntegration,
+            )
+
+            # Get existing integration or create a new one
+            integration = get_tts_integration()
+            if integration is None:
+                integration = TTSIntegration(self._voice_handler)
+                set_tts_integration(integration)
+                logger.info("[AiohttpUnifiedServer] Created new TTS integration")
+            else:
+                integration.set_voice_handler(self._voice_handler)
+                logger.info("[AiohttpUnifiedServer] Wired voice handler to TTS integration")
+
+        except ImportError as e:
+            logger.debug(f"[AiohttpUnifiedServer] TTS integration not available: {e}")
+        except Exception as e:
+            logger.warning(f"[AiohttpUnifiedServer] Failed to wire TTS integration: {e}")
+
     def _init_stores(self, nomic_dir: Path) -> None:
         """Initialize optional stores from nomic directory."""
         # EloSystem for leaderboard

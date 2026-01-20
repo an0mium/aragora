@@ -515,7 +515,7 @@ class DocumentQueryEngine:
 
     def _deduplicate_results(self, results: list[Any]) -> list[Any]:
         """Remove duplicate chunks, keeping highest scores."""
-        seen = {}
+        seen: dict[str, Any] = {}
         for result in results:
             chunk_id = result.chunk_id
             if chunk_id not in seen or result.combined_score > seen[chunk_id].combined_score:

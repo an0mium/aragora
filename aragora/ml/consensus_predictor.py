@@ -253,7 +253,7 @@ class ConsensusPredictor:
             return 0.5
 
         stances = [f.stance for f in features]
-        stance_counts = defaultdict(int)
+        stance_counts: dict[str, int] = defaultdict(int)
         for s in stances:
             stance_counts[s] += 1
 

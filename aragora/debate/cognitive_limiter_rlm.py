@@ -623,8 +623,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     def _summarize_critique_group(self, critiques: List[Any], severity: str) -> dict:
         """Summarize a group of critiques into a single entry."""
-        all_issues = []
-        all_suggestions = []
+        all_issues: List[str] = []
+        all_suggestions: List[str] = []
 
         for c in critiques:
             all_issues.extend(getattr(c, "issues", []))

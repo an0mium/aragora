@@ -425,7 +425,7 @@ Signature: ________________ Date: ________________
 
         sec_findings = [f for f in findings if f.audit_type == AuditType.SECURITY]
 
-        vuln_types = {}
+        vuln_types: dict[str, int] = {}
         for f in sec_findings:
             cat = f.category or "Unknown"
             vuln_types[cat] = vuln_types.get(cat, 0) + 1
