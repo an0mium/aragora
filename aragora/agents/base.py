@@ -6,6 +6,7 @@ from __future__ import annotations
 
 __all__ = [
     "CritiqueMixin",
+    "BaseDebateAgent",
     "AgentType",
     "create_agent",
     "list_available_agents",
@@ -17,7 +18,7 @@ import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, Union
 
-from aragora.core import Critique, Message
+from aragora.core import Agent, Critique, Message
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
@@ -31,6 +32,37 @@ if TYPE_CHECKING:
 # Use 60% of available window to leave room for response
 MAX_CONTEXT_CHARS = 120_000  # ~30k tokens, safe for most models
 MAX_MESSAGE_CHARS = 20_000  # Individual message truncation limit
+
+
+class BaseDebateAgent(Agent):
+    """Base class for specialized debate agents.
+
+    Extends the core Agent class with additional functionality
+    for persona-based debate participation. Used by email agents,
+    specialized domain agents, and other custom agent implementations.
+    """
+
+    persona: str = ""
+    focus: str = ""
+
+    def __init__(
+        self,
+        name: str = "agent",
+        role: str = "proposer",
+        persona: str = "",
+        focus: str = "",
+    ):
+        """Initialize a base debate agent.
+
+        Args:
+            name: Agent name
+            role: Role in debate (proposer, critic, synthesizer)
+            persona: Character/style description for the agent
+            focus: Specific area of focus for analysis
+        """
+        super().__init__(name=name, role=role)
+        self.persona = persona or self.persona
+        self.focus = focus or self.focus
 
 
 class CritiqueMixin:

@@ -205,4 +205,21 @@ __all__ = [
     "AgentConfigLoader",
     "ConfigValidationError",
     "load_agent_configs",
+    # Email Agents
+    "SenderReputationAgent",
+    "ContentUrgencyAgent",
+    "ContextRelevanceAgent",
+    "BillingCriticalityAgent",
+    "TimelineAgent",
+    "get_email_agent_team",
 ]
+
+# Email-specific agents for inbox prioritization
+from aragora.agents.email_agents import (
+    SenderReputationAgent,
+    ContentUrgencyAgent,
+    ContextRelevanceAgent,
+    BillingCriticalityAgent,
+    TimelineAgent,
+    get_email_agent_team,
+)

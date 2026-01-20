@@ -191,10 +191,10 @@ def _init_noop_metrics() -> None:
     global CONNECTOR_RETRIES
 
     class NoopMetric:
-        """No-op metric that accepts any method call."""
+        """No-op metric that accepts any method call and returns self for chaining."""
 
         def __getattr__(self, name: str) -> Any:
-            return lambda *args, **kwargs: None
+            return lambda *args, **kwargs: self
 
     noop = NoopMetric()
     CONNECTOR_SYNCS = noop

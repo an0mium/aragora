@@ -87,4 +87,47 @@ __all__ = [
     "EmbeddingCacheService",
     "HandlerCacheService",
     "EmbeddingProviderService",
+    # Email Prioritization
+    "EmailPrioritizer",
+    "EmailPriorityResult",
+    "EmailPriority",
+    "EmailPrioritizationConfig",
+    "prioritize_inbox",
+    # Cross-Channel Context
+    "CrossChannelContextService",
+    "ChannelContext",
+    "EmailContextBoost",
+    "SlackActivitySignal",
+    "create_context_service",
+    # Sender History
+    "SenderHistoryService",
+    "SenderStats",
+    "SenderReputation",
+    "create_sender_history_service",
 ]
+
+# Email Prioritization Service
+from .email_prioritization import (
+    EmailPrioritizer,
+    EmailPriorityResult,
+    EmailPriority,
+    EmailPrioritizationConfig,
+    prioritize_inbox,
+)
+
+# Cross-Channel Context Service
+from .cross_channel_context import (
+    CrossChannelContextService,
+    ChannelContext,
+    EmailContextBoost,
+    SlackActivitySignal,
+    create_context_service,
+)
+
+# Sender History Service
+from .sender_history import (
+    SenderHistoryService,
+    SenderStats,
+    SenderReputation,
+    create_sender_history_service,
+)

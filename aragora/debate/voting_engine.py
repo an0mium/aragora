@@ -477,7 +477,7 @@ class VotingEngine:
         result.choice_mapping = choice_mapping
 
         # Step 2: Count agent votes with weights
-        vote_counts: Counter = Counter()
+        vote_counts: dict[str, float] = {}
         total_weighted = 0.0
 
         for vote in valid_votes:
@@ -489,7 +489,7 @@ class VotingEngine:
             if self._weight_calculator:
                 weight = self._weight_calculator.compute_weight(vote.agent)
 
-            vote_counts[canonical] += weight
+            vote_counts[canonical] = vote_counts.get(canonical, 0.0) + weight
             total_weighted += weight
 
             # Track raw data for auditing
@@ -517,7 +517,7 @@ class VotingEngine:
                 except Exception as e:
                     logger.warning(f"User vote multiplier failed: {e}")
 
-            vote_counts[canonical] += weight
+            vote_counts[canonical] = vote_counts.get(canonical, 0.0) + weight
             total_weighted += weight
             result.user_votes_count += 1
 
@@ -533,8 +533,9 @@ class VotingEngine:
 
         # Step 4: Determine winner and consensus
         if vote_counts and total_weighted > 0:
-            # Get winner
-            winner, count = vote_counts.most_common(1)[0]
+            # Get winner (highest vote count)
+            winner = max(vote_counts, key=vote_counts.get)  # type: ignore[arg-type]
+            count = vote_counts[winner]
             result.winner = winner
             result.confidence = count / total_weighted
 

@@ -326,11 +326,20 @@ class AdvancedConvergenceAnalyzer:
     def compute_argument_diversity(
         self,
         agent_responses: dict[str, str],
+        use_optimized: bool = True,
     ) -> ArgumentDiversityMetric:
         """
         Compute argument diversity across agents.
 
         High diversity = agents making different points.
+
+        Args:
+            agent_responses: Dict mapping agent names to their response texts
+            use_optimized: Use O(n log n) ANN-based algorithm when possible
+                          (falls back to O(n²) if embeddings unavailable)
+
+        Returns:
+            ArgumentDiversityMetric with unique/total counts and diversity score
         """
         all_arguments: list[str] = []
         for text in agent_responses.values():
@@ -343,7 +352,21 @@ class AdvancedConvergenceAnalyzer:
                 diversity_score=0.0,
             )
 
-        # Compute pairwise similarity to find unique arguments
+        # Try optimized path using vectorized similarity computation
+        if use_optimized and len(all_arguments) >= 5:
+            try:
+                unique_count, total, diversity_score = self._compute_diversity_optimized(
+                    all_arguments
+                )
+                return ArgumentDiversityMetric(
+                    unique_arguments=unique_count,
+                    total_arguments=total,
+                    diversity_score=diversity_score,
+                )
+            except Exception as e:
+                logger.debug(f"Optimized diversity computation failed, using fallback: {e}")
+
+        # Fallback: O(n²) pairwise comparison
         # Arguments with < 0.7 similarity to all others are "unique"
         unique_count = 0
         for i, arg in enumerate(all_arguments):
@@ -364,6 +387,48 @@ class AdvancedConvergenceAnalyzer:
             total_arguments=len(all_arguments),
             diversity_score=diversity_score,
         )
+
+    def _compute_diversity_optimized(
+        self, arguments: list[str], threshold: float = 0.7
+    ) -> tuple[int, int, float]:
+        """Compute diversity using optimized vectorized operations.
+
+        Uses SentenceTransformer embeddings + vectorized numpy/FAISS operations
+        for O(n log n) complexity instead of O(n²).
+
+        Args:
+            arguments: List of argument texts
+            threshold: Similarity threshold for considering arguments as duplicates
+
+        Returns:
+            Tuple of (unique_count, total_count, diversity_score)
+        """
+        import numpy as np
+
+        from aragora.debate.similarity.ann import count_unique_fast
+
+        # Get embeddings from backend if it supports it
+        if hasattr(self.backend, "_get_embedding"):
+            # SentenceTransformerBackend has _get_embedding
+            embeddings = []
+            for arg in arguments:
+                emb = self.backend._get_embedding(arg)
+                embeddings.append(emb)
+            embeddings_array = np.vstack(embeddings)
+        elif hasattr(self.backend, "vectorizer"):
+            # TFIDFBackend has vectorizer
+            from scipy.sparse import issparse
+
+            tfidf_matrix = self.backend.vectorizer.fit_transform(arguments)
+            if issparse(tfidf_matrix):
+                embeddings_array = tfidf_matrix.toarray().astype(np.float32)
+            else:
+                embeddings_array = tfidf_matrix.astype(np.float32)
+        else:
+            # JaccardBackend or unknown - can't use optimized path
+            raise ValueError("Backend doesn't support embedding extraction")
+
+        return count_unique_fast(embeddings_array, threshold=threshold)
 
     def compute_evidence_convergence(
         self,

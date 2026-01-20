@@ -249,6 +249,26 @@ class TTSBridge:
         text = f"An error occurred: {error_type}. {error_message[:200]}"
         return await self.synthesize(text, voice="error")
 
+    async def synthesize_response(
+        self,
+        text: str,
+        voice: Optional[str] = None,
+    ) -> str:
+        """
+        Synthesize a text response as audio.
+
+        Convenience method for simple text-to-speech synthesis.
+
+        Args:
+            text: Text to synthesize
+            voice: Voice identifier (narrator, moderator, consensus, etc.)
+
+        Returns:
+            Path to generated audio file as string
+        """
+        audio_path = await self.synthesize(text, voice=voice)
+        return str(audio_path)
+
     async def send_voice_response(
         self,
         connector: ChatPlatformConnector,
