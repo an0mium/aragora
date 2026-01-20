@@ -2456,6 +2456,153 @@ def record_consensus_ingestion(
         CONSENSUS_INGESTION_CLAIMS.labels(tier=tier).inc(claims_count)
 
 
+# =============================================================================
+# Enhanced Consensus Ingestion Metrics (Dissent, Evolution, Linking)
+# =============================================================================
+
+CONSENSUS_DISSENT_INGESTED: Any = None
+CONSENSUS_EVOLUTION_TRACKED: Any = None
+CONSENSUS_EVIDENCE_LINKED: Any = None
+CONSENSUS_AGREEMENT_RATIO: Any = None
+
+
+def _init_enhanced_consensus_metrics() -> None:
+    """Initialize enhanced consensus ingestion metrics for dissent, evolution, and linking."""
+    global CONSENSUS_DISSENT_INGESTED, CONSENSUS_EVOLUTION_TRACKED
+    global CONSENSUS_EVIDENCE_LINKED, CONSENSUS_AGREEMENT_RATIO
+
+    config = get_metrics_config()
+    if not config.enabled:
+        _init_enhanced_consensus_noop_metrics()
+        return
+
+    try:
+        from prometheus_client import Counter, Histogram
+
+        CONSENSUS_DISSENT_INGESTED = Counter(
+            "aragora_consensus_dissent_ingested_total",
+            "Total dissenting views ingested from consensus debates",
+            ["dissent_type", "acknowledged"],
+        )
+
+        CONSENSUS_EVOLUTION_TRACKED = Counter(
+            "aragora_consensus_evolution_tracked_total",
+            "Total consensus evolution events (supersedes relationships)",
+            ["evolution_type"],  # new_supersedes, found_similar, no_evolution
+        )
+
+        CONSENSUS_EVIDENCE_LINKED = Counter(
+            "aragora_consensus_evidence_linked_total",
+            "Total evidence items linked to consensus nodes",
+            ["tier"],
+        )
+
+        CONSENSUS_AGREEMENT_RATIO = Histogram(
+            "aragora_consensus_agreement_ratio",
+            "Distribution of agreement ratios in ingested consensus",
+            ["strength"],
+            buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        )
+
+    except ImportError:
+        _init_enhanced_consensus_noop_metrics()
+
+
+def _init_enhanced_consensus_noop_metrics() -> None:
+    """Initialize no-op enhanced consensus metrics."""
+    global CONSENSUS_DISSENT_INGESTED, CONSENSUS_EVOLUTION_TRACKED
+    global CONSENSUS_EVIDENCE_LINKED, CONSENSUS_AGREEMENT_RATIO
+
+    class NoOpMetric:
+        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
+            return self
+
+        def inc(self, amount: float = 1) -> None:
+            pass
+
+        def observe(self, value: float) -> None:
+            pass
+
+    CONSENSUS_DISSENT_INGESTED = NoOpMetric()
+    CONSENSUS_EVOLUTION_TRACKED = NoOpMetric()
+    CONSENSUS_EVIDENCE_LINKED = NoOpMetric()
+    CONSENSUS_AGREEMENT_RATIO = NoOpMetric()
+
+
+def record_consensus_dissent(
+    dissent_type: str,
+    acknowledged: bool = False,
+    count: int = 1,
+) -> None:
+    """Record ingestion of dissenting views from consensus.
+
+    Args:
+        dissent_type: Type of dissent (risk_warning, fundamental_disagreement, etc.)
+        acknowledged: Whether the dissent was acknowledged by majority
+        count: Number of dissents ingested (default: 1)
+    """
+    _init_metrics()
+    if CONSENSUS_DISSENT_INGESTED is None:
+        _init_enhanced_consensus_metrics()
+
+    CONSENSUS_DISSENT_INGESTED.labels(
+        dissent_type=dissent_type,
+        acknowledged="true" if acknowledged else "false",
+    ).inc(count)
+
+
+def record_consensus_evolution(
+    evolution_type: str,
+) -> None:
+    """Record consensus evolution tracking event.
+
+    Args:
+        evolution_type: Type of evolution:
+            - new_supersedes: New consensus supersedes an existing one
+            - found_similar: Found similar prior consensus (potential supersedes)
+            - no_evolution: No evolution relationship detected
+    """
+    _init_metrics()
+    if CONSENSUS_EVOLUTION_TRACKED is None:
+        _init_enhanced_consensus_metrics()
+
+    CONSENSUS_EVOLUTION_TRACKED.labels(evolution_type=evolution_type).inc()
+
+
+def record_consensus_evidence_linked(
+    tier: str,
+    count: int = 1,
+) -> None:
+    """Record evidence items linked to consensus.
+
+    Args:
+        tier: KM tier for the evidence
+        count: Number of evidence items linked
+    """
+    _init_metrics()
+    if CONSENSUS_EVIDENCE_LINKED is None:
+        _init_enhanced_consensus_metrics()
+
+    CONSENSUS_EVIDENCE_LINKED.labels(tier=tier).inc(count)
+
+
+def record_consensus_agreement_ratio(
+    strength: str,
+    agreement_ratio: float,
+) -> None:
+    """Record the agreement ratio for a consensus.
+
+    Args:
+        strength: Consensus strength
+        agreement_ratio: Ratio of agreeing agents to total participants (0.0-1.0)
+    """
+    _init_metrics()
+    if CONSENSUS_AGREEMENT_RATIO is None:
+        _init_enhanced_consensus_metrics()
+
+    CONSENSUS_AGREEMENT_RATIO.labels(strength=strength).observe(agreement_ratio)
+
+
 def record_km_inbound_event(
     event_type: str,
     source: str,

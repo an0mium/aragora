@@ -146,9 +146,15 @@ class TestAgentListing:
 
     def test_list_agents_multiple(self, elo_system):
         """Test listing multiple agents."""
-        elo_system.register_agent("agent1")
-        elo_system.register_agent("agent2")
-        elo_system.register_agent("agent3")
+        # register_agent creates in-memory ratings, must save to persist
+        rating1 = elo_system.register_agent("agent1")
+        rating2 = elo_system.register_agent("agent2")
+        rating3 = elo_system.register_agent("agent3")
+
+        # Persist to database
+        elo_system._save_rating(rating1)
+        elo_system._save_rating(rating2)
+        elo_system._save_rating(rating3)
 
         agents = elo_system.list_agents()
 
@@ -159,8 +165,11 @@ class TestAgentListing:
 
     def test_get_all_ratings(self, elo_system):
         """Test getting all ratings."""
-        elo_system.register_agent("agent1")
-        elo_system.register_agent("agent2")
+        # register_agent creates in-memory ratings, must save to persist
+        rating1 = elo_system.register_agent("agent1")
+        rating2 = elo_system.register_agent("agent2")
+        elo_system._save_rating(rating1)
+        elo_system._save_rating(rating2)
 
         ratings = elo_system.get_all_ratings()
 
@@ -204,7 +213,9 @@ class TestLeaderboard:
     def test_get_leaderboard_respects_limit(self, elo_system):
         """Test that leaderboard respects limit parameter."""
         for i in range(10):
-            elo_system.register_agent(f"agent_{i}")
+            rating = elo_system.register_agent(f"agent_{i}")
+            elo_system._save_rating(rating)
+        elo_system.invalidate_leaderboard_cache()
 
         leaderboard = elo_system.get_leaderboard(limit=5)
 
@@ -269,8 +280,10 @@ class TestStatistics:
 
     def test_get_stats_with_agents(self, elo_system):
         """Test stats with registered agents."""
-        elo_system.register_agent("agent1")
-        elo_system.register_agent("agent2")
+        rating1 = elo_system.register_agent("agent1")
+        rating2 = elo_system.register_agent("agent2")
+        elo_system._save_rating(rating1)
+        elo_system._save_rating(rating2)
 
         stats = elo_system.get_stats(use_cache=False)
 
