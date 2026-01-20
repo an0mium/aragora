@@ -62,36 +62,254 @@ Link: </api/v2/users>; rel="successor-version"
 X-Deprecation-Level: warning
 ```
 
-## Migration Guide
+## Migration Guide: v1 → v2
 
-### v1 → v2
+This comprehensive guide helps you migrate from API v1 to v2. The migration involves changes to response formats, endpoint names, authentication, and error handling.
 
-#### Response Format Changes
-v1 returns data directly:
+### Summary of Breaking Changes
+
+| Category | Change | Impact |
+|----------|--------|--------|
+| Response format | Wrapped with `data` and `meta` | All responses |
+| Endpoints | Several renamed/restructured | 15 endpoints |
+| Authentication | OAuth 2.0 required for some endpoints | Auth endpoints |
+| Error format | Standardized error codes | Error handling |
+| Rate limits | Per-endpoint limits | High-traffic apps |
+
+### Response Format Changes
+
+**v1** returns data directly:
 ```json
 {
-  "debates": [...]
+  "debates": [...],
+  "total": 100
 }
 ```
 
-v2 wraps with metadata:
+**v2** wraps with metadata:
 ```json
 {
   "data": {
-    "debates": [...]
+    "debates": [...],
+    "total": 100
   },
   "meta": {
     "version": "v2",
-    "timestamp": "2025-01-18T12:00:00Z"
+    "timestamp": "2025-01-18T12:00:00Z",
+    "request_id": "req_abc123xyz"
+  },
+  "links": {
+    "self": "/api/v2/debates?limit=20&offset=0",
+    "next": "/api/v2/debates?limit=20&offset=20"
   }
 }
 ```
 
-#### Endpoint Changes
-| v1 | v2 | Notes |
-|----|----|-------|
-| GET /api/v1/debates | GET /api/v2/debates | Response format changed |
-| POST /api/v1/debate | POST /api/v2/debates | Endpoint renamed |
+**Migration code (Python):**
+```python
+# v1: Access data directly
+debates = response.json()["debates"]
+
+# v2: Access via data wrapper
+debates = response.json()["data"]["debates"]
+
+# Helper function for both versions
+def get_data(response, version="v2"):
+    data = response.json()
+    return data["data"] if version == "v2" else data
+```
+
+**Migration code (TypeScript):**
+```typescript
+// v1: Access data directly
+const debates = response.debates;
+
+// v2: Access via data wrapper
+const debates = response.data.debates;
+
+// Type definitions
+interface ApiResponseV2<T> {
+  data: T;
+  meta: { version: string; timestamp: string; request_id: string };
+  links?: { self: string; next?: string; prev?: string };
+}
+```
+
+### Endpoint Changes
+
+| v1 Endpoint | v2 Endpoint | Notes |
+|-------------|-------------|-------|
+| `POST /api/v1/debate` | `POST /api/v2/debates` | Pluralized, different request body |
+| `GET /api/v1/debate/:id` | `GET /api/v2/debates/:id` | Pluralized |
+| `GET /api/v1/agents` | `GET /api/v2/agents` | Response format changed |
+| `GET /api/v1/leaderboard` | `GET /api/v2/agents/leaderboard` | Nested under agents |
+| `GET /api/v1/rankings` | `GET /api/v2/agents/rankings` | Nested under agents |
+| `POST /api/v1/auth/login` | `POST /api/v2/auth/token` | OAuth 2.0 flow |
+| `GET /api/v1/user` | `GET /api/v2/users/me` | Restructured |
+| `GET /api/v1/consensus/:id` | `GET /api/v2/debates/:id/consensus` | Nested under debates |
+| `GET /api/v1/metrics` | `GET /api/v2/system/metrics` | Nested under system |
+| `GET /api/v1/health` | `GET /api/v2/system/health` | Nested under system |
+
+### Request Body Changes
+
+**Creating a Debate:**
+
+v1:
+```json
+{
+  "topic": "Should we use microservices?",
+  "agents": ["claude", "gpt-4"],
+  "max_rounds": 3
+}
+```
+
+v2:
+```json
+{
+  "task": "Should we use microservices?",
+  "agents": ["claude", "gpt-4"],
+  "rounds": 3,
+  "consensus": "majority",
+  "auto_select": false
+}
+```
+
+| v1 Field | v2 Field | Notes |
+|----------|----------|-------|
+| `topic` | `task` | Renamed |
+| `max_rounds` | `rounds` | Renamed |
+| - | `consensus` | New field (default: "majority") |
+| - | `auto_select` | New field (default: true) |
+| - | `context` | New field (optional) |
+
+### Authentication Changes
+
+**v1: API Key**
+```bash
+curl -H "Authorization: Bearer sk_v1_abc123" \
+  https://api.aragora.ai/api/v1/debates
+```
+
+**v2: OAuth 2.0 or API Key**
+```bash
+# API Key (still supported)
+curl -H "Authorization: Bearer sk_v2_abc123" \
+  https://api.aragora.ai/api/v2/debates
+
+# OAuth 2.0 (new)
+curl -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  https://api.aragora.ai/api/v2/debates
+```
+
+OAuth 2.0 is now required for:
+- Organization management endpoints
+- User management endpoints
+- Webhook configuration
+
+### Error Format Changes
+
+**v1:**
+```json
+{
+  "error": "Debate not found",
+  "status": 404
+}
+```
+
+**v2:**
+```json
+{
+  "error": "Debate not found",
+  "code": "NOT_FOUND",
+  "resource_type": "debate",
+  "resource_id": "deb_abc123",
+  "trace_id": "req_xyz789",
+  "support_url": "https://github.com/anthropics/aragora/issues"
+}
+```
+
+**Error handling migration:**
+```python
+# v1
+if response.status_code == 404:
+    print(f"Error: {response.json()['error']}")
+
+# v2
+error = response.json()
+if response.status_code >= 400:
+    print(f"Error [{error['code']}]: {error['error']}")
+    print(f"Trace ID: {error.get('trace_id')}")
+```
+
+### Rate Limit Changes
+
+v2 introduces per-endpoint rate limits with clear headers:
+
+| Endpoint Category | Free Tier | Pro Tier | Enterprise |
+|-------------------|-----------|----------|------------|
+| List endpoints | 60/min | 300/min | 1000/min |
+| Create debate | 10/day | 100/day | Unlimited |
+| Export | 5/hour | 50/hour | 500/hour |
+| WebSocket | 1 conn | 5 conn | 20 conn |
+
+**Rate limit headers (v2):**
+```http
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 45
+X-RateLimit-Reset: 1705579200
+```
+
+### Migration Checklist
+
+- [ ] Update API base URL to include `/v2`
+- [ ] Update response parsing to use `.data` wrapper
+- [ ] Rename request fields (`topic` → `task`, `max_rounds` → `rounds`)
+- [ ] Update error handling for new error format
+- [ ] Add rate limit handling with backoff
+- [ ] Update authentication for OAuth 2.0 (if using org endpoints)
+- [ ] Test all endpoints in staging environment
+- [ ] Update client SDK to v2 compatible version
+- [ ] Monitor deprecation warnings in production
+- [ ] Remove v1 code paths after successful migration
+
+### Gradual Migration Strategy
+
+1. **Phase 1: Dual Support** (Recommended)
+   - Update client to support both v1 and v2 responses
+   - Use feature flag to switch between versions
+   - Test v2 with subset of traffic
+
+2. **Phase 2: v2 Primary**
+   - Make v2 the default
+   - Keep v1 fallback for edge cases
+   - Monitor error rates
+
+3. **Phase 3: v1 Removal**
+   - Remove v1 code paths
+   - Clean up feature flags
+   - Complete migration before sunset date
+
+### SDK Updates
+
+Update your SDK to the latest version for automatic v2 support:
+
+```bash
+# Python
+pip install aragora>=2.0.0
+
+# Node.js
+npm install @aragora/sdk@^2.0.0
+
+# Go
+go get github.com/aragora/go-sdk/v2
+```
+
+### Getting Help
+
+- **Documentation:** https://docs.aragora.ai/migration
+- **Support:** support@aragora.ai
+- **GitHub Issues:** https://github.com/anthropics/aragora/issues
+- **Discord:** https://discord.gg/aragora
 
 ## Usage
 
