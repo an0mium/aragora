@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useLayout } from '@/context/LayoutContext';
 import { useCommandPalette } from '@/context/CommandPaletteContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { GlobalConnectionStatus } from '@/components/GlobalConnectionStatus';
 
 export function TopBar() {
   const { isMobile, toggleLeftSidebar, toggleRightSidebar, rightSidebarOpen } = useLayout();
@@ -48,13 +47,8 @@ export function TopBar() {
         </button>
       </div>
 
-      {/* Right section: Status + Actions */}
+      {/* Right section: Actions */}
       <div className="flex items-center gap-2">
-        {/* Connection status - compact */}
-        <div className="hidden sm:block">
-          <GlobalConnectionStatus compact />
-        </div>
-
         {/* Right sidebar toggle (desktop only) */}
         {!isMobile && (
           <button

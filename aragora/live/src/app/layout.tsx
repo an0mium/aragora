@@ -9,6 +9,7 @@ import { ProgressiveModeProvider } from '@/context/ProgressiveModeContext';
 import { AdaptiveModeProvider } from '@/context/AdaptiveModeContext';
 import { LayoutProvider } from '@/context/LayoutContext';
 import { RightSidebarProvider } from '@/context/RightSidebarContext';
+import { SidebarProvider } from '@/context/SidebarContext';
 import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
 import { CommandPaletteProvider } from '@/context/CommandPaletteContext';
 import { CommandPalette } from '@/components/command-palette';
@@ -70,20 +71,22 @@ export default function RootLayout({
             <DebateSelectionProvider>
               <ProgressiveModeProvider>
                 <AdaptiveModeProvider>
-                  <LayoutProvider>
-                    <RightSidebarProvider>
-                      <CommandPaletteProvider>
-                        <ToastProvider>
-                          <ErrorBoundary>
-                            <CommandPalette />
-                            <AppShell>
-                              {children}
-                            </AppShell>
-                          </ErrorBoundary>
-                        </ToastProvider>
-                      </CommandPaletteProvider>
-                    </RightSidebarProvider>
-                  </LayoutProvider>
+                  <SidebarProvider>
+                    <LayoutProvider>
+                      <RightSidebarProvider>
+                        <CommandPaletteProvider>
+                          <ToastProvider>
+                            <ErrorBoundary>
+                              <CommandPalette />
+                              <AppShell>
+                                {children}
+                              </AppShell>
+                            </ErrorBoundary>
+                          </ToastProvider>
+                        </CommandPaletteProvider>
+                      </RightSidebarProvider>
+                    </LayoutProvider>
+                  </SidebarProvider>
                 </AdaptiveModeProvider>
               </ProgressiveModeProvider>
             </DebateSelectionProvider>

@@ -8,13 +8,21 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 /**
- * Validate that a Supabase key is in the correct JWT format.
- * Valid Supabase anon keys are JWTs that start with 'eyJ' and have 3 dot-separated parts.
+ * Validate that a Supabase key is in a valid format.
+ * Supports both:
+ * - Legacy JWT format: starts with 'eyJ' and has 3 dot-separated parts
+ * - New publishable format: starts with 'sb_publishable_'
  */
 function isValidSupabaseKey(key: string): boolean {
-  if (!key || key.length < 100) return false;
-  // Valid Supabase keys are JWTs (base64-encoded, start with 'eyJ')
-  return key.startsWith('eyJ') && key.split('.').length === 3;
+  if (!key || key.length < 20) return false;
+
+  // New Supabase publishable key format (2024+)
+  if (key.startsWith('sb_publishable_')) return true;
+
+  // Legacy JWT format (base64-encoded, starts with 'eyJ')
+  if (key.startsWith('eyJ') && key.split('.').length === 3) return true;
+
+  return false;
 }
 
 /**
@@ -61,7 +69,7 @@ export function getSupabaseWarning(): string | null {
   if (!supabaseAnonKey) {
     issues.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is missing');
   } else if (!keyValid) {
-    issues.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is not a valid JWT key (should start with "eyJ...")');
+    issues.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is not valid (should start with "sb_publishable_" or "eyJ...")');
   }
 
   if (issues.length === 0) {
