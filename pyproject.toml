@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aragora"
-version = "2.0.2"
+version = "2.0.3"
 description = "Multi-Agent Debate Framework with traces, consensus proofs, red-team mode, self-improvement, templates, and GitHub Actions"
 readme = "README.md"
 license = "MIT"

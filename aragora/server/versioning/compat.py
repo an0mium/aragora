@@ -14,7 +14,7 @@ from aragora.server.versioning.router import APIVersion
 
 
 # Current release version
-API_RELEASE_VERSION = "2.0.2"
+API_RELEASE_VERSION = "2.0.3"
 
 
 @dataclass
