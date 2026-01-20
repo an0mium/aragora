@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: January 19, 2026 (19:30 UTC)*
+*Last updated: January 19, 2026 (21:30 UTC)*
 
 ## Current Release
 
@@ -9,7 +9,7 @@
 **Production Ready** - Aragora 2.0.2 adds 3 new pages and enhances 4 existing pages to surface previously hidden backend capabilities.
 
 #### Key Highlights
-- **34,400+ tests** collected and passing (+100 new tests)
+- **34,400+ tests** collected and passing (+130 new tests)
 - **3 new pages**: Receipts Browser, Training Explorer, Model Registry
 - **4 enhanced pages**: Gauntlet, Crux, Broadcast, Knowledge
 - **Lines of Code**: 443,000+ LOC (+3,000)
@@ -77,6 +77,15 @@
 - `aragora/rlm/training/buffer.py` - Experience replay storage with prioritization
 - `aragora/rlm/training/reward.py` - Reward signal computation from debate outcomes
 - Entropy bonuses, temporal discounting, margin-based rewards
+
+#### Bug Fixes (Code Audit)
+- **Agent spec parsing** - Fixed 3-part spec bug in PERSONA_TO_AGENT mapping
+- **Usage sync persistence** - Watermarks now survive service restarts via SQLite
+- **Context gatherer cache** - Task-hash keying prevents leaks between debates
+- **React side effect** - Moved setLastAllConnected from useMemo to useEffect
+- **Cross-debate memory** - Snapshot pattern fixes race condition in concurrent reads
+- **Handler error messages** - safe_error_message on all 500/503 responses
+- **Next.js metadata** - Separated viewport export for Next.js 14+ compliance
 
 ---
 
