@@ -164,6 +164,7 @@ class Arena:
         knowledge_mound=None,  # Optional KnowledgeMound for unified knowledge queries/ingestion
         enable_knowledge_retrieval: bool = True,  # Query mound before debates
         enable_knowledge_ingestion: bool = True,  # Store consensus outcomes in mound
+        enable_belief_guidance: bool = False,  # Inject historical cruxes from similar debates
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
         circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
@@ -302,6 +303,7 @@ class Arena:
             knowledge_mound=knowledge_mound,
             enable_knowledge_retrieval=enable_knowledge_retrieval,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
+            enable_belief_guidance=enable_belief_guidance,
         )
 
         # Unpack tracker components to instance attributes
@@ -434,6 +436,7 @@ class Arena:
         self.knowledge_mound = trackers.knowledge_mound
         self.enable_knowledge_retrieval = trackers.enable_knowledge_retrieval
         self.enable_knowledge_ingestion = trackers.enable_knowledge_ingestion
+        self.enable_belief_guidance = trackers.enable_belief_guidance
         self._trackers = trackers.coordinator
 
     def _broadcast_health_event(self, event: dict) -> None:
@@ -534,6 +537,48 @@ class Arena:
         if self._convergence_debate_id:
             cleanup_embedding_cache(self._convergence_debate_id)
             logger.debug(f"Cleaned up embedding cache for debate {self._convergence_debate_id}")
+
+    def _queue_for_supabase_sync(
+        self, ctx: "DebateContext", result: "DebateResult"
+    ) -> None:
+        """Queue debate result for background Supabase sync.
+
+        This is a non-blocking operation. If sync is disabled or fails,
+        the debate still completes successfully (SQLite remains primary).
+
+        Args:
+            ctx: Debate context with metadata
+            result: Completed debate result
+        """
+        try:
+            from aragora.persistence.sync_service import get_sync_service
+
+            sync = get_sync_service()
+            if not sync.enabled:
+                return
+
+            # Build sync payload from result
+            debate_data = {
+                "id": result.id,
+                "debate_id": result.debate_id or ctx.debate_id,
+                "loop_id": getattr(ctx, "loop_id", "default"),
+                "cycle_number": getattr(ctx, "cycle_number", 0),
+                "phase": "debate",
+                "task": result.task,
+                "agents": [a.name for a in ctx.agents] if ctx.agents else [],
+                "transcript": "\n".join(str(m) for m in result.messages[:50]),  # Truncate
+                "consensus_reached": result.consensus_reached,
+                "confidence": result.confidence,
+                "winning_proposal": result.final_answer[:1000] if result.final_answer else None,
+                "vote_tally": {v.choice: 1 for v in result.votes} if result.votes else None,
+            }
+
+            sync.queue_debate(debate_data)
+            logger.debug(f"Queued debate {result.id} for Supabase sync")
+
+        except Exception as e:
+            # Never fail the debate due to sync issues
+            logger.debug(f"Supabase sync queue failed (non-fatal): {e}")
 
     def _init_caches(self) -> None:
         """Initialize caches for computed values.
@@ -1418,6 +1463,10 @@ class Arena:
         # Trigger extensions (billing, training export)
         # Extensions handle their own error handling and won't fail the debate
         self.extensions.on_debate_complete(ctx, ctx.result, self.agents)
+
+        # Queue for Supabase background sync (non-blocking)
+        # This enables cloud persistence when SUPABASE_SYNC_ENABLED=true
+        self._queue_for_supabase_sync(ctx, ctx.result)
 
         # Cleanup debate-scoped embedding cache to free memory
         self._cleanup_convergence_cache()

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from aragora.debate.protocol import CircuitBreaker
 from aragora.spectate.stream import SpectatorStream
-from aragora.typing import (
+from aragora.type_protocols import (
     BroadcastPipelineProtocol,
     CalibrationTrackerProtocol,
     ConsensusMemoryProtocol,
@@ -146,6 +146,12 @@ class ArenaConfig:
     enable_knowledge_retrieval: bool = True  # Query mound before debates for relevant knowledge
     enable_knowledge_ingestion: bool = True  # Store consensus outcomes in mound after debates
 
+    # Automatic knowledge revalidation (staleness detection)
+    enable_auto_revalidation: bool = False  # Auto-trigger revalidation for stale knowledge
+    revalidation_staleness_threshold: float = 0.7  # Staleness score threshold (0.0-1.0)
+    revalidation_check_interval_seconds: int = 3600  # Interval between staleness checks (1 hour)
+    revalidation_scheduler: Optional[Any] = None  # Pre-configured RevalidationScheduler
+
     # Belief Network guidance (cross-debate crux injection)
     enable_belief_guidance: bool = True  # Inject historical cruxes from similar debates as context
 
@@ -260,6 +266,11 @@ class ArenaConfig:
             "knowledge_mound": self.knowledge_mound,
             "enable_knowledge_retrieval": self.enable_knowledge_retrieval,
             "enable_knowledge_ingestion": self.enable_knowledge_ingestion,
+            # Auto-revalidation
+            "enable_auto_revalidation": self.enable_auto_revalidation,
+            "revalidation_staleness_threshold": self.revalidation_staleness_threshold,
+            "revalidation_check_interval_seconds": self.revalidation_check_interval_seconds,
+            "revalidation_scheduler": self.revalidation_scheduler,
             "enable_belief_guidance": self.enable_belief_guidance,
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,

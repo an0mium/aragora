@@ -23,6 +23,7 @@ class KnowledgeSource(str, Enum):
 
     CONTINUUM = "continuum"  # ContinuumMemory entries
     CONSENSUS = "consensus"  # ConsensusMemory debate outcomes
+    DEBATE = "debate"  # Debate orchestrator outcomes
     FACT = "fact"  # FactStore verified facts
     VECTOR = "vector"  # Vector store embeddings
     DOCUMENT = "document"  # Raw document chunks

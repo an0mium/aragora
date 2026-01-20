@@ -112,6 +112,7 @@ class TrackerComponents:
     knowledge_mound: Any
     enable_knowledge_retrieval: bool
     enable_knowledge_ingestion: bool
+    enable_belief_guidance: bool
     coordinator: SubsystemCoordinator
 
 
@@ -379,6 +380,7 @@ class ArenaInitializer:
         knowledge_mound=None,
         enable_knowledge_retrieval: bool = True,
         enable_knowledge_ingestion: bool = True,
+        enable_belief_guidance: bool = False,
     ) -> TrackerComponents:
         """Initialize tracking subsystems.
 
@@ -455,6 +457,7 @@ class ArenaInitializer:
             knowledge_mound=knowledge_mound,
             enable_knowledge_retrieval=enable_knowledge_retrieval,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
+            enable_belief_guidance=enable_belief_guidance,
             coordinator=coordinator,
         )
 
