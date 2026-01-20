@@ -635,27 +635,28 @@ jobs:
 
 ## Automated Benchmark Results
 
-### Latest pytest-benchmark Results (2026-01-14)
+### Latest pytest-benchmark Results (2026-01-19)
 
 Unit benchmark tests run via `pytest tests/benchmarks/ --benchmark-only`:
 
 ```
 Benchmark: API Component Benchmarks
 Platform: macOS Darwin 25.2.0
+Tests: 75 passed, 14 skipped
 
 Test Name                          Min (μs)    Mean (μs)   Median (μs)  Ops/sec
 ────────────────────────────────────────────────────────────────────────────────
-test_cost_calculation_latency        1.2         3.6          1.5      279,848
-test_audit_event_serialization       1.6         3.9          1.9      253,249
-test_usage_summary_serialization     1.9         3.1          2.3      323,853
-test_persona_get_latency            11.7        35.4         14.1       28,224
-test_persona_create_latency         31.1       129.9         39.7        7,696
-test_usage_summary_latency         254.0       590.4        295.9        1,694
-test_usage_record_latency          537.2     1,112.3        825.0          899
-test_audit_log_latency             781.7     1,872.8      1,405.2          534
-test_audit_query_latency           844.1     1,912.5      1,051.5          523
-test_audit_integrity_verification 1,508.7    4,227.6      2,086.5          237
-test_concurrent_audit_writes    158,043.2  170,641.5    167,019.8            6
+test_cost_calculation_latency        1.6         7.1          2.0      140,940
+test_audit_event_serialization       1.7         5.8          2.0      172,450
+test_usage_summary_serialization     2.4        10.3          2.7       96,849
+test_persona_get_latency            14.2        49.1         17.3       20,352
+test_persona_create_latency         33.4       332.9         52.4        3,004
+test_usage_summary_latency         368.8     3,084.0        763.1          324
+test_usage_record_latency          760.3     4,150.4      1,841.2          241
+test_audit_log_latency           1,125.8     5,701.8      2,044.5          175
+test_audit_query_latency         1,283.2    11,863.8      4,892.3           84
+test_audit_integrity_verification 1,881.0   12,693.6      5,612.5           79
+test_concurrent_audit_writes    591,713.2  732,712.5    699,767.2            1
 ```
 
 ### Rate Limiting Benchmark Tests
