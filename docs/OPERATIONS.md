@@ -881,6 +881,105 @@ if CRYPTO_AVAILABLE:
 "
 ```
 
+### Encryption Key Rotation
+
+Key rotation is critical for maintaining security. Follow this procedure to rotate encryption keys without data loss.
+
+#### When to Rotate Keys
+
+- **Regular rotation**: Every 90 days (recommended) or per compliance requirements
+- **Incident response**: If key compromise is suspected
+- **Personnel changes**: When staff with key access leave
+
+#### Key Rotation Procedure
+
+**Step 1: Generate a new encryption key**
+
+```bash
+# Generate a new 32-byte (64 hex character) key
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+**Step 2: Add the new key to environment (multi-key support)**
+
+The encryption service supports multiple keys via comma-separated values. The first key is used for encryption, others for decryption only:
+
+```bash
+# Format: new_key,old_key1,old_key2,...
+export ARAGORA_ENCRYPTION_KEY="new-64-hex-key,old-64-hex-key"
+```
+
+**Step 3: Re-encrypt existing data**
+
+```bash
+# Dry run to verify (reads with old key, would write with new key)
+python -m aragora.storage.migrations.encrypt_existing_data --all
+
+# Execute re-encryption
+python -m aragora.storage.migrations.encrypt_existing_data --all --execute
+```
+
+**Step 4: Verify re-encryption**
+
+```bash
+# Check that all records use the new key
+python -c "
+from aragora.security.encryption import get_encryption_service
+svc = get_encryption_service()
+print(f'Active encryption key: {svc.get_active_key_id()}')
+"
+```
+
+**Step 5: Remove old keys (after verification period)**
+
+After a grace period (e.g., 7 days) to ensure no issues:
+
+```bash
+# Remove old keys from environment
+export ARAGORA_ENCRYPTION_KEY="new-64-hex-key"
+```
+
+#### Rolling Deployment Key Rotation
+
+For zero-downtime rotation across multiple instances:
+
+1. **Phase 1**: Deploy with both keys (new primary, old for decryption)
+   ```bash
+   export ARAGORA_ENCRYPTION_KEY="new_key,old_key"
+   ```
+
+2. **Phase 2**: Run migration job to re-encrypt all data
+   ```bash
+   python -m aragora.storage.migrations.encrypt_existing_data --all --execute
+   ```
+
+3. **Phase 3**: After all instances updated and migration complete, remove old key
+
+#### Emergency Key Compromise Procedure
+
+If a key compromise is detected:
+
+1. **Immediately generate and deploy new key** to all instances
+2. **Re-encrypt all data** using the migration utility
+3. **Revoke any API tokens** that may have been issued during the compromised period
+4. **Review audit logs** for suspicious access patterns
+5. **Document the incident** per your incident response policy
+
+#### Key Storage Best Practices
+
+| Environment | Recommended Storage |
+|-------------|-------------------|
+| Development | `.env` file (gitignored) |
+| Staging | Environment variables or secrets manager |
+| Production | AWS Secrets Manager, HashiCorp Vault, or cloud KMS |
+
+```bash
+# Example: AWS Secrets Manager integration
+export ARAGORA_ENCRYPTION_KEY=$(aws secretsmanager get-secret-value \
+  --secret-id aragora/encryption-key \
+  --query SecretString --output text)
+```
+
 ### RBAC (Role-Based Access Control)
 
 Workflow endpoints are protected with RBAC. The following permissions are enforced:

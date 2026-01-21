@@ -460,6 +460,11 @@ class AdminHandler(BaseHandler):
         if err:
             return err
 
+        # Check granular RBAC permission for impersonation
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.impersonate", target_user_id)
+        if perm_err:
+            return perm_err
+
         user_store = self._get_user_store()
 
         # Verify target user exists
@@ -517,6 +522,11 @@ class AdminHandler(BaseHandler):
         if err:
             return err
 
+        # Check granular RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.deactivate", target_user_id)
+        if perm_err:
+            return perm_err
+
         user_store = self._get_user_store()
 
         # Verify target user exists
@@ -548,6 +558,11 @@ class AdminHandler(BaseHandler):
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check granular RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.activate", target_user_id)
+        if perm_err:
+            return perm_err
 
         user_store = self._get_user_store()
 
@@ -583,6 +598,11 @@ class AdminHandler(BaseHandler):
         auth_ctx, err = self._require_admin(handler)
         if err:
             return err
+
+        # Check granular RBAC permission
+        perm_err = self._check_rbac_permission(auth_ctx, "admin.users.unlock", target_user_id)
+        if perm_err:
+            return perm_err
 
         user_store = self._get_user_store()
 
