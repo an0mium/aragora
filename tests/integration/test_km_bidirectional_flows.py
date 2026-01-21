@@ -681,10 +681,10 @@ class TestE2EKMDataFlow:
         # (may be empty if confidence threshold wasn't met)
         # The important thing is the flow works without errors
 
-    def test_budget_alert_syncs_to_km(self):
+    @pytest.mark.asyncio
+    async def test_budget_alert_syncs_to_km(self):
         """Budget alerts sync to KM when triggered."""
         from decimal import Decimal
-        import asyncio
         from aragora.billing.cost_tracker import CostTracker, Budget, TokenUsage
 
         # Create mock adapter
@@ -725,8 +725,8 @@ class TestE2EKMDataFlow:
             cost_usd=Decimal("6.00"),  # 60% of budget - should trigger INFO alert
         )
 
-        # Run async record
-        asyncio.get_event_loop().run_until_complete(tracker.record(usage))
+        # Properly await async record
+        await tracker.record(usage)
 
         # Alert should have been synced to KM
         assert len(stored_alerts) >= 1
