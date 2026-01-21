@@ -526,19 +526,41 @@ async def main():
 
     args = parser.parse_args()
 
-    # Check environment
-    client_id = os.environ.get("GMAIL_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID")
-    client_secret = os.environ.get("GMAIL_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET")
+    # Try to get credentials from Aragora's Secrets Manager first (AWS)
+    client_id = None
+    client_secret = None
+
+    try:
+        from aragora.config.secrets import get_secret
+
+        client_id = get_secret("GMAIL_CLIENT_ID") or get_secret("GOOGLE_CLIENT_ID")
+        client_secret = get_secret("GMAIL_CLIENT_SECRET") or get_secret("GOOGLE_CLIENT_SECRET")
+
+        if client_id and client_secret:
+            print("Loaded Gmail OAuth credentials from AWS Secrets Manager")
+    except ImportError:
+        pass
+
+    # Fall back to environment variables
+    if not client_id:
+        client_id = os.environ.get("GMAIL_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID")
+    if not client_secret:
+        client_secret = os.environ.get("GMAIL_CLIENT_SECRET") or os.environ.get(
+            "GOOGLE_CLIENT_SECRET"
+        )
 
     if not client_id or not client_secret:
         print("ERROR: Gmail OAuth credentials not configured!")
-        print("\nPlease set the following environment variables:")
+        print("\nCredentials not found in:")
+        print("  1. AWS Secrets Manager (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET)")
+        print("  2. Environment variables")
+        print("\nTo fix, ensure your AWS secret 'aragora/production' contains:")
+        print(
+            '  {"GMAIL_CLIENT_ID": "xxx.apps.googleusercontent.com", "GMAIL_CLIENT_SECRET": "xxx"}'
+        )
+        print("\nOr set environment variables:")
         print("  export GMAIL_CLIENT_ID='your-client-id.apps.googleusercontent.com'")
         print("  export GMAIL_CLIENT_SECRET='your-client-secret'")
-        print("\nTo get credentials:")
-        print("  1. Go to https://console.cloud.google.com/apis/credentials")
-        print("  2. Create OAuth 2.0 Client ID (Desktop or Web application)")
-        print("  3. Add http://localhost:8765/callback to authorized redirect URIs")
         return 1
 
     # Import Aragora modules
