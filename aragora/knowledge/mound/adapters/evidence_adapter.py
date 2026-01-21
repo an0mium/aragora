@@ -32,6 +32,28 @@ EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
+# Try to import SLO metrics
+try:
+    from aragora.observability.metrics.slo import check_and_record_slo, track_operation_slo
+    SLO_AVAILABLE = True
+except ImportError:
+    SLO_AVAILABLE = False
+
+
+class EvidenceAdapterError(Exception):
+    """Base exception for evidence adapter errors."""
+    pass
+
+
+class EvidenceStoreUnavailableError(EvidenceAdapterError):
+    """Raised when evidence store is not configured."""
+    pass
+
+
+class EvidenceNotFoundError(EvidenceAdapterError):
+    """Raised when evidence item is not found."""
+    pass
+
 
 @dataclass
 class EvidenceSearchResult:
@@ -140,6 +162,21 @@ class EvidenceAdapter:
         """Access the underlying EvidenceStore."""
         return self._store
 
+    def _ensure_store(self) -> "EvidenceStore":
+        """Ensure evidence store is available.
+
+        Returns:
+            The evidence store instance
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
+        """
+        if self._store is None:
+            raise EvidenceStoreUnavailableError(
+                "EvidenceStore not configured. Initialize adapter with a store instance."
+            )
+        return self._store
+
     def search_by_topic(
         self,
         query: str,
@@ -161,12 +198,17 @@ class EvidenceAdapter:
 
         Returns:
             List of evidence dicts matching the query
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
         """
         import time
         start = time.time()
         success = False
+        store = self._ensure_store()
+
         try:
-            results = self._store.search_evidence(
+            results = store.search_evidence(
                 query=query,
                 limit=limit,
                 min_reliability=min_reliability,
@@ -177,7 +219,19 @@ class EvidenceAdapter:
                 results = [r for r in results if r.get("source") == source]
 
             success = True
+
+            # Check SLO if available
+            latency_ms = (time.time() - start) * 1000
+            if SLO_AVAILABLE:
+                check_and_record_slo("evidence_search", latency_ms)
+
             return results
+
+        except EvidenceStoreUnavailableError:
+            raise
+        except Exception as e:
+            logger.error(f"Evidence search failed for query '{query}': {e}")
+            raise EvidenceAdapterError(f"Search failed: {e}") from e
         finally:
             self._record_metric("search", success, time.time() - start)
 
@@ -197,22 +251,50 @@ class EvidenceAdapter:
 
         Returns:
             List of similar evidence items
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
+            EvidenceAdapterError: If search fails
         """
-        # Use content hash-based lookup for exact matches
         import hashlib
+        import time
 
-        content_hash = hashlib.sha256(content.encode()).hexdigest()[:32]
+        start = time.time()
+        store = self._ensure_store()
 
-        existing = self._store.get_evidence_by_hash(content_hash)
-        if existing:
-            return [existing]
+        try:
+            # Use content hash-based lookup for exact matches
+            content_hash = hashlib.sha256(content.encode()).hexdigest()[:32]
 
-        # Fall back to text search for partial matches
-        # Extract key terms for search
-        words = content.split()[:10]  # First 10 words
-        query = " ".join(words)
+            try:
+                existing = store.get_evidence_by_hash(content_hash)
+                if existing:
+                    # Check SLO for hash lookup
+                    latency_ms = (time.time() - start) * 1000
+                    if SLO_AVAILABLE:
+                        check_and_record_slo("evidence_hash_lookup", latency_ms)
+                    return [existing]
+            except AttributeError:
+                # Store doesn't support hash lookup, fall through to text search
+                logger.debug("Evidence store does not support hash lookup, using text search")
+            except Exception as e:
+                # Log but don't fail - fall back to text search
+                logger.warning(f"Hash lookup failed, falling back to text search: {e}")
 
-        return self.search_by_topic(query, limit=limit)
+            # Fall back to text search for partial matches
+            # Extract key terms for search
+            words = content.split()[:10]  # First 10 words
+            query = " ".join(words)
+
+            return self.search_by_topic(query, limit=limit)
+
+        except EvidenceStoreUnavailableError:
+            raise
+        except EvidenceAdapterError:
+            raise
+        except Exception as e:
+            logger.error(f"Similar evidence search failed: {e}")
+            raise EvidenceAdapterError(f"Similar search failed: {e}") from e
 
     def get(self, evidence_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -223,12 +305,22 @@ class EvidenceAdapter:
 
         Returns:
             Evidence dict or None
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
+            EvidenceAdapterError: If retrieval fails
         """
+        store = self._ensure_store()
+
         # Strip mound prefix if present
         if evidence_id.startswith(self.ID_PREFIX):
-            evidence_id = evidence_id[len(self.ID_PREFIX) :]
+            evidence_id = evidence_id[len(self.ID_PREFIX):]
 
-        return self._store.get_evidence(evidence_id)
+        try:
+            return store.get_evidence(evidence_id)
+        except Exception as e:
+            logger.error(f"Failed to get evidence {evidence_id}: {e}")
+            raise EvidenceAdapterError(f"Failed to get evidence: {e}") from e
 
     def to_knowledge_item(self, evidence: Dict[str, Any]) -> "KnowledgeItem":
         """
@@ -266,8 +358,14 @@ class EvidenceAdapter:
 
             try:
                 quality_scores = json.loads(evidence["quality_scores_json"])
-            except (json.JSONDecodeError, TypeError):
-                pass
+            except json.JSONDecodeError as e:
+                logger.warning(
+                    f"Failed to parse quality_scores_json for evidence {evidence.get('id')}: {e}"
+                )
+            except TypeError as e:
+                logger.warning(
+                    f"Invalid quality_scores_json type for evidence {evidence.get('id')}: {e}"
+                )
 
         # Parse enriched metadata if available
         enriched_metadata = {}
@@ -276,8 +374,14 @@ class EvidenceAdapter:
 
             try:
                 enriched_metadata = json.loads(evidence["enriched_metadata_json"])
-            except (json.JSONDecodeError, TypeError):
-                pass
+            except json.JSONDecodeError as e:
+                logger.warning(
+                    f"Failed to parse enriched_metadata_json for evidence {evidence.get('id')}: {e}"
+                )
+            except TypeError as e:
+                logger.warning(
+                    f"Invalid enriched_metadata_json type for evidence {evidence.get('id')}: {e}"
+                )
 
         # Build metadata
         metadata: Dict[str, Any] = {
@@ -386,12 +490,18 @@ class EvidenceAdapter:
 
         Returns:
             The evidence ID (may be deduplicated)
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
+            EvidenceAdapterError: If storage fails
         """
         import time
         start = time.time()
         success = False
+        store = self._ensure_store()
+
         try:
-            result_id = self._store.save_evidence(
+            result_id = store.save_evidence(
                 evidence_id=evidence_id,
                 source=source,
                 title=title,
@@ -412,7 +522,19 @@ class EvidenceAdapter:
             })
 
             success = True
+
+            # Check SLO if available
+            latency_ms = (time.time() - start) * 1000
+            if SLO_AVAILABLE:
+                check_and_record_slo("evidence_store", latency_ms)
+
             return result_id
+
+        except EvidenceStoreUnavailableError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to store evidence {evidence_id}: {e}")
+            raise EvidenceAdapterError(f"Storage failed: {e}") from e
         finally:
             self._record_metric("store", success, time.time() - start)
 
@@ -427,8 +549,22 @@ class EvidenceAdapter:
         Args:
             evidence_id: The evidence ID
             debate_id: The debate ID where consensus was reached
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
+            EvidenceAdapterError: If marking fails
         """
-        self._store.mark_used_in_consensus(debate_id, evidence_id)
+        store = self._ensure_store()
+
+        try:
+            store.mark_used_in_consensus(debate_id, evidence_id)
+            logger.debug(f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}")
+        except AttributeError:
+            # Store doesn't support this method
+            logger.debug("Evidence store does not support mark_used_in_consensus")
+        except Exception as e:
+            logger.error(f"Failed to mark evidence {evidence_id} in consensus: {e}")
+            raise EvidenceAdapterError(f"Failed to mark consensus usage: {e}") from e
 
     async def update_reliability_from_km(
         self,
@@ -443,40 +579,74 @@ class EvidenceAdapter:
         Args:
             evidence_id: The evidence ID
             km_validation: Validation data from Knowledge Mound
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
+            EvidenceNotFoundError: If evidence item is not found
+            EvidenceAdapterError: If update fails
         """
+        store = self._ensure_store()
+
         # Strip prefix if present
         if evidence_id.startswith(self.ID_PREFIX):
-            evidence_id = evidence_id[len(self.ID_PREFIX) :]
+            evidence_id = evidence_id[len(self.ID_PREFIX):]
 
-        # Get current evidence
-        evidence = self._store.get_evidence(evidence_id)
-        if not evidence:
+        try:
+            # Get current evidence
+            evidence = store.get_evidence(evidence_id)
+            if not evidence:
+                raise EvidenceNotFoundError(f"Evidence not found: {evidence_id}")
+
+            # Calculate new reliability based on KM feedback
+            current_reliability = evidence.get("reliability_score", 0.5)
+            km_confidence = km_validation.get("confidence", 0.5)
+            validation_count = km_validation.get("validation_count", 1)
+
+            # Weighted average: more validations = more weight on KM confidence
+            weight = min(0.5, validation_count * 0.1)  # Max 50% weight
+            new_reliability = current_reliability * (1 - weight) + km_confidence * weight
+
+            # Update the evidence
+            store.update_evidence(
+                evidence_id,
+                reliability_score=new_reliability,
+            )
+
+            logger.info(
+                f"Updated evidence reliability from KM: {evidence_id} "
+                f"{current_reliability:.2f} -> {new_reliability:.2f}"
+            )
+
+        except EvidenceNotFoundError:
             logger.warning(f"Evidence not found for KM validation: {evidence_id}")
-            return
-
-        # Calculate new reliability based on KM feedback
-        current_reliability = evidence.get("reliability_score", 0.5)
-        km_confidence = km_validation.get("confidence", 0.5)
-        validation_count = km_validation.get("validation_count", 1)
-
-        # Weighted average: more validations = more weight on KM confidence
-        weight = min(0.5, validation_count * 0.1)  # Max 50% weight
-        new_reliability = current_reliability * (1 - weight) + km_confidence * weight
-
-        # Update the evidence
-        self._store.update_evidence(
-            evidence_id,
-            reliability_score=new_reliability,
-        )
-
-        logger.info(
-            f"Updated evidence reliability from KM: {evidence_id} "
-            f"{current_reliability:.2f} -> {new_reliability:.2f}"
-        )
+            raise
+        except EvidenceStoreUnavailableError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to update reliability for evidence {evidence_id}: {e}")
+            raise EvidenceAdapterError(f"Reliability update failed: {e}") from e
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get statistics about the evidence store."""
-        return self._store.get_stats()
+        """Get statistics about the evidence store.
+
+        Returns:
+            Dict with store statistics
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
+            EvidenceAdapterError: If stats retrieval fails
+        """
+        store = self._ensure_store()
+
+        try:
+            return store.get_stats()
+        except AttributeError:
+            # Store doesn't support get_stats
+            logger.debug("Evidence store does not support get_stats")
+            return {"error": "stats not supported", "store_type": type(store).__name__}
+        except Exception as e:
+            logger.error(f"Failed to get evidence store stats: {e}")
+            raise EvidenceAdapterError(f"Stats retrieval failed: {e}") from e
 
     def get_debate_evidence(
         self,
@@ -492,11 +662,28 @@ class EvidenceAdapter:
 
         Returns:
             List of evidence items for the debate
+
+        Raises:
+            EvidenceStoreUnavailableError: If store is not configured
+            EvidenceAdapterError: If retrieval fails
         """
-        return self._store.get_debate_evidence(debate_id, min_relevance)
+        store = self._ensure_store()
+
+        try:
+            return store.get_debate_evidence(debate_id, min_relevance)
+        except AttributeError:
+            # Store doesn't support debate evidence lookup
+            logger.debug("Evidence store does not support get_debate_evidence")
+            return []
+        except Exception as e:
+            logger.error(f"Failed to get debate evidence for {debate_id}: {e}")
+            raise EvidenceAdapterError(f"Debate evidence retrieval failed: {e}") from e
 
 
 __all__ = [
     "EvidenceAdapter",
     "EvidenceSearchResult",
+    "EvidenceAdapterError",
+    "EvidenceStoreUnavailableError",
+    "EvidenceNotFoundError",
 ]

@@ -44,7 +44,13 @@ from .consensus_adapter import ConsensusAdapter, ConsensusSearchResult
 from .critique_adapter import CritiqueAdapter, CritiqueSearchResult
 
 # Bidirectional integration adapters
-from .evidence_adapter import EvidenceAdapter, EvidenceSearchResult
+from .evidence_adapter import (
+    EvidenceAdapter,
+    EvidenceSearchResult,
+    EvidenceAdapterError,
+    EvidenceStoreUnavailableError,
+    EvidenceNotFoundError,
+)
 from .belief_adapter import BeliefAdapter, BeliefSearchResult, CruxSearchResult
 from .insights_adapter import InsightsAdapter, InsightSearchResult, FlipSearchResult
 from .elo_adapter import EloAdapter, RatingSearchResult
@@ -52,6 +58,7 @@ from .pulse_adapter import PulseAdapter, TopicSearchResult
 from .cost_adapter import CostAdapter, CostAnomaly, AlertSearchResult
 from .ranking_adapter import RankingAdapter, AgentExpertise, ExpertiseSearchResult
 from .rlm_adapter import RlmAdapter, CompressionPattern, ContentPriority
+from .culture_adapter import CultureAdapter, StoredCulturePattern, CultureSearchResult
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -67,6 +74,9 @@ __all__ = [
     # Bidirectional integration adapters
     "EvidenceAdapter",
     "EvidenceSearchResult",
+    "EvidenceAdapterError",
+    "EvidenceStoreUnavailableError",
+    "EvidenceNotFoundError",
     "BeliefAdapter",
     "BeliefSearchResult",
     "CruxSearchResult",
@@ -86,6 +96,9 @@ __all__ = [
     "RlmAdapter",
     "CompressionPattern",
     "ContentPriority",
+    "CultureAdapter",
+    "StoredCulturePattern",
+    "CultureSearchResult",
     # Factory for auto-creating adapters
     "AdapterFactory",
     "AdapterSpec",
