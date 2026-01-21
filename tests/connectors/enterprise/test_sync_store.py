@@ -20,6 +20,7 @@ from aragora.connectors.enterprise.sync_store import (
 # Check if aiosqlite is available
 try:
     import aiosqlite
+
     HAS_AIOSQLITE = True
 except ImportError:
     HAS_AIOSQLITE = False
@@ -345,3 +346,207 @@ class TestConnectorConfig:
             config={},
         )
         assert config.items_indexed == 0
+
+
+@pytest.mark.skipif(not HAS_AIOSQLITE, reason="aiosqlite required")
+class TestSyncJobRecovery:
+    """Tests for sync job recovery on startup."""
+
+    @pytest.fixture
+    def db_path(self, tmp_path):
+        """Create a temp database path."""
+        return tmp_path / "test_recovery.db"
+
+    @pytest.mark.asyncio
+    async def test_recovery_marks_running_jobs_as_interrupted(self, db_path):
+        """Should mark running jobs as interrupted on startup."""
+        # Create store and start a sync job
+        store1 = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store1.initialize()
+
+        await store1.save_connector("c1", "github", "Test", {})
+        job = await store1.record_sync_start("c1")
+
+        # Close without completing - simulates server crash
+        await store1.close()
+
+        # Create new store instance - simulates server restart
+        store2 = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store2.initialize()
+
+        # Job should be marked as interrupted
+        history = await store2.get_sync_history("c1")
+        assert len(history) == 1
+        assert history[0].status == "interrupted"
+        assert history[0].error_message == "Job interrupted by server restart"
+        assert history[0].completed_at is not None
+
+        await store2.close()
+
+    @pytest.mark.asyncio
+    async def test_recovery_updates_connector_status(self, db_path):
+        """Should update connector status from active to configured."""
+        store1 = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store1.initialize()
+
+        await store1.save_connector("c1", "github", "Test", {})
+        await store1.record_sync_start("c1")
+
+        # Connector should be active
+        conn = await store1.get_connector("c1")
+        assert conn.status == "active"
+
+        await store1.close()
+
+        # Restart
+        store2 = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store2.initialize()
+
+        # Connector should be back to configured with interrupted status
+        conn = await store2.get_connector("c1")
+        assert conn.status == "configured"
+        assert conn.last_sync_status == "interrupted"
+
+        await store2.close()
+
+    @pytest.mark.asyncio
+    async def test_recovery_ignores_completed_jobs(self, db_path):
+        """Should not affect already completed jobs."""
+        store1 = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store1.initialize()
+
+        await store1.save_connector("c1", "github", "Test", {})
+        job = await store1.record_sync_start("c1")
+        await store1.record_sync_complete(job.id, status="completed", items_synced=100)
+
+        await store1.close()
+
+        # Restart
+        store2 = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store2.initialize()
+
+        # Job should still be completed
+        history = await store2.get_sync_history("c1")
+        assert len(history) == 1
+        assert history[0].status == "completed"
+        assert history[0].items_synced == 100
+
+        await store2.close()
+
+    @pytest.mark.asyncio
+    async def test_recovery_handles_multiple_running_jobs(self, db_path):
+        """Should recover all running jobs."""
+        store1 = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store1.initialize()
+
+        await store1.save_connector("c1", "github", "Test 1", {})
+        await store1.save_connector("c2", "s3", "Test 2", {})
+
+        await store1.record_sync_start("c1")
+        await store1.record_sync_start("c2")
+
+        await store1.close()
+
+        # Restart
+        store2 = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store2.initialize()
+
+        # Both jobs should be interrupted
+        history1 = await store2.get_sync_history("c1")
+        history2 = await store2.get_sync_history("c2")
+
+        assert len(history1) == 1
+        assert len(history2) == 1
+        assert history1[0].status == "interrupted"
+        assert history2[0].status == "interrupted"
+
+        await store2.close()
+
+    @pytest.mark.asyncio
+    async def test_explicit_recovery_call(self, db_path):
+        """Should be able to call recovery explicitly."""
+        import aiosqlite
+
+        # Manually insert a running job directly into DB
+        async with aiosqlite.connect(str(db_path)) as conn:
+            await conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS connectors (
+                    id TEXT PRIMARY KEY,
+                    connector_type TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    config_json TEXT NOT NULL,
+                    status TEXT DEFAULT 'active',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    last_sync_at TEXT,
+                    last_sync_status TEXT,
+                    items_indexed INTEGER DEFAULT 0,
+                    error_message TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS sync_jobs (
+                    id TEXT PRIMARY KEY,
+                    connector_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    items_synced INTEGER DEFAULT 0,
+                    items_failed INTEGER DEFAULT 0,
+                    error_message TEXT,
+                    duration_seconds REAL
+                );
+                """
+            )
+            await conn.execute(
+                """
+                INSERT INTO connectors
+                (id, connector_type, name, config_json, status, created_at, updated_at)
+                VALUES ('c1', 'github', 'Test', '{}', 'active', '2024-01-01T00:00:00', '2024-01-01T00:00:00')
+                """
+            )
+            await conn.execute(
+                """
+                INSERT INTO sync_jobs (id, connector_id, status, started_at)
+                VALUES ('job-1', 'c1', 'running', '2024-01-01T00:00:00')
+                """
+            )
+            await conn.commit()
+
+        # Create store and initialize
+        store = SyncStore(
+            database_url=f"sqlite:///{db_path}",
+            use_encryption=False,
+        )
+        await store.initialize()
+
+        # Job should already be recovered during init
+        history = await store.get_sync_history("c1")
+        assert len(history) == 1
+        assert history[0].status == "interrupted"
+
+        await store.close()

@@ -27,6 +27,7 @@ class TestFindingWorkflowRBAC:
     @pytest.fixture
     def mock_request(self):
         """Create mock request with configurable headers."""
+
         def _make_request(
             method="GET",
             path="/api/audit/findings/123/status",
@@ -42,34 +43,40 @@ class TestFindingWorkflowRBAC:
                 "X-User-Roles": roles,
             }
             if body:
+
                 async def read_json():
                     return body
+
                 request.json = read_json
             return request
+
         return _make_request
 
-    def test_get_auth_context_from_headers(self, handler, mock_request):
-        """Auth context is built from headers when no JWT."""
+    def test_get_auth_context_requires_jwt(self, handler, mock_request):
+        """Auth context requires JWT - headers alone are rejected."""
         request = mock_request(user_id="test-user", roles="admin,editor")
 
-        with patch("aragora.server.handlers.features.finding_workflow.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
+        ) as mock_extract:
             mock_extract.return_value = MagicMock(authenticated=False, user_id=None)
             context = handler._get_auth_context(request)
 
-        assert context.user_id == "test-user"
-        assert "admin" in context.roles
-        assert "editor" in context.roles
+        # JWT required - headers alone should return None
+        assert context is None
 
-    def test_get_auth_context_anonymous(self, handler, mock_request):
-        """Anonymous context when no auth provided."""
+    def test_get_auth_context_anonymous_rejected(self, handler, mock_request):
+        """Anonymous requests are rejected without JWT."""
         request = mock_request(user_id="anonymous")
 
-        with patch("aragora.server.handlers.features.finding_workflow.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
+        ) as mock_extract:
             mock_extract.return_value = MagicMock(authenticated=False, user_id=None)
             context = handler._get_auth_context(request)
 
-        # When header is "anonymous", it's used directly (no warning logged)
-        assert context.user_id == "anonymous"
+        # No JWT means no auth context
+        assert context is None
 
     @pytest.mark.asyncio
     async def test_update_status_requires_update_permission(self, handler, mock_request):
@@ -139,33 +146,69 @@ class TestFindingWorkflowRBAC:
         assert result["status"] == 403
 
     def test_check_permission_allows_authorized(self, handler, mock_request):
-        """Check permission allows authorized users."""
+        """Check permission allows authorized users with valid JWT."""
         request = mock_request(user_id="admin", roles="admin")
 
-        with patch("aragora.server.handlers.features.finding_workflow.check_permission") as mock_check:
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.check_permission"
+        ) as mock_check:
             mock_check.return_value = AuthorizationDecision(
                 allowed=True, reason="Admin role", permission_key="findings.update"
             )
-            with patch("aragora.server.handlers.features.finding_workflow.extract_user_from_request") as mock_extract:
-                mock_extract.return_value = MagicMock(authenticated=False, user_id=None)
+            with patch(
+                "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
+            ) as mock_extract:
+                # Valid JWT authentication
+                mock_extract.return_value = MagicMock(
+                    authenticated=True,
+                    user_id="admin",
+                    role="admin",
+                    org_id="org-1",
+                    client_ip="127.0.0.1",
+                )
                 result = handler._check_permission(request, "findings.update", "123")
 
         assert result is None  # No error means allowed
 
-    def test_check_permission_denies_unauthorized(self, handler, mock_request):
-        """Check permission denies unauthorized users."""
+    def test_check_permission_denies_unauthenticated(self, handler, mock_request):
+        """Check permission returns 401 for unauthenticated users."""
         request = mock_request(user_id="viewer", roles="viewer")
 
-        with patch("aragora.server.handlers.features.finding_workflow.check_permission") as mock_check:
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
+        ) as mock_extract:
+            # No valid JWT
+            mock_extract.return_value = MagicMock(authenticated=False, user_id=None)
+            result = handler._check_permission(request, "findings.update", "123")
+
+        assert result is not None
+        assert result["status"] == 401  # Unauthenticated
+
+    def test_check_permission_denies_unauthorized(self, handler, mock_request):
+        """Check permission returns 403 for authenticated but unauthorized users."""
+        request = mock_request(user_id="viewer", roles="viewer")
+
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.check_permission"
+        ) as mock_check:
             mock_check.return_value = AuthorizationDecision(
                 allowed=False, reason="Insufficient permissions", permission_key="findings.update"
             )
-            with patch("aragora.server.handlers.features.finding_workflow.extract_user_from_request") as mock_extract:
-                mock_extract.return_value = MagicMock(authenticated=False, user_id=None)
+            with patch(
+                "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
+            ) as mock_extract:
+                # Valid JWT but insufficient permissions
+                mock_extract.return_value = MagicMock(
+                    authenticated=True,
+                    user_id="viewer",
+                    role="viewer",
+                    org_id="org-1",
+                    client_ip="127.0.0.1",
+                )
                 result = handler._check_permission(request, "findings.update", "123")
 
         assert result is not None
-        assert result["status"] == 403
+        assert result["status"] == 403  # Forbidden (authenticated but not authorized)
 
 
 class TestFindingWorkflowJWTAuth:
@@ -184,7 +227,9 @@ class TestFindingWorkflowJWTAuth:
             "X-User-Roles": "viewer",
         }
 
-        with patch("aragora.server.handlers.features.finding_workflow.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
+        ) as mock_extract:
             mock_extract.return_value = MagicMock(
                 authenticated=True,
                 user_id="jwt-user",
@@ -199,8 +244,8 @@ class TestFindingWorkflowJWTAuth:
         assert "admin" in context.roles
         assert context.org_id == "org-1"
 
-    def test_fallback_to_headers_when_no_jwt(self, handler):
-        """Falls back to headers when JWT not present."""
+    def test_no_fallback_to_headers_when_no_jwt(self, handler):
+        """Does NOT fall back to headers when JWT not present (security)."""
         request = MagicMock()
         request.headers = {
             "X-User-ID": "header-user",
@@ -208,13 +253,14 @@ class TestFindingWorkflowJWTAuth:
             "X-Org-ID": "org-2",
         }
 
-        with patch("aragora.server.handlers.features.finding_workflow.extract_user_from_request") as mock_extract:
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
+        ) as mock_extract:
             mock_extract.return_value = MagicMock(authenticated=False, user_id=None)
             context = handler._get_auth_context(request)
 
-        assert context.user_id == "header-user"
-        assert "editor" in context.roles
-        assert context.org_id == "org-2"
+        # Headers alone are not trusted - JWT required
+        assert context is None
 
 
 class TestFindingWorkflowPermissionKeys:
@@ -233,31 +279,37 @@ class TestFindingWorkflowPermissionKeys:
         request.headers = {"X-User-ID": "test", "X-User-Roles": "admin"}
         return request
 
-    @pytest.mark.parametrize("method_name,permission_key,has_resource_id", [
-        ("_update_status", "findings.update", True),
-        ("_assign", "findings.assign", True),
-        ("_unassign", "findings.assign", True),
-        ("_add_comment", "findings.read", True),
-        ("_get_comments", "findings.read", True),
-        ("_get_history", "findings.read", True),
-        ("_set_priority", "findings.update", True),
-        ("_set_due_date", "findings.update", True),
-        ("_link_finding", "findings.update", True),
-        ("_mark_duplicate", "findings.update", True),
-        ("_bulk_action", "findings.bulk", False),
-        ("_get_my_assignments", "findings.read", False),
-        ("_get_overdue", "findings.read", False),
-        ("_get_workflow_states", "findings.read", False),
-        ("_get_presets", "findings.read", False),
-        ("_get_audit_types", "findings.read", False),
-    ])
+    @pytest.mark.parametrize(
+        "method_name,permission_key,has_resource_id",
+        [
+            ("_update_status", "findings.update", True),
+            ("_assign", "findings.assign", True),
+            ("_unassign", "findings.assign", True),
+            ("_add_comment", "findings.read", True),
+            ("_get_comments", "findings.read", True),
+            ("_get_history", "findings.read", True),
+            ("_set_priority", "findings.update", True),
+            ("_set_due_date", "findings.update", True),
+            ("_link_finding", "findings.update", True),
+            ("_mark_duplicate", "findings.update", True),
+            ("_bulk_action", "findings.bulk", False),
+            ("_get_my_assignments", "findings.read", False),
+            ("_get_overdue", "findings.read", False),
+            ("_get_workflow_states", "findings.read", False),
+            ("_get_presets", "findings.read", False),
+            ("_get_audit_types", "findings.read", False),
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_permission_key_used(self, handler, mock_request, method_name, permission_key, has_resource_id):
+    async def test_permission_key_used(
+        self, handler, mock_request, method_name, permission_key, has_resource_id
+    ):
         """Verify correct permission key is checked for each endpoint."""
         mock_request.method = "POST" if "bulk" in method_name else "PATCH"
 
         async def mock_json():
             return {"status": "in_progress"}
+
         mock_request.json = mock_json
 
         with patch.object(handler, "_check_permission") as mock_check:

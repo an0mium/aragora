@@ -434,7 +434,21 @@ class ChatWebhookRouter:
             topic = " ".join(args) if args else None
             if not topic:
                 response_text = "Please provide a debate topic. Usage: /aragora debate <topic>"
+            elif self._decision_router and DECISION_ROUTER_AVAILABLE:
+                # Use DecisionRouter for unified routing
+                try:
+                    result = await self._route_decision(
+                        content=topic,
+                        decision_type=DecisionType.DEBATE,
+                        event=event,
+                        command=command,
+                    )
+                    response_text = f"Starting debate on: {topic}\nDebate ID: {result.decision_id}"
+                except Exception as e:
+                    logger.error(f"DecisionRouter error: {e}")
+                    response_text = f"Failed to start debate: {e}"
             elif self.debate_starter:
+                # Fallback to legacy debate_starter
                 try:
                     result = await self.debate_starter(
                         topic=topic,
@@ -447,6 +461,46 @@ class ChatWebhookRouter:
                     response_text = f"Failed to start debate: {e}"
             else:
                 response_text = "Debate starting not configured"
+
+        elif subcommand == "gauntlet":
+            # Run gauntlet stress-test via DecisionRouter
+            topic = " ".join(args) if args else None
+            if not topic:
+                response_text = "Please provide a topic. Usage: /aragora gauntlet <topic>"
+            elif self._decision_router and DECISION_ROUTER_AVAILABLE:
+                try:
+                    result = await self._route_decision(
+                        content=topic,
+                        decision_type=DecisionType.GAUNTLET,
+                        event=event,
+                        command=command,
+                    )
+                    response_text = f"Running gauntlet on: {topic}\nID: {result.decision_id}"
+                except Exception as e:
+                    logger.error(f"DecisionRouter error: {e}")
+                    response_text = f"Failed to run gauntlet: {e}"
+            else:
+                response_text = "Gauntlet not available (DecisionRouter required)"
+
+        elif subcommand == "workflow":
+            # Start workflow via DecisionRouter
+            workflow_name = args[0] if args else None
+            if not workflow_name:
+                response_text = "Please provide a workflow name. Usage: /aragora workflow <name>"
+            elif self._decision_router and DECISION_ROUTER_AVAILABLE:
+                try:
+                    result = await self._route_decision(
+                        content=workflow_name,
+                        decision_type=DecisionType.WORKFLOW,
+                        event=event,
+                        command=command,
+                    )
+                    response_text = f"Starting workflow: {workflow_name}\nID: {result.decision_id}"
+                except Exception as e:
+                    logger.error(f"DecisionRouter error: {e}")
+                    response_text = f"Failed to start workflow: {e}"
+            else:
+                response_text = "Workflow not available (DecisionRouter required)"
 
         else:
             response_text = (
@@ -541,12 +595,14 @@ class ChatWebhookRouter:
 - `/aragora help` - Show this help message
 - `/aragora status` - Check Aragora status
 - `/aragora debate <topic>` - Start a multi-agent debate
+- `/aragora gauntlet <topic>` - Run adversarial validation
+- `/aragora workflow <name>` - Start a workflow
 - `/aragora review <url>` - Request a code review
-- `/aragora gauntlet <topic>` - Run a stress test
 
 *Examples:*
 - `/aragora debate Should we use microservices?`
-- `/aragora review https://github.com/org/repo/pull/123`
+- `/aragora gauntlet Is this contract compliant?`
+- `/aragora workflow security-audit`
 """
 
     async def _get_status(self) -> Dict[str, Any]:
@@ -557,6 +613,63 @@ class ChatWebhookRouter:
             "platforms": platforms,
             "timestamp": __import__("time").time(),
         }
+
+    def _get_input_source(self, platform: str) -> Any:
+        """Map platform string to InputSource enum."""
+        if not DECISION_ROUTER_AVAILABLE or InputSource is None:
+            return None
+
+        platform_map = {
+            "slack": InputSource.SLACK,
+            "discord": InputSource.DISCORD,
+            "teams": InputSource.TEAMS,
+            "google_chat": InputSource.GOOGLE_CHAT,
+            "telegram": InputSource.TELEGRAM,
+            "whatsapp": InputSource.WHATSAPP,
+        }
+        return platform_map.get(platform.lower(), InputSource.HTTP_API)
+
+    async def _route_decision(
+        self,
+        content: str,
+        decision_type: Any,
+        event: WebhookEvent,
+        command: Any,
+    ) -> Any:
+        """Route a decision request through the DecisionRouter."""
+        if not DECISION_ROUTER_AVAILABLE or self._decision_router is None:
+            raise RuntimeError("DecisionRouter not available")
+
+        # Build response channel
+        response_channel = ResponseChannel(
+            platform=event.platform,
+            channel_id=command.channel if command else None,
+            user_id=command.user.id if command and command.user else None,
+            thread_id=getattr(command, "thread_ts", None) if command else None,
+            response_format="full",
+            include_reasoning=True,
+        )
+
+        # Build request context
+        context = RequestContext(
+            user_id=command.user.id if command and command.user else None,
+            user_name=command.user.name if command and command.user else None,
+            org_id=getattr(command, "team_id", None) if command else None,
+            session_id=command.channel if command else None,
+        )
+
+        # Create decision request
+        request = DecisionRequest(
+            content=content,
+            decision_type=decision_type,
+            source=self._get_input_source(event.platform),
+            response_channels=[response_channel],
+            context=context,
+        )
+
+        # Route through DecisionRouter
+        result = await self._decision_router.route(request)
+        return result
 
 
 # Handler class for integration with server framework

@@ -980,8 +980,8 @@ class DecisionRouter:
                 span.set_attribute("decision.error", str(e)[:200])
                 try:
                     span.record_exception(e)
-                except Exception:
-                    pass
+                except Exception as trace_err:  # noqa: BLE001 - Tracing must not break main flow
+                    logger.debug(f"Failed to record exception in span: {trace_err}")
 
             error_duration = (datetime.utcnow() - start_time).total_seconds()
 
@@ -1025,15 +1025,15 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - Span cleanup must not raise
+                    logger.debug(f"Span context exit error: {e}")
 
             # Clean up in-flight status after a delay
             if self._enable_deduplication and _decision_cache:
                 try:
                     await _decision_cache.clear_in_flight(request)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - Cache cleanup must not raise
+                    logger.debug(f"Failed to clear in-flight cache: {e}")
 
     async def _route_to_debate(self, request: DecisionRequest) -> DecisionResult:
         """Route to debate engine."""
@@ -1044,8 +1044,8 @@ class DecisionRouter:
             try:
                 span_ctx = _trace_decision_engine("debate", request.request_id)
                 span = span_ctx.__enter__()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - Tracing must not block
+                logger.debug(f"Failed to create debate trace span: {e}")
 
         try:
             if self._debate_engine is None:
