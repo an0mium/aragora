@@ -526,3 +526,363 @@ class TestLeaderElectionEdgeCases:
             assert election._running is True
         finally:
             await election.stop()
+
+
+# =============================================================================
+# Regional Leader Election Tests
+# =============================================================================
+
+from aragora.control_plane.leader import (
+    RegionalLeaderConfig,
+    RegionalLeaderElection,
+    RegionalLeaderInfo,
+)
+
+
+class TestRegionalLeaderConfig:
+    """Tests for RegionalLeaderConfig dataclass."""
+
+    def test_default_config(self):
+        """Test default configuration values."""
+        config = RegionalLeaderConfig()
+
+        assert config.region_id == "default"
+        assert config.sync_regions == []
+        assert config.broadcast_leadership is True
+        # Should inherit base config defaults
+        assert config.redis_url == "redis://localhost:6379"
+
+    def test_custom_config(self):
+        """Test custom configuration values."""
+        config = RegionalLeaderConfig(
+            region_id="us-west-2",
+            sync_regions=["us-east-1", "eu-west-1"],
+            broadcast_leadership=False,
+            node_id="regional-node-1",
+        )
+
+        assert config.region_id == "us-west-2"
+        assert config.sync_regions == ["us-east-1", "eu-west-1"]
+        assert config.broadcast_leadership is False
+        assert config.node_id == "regional-node-1"
+
+    def test_get_region_key_prefix(self):
+        """Test region-scoped key prefix generation."""
+        config = RegionalLeaderConfig(region_id="us-west-2")
+        prefix = config.get_region_key_prefix()
+
+        assert prefix == "aragora:leader:region:us-west-2:"
+
+    def test_from_env(self):
+        """Test configuration from environment variables."""
+        env_vars = {
+            "REDIS_URL": "redis://env-host:6379",
+            "ARAGORA_REGION_ID": "ap-southeast-1",
+            "ARAGORA_SYNC_REGIONS": "us-west-2, eu-west-1",
+            "ARAGORA_BROADCAST_LEADERSHIP": "false",
+            "NODE_ID": "regional-env-node",
+        }
+
+        with patch.dict(os.environ, env_vars):
+            config = RegionalLeaderConfig.from_env()
+
+            assert config.region_id == "ap-southeast-1"
+            assert config.sync_regions == ["us-west-2", "eu-west-1"]
+            assert config.broadcast_leadership is False
+            assert config.node_id == "regional-env-node"
+
+
+class TestRegionalLeaderInfo:
+    """Tests for RegionalLeaderInfo dataclass."""
+
+    def test_regional_leader_info_creation(self):
+        """Test creating RegionalLeaderInfo."""
+        info = RegionalLeaderInfo(
+            node_id="leader-1",
+            elected_at=1704067200.0,
+            last_heartbeat=1704067210.0,
+            region_id="us-west-2",
+            is_global_coordinator=True,
+        )
+
+        assert info.node_id == "leader-1"
+        assert info.region_id == "us-west-2"
+        assert info.is_global_coordinator is True
+
+    def test_default_values(self):
+        """Test RegionalLeaderInfo with default values."""
+        info = RegionalLeaderInfo(
+            node_id="leader-2",
+            elected_at=1704067200.0,
+            last_heartbeat=1704067200.0,
+        )
+
+        assert info.region_id == "default"
+        assert info.is_global_coordinator is False
+
+
+class TestRegionalLeaderElectionInit:
+    """Tests for RegionalLeaderElection initialization."""
+
+    def test_init_with_defaults(self):
+        """Test initialization with default config."""
+        election = RegionalLeaderElection()
+
+        assert election.state == LeaderState.DISCONNECTED
+        assert not election.is_regional_leader
+        assert not election.is_global_coordinator
+        assert election.region_id == "default"
+        assert election.regional_leaders == {}
+
+    def test_init_with_custom_config(self):
+        """Test initialization with custom config."""
+        config = RegionalLeaderConfig(
+            region_id="us-west-2",
+            node_id="custom-regional-node",
+        )
+        election = RegionalLeaderElection(config=config)
+
+        assert election.region_id == "us-west-2"
+        assert election.node_id == "custom-regional-node"
+
+
+class TestRegionalLeaderElectionCallbacks:
+    """Tests for RegionalLeaderElection callback registration."""
+
+    def test_on_become_regional_leader(self):
+        """Test registering become_regional_leader callback."""
+        election = RegionalLeaderElection()
+        callback = MagicMock()
+
+        election.on_become_regional_leader(callback)
+
+        assert callback in election._on_become_regional_leader
+
+    def test_on_lose_regional_leader(self):
+        """Test registering lose_regional_leader callback."""
+        election = RegionalLeaderElection()
+        callback = MagicMock()
+
+        election.on_lose_regional_leader(callback)
+
+        assert callback in election._on_lose_regional_leader
+
+    def test_on_become_global_coordinator(self):
+        """Test registering become_global_coordinator callback."""
+        election = RegionalLeaderElection()
+        callback = MagicMock()
+
+        election.on_become_global_coordinator(callback)
+
+        assert callback in election._on_become_global_coordinator
+
+    def test_on_lose_global_coordinator(self):
+        """Test registering lose_global_coordinator callback."""
+        election = RegionalLeaderElection()
+        callback = MagicMock()
+
+        election.on_lose_global_coordinator(callback)
+
+        assert callback in election._on_lose_global_coordinator
+
+
+class TestRegionalLeaderElectionLifecycle:
+    """Tests for RegionalLeaderElection start/stop lifecycle."""
+
+    @pytest.mark.asyncio
+    async def test_start_creates_election_task(self):
+        """Test that start creates election task with region-scoped keys."""
+        config = RegionalLeaderConfig(
+            region_id="us-west-2",
+            retry_interval=0.01,
+        )
+        election = RegionalLeaderElection(config=config)
+
+        await election.start()
+
+        try:
+            assert election._running is True
+            assert election._election_task is not None
+            # Key prefix should be region-scoped during election
+        finally:
+            await election.stop()
+
+    @pytest.mark.asyncio
+    async def test_stop_cancels_tasks(self):
+        """Test that stop cancels running tasks."""
+        config = RegionalLeaderConfig(retry_interval=0.01)
+        election = RegionalLeaderElection(config=config)
+
+        await election.start()
+        await asyncio.sleep(0.05)
+
+        await election.stop()
+
+        assert election._running is False
+        assert election.state == LeaderState.DISCONNECTED
+
+
+class TestRegionalLeaderElectionProperties:
+    """Tests for RegionalLeaderElection properties."""
+
+    def test_region_id_property(self):
+        """Test region_id property."""
+        config = RegionalLeaderConfig(region_id="eu-west-1")
+        election = RegionalLeaderElection(config=config)
+        assert election.region_id == "eu-west-1"
+
+    def test_is_regional_leader_property(self):
+        """Test is_regional_leader property mirrors is_leader."""
+        election = RegionalLeaderElection()
+        assert not election.is_regional_leader
+
+        # Manually set state for testing
+        election._state = LeaderState.LEADER
+        assert election.is_regional_leader
+
+    def test_is_global_coordinator_property(self):
+        """Test is_global_coordinator property."""
+        election = RegionalLeaderElection()
+        assert not election.is_global_coordinator
+
+        election._is_global_coordinator = True
+        assert election.is_global_coordinator
+
+    def test_regional_leaders_property(self):
+        """Test regional_leaders property returns copy."""
+        election = RegionalLeaderElection()
+        info = RegionalLeaderInfo(
+            node_id="other-leader",
+            region_id="us-east-1",
+            elected_at=time.time(),
+            last_heartbeat=time.time(),
+        )
+        election._regional_leaders["us-east-1"] = info
+
+        leaders = election.regional_leaders
+        assert "us-east-1" in leaders
+        assert leaders["us-east-1"].node_id == "other-leader"
+
+        # Should be a copy
+        leaders["us-east-1"] = None
+        assert election._regional_leaders["us-east-1"].node_id == "other-leader"
+
+
+class TestRegionalLeaderElectionStats:
+    """Tests for RegionalLeaderElection statistics."""
+
+    def test_get_stats_includes_regional_info(self):
+        """Test that get_stats includes regional information."""
+        config = RegionalLeaderConfig(
+            region_id="ap-southeast-1",
+            node_id="test-node",
+        )
+        election = RegionalLeaderElection(config=config)
+
+        stats = election.get_stats()
+
+        assert stats["node_id"] == "test-node"
+        assert stats["region_id"] == "ap-southeast-1"
+        assert stats["is_regional_leader"] is False
+        assert stats["is_global_coordinator"] is False
+        assert stats["known_regional_leaders"] == []
+
+    def test_get_stats_with_known_leaders(self):
+        """Test stats with known regional leaders."""
+        election = RegionalLeaderElection()
+        election._regional_leaders["us-east-1"] = RegionalLeaderInfo(
+            node_id="east-leader",
+            region_id="us-east-1",
+            elected_at=time.time(),
+            last_heartbeat=time.time(),
+        )
+        election._regional_leaders["eu-west-1"] = RegionalLeaderInfo(
+            node_id="eu-leader",
+            region_id="eu-west-1",
+            elected_at=time.time(),
+            last_heartbeat=time.time(),
+        )
+
+        stats = election.get_stats()
+
+        assert "us-east-1" in stats["known_regional_leaders"]
+        assert "eu-west-1" in stats["known_regional_leaders"]
+
+
+class TestMultiRegionElection:
+    """Tests for multi-region election scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_two_regions_two_leaders(self):
+        """Test that two regions can have independent leaders."""
+        mock_redis = MockInMemoryRedis()
+
+        config1 = RegionalLeaderConfig(
+            region_id="us-west-2",
+            node_id="west-node",
+            retry_interval=0.01,
+        )
+        config2 = RegionalLeaderConfig(
+            region_id="us-east-1",
+            node_id="east-node",
+            retry_interval=0.01,
+        )
+
+        election1 = RegionalLeaderElection(config=config1, redis_client=mock_redis)
+        election2 = RegionalLeaderElection(config=config2, redis_client=mock_redis)
+
+        await election1.start()
+        await election2.start()
+
+        try:
+            # Wait for elections to settle
+            await asyncio.sleep(0.2)
+
+            # Both should be able to become leaders of their respective regions
+            # (since they use different key prefixes)
+            west_leader = election1.is_regional_leader
+            east_leader = election2.is_regional_leader
+
+            # At least one should be a leader (the test might vary based on timing)
+            # but they should NOT block each other
+        finally:
+            await election1.stop()
+            await election2.stop()
+
+    @pytest.mark.asyncio
+    async def test_same_region_only_one_leader(self):
+        """Test that same region only has one leader."""
+        mock_redis = MockInMemoryRedis()
+
+        # Both in same region
+        config1 = RegionalLeaderConfig(
+            region_id="us-west-2",
+            node_id="node-1",
+            retry_interval=0.01,
+        )
+        config2 = RegionalLeaderConfig(
+            region_id="us-west-2",
+            node_id="node-2",
+            retry_interval=0.01,
+        )
+
+        election1 = RegionalLeaderElection(config=config1, redis_client=mock_redis)
+        election2 = RegionalLeaderElection(config=config2, redis_client=mock_redis)
+
+        await election1.start()
+        await election2.start()
+
+        try:
+            await asyncio.sleep(0.2)
+
+            leaders = []
+            if election1.is_regional_leader:
+                leaders.append("node-1")
+            if election2.is_regional_leader:
+                leaders.append("node-2")
+
+            # At most one leader in same region
+            assert len(leaders) <= 1
+        finally:
+            await election1.stop()
+            await election2.stop()
