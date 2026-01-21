@@ -599,6 +599,7 @@ ROLE_VIEWER = Role(
         PERM_DEBATE_READ.key,
         PERM_AGENT_READ.key,
         PERM_ORG_READ.key,
+        PERM_FINDINGS_READ.key,
     },
     priority=10,
     is_system=True,
