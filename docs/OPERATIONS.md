@@ -14,6 +14,7 @@ This document provides operational guidance for running, monitoring, and trouble
 8. [Database Operations](#database-operations)
 9. [Backup & Recovery](#backup--recovery)
 10. [Storage Cleanup](#storage-cleanup)
+11. [Knowledge Mound Operations](#knowledge-mound-operations)
 
 ---
 
@@ -662,6 +663,123 @@ To analyze storage usage without cleaning:
 ```bash
 python scripts/cleanup_nomic_state.py --analyze-only
 ```
+
+---
+
+## Knowledge Mound Operations
+
+The Knowledge Mound (KM) is Aragora's unified knowledge storage system that enables cross-debate learning and organizational knowledge accumulation.
+
+### Health Monitoring
+
+```bash
+# Comprehensive KM health check
+curl -s http://localhost:8080/api/health/knowledge-mound | jq .
+
+# Expected healthy response:
+# {
+#   "status": "healthy",
+#   "summary": {"total_components": 11, "healthy": 11, "active": 8},
+#   "components": {...}
+# }
+```
+
+### Environment Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KNOWLEDGE_MOUND_DATABASE_URL` | SQLite | PostgreSQL URL for production |
+| `KNOWLEDGE_MOUND_REDIS_URL` | - | Redis URL for KM caching |
+| `CP_ENABLE_KM` | `true` | Enable Control Plane → KM integration |
+| `CP_KM_WORKSPACE` | `default` | Default workspace for Control Plane |
+
+### Prometheus Metrics
+
+Key KM metrics exposed at `/metrics`:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `aragora_km_operations_total` | Counter | KM operations by type and status |
+| `aragora_km_operation_latency_seconds` | Histogram | Operation latency |
+| `aragora_km_adapter_syncs_total` | Counter | Adapter sync operations |
+| `aragora_km_cp_task_outcomes_total` | Counter | Control Plane task outcomes stored |
+| `aragora_km_forward_sync_latency_seconds` | Histogram | Forward sync latency by adapter |
+| `aragora_km_reverse_query_latency_seconds` | Histogram | Reverse query latency |
+| `aragora_km_semantic_search_total` | Counter | Semantic search operations |
+| `aragora_km_cross_debate_reuse_total` | Counter | Knowledge reused across debates |
+
+### Bidirectional Adapters
+
+KM uses adapters to sync data bidirectionally between subsystems:
+
+| Adapter | Direction | Data Synced |
+|---------|-----------|-------------|
+| ContinuumAdapter | ↔ | Multi-tier memory entries |
+| ConsensusAdapter | ↔ | Debate consensus outcomes |
+| CritiqueAdapter | ↔ | Critique patterns and feedback |
+| EvidenceAdapter | ↔ | Evidence snippets with quality scores |
+| BeliefAdapter | ↔ | Belief network nodes and cruxes |
+| InsightsAdapter | ↔ | Debate insights and Trickster flips |
+| EloAdapter | ↔ | Agent rankings and calibration |
+| PulseAdapter | ↔ | Trending topics and scheduled debates |
+| CostAdapter | ↔ | Budget alerts and cost patterns |
+| RankingAdapter | ↔ | Agent expertise by domain |
+| CultureAdapter | ↔ | Organizational culture patterns |
+| ControlPlaneAdapter | ↔ | Task outcomes and agent capabilities |
+
+### Control Plane Integration
+
+The Control Plane stores task outcomes and capability records in KM:
+
+```python
+# Task outcomes automatically stored on completion
+coordinator.complete_task(task_id, result, agent_id="claude-3", latency_ms=5000)
+
+# Query agent recommendations from KM
+recommendations = await coordinator.get_agent_recommendations("debate")
+```
+
+### Cross-Workspace Learning
+
+Share insights across workspaces via the Control Plane adapter:
+
+```python
+from aragora.knowledge.mound.adapters import ControlPlaneAdapter, CrossWorkspaceInsight
+
+adapter = ControlPlaneAdapter(knowledge_mound=km, workspace_id="workspace_a")
+
+# Share insight
+insight = CrossWorkspaceInsight(
+    insight_id="insight_001",
+    source_workspace="workspace_a",
+    target_workspaces=["workspace_b", "workspace_c"],
+    task_type="debate",
+    content="Structured 3-round debates work best for consensus",
+    confidence=0.85,
+    created_at=datetime.now().isoformat(),
+)
+await adapter.share_insight_cross_workspace(insight)
+
+# Query insights from other workspaces
+insights = await adapter.get_cross_workspace_insights("debate")
+```
+
+### Troubleshooting
+
+**KM not storing data:**
+1. Check health endpoint: `curl localhost:8080/api/health/knowledge-mound`
+2. Verify database connectivity
+3. Check adapter sync metrics: `aragora_km_adapter_syncs_total`
+
+**Slow queries:**
+1. Monitor `aragora_km_operation_latency_seconds` histogram
+2. Check Redis cache hit rate: `aragora_km_cache_hits_total / (hits + misses)`
+3. Consider enabling RLM summaries: `enable_rlm_summaries: true`
+
+**Cross-workspace insights not appearing:**
+1. Verify workspace IDs match target_workspaces
+2. Check `aragora_km_cp_cross_workspace_shares_total` metric
+3. Ensure minimum confidence threshold (default 0.6)
 
 ---
 

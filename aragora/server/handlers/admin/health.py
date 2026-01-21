@@ -1625,6 +1625,113 @@ class HealthHandler(BaseHandler):
                 "error": f"{type(e).__name__}: {str(e)[:80]}",
             }
 
+        # 9. Check bidirectional adapters
+        try:
+            from aragora.knowledge.mound.adapters import (
+                ContinuumAdapter,
+                ConsensusAdapter,
+                CritiqueAdapter,
+                EvidenceAdapter,
+                BeliefAdapter,
+                InsightsAdapter,
+                EloAdapter,
+                PulseAdapter,
+                CostAdapter,
+                RankingAdapter,
+                CultureAdapter,
+            )
+
+            adapter_classes = [
+                ("continuum", ContinuumAdapter),
+                ("consensus", ConsensusAdapter),
+                ("critique", CritiqueAdapter),
+                ("evidence", EvidenceAdapter),
+                ("belief", BeliefAdapter),
+                ("insights", InsightsAdapter),
+                ("elo", EloAdapter),
+                ("pulse", PulseAdapter),
+                ("cost", CostAdapter),
+                ("ranking", RankingAdapter),
+                ("culture", CultureAdapter),
+            ]
+
+            components["bidirectional_adapters"] = {
+                "healthy": True,
+                "status": "available",
+                "adapters_available": len(adapter_classes),
+                "adapter_list": [name for name, _ in adapter_classes],
+            }
+        except ImportError as e:
+            components["bidirectional_adapters"] = {
+                "healthy": True,
+                "status": "partial",
+                "error": f"Some adapters not available: {str(e)[:80]}",
+            }
+        except Exception as e:
+            components["bidirectional_adapters"] = {
+                "healthy": True,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+
+        # 10. Check Control Plane adapter
+        try:
+            from aragora.knowledge.mound.adapters.control_plane_adapter import (
+                ControlPlaneAdapter,
+                TaskOutcome,
+                AgentCapabilityRecord,
+                CrossWorkspaceInsight,
+            )
+
+            components["control_plane_adapter"] = {
+                "healthy": True,
+                "status": "available",
+                "features": [
+                    "task_outcome_storage",
+                    "capability_records",
+                    "cross_workspace_insights",
+                    "agent_recommendations",
+                ],
+            }
+        except ImportError as e:
+            components["control_plane_adapter"] = {
+                "healthy": True,
+                "status": "not_available",
+                "error": str(e)[:80],
+            }
+        except Exception as e:
+            components["control_plane_adapter"] = {
+                "healthy": True,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+
+        # 11. Check KM metrics availability
+        try:
+            from aragora.observability.metrics.km import (
+                init_km_metrics,
+                record_km_operation,
+                record_cp_task_outcome,
+            )
+
+            components["km_metrics"] = {
+                "healthy": True,
+                "status": "available",
+                "prometheus_integration": True,
+            }
+        except ImportError:
+            components["km_metrics"] = {
+                "healthy": True,
+                "status": "not_available",
+                "prometheus_integration": False,
+            }
+        except Exception as e:
+            components["km_metrics"] = {
+                "healthy": True,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+
         # Calculate response time
         response_time_ms = round((time.time() - start_time) * 1000, 2)
 
