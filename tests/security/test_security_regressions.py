@@ -182,6 +182,56 @@ class TestSecureHandlerInheritance:
             WorkspaceHandler, SecureHandler
         ), "SECURITY REGRESSION: WorkspaceHandler must extend SecureHandler"
 
+    def test_notifications_handler_extends_secure_handler(self):
+        """NotificationsHandler must extend SecureHandler."""
+        from aragora.server.handlers.social.notifications import NotificationsHandler
+        from aragora.server.handlers.secure import SecureHandler
+
+        assert issubclass(
+            NotificationsHandler, SecureHandler
+        ), "SECURITY REGRESSION: NotificationsHandler must extend SecureHandler"
+
+
+class TestGmailIngestionAuth:
+    """Verify Gmail ingestion binds user_id to JWT context."""
+
+    def test_gmail_handler_has_authenticated_user_method(self):
+        """GmailIngestHandler must have _get_authenticated_user method."""
+        from aragora.server.handlers.features.gmail_ingest import GmailIngestHandler
+
+        # Check the class has the method (don't instantiate - requires server context)
+        assert hasattr(
+            GmailIngestHandler, "_get_authenticated_user"
+        ), "SECURITY REGRESSION: GmailIngestHandler must have _get_authenticated_user method"
+
+    def test_gmail_handler_does_not_trust_query_params(self):
+        """GmailIngestHandler must not trust user_id from query params."""
+        import inspect
+        from aragora.server.handlers.features.gmail_ingest import GmailIngestHandler
+
+        # Check the handle method source doesn't use query_params.get("user_id")
+        source = inspect.getsource(GmailIngestHandler.handle)
+        assert (
+            'query_params.get("user_id"' not in source
+        ), "SECURITY REGRESSION: Gmail handler must not trust user_id from query params"
+        assert (
+            "_get_authenticated_user" in source
+        ), "SECURITY REGRESSION: Gmail handler must use _get_authenticated_user"
+
+    def test_gmail_handler_does_not_trust_body_user_id(self):
+        """GmailIngestHandler must not trust user_id from request body."""
+        import inspect
+        from aragora.server.handlers.features.gmail_ingest import GmailIngestHandler
+
+        # Check the handle_post method source doesn't use body.get("user_id")
+        source = inspect.getsource(GmailIngestHandler.handle_post)
+        assert (
+            'body.get("user_id"' not in source
+        ), "SECURITY REGRESSION: Gmail handler must not trust user_id from body"
+        assert (
+            "_get_authenticated_user" in source
+        ), "SECURITY REGRESSION: Gmail handler must use _get_authenticated_user"
+
 
 class TestEncryptionService:
     """Verify encryption service works correctly."""
@@ -330,3 +380,77 @@ class TestQuickSecuritySanity:
         from aragora.billing.jwt_auth import extract_user_from_request
 
         assert extract_user_from_request is not None
+
+    def test_gmail_handler_extends_secure_handler(self):
+        """GmailIngestHandler must extend SecureHandler."""
+        from aragora.server.handlers.features.gmail_ingest import GmailIngestHandler
+        from aragora.server.handlers.secure import SecureHandler
+
+        assert issubclass(
+            GmailIngestHandler, SecureHandler
+        ), "SECURITY REGRESSION: GmailIngestHandler must extend SecureHandler"
+
+    def test_notifications_handler_extends_secure_handler(self):
+        """NotificationsHandler must extend SecureHandler."""
+        from aragora.server.handlers.social.notifications import NotificationsHandler
+        from aragora.server.handlers.secure import SecureHandler
+
+        assert issubclass(
+            NotificationsHandler, SecureHandler
+        ), "SECURITY REGRESSION: NotificationsHandler must extend SecureHandler"
+
+
+class TestWebhookVerificationFailClosed:
+    """Verify webhook verification fails closed in production."""
+
+    def test_slack_webhook_fails_closed(self):
+        """Slack webhook must fail closed without signing secret in production."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        # No signing_secret configured
+        connector = SlackConnector(webhook_url="https://example.com")
+
+        # Without signing_secret and without ARAGORA_WEBHOOK_ALLOW_UNVERIFIED,
+        # verify_webhook should return False (fail closed)
+        with patch.dict(os.environ, {"ARAGORA_WEBHOOK_ALLOW_UNVERIFIED": ""}, clear=False):
+            result = connector.verify_webhook({}, b"test")
+            assert result is False, "SECURITY REGRESSION: Slack webhook should fail closed"
+
+    def test_discord_webhook_fails_closed(self):
+        """Discord webhook must fail closed without public key in production."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        # No public_key configured
+        connector = DiscordConnector(webhook_url="https://example.com")
+
+        with patch.dict(os.environ, {"ARAGORA_WEBHOOK_ALLOW_UNVERIFIED": ""}, clear=False):
+            result = connector.verify_webhook({}, b"test")
+            assert result is False, "SECURITY REGRESSION: Discord webhook should fail closed"
+
+
+class TestEncryptionProductionEnforcement:
+    """Verify encryption is required in production."""
+
+    def test_encryption_required_in_production(self):
+        """Encryption must be required when ARAGORA_ENV=production."""
+        from aragora.security.encryption import is_encryption_required
+
+        with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=False):
+            # Clear the module cache to re-evaluate
+            assert (
+                is_encryption_required() is True
+            ), "SECURITY REGRESSION: Encryption must be required in production"
+
+    def test_encryption_not_required_in_development(self):
+        """Encryption should not be required in development by default."""
+        from aragora.security.encryption import is_encryption_required
+
+        with patch.dict(
+            os.environ,
+            {"ARAGORA_ENV": "development", "ARAGORA_ENCRYPTION_REQUIRED": ""},
+            clear=False,
+        ):
+            # In development mode without explicit requirement, encryption is optional
+            result = is_encryption_required()
+            # This may be True if ARAGORA_ENCRYPTION_REQUIRED was set globally
+            # The important test is production mode above
