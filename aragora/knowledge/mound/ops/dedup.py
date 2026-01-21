@@ -9,7 +9,7 @@ Provides similarity-based deduplication (beyond exact hash matching):
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMoundCore
@@ -64,7 +64,7 @@ class DedupOperationsMixin:
     """Mixin providing deduplication operations for Knowledge Mound."""
 
     # Type stubs for mixin - actual implementation provided by composed class
-    _store: Any  # KnowledgeMoundMetaStore or compatible store
+    # Uses adapter methods from KnowledgeMoundCore
 
     async def find_duplicates(
         self: "KnowledgeMoundCore",
@@ -87,8 +87,8 @@ class DedupOperationsMixin:
         """
         clusters = []
 
-        # Get all nodes for workspace
-        nodes = await self._store.get_nodes_for_workspace(
+        # Get all nodes for workspace using adapter method
+        nodes = await self._get_nodes_for_workspace(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             limit=1000,  # Sample for performance
         )
@@ -104,8 +104,8 @@ class DedupOperationsMixin:
             if node.id in processed_ids:
                 continue
 
-            # Find similar nodes using semantic search
-            similar = await self._store.search_similar(
+            # Find similar nodes using semantic search via adapter method
+            similar = await self._search_similar(  # type: ignore[attr-defined]
                 workspace_id=workspace_id,
                 embedding=node.embedding if hasattr(node, "embedding") else None,
                 query=node.content[:500],  # Fallback to content search
@@ -181,8 +181,8 @@ class DedupOperationsMixin:
             limit=500,
         )
 
-        # Count total nodes
-        total_nodes = await self._store.count_nodes(workspace_id=workspace_id)
+        # Count total nodes using adapter method
+        total_nodes = await self._count_nodes(workspace_id=workspace_id)  # type: ignore[attr-defined]
 
         # Calculate potential reduction
         duplicate_count = sum(len(c.duplicates) for c in clusters)
@@ -236,43 +236,47 @@ class DedupOperationsMixin:
         if cluster.primary_node_id != keep_id:
             merged_ids.append(cluster.primary_node_id)
 
-        # Transfer relationships from duplicates to primary
+        # Transfer relationships from duplicates to primary using adapter method
         updated_rels = 0
         for merge_id in merged_ids:
             # Get relationships from duplicate
-            rels = await self._store.get_node_relationships(merge_id, workspace_id)
+            rels = await self._get_node_relationships_for_ops(merge_id, workspace_id)  # type: ignore[attr-defined]
             for rel in rels:
                 # Update relationship to point to/from primary
-                if rel.source_id == merge_id:
-                    await self._store.create_relationship(
+                source = getattr(rel, "source_id", None) or getattr(rel, "from_node_id", None)
+                target = getattr(rel, "target_id", None) or getattr(rel, "to_node_id", None)
+                rel_type = (
+                    getattr(rel, "type", None) or getattr(rel, "relationship", None) or "related_to"
+                )
+                if hasattr(rel_type, "value"):
+                    rel_type = rel_type.value
+                if source == merge_id:
+                    await self._create_relationship(  # type: ignore[attr-defined]
                         source_id=keep_id,
-                        target_id=rel.target_id,
-                        relationship_type=rel.type,
+                        target_id=target,
+                        relationship_type=rel_type,
                         workspace_id=workspace_id,
                     )
-                elif rel.target_id == merge_id:
-                    await self._store.create_relationship(
-                        source_id=rel.source_id,
+                elif target == merge_id:
+                    await self._create_relationship(  # type: ignore[attr-defined]
+                        source_id=source,
                         target_id=keep_id,
-                        relationship_type=rel.type,
+                        relationship_type=rel_type,
                         workspace_id=workspace_id,
                     )
                 updated_rels += 1
 
-        # Archive or delete duplicates
+        # Archive or delete duplicates using adapter methods
         archived = 0
         for merge_id in merged_ids:
             if archive:
-                await self._store.archive_node(
+                await self._archive_node_with_reason(  # type: ignore[attr-defined]
                     node_id=merge_id,
                     workspace_id=workspace_id,
                     reason=f"merged_into_{keep_id}",
                 )
             else:
-                await self._store.delete_node(
-                    node_id=merge_id,
-                    workspace_id=workspace_id,
-                )
+                await self._delete_node(merge_id)  # type: ignore[attr-defined]
             archived += 1
 
         return MergeResult(
@@ -298,8 +302,8 @@ class DedupOperationsMixin:
         Returns:
             Summary of merges (or would-be merges if dry_run)
         """
-        # Get nodes grouped by content hash
-        hash_groups = await self._store.get_nodes_by_content_hash(workspace_id)
+        # Get nodes grouped by content hash using adapter method
+        hash_groups = await self._get_nodes_by_content_hash(workspace_id)  # type: ignore[attr-defined]
 
         duplicates_found = 0
         merges_performed = 0
@@ -312,14 +316,15 @@ class DedupOperationsMixin:
             duplicates_found += len(node_ids) - 1
 
             if not dry_run:
-                # Keep the oldest node
-                nodes = [await self._store.get_node(nid, workspace_id) for nid in node_ids]
+                # Keep the oldest node - get nodes using adapter
+                nodes = [await self._get_node(nid) for nid in node_ids]  # type: ignore[attr-defined]
+                nodes = [n for n in nodes if n is not None]
                 nodes_sorted = sorted(nodes, key=lambda n: n.created_at)
                 keep = nodes_sorted[0]
                 merge = nodes_sorted[1:]
 
                 for m in merge:
-                    await self._store.archive_node(
+                    await self._archive_node_with_reason(  # type: ignore[attr-defined]
                         node_id=m.id,
                         workspace_id=workspace_id,
                         reason=f"exact_duplicate_of_{keep.id}",

@@ -205,9 +205,7 @@ class KnowledgeMoundCore:
                 # Initialize with integrity checks
                 integrity_result = await self._meta_store.initialize()
                 if self.config.enable_integrity_checks and not integrity_result.passed:
-                    logger.warning(
-                        f"Integrity check found issues: {integrity_result.issues_found}"
-                    )
+                    logger.warning(f"Integrity check found issues: {integrity_result.issues_found}")
                 logger.debug(
                     f"PostgreSQL backend initialized with resilience "
                     f"(integrity: {integrity_result.checks_performed} checks, "
@@ -566,6 +564,295 @@ class KnowledgeMoundCore:
     async def _increment_update_count(self, node_id: str) -> None:
         """Increment update count for a node."""
         await self._update_node(node_id, {"update_count": "update_count + 1"})
+
+    # =========================================================================
+    # Ops Mixin Adapter Methods (for dedup/pruning operations)
+    # =========================================================================
+
+    async def _get_nodes_for_workspace(self, workspace_id: str, limit: int = 1000) -> List[Any]:
+        """Get all nodes for a workspace (used by dedup/pruning)."""
+        if hasattr(self._meta_store, "get_nodes_for_workspace_async"):
+            return await self._meta_store.get_nodes_for_workspace_async(workspace_id, limit)
+        elif hasattr(self._meta_store, "query_nodes"):
+            nodes = self._meta_store.query_nodes(workspace_id=workspace_id, limit=limit)
+            return [self._node_to_item(n) for n in nodes]
+        return []
+
+    async def _search_similar(
+        self,
+        workspace_id: str,
+        embedding: Optional[List[float]] = None,
+        query: Optional[str] = None,
+        top_k: int = 20,
+        min_score: float = 0.8,
+    ) -> List[Any]:
+        """Search for similar nodes by embedding or content (used by dedup)."""
+        if hasattr(self._meta_store, "search_similar_async"):
+            return await self._meta_store.search_similar_async(
+                workspace_id, embedding, query, top_k, min_score
+            )
+        elif self._semantic_store and query:
+            # Use semantic store for similarity search
+            try:
+                results = await self._semantic_store.search(query, limit=top_k)
+                return [r for r in results if getattr(r, "score", 1.0) >= min_score]
+            except (AttributeError, TypeError):
+                pass
+        # Fallback: simple content-based similarity using query_local
+        if query:
+            items = await self._query_local(query, None, top_k, workspace_id)
+            # Add mock score attribute
+            for item in items:
+                item.score = 0.9  # type: ignore[attr-defined]
+            return items
+        return []
+
+    async def _count_nodes(self, workspace_id: str) -> int:
+        """Count nodes in workspace (used by dedup report)."""
+        if hasattr(self._meta_store, "count_nodes_async"):
+            return await self._meta_store.count_nodes_async(workspace_id)
+        elif hasattr(self._meta_store, "get_stats"):
+            stats = self._meta_store.get_stats(workspace_id)
+            return stats.get("total_nodes", 0)
+        elif hasattr(self._meta_store, "query_nodes"):
+            nodes = self._meta_store.query_nodes(workspace_id=workspace_id, limit=100000)
+            return len(nodes)
+        return 0
+
+    async def _get_node_relationships_for_ops(self, node_id: str, workspace_id: str) -> List[Any]:
+        """Get relationships for node (used by dedup merge)."""
+        return await self._get_relationships(node_id)
+
+    async def _create_relationship(
+        self,
+        source_id: str,
+        target_id: str,
+        relationship_type: str,
+        workspace_id: str,
+    ) -> None:
+        """Create a relationship (used by dedup merge)."""
+        await self._save_relationship(source_id, target_id, relationship_type)
+
+    async def _archive_node_with_reason(self, node_id: str, workspace_id: str, reason: str) -> None:
+        """Archive node with reason (used by dedup/pruning)."""
+        # Get node data first
+        node = await self._get_node(node_id)
+        if not node:
+            logger.debug(f"Node {node_id} not found, skipping archive")
+            return
+
+        archive_record = {
+            "id": f"arch_{node_id}_{uuid.uuid4().hex[:8]}",
+            "original_id": node_id,
+            "content": node.content,
+            "source": node.source.value if hasattr(node.source, "value") else str(node.source),
+            "source_id": node.source_id,
+            "confidence": (
+                node.confidence.value if hasattr(node.confidence, "value") else str(node.confidence)
+            ),
+            "importance": node.importance,
+            "metadata": node.metadata,
+            "created_at": node.created_at.isoformat() if node.created_at else None,
+            "updated_at": node.updated_at.isoformat() if node.updated_at else None,
+            "archived_at": datetime.now().isoformat(),
+            "archived_by": reason,
+            "workspace_id": workspace_id,
+        }
+
+        # Save to archive
+        try:
+            with self._meta_store.connection() as conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS knowledge_archive (
+                        id TEXT PRIMARY KEY,
+                        original_id TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        source TEXT,
+                        source_id TEXT,
+                        confidence TEXT,
+                        importance REAL,
+                        metadata TEXT,
+                        created_at TEXT,
+                        updated_at TEXT,
+                        archived_at TEXT NOT NULL,
+                        archived_by TEXT,
+                        workspace_id TEXT
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO knowledge_archive
+                    (id, original_id, content, source, source_id, confidence,
+                     importance, metadata, created_at, updated_at, archived_at, archived_by, workspace_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        archive_record["id"],
+                        archive_record["original_id"],
+                        archive_record["content"],
+                        archive_record["source"],
+                        archive_record["source_id"],
+                        archive_record["confidence"],
+                        archive_record["importance"],
+                        json.dumps(archive_record["metadata"])
+                        if archive_record["metadata"]
+                        else "{}",
+                        archive_record["created_at"],
+                        archive_record["updated_at"],
+                        archive_record["archived_at"],
+                        archive_record["archived_by"],
+                        archive_record["workspace_id"],
+                    ),
+                )
+                conn.commit()
+            # Delete the original node
+            await self._delete_node(node_id)
+            logger.debug(f"Archived node {node_id} with reason: {reason}")
+        except (RuntimeError, OSError) as e:
+            logger.warning(f"Failed to archive node {node_id}: {e}")
+
+    async def _restore_archived_node(self, node_id: str, workspace_id: str) -> bool:
+        """Restore an archived node (used by pruning restore)."""
+        try:
+            with self._meta_store.connection() as conn:
+                row = conn.execute(
+                    "SELECT * FROM knowledge_archive WHERE original_id = ? AND workspace_id = ? ORDER BY archived_at DESC LIMIT 1",
+                    (node_id, workspace_id),
+                ).fetchone()
+                if not row:
+                    return False
+
+                # Recreate the node from archive
+                node_data = {
+                    "id": row["original_id"],
+                    "workspace_id": row["workspace_id"],
+                    "content": row["content"],
+                    "source_type": row["source"],
+                    "confidence": float(row["confidence"]) if row["confidence"] else 0.5,
+                    "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
+                }
+                await self._save_node(node_data)
+
+                # Remove from archive
+                conn.execute("DELETE FROM knowledge_archive WHERE id = ?", (row["id"],))
+                conn.commit()
+                return True
+        except (RuntimeError, OSError, KeyError) as e:
+            logger.warning(f"Failed to restore node {node_id}: {e}")
+            return False
+
+    async def _get_nodes_by_content_hash(self, workspace_id: str) -> Dict[str, List[str]]:
+        """Get nodes grouped by content hash (used by dedup auto-merge)."""
+        result: Dict[str, List[str]] = {}
+        if hasattr(self._meta_store, "get_nodes_by_content_hash_async"):
+            return await self._meta_store.get_nodes_by_content_hash_async(workspace_id)
+        elif hasattr(self._meta_store, "query_nodes"):
+            nodes = self._meta_store.query_nodes(workspace_id=workspace_id, limit=100000)
+            for node in nodes:
+                content_hash = node.content_hash
+                if content_hash not in result:
+                    result[content_hash] = []
+                result[content_hash].append(node.id)
+        return result
+
+    async def _get_prune_history(
+        self,
+        workspace_id: str,
+        limit: int = 50,
+        since: Optional[datetime] = None,
+    ) -> List[Any]:
+        """Get pruning history (used by pruning operations)."""
+        from aragora.knowledge.mound.ops.pruning import PruneHistory, PruningAction
+
+        try:
+            with self._meta_store.connection() as conn:
+                # Create table if needed
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS prune_history (
+                        id TEXT PRIMARY KEY,
+                        workspace_id TEXT NOT NULL,
+                        executed_at TEXT NOT NULL,
+                        policy_id TEXT,
+                        action TEXT NOT NULL,
+                        items_pruned INTEGER NOT NULL,
+                        pruned_item_ids TEXT NOT NULL,
+                        reason TEXT,
+                        executed_by TEXT
+                    )
+                    """
+                )
+                if since:
+                    rows = conn.execute(
+                        "SELECT * FROM prune_history WHERE workspace_id = ? AND executed_at > ? ORDER BY executed_at DESC LIMIT ?",
+                        (workspace_id, since.isoformat(), limit),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        "SELECT * FROM prune_history WHERE workspace_id = ? ORDER BY executed_at DESC LIMIT ?",
+                        (workspace_id, limit),
+                    ).fetchall()
+
+                return [
+                    PruneHistory(
+                        history_id=row["id"],
+                        workspace_id=row["workspace_id"],
+                        executed_at=datetime.fromisoformat(row["executed_at"]),
+                        policy_id=row["policy_id"],
+                        action=PruningAction(row["action"]),
+                        items_pruned=row["items_pruned"],
+                        pruned_item_ids=json.loads(row["pruned_item_ids"]),
+                        reason=row["reason"],
+                        executed_by=row["executed_by"],
+                    )
+                    for row in rows
+                ]
+        except (RuntimeError, OSError) as e:
+            logger.warning(f"Failed to get prune history: {e}")
+            return []
+
+    async def _save_prune_history(self, history: Any) -> None:
+        """Save pruning history (used by pruning operations)."""
+        try:
+            with self._meta_store.connection() as conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS prune_history (
+                        id TEXT PRIMARY KEY,
+                        workspace_id TEXT NOT NULL,
+                        executed_at TEXT NOT NULL,
+                        policy_id TEXT,
+                        action TEXT NOT NULL,
+                        items_pruned INTEGER NOT NULL,
+                        pruned_item_ids TEXT NOT NULL,
+                        reason TEXT,
+                        executed_by TEXT
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO prune_history
+                    (id, workspace_id, executed_at, policy_id, action, items_pruned, pruned_item_ids, reason, executed_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        history.history_id,
+                        history.workspace_id,
+                        history.executed_at.isoformat(),
+                        history.policy_id,
+                        history.action.value,
+                        history.items_pruned,
+                        json.dumps(history.pruned_item_ids),
+                        history.reason,
+                        history.executed_by,
+                    ),
+                )
+                conn.commit()
+        except (RuntimeError, OSError) as e:
+            logger.warning(f"Failed to save prune history: {e}")
 
     # =========================================================================
     # Query Helper Methods (for connected stores)

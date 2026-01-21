@@ -11,7 +11,7 @@ or redundant knowledge items:
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMoundCore
@@ -110,7 +110,7 @@ class PruningOperationsMixin:
     """Mixin providing pruning operations for Knowledge Mound."""
 
     # Type stubs for mixin - actual implementation provided by composed class
-    _store: Any  # KnowledgeMoundMetaStore or compatible store
+    # Uses adapter methods from KnowledgeMoundCore
 
     async def get_prunable_items(
         self: "KnowledgeMoundCore",
@@ -218,7 +218,7 @@ class PruningOperationsMixin:
         for node_id in item_ids:
             try:
                 if action == PruningAction.ARCHIVE:
-                    await self._store.archive_node(
+                    await self._archive_node_with_reason(  # type: ignore[attr-defined]
                         node_id=node_id,
                         workspace_id=workspace_id,
                         reason=reason,
@@ -227,33 +227,29 @@ class PruningOperationsMixin:
                     pruned_ids.append(node_id)
 
                 elif action == PruningAction.DELETE:
-                    await self._store.delete_node(
-                        node_id=node_id,
-                        workspace_id=workspace_id,
-                    )
+                    await self._delete_node(node_id)  # type: ignore[attr-defined]
                     deleted += 1
                     pruned_ids.append(node_id)
 
                 elif action == PruningAction.DEMOTE:
                     # Move to lower tier
-                    node = await self._store.get_node(node_id, workspace_id)
-                    tier_order = ["fast", "medium", "slow", "glacial"]
-                    current_idx = tier_order.index(node.tier) if node.tier in tier_order else 0
-                    new_tier = tier_order[min(current_idx + 1, len(tier_order) - 1)]
-                    await self._store.update_node(
-                        node_id=node_id,
-                        workspace_id=workspace_id,
-                        tier=new_tier,
-                    )
+                    node = await self._get_node(node_id)  # type: ignore[attr-defined]
+                    if node:
+                        tier = getattr(node, "tier", "medium")
+                        if hasattr(tier, "value"):
+                            tier = tier.value
+                        tier_order = ["fast", "medium", "slow", "glacial"]
+                        current_idx = tier_order.index(tier) if tier in tier_order else 0
+                        new_tier = tier_order[min(current_idx + 1, len(tier_order) - 1)]
+                        await self._update_node(node_id, {"tier": new_tier})  # type: ignore[attr-defined]
                     demoted += 1
                     pruned_ids.append(node_id)
 
                 elif action == PruningAction.FLAG:
                     # Mark for review
-                    await self._store.update_node(
-                        node_id=node_id,
-                        workspace_id=workspace_id,
-                        metadata={"flagged_for_review": True, "flagged_reason": reason},
+                    await self._update_node(  # type: ignore[attr-defined]
+                        node_id,
+                        {"metadata": {"flagged_for_review": True, "flagged_reason": reason}},
                     )
                     flagged += 1
                     pruned_ids.append(node_id)
@@ -367,7 +363,7 @@ class PruningOperationsMixin:
         Returns:
             List of pruning history entries
         """
-        return await self._store.get_prune_history(
+        return await self._get_prune_history(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             limit=limit,
             since=since,
@@ -387,7 +383,7 @@ class PruningOperationsMixin:
         Returns:
             True if restored, False if not found or already active
         """
-        return await self._store.restore_archived_node(
+        return await self._restore_archived_node(  # type: ignore[attr-defined]
             node_id=node_id,
             workspace_id=workspace_id,
         )
@@ -413,8 +409,8 @@ class PruningOperationsMixin:
         """
         updated = 0
 
-        # Get items that haven't been validated recently
-        nodes = await self._store.get_nodes_for_workspace(
+        # Get items that haven't been validated recently using adapter method
+        nodes = await self._get_nodes_for_workspace(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             limit=1000,
         )
@@ -428,15 +424,14 @@ class PruningOperationsMixin:
                 continue
 
             # Calculate decayed confidence
+            confidence = getattr(node, "confidence", 0.5)
+            if hasattr(confidence, "value"):
+                confidence = float(confidence.value)
             decay = decay_rate * days_since_validation
-            new_confidence = max(node.confidence - decay, min_confidence)
+            new_confidence = max(confidence - decay, min_confidence)
 
-            if new_confidence < node.confidence:
-                await self._store.update_node(
-                    node_id=node.id,
-                    workspace_id=workspace_id,
-                    confidence=new_confidence,
-                )
+            if new_confidence < confidence:
+                await self._update_node(node.id, {"confidence": new_confidence})  # type: ignore[attr-defined]
                 updated += 1
 
         return updated
@@ -461,4 +456,4 @@ class PruningOperationsMixin:
             reason=reason,
             executed_by=executed_by,
         )
-        await self._store.save_prune_history(history)
+        await self._save_prune_history(history)  # type: ignore[attr-defined]
