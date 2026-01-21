@@ -394,3 +394,188 @@ class TestSignatureGeneration:
         )
 
         assert "X-Webhook-Signature" not in captured_headers
+
+
+class TestDeliveryPersistence:
+    """Tests for webhook delivery persistence."""
+
+    @pytest.fixture
+    def temp_db_path(self, tmp_path):
+        """Create a temporary database path."""
+        return str(tmp_path / "test_webhook_delivery.db")
+
+    @pytest.mark.asyncio
+    async def test_persistence_saves_retry(self, temp_db_path):
+        """Should persist retrying deliveries to database."""
+        manager = WebhookDeliveryManager(
+            max_retries=3,
+            base_delay_seconds=0.1,
+            db_path=temp_db_path,
+            enable_persistence=True,
+        )
+
+        async def mock_sender(url, payload, headers):
+            return 500, {"error": "Server error"}
+
+        manager.set_sender(mock_sender)
+
+        delivery = await manager.deliver(
+            webhook_id="wh-persist-1",
+            event_type="test",
+            payload={"data": "test"},
+            url="https://example.com/webhook",
+        )
+
+        assert delivery.status == DeliveryStatus.RETRYING
+
+        # Check database has the record
+        import sqlite3
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.execute(
+            "SELECT status, webhook_id FROM webhook_deliveries WHERE delivery_id = ?",
+            (delivery.delivery_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        assert row is not None
+        assert row[0] == "retrying"
+        assert row[1] == "wh-persist-1"
+
+    @pytest.mark.asyncio
+    async def test_persistence_removes_on_success(self, temp_db_path):
+        """Should remove record from database on successful delivery."""
+        manager = WebhookDeliveryManager(
+            db_path=temp_db_path,
+            enable_persistence=True,
+        )
+
+        async def mock_sender(url, payload, headers):
+            return 200, {"ok": True}
+
+        manager.set_sender(mock_sender)
+
+        delivery = await manager.deliver(
+            webhook_id="wh-success-1",
+            event_type="test",
+            payload={"data": "test"},
+            url="https://example.com/webhook",
+        )
+
+        assert delivery.status == DeliveryStatus.DELIVERED
+
+        # Check database has NO record (removed on success)
+        import sqlite3
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM webhook_deliveries WHERE delivery_id = ?",
+            (delivery.delivery_id,)
+        )
+        count = cursor.fetchone()[0]
+        conn.close()
+
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_persistence_dead_letter(self, temp_db_path):
+        """Should persist dead-lettered deliveries."""
+        manager = WebhookDeliveryManager(
+            max_retries=1,
+            db_path=temp_db_path,
+            enable_persistence=True,
+        )
+
+        async def mock_sender(url, payload, headers):
+            return 500, {"error": "Always fails"}
+
+        manager.set_sender(mock_sender)
+
+        delivery = await manager.deliver(
+            webhook_id="wh-dead-1",
+            event_type="test",
+            payload={"data": "test"},
+            url="https://example.com/webhook",
+        )
+
+        assert delivery.status == DeliveryStatus.DEAD_LETTERED
+
+        # Check database has dead-lettered record
+        import sqlite3
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.execute(
+            "SELECT status FROM webhook_deliveries WHERE delivery_id = ?",
+            (delivery.delivery_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        assert row is not None
+        assert row[0] == "dead_lettered"
+
+    @pytest.mark.asyncio
+    async def test_recovery_on_startup(self, temp_db_path):
+        """Should recover pending deliveries on startup."""
+        # First, create a manager and add a retrying delivery
+        manager1 = WebhookDeliveryManager(
+            max_retries=5,
+            base_delay_seconds=1.0,
+            db_path=temp_db_path,
+            enable_persistence=True,
+        )
+
+        async def mock_sender(url, payload, headers):
+            return 500, {"error": "Temporary failure"}
+
+        manager1.set_sender(mock_sender)
+
+        delivery = await manager1.deliver(
+            webhook_id="wh-recover-1",
+            event_type="test",
+            payload={"important": "data"},
+            url="https://example.com/webhook",
+        )
+
+        assert delivery.status == DeliveryStatus.RETRYING
+        delivery_id = delivery.delivery_id
+
+        # Simulate server restart - create new manager
+        manager2 = WebhookDeliveryManager(
+            max_retries=5,
+            base_delay_seconds=0.05,
+            db_path=temp_db_path,
+            enable_persistence=True,
+        )
+
+        # Start should recover pending deliveries
+        await manager2.start()
+
+        try:
+            # Check retry queue has the recovered delivery
+            assert delivery_id in manager2._retry_queue
+
+            recovered = manager2._retry_queue[delivery_id]
+            assert recovered.webhook_id == "wh-recover-1"
+            assert recovered.payload == {"important": "data"}
+        finally:
+            await manager2.stop()
+
+    @pytest.mark.asyncio
+    async def test_disabled_persistence(self):
+        """Should work without persistence when disabled."""
+        manager = WebhookDeliveryManager(enable_persistence=False)
+
+        async def mock_sender(url, payload, headers):
+            return 500, {"error": "Fails"}
+
+        manager.set_sender(mock_sender)
+
+        delivery = await manager.deliver(
+            webhook_id="wh-no-persist",
+            event_type="test",
+            payload={"data": "test"},
+            url="https://example.com/webhook",
+        )
+
+        # Should still work, just not persist
+        assert delivery.status == DeliveryStatus.RETRYING
+        assert manager._persistence is None

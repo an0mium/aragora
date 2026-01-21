@@ -385,8 +385,15 @@ class WebhookDeliveryManager:
         # Persistence layer
         self._enable_persistence = enable_persistence
         self._persistence: Optional[DeliveryPersistence] = None
+        self._persistence_initialized = False
         if enable_persistence:
             self._persistence = DeliveryPersistence(db_path or _DEFAULT_DB_PATH)
+
+    def _ensure_persistence_initialized(self) -> None:
+        """Ensure persistence layer is initialized (lazy initialization)."""
+        if self._persistence and not self._persistence_initialized:
+            self._persistence.initialize()
+            self._persistence_initialized = True
 
     async def start(self) -> None:
         """Start the background retry processor and recover pending deliveries."""
@@ -395,7 +402,7 @@ class WebhookDeliveryManager:
 
         # Initialize persistence and recover pending deliveries
         if self._persistence:
-            self._persistence.initialize()
+            self._ensure_persistence_initialized()
             await self._recover_pending_deliveries()
 
         self._running = True
@@ -507,8 +514,9 @@ class WebhookDeliveryManager:
         self._delivery_secrets[delivery.delivery_id] = secret
         self._metrics.total_deliveries += 1
 
-        # Persist delivery record
+        # Persist delivery record (lazy init if needed)
         if self._persistence:
+            self._ensure_persistence_initialized()
             self._persistence.save_delivery(delivery, url, secret)
 
         # Check circuit breaker

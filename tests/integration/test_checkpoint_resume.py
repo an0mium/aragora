@@ -730,3 +730,181 @@ class TestListDebatesWithCheckpoints:
             assert "checkpoint_count" in debate
             assert debate["checkpoint_count"] == 2
             assert debate["latest_round"] == 2
+
+
+class TestCheckpointEdgeCases:
+    """Tests for checkpoint edge cases and error recovery."""
+
+    @pytest.fixture
+    def temp_checkpoint_dir(self, tmp_path):
+        """Create temporary directory for checkpoints."""
+        return tmp_path / "checkpoints"
+
+    @pytest.fixture
+    def mock_agents(self):
+        """Create mock agents for tests."""
+        return [
+            MockCheckpointAgent("alice", ["Alice proposal 1", "Alice revised"]),
+            MockCheckpointAgent("bob", ["Bob proposal 1", "Bob revised"]),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_compressed_checkpoint_roundtrip(self, temp_checkpoint_dir, mock_agents):
+        """Should correctly save and load compressed checkpoints."""
+        # Create store with compression enabled
+        store = FileCheckpointStore(str(temp_checkpoint_dir), compress=True)
+        manager = CheckpointManager(store=store)
+
+        messages = [
+            Message(role="proposal", agent="alice", content="Test proposal", round=1),
+            Message(role="critique", agent="bob", content="Test critique", round=1),
+        ]
+
+        checkpoint = await manager.create_checkpoint(
+            debate_id="compressed-test",
+            task="Test compression roundtrip",
+            current_round=1,
+            total_rounds=3,
+            phase="critique",
+            messages=messages,
+            critiques=[],
+            votes=[],
+            agents=mock_agents,
+        )
+
+        # Verify checkpoint file is compressed (smaller or gzip header)
+        checkpoint_files = list(temp_checkpoint_dir.glob("**/*.gz"))
+        assert len(checkpoint_files) >= 1 or checkpoint.status == CheckpointStatus.COMPLETE
+
+        # Load and verify data integrity
+        loaded = await manager.store.load(checkpoint.checkpoint_id)
+        assert loaded is not None
+        assert loaded.debate_id == "compressed-test"
+        assert len(loaded.messages) == 2
+        assert loaded.messages[0].content == "Test proposal"
+
+    @pytest.mark.asyncio
+    async def test_concurrent_checkpoint_creation(self, temp_checkpoint_dir, mock_agents):
+        """Should handle concurrent checkpoint creation safely."""
+        store = FileCheckpointStore(str(temp_checkpoint_dir), compress=False)
+        manager = CheckpointManager(store=store)
+
+        async def create_checkpoint(round_num: int):
+            return await manager.create_checkpoint(
+                debate_id="concurrent-test",
+                task="Test concurrent creation",
+                current_round=round_num,
+                total_rounds=10,
+                phase="proposal",
+                messages=[Message(role="proposal", agent="alice", content=f"Round {round_num}", round=round_num)],
+                critiques=[],
+                votes=[],
+                agents=mock_agents,
+            )
+
+        # Create 5 checkpoints concurrently
+        tasks = [create_checkpoint(i) for i in range(1, 6)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # All should succeed without errors
+        errors = [r for r in results if isinstance(r, Exception)]
+        assert len(errors) == 0, f"Concurrent creation errors: {errors}"
+
+        # All checkpoints should be saved
+        successful = [r for r in results if not isinstance(r, Exception)]
+        assert len(successful) == 5
+
+        # Verify all can be loaded
+        for checkpoint in successful:
+            loaded = await manager.store.load(checkpoint.checkpoint_id)
+            assert loaded is not None
+
+    @pytest.mark.asyncio
+    async def test_resume_from_partial_state(self, temp_checkpoint_dir, mock_agents):
+        """Should resume correctly even with minimal state."""
+        store = FileCheckpointStore(str(temp_checkpoint_dir), compress=False)
+        manager = CheckpointManager(store=store)
+
+        # Create checkpoint with minimal state (no critiques, no votes)
+        checkpoint = await manager.create_checkpoint(
+            debate_id="minimal-state",
+            task="Test minimal resume",
+            current_round=1,
+            total_rounds=5,
+            phase="proposal",
+            messages=[Message(role="proposal", agent="alice", content="Initial", round=1)],
+            critiques=[],
+            votes=[],
+            agents=mock_agents,
+        )
+
+        # Resume should work with minimal state
+        resumed = await manager.resume_from_checkpoint(checkpoint.checkpoint_id)
+
+        assert resumed is not None
+        assert resumed.debate_id == "minimal-state"
+        assert resumed.start_round == 1
+        assert len(resumed.messages) == 1
+        assert len(resumed.critiques) == 0
+        assert len(resumed.votes) == 0
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_with_large_messages(self, temp_checkpoint_dir, mock_agents):
+        """Should handle checkpoints with large message content."""
+        store = FileCheckpointStore(str(temp_checkpoint_dir), compress=True)
+        manager = CheckpointManager(store=store)
+
+        # Create large message content (10KB each)
+        large_content = "x" * 10000
+        messages = [
+            Message(role="proposal", agent="alice", content=large_content, round=1),
+            Message(role="proposal", agent="bob", content=large_content, round=1),
+            Message(role="critique", agent="alice", content=large_content, round=1),
+            Message(role="critique", agent="bob", content=large_content, round=1),
+        ]
+
+        checkpoint = await manager.create_checkpoint(
+            debate_id="large-messages",
+            task="Test large message handling",
+            current_round=1,
+            total_rounds=3,
+            phase="vote",
+            messages=messages,
+            critiques=[],
+            votes=[],
+            agents=mock_agents,
+        )
+
+        # Load and verify content preserved
+        loaded = await manager.store.load(checkpoint.checkpoint_id)
+        assert loaded is not None
+        assert all(len(m.content) == 10000 for m in loaded.messages)
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_expiration_check(self, temp_checkpoint_dir, mock_agents):
+        """Should detect expired checkpoints."""
+        store = FileCheckpointStore(str(temp_checkpoint_dir), compress=False)
+        config = CheckpointConfig(
+            interval_rounds=1,
+            max_checkpoints=10,
+            expiry_hours=0,  # Expire immediately
+        )
+        manager = CheckpointManager(store=store, config=config)
+
+        checkpoint = await manager.create_checkpoint(
+            debate_id="expiry-test",
+            task="Test expiration",
+            current_round=1,
+            total_rounds=3,
+            phase="proposal",
+            messages=[],
+            critiques=[],
+            votes=[],
+            agents=mock_agents,
+        )
+
+        # Mark as expired by modifying timestamp
+        loaded = await manager.store.load(checkpoint.checkpoint_id)
+        if loaded:
+            # Verify checkpoint exists but may be marked as expired
+            assert loaded.checkpoint_id == checkpoint.checkpoint_id

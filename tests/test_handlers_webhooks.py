@@ -516,7 +516,7 @@ class TestRegisterWebhook:
             status = result.status_code
 
             assert status == 400
-            assert "URL must start with http" in response_body
+            assert "Invalid webhook URL" in response_body
 
     def test_register_webhook_missing_events(self, webhook_handler, mock_http_handler, mock_user):
         """Test registration with missing events."""
