@@ -519,11 +519,11 @@ class TeamsConnector(ChatPlatformConnector):
 
         Uses PyJWT to validate the token against Microsoft's public keys.
         SECURITY: Fails closed in production if PyJWT is not available.
-        Set ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 to allow unverified webhooks (dev only).
+        Set ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=1 to allow unverified webhooks (dev only).
         """
         import os
 
-        allow_unverified = os.environ.get("ARAGORA_WEBHOOK_ALLOW_UNVERIFIED", "").lower() in (
+        allow_unverified = os.environ.get("ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS", "").lower() in (
             "1",
             "true",
         )
@@ -542,22 +542,22 @@ class TeamsConnector(ChatPlatformConnector):
             else:
                 if allow_unverified:
                     logger.warning(
-                        "Teams webhook verification skipped - PyJWT not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set. "
+                        "Teams webhook verification skipped - PyJWT not available and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is set. "
                         "Install PyJWT for secure webhook validation: pip install PyJWT"
                     )
                     return True
                 logger.error(
-                    "Teams webhook rejected - PyJWT not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+                    "Teams webhook rejected - PyJWT not available and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS not set"
                 )
                 return False
         except ImportError:
             if allow_unverified:
                 logger.warning(
-                    "Teams JWT verification module not available - ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set"
+                    "Teams JWT verification module not available - ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is set"
                 )
                 return True
             logger.error(
-                "Teams webhook rejected - JWT verification module not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+                "Teams webhook rejected - JWT verification module not available and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS not set"
             )
             return False
 

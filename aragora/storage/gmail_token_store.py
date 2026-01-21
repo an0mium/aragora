@@ -52,10 +52,26 @@ except ImportError:
         raise RuntimeError("Encryption not available")
 
     def is_encryption_required() -> bool:
+        """Fallback when security module unavailable - still check env vars."""
+        import os
+
+        if os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in ("true", "1", "yes"):
+            return True
+        if os.environ.get("ARAGORA_ENV") == "production":
+            return True
         return False
 
     class EncryptionError(Exception):
-        pass
+        """Fallback exception when security module unavailable."""
+
+        def __init__(self, operation: str, reason: str, store: str = ""):
+            self.operation = operation
+            self.reason = reason
+            self.store = store
+            super().__init__(
+                f"Encryption {operation} failed in {store}: {reason}. "
+                f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
+            )
 
 
 # Token fields to encrypt
@@ -128,9 +144,14 @@ def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
 
 @dataclass
 class GmailUserState:
-    """Per-user Gmail state."""
+    """Per-user Gmail state.
+
+    SECURITY: org_id provides tenant isolation for multi-tenant deployments.
+    Admin users can only manage Gmail connections within their own org.
+    """
 
     user_id: str
+    org_id: str = ""  # Organization ID for tenant isolation
     email_address: str = ""
     access_token: str = ""
     refresh_token: str = ""
@@ -147,6 +168,7 @@ class GmailUserState:
         """Serialize to dictionary."""
         result = {
             "user_id": self.user_id,
+            "org_id": self.org_id,
             "email_address": self.email_address,
             "history_id": self.history_id,
             "last_sync": self.last_sync.isoformat() if self.last_sync else None,
@@ -158,15 +180,14 @@ class GmailUserState:
         if include_tokens:
             result["access_token"] = self.access_token
             result["refresh_token"] = self.refresh_token
-            result["token_expiry"] = (
-                self.token_expiry.isoformat() if self.token_expiry else None
-            )
+            result["token_expiry"] = self.token_expiry.isoformat() if self.token_expiry else None
         return result
 
     def to_json(self) -> str:
         """Serialize to JSON for storage."""
         data = {
             "user_id": self.user_id,
+            "org_id": self.org_id,
             "email_address": self.email_address,
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
@@ -187,26 +208,21 @@ class GmailUserState:
         data = json.loads(json_str)
         return cls(
             user_id=data["user_id"],
+            org_id=data.get("org_id", ""),
             email_address=data.get("email_address", ""),
             access_token=data.get("access_token", ""),
             refresh_token=data.get("refresh_token", ""),
             token_expiry=(
-                datetime.fromisoformat(data["token_expiry"])
-                if data.get("token_expiry")
-                else None
+                datetime.fromisoformat(data["token_expiry"]) if data.get("token_expiry") else None
             ),
             history_id=data.get("history_id", ""),
             last_sync=(
-                datetime.fromisoformat(data["last_sync"])
-                if data.get("last_sync")
-                else None
+                datetime.fromisoformat(data["last_sync"]) if data.get("last_sync") else None
             ),
             indexed_count=data.get("indexed_count", 0),
             total_count=data.get("total_count", 0),
             connected_at=(
-                datetime.fromisoformat(data["connected_at"])
-                if data.get("connected_at")
-                else None
+                datetime.fromisoformat(data["connected_at"]) if data.get("connected_at") else None
             ),
             created_at=data.get("created_at", time.time()),
             updated_at=data.get("updated_at", time.time()),
@@ -221,18 +237,12 @@ class GmailUserState:
             email_address=row[1] or "",
             access_token=_decrypt_token(row[2] or "", user_id),
             refresh_token=_decrypt_token(row[3] or "", user_id),
-            token_expiry=(
-                datetime.fromisoformat(row[4]) if row[4] else None
-            ),
+            token_expiry=(datetime.fromisoformat(row[4]) if row[4] else None),
             history_id=row[5] or "",
-            last_sync=(
-                datetime.fromisoformat(row[6]) if row[6] else None
-            ),
+            last_sync=(datetime.fromisoformat(row[6]) if row[6] else None),
             indexed_count=row[7] or 0,
             total_count=row[8] or 0,
-            connected_at=(
-                datetime.fromisoformat(row[9]) if row[9] else None
-            ),
+            connected_at=(datetime.fromisoformat(row[9]) if row[9] else None),
             created_at=row[10] or time.time(),
             updated_at=row[11] or time.time(),
         )
@@ -547,9 +557,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
     def __init__(self, db_path: Path | str, redis_url: Optional[str] = None):
         self._sqlite = SQLiteGmailTokenStore(db_path)
         self._redis: Optional[Any] = None
-        self._redis_url = redis_url or os.environ.get(
-            "ARAGORA_REDIS_URL", "redis://localhost:6379"
-        )
+        self._redis_url = redis_url or os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379")
         self._redis_checked = False
         logger.info("RedisGmailTokenStore initialized with SQLite fallback")
 
@@ -561,9 +569,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
         try:
             import redis
 
-            self._redis = redis.from_url(
-                self._redis_url, encoding="utf-8", decode_responses=True
-            )
+            self._redis = redis.from_url(self._redis_url, encoding="utf-8", decode_responses=True)
             self._redis.ping()
             self._redis_checked = True
             logger.info("Redis connected for Gmail token store")
@@ -596,9 +602,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
         # Populate Redis cache if found
         if state and redis:
             try:
-                redis.setex(
-                    self._token_key(user_id), self.REDIS_TTL, state.to_json()
-                )
+                redis.setex(self._token_key(user_id), self.REDIS_TTL, state.to_json())
             except (ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(f"Redis cache population failed (expected): {e}")
 
@@ -612,9 +616,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
         redis = self._get_redis()
         if redis:
             try:
-                redis.setex(
-                    self._token_key(state.user_id), self.REDIS_TTL, state.to_json()
-                )
+                redis.setex(self._token_key(state.user_id), self.REDIS_TTL, state.to_json())
             except Exception as e:
                 logger.debug(f"Redis cache update failed: {e}")
 
@@ -828,9 +830,7 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
     async def delete_async(self, user_id: str) -> bool:
         """Delete Gmail state for a user asynchronously."""
         async with self._pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM gmail_tokens WHERE user_id = $1", user_id
-            )
+            result = await conn.execute("DELETE FROM gmail_tokens WHERE user_id = $1", user_id)
             deleted = result != "DELETE 0"
             if deleted:
                 logger.debug(f"Deleted Gmail state for user {user_id}")
@@ -861,9 +861,7 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def get_sync_job_sync(self, user_id: str) -> Optional[SyncJobState]:
         """Get sync job state for a user (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_sync_job_async(user_id)
-        )
+        return asyncio.get_event_loop().run_until_complete(self.get_sync_job_async(user_id))
 
     async def get_sync_job_async(self, user_id: str) -> Optional[SyncJobState]:
         """Get sync job state for a user asynchronously."""
@@ -927,16 +925,12 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def delete_sync_job_sync(self, user_id: str) -> bool:
         """Delete sync job for a user (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.delete_sync_job_async(user_id)
-        )
+        return asyncio.get_event_loop().run_until_complete(self.delete_sync_job_async(user_id))
 
     async def delete_sync_job_async(self, user_id: str) -> bool:
         """Delete sync job for a user asynchronously."""
         async with self._pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM gmail_sync_jobs WHERE user_id = $1", user_id
-            )
+            result = await conn.execute("DELETE FROM gmail_sync_jobs WHERE user_id = $1", user_id)
             return result != "DELETE 0"
 
     async def close(self) -> None:

@@ -624,23 +624,23 @@ class SlackConnector(ChatPlatformConnector):
         """Verify Slack webhook signature.
 
         SECURITY: Fails closed in production if signing_secret is not configured.
-        Set ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 to allow unverified webhooks (dev only).
+        Set ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=1 to allow unverified webhooks (dev only).
         """
         import os
 
         if not self.signing_secret:
             # SECURITY: Fail closed by default - require signing secret in production
-            allow_unverified = os.environ.get("ARAGORA_WEBHOOK_ALLOW_UNVERIFIED", "").lower() in (
+            allow_unverified = os.environ.get("ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS", "").lower() in (
                 "1",
                 "true",
             )
             if allow_unverified:
                 logger.warning(
-                    "Slack webhook verification skipped - ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set"
+                    "Slack webhook verification skipped - ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is set"
                 )
                 return True
             logger.error(
-                "Slack webhook rejected - signing_secret not configured and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+                "Slack webhook rejected - signing_secret not configured and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS not set"
             )
             return False
 

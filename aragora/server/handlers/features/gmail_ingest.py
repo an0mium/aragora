@@ -157,7 +157,7 @@ class GmailIngestHandler(SecureHandler):
 
         if path == "/api/gmail/auth/callback":
             # Handle OAuth callback GET
-            return self._handle_oauth_callback(query_params, user_id)
+            return self._handle_oauth_callback(query_params, user_id, org_id or "")
 
         if path == "/api/gmail/sync/status":
             return self._get_sync_status(user_id)
@@ -193,7 +193,7 @@ class GmailIngestHandler(SecureHandler):
             return self._start_connect(body, user_id)
 
         if path == "/api/gmail/auth/callback":
-            return self._handle_oauth_callback_post(body, user_id)
+            return self._handle_oauth_callback_post(body, user_id, org_id or "")
 
         if path == "/api/gmail/sync":
             return self._start_sync(body, user_id)
@@ -283,6 +283,7 @@ class GmailIngestHandler(SecureHandler):
         self,
         query_params: Dict[str, Any],
         user_id: str,
+        org_id: str = "",
     ) -> HandlerResult:
         """Handle OAuth callback (GET).
 
@@ -308,14 +309,19 @@ class GmailIngestHandler(SecureHandler):
                 "Using JWT user_id for security."
             )
 
-        return self._complete_oauth(code, query_params.get("redirect_uri", ""), user_id)
+        return self._complete_oauth(code, query_params.get("redirect_uri", ""), user_id, org_id)
 
     def _handle_oauth_callback_post(
         self,
         body: Dict[str, Any],
         user_id: str,
+        org_id: str = "",
     ) -> HandlerResult:
-        """Handle OAuth callback (POST)."""
+        """Handle OAuth callback (POST).
+
+        SECURITY: user_id is bound to JWT context. The state parameter is used
+        for CSRF protection only, NOT to identify the user.
+        """
         code = body.get("code")
         redirect_uri = body.get("redirect_uri", "http://localhost:3000/inbox/callback")
         state = body.get("state")
@@ -323,19 +329,28 @@ class GmailIngestHandler(SecureHandler):
         if not code:
             return error_response("Missing authorization code", 400)
 
-        # Use state as user_id if present
-        if state:
-            user_id = state
+        # SECURITY: Validate state matches authenticated user to prevent CSRF
+        if state and state != user_id:
+            logger.warning(
+                f"OAuth state mismatch: state={state}, jwt_user={user_id}. "
+                "Using JWT user_id for security."
+            )
 
-        return self._complete_oauth(code, redirect_uri, user_id)
+        return self._complete_oauth(code, redirect_uri, user_id, org_id)
 
     def _complete_oauth(
         self,
         code: str,
         redirect_uri: str,
         user_id: str,
+        org_id: str = "",
     ) -> HandlerResult:
-        """Complete OAuth flow and store tokens."""
+        """Complete OAuth flow and store tokens.
+
+        SECURITY: org_id is bound to JWT context for tenant isolation.
+        This enables future admin delegation where admins can manage
+        Gmail connections for users within their own org only.
+        """
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
@@ -357,8 +372,10 @@ class GmailIngestHandler(SecureHandler):
                 profile = loop.run_until_complete(connector.get_user_info())
 
                 # Save state (async)
+                # SECURITY: org_id bound to JWT for strict tenant isolation
                 state = GmailUserState(
                     user_id=user_id,
+                    org_id=org_id,  # Bind to authenticated org for tenant isolation
                     email_address=profile.get("emailAddress", ""),
                     access_token=connector._access_token or "",
                     refresh_token=connector._refresh_token or "",

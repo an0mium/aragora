@@ -502,11 +502,11 @@ class DiscordConnector(ChatPlatformConnector):
         """Verify Discord interaction webhook signature.
 
         SECURITY: Fails closed in production if PyNaCl is unavailable or public_key not configured.
-        Set ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 to allow unverified webhooks (dev only).
+        Set ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=1 to allow unverified webhooks (dev only).
         """
         import os
 
-        allow_unverified = os.environ.get("ARAGORA_WEBHOOK_ALLOW_UNVERIFIED", "").lower() in (
+        allow_unverified = os.environ.get("ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS", "").lower() in (
             "1",
             "true",
         )
@@ -514,22 +514,22 @@ class DiscordConnector(ChatPlatformConnector):
         if not NACL_AVAILABLE:
             if allow_unverified:
                 logger.warning(
-                    "Discord webhook verification skipped - PyNaCl not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set"
+                    "Discord webhook verification skipped - PyNaCl not available and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is set"
                 )
                 return True
             logger.error(
-                "Discord webhook rejected - PyNaCl not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+                "Discord webhook rejected - PyNaCl not available and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS not set"
             )
             return False
 
         if not self.public_key:
             if allow_unverified:
                 logger.warning(
-                    "Discord webhook verification skipped - public_key not configured and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set"
+                    "Discord webhook verification skipped - public_key not configured and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is set"
                 )
                 return True
             logger.error(
-                "Discord webhook rejected - public_key not configured and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+                "Discord webhook rejected - public_key not configured and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS not set"
             )
             return False
 
