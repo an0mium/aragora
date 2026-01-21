@@ -4,15 +4,12 @@ Verifies that stale inflight gauntlet runs are properly detected
 and marked as interrupted during server startup.
 """
 
-import time
-from datetime import datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from aragora.gauntlet.storage import GauntletInflightRun, GauntletStorage
+from aragora.gauntlet.storage import GauntletStorage
 
 
 class TestGauntletRecovery:
