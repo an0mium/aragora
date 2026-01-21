@@ -686,5 +686,5 @@ flowchart LR
 - **Debate latency**: 2-5 seconds per round (depends on agent response time)
 - **Memory tiers**: Fast (1min TTL), Medium (1hr), Slow (1day), Glacial (1week)
 - **Test coverage**: 35,784 test functions across 1,050+ test files
-- **Type safety**: 38 modules in strict mypy mode (Phase 25)
+- **Type safety**: 50 modules in strict mypy mode (Phase 26)
 - **Source LOC**: 495,713 lines across 1,203 modules

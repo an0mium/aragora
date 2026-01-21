@@ -55,16 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Extracted `BeliefPropagationAnalyzer` to `crux_detector.py`
   - Backward compatible re-exports maintained
 
-- **Strict Type Checking Expansion** - Added 9 modules to strict mypy configuration:
-  - `aragora/reasoning/crux_detector.py` - Crux detection module
-  - `aragora/observability/metrics/bridge.py` - Cross-pollination metrics
-  - `aragora/observability/metrics/km.py` - Knowledge Mound metrics
-  - `aragora/observability/metrics/notification.py` - Notification metrics
-  - `aragora/rlm/streaming_mixin.py` - RLM streaming methods
-  - `aragora/client/resources/gauntlet.py` - Gauntlet API client
-  - `aragora/client/resources/graph_debates.py` - Graph debates API client
-  - `aragora/client/resources/matrix_debates.py` - Matrix debates API client
-  - `aragora/client/resources/replay.py` - Replay API client
+- **Strict Type Checking Expansion** - Added 21 modules to strict mypy (Phase 25-26):
+  - Phase 25: `crux_detector`, `metrics/bridge`, `metrics/km`, `metrics/notification`
+  - Phase 25: `streaming_mixin`, `resources/gauntlet`, `resources/graph_debates`
+  - Phase 25: `resources/matrix_debates`, `resources/replay`
+  - Phase 26: `resources/agents`, `resources/memory`, `resources/verification`
+  - Phase 26: `modes/tool_groups`, `modes/builtin/*` (architect, coder, debugger, reviewer)
+  - Phase 26: `ranking/verification`, `billing/jwt_auth`, `spectate/events`, `mcp/tools_module/gauntlet`
 
 ### Documentation
 

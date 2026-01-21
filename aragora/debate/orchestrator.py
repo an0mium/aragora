@@ -950,6 +950,72 @@ class Arena:
         except Exception as e:
             logger.warning(f"[arena] Failed to initialize KM context: {e}")
 
+    def _get_culture_hints(self, debate_id: str) -> dict:
+        """Retrieve culture hints from cross-subscriber manager.
+
+        Args:
+            debate_id: Debate identifier
+
+        Returns:
+            Dict of protocol hints derived from organizational culture
+        """
+        try:
+            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+            manager = get_cross_subscriber_manager()
+            hints = manager.get_debate_culture_hints(debate_id)
+            if hints:
+                logger.debug(f"[arena] Retrieved {len(hints)} culture hints for debate {debate_id}")
+            return hints
+
+        except ImportError:
+            return {}
+        except Exception as e:
+            logger.debug(f"[arena] Failed to get culture hints: {e}")
+            return {}
+
+    def _apply_culture_hints(self, hints: dict) -> None:
+        """Apply culture-derived hints to protocol and debate configuration.
+
+        Args:
+            hints: Protocol hints from organizational culture patterns
+        """
+        if not hints:
+            return
+
+        try:
+            # Apply recommended consensus method if available
+            if "recommended_consensus" in hints:
+                recommended = hints["recommended_consensus"]
+                if recommended in ("unanimous", "majority", "consensus"):
+                    logger.info(f"[arena] Culture recommends {recommended} consensus")
+                    # Note: This could be applied to self.protocol.consensus
+                    # but we avoid modifying protocol after initialization
+                    # Instead, store as context for consensus detection
+                    self._culture_consensus_hint = recommended
+
+            # Apply extra critique rounds for conservative cultures
+            if hints.get("extra_critique_rounds", 0) > 0:
+                extra = hints["extra_critique_rounds"]
+                logger.info(f"[arena] Culture suggests {extra} extra critique rounds")
+                # Store hint for critique phase to consider
+                self._culture_extra_critiques = extra
+
+            # Apply early consensus threshold for aggressive cultures
+            if "early_consensus_threshold" in hints:
+                threshold = hints["early_consensus_threshold"]
+                logger.info(f"[arena] Culture suggests early consensus at {threshold:.0%}")
+                self._culture_early_consensus = threshold
+
+            # Store domain-specific patterns
+            if "domain_patterns" in hints:
+                patterns = hints["domain_patterns"]
+                logger.debug(f"[arena] Loaded {len(patterns)} domain-specific culture patterns")
+                self._culture_domain_patterns = patterns
+
+        except Exception as e:
+            logger.debug(f"[arena] Failed to apply culture hints: {e}")
+
     def _init_rlm_limiter(
         self,
         use_rlm_limiter: bool,
@@ -1485,6 +1551,11 @@ class Arena:
 
         # Initialize Knowledge Mound context for bidirectional integration
         await self._init_km_context(debate_id, domain)
+
+        # Apply culture-informed protocol adjustments
+        culture_hints = self._get_culture_hints(debate_id)
+        if culture_hints:
+            self._apply_culture_hints(culture_hints)
 
         # Create shared context for all phases
         ctx = DebateContext(
