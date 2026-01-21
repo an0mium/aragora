@@ -67,11 +67,11 @@ class CrossPollinationStatsHandler(BaseHandler):
         except ImportError:
             return error_response(
                 "Cross-subscriber module not available",
-                status_code=503,
+                status=503,
             )
         except Exception as e:
             logger.exception(f"Failed to get cross-pollination stats: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 class CrossPollinationSubscribersHandler(BaseHandler):
@@ -114,11 +114,11 @@ class CrossPollinationSubscribersHandler(BaseHandler):
         except ImportError:
             return error_response(
                 "Cross-subscriber module not available",
-                status_code=503,
+                status=503,
             )
         except Exception as e:
             logger.exception(f"Failed to list subscribers: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 class CrossPollinationBridgeHandler(BaseHandler):
@@ -151,11 +151,11 @@ class CrossPollinationBridgeHandler(BaseHandler):
         except ImportError:
             return error_response(
                 "Arena bridge module not available",
-                status_code=503,
+                status=503,
             )
         except Exception as e:
             logger.exception(f"Failed to get bridge status: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 class CrossPollinationMetricsHandler(BaseHandler):
@@ -187,11 +187,11 @@ class CrossPollinationMetricsHandler(BaseHandler):
         except ImportError:
             return error_response(
                 "Metrics module not available",
-                status_code=503,
+                status=503,
             )
         except Exception as e:
             logger.exception(f"Failed to get metrics: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 class CrossPollinationResetHandler(BaseHandler):
@@ -221,11 +221,11 @@ class CrossPollinationResetHandler(BaseHandler):
         except ImportError:
             return error_response(
                 "Cross-subscriber module not available",
-                status_code=503,
+                status=503,
             )
         except Exception as e:
             logger.exception(f"Failed to reset stats: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 class CrossPollinationKMHandler(BaseHandler):
@@ -314,11 +314,11 @@ class CrossPollinationKMHandler(BaseHandler):
         except ImportError:
             return error_response(
                 "Cross-subscriber module not available",
-                status_code=503,
+                status=503,
             )
         except Exception as e:
             logger.exception(f"Failed to get KM status: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 class CrossPollinationKMSyncHandler(BaseHandler):
@@ -425,11 +425,11 @@ class CrossPollinationKMSyncHandler(BaseHandler):
         except ImportError:
             return error_response(
                 "Cross-subscriber module not available",
-                status_code=503,
+                status=503,
             )
         except Exception as e:
             logger.exception(f"Failed to sync KM adapters: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 class CrossPollinationKMStalenessHandler(BaseHandler):
@@ -514,7 +514,7 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Failed to run staleness check: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 class CrossPollinationKMCultureHandler(BaseHandler):
@@ -583,7 +583,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Failed to get culture patterns: {e}")
-            return error_response(str(e), status_code=500)
+            return error_response(str(e), status=500)
 
 
 def register_routes(router, server_context: Optional[Any] = None) -> None:
