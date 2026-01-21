@@ -106,7 +106,7 @@ broadcast = [
 ]
 broadcast-elevenlabs = [
     "aragora[broadcast]",
-    "elevenlabs>=1.0,<2.0",
+    "elevenlabs>=1.0,<3.0",
 ]
 broadcast-polly = [
     "aragora[broadcast]",
