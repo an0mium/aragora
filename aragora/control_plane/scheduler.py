@@ -292,8 +292,10 @@ class TaskScheduler:
 
     async def connect(self) -> None:
         """Connect to Redis."""
-        with create_span("scheduler.connect"):
-            add_span_attributes(redis_url=self._redis_url)
+        with create_span(
+            "scheduler.connect",
+            {"redis_url": self._redis_url},
+        ) as span:
             start = time.time()
 
             try:
@@ -326,7 +328,7 @@ class TaskScheduler:
                             )
 
                 latency_ms = (time.time() - start) * 1000
-                add_span_attributes(latency_ms=latency_ms, backend="redis")
+                add_span_attributes(span, {"latency_ms": latency_ms, "backend": "redis"})
                 logger.info(
                     "scheduler_connected",
                     redis_url=self._redis_url,
@@ -339,7 +341,7 @@ class TaskScheduler:
                         "task_scheduler",
                         "redis package not installed. Install with: pip install redis",
                     )
-                add_span_attributes(backend="memory", fallback=True)
+                add_span_attributes(span, {"backend": "memory", "fallback": True})
                 logger.warning(
                     "scheduler_fallback",
                     reason="redis package not installed",
@@ -352,7 +354,7 @@ class TaskScheduler:
                         "task_scheduler",
                         f"Failed to connect to Redis: {e}",
                     ) from e
-                add_span_attributes(backend="memory", fallback=True, error=str(e))
+                add_span_attributes(span, {"backend": "memory", "fallback": True, "error": str(e)})
                 logger.error(
                     "scheduler_redis_error",
                     error=str(e),

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from . import DesignResult
+from ..task_decomposer import TaskDecomposer, TaskDecomposition, DecomposerConfig
 
 # Default protected files
 DEFAULT_PROTECTED_FILES = [
@@ -42,6 +43,10 @@ class DesignConfig:
     early_stop_threshold: float = 0.66
     min_rounds_before_early_stop: int = 1
     protected_files: List[str] = None
+    # Task decomposition settings
+    enable_decomposition: bool = True
+    decomposition_threshold: int = 6  # Complexity score (1-10) above which to decompose
+    max_subtasks: int = 4
 
     def __post_init__(self):
         if self.protected_files is None:
@@ -160,6 +165,14 @@ class DesignPhase:
         self.claude = claude_agent
         self.protected_files = protected_files or DEFAULT_PROTECTED_FILES
         self.auto_approve_threshold = auto_approve_threshold
+
+        # Task decomposition
+        self._decomposer = TaskDecomposer(
+            config=DecomposerConfig(
+                complexity_threshold=self.config.decomposition_threshold,
+                max_subtasks=self.config.max_subtasks,
+            )
+        )
 
     # =========================================================================
     # Legacy API methods (for backward compatibility with tests)
@@ -441,6 +454,33 @@ class DesignPhase:
             if audit_result and not audit_result.get("approved", True):
                 return self._rejected_result(phase_start, audit_result)
 
+        # Task decomposition for complex improvements
+        if self.config.enable_decomposition:
+            decomposition = self._decomposer.analyze(improvement)
+            if decomposition.should_decompose and len(decomposition.subtasks) > 1:
+                self._log(
+                    f"  [decomposition] Task complexity {decomposition.complexity_score}/10 "
+                    f"- splitting into {len(decomposition.subtasks)} subtasks"
+                )
+                self._stream_emit(
+                    "on_task_decomposed",
+                    self.cycle_count,
+                    decomposition.complexity_score,
+                    [st.title for st in decomposition.subtasks],
+                )
+                return await self._execute_decomposed(
+                    decomposition,
+                    belief_context,
+                    learning_context,
+                    arena_kwargs,
+                    phase_start,
+                )
+            else:
+                self._log(
+                    f"  [decomposition] Task complexity {decomposition.complexity_score}/10 "
+                    f"- proceeding as single task"
+                )
+
         # Build design prompt
         design_prompt = self._build_design_prompt(
             improvement,
@@ -514,6 +554,180 @@ class DesignPhase:
             files_affected=files_affected,
             complexity_estimate=self._estimate_complexity(result.final_answer or ""),
         )
+
+    async def _execute_decomposed(
+        self,
+        decomposition: TaskDecomposition,
+        belief_context: Optional[BeliefContext],
+        learning_context: str,
+        arena_kwargs: Optional[Dict[str, Any]],
+        phase_start: datetime,
+    ) -> DesignResult:
+        """Execute design phase for a decomposed task.
+
+        Runs design for each subtask and merges the results.
+        """
+        subtask_designs: List[str] = []
+        all_files_affected: List[str] = []
+        all_proposals: Dict[str, str] = {}
+        total_complexity = 0
+
+        for i, subtask in enumerate(decomposition.subtasks, 1):
+            self._log(f"\n  [subtask {i}/{len(decomposition.subtasks)}] {subtask.title}")
+            self._stream_emit(
+                "on_subtask_start",
+                self.cycle_count,
+                subtask.id,
+                subtask.title,
+            )
+
+            # Build subtask-specific improvement prompt
+            subtask_improvement = (
+                f"## Subtask: {subtask.title}\n\n"
+                f"{subtask.description}\n\n"
+                f"**Context:** This is subtask {i} of {len(decomposition.subtasks)} "
+                f"for the larger task:\n{decomposition.original_task[:500]}"
+            )
+
+            # Build design prompt for this subtask
+            design_prompt = self._build_design_prompt(
+                subtask_improvement,
+                belief_context or BeliefContext(),
+                learning_context,
+            )
+
+            # Create environment
+            env = self._environment_factory(
+                task=design_prompt,
+                context=(
+                    f"Working directory: {self.aragora_path}\n\n"
+                    f"Protected files (NEVER delete): {self.config.protected_files}"
+                ),
+            )
+
+            # Create protocol
+            protocol = self._protocol_factory(
+                rounds=self.config.rounds,
+                consensus=self.config.consensus_mode,
+                judge_selection=self.config.judge_selection,
+                proposer_count=self.config.proposer_count,
+                early_stopping=self.config.early_stopping,
+                early_stop_threshold=self.config.early_stop_threshold,
+                min_rounds_before_early_stop=self.config.min_rounds_before_early_stop,
+            )
+
+            # Probe agents
+            agent_weights = await self._probe_agents()
+
+            # Create arena and run
+            arena = self._arena_factory(
+                env,
+                self.agents,
+                protocol,
+                agent_weights=agent_weights,
+                **(arena_kwargs or {}),
+            )
+
+            result = await arena.run()
+
+            # Handle no consensus
+            if not result.consensus_reached:
+                result = await self._handle_no_consensus(
+                    result, arena, subtask_improvement, phase_start
+                )
+
+            # Collect subtask results
+            if result.final_answer:
+                subtask_designs.append(f"### Subtask {i}: {subtask.title}\n\n{result.final_answer}")
+                all_files_affected.extend(self._extract_files_from_design(result.final_answer))
+
+            # Collect proposals
+            proposals = self._extract_proposals(result)
+            for agent, proposal in proposals.items():
+                all_proposals[f"{agent}_subtask{i}"] = proposal
+
+            # Track complexity
+            complexity = self._estimate_complexity(result.final_answer or "")
+            total_complexity += {"low": 1, "medium": 2, "high": 3}.get(complexity, 1)
+
+            self._stream_emit(
+                "on_subtask_end",
+                self.cycle_count,
+                subtask.id,
+                result.consensus_reached,
+            )
+
+        # Merge all subtask designs
+        merged_design = self._merge_subtask_designs(
+            decomposition.original_task,
+            subtask_designs,
+            decomposition,
+        )
+
+        # Calculate phase duration
+        phase_duration = (datetime.now() - phase_start).total_seconds()
+        self._stream_emit(
+            "on_phase_end",
+            "design",
+            self.cycle_count,
+            len(subtask_designs) > 0,
+            phase_duration,
+            {"decomposed": True, "subtask_count": len(decomposition.subtasks)},
+        )
+
+        # Determine overall complexity
+        avg_complexity = total_complexity / max(len(decomposition.subtasks), 1)
+        overall_complexity = (
+            "high" if avg_complexity > 2 else "medium" if avg_complexity > 1 else "low"
+        )
+
+        return DesignResult(
+            success=len(subtask_designs) > 0,
+            data={
+                "individual_proposals": all_proposals,
+                "vote_counts": {},
+                "agent_weights": {},
+                "decomposed": True,
+                "subtask_count": len(decomposition.subtasks),
+                "subtask_titles": [st.title for st in decomposition.subtasks],
+            },
+            duration_seconds=phase_duration,
+            design=merged_design,
+            files_affected=list(set(all_files_affected))[:15],
+            complexity_estimate=overall_complexity,
+        )
+
+    def _merge_subtask_designs(
+        self,
+        original_task: str,
+        subtask_designs: List[str],
+        decomposition: TaskDecomposition,
+    ) -> str:
+        """Merge subtask designs into a coherent overall design."""
+        if not subtask_designs:
+            return ""
+
+        header = (
+            f"# Decomposed Design\n\n"
+            f"**Original Task:** {original_task[:200]}{'...' if len(original_task) > 200 else ''}\n\n"
+            f"**Decomposition Rationale:** {decomposition.rationale}\n\n"
+            f"---\n\n"
+        )
+
+        body = "\n\n---\n\n".join(subtask_designs)
+
+        footer = (
+            f"\n\n---\n\n"
+            f"## Integration Notes\n\n"
+            f"This design was decomposed into {len(subtask_designs)} subtasks. "
+            f"Implementation should follow the subtask order, respecting dependencies:\n\n"
+        )
+
+        for st in decomposition.subtasks:
+            deps = ", ".join(st.dependencies) if st.dependencies else "none"
+            footer += f"- **{st.title}** (complexity: {st.estimated_complexity}, deps: {deps})\n"
+
+        return header + body + footer
 
     async def _check_deep_audit(self, improvement: str) -> Optional[Dict]:
         """Check if deep audit is needed and run it."""

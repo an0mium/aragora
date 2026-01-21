@@ -187,13 +187,14 @@ class WorkflowEngine:
         start_time = time.time()
         checkpoints_created = 0
 
-        with create_span("workflow.execute"):
-            add_span_attributes(
-                workflow_id=workflow_id,
-                workflow_name=definition.name,
-                step_count=len(definition.steps),
-            )
-
+        with create_span(
+            "workflow.execute",
+            {
+                "workflow_id": workflow_id,
+                "workflow_name": definition.name,
+                "step_count": len(definition.steps),
+            },
+        ) as span:
             try:
                 # Execute with overall timeout
                 final_output = await asyncio.wait_for(
@@ -225,9 +226,12 @@ class WorkflowEngine:
 
             total_duration = (time.time() - start_time) * 1000
             add_span_attributes(
-                success=success,
-                duration_ms=total_duration,
-                steps_executed=len(self._results),
+                span,
+                {
+                    "success": success,
+                    "duration_ms": total_duration,
+                    "steps_executed": len(self._results),
+                },
             )
 
             logger.info(
@@ -409,14 +413,15 @@ class WorkflowEngine:
             workflow_id=context.workflow_id,
         )
 
-        with create_span("workflow.step"):
-            add_span_attributes(
-                step_id=step_def.id,
-                step_name=step_def.name,
-                step_type=step_def.step_type,
-                workflow_id=context.workflow_id,
-            )
-
+        with create_span(
+            "workflow.step",
+            {
+                "step_id": step_def.id,
+                "step_name": step_def.name,
+                "step_type": step_def.step_type,
+                "workflow_id": context.workflow_id,
+            },
+        ) as span:
             # Update context with current step info
             context.current_step_id = step_def.id
             context.current_step_config = step_def.config
@@ -424,7 +429,7 @@ class WorkflowEngine:
             # Get or create step instance
             step = self._get_step_instance(step_def)
             if step is None:
-                add_span_attributes(success=False, error="unknown_step_type")
+                add_span_attributes(span, {"success": False, "error": "unknown_step_type"})
                 return StepResult(
                     step_id=step_def.id,
                     step_name=step_def.name,
@@ -445,9 +450,12 @@ class WorkflowEngine:
 
                     duration_ms = (time.time() - start_time) * 1000
                     add_span_attributes(
-                        success=True,
-                        duration_ms=duration_ms,
-                        retry_count=retry_count,
+                        span,
+                        {
+                            "success": True,
+                            "duration_ms": duration_ms,
+                            "retry_count": retry_count,
+                        },
                     )
                     logger.debug(
                         "step_completed",
@@ -493,10 +501,13 @@ class WorkflowEngine:
             # All retries exhausted
             duration_ms = (time.time() - start_time) * 1000
             add_span_attributes(
-                success=False,
-                duration_ms=duration_ms,
-                retry_count=retry_count,
-                error=last_error,
+                span,
+                {
+                    "success": False,
+                    "duration_ms": duration_ms,
+                    "retry_count": retry_count,
+                    "error": last_error,
+                },
             )
 
             if step_def.optional and self._config.skip_optional_on_timeout:

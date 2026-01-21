@@ -196,8 +196,10 @@ class ControlPlaneCoordinator:
         if self._connected:
             return
 
-        with create_span("control_plane.connect"):
-            add_span_attributes(redis_url=self._config.redis_url)
+        with create_span(
+            "control_plane.connect",
+            {"redis_url": self._config.redis_url},
+        ) as span:
             start = time.monotonic()
 
             await self._registry.connect()
@@ -206,7 +208,7 @@ class ControlPlaneCoordinator:
 
             self._connected = True
             latency_ms = (time.monotonic() - start) * 1000
-            add_span_attributes(latency_ms=latency_ms, success=True)
+            add_span_attributes(span, {"latency_ms": latency_ms, "success": True})
             logger.info(
                 "control_plane_connected",
                 latency_ms=latency_ms,
@@ -218,7 +220,7 @@ class ControlPlaneCoordinator:
         if not self._connected:
             return
 
-        with create_span("control_plane.shutdown"):
+        with create_span("control_plane.shutdown") as span:
             start = time.monotonic()
 
             await self._health_monitor.stop()
@@ -227,7 +229,7 @@ class ControlPlaneCoordinator:
 
             self._connected = False
             latency_ms = (time.monotonic() - start) * 1000
-            add_span_attributes(latency_ms=latency_ms)
+            add_span_attributes(span, {"latency_ms": latency_ms})
             logger.info("control_plane_shutdown", latency_ms=latency_ms)
 
     # =========================================================================
@@ -257,14 +259,15 @@ class ControlPlaneCoordinator:
         Returns:
             AgentInfo for the registered agent
         """
-        with create_span("control_plane.register_agent"):
-            add_span_attributes(
-                agent_id=agent_id,
-                model=model,
-                provider=provider,
-                capability_count=len(capabilities),
-            )
-
+        with create_span(
+            "control_plane.register_agent",
+            {
+                "agent_id": agent_id,
+                "model": model,
+                "provider": provider,
+                "capability_count": len(capabilities),
+            },
+        ):
             agent = await self._registry.register(
                 agent_id=agent_id,
                 capabilities=capabilities,
@@ -406,12 +409,14 @@ class ControlPlaneCoordinator:
         Returns:
             Task ID
         """
-        with create_span("control_plane.submit_task"):
-            add_span_attributes(
-                task_type=task_type,
-                priority=priority.value,
-                required_capabilities=required_capabilities or [],
-            )
+        with create_span(
+            "control_plane.submit_task",
+            {
+                "task_type": task_type,
+                "priority": priority.value,
+                "required_capabilities": str(required_capabilities or []),
+            },
+        ) as span:
             start = time.monotonic()
 
             task_id = await self._scheduler.submit(
@@ -425,7 +430,7 @@ class ControlPlaneCoordinator:
             )
 
             latency_ms = (time.monotonic() - start) * 1000
-            add_span_attributes(task_id=task_id, latency_ms=latency_ms)
+            add_span_attributes(span, {"task_id": task_id, "latency_ms": latency_ms})
             logger.info(
                 "task_submitted",
                 task_id=task_id,
@@ -487,20 +492,21 @@ class ControlPlaneCoordinator:
         Returns:
             True if completed, False if not found
         """
-        with create_span("control_plane.complete_task"):
-            add_span_attributes(
-                task_id=task_id,
-                agent_id=agent_id or "unknown",
-                execution_latency_ms=latency_ms or 0.0,
-            )
-
+        with create_span(
+            "control_plane.complete_task",
+            {
+                "task_id": task_id,
+                "agent_id": agent_id or "unknown",
+                "execution_latency_ms": latency_ms or 0.0,
+            },
+        ) as span:
             # Get task details before completing (for KM storage)
             task = await self._scheduler.get(task_id)
             if task:
-                add_span_attributes(task_type=task.task_type)
+                add_span_attributes(span, {"task_type": task.task_type})
 
             success = await self._scheduler.complete(task_id, result)
-            add_span_attributes(success=success)
+            add_span_attributes(span, {"success": success})
 
             if success and agent_id:
                 # Update agent metrics
@@ -561,21 +567,22 @@ class ControlPlaneCoordinator:
         Returns:
             True if processed, False if not found
         """
-        with create_span("control_plane.fail_task"):
-            add_span_attributes(
-                task_id=task_id,
-                agent_id=agent_id or "unknown",
-                requeue=requeue,
-                error_message=error[:200],  # Truncate long errors
-            )
-
+        with create_span(
+            "control_plane.fail_task",
+            {
+                "task_id": task_id,
+                "agent_id": agent_id or "unknown",
+                "requeue": requeue,
+                "error_message": error[:200],  # Truncate long errors
+            },
+        ) as span:
             # Get task details before failing (for KM storage)
             task = await self._scheduler.get(task_id)
             if task:
-                add_span_attributes(task_type=task.task_type)
+                add_span_attributes(span, {"task_type": task.task_type})
 
             success = await self._scheduler.fail(task_id, error, requeue)
-            add_span_attributes(success=success)
+            add_span_attributes(span, {"success": success})
 
             if success and agent_id:
                 await self._registry.record_task_completion(
