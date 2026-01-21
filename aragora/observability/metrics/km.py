@@ -25,6 +25,19 @@ KM_FEDERATED_QUERIES_TOTAL: Any = None
 KM_EVENTS_EMITTED_TOTAL: Any = None
 KM_ACTIVE_ADAPTERS: Any = None
 
+# Control Plane integration metrics
+KM_CP_TASK_OUTCOMES_TOTAL: Any = None
+KM_CP_CAPABILITY_RECORDS_TOTAL: Any = None
+KM_CP_CROSS_WORKSPACE_SHARES_TOTAL: Any = None
+KM_CP_RECOMMENDATIONS_TOTAL: Any = None
+
+# Bidirectional flow metrics
+KM_FORWARD_SYNC_LATENCY: Any = None
+KM_REVERSE_QUERY_LATENCY: Any = None
+KM_SEMANTIC_SEARCH_TOTAL: Any = None
+KM_VALIDATION_FEEDBACK_TOTAL: Any = None
+KM_CROSS_DEBATE_REUSE_TOTAL: Any = None
+
 _initialized = False
 
 
@@ -36,6 +49,13 @@ def init_km_metrics() -> None:
     global KM_HEALTH_STATUS, KM_ADAPTER_SYNCS_TOTAL
     global KM_FEDERATED_QUERIES_TOTAL, KM_EVENTS_EMITTED_TOTAL
     global KM_ACTIVE_ADAPTERS
+    # Control Plane metrics
+    global KM_CP_TASK_OUTCOMES_TOTAL, KM_CP_CAPABILITY_RECORDS_TOTAL
+    global KM_CP_CROSS_WORKSPACE_SHARES_TOTAL, KM_CP_RECOMMENDATIONS_TOTAL
+    # Bidirectional flow metrics
+    global KM_FORWARD_SYNC_LATENCY, KM_REVERSE_QUERY_LATENCY
+    global KM_SEMANTIC_SEARCH_TOTAL, KM_VALIDATION_FEEDBACK_TOTAL
+    global KM_CROSS_DEBATE_REUSE_TOTAL
 
     if _initialized:
         return
@@ -101,6 +121,64 @@ def init_km_metrics() -> None:
             "Number of active Knowledge Mound adapters",
         )
 
+        # Control Plane integration metrics
+        KM_CP_TASK_OUTCOMES_TOTAL = Counter(
+            "aragora_km_cp_task_outcomes_total",
+            "Task outcomes stored via Control Plane adapter",
+            ["task_type", "success"],
+        )
+
+        KM_CP_CAPABILITY_RECORDS_TOTAL = Counter(
+            "aragora_km_cp_capability_records_total",
+            "Capability records stored via Control Plane adapter",
+            ["capability"],
+        )
+
+        KM_CP_CROSS_WORKSPACE_SHARES_TOTAL = Counter(
+            "aragora_km_cp_cross_workspace_shares_total",
+            "Cross-workspace insights shared via Control Plane adapter",
+            ["source_workspace"],
+        )
+
+        KM_CP_RECOMMENDATIONS_TOTAL = Counter(
+            "aragora_km_cp_recommendations_total",
+            "Agent recommendations queried from Control Plane adapter",
+            ["capability"],
+        )
+
+        # Bidirectional flow metrics
+        KM_FORWARD_SYNC_LATENCY = Histogram(
+            "aragora_km_forward_sync_latency_seconds",
+            "Forward sync latency (source → KM)",
+            ["adapter"],
+            buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+        )
+
+        KM_REVERSE_QUERY_LATENCY = Histogram(
+            "aragora_km_reverse_query_latency_seconds",
+            "Reverse query latency (KM → consumer)",
+            ["adapter"],
+            buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+        )
+
+        KM_SEMANTIC_SEARCH_TOTAL = Counter(
+            "aragora_km_semantic_search_total",
+            "Semantic search operations by adapter",
+            ["adapter", "status"],
+        )
+
+        KM_VALIDATION_FEEDBACK_TOTAL = Counter(
+            "aragora_km_validation_feedback_total",
+            "Validation feedback events (positive/negative)",
+            ["adapter", "feedback_type"],
+        )
+
+        KM_CROSS_DEBATE_REUSE_TOTAL = Counter(
+            "aragora_km_cross_debate_reuse_total",
+            "Knowledge items reused across debates",
+            ["source_type"],
+        )
+
         _initialized = True
         logger.debug("Knowledge Mound metrics initialized")
 
@@ -116,6 +194,13 @@ def _init_noop_metrics() -> None:
     global KM_HEALTH_STATUS, KM_ADAPTER_SYNCS_TOTAL
     global KM_FEDERATED_QUERIES_TOTAL, KM_EVENTS_EMITTED_TOTAL
     global KM_ACTIVE_ADAPTERS
+    # Control Plane metrics
+    global KM_CP_TASK_OUTCOMES_TOTAL, KM_CP_CAPABILITY_RECORDS_TOTAL
+    global KM_CP_CROSS_WORKSPACE_SHARES_TOTAL, KM_CP_RECOMMENDATIONS_TOTAL
+    # Bidirectional flow metrics
+    global KM_FORWARD_SYNC_LATENCY, KM_REVERSE_QUERY_LATENCY
+    global KM_SEMANTIC_SEARCH_TOTAL, KM_VALIDATION_FEEDBACK_TOTAL
+    global KM_CROSS_DEBATE_REUSE_TOTAL
 
     KM_OPERATIONS_TOTAL = NoOpMetric()
     KM_OPERATION_LATENCY = NoOpMetric()
@@ -126,6 +211,17 @@ def _init_noop_metrics() -> None:
     KM_FEDERATED_QUERIES_TOTAL = NoOpMetric()
     KM_EVENTS_EMITTED_TOTAL = NoOpMetric()
     KM_ACTIVE_ADAPTERS = NoOpMetric()
+    # Control Plane metrics
+    KM_CP_TASK_OUTCOMES_TOTAL = NoOpMetric()
+    KM_CP_CAPABILITY_RECORDS_TOTAL = NoOpMetric()
+    KM_CP_CROSS_WORKSPACE_SHARES_TOTAL = NoOpMetric()
+    KM_CP_RECOMMENDATIONS_TOTAL = NoOpMetric()
+    # Bidirectional flow metrics
+    KM_FORWARD_SYNC_LATENCY = NoOpMetric()
+    KM_REVERSE_QUERY_LATENCY = NoOpMetric()
+    KM_SEMANTIC_SEARCH_TOTAL = NoOpMetric()
+    KM_VALIDATION_FEEDBACK_TOTAL = NoOpMetric()
+    KM_CROSS_DEBATE_REUSE_TOTAL = NoOpMetric()
 
 
 def _ensure_init() -> None:
@@ -220,6 +316,117 @@ def set_km_active_adapters(count: int) -> None:
     """
     _ensure_init()
     KM_ACTIVE_ADAPTERS.set(count)
+
+
+# =============================================================================
+# Control Plane Recording Functions
+# =============================================================================
+
+
+def record_cp_task_outcome(task_type: str, success: bool) -> None:
+    """Record a Control Plane task outcome stored in KM.
+
+    Args:
+        task_type: Type of task (debate, code_review, etc.)
+        success: Whether the task succeeded
+    """
+    _ensure_init()
+    KM_CP_TASK_OUTCOMES_TOTAL.labels(
+        task_type=task_type, success=str(success).lower()
+    ).inc()
+
+
+def record_cp_capability_record(capability: str) -> None:
+    """Record a Control Plane capability record stored in KM.
+
+    Args:
+        capability: Capability name
+    """
+    _ensure_init()
+    KM_CP_CAPABILITY_RECORDS_TOTAL.labels(capability=capability).inc()
+
+
+def record_cp_cross_workspace_share(source_workspace: str) -> None:
+    """Record a cross-workspace insight share.
+
+    Args:
+        source_workspace: Source workspace ID
+    """
+    _ensure_init()
+    KM_CP_CROSS_WORKSPACE_SHARES_TOTAL.labels(source_workspace=source_workspace).inc()
+
+
+def record_cp_recommendation_query(capability: str) -> None:
+    """Record a Control Plane recommendation query.
+
+    Args:
+        capability: Capability queried
+    """
+    _ensure_init()
+    KM_CP_RECOMMENDATIONS_TOTAL.labels(capability=capability).inc()
+
+
+# =============================================================================
+# Bidirectional Flow Recording Functions
+# =============================================================================
+
+
+def record_forward_sync_latency(adapter: str, latency_seconds: float) -> None:
+    """Record forward sync latency (source → KM).
+
+    Args:
+        adapter: Adapter name
+        latency_seconds: Sync latency in seconds
+    """
+    _ensure_init()
+    KM_FORWARD_SYNC_LATENCY.labels(adapter=adapter).observe(latency_seconds)
+
+
+def record_reverse_query_latency(adapter: str, latency_seconds: float) -> None:
+    """Record reverse query latency (KM → consumer).
+
+    Args:
+        adapter: Adapter name
+        latency_seconds: Query latency in seconds
+    """
+    _ensure_init()
+    KM_REVERSE_QUERY_LATENCY.labels(adapter=adapter).observe(latency_seconds)
+
+
+def record_semantic_search(adapter: str, success: bool) -> None:
+    """Record a semantic search operation.
+
+    Args:
+        adapter: Adapter name
+        success: Whether the search succeeded
+    """
+    _ensure_init()
+    status = "success" if success else "error"
+    KM_SEMANTIC_SEARCH_TOTAL.labels(adapter=adapter, status=status).inc()
+
+
+def record_validation_feedback(adapter: str, positive: bool) -> None:
+    """Record validation feedback for a KM item.
+
+    Args:
+        adapter: Adapter name
+        positive: Whether feedback is positive
+    """
+    _ensure_init()
+    feedback_type = "positive" if positive else "negative"
+    KM_VALIDATION_FEEDBACK_TOTAL.labels(
+        adapter=adapter, feedback_type=feedback_type
+    ).inc()
+
+
+def record_cross_debate_reuse(source_type: str) -> None:
+    """Record when knowledge is reused across debates.
+
+    Args:
+        source_type: Type of source (consensus, insight, crux, etc.)
+    """
+    _ensure_init()
+    KM_CROSS_DEBATE_REUSE_TOTAL.labels(source_type=source_type).inc()
 
 
 def sync_km_metrics_to_prometheus() -> None:

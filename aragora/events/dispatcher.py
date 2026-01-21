@@ -62,6 +62,111 @@ REQUEST_TIMEOUT = float(os.environ.get("ARAGORA_WEBHOOK_TIMEOUT", "30.0"))
 # User agent for webhook requests
 USER_AGENT = "Aragora-Webhooks/1.0"
 
+# Event rate limiting configuration
+EVENT_RATE_LIMIT_ENABLED = os.environ.get("ARAGORA_EVENT_RATE_LIMIT_ENABLED", "true").lower() == "true"
+EVENT_RATE_LIMIT_PER_SECOND = float(os.environ.get("ARAGORA_EVENT_RATE_LIMIT_PER_SECOND", "100.0"))
+EVENT_RATE_LIMIT_BURST = int(os.environ.get("ARAGORA_EVENT_RATE_LIMIT_BURST", "200"))
+
+
+# =============================================================================
+# Event Rate Limiter
+# =============================================================================
+
+
+class EventRateLimiter:
+    """
+    Token bucket rate limiter for events.
+
+    Limits event throughput per event type to prevent DoS via event flooding.
+    Uses a per-type token bucket with configurable rate and burst capacity.
+    """
+
+    def __init__(
+        self,
+        rate_per_second: float = EVENT_RATE_LIMIT_PER_SECOND,
+        burst_capacity: int = EVENT_RATE_LIMIT_BURST,
+    ):
+        """
+        Initialize rate limiter.
+
+        Args:
+            rate_per_second: Tokens added per second (event throughput)
+            burst_capacity: Maximum tokens (allows burst traffic)
+        """
+        self.rate = rate_per_second
+        self.burst = burst_capacity
+        self._buckets: dict = {}  # event_type -> (tokens, last_update)
+        self._lock = threading.Lock()
+        self._rejected = 0
+        self._accepted = 0
+
+    def is_allowed(self, event_type: str) -> bool:
+        """
+        Check if an event should be allowed through.
+
+        Args:
+            event_type: Type of event to check
+
+        Returns:
+            True if event is allowed, False if rate limited
+        """
+        with self._lock:
+            now = time.time()
+
+            if event_type not in self._buckets:
+                # New bucket starts full
+                self._buckets[event_type] = (float(self.burst), now)
+
+            tokens, last_update = self._buckets[event_type]
+
+            # Add tokens based on time elapsed
+            elapsed = now - last_update
+            tokens = min(self.burst, tokens + elapsed * self.rate)
+
+            # Try to consume a token
+            if tokens >= 1.0:
+                self._buckets[event_type] = (tokens - 1.0, now)
+                self._accepted += 1
+                return True
+            else:
+                self._buckets[event_type] = (tokens, now)
+                self._rejected += 1
+                return False
+
+    def get_stats(self) -> dict:
+        """Get rate limiter statistics."""
+        with self._lock:
+            return {
+                "accepted": self._accepted,
+                "rejected": self._rejected,
+                "rate_per_second": self.rate,
+                "burst_capacity": self.burst,
+                "active_buckets": len(self._buckets),
+            }
+
+    def reset_stats(self) -> None:
+        """Reset statistics."""
+        with self._lock:
+            self._accepted = 0
+            self._rejected = 0
+
+
+# Global event rate limiter
+_event_rate_limiter: Optional["EventRateLimiter"] = None
+
+
+def get_event_rate_limiter() -> Optional[EventRateLimiter]:
+    """Get the global event rate limiter (if enabled)."""
+    global _event_rate_limiter
+
+    if not EVENT_RATE_LIMIT_ENABLED:
+        return None
+
+    if _event_rate_limiter is None:
+        _event_rate_limiter = EventRateLimiter()
+
+    return _event_rate_limiter
+
 
 # =============================================================================
 # Webhook Delivery
@@ -319,6 +424,7 @@ class WebhookDispatcher:
         self._deliveries = 0
         self._successes = 0
         self._failures = 0
+        self._rate_limited = 0
         self._lock = threading.Lock()
 
     def subscribe_to_stream(self, event_emitter: "SyncEventEmitter") -> None:
@@ -346,6 +452,14 @@ class WebhookDispatcher:
             data: Event data
         """
         if self._shutdown:
+            return
+
+        # Check rate limit
+        rate_limiter = get_event_rate_limiter()
+        if rate_limiter and not rate_limiter.is_allowed(event_type):
+            logger.warning(f"Event rate limited: {event_type}")
+            with self._lock:
+                self._rate_limited += 1
             return
 
         # Import here to avoid circular dependency
@@ -420,15 +534,23 @@ class WebhookDispatcher:
     def get_stats(self) -> dict:
         """Get dispatcher statistics."""
         with self._lock:
-            return {
+            stats = {
                 "deliveries": self._deliveries,
                 "successes": self._successes,
                 "failures": self._failures,
+                "rate_limited": self._rate_limited,
                 "success_rate": (
                     self._successes / self._deliveries if self._deliveries > 0 else 1.0
                 ),
                 "active_workers": len(self._executor._threads),
             }
+
+        # Add rate limiter stats if enabled
+        rate_limiter = get_event_rate_limiter()
+        if rate_limiter:
+            stats["rate_limiter"] = rate_limiter.get_stats()
+
+        return stats
 
     def shutdown(self, wait: bool = True) -> None:
         """Shutdown the dispatcher."""

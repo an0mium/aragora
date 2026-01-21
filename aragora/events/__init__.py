@@ -64,6 +64,14 @@ from .batch_dispatcher import (
     queue_batched_event,
     shutdown_batch_dispatcher,
 )
+from .async_dispatcher import (
+    AsyncWebhookDispatcher,
+    AsyncDeliveryResult,
+    get_async_dispatcher,
+    dispatch_webhook_async,
+    dispatch_webhook_async_with_retry,
+    shutdown_async_dispatcher,
+)
 
 __all__ = [
     # Event types (shared layer)
@@ -100,4 +108,11 @@ __all__ = [
     "get_batch_dispatcher",
     "queue_batched_event",
     "shutdown_batch_dispatcher",
+    # Async dispatcher
+    "AsyncWebhookDispatcher",
+    "AsyncDeliveryResult",
+    "get_async_dispatcher",
+    "dispatch_webhook_async",
+    "dispatch_webhook_async_with_retry",
+    "shutdown_async_dispatcher",
 ]

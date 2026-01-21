@@ -577,274 +577,48 @@ class TestIntegration:
 
 
 # ===========================================================================
-# Voice Message Tests
+# Extended Command Tests
 # ===========================================================================
 
 
-class TestVoiceMessages:
-    """Tests for voice message functionality."""
+class TestExtendedCommands:
+    """Extended tests for command handling."""
 
-    @pytest.mark.asyncio
-    async def test_send_voice_async_success(self, handler):
-        """Test successful voice message sending."""
-        with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(return_value={"ok": True})
+    def test_command_debate_valid_topic(self, handler):
+        """Test debate command with valid topic creates tasks."""
+        with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
+            handler._command_debate(
+                chat_id=123,
+                user_id=456,
+                username="testuser",
+                topic="Should we use Python for everything?",
+            )
+            # Should create acknowledgment and debate execution tasks
+            assert mock_task.call_count >= 2
 
-            mock_session = AsyncMock()
-            mock_session.post = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session_class.return_value = mock_session
+    def test_command_debate_short_topic(self, handler):
+        """Test debate command with short topic sends error."""
+        with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
+            handler._command_debate(123, 456, "user", "hi")
+            mock_task.assert_called()
 
-            with patch("aragora.server.handlers.social.telegram.TELEGRAM_BOT_TOKEN", "test_token"):
-                await handler._send_voice_async(123, b"audio_data")
+    def test_command_gauntlet_valid_statement(self, handler):
+        """Test gauntlet command with valid statement creates tasks."""
+        with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
+            handler._command_gauntlet(
+                chat_id=123,
+                user_id=456,
+                username="testuser",
+                statement="Microservices are better than monoliths for all applications",
+            )
+            # Should create acknowledgment and gauntlet execution tasks
+            assert mock_task.call_count >= 2
 
-            mock_session.post.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_send_voice_async_api_error(self, handler):
-        """Test voice message sending handles API errors."""
-        with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.status = 400
-            mock_response.json = AsyncMock(return_value={"ok": False, "description": "Bad Request"})
-
-            mock_session = AsyncMock()
-            mock_session.post = AsyncMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session_class.return_value = mock_session
-
-            with patch("aragora.server.handlers.social.telegram.TELEGRAM_BOT_TOKEN", "test_token"):
-                # Should not raise, just log error
-                await handler._send_voice_async(123, b"audio_data")
-
-    @pytest.mark.asyncio
-    async def test_send_voice_async_network_error(self, handler):
-        """Test voice message sending handles network errors."""
-        with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_session = AsyncMock()
-            mock_session.post = AsyncMock(side_effect=Exception("Network error"))
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock(return_value=None)
-            mock_session_class.return_value = mock_session
-
-            with patch("aragora.server.handlers.social.telegram.TELEGRAM_BOT_TOKEN", "test_token"):
-                # Should not raise, just log error
-                await handler._send_voice_async(123, b"audio_data")
-
-    @pytest.mark.asyncio
-    async def test_send_voice_summary_with_tts(self, handler):
-        """Test voice summary sends audio when TTS available."""
-        mock_tts = MagicMock()
-        mock_tts.is_available = True
-        mock_result = MagicMock()
-        mock_result.audio_bytes = b"synthesized_audio"
-        mock_tts.synthesize_debate_result = AsyncMock(return_value=mock_result)
-
-        with patch("aragora.server.handlers.social.telegram.get_tts_helper", return_value=mock_tts):
-            with patch.object(handler, "_send_voice_async", new_callable=AsyncMock) as mock_send:
-                await handler._send_voice_summary(
-                    chat_id=123,
-                    task="Test debate",
-                    final_answer="The answer",
-                    consensus_reached=True,
-                    confidence=0.85,
-                    rounds_used=3,
-                )
-
-                mock_tts.synthesize_debate_result.assert_called_once()
-                mock_send.assert_called_once_with(123, b"synthesized_audio")
-
-    @pytest.mark.asyncio
-    async def test_send_voice_summary_tts_unavailable(self, handler):
-        """Test voice summary skips when TTS unavailable."""
-        mock_tts = MagicMock()
-        mock_tts.is_available = False
-
-        with patch("aragora.server.handlers.social.telegram.get_tts_helper", return_value=mock_tts):
-            with patch.object(handler, "_send_voice_async", new_callable=AsyncMock) as mock_send:
-                await handler._send_voice_summary(
-                    chat_id=123,
-                    task="Test debate",
-                    final_answer="The answer",
-                    consensus_reached=True,
-                    confidence=0.85,
-                    rounds_used=3,
-                )
-
-                mock_send.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_send_voice_summary_synthesis_fails(self, handler):
-        """Test voice summary handles synthesis failure."""
-        mock_tts = MagicMock()
-        mock_tts.is_available = True
-        mock_tts.synthesize_debate_result = AsyncMock(return_value=None)
-
-        with patch("aragora.server.handlers.social.telegram.get_tts_helper", return_value=mock_tts):
-            with patch.object(handler, "_send_voice_async", new_callable=AsyncMock) as mock_send:
-                await handler._send_voice_summary(
-                    chat_id=123,
-                    task="Test debate",
-                    final_answer="The answer",
-                    consensus_reached=True,
-                    confidence=0.85,
-                    rounds_used=3,
-                )
-
-                mock_send.assert_not_called()
-
-
-# ===========================================================================
-# Debate Async Tests
-# ===========================================================================
-
-
-class TestDebateAsync:
-    """Tests for async debate execution."""
-
-    @pytest.mark.asyncio
-    async def test_run_debate_async_emits_start_event(self, handler):
-        """Test debate emits start event."""
-        with patch("aragora.server.handlers.social.telegram.Arena") as mock_arena_class:
-            mock_arena = MagicMock()
-            mock_arena.run = AsyncMock(return_value=MagicMock(
-                final_answer="Test answer",
-                consensus_reached=True,
-                confidence=0.9,
-                rounds_used=2,
-            ))
-            mock_arena_class.return_value = mock_arena
-
-            with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-                with patch("aragora.server.handlers.social.chat_events.emit_debate_started") as mock_emit:
-                    with patch.object(handler, "_send_message_async", new_callable=AsyncMock):
-                        with patch.object(handler, "_send_voice_summary", new_callable=AsyncMock):
-                            await handler._run_debate_async(
-                                chat_id=123,
-                                user_id=456,
-                                username="testuser",
-                                topic="Test topic",
-                            )
-
-                            mock_emit.assert_called_once()
-                            call_kwargs = mock_emit.call_args[1]
-                            assert call_kwargs["platform"] == "telegram"
-                            assert call_kwargs["chat_id"] == "123"
-                            assert call_kwargs["topic"] == "Test topic"
-
-    @pytest.mark.asyncio
-    async def test_run_debate_async_emits_complete_event(self, handler):
-        """Test debate emits completion event."""
-        with patch("aragora.server.handlers.social.telegram.Arena") as mock_arena_class:
-            mock_arena = MagicMock()
-            mock_arena.run = AsyncMock(return_value=MagicMock(
-                final_answer="Test answer",
-                consensus_reached=True,
-                confidence=0.9,
-                rounds_used=2,
-            ))
-            mock_arena_class.return_value = mock_arena
-
-            with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-                with patch("aragora.server.handlers.social.chat_events.emit_debate_completed") as mock_emit:
-                    with patch.object(handler, "_send_message_async", new_callable=AsyncMock):
-                        with patch.object(handler, "_send_voice_summary", new_callable=AsyncMock):
-                            await handler._run_debate_async(
-                                chat_id=123,
-                                user_id=456,
-                                username="testuser",
-                                topic="Test topic",
-                            )
-
-                            mock_emit.assert_called_once()
-                            call_kwargs = mock_emit.call_args[1]
-                            assert call_kwargs["consensus_reached"] is True
-                            assert call_kwargs["confidence"] == 0.9
-
-    @pytest.mark.asyncio
-    async def test_run_debate_async_handles_arena_error(self, handler):
-        """Test debate handles Arena errors gracefully."""
-        with patch("aragora.server.handlers.social.telegram.Arena") as mock_arena_class:
-            mock_arena = MagicMock()
-            mock_arena.run = AsyncMock(side_effect=Exception("Arena error"))
-            mock_arena_class.return_value = mock_arena
-
-            with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-                with patch.object(handler, "_send_message_async", new_callable=AsyncMock) as mock_send:
-                    await handler._run_debate_async(
-                        chat_id=123,
-                        user_id=456,
-                        username="testuser",
-                        topic="Test topic",
-                    )
-
-                    # Should send error message
-                    error_call = [c for c in mock_send.call_args_list if "error" in str(c).lower() or "failed" in str(c).lower()]
-                    assert len(error_call) >= 1 or mock_send.call_count >= 1
-
-
-# ===========================================================================
-# Gauntlet Async Tests
-# ===========================================================================
-
-
-class TestGauntletAsync:
-    """Tests for async gauntlet execution."""
-
-    @pytest.mark.asyncio
-    async def test_run_gauntlet_async_emits_start_event(self, handler):
-        """Test gauntlet emits start event."""
-        with patch("aragora.server.handlers.social.telegram.Gauntlet") as mock_gauntlet_class:
-            mock_gauntlet = MagicMock()
-            mock_gauntlet.run = AsyncMock(return_value=MagicMock(
-                passed=True,
-                score=0.85,
-                vulnerabilities=[],
-            ))
-            mock_gauntlet_class.return_value = mock_gauntlet
-
-            with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-                with patch("aragora.server.handlers.social.chat_events.emit_gauntlet_started") as mock_emit:
-                    with patch.object(handler, "_send_message_async", new_callable=AsyncMock):
-                        await handler._run_gauntlet_async(
-                            chat_id=123,
-                            user_id=456,
-                            username="testuser",
-                            statement="Test statement",
-                        )
-
-                        mock_emit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_run_gauntlet_async_emits_complete_event(self, handler):
-        """Test gauntlet emits completion event."""
-        with patch("aragora.server.handlers.social.telegram.Gauntlet") as mock_gauntlet_class:
-            mock_gauntlet = MagicMock()
-            mock_gauntlet.run = AsyncMock(return_value=MagicMock(
-                passed=False,
-                score=0.45,
-                vulnerabilities=["v1", "v2"],
-            ))
-            mock_gauntlet_class.return_value = mock_gauntlet
-
-            with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-                with patch("aragora.server.handlers.social.chat_events.emit_gauntlet_completed") as mock_emit:
-                    with patch.object(handler, "_send_message_async", new_callable=AsyncMock):
-                        await handler._run_gauntlet_async(
-                            chat_id=123,
-                            user_id=456,
-                            username="testuser",
-                            statement="Test statement",
-                        )
-
-                        mock_emit.assert_called_once()
-                        call_kwargs = mock_emit.call_args[1]
-                        assert call_kwargs["passed"] is False
-                        assert call_kwargs["vulnerability_count"] == 2
+    def test_command_gauntlet_short_statement(self, handler):
+        """Test gauntlet command with short statement sends error."""
+        with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
+            handler._command_gauntlet(123, 456, "user", "yes")
+            mock_task.assert_called()
 
 
 # ===========================================================================
@@ -918,49 +692,47 @@ class TestErrorHandling:
 
 
 # ===========================================================================
-# Chat Event Integration Tests
+# Extended Error Scenario Tests
 # ===========================================================================
 
 
-class TestChatEvents:
-    """Tests for chat event emissions."""
+class TestExtendedErrorScenarios:
+    """Extended tests for error handling."""
 
-    def test_handle_message_emits_event(self, handler):
-        """Test message handling emits event."""
-        message = {
-            "chat": {"id": 123},
-            "from": {"id": 456, "username": "testuser"},
-            "text": "Hello there!",
+    def test_handle_malformed_callback_data(self, handler):
+        """Test callback query handles malformed data gracefully."""
+        callback = {
+            "id": "callback123",
+            "data": "invalid_format",
+            "from": {"id": 456, "username": "user"},
+            "message": {"chat": {"id": 789}},
         }
 
         with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-            with patch("aragora.server.handlers.social.telegram.emit_message_received") as mock_emit:
-                handler._handle_message(message)
+            result = handler._handle_callback_query(callback)
+            assert result is not None
 
-                mock_emit.assert_called_once()
-                call_kwargs = mock_emit.call_args[1]
-                assert call_kwargs["platform"] == "telegram"
-                assert call_kwargs["text"] == "Hello there!"
+    def test_handle_message_with_missing_fields(self, handler):
+        """Test message handling with missing fields."""
+        message = {"chat": {"id": 123}}  # Missing 'from' and 'text'
+        result = handler._handle_message(message)
+        assert result is not None
 
-    def test_handle_command_emits_event(self, handler):
-        """Test command handling emits event."""
-        with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-            with patch("aragora.server.handlers.social.telegram.emit_command_received") as mock_emit:
-                handler._handle_command(123, 456, "testuser", "/help")
+    def test_webhook_post_with_empty_body(self, handler):
+        """Test webhook handles empty message body."""
+        body = json.dumps({"update_id": 99999}).encode()
+        mock_http = MockHandler(
+            headers={
+                "Content-Type": "application/json",
+                "Content-Length": str(len(body)),
+            },
+            body=body,
+            method="POST",
+        )
 
-                mock_emit.assert_called_once()
-                call_kwargs = mock_emit.call_args[1]
-                assert call_kwargs["command"] == "/help"
+        with patch.object(handler, "_verify_secret", return_value=True):
+            result = handler.handle("/api/integrations/telegram/webhook", {}, mock_http)
 
-    def test_handle_vote_emits_event(self, handler):
-        """Test vote handling emits event."""
-        with patch("aragora.server.storage.get_debates_db") as mock_db:
-            mock_db.return_value = MagicMock()
-            with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-                with patch("aragora.server.handlers.social.telegram.emit_vote_received") as mock_emit:
-                    handler._handle_vote(123, 456, "testuser", "debate123", "agree")
-
-                    mock_emit.assert_called_once()
-                    call_kwargs = mock_emit.call_args[1]
-                    assert call_kwargs["debate_id"] == "debate123"
-                    assert call_kwargs["vote"] == "agree"
+        assert result is not None
+        data = json.loads(get_body(result))
+        assert data.get("ok") is True

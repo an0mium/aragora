@@ -2,7 +2,12 @@
 Storage Factory for Aragora.
 
 Provides a unified interface for creating storage backends based on configuration.
-Supports SQLite (default for development) and PostgreSQL (production scale).
+Supports PostgreSQL (default for production) and SQLite (development fallback).
+
+Backend Selection:
+1. Explicit: Set ARAGORA_DB_BACKEND=postgres or ARAGORA_DB_BACKEND=sqlite
+2. Auto: If ARAGORA_POSTGRES_DSN or DATABASE_URL is set, uses PostgreSQL
+3. Fallback: If no PostgreSQL DSN is configured, falls back to SQLite
 
 Usage:
     from aragora.storage.factory import get_storage_backend, StorageBackend
@@ -15,7 +20,7 @@ Usage:
         pool = await get_postgres_pool()
         store = MyPostgresStore(pool)
     else:
-        # Use SQLite stores (default)
+        # Use SQLite stores (development fallback)
         store = MySQLiteStore(db_path)
 """
 
@@ -39,17 +44,34 @@ def get_storage_backend() -> StorageBackend:
     """
     Determine which storage backend to use based on configuration.
 
-    Checks ARAGORA_DB_BACKEND environment variable. Defaults to SQLite.
+    Priority order:
+    1. Explicit ARAGORA_DB_BACKEND environment variable ("postgres" or "sqlite")
+    2. Auto-detect: If ARAGORA_POSTGRES_DSN or DATABASE_URL is set, use PostgreSQL
+    3. Fallback: SQLite for local development
 
     Returns:
         StorageBackend enum value
     """
-    backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+    # Check for explicit backend setting
+    explicit_backend = os.environ.get("ARAGORA_DB_BACKEND")
+    if explicit_backend:
+        backend = explicit_backend.lower()
+        if backend == "postgres" or backend == "postgresql":
+            return StorageBackend.POSTGRES
+        elif backend == "sqlite":
+            return StorageBackend.SQLITE
+        else:
+            logger.warning(f"Unknown ARAGORA_DB_BACKEND value: {backend}, falling back to auto-detect")
 
-    if backend == "postgres" or backend == "postgresql":
+    # Auto-detect: use PostgreSQL if DSN is configured
+    dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
+    if dsn:
+        logger.debug("PostgreSQL DSN detected, using PostgreSQL backend")
         return StorageBackend.POSTGRES
-    else:
-        return StorageBackend.SQLITE
+
+    # Fallback: SQLite for local development
+    logger.debug("No PostgreSQL DSN configured, using SQLite backend")
+    return StorageBackend.SQLITE
 
 
 def is_postgres_configured() -> bool:

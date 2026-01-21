@@ -861,25 +861,59 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         error: Optional[str] = None,
         workspace_id: Optional[str] = None,
     ) -> None:
-        """Update sync status after a sync operation."""
+        """Update sync status after a sync operation.
+
+        Uses atomic UPDATE to avoid read-modify-write race conditions.
+        """
+        ws_id = workspace_id or ""
+        now = datetime.utcnow().isoformat()
+
+        # Build atomic update based on direction and error status
+        if direction == "push":
+            if error:
+                sql = """
+                    UPDATE federated_regions SET
+                        last_sync_at = $1, last_sync_error = $2, last_push_at = $1,
+                        total_pushes = total_pushes + 1, total_sync_errors = total_sync_errors + 1,
+                        updated_at = NOW()
+                    WHERE region_id = $3 AND workspace_id = $4
+                """
+                params = (now, error, region_id, ws_id)
+            else:
+                sql = """
+                    UPDATE federated_regions SET
+                        last_sync_at = $1, last_sync_error = NULL, last_push_at = $1,
+                        total_pushes = total_pushes + 1, total_nodes_synced = total_nodes_synced + $2,
+                        updated_at = NOW()
+                    WHERE region_id = $3 AND workspace_id = $4
+                """
+                params = (now, nodes_synced, region_id, ws_id)
+        else:  # pull
+            if error:
+                sql = """
+                    UPDATE federated_regions SET
+                        last_sync_at = $1, last_sync_error = $2, last_pull_at = $1,
+                        total_pulls = total_pulls + 1, total_sync_errors = total_sync_errors + 1,
+                        updated_at = NOW()
+                    WHERE region_id = $3 AND workspace_id = $4
+                """
+                params = (now, error, region_id, ws_id)
+            else:
+                sql = """
+                    UPDATE federated_regions SET
+                        last_sync_at = $1, last_sync_error = NULL, last_pull_at = $1,
+                        total_pulls = total_pulls + 1, total_nodes_synced = total_nodes_synced + $2,
+                        updated_at = NOW()
+                    WHERE region_id = $3 AND workspace_id = $4
+                """
+                params = (now, nodes_synced, region_id, ws_id)
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(sql, *params)
+
+        # Update data_json field to keep it in sync
         region = await self.get(region_id, workspace_id)
         if region:
-            now = datetime.utcnow().isoformat()
-            region.last_sync_at = now
-            region.last_sync_error = error
-
-            if direction == "push":
-                region.last_push_at = now
-                region.total_pushes += 1
-            else:
-                region.last_pull_at = now
-                region.total_pulls += 1
-
-            if error:
-                region.total_sync_errors += 1
-            else:
-                region.total_nodes_synced += nodes_synced
-
             await self.save(region)
 
     def update_sync_status_sync(

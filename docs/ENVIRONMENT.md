@@ -209,7 +209,7 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 |----------|----------|-------------|---------|
 | `DATABASE_URL` | Optional | Postgres connection string (primary) | - |
 | `ARAGORA_DATABASE_URL` | Optional | Legacy alias for `DATABASE_URL` | - |
-| `ARAGORA_DB_BACKEND` | Optional | Backend: `sqlite`, `postgres`, `postgresql` | `sqlite` |
+| `ARAGORA_DB_BACKEND` | Optional | Backend: `sqlite`, `postgres`, `postgresql` | Auto-detect* |
 | `ARAGORA_DB_MODE` | Optional | Database layout: `legacy` or `consolidated` | `legacy` |
 | `ARAGORA_DB_TIMEOUT` | Optional | Connection timeout (seconds) | `30` |
 | `ARAGORA_DB_POOL_SIZE` | Optional | Connection pool size | `10` |
@@ -226,6 +226,23 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 | `ARAGORA_PG_SSL_MODE` | Optional | Postgres SSL mode | `require` |
 | `ARAGORA_POSTGRESQL_POOL_SIZE` | Optional | Postgres pool size (storage backend) | `5` |
 | `ARAGORA_POSTGRESQL_POOL_MAX_OVERFLOW` | Optional | Postgres overflow (storage backend) | `10` |
+
+**\*Auto-detect Behavior:**
+- If `DATABASE_URL` or `ARAGORA_POSTGRES_DSN` is set → uses PostgreSQL
+- Otherwise → uses SQLite for local development
+- Set `ARAGORA_DB_BACKEND` explicitly to override auto-detection
+
+**Production Setup:**
+```bash
+# Set PostgreSQL connection string (auto-enables PostgreSQL backend)
+DATABASE_URL=postgresql://user:password@host:5432/aragora
+
+# Or use Supabase PostgreSQL
+DATABASE_URL=postgresql://postgres:[password]@[project].supabase.co:5432/postgres
+
+# Initialize database tables
+python scripts/init_postgres_db.py
+```
 
 Note: `ARAGORA_DB_MODE` defaults to `legacy` in the legacy config, while
 `aragora.persistence.db_config` defaults to `consolidated` if unset. Set it

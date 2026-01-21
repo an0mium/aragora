@@ -255,6 +255,140 @@ class SQLiteWebhookStore(WebhookStoreBackend):
             del self._local.conn
 
 
+class PostgresWebhookStore(WebhookStoreBackend):
+    """
+    PostgreSQL-backed webhook idempotency store.
+
+    Async implementation for production multi-instance deployments
+    with horizontal scaling and concurrent writes.
+    """
+
+    SCHEMA_NAME = "webhook_events"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS webhook_events (
+            event_id TEXT PRIMARY KEY,
+            processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            result TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_webhook_processed_at ON webhook_events(processed_at);
+    """
+
+    def __init__(
+        self,
+        pool: "Pool",
+        ttl_seconds: int = 86400,
+        cleanup_interval: int = 3600,
+    ):
+        """
+        Initialize PostgreSQL store.
+
+        Args:
+            pool: asyncpg connection pool
+            ttl_seconds: Time-to-live for entries (default 24 hours)
+            cleanup_interval: Seconds between automatic cleanups
+        """
+        self._pool = pool
+        self._ttl_seconds = ttl_seconds
+        self._cleanup_interval = cleanup_interval
+        self._last_cleanup = time.time()
+        self._initialized = False
+        logger.info("PostgresWebhookStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    def is_processed(self, event_id: str) -> bool:
+        """Check if event was already processed (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.is_processed_async(event_id))
+
+    async def is_processed_async(self, event_id: str) -> bool:
+        """Check if event was already processed asynchronously."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT 1 FROM webhook_events
+                   WHERE event_id = $1
+                   AND processed_at > NOW() - INTERVAL '1 second' * $2""",
+                event_id, self._ttl_seconds,
+            )
+            return row is not None
+
+    def mark_processed(self, event_id: str, result: str = "success") -> None:
+        """Mark event as processed (sync wrapper)."""
+        asyncio.get_event_loop().run_until_complete(
+            self.mark_processed_async(event_id, result)
+        )
+
+    async def mark_processed_async(self, event_id: str, result: str = "success") -> None:
+        """Mark event as processed asynchronously."""
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO webhook_events (event_id, processed_at, result)
+                   VALUES ($1, NOW(), $2)
+                   ON CONFLICT (event_id) DO UPDATE SET
+                   processed_at = NOW(), result = $2""",
+                event_id, result,
+            )
+        self._maybe_cleanup()
+
+    def cleanup_expired(self) -> int:
+        """Remove expired entries (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.cleanup_expired_async())
+
+    async def cleanup_expired_async(self) -> int:
+        """Remove expired entries asynchronously."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                """DELETE FROM webhook_events
+                   WHERE processed_at < NOW() - INTERVAL '1 second' * $1""",
+                self._ttl_seconds,
+            )
+            self._last_cleanup = time.time()
+            # Parse "DELETE N" to get count
+            parts = result.split()
+            removed = int(parts[1]) if len(parts) > 1 else 0
+            if removed > 0:
+                logger.debug(f"PostgresWebhookStore cleanup: removed {removed}")
+            return removed
+
+    def _maybe_cleanup(self) -> None:
+        """Run cleanup if enough time has passed."""
+        now = time.time()
+        if now - self._last_cleanup > self._cleanup_interval:
+            # Run cleanup in background to not block the caller
+            try:
+                asyncio.get_event_loop().run_until_complete(self.cleanup_expired_async())
+            except Exception as e:
+                logger.debug(f"Background cleanup failed: {e}")
+
+    def size(self) -> int:
+        """Get current store size (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.size_async())
+
+    async def size_async(self) -> int:
+        """Get current store size asynchronously."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT COUNT(*) FROM webhook_events
+                   WHERE processed_at > NOW() - INTERVAL '1 second' * $1""",
+                self._ttl_seconds,
+            )
+            return row[0] if row else 0
+
+    def close(self) -> None:
+        """Close is a no-op for pool-based stores (pool managed externally)."""
+        pass
+
+
 # Global webhook store instance
 _webhook_store: Optional[WebhookStoreBackend] = None
 
@@ -264,8 +398,10 @@ def get_webhook_store() -> WebhookStoreBackend:
     Get or create the webhook idempotency store.
 
     Uses environment variables to configure:
-    - ARAGORA_WEBHOOK_STORE_BACKEND: "memory" or "sqlite" (default)
+    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
+    - ARAGORA_WEBHOOK_STORE_BACKEND: "memory", "sqlite", or "postgres" (overrides)
     - ARAGORA_DATA_DIR: Directory for SQLite database
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
 
     Returns:
         Configured WebhookStoreBackend instance
@@ -274,7 +410,12 @@ def get_webhook_store() -> WebhookStoreBackend:
     if _webhook_store is not None:
         return _webhook_store
 
-    backend_type = os.environ.get("ARAGORA_WEBHOOK_STORE_BACKEND", "sqlite").lower()
+    # Check store-specific backend first, then global database backend
+    backend_type = os.environ.get("ARAGORA_WEBHOOK_STORE_BACKEND")
+    if not backend_type:
+        # Fall back to global database backend setting
+        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+    backend_type = backend_type.lower()
 
     # Import DATA_DIR from config (handles environment variable)
     try:
@@ -288,7 +429,20 @@ def get_webhook_store() -> WebhookStoreBackend:
     if backend_type == "memory":
         logger.info("Using in-memory webhook store (not persistent)")
         _webhook_store = InMemoryWebhookStore()
+    elif backend_type in ("postgres", "postgresql"):
+        logger.info("Using PostgreSQL webhook store")
+        try:
+            from aragora.storage.postgres_store import get_postgres_pool
+
+            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+            store = PostgresWebhookStore(pool)
+            asyncio.get_event_loop().run_until_complete(store.initialize())
+            _webhook_store = store
+        except Exception as e:
+            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+            _webhook_store = SQLiteWebhookStore(data_dir / "webhook_events.db")
     else:  # Default: sqlite
+        logger.info(f"Using SQLite webhook store: {data_dir / 'webhook_events.db'}")
         _webhook_store = SQLiteWebhookStore(data_dir / "webhook_events.db")
 
     return _webhook_store
@@ -318,6 +472,7 @@ __all__ = [
     "WebhookStoreBackend",
     "InMemoryWebhookStore",
     "SQLiteWebhookStore",
+    "PostgresWebhookStore",
     "get_webhook_store",
     "set_webhook_store",
     "reset_webhook_store",

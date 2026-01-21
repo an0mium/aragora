@@ -430,6 +430,9 @@ class ControlPlaneCoordinator:
         Returns:
             True if completed, False if not found
         """
+        # Get task details before completing (for KM storage)
+        task = await self._scheduler.get(task_id)
+
         success = await self._scheduler.complete(task_id, result)
 
         if success and agent_id:
@@ -439,6 +442,22 @@ class ControlPlaneCoordinator:
                 success=True,
                 latency_ms=latency_ms or 0.0,
             )
+
+            # Store outcome in Knowledge Mound
+            if self._km_adapter and task and HAS_KM_ADAPTER:
+                try:
+                    outcome = TaskOutcome(
+                        task_id=task_id,
+                        task_type=task.task_type,
+                        agent_id=agent_id,
+                        success=True,
+                        duration_seconds=(latency_ms or 0.0) / 1000.0,
+                        workspace_id=self._config.km_workspace_id,
+                        metadata=task.metadata or {},
+                    )
+                    await self._km_adapter.store_task_outcome(outcome)
+                except Exception as e:
+                    logger.debug(f"Failed to store task outcome in KM: {e}")
 
             # Notify waiters
             if task_id in self._result_waiters:
@@ -467,6 +486,9 @@ class ControlPlaneCoordinator:
         Returns:
             True if processed, False if not found
         """
+        # Get task details before failing (for KM storage)
+        task = await self._scheduler.get(task_id)
+
         success = await self._scheduler.fail(task_id, error, requeue)
 
         if success and agent_id:
@@ -475,6 +497,23 @@ class ControlPlaneCoordinator:
                 success=False,
                 latency_ms=latency_ms or 0.0,
             )
+
+            # Store failure outcome in Knowledge Mound (only if not requeuing)
+            if self._km_adapter and task and not requeue and HAS_KM_ADAPTER:
+                try:
+                    outcome = TaskOutcome(
+                        task_id=task_id,
+                        task_type=task.task_type,
+                        agent_id=agent_id,
+                        success=False,
+                        duration_seconds=(latency_ms or 0.0) / 1000.0,
+                        workspace_id=self._config.km_workspace_id,
+                        error_message=error,
+                        metadata=task.metadata or {},
+                    )
+                    await self._km_adapter.store_task_outcome(outcome)
+                except Exception as e:
+                    logger.debug(f"Failed to store task failure in KM: {e}")
 
         # Notify waiters if not requeued
         task = await self._scheduler.get(task_id)
@@ -599,7 +638,7 @@ class ControlPlaneCoordinator:
         Returns:
             Dict with registry, scheduler, and health stats
         """
-        return {
+        stats = {
             "registry": await self._registry.get_stats(),
             "scheduler": await self._scheduler.get_stats(),
             "health": self._health_monitor.get_stats(),
@@ -609,6 +648,68 @@ class ControlPlaneCoordinator:
                 "task_timeout": self._config.task_timeout,
             },
         }
+
+        # Add KM adapter stats if available
+        if self._km_adapter:
+            stats["knowledge_mound"] = self._km_adapter.get_stats()
+
+        return stats
+
+    # =========================================================================
+    # Knowledge Mound Integration
+    # =========================================================================
+
+    @property
+    def km_adapter(self) -> Optional["ControlPlaneAdapter"]:
+        """Get the Knowledge Mound adapter if configured."""
+        return self._km_adapter
+
+    def set_km_adapter(self, adapter: "ControlPlaneAdapter") -> None:
+        """
+        Set the Knowledge Mound adapter.
+
+        Args:
+            adapter: ControlPlaneAdapter instance
+        """
+        self._km_adapter = adapter
+
+    async def get_agent_recommendations(
+        self,
+        capability: str,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get agent recommendations from Knowledge Mound.
+
+        Uses historical performance data to recommend agents for a capability.
+
+        Args:
+            capability: Capability to query
+            limit: Maximum recommendations
+
+        Returns:
+            List of agent recommendation dicts with success rates
+        """
+        if not self._km_adapter:
+            return []
+
+        try:
+            records = await self._km_adapter.get_capability_recommendations(
+                capability, limit=limit
+            )
+            return [
+                {
+                    "agent_id": r.agent_id,
+                    "capability": r.capability,
+                    "success_rate": r.success_count / max(1, r.success_count + r.failure_count),
+                    "avg_duration_seconds": r.avg_duration_seconds,
+                    "confidence": r.confidence,
+                }
+                for r in records
+            ]
+        except Exception as e:
+            logger.debug(f"Failed to get agent recommendations: {e}")
+            return []
 
 
 async def create_control_plane(
