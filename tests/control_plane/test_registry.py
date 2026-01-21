@@ -314,3 +314,256 @@ class TestAgentRegistry:
         assert stats["by_capability"]["code"] == 1
         assert stats["by_provider"]["anthropic"] == 1
         assert stats["by_provider"]["openai"] == 1
+
+
+class TestAgentInfoRegional:
+    """Tests for AgentInfo regional functionality."""
+
+    def test_default_region(self):
+        """Test default region is 'default'."""
+        agent = AgentInfo(
+            agent_id="test-agent",
+            capabilities={"debate"},
+        )
+        assert agent.region_id == "default"
+        assert "default" in agent.available_regions
+
+    def test_region_assignment(self):
+        """Test explicit region assignment."""
+        agent = AgentInfo(
+            agent_id="test-agent",
+            capabilities={"debate"},
+            region_id="us-west-2",
+            available_regions={"us-west-2", "us-east-1"},
+        )
+        assert agent.region_id == "us-west-2"
+        assert agent.available_regions == {"us-west-2", "us-east-1"}
+
+    def test_is_available_in_region(self):
+        """Test regional availability check."""
+        agent = AgentInfo(
+            agent_id="test-agent",
+            capabilities={"debate"},
+            region_id="us-west-2",
+            available_regions={"us-west-2", "us-east-1"},
+        )
+        assert agent.is_available_in_region("us-west-2")
+        assert agent.is_available_in_region("us-east-1")
+        assert not agent.is_available_in_region("eu-west-1")
+
+    def test_get_latency_for_region(self):
+        """Test regional latency retrieval."""
+        agent = AgentInfo(
+            agent_id="test-agent",
+            capabilities={"debate"},
+            region_id="us-west-2",
+            available_regions={"us-west-2", "us-east-1"},
+            avg_latency_ms=100.0,
+            region_latency_ms={"us-west-2": 50.0, "us-east-1": 150.0},
+        )
+        assert agent.get_latency_for_region("us-west-2") == 50.0
+        assert agent.get_latency_for_region("us-east-1") == 150.0
+        # Unknown region in available_regions uses avg_latency_ms
+        agent.available_regions.add("eu-west-1")
+        assert agent.get_latency_for_region("eu-west-1") == 100.0
+        # Region not available returns inf
+        assert agent.get_latency_for_region("ap-southeast-1") == float("inf")
+
+    def test_update_region_heartbeat(self):
+        """Test regional heartbeat update."""
+        agent = AgentInfo(
+            agent_id="test-agent",
+            capabilities={"debate"},
+            region_id="us-west-2",
+        )
+        old_time = agent.last_heartbeat
+        time.sleep(0.01)
+        agent.update_region_heartbeat("us-east-1")
+
+        assert agent.last_heartbeat > old_time
+        assert "us-east-1" in agent.last_heartbeat_by_region
+        assert agent.last_heartbeat_by_region["us-east-1"] == agent.last_heartbeat
+
+    def test_serialization_with_regions(self):
+        """Test serialization includes regional fields."""
+        agent = AgentInfo(
+            agent_id="test-agent",
+            capabilities={"debate"},
+            region_id="us-west-2",
+            available_regions={"us-west-2", "us-east-1"},
+            region_latency_ms={"us-west-2": 50.0},
+        )
+        data = agent.to_dict()
+
+        assert data["region_id"] == "us-west-2"
+        assert set(data["available_regions"]) == {"us-west-2", "us-east-1"}
+        assert data["region_latency_ms"] == {"us-west-2": 50.0}
+
+    def test_deserialization_with_regions(self):
+        """Test deserialization includes regional fields."""
+        data = {
+            "agent_id": "test-agent",
+            "capabilities": ["debate"],
+            "status": "ready",
+            "region_id": "us-west-2",
+            "available_regions": ["us-west-2", "us-east-1"],
+            "region_latency_ms": {"us-west-2": 50.0},
+        }
+        agent = AgentInfo.from_dict(data)
+
+        assert agent.region_id == "us-west-2"
+        assert agent.available_regions == {"us-west-2", "us-east-1"}
+        assert agent.region_latency_ms == {"us-west-2": 50.0}
+
+
+class TestAgentRegistryRegional:
+    """Tests for AgentRegistry regional functionality."""
+
+    @pytest.fixture
+    def registry(self):
+        """Create a fresh registry for each test."""
+        return AgentRegistry(redis_url="redis://localhost:6379")
+
+    @pytest.mark.asyncio
+    async def test_register_with_region(self, registry):
+        """Test agent registration with regional info."""
+        agent = await registry.register(
+            agent_id="regional-agent",
+            capabilities=["debate"],
+            region_id="us-west-2",
+            available_regions=["us-west-2", "us-east-1"],
+        )
+
+        assert agent.region_id == "us-west-2"
+        assert "us-west-2" in agent.available_regions
+        assert "us-east-1" in agent.available_regions
+
+    @pytest.mark.asyncio
+    async def test_find_by_region(self, registry):
+        """Test finding agents by region."""
+        await registry.register(
+            agent_id="west-agent",
+            capabilities=["debate"],
+            region_id="us-west-2",
+        )
+        await registry.register(
+            agent_id="east-agent",
+            capabilities=["debate"],
+            region_id="us-east-1",
+        )
+        await registry.register(
+            agent_id="multi-agent",
+            capabilities=["debate"],
+            region_id="us-west-2",
+            available_regions=["us-west-2", "us-east-1", "eu-west-1"],
+        )
+
+        west_agents = await registry.find_by_region("us-west-2")
+        assert len(west_agents) == 2
+        agent_ids = {a.agent_id for a in west_agents}
+        assert "west-agent" in agent_ids
+        assert "multi-agent" in agent_ids
+
+        eu_agents = await registry.find_by_region("eu-west-1")
+        assert len(eu_agents) == 1
+        assert eu_agents[0].agent_id == "multi-agent"
+
+    @pytest.mark.asyncio
+    async def test_find_by_capability_and_region(self, registry):
+        """Test finding agents by capability and region."""
+        await registry.register(
+            agent_id="west-debater",
+            capabilities=["debate"],
+            region_id="us-west-2",
+        )
+        await registry.register(
+            agent_id="west-coder",
+            capabilities=["code"],
+            region_id="us-west-2",
+        )
+        await registry.register(
+            agent_id="east-debater",
+            capabilities=["debate"],
+            region_id="us-east-1",
+        )
+
+        agents = await registry.find_by_capability_and_region("debate", "us-west-2")
+        assert len(agents) == 1
+        assert agents[0].agent_id == "west-debater"
+
+    @pytest.mark.asyncio
+    async def test_select_agent_in_region(self, registry):
+        """Test regional agent selection."""
+        await registry.register(
+            agent_id="west-agent",
+            capabilities=["debate"],
+            region_id="us-west-2",
+        )
+        await registry.register(
+            agent_id="east-agent",
+            capabilities=["debate"],
+            region_id="us-east-1",
+        )
+
+        # Select preferring us-west-2
+        agent = await registry.select_agent_in_region(
+            capabilities=["debate"],
+            target_region="us-west-2",
+        )
+        assert agent is not None
+        assert agent.agent_id == "west-agent"
+
+        # Select preferring unknown region with fallback
+        agent = await registry.select_agent_in_region(
+            capabilities=["debate"],
+            target_region="eu-west-1",
+            fallback_regions=["us-east-1"],
+        )
+        assert agent is not None
+        assert agent.agent_id == "east-agent"
+
+    @pytest.mark.asyncio
+    async def test_list_regions(self, registry):
+        """Test listing all regions."""
+        await registry.register(
+            agent_id="agent-1",
+            capabilities=["debate"],
+            region_id="us-west-2",
+        )
+        await registry.register(
+            agent_id="agent-2",
+            capabilities=["debate"],
+            region_id="us-east-1",
+            available_regions=["us-east-1", "eu-west-1"],
+        )
+
+        regions = await registry.list_regions()
+        assert "us-west-2" in regions
+        assert "us-east-1" in regions
+        assert "eu-west-1" in regions
+
+    @pytest.mark.asyncio
+    async def test_get_agents_by_region(self, registry):
+        """Test grouping agents by region."""
+        await registry.register(
+            agent_id="west-1",
+            capabilities=["debate"],
+            region_id="us-west-2",
+        )
+        await registry.register(
+            agent_id="west-2",
+            capabilities=["code"],
+            region_id="us-west-2",
+        )
+        await registry.register(
+            agent_id="east-1",
+            capabilities=["debate"],
+            region_id="us-east-1",
+        )
+
+        by_region = await registry.get_agents_by_region()
+
+        assert "us-west-2" in by_region
+        assert len(by_region["us-west-2"]) == 2
+        assert "us-east-1" in by_region
+        assert len(by_region["us-east-1"]) == 1

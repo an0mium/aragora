@@ -422,6 +422,53 @@ class TaskScheduler:
         else:
             return self._claim_from_local(worker_id, capabilities)
 
+    async def claim_in_region(
+        self,
+        worker_id: str,
+        capabilities: List[str],
+        worker_region: str,
+        block_ms: int = 5000,
+    ) -> Optional[Task]:
+        """
+        Claim a task for execution with regional affinity.
+
+        Prefers tasks targeted at the worker's region, but will claim
+        tasks from other regions if the routing mode allows.
+
+        Args:
+            worker_id: ID of the worker claiming the task
+            capabilities: Capabilities the worker provides
+            worker_region: Region where the worker is located
+            block_ms: Time to block waiting for a task
+
+        Returns:
+            Task if claimed, None if no suitable task available
+        """
+        task = await self.claim(worker_id, capabilities, block_ms)
+        if not task:
+            return None
+
+        # Check if task can be executed in this region
+        if not task.can_execute_in_region(worker_region):
+            # Release the task back for another worker
+            await self._release_task(task)
+            return None
+
+        # Set the assigned region
+        task.assigned_region = worker_region
+        await self._save_task(task)
+
+        return task
+
+    async def _release_task(self, task: Task) -> None:
+        """Release a claimed task back to the queue."""
+        task.status = TaskStatus.PENDING
+        task.assigned_agent = None
+        task.assigned_at = None
+        await self._save_task(task)
+        await self._enqueue_task(task)
+        logger.debug(f"Task {task.id} released back to queue")
+
     async def complete(
         self,
         task_id: str,

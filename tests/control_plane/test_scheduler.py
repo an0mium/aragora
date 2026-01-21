@@ -1067,3 +1067,207 @@ class TestEdgeCases:
         task = await scheduler.get(task_id)
         assert task.metadata["custom"] == "data"
         assert task.metadata["count"] == 42
+
+
+from aragora.control_plane.scheduler import RegionRoutingMode
+
+
+class TestTaskRegional:
+    """Tests for Task regional functionality."""
+
+    def test_default_region_fields(self):
+        """Test default regional field values."""
+        task = Task(task_type="test", payload={})
+
+        assert task.target_region is None
+        assert task.fallback_regions == []
+        assert task.assigned_region is None
+        assert task.region_routing_mode == RegionRoutingMode.ANY
+        assert task.origin_region == "default"
+
+    def test_regional_task_creation(self):
+        """Test task creation with regional parameters."""
+        task = Task(
+            task_type="debate",
+            payload={"question": "test"},
+            target_region="us-west-2",
+            fallback_regions=["us-east-1", "eu-west-1"],
+            region_routing_mode=RegionRoutingMode.PREFERRED,
+            origin_region="us-west-2",
+        )
+
+        assert task.target_region == "us-west-2"
+        assert task.fallback_regions == ["us-east-1", "eu-west-1"]
+        assert task.region_routing_mode == RegionRoutingMode.PREFERRED
+        assert task.origin_region == "us-west-2"
+
+    def test_get_eligible_regions(self):
+        """Test getting eligible regions in priority order."""
+        task = Task(
+            task_type="test",
+            payload={},
+            target_region="us-west-2",
+            fallback_regions=["us-east-1", "eu-west-1"],
+        )
+
+        regions = task.get_eligible_regions()
+        assert regions == ["us-west-2", "us-east-1", "eu-west-1"]
+
+    def test_get_eligible_regions_no_target(self):
+        """Test eligible regions when no target specified."""
+        task = Task(
+            task_type="test",
+            payload={},
+            fallback_regions=["us-east-1"],
+        )
+
+        regions = task.get_eligible_regions()
+        assert regions == ["us-east-1"]
+
+    def test_can_execute_in_region_any_mode(self):
+        """Test regional execution in ANY mode."""
+        task = Task(
+            task_type="test",
+            payload={},
+            target_region="us-west-2",
+            region_routing_mode=RegionRoutingMode.ANY,
+        )
+
+        assert task.can_execute_in_region("us-west-2")
+        assert task.can_execute_in_region("us-east-1")
+        assert task.can_execute_in_region("eu-west-1")
+
+    def test_can_execute_in_region_strict_mode(self):
+        """Test regional execution in STRICT mode."""
+        task = Task(
+            task_type="test",
+            payload={},
+            target_region="us-west-2",
+            region_routing_mode=RegionRoutingMode.STRICT,
+        )
+
+        assert task.can_execute_in_region("us-west-2")
+        assert not task.can_execute_in_region("us-east-1")
+        assert not task.can_execute_in_region("eu-west-1")
+
+    def test_can_execute_in_region_preferred_mode(self):
+        """Test regional execution in PREFERRED mode."""
+        task = Task(
+            task_type="test",
+            payload={},
+            target_region="us-west-2",
+            fallback_regions=["us-east-1"],
+            region_routing_mode=RegionRoutingMode.PREFERRED,
+        )
+
+        assert task.can_execute_in_region("us-west-2")  # Target
+        assert task.can_execute_in_region("us-east-1")  # Fallback
+        assert not task.can_execute_in_region("eu-west-1")  # Not in list
+
+    def test_serialization_with_regions(self):
+        """Test task serialization includes regional fields."""
+        task = Task(
+            task_type="test",
+            payload={},
+            target_region="us-west-2",
+            fallback_regions=["us-east-1"],
+            assigned_region="us-west-2",
+            region_routing_mode=RegionRoutingMode.PREFERRED,
+            origin_region="us-west-2",
+        )
+
+        data = task.to_dict()
+
+        assert data["target_region"] == "us-west-2"
+        assert data["fallback_regions"] == ["us-east-1"]
+        assert data["assigned_region"] == "us-west-2"
+        assert data["region_routing_mode"] == "preferred"
+        assert data["origin_region"] == "us-west-2"
+
+    def test_deserialization_with_regions(self):
+        """Test task deserialization includes regional fields."""
+        data = {
+            "id": "test-123",
+            "task_type": "debate",
+            "payload": {},
+            "target_region": "us-west-2",
+            "fallback_regions": ["us-east-1"],
+            "assigned_region": "us-west-2",
+            "region_routing_mode": "strict",
+            "origin_region": "us-west-2",
+        }
+
+        task = Task.from_dict(data)
+
+        assert task.target_region == "us-west-2"
+        assert task.fallback_regions == ["us-east-1"]
+        assert task.assigned_region == "us-west-2"
+        assert task.region_routing_mode == RegionRoutingMode.STRICT
+        assert task.origin_region == "us-west-2"
+
+
+class TestTaskSchedulerRegional:
+    """Tests for TaskScheduler regional functionality."""
+
+    @pytest.fixture
+    def scheduler(self):
+        """Create a fresh scheduler for each test."""
+        return TaskScheduler(redis_url="redis://localhost:6379")
+
+    @pytest.mark.asyncio
+    async def test_submit_with_region(self, scheduler):
+        """Test task submission with regional parameters."""
+        task_id = await scheduler.submit(
+            task_type="debate",
+            payload={"question": "test"},
+            target_region="us-west-2",
+            fallback_regions=["us-east-1"],
+            region_routing_mode=RegionRoutingMode.PREFERRED,
+            origin_region="us-west-2",
+        )
+
+        task = await scheduler.get(task_id)
+        assert task.target_region == "us-west-2"
+        assert task.fallback_regions == ["us-east-1"]
+        assert task.region_routing_mode == RegionRoutingMode.PREFERRED
+        assert task.origin_region == "us-west-2"
+
+    @pytest.mark.asyncio
+    async def test_claim_in_region_success(self, scheduler):
+        """Test claiming task in correct region."""
+        task_id = await scheduler.submit(
+            task_type="debate",
+            payload={},
+            target_region="us-west-2",
+            region_routing_mode=RegionRoutingMode.PREFERRED,
+        )
+
+        task = await scheduler.claim_in_region(
+            worker_id="worker-1",
+            capabilities=[],
+            worker_region="us-west-2",
+        )
+
+        assert task is not None
+        assert task.id == task_id
+        assert task.assigned_region == "us-west-2"
+
+    @pytest.mark.asyncio
+    async def test_claim_in_region_strict_wrong_region(self, scheduler):
+        """Test claiming task in wrong region with strict mode."""
+        await scheduler.submit(
+            task_type="debate",
+            payload={},
+            target_region="us-west-2",
+            region_routing_mode=RegionRoutingMode.STRICT,
+        )
+
+        # Worker in different region should not get the task
+        task = await scheduler.claim_in_region(
+            worker_id="worker-1",
+            capabilities=[],
+            worker_region="us-east-1",
+        )
+
+        # Task should be released back to queue
+        assert task is None
