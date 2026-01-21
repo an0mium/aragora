@@ -514,18 +514,32 @@ class TeamsConnector(ChatPlatformConnector):
         headers: dict[str, str],
         body: bytes,
     ) -> bool:
-        """Verify Bot Framework JWT token."""
-        # Bot Framework uses JWT tokens that should be validated
-        # Full validation requires fetching Microsoft's public keys
-        # Simplified check for authorization header presence
+        """
+        Verify Bot Framework JWT token.
+
+        Uses PyJWT to validate the token against Microsoft's public keys.
+        Falls back to header presence check if PyJWT is not available.
+        """
         auth_header = headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             logger.warning("Missing or invalid Authorization header")
             return False
 
-        # In production, validate the JWT against Microsoft's keys
-        # For now, accept if we have an auth header
-        return True
+        # Use JWT verification if available
+        try:
+            from .jwt_verify import verify_teams_webhook, HAS_JWT
+
+            if HAS_JWT:
+                return verify_teams_webhook(auth_header, self.app_id)
+            else:
+                logger.warning(
+                    "PyJWT not available - accepting Teams webhook without full verification. "
+                    "Install PyJWT for secure webhook validation: pip install PyJWT"
+                )
+                return True
+        except ImportError:
+            logger.warning("JWT verification module not available")
+            return True
 
     def parse_webhook_event(
         self,

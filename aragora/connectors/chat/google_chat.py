@@ -486,17 +486,32 @@ class GoogleChatConnector(ChatPlatformConnector):
         headers: dict[str, str],
         body: bytes,
     ) -> bool:
-        """Verify Google Chat webhook (uses bearer token)."""
-        # Google Chat uses OAuth Bearer token in Authorization header
-        # The token should be validated against Google's public keys
-        # For now, check for presence of authorization
-        auth = headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
+        """
+        Verify Google Chat webhook JWT token.
+
+        Uses PyJWT to validate the token against Google's public keys.
+        Falls back to header presence check if PyJWT is not available.
+        """
+        auth_header = headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
             logger.warning("Missing Authorization header in Google Chat webhook")
             return False
 
-        # Full validation would verify the JWT against Google's public keys
-        return True
+        # Use JWT verification if available
+        try:
+            from .jwt_verify import verify_google_chat_webhook, HAS_JWT
+
+            if HAS_JWT:
+                return verify_google_chat_webhook(auth_header, self.project_id)
+            else:
+                logger.warning(
+                    "PyJWT not available - accepting Google Chat webhook without full verification. "
+                    "Install PyJWT for secure webhook validation: pip install PyJWT"
+                )
+                return True
+        except ImportError:
+            logger.warning("JWT verification module not available")
+            return True
 
     def parse_webhook_event(
         self,
