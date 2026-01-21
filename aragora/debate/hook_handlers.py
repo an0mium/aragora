@@ -52,6 +52,7 @@ class HookHandlerRegistry:
     - selection_feedback: SelectionFeedbackLoop for agent selection weights
     - knowledge_mound: Knowledge Mound for organizational knowledge
     - km_coordinator: BidirectionalCoordinator for KM sync
+    - webhook_delivery: WebhookDeliveryManager for outbound webhook dispatch
     """
 
     hook_manager: "HookManager"
@@ -80,6 +81,7 @@ class HookHandlerRegistry:
         count += self._register_selection_handlers()
         count += self._register_detection_handlers()
         count += self._register_km_handlers()
+        count += self._register_webhook_handlers()
 
         self._registered = True
         logger.info(f"HookHandlerRegistry registered {count} handlers")
@@ -669,6 +671,168 @@ class HookHandlerRegistry:
 
         return count
 
+    # =========================================================================
+    # Webhook Delivery Handlers
+    # =========================================================================
+
+    def _register_webhook_handlers(self) -> int:
+        """Wire hooks to webhook delivery system.
+
+        Handles:
+        - Delivering webhooks on debate end
+        - Delivering webhooks on consensus reached
+        - Delivering webhooks on round completion
+        """
+        webhook_delivery = self.subsystems.get("webhook_delivery")
+        if not webhook_delivery:
+            return 0
+
+        count = 0
+        from aragora.debate.hooks import HookType, HookPriority
+
+        # Debate end webhook
+        def handle_debate_end_webhook(
+            ctx: Any = None,
+            result: Any = None,
+            **kwargs: Any,
+        ) -> None:
+            try:
+                import asyncio
+                from aragora.storage.webhook_config_store import get_webhook_config_store
+
+                # Get debate info from context
+                debate_id = getattr(ctx, "debate_id", None) if ctx else None
+                task = getattr(ctx, "task", "") if ctx else ""
+
+                # Build payload
+                payload = {
+                    "event": "debate_end",
+                    "debate_id": debate_id,
+                    "task": task[:200] if task else None,
+                    "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+                }
+
+                # Add result info if available
+                if result:
+                    if hasattr(result, "to_dict"):
+                        payload["result"] = result.to_dict()
+                    elif hasattr(result, "consensus"):
+                        payload["consensus"] = result.consensus
+                        payload["verdict"] = getattr(result, "verdict", None)
+                    elif isinstance(result, dict):
+                        payload["result"] = result
+
+                # Get webhooks configured for this event
+                store = get_webhook_config_store()
+                webhooks = store.get_for_event("debate_end")
+
+                # Deliver to each webhook
+                async def deliver_all():
+                    from aragora.server.webhook_delivery import get_delivery_manager
+                    manager = await get_delivery_manager()
+
+                    for webhook in webhooks:
+                        try:
+                            await manager.deliver(
+                                webhook_id=webhook.id,
+                                event_type="debate_end",
+                                payload=payload,
+                                url=webhook.url,
+                                secret=webhook.secret,
+                            )
+                            # Record delivery in config store
+                            store.record_delivery(webhook.id, 200, success=True)
+                        except Exception as e:
+                            logger.debug(f"Webhook delivery failed for {webhook.id}: {e}")
+                            store.record_delivery(webhook.id, 500, success=False)
+
+                # Run async delivery
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.create_task(deliver_all())
+                    else:
+                        loop.run_until_complete(deliver_all())
+                except RuntimeError:
+                    # No event loop, create one
+                    asyncio.run(deliver_all())
+
+            except Exception as e:
+                logger.debug(f"Webhook debate_end handler failed: {e}")
+
+        if self._register(
+            HookType.POST_DEBATE.value,
+            handle_debate_end_webhook,
+            "webhook_debate_end",
+            HookPriority.LOW,  # Webhooks are lower priority than core functionality
+        ):
+            count += 1
+
+        # Consensus webhook
+        def handle_consensus_webhook(
+            ctx: Any = None,
+            consensus_text: str = "",
+            confidence: float = 0.0,
+            **kwargs: Any,
+        ) -> None:
+            try:
+                import asyncio
+                from aragora.storage.webhook_config_store import get_webhook_config_store
+
+                debate_id = getattr(ctx, "debate_id", None) if ctx else None
+
+                payload = {
+                    "event": "consensus",
+                    "debate_id": debate_id,
+                    "consensus_text": consensus_text[:500] if consensus_text else None,
+                    "confidence": confidence,
+                    "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+                }
+
+                store = get_webhook_config_store()
+                webhooks = store.get_for_event("consensus")
+
+                async def deliver_all():
+                    from aragora.server.webhook_delivery import get_delivery_manager
+                    manager = await get_delivery_manager()
+
+                    for webhook in webhooks:
+                        try:
+                            await manager.deliver(
+                                webhook_id=webhook.id,
+                                event_type="consensus",
+                                payload=payload,
+                                url=webhook.url,
+                                secret=webhook.secret,
+                            )
+                            store.record_delivery(webhook.id, 200, success=True)
+                        except Exception as e:
+                            logger.debug(f"Webhook delivery failed for {webhook.id}: {e}")
+                            store.record_delivery(webhook.id, 500, success=False)
+
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.create_task(deliver_all())
+                    else:
+                        loop.run_until_complete(deliver_all())
+                except RuntimeError:
+                    asyncio.run(deliver_all())
+
+            except Exception as e:
+                logger.debug(f"Webhook consensus handler failed: {e}")
+
+        if self._register(
+            HookType.POST_CONSENSUS.value,
+            handle_consensus_webhook,
+            "webhook_consensus",
+            HookPriority.LOW,
+        ):
+            count += 1
+
+        logger.debug(f"Registered {count} webhook handlers")
+        return count
+
     @property
     def registered_count(self) -> int:
         """Number of handlers currently registered."""
@@ -694,6 +858,7 @@ def create_hook_handler_registry(
     flip_detector: Any = None,
     knowledge_mound: Any = None,
     km_coordinator: Any = None,
+    webhook_delivery: Any = None,
     auto_register: bool = True,
 ) -> HookHandlerRegistry:
     """Create and optionally register a HookHandlerRegistry.
@@ -711,6 +876,7 @@ def create_hook_handler_registry(
         flip_detector: FlipDetector for position reversals
         knowledge_mound: Knowledge Mound for organizational knowledge
         km_coordinator: BidirectionalCoordinator for KM sync
+        webhook_delivery: WebhookDeliveryManager for webhook dispatch
         auto_register: If True, automatically call register_all()
 
     Returns:
@@ -740,6 +906,8 @@ def create_hook_handler_registry(
         subsystems["knowledge_mound"] = knowledge_mound
     if km_coordinator is not None:
         subsystems["km_coordinator"] = km_coordinator
+    if webhook_delivery is not None:
+        subsystems["webhook_delivery"] = webhook_delivery
 
     registry = HookHandlerRegistry(hook_manager=hook_manager, subsystems=subsystems)
 
