@@ -5,6 +5,28 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.7] - 2026-01-20
+
+### Added
+
+- **Batch Explainability Panel** - UI component for multi-debate analysis
+- **Culture Integration Tests** - Tests for debate culture profile processing
+- **Mode Handoff Tests** - Tests for transition contexts between modes
+
+### Fixed
+
+- **Knowledge Mound Query Pagination** - Added `offset` parameter to `QueryOperationsMixin.query()` for proper pagination support
+- **Knowledge Bridge Tests** - Fixed `MockKnowledgeMound` missing `workspace_id` attribute
+- **Checkpoint Restore** - Graceful handling of corrupted checkpoint files with proper error messages
+- **Checkpoint Test Timing** - Changed `duration_ms > 0` assertion to `>= 0` for fast operations
+- **Analytics Handler** - Fixed `get_knowledge_mound()` being incorrectly awaited (it's synchronous)
+- **Federation Tests** - Added proper mocking of persistent store to isolate tests from SQLite data
+
+### Changed
+
+- **Knowledge Mound Federation** - Methods now fall back to class-level cache when persistent store unavailable
+- **Test Isolation** - Federation tests now properly isolated from persistent SQLite data
+
 ## [2.0.6] - 2026-01-20
 
 ### Added
