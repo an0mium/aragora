@@ -4,6 +4,9 @@ Discord Chat Connector.
 Implements ChatPlatformConnector for Discord using
 Discord's REST API and Interactions.
 
+Includes circuit breaker protection for all API calls to handle
+rate limiting and service outages gracefully.
+
 Environment Variables:
 - DISCORD_BOT_TOKEN: Bot token for API authentication
 - DISCORD_APPLICATION_ID: Application ID for interactions
@@ -119,9 +122,14 @@ class DiscordConnector(ChatPlatformConnector):
         thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
-        """Send message to Discord channel."""
+        """Send message to Discord channel with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
             return SendMessageResponse(success=False, error="httpx not available")
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
 
         try:
             # Build message payload
@@ -141,7 +149,7 @@ class DiscordConnector(ChatPlatformConnector):
             # Handle thread
             target_channel = thread_id or channel_id
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.post(
                     f"{DISCORD_API_BASE}/channels/{target_channel}/messages",
                     headers=self._get_headers(),
@@ -150,6 +158,7 @@ class DiscordConnector(ChatPlatformConnector):
                 response.raise_for_status()
                 data = response.json()
 
+                self._record_success()
                 return SendMessageResponse(
                     success=True,
                     message_id=data.get("id"),
@@ -158,6 +167,7 @@ class DiscordConnector(ChatPlatformConnector):
                 )
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Discord send_message error: {e}")
             return SendMessageResponse(success=False, error=str(e))
 
@@ -169,9 +179,14 @@ class DiscordConnector(ChatPlatformConnector):
         blocks: Optional[list[dict]] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
-        """Update a Discord message."""
+        """Update a Discord message with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
             return SendMessageResponse(success=False, error="httpx not available")
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
 
         try:
             payload: dict[str, Any] = {
@@ -185,7 +200,7 @@ class DiscordConnector(ChatPlatformConnector):
             if components:
                 payload["components"] = components
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.patch(
                     f"{DISCORD_API_BASE}/channels/{channel_id}/messages/{message_id}",
                     headers=self._get_headers(),
@@ -193,6 +208,7 @@ class DiscordConnector(ChatPlatformConnector):
                 )
                 response.raise_for_status()
 
+                self._record_success()
                 return SendMessageResponse(
                     success=True,
                     message_id=message_id,
@@ -200,6 +216,7 @@ class DiscordConnector(ChatPlatformConnector):
                 )
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Discord update_message error: {e}")
             return SendMessageResponse(success=False, error=str(e))
 
@@ -209,19 +226,28 @@ class DiscordConnector(ChatPlatformConnector):
         message_id: str,
         **kwargs: Any,
     ) -> bool:
-        """Delete a Discord message."""
+        """Delete a Discord message with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
             return False
 
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return False
+
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.delete(
                     f"{DISCORD_API_BASE}/channels/{channel_id}/messages/{message_id}",
                     headers=self._get_headers(),
                 )
-                return response.status_code == 204
+                if response.status_code == 204:
+                    self._record_success()
+                    return True
+                return False
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Discord delete_message error: {e}")
             return False
 
@@ -300,9 +326,14 @@ class DiscordConnector(ChatPlatformConnector):
         ephemeral: bool = False,
         response_type: int = 4,  # CHANNEL_MESSAGE_WITH_SOURCE
     ) -> SendMessageResponse:
-        """Send response using interaction token."""
+        """Send response using interaction token with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
             return SendMessageResponse(success=False, error="httpx not available")
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
 
         try:
             payload: dict[str, Any] = {
@@ -318,7 +349,7 @@ class DiscordConnector(ChatPlatformConnector):
             if ephemeral:
                 payload["data"]["flags"] = 64  # EPHEMERAL flag
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.post(
                     f"{DISCORD_API_BASE}/interactions/{interaction_id}/{interaction_token}/callback",
                     headers={"Content-Type": "application/json"},
@@ -326,9 +357,11 @@ class DiscordConnector(ChatPlatformConnector):
                 )
                 response.raise_for_status()
 
+                self._record_success()
                 return SendMessageResponse(success=True)
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Discord interaction response error: {e}")
             return SendMessageResponse(success=False, error=str(e))
 
@@ -342,8 +375,18 @@ class DiscordConnector(ChatPlatformConnector):
         thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> FileAttachment:
-        """Upload file to Discord channel."""
+        """Upload file to Discord channel with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
+            return FileAttachment(
+                id="",
+                filename=filename,
+                content_type=content_type,
+                size=len(content),
+            )
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
             return FileAttachment(
                 id="",
                 filename=filename,
@@ -354,7 +397,7 @@ class DiscordConnector(ChatPlatformConnector):
         try:
             target_channel = thread_id or channel_id
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 # Discord uses multipart form for file uploads
                 files = {"file": (filename, content, content_type)}
                 data = {}
@@ -370,6 +413,7 @@ class DiscordConnector(ChatPlatformConnector):
                 response.raise_for_status()
                 result = response.json()
 
+                self._record_success()
                 attachments = result.get("attachments", [])
                 if attachments:
                     att = attachments[0]
@@ -389,6 +433,7 @@ class DiscordConnector(ChatPlatformConnector):
                 )
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Discord upload_file error: {e}")
             return FileAttachment(
                 id="",
@@ -402,7 +447,7 @@ class DiscordConnector(ChatPlatformConnector):
         file_id: str,
         **kwargs: Any,
     ) -> FileAttachment:
-        """Download file from Discord (requires URL)."""
+        """Download file from Discord (requires URL) with circuit breaker protection."""
         url = kwargs.get("url")
         if not url or not HTTPX_AVAILABLE:
             return FileAttachment(
@@ -412,11 +457,22 @@ class DiscordConnector(ChatPlatformConnector):
                 size=0,
             )
 
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return FileAttachment(
+                id=file_id,
+                filename="",
+                content_type="application/octet-stream",
+                size=0,
+            )
+
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.get(url)
                 response.raise_for_status()
 
+                self._record_success()
                 return FileAttachment(
                     id=file_id,
                     filename=kwargs.get("filename", "file"),
@@ -427,6 +483,7 @@ class DiscordConnector(ChatPlatformConnector):
                 )
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Discord download_file error: {e}")
             return FileAttachment(
                 id=file_id,
@@ -690,7 +747,7 @@ class DiscordConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> list[ChatMessage]:
         """
-        Get message history from a Discord channel.
+        Get message history from a Discord channel with circuit breaker protection.
 
         Uses Discord's GET /channels/{channel.id}/messages API.
 
@@ -708,6 +765,12 @@ class DiscordConnector(ChatPlatformConnector):
             logger.error("httpx not available for Discord API")
             return []
 
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.error(f"Circuit breaker open: {cb_error}")
+            return []
+
         try:
             params: dict[str, Any] = {
                 "limit": min(limit, 100),  # Discord API max per request
@@ -718,7 +781,7 @@ class DiscordConnector(ChatPlatformConnector):
             if latest:
                 params["before"] = latest
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.get(
                     f"{DISCORD_API_BASE}/channels/{channel_id}/messages",
                     headers=self._get_headers(),
@@ -726,9 +789,11 @@ class DiscordConnector(ChatPlatformConnector):
                 )
 
                 if response.status_code != 200:
+                    self._record_failure(Exception(f"HTTP {response.status_code}"))
                     logger.error(f"Discord API error: {response.status_code}")
                     return []
 
+                self._record_success()
                 data = response.json()
                 messages: list[ChatMessage] = []
 
@@ -782,6 +847,7 @@ class DiscordConnector(ChatPlatformConnector):
                 return messages
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Error getting Discord channel history: {e}")
             return []
 

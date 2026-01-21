@@ -35,6 +35,12 @@ from aragora.ranking.km_elo_bridge import (
     KMEloBridgeSyncResult,
     create_km_elo_bridge,
 )
+from aragora.ranking.pattern_matcher import (
+    PatternAffinity,
+    TaskPatternMatcher,
+    classify_task,
+    get_pattern_matcher,
+)
 
 __all__ = [
     # Core ELO
@@ -65,4 +71,9 @@ __all__ = [
     "KMEloBridgeConfig",
     "KMEloBridgeSyncResult",
     "create_km_elo_bridge",
+    # Pattern Matching
+    "TaskPatternMatcher",
+    "PatternAffinity",
+    "get_pattern_matcher",
+    "classify_task",
 ]

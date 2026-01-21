@@ -8,6 +8,8 @@ standardized methods for:
 - Processing user interactions
 - File operations (upload/download)
 - Voice message handling
+
+Includes circuit breaker support for fault tolerance.
 """
 
 from __future__ import annotations
@@ -42,6 +44,8 @@ class ChatPlatformConnector(ABC):
 
     Subclasses must implement the abstract methods to handle
     platform-specific APIs and message formats.
+
+    Includes circuit breaker support for fault tolerance in HTTP operations.
     """
 
     def __init__(
@@ -49,6 +53,10 @@ class ChatPlatformConnector(ABC):
         bot_token: Optional[str] = None,
         signing_secret: Optional[str] = None,
         webhook_url: Optional[str] = None,
+        enable_circuit_breaker: bool = True,
+        circuit_breaker_threshold: int = 5,
+        circuit_breaker_cooldown: float = 60.0,
+        request_timeout: float = 30.0,
         **config: Any,
     ):
         """
@@ -58,6 +66,10 @@ class ChatPlatformConnector(ABC):
             bot_token: API token for the bot
             signing_secret: Secret for webhook verification
             webhook_url: Default webhook URL for sending messages
+            enable_circuit_breaker: Enable circuit breaker for fault tolerance
+            circuit_breaker_threshold: Failures before opening circuit
+            circuit_breaker_cooldown: Seconds before attempting recovery
+            request_timeout: HTTP request timeout in seconds
             **config: Additional platform-specific configuration
         """
         self.bot_token = bot_token
@@ -65,6 +77,75 @@ class ChatPlatformConnector(ABC):
         self.webhook_url = webhook_url
         self.config = config
         self._initialized = False
+
+        # Circuit breaker settings
+        self._enable_circuit_breaker = enable_circuit_breaker
+        self._circuit_breaker_threshold = circuit_breaker_threshold
+        self._circuit_breaker_cooldown = circuit_breaker_cooldown
+        self._request_timeout = request_timeout
+        self._circuit_breaker: Optional[Any] = None
+        self._circuit_breaker_initialized = False
+
+    # ==========================================================================
+    # Circuit Breaker Support
+    # ==========================================================================
+
+    def _get_circuit_breaker(self) -> Optional[Any]:
+        """Get or create circuit breaker (lazy initialization)."""
+        if not self._enable_circuit_breaker:
+            return None
+
+        if not self._circuit_breaker_initialized:
+            try:
+                from aragora.resilience import get_circuit_breaker
+
+                self._circuit_breaker = get_circuit_breaker(
+                    name=f"chat_connector_{self.platform_name}",
+                    failure_threshold=self._circuit_breaker_threshold,
+                    cooldown_seconds=self._circuit_breaker_cooldown,
+                )
+                logger.debug(f"Circuit breaker initialized for {self.platform_name}")
+            except ImportError:
+                logger.warning("Circuit breaker module not available")
+            self._circuit_breaker_initialized = True
+
+        return self._circuit_breaker
+
+    def _check_circuit_breaker(self) -> tuple[bool, Optional[str]]:
+        """
+        Check if circuit breaker allows the request.
+
+        Returns:
+            Tuple of (can_proceed, error_message)
+        """
+        cb = self._get_circuit_breaker()
+        if cb is None:
+            return True, None
+
+        if not cb.can_proceed():
+            remaining = cb.cooldown_remaining()
+            error = f"Circuit breaker open for {self.platform_name}. Retry in {remaining:.1f}s"
+            logger.warning(error)
+            return False, error
+
+        return True, None
+
+    def _record_success(self) -> None:
+        """Record a successful operation with the circuit breaker."""
+        cb = self._get_circuit_breaker()
+        if cb:
+            cb.record_success()
+
+    def _record_failure(self, error: Optional[Exception] = None) -> None:
+        """Record a failed operation with the circuit breaker."""
+        cb = self._get_circuit_breaker()
+        if cb:
+            cb.record_failure()
+            status = cb.get_status()
+            if status == "open":
+                logger.warning(
+                    f"Circuit breaker OPENED for {self.platform_name} after repeated failures"
+                )
 
     @property
     @abstractmethod

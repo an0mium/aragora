@@ -26,6 +26,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -33,7 +34,15 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from aragora.control_plane.leader import (
+    is_distributed_state_required,
+    DistributedStateError,
+)
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -133,8 +142,111 @@ class SQLiteOriginStore:
         return count
 
 
-# Lazy-loaded SQLite store
+class PostgresOriginStore:
+    """PostgreSQL-backed debate origin store for multi-instance deployments."""
+
+    SCHEMA_NAME = "debate_origins"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS debate_origins (
+            debate_id TEXT PRIMARY KEY,
+            platform TEXT NOT NULL,
+            channel_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            created_at DOUBLE PRECISION NOT NULL,
+            metadata_json TEXT,
+            thread_id TEXT,
+            message_id TEXT,
+            result_sent BOOLEAN DEFAULT FALSE,
+            result_sent_at DOUBLE PRECISION,
+            expires_at DOUBLE PRECISION
+        );
+        CREATE INDEX IF NOT EXISTS idx_origins_created ON debate_origins(created_at);
+        CREATE INDEX IF NOT EXISTS idx_origins_expires ON debate_origins(expires_at);
+    """
+
+    def __init__(self, pool: "Pool"):
+        self._pool = pool
+        self._initialized = False
+        logger.info("PostgresOriginStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    async def save(self, origin: "DebateOrigin") -> None:
+        """Save a debate origin to PostgreSQL."""
+        expires_at = origin.created_at + ORIGIN_TTL_SECONDS
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO debate_origins
+                   (debate_id, platform, channel_id, user_id, created_at,
+                    metadata_json, thread_id, message_id, result_sent, result_sent_at, expires_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                   ON CONFLICT (debate_id) DO UPDATE SET
+                    platform = EXCLUDED.platform,
+                    channel_id = EXCLUDED.channel_id,
+                    user_id = EXCLUDED.user_id,
+                    metadata_json = EXCLUDED.metadata_json,
+                    thread_id = EXCLUDED.thread_id,
+                    message_id = EXCLUDED.message_id,
+                    result_sent = EXCLUDED.result_sent,
+                    result_sent_at = EXCLUDED.result_sent_at,
+                    expires_at = EXCLUDED.expires_at""",
+                origin.debate_id,
+                origin.platform,
+                origin.channel_id,
+                origin.user_id,
+                origin.created_at,
+                json.dumps(origin.metadata),
+                origin.thread_id,
+                origin.message_id,
+                origin.result_sent,
+                origin.result_sent_at,
+                expires_at,
+            )
+
+    async def get(self, debate_id: str) -> Optional["DebateOrigin"]:
+        """Get a debate origin by ID."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM debate_origins WHERE debate_id = $1", debate_id
+            )
+            if row:
+                return DebateOrigin(
+                    debate_id=row["debate_id"],
+                    platform=row["platform"],
+                    channel_id=row["channel_id"],
+                    user_id=row["user_id"],
+                    created_at=row["created_at"],
+                    metadata=json.loads(row["metadata_json"]) if row["metadata_json"] else {},
+                    thread_id=row["thread_id"],
+                    message_id=row["message_id"],
+                    result_sent=row["result_sent"],
+                    result_sent_at=row["result_sent_at"],
+                )
+            return None
+
+    async def cleanup_expired(self, ttl_seconds: int = ORIGIN_TTL_SECONDS) -> int:
+        """Remove expired origin records."""
+        cutoff = time.time() - ttl_seconds
+        async with self._pool.acquire() as conn:
+            result = await conn.execute("DELETE FROM debate_origins WHERE created_at < $1", cutoff)
+            count = int(result.split()[-1]) if result else 0
+            return count
+
+
+# Lazy-loaded stores
 _sqlite_store: Optional[SQLiteOriginStore] = None
+_postgres_store: Optional[PostgresOriginStore] = None
 
 
 def _get_sqlite_store() -> SQLiteOriginStore:
@@ -143,6 +255,43 @@ def _get_sqlite_store() -> SQLiteOriginStore:
     if _sqlite_store is None:
         _sqlite_store = SQLiteOriginStore()
     return _sqlite_store
+
+
+async def _get_postgres_store() -> Optional[PostgresOriginStore]:
+    """Get or create the PostgreSQL origin store if configured."""
+    global _postgres_store
+    if _postgres_store is not None:
+        return _postgres_store
+
+    # Check if PostgreSQL is configured
+    backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+    if backend not in ("postgres", "postgresql"):
+        return None
+
+    try:
+        from aragora.storage.postgres_store import get_postgres_pool
+
+        pool = await get_postgres_pool()
+        _postgres_store = PostgresOriginStore(pool)
+        await _postgres_store.initialize()
+        logger.info("PostgreSQL origin store initialized")
+        return _postgres_store
+    except Exception as e:
+        logger.warning(f"PostgreSQL origin store not available: {e}")
+        return None
+
+
+def _get_postgres_store_sync() -> Optional[PostgresOriginStore]:
+    """Synchronous wrapper for getting PostgreSQL store."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Can't use run_until_complete in async context
+            return _postgres_store
+        return loop.run_until_complete(_get_postgres_store())
+    except RuntimeError:
+        # No event loop
+        return None
 
 
 @dataclass
@@ -229,19 +378,48 @@ def register_debate_origin(
 
     _origin_store[debate_id] = origin
 
-    # Persist to SQLite for durability (always available)
-    try:
-        _get_sqlite_store().save(origin)
-    except Exception as e:
-        logger.warning(f"SQLite origin storage failed: {e}")
+    # Try PostgreSQL first if configured
+    pg_store = _get_postgres_store_sync()
+    if pg_store:
+        try:
+            loop = asyncio.get_event_loop()
+            if not loop.is_running():
+                loop.run_until_complete(pg_store.save(origin))
+            else:
+                asyncio.create_task(pg_store.save(origin))
+        except Exception as e:
+            logger.warning(f"PostgreSQL origin storage failed: {e}")
+    else:
+        # Fall back to SQLite for durability (always available)
+        try:
+            _get_sqlite_store().save(origin)
+        except Exception as e:
+            logger.warning(f"SQLite origin storage failed: {e}")
 
-    # Also try Redis if available
+    # Persist to Redis for distributed deployments
+    redis_success = False
     try:
         _store_origin_redis(origin)
+        redis_success = True
+    except ImportError:
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "debate_origin",
+                "Redis library not installed (pip install redis)",
+            )
+        logger.debug("Redis not available, using SQLite/PostgreSQL only")
     except Exception as e:
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "debate_origin",
+                f"Redis connection failed: {e}",
+            )
         logger.debug(f"Redis origin storage not available: {e}")
 
-    logger.info(f"Registered debate origin: {debate_id} from {platform}:{channel_id}")
+    logger.info(
+        f"Registered debate origin: {debate_id} from {platform}:{channel_id} "
+        f"(redis={redis_success})"
+    )
     return origin
 
 
@@ -268,14 +446,27 @@ def get_debate_origin(debate_id: str) -> Optional[DebateOrigin]:
     except Exception as e:
         logger.debug(f"Redis origin lookup not available: {e}")
 
-    # Try SQLite fallback
-    try:
-        origin = _get_sqlite_store().get(debate_id)
-        if origin:
-            _origin_store[debate_id] = origin  # Cache locally
-            return origin
-    except Exception as e:
-        logger.debug(f"SQLite origin lookup failed: {e}")
+    # Try PostgreSQL if configured
+    pg_store = _get_postgres_store_sync()
+    if pg_store:
+        try:
+            loop = asyncio.get_event_loop()
+            if not loop.is_running():
+                origin = loop.run_until_complete(pg_store.get(debate_id))
+                if origin:
+                    _origin_store[debate_id] = origin  # Cache locally
+                    return origin
+        except Exception as e:
+            logger.debug(f"PostgreSQL origin lookup failed: {e}")
+    else:
+        # Try SQLite fallback
+        try:
+            origin = _get_sqlite_store().get(debate_id)
+            if origin:
+                _origin_store[debate_id] = origin  # Cache locally
+                return origin
+        except Exception as e:
+            logger.debug(f"SQLite origin lookup failed: {e}")
 
     return None
 
@@ -287,11 +478,23 @@ def mark_result_sent(debate_id: str) -> None:
         origin.result_sent = True
         origin.result_sent_at = time.time()
 
-        # Update SQLite
-        try:
-            _get_sqlite_store().save(origin)
-        except Exception as e:
-            logger.debug(f"SQLite update failed: {e}")
+        # Update PostgreSQL if configured
+        pg_store = _get_postgres_store_sync()
+        if pg_store:
+            try:
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    loop.run_until_complete(pg_store.save(origin))
+                else:
+                    asyncio.create_task(pg_store.save(origin))
+            except Exception as e:
+                logger.debug(f"PostgreSQL update failed: {e}")
+        else:
+            # Update SQLite
+            try:
+                _get_sqlite_store().save(origin)
+            except Exception as e:
+                logger.debug(f"SQLite update failed: {e}")
 
         # Update Redis if available
         try:
@@ -1025,11 +1228,12 @@ def _load_origin_redis(debate_id: str) -> Optional[DebateOrigin]:
 
 
 def cleanup_expired_origins() -> int:
-    """Remove expired origin records from in-memory store and SQLite.
+    """Remove expired origin records from in-memory store and persistent storage.
 
     This function cleans up expired debate origins from:
     1. In-memory cache
-    2. SQLite database (for persistent storage)
+    2. PostgreSQL database (if configured)
+    3. SQLite database (fallback persistent storage)
 
     Should be called periodically (e.g., hourly) to prevent unbounded growth.
 
@@ -1049,14 +1253,27 @@ def cleanup_expired_origins() -> int:
         logger.info(f"Cleaned up {len(expired)} expired debate origins from memory")
         total_cleaned += len(expired)
 
-    # Clean up SQLite store
-    try:
-        sqlite_cleaned = _get_sqlite_store().cleanup_expired(ORIGIN_TTL_SECONDS)
-        if sqlite_cleaned > 0:
-            logger.info(f"Cleaned up {sqlite_cleaned} expired debate origins from SQLite")
-            total_cleaned += sqlite_cleaned
-    except Exception as e:
-        logger.warning(f"SQLite cleanup failed: {e}")
+    # Clean up PostgreSQL if configured
+    pg_store = _get_postgres_store_sync()
+    if pg_store:
+        try:
+            loop = asyncio.get_event_loop()
+            if not loop.is_running():
+                pg_cleaned = loop.run_until_complete(pg_store.cleanup_expired(ORIGIN_TTL_SECONDS))
+                if pg_cleaned > 0:
+                    logger.info(f"Cleaned up {pg_cleaned} expired debate origins from PostgreSQL")
+                    total_cleaned += pg_cleaned
+        except Exception as e:
+            logger.warning(f"PostgreSQL cleanup failed: {e}")
+    else:
+        # Clean up SQLite store (fallback)
+        try:
+            sqlite_cleaned = _get_sqlite_store().cleanup_expired(ORIGIN_TTL_SECONDS)
+            if sqlite_cleaned > 0:
+                logger.info(f"Cleaned up {sqlite_cleaned} expired debate origins from SQLite")
+                total_cleaned += sqlite_cleaned
+        except Exception as e:
+            logger.warning(f"SQLite cleanup failed: {e}")
 
     return total_cleaned
 

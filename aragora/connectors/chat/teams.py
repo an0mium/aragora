@@ -4,6 +4,8 @@ Microsoft Teams Chat Connector.
 Implements ChatPlatformConnector for Microsoft Teams using
 Bot Framework and Adaptive Cards.
 
+Includes circuit breaker protection for fault tolerance.
+
 Environment Variables:
 - TEAMS_APP_ID: Bot application ID
 - TEAMS_APP_PASSWORD: Bot application password
@@ -61,6 +63,9 @@ class TeamsConnector(ChatPlatformConnector):
     - Responding to commands and interactions
     - File uploads via OneDrive integration
     - Threaded conversations
+
+    Includes circuit breaker protection for fault tolerance against
+    Bot Framework API failures and rate limiting.
     """
 
     def __init__(
@@ -99,7 +104,11 @@ class TeamsConnector(ChatPlatformConnector):
         return "Microsoft Teams"
 
     async def _get_access_token(self) -> str:
-        """Get or refresh Bot Framework access token."""
+        """
+        Get or refresh Bot Framework access token.
+
+        Includes circuit breaker protection against authentication failures.
+        """
         import time
 
         if self._access_token and time.time() < self._token_expires - 60:
@@ -108,23 +117,34 @@ class TeamsConnector(ChatPlatformConnector):
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx required for Teams API calls")
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                BOT_FRAMEWORK_AUTH_URL,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": self.app_id,
-                    "client_secret": self.app_password,
-                    "scope": "https://api.botframework.com/.default",
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            raise RuntimeError(cb_error)
 
-            self._access_token = data["access_token"]
-            self._token_expires = time.time() + data.get("expires_in", 3600)
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.post(
+                    BOT_FRAMEWORK_AUTH_URL,
+                    data={
+                        "grant_type": "client_credentials",
+                        "client_id": self.app_id,
+                        "client_secret": self.app_password,
+                        "scope": "https://api.botframework.com/.default",
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
 
-            return self._access_token
+                self._access_token = data["access_token"]
+                self._token_expires = time.time() + data.get("expires_in", 3600)
+
+                self._record_success()
+                return self._access_token
+
+        except Exception as e:
+            self._record_failure(e)
+            raise
 
     async def send_message(
         self,
@@ -136,12 +156,21 @@ class TeamsConnector(ChatPlatformConnector):
         conversation_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
-        """Send message to Teams channel."""
+        """
+        Send message to Teams channel.
+
+        Includes circuit breaker protection for fault tolerance.
+        """
         if not HTTPX_AVAILABLE:
             return SendMessageResponse(
                 success=False,
                 error="httpx not available",
             )
+
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
 
         try:
             token = await self._get_access_token()
@@ -172,7 +201,7 @@ class TeamsConnector(ChatPlatformConnector):
             if thread_id:
                 activity["replyToId"] = thread_id
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.post(
                     f"{base_url}/v3/conversations/{conv_id}/activities",
                     headers={
@@ -181,9 +210,19 @@ class TeamsConnector(ChatPlatformConnector):
                     },
                     json=activity,
                 )
+
+                # Check for rate limiting or service unavailable
+                if response.status_code in (429, 503):
+                    self._record_failure(Exception(f"HTTP {response.status_code}"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=f"Service unavailable or rate limited: {response.status_code}",
+                    )
+
                 response.raise_for_status()
                 data = response.json()
 
+                self._record_success()
                 return SendMessageResponse(
                     success=True,
                     message_id=data.get("id"),
@@ -192,6 +231,7 @@ class TeamsConnector(ChatPlatformConnector):
 
         except Exception as e:
             logger.error(f"Teams send_message error: {e}")
+            self._record_failure(e)
             return SendMessageResponse(
                 success=False,
                 error=str(e),
@@ -206,9 +246,18 @@ class TeamsConnector(ChatPlatformConnector):
         service_url: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
-        """Update an existing Teams message."""
+        """
+        Update an existing Teams message.
+
+        Includes circuit breaker protection for fault tolerance.
+        """
         if not HTTPX_AVAILABLE:
             return SendMessageResponse(success=False, error="httpx not available")
+
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
 
         try:
             token = await self._get_access_token()
@@ -232,7 +281,7 @@ class TeamsConnector(ChatPlatformConnector):
                     }
                 ]
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.put(
                     f"{base_url}/v3/conversations/{channel_id}/activities/{message_id}",
                     headers={
@@ -241,8 +290,18 @@ class TeamsConnector(ChatPlatformConnector):
                     },
                     json=activity,
                 )
+
+                # Check for rate limiting or service unavailable
+                if response.status_code in (429, 503):
+                    self._record_failure(Exception(f"HTTP {response.status_code}"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=f"Service unavailable or rate limited: {response.status_code}",
+                    )
+
                 response.raise_for_status()
 
+                self._record_success()
                 return SendMessageResponse(
                     success=True,
                     message_id=message_id,
@@ -251,6 +310,7 @@ class TeamsConnector(ChatPlatformConnector):
 
         except Exception as e:
             logger.error(f"Teams update_message error: {e}")
+            self._record_failure(e)
             return SendMessageResponse(success=False, error=str(e))
 
     async def delete_message(
@@ -260,23 +320,44 @@ class TeamsConnector(ChatPlatformConnector):
         service_url: Optional[str] = None,
         **kwargs: Any,
     ) -> bool:
-        """Delete a Teams message."""
+        """
+        Delete a Teams message.
+
+        Includes circuit breaker protection for fault tolerance.
+        """
         if not HTTPX_AVAILABLE:
+            return False
+
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.warning(f"Teams delete_message blocked by circuit breaker: {cb_error}")
             return False
 
         try:
             token = await self._get_access_token()
             base_url = service_url or BOT_FRAMEWORK_API_BASE
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.delete(
                     f"{base_url}/v3/conversations/{channel_id}/activities/{message_id}",
                     headers={"Authorization": f"Bearer {token}"},
                 )
-                return response.status_code in (200, 204)
+
+                # Check for rate limiting or service unavailable
+                if response.status_code in (429, 503):
+                    self._record_failure(Exception(f"HTTP {response.status_code}"))
+                    return False
+
+                if response.status_code in (200, 204):
+                    self._record_success()
+                    return True
+
+                return False
 
         except Exception as e:
             logger.error(f"Teams delete_message error: {e}")
+            self._record_failure(e)
             return False
 
     async def respond_to_command(
@@ -351,9 +432,18 @@ class TeamsConnector(ChatPlatformConnector):
         text: str,
         blocks: Optional[list[dict]] = None,
     ) -> SendMessageResponse:
-        """Send response to a Bot Framework response URL."""
+        """
+        Send response to a Bot Framework response URL.
+
+        Includes circuit breaker protection for fault tolerance.
+        """
         if not HTTPX_AVAILABLE:
             return SendMessageResponse(success=False, error="httpx not available")
+
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
 
         try:
             token = await self._get_access_token()
@@ -376,7 +466,7 @@ class TeamsConnector(ChatPlatformConnector):
                     }
                 ]
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.post(
                     response_url,
                     headers={
@@ -385,12 +475,23 @@ class TeamsConnector(ChatPlatformConnector):
                     },
                     json=activity,
                 )
+
+                # Check for rate limiting or service unavailable
+                if response.status_code in (429, 503):
+                    self._record_failure(Exception(f"HTTP {response.status_code}"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=f"Service unavailable or rate limited: {response.status_code}",
+                    )
+
                 response.raise_for_status()
 
+                self._record_success()
                 return SendMessageResponse(success=True)
 
         except Exception as e:
             logger.error(f"Teams response URL error: {e}")
+            self._record_failure(e)
             return SendMessageResponse(success=False, error=str(e))
 
     async def upload_file(

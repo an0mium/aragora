@@ -41,12 +41,15 @@ from datetime import datetime
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from aragora.control_plane.leader import (
     is_distributed_state_required,
     DistributedStateError,
 )
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -282,8 +285,103 @@ class SQLiteEmailReplyStore:
         return None
 
 
-# Lazy-loaded SQLite store
+class PostgresEmailReplyStore:
+    """PostgreSQL-backed email reply origin store for multi-instance deployments."""
+
+    SCHEMA_NAME = "email_reply_origins"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS email_reply_origins (
+            message_id TEXT PRIMARY KEY,
+            debate_id TEXT NOT NULL,
+            recipient_email TEXT NOT NULL,
+            recipient_name TEXT,
+            sent_at TIMESTAMPTZ,
+            reply_received BOOLEAN DEFAULT FALSE,
+            reply_received_at TIMESTAMPTZ,
+            metadata_json TEXT,
+            expires_at TIMESTAMPTZ
+        );
+        CREATE INDEX IF NOT EXISTS idx_email_origins_debate ON email_reply_origins(debate_id);
+        CREATE INDEX IF NOT EXISTS idx_email_origins_expires ON email_reply_origins(expires_at);
+    """
+
+    def __init__(self, pool: "Pool"):
+        self._pool = pool
+        self._initialized = False
+        logger.info("PostgresEmailReplyStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    async def save(self, origin: "EmailReplyOrigin") -> None:
+        """Save an email reply origin to PostgreSQL."""
+        expires_at = datetime.utcnow().timestamp() + EMAIL_ORIGIN_TTL_SECONDS
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO email_reply_origins
+                   (message_id, debate_id, recipient_email, recipient_name,
+                    sent_at, reply_received, reply_received_at, metadata_json, expires_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9))
+                   ON CONFLICT (message_id) DO UPDATE SET
+                    debate_id = EXCLUDED.debate_id,
+                    recipient_email = EXCLUDED.recipient_email,
+                    recipient_name = EXCLUDED.recipient_name,
+                    sent_at = EXCLUDED.sent_at,
+                    reply_received = EXCLUDED.reply_received,
+                    reply_received_at = EXCLUDED.reply_received_at,
+                    metadata_json = EXCLUDED.metadata_json,
+                    expires_at = EXCLUDED.expires_at""",
+                origin.message_id,
+                origin.debate_id,
+                origin.recipient_email,
+                origin.recipient_name,
+                origin.sent_at,
+                origin.reply_received,
+                origin.reply_received_at,
+                json.dumps(origin.metadata),
+                expires_at,
+            )
+
+    async def get(self, message_id: str) -> Optional["EmailReplyOrigin"]:
+        """Get an email reply origin by message ID."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM email_reply_origins WHERE message_id = $1", message_id
+            )
+            if row:
+                return EmailReplyOrigin(
+                    message_id=row["message_id"],
+                    debate_id=row["debate_id"],
+                    recipient_email=row["recipient_email"],
+                    recipient_name=row["recipient_name"] or "",
+                    sent_at=row["sent_at"] or datetime.utcnow(),
+                    reply_received=row["reply_received"],
+                    reply_received_at=row["reply_received_at"],
+                    metadata=json.loads(row["metadata_json"]) if row["metadata_json"] else {},
+                )
+            return None
+
+    async def cleanup_expired(self) -> int:
+        """Remove expired email reply origin records."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute("DELETE FROM email_reply_origins WHERE expires_at < NOW()")
+            count = int(result.split()[-1]) if result else 0
+            return count
+
+
+# Lazy-loaded stores
 _sqlite_email_store: Optional[SQLiteEmailReplyStore] = None
+_postgres_email_store: Optional[PostgresEmailReplyStore] = None
 
 
 def _get_sqlite_email_store() -> SQLiteEmailReplyStore:
@@ -292,6 +390,43 @@ def _get_sqlite_email_store() -> SQLiteEmailReplyStore:
     if _sqlite_email_store is None:
         _sqlite_email_store = SQLiteEmailReplyStore()
     return _sqlite_email_store
+
+
+async def _get_postgres_email_store() -> Optional[PostgresEmailReplyStore]:
+    """Get or create the PostgreSQL email reply store if configured."""
+    global _postgres_email_store
+    if _postgres_email_store is not None:
+        return _postgres_email_store
+
+    # Check if PostgreSQL is configured
+    backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+    if backend not in ("postgres", "postgresql"):
+        return None
+
+    try:
+        from aragora.storage.postgres_store import get_postgres_pool
+
+        pool = await get_postgres_pool()
+        _postgres_email_store = PostgresEmailReplyStore(pool)
+        await _postgres_email_store.initialize()
+        logger.info("PostgreSQL email reply store initialized")
+        return _postgres_email_store
+    except Exception as e:
+        logger.warning(f"PostgreSQL email reply store not available: {e}")
+        return None
+
+
+def _get_postgres_email_store_sync() -> Optional[PostgresEmailReplyStore]:
+    """Synchronous wrapper for getting PostgreSQL email store."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Can't use run_until_complete in async context
+            return _postgres_email_store
+        return loop.run_until_complete(_get_postgres_email_store())
+    except RuntimeError:
+        # No event loop
+        return None
 
 
 def _store_email_origin_redis(origin: EmailReplyOrigin) -> None:
@@ -361,11 +496,23 @@ def register_email_origin(
     )
     _reply_origins[message_id] = origin
 
-    # Persist to SQLite for durability (always available)
-    try:
-        _get_sqlite_email_store().save(origin)
-    except Exception as e:
-        logger.warning(f"SQLite email origin storage failed: {e}")
+    # Try PostgreSQL first if configured
+    pg_store = _get_postgres_email_store_sync()
+    if pg_store:
+        try:
+            loop = asyncio.get_event_loop()
+            if not loop.is_running():
+                loop.run_until_complete(pg_store.save(origin))
+            else:
+                asyncio.create_task(pg_store.save(origin))
+        except Exception as e:
+            logger.warning(f"PostgreSQL email origin storage failed: {e}")
+    else:
+        # Persist to SQLite for durability (always available)
+        try:
+            _get_sqlite_email_store().save(origin)
+        except Exception as e:
+            logger.warning(f"SQLite email origin storage failed: {e}")
 
     # Persist to Redis for distributed deployments
     redis_success = False
@@ -378,7 +525,7 @@ def register_email_origin(
                 "email_reply_loop",
                 "Redis library not installed (pip install redis)",
             )
-        logger.debug("Redis not available, using SQLite only")
+        logger.debug("Redis not available, using SQLite/PostgreSQL only")
     except Exception as e:
         if is_distributed_state_required():
             raise DistributedStateError(
@@ -396,7 +543,7 @@ def register_email_origin(
 async def get_origin_by_reply(in_reply_to: str) -> Optional[EmailReplyOrigin]:
     """Get the origin for an email reply.
 
-    Checks in-memory cache first, then falls back to Redis, then SQLite.
+    Checks in-memory cache first, then falls back to Redis, PostgreSQL, then SQLite.
     """
     async with _reply_origins_lock:
         # Check in-memory first
@@ -413,14 +560,25 @@ async def get_origin_by_reply(in_reply_to: str) -> Optional[EmailReplyOrigin]:
         except Exception as e:
             logger.debug(f"Redis email origin lookup not available: {e}")
 
-        # Fall back to SQLite
-        try:
-            origin = _get_sqlite_email_store().get(in_reply_to)
-            if origin:
-                _reply_origins[in_reply_to] = origin  # Cache locally
-                return origin
-        except Exception as e:
-            logger.debug(f"SQLite email origin lookup failed: {e}")
+        # Try PostgreSQL if configured
+        pg_store = await _get_postgres_email_store()
+        if pg_store:
+            try:
+                origin = await pg_store.get(in_reply_to)
+                if origin:
+                    _reply_origins[in_reply_to] = origin  # Cache locally
+                    return origin
+            except Exception as e:
+                logger.debug(f"PostgreSQL email origin lookup failed: {e}")
+        else:
+            # Fall back to SQLite
+            try:
+                origin = _get_sqlite_email_store().get(in_reply_to)
+                if origin:
+                    _reply_origins[in_reply_to] = origin  # Cache locally
+                    return origin
+            except Exception as e:
+                logger.debug(f"SQLite email origin lookup failed: {e}")
 
         return None
 

@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
     from aragora.debate.delegation import DelegationStrategy
     from aragora.debate.protocol import CircuitBreaker
+    from aragora.memory.store import CritiqueStore
+    from aragora.ranking.pattern_matcher import TaskPatternMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +78,14 @@ class TeamSelectionConfig:
     domain_capability_weight: float = 0.25  # Weight for domain expertise matching
     culture_weight: float = 0.15  # Weight for culture-based agent recommendations
     km_expertise_weight: float = 0.25  # Weight for KM-stored historical expertise
+    pattern_weight: float = 0.2  # Weight for task pattern-based selection
     base_score: float = 1.0
     elo_baseline: int = 1000
     enable_domain_filtering: bool = True  # Enable domain-based agent filtering
     domain_filter_fallback: bool = True  # Fall back to all agents if no match
     enable_culture_selection: bool = False  # Enable culture-based agent scoring
     enable_km_expertise: bool = True  # Enable KM-based expertise lookup
+    enable_pattern_selection: bool = True  # Enable task pattern-based selection
     km_expertise_cache_ttl: int = 300  # Cache TTL in seconds (5 minutes)
     custom_domain_map: dict[str, list[str]] = field(default_factory=dict)
 
@@ -110,6 +114,8 @@ class TeamSelector:
         delegation_strategy: Optional["DelegationStrategy"] = None,
         knowledge_mound: Optional[Any] = None,
         ranking_adapter: Optional[Any] = None,
+        critique_store: Optional["CritiqueStore"] = None,
+        pattern_matcher: Optional["TaskPatternMatcher"] = None,
         config: Optional[TeamSelectionConfig] = None,
     ):
         self.elo_system = elo_system
@@ -118,9 +124,12 @@ class TeamSelector:
         self.delegation_strategy = delegation_strategy
         self.knowledge_mound = knowledge_mound
         self.ranking_adapter = ranking_adapter
+        self.critique_store = critique_store
+        self.pattern_matcher = pattern_matcher
         self.config = config or TeamSelectionConfig()
         self._culture_recommendations_cache: dict[str, list[str]] = {}
-        self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}  # domain -> (timestamp, experts)
+        self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
+        self._pattern_affinities_cache: dict[str, dict[str, float]] = {}
 
     def select(
         self,
@@ -424,9 +433,7 @@ class TeamSelector:
                 use_cache=True,
             )
             self._km_expertise_cache[cache_key] = (current_time, experts)
-            logger.debug(
-                f"km_expertise_lookup domain={domain} experts={len(experts)}"
-            )
+            logger.debug(f"km_expertise_lookup domain={domain} experts={len(experts)}")
             return experts
         except Exception as e:
             logger.debug(f"KM expertise lookup failed for {domain}: {e}")
@@ -458,9 +465,7 @@ class TeamSelector:
         # Find agent in expert list
         for idx, expert in enumerate(experts):
             expert_name = getattr(expert, "agent_name", "").lower()
-            if expert_name and (
-                expert_name in agent_name_lower or agent_name_lower in expert_name
-            ):
+            if expert_name and (expert_name in agent_name_lower or agent_name_lower in expert_name):
                 # Score based on ranking position (first = 1.0, decreasing)
                 max_experts = min(len(experts), 10)
                 position_score = 1.0 - (idx / max_experts)
@@ -476,6 +481,59 @@ class TeamSelector:
                 return max(0.0, min(1.0, adjusted_score))
 
         return 0.0
+
+    def _compute_pattern_score(
+        self,
+        agent: "Agent",
+        task: str,
+    ) -> float:
+        """Compute score bonus based on task pattern affinity.
+
+        Uses the TaskPatternMatcher to classify the task and look up
+        agent affinities based on historical performance in that pattern.
+
+        Args:
+            agent: Agent to score
+            task: Task description to classify
+
+        Returns:
+            Score bonus (0.0 to 1.0) based on pattern affinity
+        """
+        if not self.pattern_matcher or not task:
+            return 0.0
+
+        try:
+            # Classify the task
+            pattern = self.pattern_matcher.classify_task(task)
+            if pattern == "general":
+                return 0.0
+
+            # Check cache first
+            if pattern not in self._pattern_affinities_cache:
+                affinities = self.pattern_matcher.get_agent_affinities(pattern, self.critique_store)
+                self._pattern_affinities_cache[pattern] = affinities
+
+            affinities = self._pattern_affinities_cache.get(pattern, {})
+            if not affinities:
+                return 0.0
+
+            # Find agent's affinity (partial name matching)
+            agent_name_lower = agent.name.lower()
+            for affinity_name, affinity_score in affinities.items():
+                if (
+                    affinity_name.lower() in agent_name_lower
+                    or agent_name_lower in affinity_name.lower()
+                ):
+                    logger.debug(
+                        f"pattern_score agent={agent.name} pattern={pattern} "
+                        f"score={affinity_score:.3f}"
+                    )
+                    return affinity_score
+
+            return 0.0
+        except Exception as e:
+            logger.debug(f"Pattern score computation failed for {agent.name}: {e}")
+            return 0.0
 
     def _compute_score(
         self,
@@ -537,6 +595,11 @@ class TeamSelector:
         if self.ranking_adapter and self.config.enable_km_expertise and domain:
             km_expertise_score = self._compute_km_expertise_score(agent, domain)
             score += km_expertise_score * self.config.km_expertise_weight
+
+        # Pattern-based contribution (historical success on task patterns)
+        if self.pattern_matcher and self.config.enable_pattern_selection and task:
+            pattern_score = self._compute_pattern_score(agent, task)
+            score += pattern_score * self.config.pattern_weight
 
         return score
 

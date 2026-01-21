@@ -2,7 +2,8 @@
 Google Chat Connector.
 
 Implements ChatPlatformConnector for Google Chat using
-Google Chat API and Cards v2.
+Google Chat API and Cards v2. Includes circuit breaker protection
+for resilient API calls.
 
 Environment Variables:
 - GOOGLE_CHAT_CREDENTIALS: Path to service account JSON or JSON string
@@ -67,6 +68,7 @@ class GoogleChatConnector(ChatPlatformConnector):
     - Responding to slash commands
     - Interactive card actions
     - Threaded conversations
+    - Circuit breaker protection for resilient API calls
     """
 
     def __init__(
@@ -167,6 +169,11 @@ class GoogleChatConnector(ChatPlatformConnector):
                 error="Required libraries not available",
             )
 
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
+
         try:
             token = await self._get_access_token()
 
@@ -195,7 +202,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                 params["messageReplyOption"] = "REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD"
                 payload["thread"] = {"name": thread_id}
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.post(
                     url,
                     headers=self._get_headers(token),
@@ -205,6 +212,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                 response.raise_for_status()
                 data = response.json()
 
+                self._record_success()
                 return SendMessageResponse(
                     success=True,
                     message_id=data.get("name", "").split("/")[-1],
@@ -212,6 +220,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                 )
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Google Chat send_message error: {e}")
             return SendMessageResponse(success=False, error=str(e))
 
@@ -226,6 +235,11 @@ class GoogleChatConnector(ChatPlatformConnector):
         """Update a Google Chat message."""
         if not HTTPX_AVAILABLE or not GOOGLE_AUTH_AVAILABLE:
             return SendMessageResponse(success=False, error="Libraries not available")
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
 
         try:
             token = await self._get_access_token()
@@ -248,7 +262,7 @@ class GoogleChatConnector(ChatPlatformConnector):
             # Message name format: spaces/{space}/messages/{message}
             message_name = f"{channel_id}/messages/{message_id}"
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.patch(
                     f"{CHAT_API_BASE}/{message_name}",
                     headers=self._get_headers(token),
@@ -257,6 +271,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                 )
                 response.raise_for_status()
 
+                self._record_success()
                 return SendMessageResponse(
                     success=True,
                     message_id=message_id,
@@ -264,6 +279,7 @@ class GoogleChatConnector(ChatPlatformConnector):
                 )
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Google Chat update_message error: {e}")
             return SendMessageResponse(success=False, error=str(e))
 
@@ -277,18 +293,28 @@ class GoogleChatConnector(ChatPlatformConnector):
         if not HTTPX_AVAILABLE or not GOOGLE_AUTH_AVAILABLE:
             return False
 
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.warning(f"Google Chat delete_message blocked by circuit breaker: {cb_error}")
+            return False
+
         try:
             token = await self._get_access_token()
             message_name = f"{channel_id}/messages/{message_id}"
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.delete(
                     f"{CHAT_API_BASE}/{message_name}",
                     headers=self._get_headers(token),
                 )
-                return response.status_code in (200, 204)
+                if response.status_code in (200, 204):
+                    self._record_success()
+                    return True
+                return False
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Google Chat delete_message error: {e}")
             return False
 
@@ -728,10 +754,16 @@ class GoogleChatConnector(ChatPlatformConnector):
         if not HTTPX_AVAILABLE or not GOOGLE_AUTH_AVAILABLE:
             return []
 
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.warning(f"Google Chat list_spaces blocked by circuit breaker: {cb_error}")
+            return []
+
         try:
             token = await self._get_access_token()
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 response = await client.get(
                     f"{CHAT_API_BASE}/spaces",
                     headers=self._get_headers(token),
@@ -750,8 +782,10 @@ class GoogleChatConnector(ChatPlatformConnector):
                         }
                     )
 
+                self._record_success()
                 return spaces
 
         except Exception as e:
+            self._record_failure(e)
             logger.error(f"Google Chat list_spaces error: {e}")
             return []

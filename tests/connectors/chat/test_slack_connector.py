@@ -63,9 +63,10 @@ class TestSlackSendMessage:
         """Should send simple text message."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "ok": True,
             "ts": "1234567890.123456",
@@ -91,9 +92,10 @@ class TestSlackSendMessage:
         """Should send message with Block Kit blocks."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"ok": True, "ts": "123", "channel": "C1"}
 
         with patch("httpx.AsyncClient") as mock_client:
@@ -119,9 +121,10 @@ class TestSlackSendMessage:
         """Should send threaded reply."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"ok": True, "ts": "123", "channel": "C1"}
 
         with patch("httpx.AsyncClient") as mock_client:
@@ -146,9 +149,10 @@ class TestSlackSendMessage:
         """Should handle API errors gracefully."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
+        mock_response.status_code = 400
         mock_response.json.return_value = {
             "ok": False,
             "error": "channel_not_found",
@@ -172,7 +176,7 @@ class TestSlackSendMessage:
         """Should handle exceptions gracefully."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False, max_retries=1)
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
@@ -196,9 +200,10 @@ class TestSlackUpdateMessage:
         """Should update existing message."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"ok": True, "ts": "123", "channel": "C1"}
 
         with patch("httpx.AsyncClient") as mock_client:
@@ -224,9 +229,10 @@ class TestSlackUpdateMessage:
         """Should handle update errors."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
+        mock_response.status_code = 400
         mock_response.json.return_value = {
             "ok": False,
             "error": "message_not_found",
@@ -255,9 +261,10 @@ class TestSlackDeleteMessage:
         """Should delete message."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"ok": True}
 
         with patch("httpx.AsyncClient") as mock_client:
@@ -280,10 +287,11 @@ class TestSlackDeleteMessage:
         """Should return False on delete failure."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
-        mock_response.json.return_value = {"ok": False}
+        mock_response.status_code = 400
+        mock_response.json.return_value = {"ok": False, "error": "message_not_found"}
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
@@ -306,9 +314,10 @@ class TestSlackEphemeralMessage:
         """Should send ephemeral message to user."""
         from aragora.connectors.chat.slack import SlackConnector
 
-        connector = SlackConnector(bot_token="xoxb-test")
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"ok": True}
 
         with patch("httpx.AsyncClient") as mock_client:
@@ -354,3 +363,625 @@ class TestSlackWithoutHttpx:
 
             # When httpx not available, should fail gracefully
             assert result.success is False or result.error is not None
+
+
+class TestSlackResilienceFeatures:
+    """Tests for circuit breaker, retry logic, and timeout handling."""
+
+    def test_init_with_circuit_breaker_disabled(self):
+        """Should allow disabling circuit breaker."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
+        assert connector._circuit_breaker is None
+
+    def test_init_with_custom_timeout(self):
+        """Should accept custom timeout."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test", timeout=60.0)
+        assert connector._timeout == 60.0
+
+    def test_init_with_custom_retries(self):
+        """Should accept custom max_retries."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test", max_retries=5)
+        assert connector._max_retries == 5
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_opens_on_failures(self):
+        """Circuit breaker should open after threshold failures."""
+        from aragora.connectors.chat.slack import SlackConnector
+        from aragora.resilience import reset_all_circuit_breakers
+
+        reset_all_circuit_breakers()
+
+        connector = SlackConnector(
+            bot_token="xoxb-test",
+            use_circuit_breaker=True,
+            max_retries=1,  # No retries for faster test
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {"ok": False, "error": "invalid_auth"}
+
+        # Trigger multiple failures to open circuit
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=mock_response
+            )
+
+            for _ in range(6):  # More than threshold (5)
+                await connector.send_message(channel_id="C123", text="Test")
+
+        # Circuit should be open now
+        result = await connector.send_message(channel_id="C123", text="Test")
+        assert result.success is False
+        assert "Circuit breaker open" in result.error
+
+    @pytest.mark.asyncio
+    async def test_retry_on_rate_limit(self):
+        """Should retry on 429 rate limit errors."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(
+            bot_token="xoxb-test",
+            use_circuit_breaker=False,
+            max_retries=3,
+        )
+
+        # First two calls return rate limit, third succeeds
+        rate_limit_response = MagicMock()
+        rate_limit_response.status_code = 429
+        rate_limit_response.json.return_value = {"ok": False, "error": "rate_limited"}
+
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = {"ok": True, "ts": "123", "channel": "C1"}
+
+        call_count = 0
+
+        async def mock_post(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                return rate_limit_response
+            return success_response
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = mock_post
+
+            # Patch sleep to avoid slow test
+            with patch("aragora.connectors.chat.slack._exponential_backoff"):
+                result = await connector.send_message(
+                    channel_id="C12345",
+                    text="Test",
+                )
+
+        assert result.success is True
+        assert call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_retry_on_server_error(self):
+        """Should retry on 5xx server errors."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(
+            bot_token="xoxb-test",
+            use_circuit_breaker=False,
+            max_retries=2,
+        )
+
+        server_error_response = MagicMock()
+        server_error_response.status_code = 500
+        server_error_response.json.return_value = {"ok": False, "error": "internal_error"}
+
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = {"ok": True, "ts": "123", "channel": "C1"}
+
+        call_count = 0
+
+        async def mock_post(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return server_error_response
+            return success_response
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = mock_post
+
+            with patch("aragora.connectors.chat.slack._exponential_backoff"):
+                result = await connector.send_message(
+                    channel_id="C12345",
+                    text="Test",
+                )
+
+        assert result.success is True
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_client_error(self):
+        """Should not retry on 4xx client errors (except 429)."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(
+            bot_token="xoxb-test",
+            use_circuit_breaker=False,
+            max_retries=3,
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {"ok": False, "error": "channel_not_found"}
+
+        call_count = 0
+
+        async def mock_post(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return mock_response
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = mock_post
+
+            result = await connector.send_message(
+                channel_id="invalid",
+                text="Test",
+            )
+
+        assert result.success is False
+        assert call_count == 1  # No retries
+
+    @pytest.mark.asyncio
+    async def test_timeout_handling(self):
+        """Should handle timeout exceptions with retry."""
+        from aragora.connectors.chat.slack import SlackConnector
+        import httpx
+
+        connector = SlackConnector(
+            bot_token="xoxb-test",
+            use_circuit_breaker=False,
+            max_retries=2,
+        )
+
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = {"ok": True, "ts": "123", "channel": "C1"}
+
+        call_count = 0
+
+        async def mock_post(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise httpx.TimeoutException("Connection timeout")
+            return success_response
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = mock_post
+
+            with patch("aragora.connectors.chat.slack._exponential_backoff"):
+                result = await connector.send_message(
+                    channel_id="C12345",
+                    text="Test",
+                )
+
+        assert result.success is True
+        assert call_count == 2
+
+
+class TestSlackChannelAndUserInfo:
+    """Tests for get_channel_info and get_user_info methods."""
+
+    @pytest.mark.asyncio
+    async def test_get_channel_info_success(self):
+        """Should get channel info successfully."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "ok": True,
+            "channel": {
+                "id": "C12345",
+                "name": "general",
+                "is_private": False,
+                "context_team_id": "T123",
+                "topic": {"value": "General discussion"},
+                "purpose": {"value": "Team chat"},
+                "num_members": 50,
+            },
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
+
+            result = await connector.get_channel_info("C12345")
+
+        assert result is not None
+        assert result.id == "C12345"
+        assert result.name == "general"
+        assert result.is_private is False
+        assert result.team_id == "T123"
+        assert result.metadata["topic"] == "General discussion"
+
+    @pytest.mark.asyncio
+    async def test_get_channel_info_not_found(self):
+        """Should return None when channel not found."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {"ok": False, "error": "channel_not_found"}
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
+
+            result = await connector.get_channel_info("invalid")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_user_info_success(self):
+        """Should get user info successfully."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "ok": True,
+            "user": {
+                "id": "U12345",
+                "name": "john.doe",
+                "is_bot": False,
+                "team_id": "T123",
+                "tz": "America/Los_Angeles",
+                "profile": {
+                    "display_name": "John Doe",
+                    "real_name": "John Doe",
+                    "email": "john@example.com",
+                    "title": "Engineer",
+                },
+            },
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
+
+            result = await connector.get_user_info("U12345")
+
+        assert result is not None
+        assert result.id == "U12345"
+        assert result.username == "john.doe"
+        assert result.display_name == "John Doe"
+        assert result.email == "john@example.com"
+        assert result.is_bot is False
+
+    @pytest.mark.asyncio
+    async def test_get_user_info_not_found(self):
+        """Should return None when user not found."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test", use_circuit_breaker=False)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.json.return_value = {"ok": False, "error": "user_not_found"}
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
+
+            result = await connector.get_user_info("invalid")
+
+        assert result is None
+
+
+class TestSlackWebhookParsing:
+    """Tests for webhook verification and parsing."""
+
+    def test_verify_webhook_valid_signature(self):
+        """Should verify valid webhook signature."""
+        from aragora.connectors.chat.slack import SlackConnector
+        import time
+
+        connector = SlackConnector(signing_secret="test-secret")
+
+        timestamp = str(int(time.time()))
+        body = b'{"type":"url_verification","challenge":"abc123"}'
+
+        # Compute expected signature
+        import hmac
+        import hashlib
+
+        sig_basestring = f"v0:{timestamp}:{body.decode('utf-8')}"
+        expected_sig = (
+            "v0="
+            + hmac.new(
+                b"test-secret",
+                sig_basestring.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+        )
+
+        headers = {
+            "X-Slack-Request-Timestamp": timestamp,
+            "X-Slack-Signature": expected_sig,
+        }
+
+        result = connector.verify_webhook(headers, body)
+        assert result is True
+
+    def test_verify_webhook_invalid_signature(self):
+        """Should reject invalid webhook signature."""
+        from aragora.connectors.chat.slack import SlackConnector
+        import time
+
+        connector = SlackConnector(signing_secret="test-secret")
+
+        headers = {
+            "X-Slack-Request-Timestamp": str(int(time.time())),
+            "X-Slack-Signature": "v0=invalid_signature",
+        }
+
+        result = connector.verify_webhook(headers, b"test body")
+        assert result is False
+
+    def test_verify_webhook_expired_timestamp(self):
+        """Should reject expired timestamps (replay attack protection)."""
+        from aragora.connectors.chat.slack import SlackConnector
+        import time
+
+        connector = SlackConnector(signing_secret="test-secret")
+
+        # Timestamp from 10 minutes ago
+        old_timestamp = str(int(time.time()) - 600)
+
+        headers = {
+            "X-Slack-Request-Timestamp": old_timestamp,
+            "X-Slack-Signature": "v0=any_signature",
+        }
+
+        result = connector.verify_webhook(headers, b"test body")
+        assert result is False
+
+    def test_parse_slash_command(self):
+        """Should parse slash command webhook."""
+        from aragora.connectors.chat.slack import SlackConnector
+        from urllib.parse import urlencode
+
+        connector = SlackConnector()
+
+        body = urlencode(
+            {
+                "command": "/debate",
+                "text": "topic argument",
+                "user_id": "U123",
+                "user_name": "testuser",
+                "channel_id": "C456",
+                "channel_name": "general",
+                "team_id": "T789",
+                "response_url": "https://hooks.slack.com/response/...",
+                "trigger_id": "trigger123",
+            }
+        ).encode()
+
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        event = connector.parse_webhook_event(headers, body)
+
+        assert event.event_type == "slash_command"
+        assert event.command is not None
+        assert event.command.name == "debate"
+        assert event.command.args == ["topic", "argument"]
+        assert event.command.user.id == "U123"
+        assert event.command.channel.id == "C456"
+
+    def test_parse_button_click_interaction(self):
+        """Should parse button click interaction."""
+        from aragora.connectors.chat.slack import SlackConnector
+        from urllib.parse import urlencode
+
+        connector = SlackConnector()
+
+        payload = {
+            "type": "block_actions",
+            "trigger_id": "trigger123",
+            "user": {"id": "U123", "username": "testuser"},
+            "channel": {"id": "C456", "name": "general"},
+            "team": {"id": "T789"},
+            "actions": [
+                {
+                    "type": "button",
+                    "action_id": "approve_btn",
+                    "value": "approved",
+                }
+            ],
+            "message": {"ts": "1234567890.123456"},
+            "response_url": "https://hooks.slack.com/response/...",
+        }
+
+        body = urlencode({"payload": json.dumps(payload)}).encode()
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        event = connector.parse_webhook_event(headers, body)
+
+        assert event.event_type == "block_actions"
+        assert event.interaction is not None
+        assert event.interaction.action_id == "approve_btn"
+        assert event.interaction.value == "approved"
+        assert event.interaction.user.id == "U123"
+
+    def test_parse_url_verification(self):
+        """Should parse URL verification challenge."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector()
+
+        body = json.dumps(
+            {
+                "type": "url_verification",
+                "challenge": "abc123xyz",
+            }
+        ).encode()
+
+        headers = {"Content-Type": "application/json"}
+
+        event = connector.parse_webhook_event(headers, body)
+
+        assert event.event_type == "url_verification"
+        assert event.challenge == "abc123xyz"
+
+    def test_parse_message_event(self):
+        """Should parse message event callback."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector()
+
+        body = json.dumps(
+            {
+                "type": "event_callback",
+                "team_id": "T789",
+                "event": {
+                    "type": "message",
+                    "user": "U123",
+                    "channel": "C456",
+                    "text": "Hello world",
+                    "ts": "1234567890.123456",
+                    "thread_ts": "1234567890.000001",
+                },
+            }
+        ).encode()
+
+        headers = {"Content-Type": "application/json"}
+
+        event = connector.parse_webhook_event(headers, body)
+
+        assert event.event_type == "message"
+        assert event.message is not None
+        assert event.message.content == "Hello world"
+        assert event.message.author.id == "U123"
+        assert event.message.thread_id == "1234567890.000001"
+
+
+class TestSlackBlockKitFormatting:
+    """Tests for Block Kit formatting methods."""
+
+    def test_format_blocks_with_title(self):
+        """Should format blocks with header title."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector()
+
+        blocks = connector.format_blocks(title="Important Alert")
+
+        assert len(blocks) == 1
+        assert blocks[0]["type"] == "header"
+        assert blocks[0]["text"]["text"] == "Important Alert"
+
+    def test_format_blocks_with_body(self):
+        """Should format blocks with body section."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector()
+
+        blocks = connector.format_blocks(body="This is the message body")
+
+        assert len(blocks) == 1
+        assert blocks[0]["type"] == "section"
+        assert blocks[0]["text"]["text"] == "This is the message body"
+        assert blocks[0]["text"]["type"] == "mrkdwn"
+
+    def test_format_blocks_with_fields(self):
+        """Should format blocks with fields."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector()
+
+        blocks = connector.format_blocks(
+            fields=[
+                ("Status", "Active"),
+                ("Priority", "High"),
+            ]
+        )
+
+        assert len(blocks) == 1
+        assert blocks[0]["type"] == "section"
+        assert len(blocks[0]["fields"]) == 2
+        assert "*Status*\nActive" in blocks[0]["fields"][0]["text"]
+
+    def test_format_blocks_complete(self):
+        """Should format complete block with all elements."""
+        from aragora.connectors.chat.slack import SlackConnector
+        from aragora.connectors.chat.models import MessageButton
+
+        connector = SlackConnector()
+
+        blocks = connector.format_blocks(
+            title="Alert",
+            body="Something happened",
+            fields=[("Field", "Value")],
+            actions=[
+                MessageButton(text="Approve", action_id="approve", value="yes", style="primary"),
+                MessageButton(text="Reject", action_id="reject", value="no", style="danger"),
+            ],
+        )
+
+        assert len(blocks) == 4
+        assert blocks[0]["type"] == "header"
+        assert blocks[1]["type"] == "section"
+        assert blocks[2]["type"] == "section"
+        assert blocks[3]["type"] == "actions"
+        assert len(blocks[3]["elements"]) == 2
+
+    def test_format_button_primary(self):
+        """Should format primary style button."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector()
+
+        button = connector.format_button(
+            text="Submit",
+            action_id="submit_btn",
+            value="submitted",
+            style="primary",
+        )
+
+        assert button["type"] == "button"
+        assert button["text"]["text"] == "Submit"
+        assert button["action_id"] == "submit_btn"
+        assert button["value"] == "submitted"
+        assert button["style"] == "primary"
+
+    def test_format_button_with_url(self):
+        """Should format URL button."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector()
+
+        button = connector.format_button(
+            text="View Details",
+            action_id="view_btn",
+            url="https://example.com/details",
+        )
+
+        assert button["type"] == "button"
+        assert button["url"] == "https://example.com/details"
+        assert "action_id" not in button  # URL buttons don't have action_id

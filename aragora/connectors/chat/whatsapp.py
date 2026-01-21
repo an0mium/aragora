@@ -2,6 +2,7 @@
 WhatsApp Business API Connector.
 
 Implements ChatPlatformConnector for WhatsApp using the Cloud API.
+Includes circuit breaker protection for resilient API interactions.
 
 Environment Variables:
 - WHATSAPP_ACCESS_TOKEN: Permanent access token from Meta
@@ -60,6 +61,8 @@ class WhatsAppConnector(ChatPlatformConnector):
     """
     WhatsApp connector using Meta Cloud API.
 
+    Includes circuit breaker protection for resilient API interactions.
+
     Supports:
     - Sending text messages
     - Interactive messages (buttons, lists)
@@ -114,9 +117,17 @@ class WhatsAppConnector(ChatPlatformConnector):
         thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
-        """Send a message to a WhatsApp user."""
+        """Send a message to a WhatsApp user with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for WhatsApp connector")
+
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(
+                success=False,
+                error=cb_error or "Circuit breaker is open",
+            )
 
         # Build message payload
         payload: dict[str, Any] = {
@@ -142,28 +153,41 @@ class WhatsAppConnector(ChatPlatformConnector):
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
-                json=payload,
-                headers=headers,
-            )
-            data = response.json()
-
-            if "error" in data:
-                error = data["error"]
-                logger.error(f"WhatsApp send failed: {error.get('message')}")
-                return SendMessageResponse(
-                    success=False,
-                    error=error.get("message", "Unknown error"),
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.post(
+                    f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
+                    json=payload,
+                    headers=headers,
                 )
+                data = response.json()
 
-            messages = data.get("messages", [{}])
+                if "error" in data:
+                    error = data["error"]
+                    error_code = error.get("code", 0)
+                    # Record failure for rate limit errors
+                    if error_code in (4, 80007, 130429):  # Rate limit codes
+                        self._record_failure(Exception(f"Rate limited: {error.get('message')}"))
+                    logger.error(f"WhatsApp send failed: {error.get('message')}")
+                    return SendMessageResponse(
+                        success=False,
+                        error=error.get("message", "Unknown error"),
+                    )
+
+                self._record_success()
+                messages = data.get("messages", [{}])
+                return SendMessageResponse(
+                    success=True,
+                    message_id=messages[0].get("id") if messages else None,
+                    channel_id=channel_id,
+                    timestamp=datetime.now().isoformat(),
+                )
+        except Exception as e:
+            self._record_failure(e)
+            logger.error(f"WhatsApp send exception: {e}")
             return SendMessageResponse(
-                success=True,
-                message_id=messages[0].get("id") if messages else None,
-                channel_id=channel_id,
-                timestamp=datetime.now().isoformat(),
+                success=False,
+                error=str(e),
             )
 
     async def update_message(
@@ -175,7 +199,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
-        Update a message.
+        Update a message with circuit breaker protection.
 
         Note: WhatsApp doesn't support editing messages.
         This sends a new message instead.
@@ -210,108 +234,150 @@ class WhatsAppConnector(ChatPlatformConnector):
         comment: Optional[str] = None,
         **kwargs: Any,
     ) -> FileAttachment:
-        """Upload and send a file as a document."""
+        """Upload and send a file as a document with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for WhatsApp connector")
 
-        # First, upload media
-        media_id = await self._upload_media(file_path, "document")
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            raise RuntimeError(cb_error or "Circuit breaker is open")
 
-        # Then send message with media
-        doc_payload: dict[str, Any] = {
-            "id": media_id,
-            "filename": filename or file_path.split("/")[-1],
-        }
-        if comment:
-            doc_payload["caption"] = comment
+        try:
+            # First, upload media
+            media_id = await self._upload_media(file_path, "document")
 
-        payload: dict[str, Any] = {
-            "messaging_product": "whatsapp",
-            "to": channel_id,
-            "type": "document",
-            "document": doc_payload,
-        }
+            # Then send message with media
+            doc_payload: dict[str, Any] = {
+                "id": media_id,
+                "filename": filename or file_path.split("/")[-1],
+            }
+            if comment:
+                doc_payload["caption"] = comment
 
-        headers = {
-            "Authorization": f"Bearer {self.bot_token}",
-            "Content-Type": "application/json",
-        }
+            payload: dict[str, Any] = {
+                "messaging_product": "whatsapp",
+                "to": channel_id,
+                "type": "document",
+                "document": doc_payload,
+            }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
-                json=payload,
-                headers=headers,
-            )
-            data = response.json()
+            headers = {
+                "Authorization": f"Bearer {self.bot_token}",
+                "Content-Type": "application/json",
+            }
 
-            if "error" in data:
-                raise RuntimeError(data["error"].get("message", "Upload failed"))
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.post(
+                    f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
+                    json=payload,
+                    headers=headers,
+                )
+                data = response.json()
 
-            return FileAttachment(
-                id=media_id,
-                filename=filename or file_path.split("/")[-1],
-                content_type="application/octet-stream",
-                size=0,  # Size unknown after upload
-            )
+                if "error" in data:
+                    error = data["error"]
+                    error_code = error.get("code", 0)
+                    if error_code in (4, 80007, 130429):  # Rate limit codes
+                        self._record_failure(Exception(f"Rate limited: {error.get('message')}"))
+                    raise RuntimeError(error.get("message", "Upload failed"))
+
+                self._record_success()
+                return FileAttachment(
+                    id=media_id,
+                    filename=filename or file_path.split("/")[-1],
+                    content_type="application/octet-stream",
+                    size=0,  # Size unknown after upload
+                )
+        except Exception as e:
+            self._record_failure(e)
+            raise
 
     async def _upload_media(self, file_path: str, media_type: str) -> str:
-        """Upload media to WhatsApp servers."""
+        """Upload media to WhatsApp servers with circuit breaker protection."""
         import mimetypes
+
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            raise RuntimeError(cb_error or "Circuit breaker is open")
 
         mime_type, _ = mimetypes.guess_type(file_path)
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            with open(file_path, "rb") as f:
-                files = {"file": (file_path.split("/")[-1], f, mime_type)}
-                data = {
-                    "messaging_product": "whatsapp",
-                    "type": mime_type or "application/octet-stream",
-                }
-                headers = {"Authorization": f"Bearer {self.bot_token}"}
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                with open(file_path, "rb") as f:
+                    files = {"file": (file_path.split("/")[-1], f, mime_type)}
+                    data = {
+                        "messaging_product": "whatsapp",
+                        "type": mime_type or "application/octet-stream",
+                    }
+                    headers = {"Authorization": f"Bearer {self.bot_token}"}
 
-                response = await client.post(
-                    f"{WHATSAPP_API_BASE}/{self.phone_number_id}/media",
-                    data=data,
-                    files=files,
-                    headers=headers,
-                )
-                result = response.json()
+                    response = await client.post(
+                        f"{WHATSAPP_API_BASE}/{self.phone_number_id}/media",
+                        data=data,
+                        files=files,
+                        headers=headers,
+                    )
+                    result = response.json()
 
-                if "error" in result:
-                    raise RuntimeError(result["error"].get("message", "Media upload failed"))
+                    if "error" in result:
+                        error = result["error"]
+                        error_code = error.get("code", 0)
+                        if error_code in (4, 80007, 130429):  # Rate limit codes
+                            self._record_failure(Exception(f"Rate limited: {error.get('message')}"))
+                        raise RuntimeError(error.get("message", "Media upload failed"))
 
-                return result.get("id", "")
+                    self._record_success()
+                    return result.get("id", "")
+        except Exception as e:
+            self._record_failure(e)
+            raise
 
     async def download_file(  # type: ignore[override]
         self,
         file_id: str,
         **kwargs: Any,
     ) -> bytes:
-        """Download a file by media ID."""
+        """Download a file by media ID with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for WhatsApp connector")
 
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            raise RuntimeError(cb_error or "Circuit breaker is open")
+
         headers = {"Authorization": f"Bearer {self.bot_token}"}
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            # Get media URL
-            response = await client.get(
-                f"{WHATSAPP_API_BASE}/{file_id}",
-                headers=headers,
-            )
-            data = response.json()
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                # Get media URL
+                response = await client.get(
+                    f"{WHATSAPP_API_BASE}/{file_id}",
+                    headers=headers,
+                )
+                data = response.json()
 
-            if "error" in data:
-                raise RuntimeError(data["error"].get("message", "Failed to get media"))
+                if "error" in data:
+                    error = data["error"]
+                    error_code = error.get("code", 0)
+                    if error_code in (4, 80007, 130429):  # Rate limit codes
+                        self._record_failure(Exception(f"Rate limited: {error.get('message')}"))
+                    raise RuntimeError(error.get("message", "Failed to get media"))
 
-            media_url = data.get("url")
-            if not media_url:
-                raise RuntimeError("No media URL returned")
+                media_url = data.get("url")
+                if not media_url:
+                    raise RuntimeError("No media URL returned")
 
-            # Download file
-            response = await client.get(media_url, headers=headers)
-            return response.content
+                # Download file
+                response = await client.get(media_url, headers=headers)
+                self._record_success()
+                return response.content
+        except Exception as e:
+            self._record_failure(e)
+            raise
 
     async def handle_webhook(
         self,
@@ -519,62 +585,87 @@ class WhatsAppConnector(ChatPlatformConnector):
         duration: Optional[int] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
-        """Send a voice message."""
+        """Send a voice message with circuit breaker protection."""
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for WhatsApp connector")
 
-        # Upload audio first
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            files = {"file": ("voice.ogg", audio_data, "audio/ogg")}
-            data = {"messaging_product": "whatsapp", "type": "audio/ogg"}
-            headers = {"Authorization": f"Bearer {self.bot_token}"}
-
-            response = await client.post(
-                f"{WHATSAPP_API_BASE}/{self.phone_number_id}/media",
-                data=data,
-                files=files,
-                headers=headers,
-            )
-            result = response.json()
-
-            if "error" in result:
-                return SendMessageResponse(
-                    success=False,
-                    error=result["error"].get("message", "Audio upload failed"),
-                )
-
-            media_id = result.get("id")
-
-            # Send audio message
-            payload = {
-                "messaging_product": "whatsapp",
-                "to": channel_id,
-                "type": "audio",
-                "audio": {"id": media_id},
-            }
-
-            response = await client.post(
-                f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {self.bot_token}",
-                    "Content-Type": "application/json",
-                },
-            )
-            data = response.json()
-
-            if "error" in data:
-                return SendMessageResponse(
-                    success=False,
-                    error=data["error"].get("message", "Voice send failed"),
-                )
-
-            messages = data.get("messages", [{}])
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
             return SendMessageResponse(
-                success=True,
-                message_id=messages[0].get("id") if messages else None,
-                channel_id=channel_id,
-                timestamp=datetime.now().isoformat(),
+                success=False,
+                error=cb_error or "Circuit breaker is open",
+            )
+
+        try:
+            # Upload audio first
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                files = {"file": ("voice.ogg", audio_data, "audio/ogg")}
+                data = {"messaging_product": "whatsapp", "type": "audio/ogg"}
+                headers = {"Authorization": f"Bearer {self.bot_token}"}
+
+                response = await client.post(
+                    f"{WHATSAPP_API_BASE}/{self.phone_number_id}/media",
+                    data=data,
+                    files=files,
+                    headers=headers,
+                )
+                result = response.json()
+
+                if "error" in result:
+                    error = result["error"]
+                    error_code = error.get("code", 0)
+                    if error_code in (4, 80007, 130429):  # Rate limit codes
+                        self._record_failure(Exception(f"Rate limited: {error.get('message')}"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=error.get("message", "Audio upload failed"),
+                    )
+
+                media_id = result.get("id")
+
+                # Send audio message
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": channel_id,
+                    "type": "audio",
+                    "audio": {"id": media_id},
+                }
+
+                response = await client.post(
+                    f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {self.bot_token}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                data = response.json()
+
+                if "error" in data:
+                    error = data["error"]
+                    error_code = error.get("code", 0)
+                    if error_code in (4, 80007, 130429):  # Rate limit codes
+                        self._record_failure(Exception(f"Rate limited: {error.get('message')}"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=error.get("message", "Voice send failed"),
+                    )
+
+                self._record_success()
+                messages = data.get("messages", [{}])
+                return SendMessageResponse(
+                    success=True,
+                    message_id=messages[0].get("id") if messages else None,
+                    channel_id=channel_id,
+                    timestamp=datetime.now().isoformat(),
+                )
+        except Exception as e:
+            self._record_failure(e)
+            logger.error(f"WhatsApp voice message exception: {e}")
+            return SendMessageResponse(
+                success=False,
+                error=str(e),
             )
 
     async def download_voice_message(
@@ -582,7 +673,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         voice_message: VoiceMessage,
         **kwargs: Any,
     ) -> bytes:
-        """Download a voice message."""
+        """Download a voice message with circuit breaker protection."""
         return await self.download_file(voice_message.file.id)
 
     async def get_channel_info(
@@ -689,12 +780,20 @@ class WhatsAppConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> SendMessageResponse:
         """
-        Send a template message.
+        Send a template message with circuit breaker protection.
 
         Templates must be pre-approved by WhatsApp.
         """
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for WhatsApp connector")
+
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(
+                success=False,
+                error=cb_error or "Circuit breaker is open",
+            )
 
         template_data: dict[str, Any] = {
             "name": template_name,
@@ -715,26 +814,39 @@ class WhatsAppConnector(ChatPlatformConnector):
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
-                json=payload,
-                headers=headers,
-            )
-            data = response.json()
-
-            if "error" in data:
-                return SendMessageResponse(
-                    success=False,
-                    error=data["error"].get("message", "Template send failed"),
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.post(
+                    f"{WHATSAPP_API_BASE}/{self.phone_number_id}/messages",
+                    json=payload,
+                    headers=headers,
                 )
+                data = response.json()
 
-            messages = data.get("messages", [{}])
+                if "error" in data:
+                    error = data["error"]
+                    error_code = error.get("code", 0)
+                    if error_code in (4, 80007, 130429):  # Rate limit codes
+                        self._record_failure(Exception(f"Rate limited: {error.get('message')}"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=error.get("message", "Template send failed"),
+                    )
+
+                self._record_success()
+                messages = data.get("messages", [{}])
+                return SendMessageResponse(
+                    success=True,
+                    message_id=messages[0].get("id") if messages else None,
+                    channel_id=channel_id,
+                    timestamp=datetime.now().isoformat(),
+                )
+        except Exception as e:
+            self._record_failure(e)
+            logger.error(f"WhatsApp template send exception: {e}")
             return SendMessageResponse(
-                success=True,
-                message_id=messages[0].get("id") if messages else None,
-                channel_id=channel_id,
-                timestamp=datetime.now().isoformat(),
+                success=False,
+                error=str(e),
             )
 
     async def verify_webhook(  # type: ignore[override]
@@ -753,6 +865,179 @@ class WhatsAppConnector(ChatPlatformConnector):
             return challenge
         logger.warning("WhatsApp webhook verification failed")
         return None
+
+    # ==========================================================================
+    # Abstract method implementations
+    # ==========================================================================
+
+    def format_blocks(
+        self,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+        fields: Optional[list[dict]] = None,
+        buttons: Optional[list[dict]] = None,
+        **kwargs: Any,
+    ) -> list[dict]:
+        """Format content as WhatsApp-compatible blocks."""
+        blocks: list[dict] = []
+
+        if title:
+            blocks.append({"type": "header", "text": title})
+
+        if body:
+            blocks.append({"type": "body", "text": body})
+
+        if fields:
+            for field in fields:
+                blocks.append(
+                    {
+                        "type": "field",
+                        "label": field.get("label", ""),
+                        "value": field.get("value", ""),
+                    }
+                )
+
+        if buttons:
+            for btn in buttons:
+                blocks.append(
+                    {
+                        "type": "button",
+                        "text": btn.get("text", "")[:20],  # WhatsApp limits to 20 chars
+                        "action_id": btn.get("action_id", ""),
+                        "value": btn.get("value", ""),
+                    }
+                )
+
+        return blocks
+
+    def format_button(
+        self,
+        text: str,
+        action_id: str,
+        value: Optional[str] = None,
+        style: Optional[str] = None,
+        url: Optional[str] = None,
+        **kwargs: Any,
+    ) -> dict:
+        """Format a button for WhatsApp interactive message."""
+        if url:
+            return {"type": "url_button", "text": text, "url": url}
+        return {
+            "type": "button",
+            "text": text[:20],  # WhatsApp limits to 20 chars
+            "action_id": action_id,
+            "value": value or action_id,
+        }
+
+    def parse_webhook_event(
+        self,
+        headers: dict[str, str],
+        body: bytes,
+    ) -> WebhookEvent:
+        """Parse a WhatsApp webhook payload into a WebhookEvent."""
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return WebhookEvent(
+                platform="whatsapp",
+                event_type="error",
+                raw_payload={},
+            )
+
+        # Verify signature if app secret is set
+        if self.signing_secret:
+            signature = headers.get("X-Hub-Signature-256", "")
+            expected = (
+                "sha256="
+                + hmac.new(
+                    self.signing_secret.encode(),
+                    body,
+                    hashlib.sha256,
+                ).hexdigest()
+            )
+            if not hmac.compare_digest(signature, expected):
+                logger.warning("WhatsApp webhook signature mismatch")
+                return WebhookEvent(
+                    platform="whatsapp",
+                    event_type="error",
+                    raw_payload={"error": "signature_mismatch"},
+                )
+
+        # Extract event from payload
+        entry = payload.get("entry", [{}])[0]
+        changes = entry.get("changes", [{}])[0]
+        value = changes.get("value", {})
+
+        # Determine event type
+        if "messages" in value:
+            messages = value.get("messages", [])
+            if messages:
+                msg = messages[0]
+                msg_type = msg.get("type", "text")
+
+                if msg_type == "interactive":
+                    return WebhookEvent(
+                        platform="whatsapp",
+                        event_type="interaction",
+                        raw_payload=payload,
+                    )
+
+                return WebhookEvent(
+                    platform="whatsapp",
+                    event_type="message",
+                    raw_payload=payload,
+                )
+
+        if "statuses" in value:
+            return WebhookEvent(
+                platform="whatsapp",
+                event_type="status",
+                raw_payload=payload,
+            )
+
+        return WebhookEvent(
+            platform="whatsapp",
+            event_type="unknown",
+            raw_payload=payload,
+        )
+
+    async def respond_to_command(
+        self,
+        command: BotCommand,
+        text: str,
+        blocks: Optional[list[dict]] = None,
+        ephemeral: bool = False,
+        **kwargs: Any,
+    ) -> SendMessageResponse:
+        """Respond to a bot command."""
+        # WhatsApp doesn't have native commands, so just send a message
+        if command.channel:
+            return await self.send_message(
+                channel_id=command.channel.id,
+                text=text,
+                blocks=blocks,
+                **kwargs,
+            )
+        return SendMessageResponse(success=False, error="No channel for command response")
+
+    async def respond_to_interaction(
+        self,
+        interaction: UserInteraction,
+        text: str,
+        blocks: Optional[list[dict]] = None,
+        replace_original: bool = False,
+        **kwargs: Any,
+    ) -> bool:
+        """Respond to a user interaction (button click or list selection)."""
+        if interaction.channel:
+            result = await self.send_message(
+                channel_id=interaction.channel.id,
+                text=text,
+                blocks=blocks,
+                **kwargs,
+            )
+            return result.success
+        return False
 
 
 __all__ = ["WhatsAppConnector"]
