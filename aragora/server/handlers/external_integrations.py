@@ -46,6 +46,28 @@ from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
 
+# RBAC imports (optional - graceful degradation if not available)
+try:
+    from aragora.rbac import (
+        AuthorizationContext,
+        check_permission,
+        PermissionDeniedError,
+    )
+    from aragora.billing.auth import extract_user_from_request
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
+# Metrics imports (optional)
+try:
+    from aragora.observability.metrics import record_rbac_check
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
+    def record_rbac_check(*args, **kwargs):
+        pass
+
 
 # =============================================================================
 # External Integrations Handler
@@ -104,6 +126,69 @@ class ExternalIntegrationsHandler(BaseHandler):
         self._zapier: Optional[ZapierIntegration] = None
         self._make: Optional[MakeIntegration] = None
         self._n8n: Optional[N8nIntegration] = None
+
+    # =========================================================================
+    # RBAC Helper Methods
+    # =========================================================================
+
+    def _get_auth_context(self, handler: Any) -> Optional[AuthorizationContext]:
+        """Extract authorization context from the request."""
+        if not RBAC_AVAILABLE:
+            return None
+
+        try:
+            # Try to get user info from request
+            user_info = extract_user_from_request(handler)
+            if not user_info:
+                return None
+
+            return AuthorizationContext(
+                user_id=user_info.get("user_id", "anonymous"),
+                roles=user_info.get("roles", []),
+                tenant_id=user_info.get("tenant_id"),
+            )
+        except Exception as e:
+            logger.debug(f"Could not extract auth context: {e}")
+            return None
+
+    def _check_permission(
+        self, handler: Any, permission_key: str, resource_id: Optional[str] = None
+    ) -> Optional[HandlerResult]:
+        """
+        Check if current user has permission. Returns error response if denied.
+
+        Args:
+            handler: The HTTP handler
+            permission_key: Permission like "integrations.read" or "integrations.create"
+            resource_id: Optional resource ID for resource-specific permissions
+
+        Returns:
+            None if allowed, error HandlerResult if denied
+        """
+        if not RBAC_AVAILABLE:
+            logger.debug(f"RBAC not available, allowing {permission_key}")
+            return None
+
+        context = self._get_auth_context(handler)
+        if context is None:
+            # No auth context means RBAC not configured for this request
+            return None
+
+        try:
+            decision = check_permission(context, permission_key, resource_id)
+            if not decision.allowed:
+                logger.warning(
+                    f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
+                )
+                record_rbac_check(permission_key, allowed=False, handler="ExternalIntegrationsHandler")
+                return error_response(f"Permission denied: {decision.reason}", 403)
+            record_rbac_check(permission_key, allowed=True)
+        except PermissionDeniedError as e:
+            logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            record_rbac_check(permission_key, allowed=False, handler="ExternalIntegrationsHandler")
+            return error_response(f"Permission denied: {str(e)}", 403)
+
+        return None
 
     def _get_zapier(self) -> ZapierIntegration:
         """Get or create Zapier integration instance."""
@@ -273,6 +358,11 @@ class ExternalIntegrationsHandler(BaseHandler):
         self, query_params: dict, handler: Any
     ) -> HandlerResult:
         """Handle GET /api/integrations/zapier/apps - list Zapier apps."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.read")
+        if perm_error:
+            return perm_error
+
         user = self.get_current_user(handler)
         workspace_id = query_params.get("workspace_id", [None])[0]
 
@@ -305,6 +395,11 @@ class ExternalIntegrationsHandler(BaseHandler):
 
     def _handle_create_zapier_app(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/apps - create Zapier app."""
+        # Check RBAC permission - creating integrations exposes API keys
+        perm_error = self._check_permission(handler, "integrations.create")
+        if perm_error:
+            return perm_error
+
         workspace_id = body.get("workspace_id")
         if not workspace_id:
             return error_response("workspace_id is required", 400)
@@ -328,6 +423,11 @@ class ExternalIntegrationsHandler(BaseHandler):
 
     def _handle_delete_zapier_app(self, app_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/zapier/apps/:id - delete Zapier app."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.delete", app_id)
+        if perm_error:
+            return perm_error
+
         zapier = self._get_zapier()
 
         if zapier.delete_app(app_id):
@@ -397,6 +497,11 @@ class ExternalIntegrationsHandler(BaseHandler):
         self, query_params: dict, handler: Any
     ) -> HandlerResult:
         """Handle GET /api/integrations/make/connections - list connections."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.read")
+        if perm_error:
+            return perm_error
+
         workspace_id = query_params.get("workspace_id", [None])[0]
 
         make = self._get_make()
@@ -429,6 +534,11 @@ class ExternalIntegrationsHandler(BaseHandler):
         self, body: dict, handler: Any
     ) -> HandlerResult:
         """Handle POST /api/integrations/make/connections - create connection."""
+        # Check RBAC permission - creating integrations exposes API keys
+        perm_error = self._check_permission(handler, "integrations.create")
+        if perm_error:
+            return perm_error
+
         workspace_id = body.get("workspace_id")
         if not workspace_id:
             return error_response("workspace_id is required", 400)
@@ -453,6 +563,11 @@ class ExternalIntegrationsHandler(BaseHandler):
         self, conn_id: str, handler: Any
     ) -> HandlerResult:
         """Handle DELETE /api/integrations/make/connections/:id - delete."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.delete", conn_id)
+        if perm_error:
+            return perm_error
+
         make = self._get_make()
 
         if make.delete_connection(conn_id):
@@ -521,6 +636,11 @@ class ExternalIntegrationsHandler(BaseHandler):
         self, query_params: dict, handler: Any
     ) -> HandlerResult:
         """Handle GET /api/integrations/n8n/credentials - list credentials."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.read")
+        if perm_error:
+            return perm_error
+
         workspace_id = query_params.get("workspace_id", [None])[0]
 
         n8n = self._get_n8n()
@@ -557,6 +677,11 @@ class ExternalIntegrationsHandler(BaseHandler):
         self, body: dict, handler: Any
     ) -> HandlerResult:
         """Handle POST /api/integrations/n8n/credentials - create credential."""
+        # Check RBAC permission - creating credentials exposes API keys
+        perm_error = self._check_permission(handler, "integrations.create")
+        if perm_error:
+            return perm_error
+
         workspace_id = body.get("workspace_id")
         if not workspace_id:
             return error_response("workspace_id is required", 400)
@@ -585,6 +710,11 @@ class ExternalIntegrationsHandler(BaseHandler):
         self, cred_id: str, handler: Any
     ) -> HandlerResult:
         """Handle DELETE /api/integrations/n8n/credentials/:id - delete."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "integrations.delete", cred_id)
+        if perm_error:
+            return perm_error
+
         n8n = self._get_n8n()
 
         if n8n.delete_credential(cred_id):

@@ -169,19 +169,52 @@ class RequestDeduplicator:
             self._in_flight.pop(request_hash, None)
 
 
+@dataclass
+class CacheEntry:
+    """A cache entry with metadata for invalidation."""
+
+    result: Any
+    timestamp: float
+    workspace_id: Optional[str] = None
+    policy_version: Optional[str] = None
+    agent_versions: Optional[Dict[str, str]] = None
+    tags: List[str] = field(default_factory=list)
+
+    def matches_tag(self, tag: str) -> bool:
+        """Check if entry has a specific tag."""
+        return tag in self.tags
+
+    def matches_workspace(self, workspace_id: str) -> bool:
+        """Check if entry belongs to a workspace."""
+        return self.workspace_id == workspace_id
+
+
 class ResponseCache:
     """
-    Caches responses for identical queries.
+    Caches responses for identical queries with support for invalidation.
 
-    Uses content + context hashing to cache responses, reducing
-    redundant processing for repeated questions.
+    Features:
+    - Content + context hashing for cache keys
+    - Tagged entries for selective invalidation
+    - Workspace-scoped invalidation
+    - Policy version tracking
+    - Cache statistics and monitoring
     """
 
     def __init__(self, ttl_seconds: float = CACHE_TTL_SECONDS, max_size: int = 1000):
         self._ttl_seconds = ttl_seconds
         self._max_size = max_size
-        self._cache: Dict[str, tuple[Any, float]] = {}  # hash -> (result, timestamp)
+        self._cache: Dict[str, CacheEntry] = {}
         self._lock = asyncio.Lock()
+
+        # Statistics
+        self._hits = 0
+        self._misses = 0
+        self._evictions = 0
+        self._invalidations = 0
+
+        # Current policy version (updated on governance changes)
+        self._policy_version: Optional[str] = None
 
     def _compute_hash(self, content: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Compute a cache key hash."""
@@ -200,39 +233,195 @@ class ResponseCache:
 
         async with self._lock:
             if cache_key in self._cache:
-                result, timestamp = self._cache[cache_key]
-                if now - timestamp < self._ttl_seconds:
-                    logger.debug(f"Cache hit for: {cache_key[:8]}...")
-                    return result
-                else:
-                    del self._cache[cache_key]
+                entry = self._cache[cache_key]
 
-        return None
+                # Check TTL
+                if now - entry.timestamp >= self._ttl_seconds:
+                    del self._cache[cache_key]
+                    self._misses += 1
+                    return None
+
+                # Check policy version (invalidate if policy changed)
+                if self._policy_version and entry.policy_version != self._policy_version:
+                    del self._cache[cache_key]
+                    self._invalidations += 1
+                    self._misses += 1
+                    logger.debug(f"Cache invalidated due to policy change: {cache_key[:8]}...")
+                    return None
+
+                self._hits += 1
+                logger.debug(f"Cache hit for: {cache_key[:8]}...")
+                return entry.result
+
+            self._misses += 1
+            return None
 
     async def set(
         self,
         content: str,
         result: Any,
         context: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+        agent_versions: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Cache a response."""
+        """
+        Cache a response with metadata.
+
+        Args:
+            content: The query content
+            result: The result to cache
+            context: Context dict (channel, workspace_id, etc.)
+            tags: Optional tags for selective invalidation
+            agent_versions: Optional dict of agent name -> version
+        """
         cache_key = self._compute_hash(content, context)
         now = time.time()
 
+        workspace_id = context.get("workspace_id") if context else None
+
+        entry = CacheEntry(
+            result=result,
+            timestamp=now,
+            workspace_id=workspace_id,
+            policy_version=self._policy_version,
+            agent_versions=agent_versions,
+            tags=tags or [],
+        )
+
         async with self._lock:
             # Evict oldest if at capacity
-            if len(self._cache) >= self._max_size:
-                oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
+            if len(self._cache) >= self._max_size and cache_key not in self._cache:
+                oldest_key = min(self._cache, key=lambda k: self._cache[k].timestamp)
                 del self._cache[oldest_key]
+                self._evictions += 1
 
-            self._cache[cache_key] = (result, now)
+            self._cache[cache_key] = entry
 
     async def clear(self) -> int:
-        """Clear the cache. Returns number of entries cleared."""
+        """Clear the entire cache. Returns number of entries cleared."""
         async with self._lock:
             count = len(self._cache)
             self._cache.clear()
+            self._invalidations += count
             return count
+
+    async def invalidate_by_workspace(self, workspace_id: str) -> int:
+        """
+        Invalidate all cache entries for a specific workspace.
+
+        Args:
+            workspace_id: The workspace to invalidate
+
+        Returns:
+            Number of entries invalidated
+        """
+        async with self._lock:
+            keys_to_remove = [
+                k for k, v in self._cache.items()
+                if v.matches_workspace(workspace_id)
+            ]
+            for key in keys_to_remove:
+                del self._cache[key]
+
+            self._invalidations += len(keys_to_remove)
+            logger.info(f"Invalidated {len(keys_to_remove)} cache entries for workspace {workspace_id}")
+            return len(keys_to_remove)
+
+    async def invalidate_by_tag(self, tag: str) -> int:
+        """
+        Invalidate all cache entries with a specific tag.
+
+        Args:
+            tag: The tag to match
+
+        Returns:
+            Number of entries invalidated
+        """
+        async with self._lock:
+            keys_to_remove = [
+                k for k, v in self._cache.items()
+                if v.matches_tag(tag)
+            ]
+            for key in keys_to_remove:
+                del self._cache[key]
+
+            self._invalidations += len(keys_to_remove)
+            logger.info(f"Invalidated {len(keys_to_remove)} cache entries with tag '{tag}'")
+            return len(keys_to_remove)
+
+    async def invalidate_by_agent_version(self, agent_name: str, old_version: str) -> int:
+        """
+        Invalidate cache entries using a specific agent version.
+
+        Useful when an agent is upgraded and old cached results should be discarded.
+
+        Args:
+            agent_name: Name of the agent
+            old_version: The old version to invalidate
+
+        Returns:
+            Number of entries invalidated
+        """
+        async with self._lock:
+            keys_to_remove = []
+            for key, entry in self._cache.items():
+                if entry.agent_versions:
+                    if entry.agent_versions.get(agent_name) == old_version:
+                        keys_to_remove.append(key)
+
+            for key in keys_to_remove:
+                del self._cache[key]
+
+            self._invalidations += len(keys_to_remove)
+            logger.info(
+                f"Invalidated {len(keys_to_remove)} cache entries for "
+                f"agent {agent_name} version {old_version}"
+            )
+            return len(keys_to_remove)
+
+    def set_policy_version(self, version: str) -> None:
+        """
+        Update the current policy version.
+
+        This will cause cache entries with old policy versions to be
+        invalidated on next access (lazy invalidation).
+
+        Args:
+            version: New policy version string
+        """
+        old_version = self._policy_version
+        self._policy_version = version
+        logger.info(f"Policy version updated: {old_version} -> {version}")
+
+    async def get_stats(self) -> Dict[str, Any]:
+        """
+        Get cache statistics.
+
+        Returns:
+            Dict with cache stats including hits, misses, hit rate, etc.
+        """
+        async with self._lock:
+            total_requests = self._hits + self._misses
+            hit_rate = self._hits / total_requests if total_requests > 0 else 0.0
+
+            # Count entries by workspace
+            workspace_counts: Dict[str, int] = {}
+            for entry in self._cache.values():
+                ws = entry.workspace_id or "none"
+                workspace_counts[ws] = workspace_counts.get(ws, 0) + 1
+
+            return {
+                "size": len(self._cache),
+                "max_size": self._max_size,
+                "ttl_seconds": self._ttl_seconds,
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate": round(hit_rate, 4),
+                "evictions": self._evictions,
+                "invalidations": self._invalidations,
+                "policy_version": self._policy_version,
+                "entries_by_workspace": workspace_counts,
+            }
 
 
 class DecisionRoutingMiddleware:
@@ -596,12 +785,82 @@ def reset_decision_middleware() -> None:
     _middleware = None
 
 
+async def invalidate_cache_for_workspace(workspace_id: str) -> int:
+    """
+    Invalidate all cached decisions for a workspace.
+
+    Call this when workspace policies or configurations change.
+
+    Args:
+        workspace_id: The workspace ID to invalidate
+
+    Returns:
+        Number of entries invalidated
+    """
+    middleware = await get_decision_middleware()
+    if middleware._cache:
+        return await middleware._cache.invalidate_by_workspace(workspace_id)
+    return 0
+
+
+async def invalidate_cache_for_policy_change(new_policy_version: str) -> None:
+    """
+    Mark all cached decisions as stale due to policy change.
+
+    This performs lazy invalidation - entries are invalidated on next access.
+
+    Args:
+        new_policy_version: The new policy version string
+    """
+    middleware = await get_decision_middleware()
+    if middleware._cache:
+        middleware._cache.set_policy_version(new_policy_version)
+
+
+async def invalidate_cache_for_agent_upgrade(agent_name: str, old_version: str) -> int:
+    """
+    Invalidate cached decisions that used a specific agent version.
+
+    Call this when an agent is upgraded to ensure fresh results.
+
+    Args:
+        agent_name: Name of the upgraded agent
+        old_version: The old version being replaced
+
+    Returns:
+        Number of entries invalidated
+    """
+    middleware = await get_decision_middleware()
+    if middleware._cache:
+        return await middleware._cache.invalidate_by_agent_version(agent_name, old_version)
+    return 0
+
+
+async def get_cache_stats() -> Dict[str, Any]:
+    """
+    Get cache statistics for monitoring.
+
+    Returns:
+        Dict with cache stats including hits, misses, hit rate, etc.
+    """
+    middleware = await get_decision_middleware()
+    if middleware._cache:
+        return await middleware._cache.get_stats()
+    return {"enabled": False}
+
+
 __all__ = [
     "RoutingContext",
+    "CacheEntry",
     "RequestDeduplicator",
     "ResponseCache",
     "DecisionRoutingMiddleware",
     "get_decision_middleware",
     "route_decision",
     "reset_decision_middleware",
+    # Cache invalidation
+    "invalidate_cache_for_workspace",
+    "invalidate_cache_for_policy_change",
+    "invalidate_cache_for_agent_upgrade",
+    "get_cache_stats",
 ]

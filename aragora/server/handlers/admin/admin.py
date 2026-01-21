@@ -48,6 +48,27 @@ logger = logging.getLogger(__name__)
 # Admin roles that can access admin endpoints
 ADMIN_ROLES = {"admin", "owner"}
 
+# RBAC imports (optional - graceful degradation if not available)
+try:
+    from aragora.rbac import (
+        AuthorizationContext,
+        check_permission,
+        PermissionDeniedError,
+    )
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
+# Metrics imports (optional)
+try:
+    from aragora.observability.metrics import record_rbac_check
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
+    def record_rbac_check(*args, **kwargs):
+        pass
+
 
 class AdminHandler(BaseHandler):
     """Handler for admin endpoints."""
@@ -116,6 +137,51 @@ class AdminHandler(BaseHandler):
             )
 
         return auth_ctx, None
+
+    def _check_rbac_permission(
+        self, auth_ctx: Any, permission_key: str, resource_id: Optional[str] = None
+    ) -> Optional[HandlerResult]:
+        """
+        Check granular RBAC permission.
+
+        Args:
+            auth_ctx: Authentication context from _require_admin
+            permission_key: Permission like "admin.users.impersonate"
+            resource_id: Optional resource ID
+
+        Returns:
+            None if allowed, error response if denied
+        """
+        if not RBAC_AVAILABLE:
+            # Fallback to role-based check (already done in _require_admin)
+            return None
+
+        try:
+            # Build RBAC context from auth context
+            user_store = self._get_user_store()
+            user = user_store.get_user_by_id(auth_ctx.user_id)
+            roles = [user.role] if user else []
+
+            rbac_context = AuthorizationContext(
+                user_id=auth_ctx.user_id,
+                roles=roles,
+                tenant_id=getattr(auth_ctx, "org_id", None),
+            )
+
+            decision = check_permission(rbac_context, permission_key, resource_id)
+            if not decision.allowed:
+                logger.warning(
+                    f"RBAC permission denied: {permission_key} for admin {auth_ctx.user_id}: {decision.reason}"
+                )
+                record_rbac_check(permission_key, allowed=False, handler="AdminHandler")
+                return error_response(f"Permission denied: {decision.reason}", 403)
+            record_rbac_check(permission_key, allowed=True)
+        except PermissionDeniedError as e:
+            logger.warning(f"RBAC permission denied: {permission_key} for admin {auth_ctx.user_id}: {e}")
+            record_rbac_check(permission_key, allowed=False, handler="AdminHandler")
+            return error_response(f"Permission denied: {str(e)}", 403)
+
+        return None
 
     def handle(
         self, path: str, query_params: dict, handler, method: str = "GET"

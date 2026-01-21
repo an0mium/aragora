@@ -23,6 +23,64 @@ from aragora.connectors.enterprise.sync.scheduler import SyncStatus
 
 logger = logging.getLogger(__name__)
 
+# RBAC imports (optional - graceful degradation if not available)
+try:
+    from aragora.rbac import (
+        AuthorizationContext,
+        check_permission,
+        PermissionDeniedError,
+    )
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+    AuthorizationContext = None
+
+# Metrics imports (optional)
+try:
+    from aragora.observability.metrics import record_rbac_check
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
+    def record_rbac_check(*args, **kwargs):
+        pass
+
+
+def _check_permission(
+    auth_context: Optional[Any],
+    permission_key: str,
+    resource_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Check if the authorization context has the required permission.
+
+    Args:
+        auth_context: Optional AuthorizationContext
+        permission_key: Permission like "connectors.read" or "connectors.create"
+        resource_id: Optional resource ID for resource-specific permissions
+
+    Returns:
+        None if allowed, error dict if denied
+    """
+    if not RBAC_AVAILABLE or auth_context is None:
+        return None
+
+    try:
+        decision = check_permission(auth_context, permission_key, resource_id)
+        if not decision.allowed:
+            logger.warning(
+                f"Permission denied: {permission_key} for user {auth_context.user_id}: {decision.reason}"
+            )
+            record_rbac_check(permission_key, allowed=False, handler="ConnectorsHandler")
+            return {"error": f"Permission denied: {decision.reason}", "status": 403}
+        record_rbac_check(permission_key, allowed=True)
+    except PermissionDeniedError as e:
+        logger.warning(f"Permission denied: {permission_key} for user {auth_context.user_id}: {e}")
+        record_rbac_check(permission_key, allowed=False, handler="ConnectorsHandler")
+        return {"error": f"Permission denied: {str(e)}", "status": 403}
+
+    return None
+
 # Global scheduler instance (initialized on first use)
 _scheduler: Optional[SyncScheduler] = None
 
@@ -42,12 +100,18 @@ def get_scheduler() -> SyncScheduler:
 
 async def handle_list_connectors(
     tenant_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     List all registered connectors.
 
     GET /api/connectors
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors.read")
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
     jobs = scheduler.list_jobs(tenant_id=tenant_id)
 
@@ -101,6 +165,7 @@ async def handle_create_connector(
     config: Dict[str, Any],
     schedule: Optional[Dict[str, Any]] = None,
     tenant_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Create and register a new connector.
@@ -112,6 +177,11 @@ async def handle_create_connector(
         "schedule": { ... optional schedule config ... }
     }
     """
+    # Check RBAC permission - creating connectors involves sensitive credentials
+    perm_error = _check_permission(auth_context, "connectors.create")
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
 
     # Create connector based on type
@@ -141,6 +211,7 @@ async def handle_update_connector(
     connector_id: str,
     updates: Dict[str, Any],
     tenant_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Update connector configuration.
@@ -150,6 +221,11 @@ async def handle_update_connector(
         "schedule": { ... updated schedule ... }
     }
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors.update", connector_id)
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
     job_id = f"{tenant_id}:{connector_id}"
     job = scheduler.get_job(job_id)
@@ -172,12 +248,18 @@ async def handle_update_connector(
 async def handle_delete_connector(
     connector_id: str,
     tenant_id: str = "default",
-) -> bool:
+    auth_context: Optional[Any] = None,
+) -> Any:
     """
     Delete a connector.
 
     DELETE /api/connectors/:connector_id
     """
+    # Check RBAC permission
+    perm_error = _check_permission(auth_context, "connectors.delete", connector_id)
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
     scheduler.unregister_connector(connector_id, tenant_id)
     return True
@@ -252,6 +334,7 @@ async def handle_trigger_sync(
     connector_id: str,
     full_sync: bool = False,
     tenant_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Trigger a sync operation.
@@ -261,6 +344,11 @@ async def handle_trigger_sync(
         "full_sync": false
     }
     """
+    # Check RBAC permission - triggering sync is an execute operation
+    perm_error = _check_permission(auth_context, "connectors.execute", connector_id)
+    if perm_error:
+        return perm_error
+
     scheduler = get_scheduler()
 
     run_id = await scheduler.trigger_sync(

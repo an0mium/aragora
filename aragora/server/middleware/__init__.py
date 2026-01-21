@@ -211,11 +211,16 @@ from .versioning import (
     normalize_path,
 )
 from .decision_routing import (
+    CacheEntry,
     DecisionRoutingMiddleware,
     RequestDeduplicator,
     ResponseCache,
     RoutingContext,
+    get_cache_stats,
     get_decision_middleware,
+    invalidate_cache_for_agent_upgrade,
+    invalidate_cache_for_policy_change,
+    invalidate_cache_for_workspace,
     reset_decision_middleware,
     route_decision,
 )
@@ -392,11 +397,16 @@ __all__ = [
     "deprecate_version",
     "log_version_usage",
     # Decision routing
+    "CacheEntry",
     "DecisionRoutingMiddleware",
     "RequestDeduplicator",
     "ResponseCache",
     "RoutingContext",
+    "get_cache_stats",
     "get_decision_middleware",
+    "invalidate_cache_for_agent_upgrade",
+    "invalidate_cache_for_policy_change",
+    "invalidate_cache_for_workspace",
     "reset_decision_middleware",
     "route_decision",
 ]
