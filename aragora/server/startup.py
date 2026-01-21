@@ -35,11 +35,11 @@ def check_production_requirements() -> list[str]:
                 "(32-byte hex string for AES-256 encryption)"
             )
 
-        # Redis is required for durable state
+        # Redis is recommended for durable state (optional for initial deployment)
         if not os.environ.get("REDIS_URL"):
-            missing.append(
-                "REDIS_URL required in production for debate origins "
-                "and control plane state"
+            logger.warning(
+                "REDIS_URL not set in production - using in-memory state. "
+                "Redis recommended for debate origins and control plane state."
             )
 
         # PostgreSQL is recommended for governance store
