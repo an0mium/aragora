@@ -22,7 +22,7 @@ import shutil
 import sqlite3
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -203,7 +203,7 @@ class TestBackupRestorationDrill:
 
         # Phase 3: Simulate disaster - delete original
         original_path = production_database
-        disaster_time = datetime.now()
+        disaster_time = datetime.now(timezone.utc)
 
         # Phase 4: Restore backup
         restore_path = temp_workspace / "restore" / "recovered.db"
@@ -568,7 +568,7 @@ class TestRTORPOMetrics:
         backup_timestamp = backup.created_at
 
         # Simulate time passing (data changes)
-        simulated_disaster_time = datetime.now() + timedelta(minutes=5)
+        simulated_disaster_time = datetime.now(timezone.utc) + timedelta(minutes=5)
 
         # RPO = time between last backup and disaster
         rpo_seconds = (simulated_disaster_time - backup_timestamp).total_seconds()
@@ -593,7 +593,7 @@ class TestRTORPOMetrics:
             time.sleep(0.1)  # Small delay between backups
 
         # Disaster at "now"
-        disaster_time = datetime.now()
+        disaster_time = datetime.now(timezone.utc)
 
         # RPO from latest backup
         latest_backup = backups[-1]
