@@ -6,6 +6,7 @@ Phase 2: Design
 - Tests file identification
 - Tests safety review
 - Tests design approval
+- Tests task decomposition integration
 """
 
 import asyncio
@@ -13,6 +14,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+from aragora.nomic.task_decomposer import TaskDecomposer, TaskDecomposition, SubTask
 
 
 class TestDesignPhaseInitialization:
@@ -303,3 +306,175 @@ class TestDesignPhaseIntegration:
 
             assert result is not None
             assert result.get("approved", True) is False
+
+
+class TestDesignPhaseDecomposition:
+    """Tests for task decomposition integration."""
+
+    def test_decomposer_initialized_with_phase(self, mock_aragora_path, mock_claude_agent):
+        """Should initialize TaskDecomposer with the phase."""
+        from aragora.nomic.phases.design import DesignPhase, DesignConfig
+
+        config = DesignConfig(
+            enable_decomposition=True,
+            decomposition_threshold=5,
+            max_subtasks=3,
+        )
+
+        phase = DesignPhase(
+            aragora_path=mock_aragora_path,
+            claude_agent=mock_claude_agent,
+            config=config,
+        )
+
+        assert phase._decomposer is not None
+        assert isinstance(phase._decomposer, TaskDecomposer)
+        assert phase._decomposer.config.complexity_threshold == 5
+        assert phase._decomposer.config.max_subtasks == 3
+
+    def test_decomposition_disabled_by_config(self, mock_aragora_path, mock_claude_agent):
+        """Should respect disabled decomposition config."""
+        from aragora.nomic.phases.design import DesignPhase, DesignConfig
+
+        config = DesignConfig(enable_decomposition=False)
+
+        phase = DesignPhase(
+            aragora_path=mock_aragora_path,
+            claude_agent=mock_claude_agent,
+            config=config,
+        )
+
+        # Decomposer should still be created but not used when disabled
+        assert phase._decomposer is not None
+        assert phase.config.enable_decomposition is False
+
+    def test_merge_subtask_designs_creates_header(self, mock_aragora_path, mock_claude_agent):
+        """Should create proper header when merging subtask designs."""
+        from aragora.nomic.phases.design import DesignPhase
+
+        phase = DesignPhase(
+            aragora_path=mock_aragora_path,
+            claude_agent=mock_claude_agent,
+        )
+
+        decomposition = TaskDecomposition(
+            original_task="Refactor the API and database layers",
+            complexity_score=7,
+            complexity_level="high",
+            should_decompose=True,
+            subtasks=[
+                SubTask(
+                    id="subtask_1",
+                    title="API Changes",
+                    description="Update API endpoints",
+                    dependencies=[],
+                    estimated_complexity="medium",
+                ),
+                SubTask(
+                    id="subtask_2",
+                    title="Database Changes",
+                    description="Update database schema",
+                    dependencies=["subtask_1"],
+                    estimated_complexity="high",
+                ),
+            ],
+            rationale="Task spans multiple concepts",
+        )
+
+        subtask_designs = [
+            "### Subtask 1: API Changes\n\nDesign for API...",
+            "### Subtask 2: Database Changes\n\nDesign for DB...",
+        ]
+
+        merged = phase._merge_subtask_designs(
+            decomposition.original_task,
+            subtask_designs,
+            decomposition,
+        )
+
+        assert "# Decomposed Design" in merged
+        assert "Refactor the API" in merged
+        assert "API Changes" in merged
+        assert "Database Changes" in merged
+        assert "Integration Notes" in merged
+        assert "subtask_1" in merged  # Dependency reference
+
+    def test_merge_subtask_designs_empty(self, mock_aragora_path, mock_claude_agent):
+        """Should handle empty subtask designs."""
+        from aragora.nomic.phases.design import DesignPhase
+
+        phase = DesignPhase(
+            aragora_path=mock_aragora_path,
+            claude_agent=mock_claude_agent,
+        )
+
+        decomposition = TaskDecomposition(
+            original_task="Some task",
+            complexity_score=3,
+            complexity_level="low",
+            should_decompose=False,
+            rationale="Low complexity",
+        )
+
+        merged = phase._merge_subtask_designs(
+            decomposition.original_task,
+            [],
+            decomposition,
+        )
+
+        assert merged == ""
+
+    def test_decomposer_analyzes_low_complexity_correctly(
+        self, mock_aragora_path, mock_claude_agent
+    ):
+        """Should analyze low-complexity tasks and not recommend decomposition."""
+        from aragora.nomic.phases.design import DesignPhase, DesignConfig
+
+        config = DesignConfig(
+            enable_decomposition=True,
+            decomposition_threshold=6,
+        )
+
+        phase = DesignPhase(
+            aragora_path=mock_aragora_path,
+            claude_agent=mock_claude_agent,
+            config=config,
+        )
+
+        # Simple task should NOT trigger decomposition
+        simple_task = "Fix typo in README"
+        result = phase._decomposer.analyze(simple_task)
+
+        assert result.complexity_score < 6
+        assert result.should_decompose is False
+        assert result.complexity_level == "low"
+
+    def test_decomposer_analyzes_high_complexity_correctly(
+        self, mock_aragora_path, mock_claude_agent
+    ):
+        """Should analyze high-complexity tasks and recommend decomposition."""
+        from aragora.nomic.phases.design import DesignPhase, DesignConfig
+
+        config = DesignConfig(
+            enable_decomposition=True,
+            decomposition_threshold=5,
+        )
+
+        phase = DesignPhase(
+            aragora_path=mock_aragora_path,
+            claude_agent=mock_claude_agent,
+            config=config,
+        )
+
+        # Complex task should trigger decomposition
+        complex_task = (
+            "Refactor the entire authentication system and migrate the database "
+            "schema while redesigning the API layer. Update handler.py, auth.py, "
+            "database.py, and schema.py with new security patterns and performance "
+            "optimizations for the backend frontend and testing infrastructure."
+        )
+        result = phase._decomposer.analyze(complex_task)
+
+        assert result.complexity_score >= 5
+        assert result.should_decompose is True
+        assert len(result.subtasks) >= 2

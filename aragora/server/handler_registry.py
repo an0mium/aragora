@@ -119,6 +119,8 @@ UncertaintyHandler: HandlerType = None
 VerticalsHandler: HandlerType = None
 WorkspaceHandler: HandlerType = None
 EmailHandler: HandlerType = None
+GmailIngestHandler: HandlerType = None
+GmailQueryHandler: HandlerType = None
 GoogleChatHandler: HandlerType = None
 ExplainabilityHandler: HandlerType = None
 A2AHandler: HandlerType = None
@@ -351,6 +353,12 @@ try:
     from aragora.server.handlers import (
         EmailHandler as _EmailHandler,
     )
+    from aragora.server.handlers.features import (
+        GmailIngestHandler as _GmailIngestHandler,
+    )
+    from aragora.server.handlers.features import (
+        GmailQueryHandler as _GmailQueryHandler,
+    )
     from aragora.server.handlers import (
         GoogleChatHandler as _GoogleChatHandler,
     )
@@ -436,6 +444,8 @@ try:
     VerticalsHandler = _VerticalsHandler
     WorkspaceHandler = _WorkspaceHandler
     EmailHandler = _EmailHandler
+    GmailIngestHandler = _GmailIngestHandler
+    GmailQueryHandler = _GmailQueryHandler
     GoogleChatHandler = _GoogleChatHandler
     ExplainabilityHandler = _ExplainabilityHandler
     A2AHandler = _A2AHandler
@@ -530,6 +540,8 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_verticals_handler", VerticalsHandler),
     ("_workspace_handler", WorkspaceHandler),
     ("_email_handler", EmailHandler),
+    ("_gmail_ingest_handler", GmailIngestHandler),
+    ("_gmail_query_handler", GmailQueryHandler),
     ("_google_chat_handler", GoogleChatHandler),
     ("_explainability_handler", ExplainabilityHandler),
     ("_a2a_handler", A2AHandler),
@@ -1026,6 +1038,8 @@ class HandlerRegistryMixin:
     _knowledge_handler: Optional["BaseHandler"] = None
     _knowledge_mound_handler: Optional["BaseHandler"] = None
     _email_handler: Optional["BaseHandler"] = None
+    _gmail_ingest_handler: Optional["BaseHandler"] = None
+    _gmail_query_handler: Optional["BaseHandler"] = None
     _google_chat_handler: Optional["BaseHandler"] = None
     _explainability_handler: Optional["BaseHandler"] = None
     _a2a_handler: Optional["BaseHandler"] = None
