@@ -287,6 +287,95 @@ aws secretsmanager put-secret-value \
 # (Services read secrets at startup)
 ```
 
+## Load Balancing
+
+### Current Setup
+
+Cloudflare load balancing distributes traffic between two EC2 instances:
+
+| Origin | IP | Instance ID |
+|--------|-----|-------------|
+| aragora-api-server | 3.141.158.91 | i-0dbd51f74a9a11fcc |
+| aragora-api-2 | 18.222.130.110 | i-016b3e32625bf967e |
+
+### Health Checks
+
+- **Endpoint**: `/api/health` on port 8080
+- **Interval**: 60 seconds
+- **Timeout**: 5 seconds
+- **Expected**: HTTP 200 (accepts both "healthy" and "degraded" status)
+
+### Setup Load Balancing
+
+```bash
+# Set credentials
+export CLOUDFLARE_API_TOKEN="your_token"
+export CLOUDFLARE_ZONE_ID="your_zone_id"
+
+# Run setup script
+./scripts/setup_cloudflare_lb.sh
+```
+
+### Monitor Load Balancer
+
+- **Dashboard**: https://dash.cloudflare.com/[account_id]/aragora.ai/traffic/load-balancing
+- **Pool health**: Check origin status and latency
+- **Failover**: Automatic when health check fails
+
+### Failover Behavior
+
+- If one origin fails health checks, traffic routes to healthy origin
+- Minimum 1 origin required (configured in pool)
+- Notification email sent on origin failure
+
+## Log Aggregation
+
+### CloudWatch Log Streams
+
+All logs are aggregated to CloudWatch log group `/aragora/production`:
+
+| Log Stream | Source | Retention |
+|------------|--------|-----------|
+| `{instance_id}/system` | `/var/log/messages` | 30 days |
+| `{instance_id}/nginx-access` | `/var/log/nginx/access.log` | 30 days |
+| `{instance_id}/nginx-error` | `/var/log/nginx/error.log` | 30 days |
+
+### View Logs in CloudWatch
+
+```bash
+# List log streams
+aws logs describe-log-streams \
+  --log-group-name "/aragora/production" \
+  --query 'logStreams[*].logStreamName'
+
+# Get recent logs from a stream
+aws logs get-log-events \
+  --log-group-name "/aragora/production" \
+  --log-stream-name "i-0dbd51f74a9a11fcc/nginx-access" \
+  --limit 50
+
+# Search across all streams
+aws logs filter-log-events \
+  --log-group-name "/aragora/production" \
+  --filter-pattern "ERROR" \
+  --start-time $(date -d '1 hour ago' +%s)000
+```
+
+### CloudWatch Agent Configuration
+
+Agent config location: `/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.d/`
+
+```bash
+# Check agent status
+sudo systemctl status amazon-cloudwatch-agent
+
+# Restart agent
+sudo systemctl restart amazon-cloudwatch-agent
+
+# View agent logs
+tail -f /opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log
+```
+
 ## SSL Certificates
 
 - **Managed by**: Cloudflare
