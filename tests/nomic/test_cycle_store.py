@@ -293,9 +293,7 @@ class TestCycleLearningStore:
                 cycle_id=f"cycle-{i}",
                 started_at=time.time() + i,
             )
-            record.add_pattern_reinforcement(
-                "bugfix", f"Fix {i}", success=(i != 1)
-            )
+            record.add_pattern_reinforcement("bugfix", f"Fix {i}", success=(i != 1))
             temp_store.save_cycle(record)
 
         stats = temp_store.get_pattern_statistics()

@@ -83,7 +83,9 @@ class MockInvitation:
     token: str = "abc123token"
     invited_by: str = "admin-123"
     status: str = "pending"
-    expires_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7))
+    expires_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7)
+    )
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     @property

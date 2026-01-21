@@ -548,9 +548,7 @@ class MigrationRunner:
                 new_version = max(previous_versions) if previous_versions else 0
                 manager.set_version(new_version)
 
-                logger.info(
-                    f"[{db_name}] Rolled back migration {migration.version} successfully"
-                )
+                logger.info(f"[{db_name}] Rolled back migration {migration.version} successfully")
 
                 return {
                     "db_name": db_name,

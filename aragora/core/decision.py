@@ -892,7 +892,9 @@ class DecisionRouter:
                             source=request.source.value,
                             success=dedup_result.success,
                             confidence=dedup_result.confidence,
-                            duration_seconds=(datetime.now(timezone.utc) - start_time).total_seconds(),
+                            duration_seconds=(
+                                datetime.now(timezone.utc) - start_time
+                            ).total_seconds(),
                             consensus_reached=dedup_result.consensus_reached,
                             dedup_hit=True,
                         )

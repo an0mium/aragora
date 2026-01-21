@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -169,9 +169,7 @@ class TaskDecomposer:
         should_decompose = complexity_score >= self.config.complexity_threshold
 
         # Build rationale
-        rationale = self._build_rationale(
-            task_description, complexity_score, should_decompose
-        )
+        rationale = self._build_rationale(task_description, complexity_score, should_decompose)
 
         result = TaskDecomposition(
             original_task=task_description,
@@ -185,8 +183,7 @@ class TaskDecomposer:
         if should_decompose:
             result.subtasks = self._generate_subtasks(task_description, debate_result)
             logger.info(
-                f"task_decomposed complexity={complexity_score} "
-                f"subtasks={len(result.subtasks)}"
+                f"task_decomposed complexity={complexity_score} " f"subtasks={len(result.subtasks)}"
             )
         else:
             logger.debug(

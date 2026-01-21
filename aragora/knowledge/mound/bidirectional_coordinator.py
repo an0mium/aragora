@@ -389,6 +389,7 @@ class BidirectionalCoordinator:
 
         try:
             from aragora.observability.metrics import record_km_adapter_sync
+
             record_km_adapter_sync(adapter_name, direction, success)
         except ImportError:
             pass

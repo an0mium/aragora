@@ -210,7 +210,9 @@ class CostAdapter:
             "limit": str(alert.limit),
             "percentage": alert.percentage,
             "created_at": (
-                alert.created_at.isoformat() if alert.created_at else datetime.now(timezone.utc).isoformat()
+                alert.created_at.isoformat()
+                if alert.created_at
+                else datetime.now(timezone.utc).isoformat()
             ),
             "acknowledged": alert.acknowledged,
             "stored_at": datetime.now(timezone.utc).isoformat(),

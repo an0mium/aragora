@@ -295,7 +295,7 @@ def enforce_admin_mfa_policy(
         return None  # Fully compliant
 
     # MFA not enabled - check grace period
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     if user_store:
         full_user = user_store.get_user_by_id(user.id)
@@ -312,8 +312,6 @@ def enforce_admin_mfa_policy(
                     grace_end = created_at + timedelta(days=grace_period_days)
                     now = datetime.now(timezone.utc)
                     if hasattr(grace_end, "tzinfo") and grace_end.tzinfo:
-                        from datetime import timezone
-
                         now = datetime.now(timezone.utc)
 
                     if now < grace_end:

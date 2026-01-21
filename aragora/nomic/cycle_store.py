@@ -162,10 +162,7 @@ class CycleLearningStore:
                 "SELECT data_json FROM cycles ORDER BY started_at DESC LIMIT ?",
                 (n,),
             )
-            return [
-                NomicCycleRecord.from_dict(json.loads(row[0]))
-                for row in cursor.fetchall()
-            ]
+            return [NomicCycleRecord.from_dict(json.loads(row[0])) for row in cursor.fetchall()]
         finally:
             conn.close()
 
@@ -189,10 +186,7 @@ class CycleLearningStore:
                 """,
                 (n,),
             )
-            return [
-                NomicCycleRecord.from_dict(json.loads(row[0]))
-                for row in cursor.fetchall()
-            ]
+            return [NomicCycleRecord.from_dict(json.loads(row[0])) for row in cursor.fetchall()]
         finally:
             conn.close()
 
@@ -225,10 +219,7 @@ class CycleLearningStore:
                 """,
                 (f"%{topic}%", limit),
             )
-            return [
-                NomicCycleRecord.from_dict(json.loads(row[0]))
-                for row in cursor.fetchall()
-            ]
+            return [NomicCycleRecord.from_dict(json.loads(row[0])) for row in cursor.fetchall()]
         finally:
             conn.close()
 
@@ -307,9 +298,7 @@ class CycleLearningStore:
         for pattern, data in stats.items():
             total = data["success_count"] + data["failure_count"]
             data["success_rate"] = data["success_count"] / total if total > 0 else 0.0
-            data["avg_confidence"] = (
-                data["total_confidence"] / total if total > 0 else 0.0
-            )
+            data["avg_confidence"] = data["total_confidence"] / total if total > 0 else 0.0
 
         return stats
 

@@ -453,9 +453,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT data_json FROM approval_requests ORDER BY created_at DESC"
-                )
+                cursor.execute("SELECT data_json FROM approval_requests ORDER BY created_at DESC")
                 return [json.loads(row[0]) for row in cursor.fetchall()]
             finally:
                 conn.close()
@@ -738,9 +736,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
                     count=100,
                 )
                 if keys:
-                    data_keys = [
-                        k for k in keys if b":idx:" not in k and b"idx:" not in k
-                    ]
+                    data_keys = [k for k in keys if b":idx:" not in k and b"idx:" not in k]
                     if data_keys:
                         values = self._redis_client.mget(data_keys)
                         for v in values:
@@ -757,9 +753,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             return await self._fallback.list_by_status(status)
 
         try:
-            request_ids = self._redis_client.smembers(
-                f"{self.REDIS_INDEX_STATUS}{status}"
-            )
+            request_ids = self._redis_client.smembers(f"{self.REDIS_INDEX_STATUS}{status}")
             if not request_ids:
                 return []
 
@@ -776,9 +770,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             return await self._fallback.list_by_workflow(workflow_id)
 
         try:
-            request_ids = self._redis_client.smembers(
-                f"{self.REDIS_INDEX_WORKFLOW}{workflow_id}"
-            )
+            request_ids = self._redis_client.smembers(f"{self.REDIS_INDEX_WORKFLOW}{workflow_id}")
             if not request_ids:
                 return []
 
@@ -807,9 +799,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
     ) -> bool:
         """Record a response to an approval request."""
         # Update SQLite fallback
-        result = await self._fallback.respond(
-            request_id, status, responder_id, response_data
-        )
+        result = await self._fallback.respond(request_id, status, responder_id, response_data)
 
         if self._using_fallback:
             return result

@@ -266,20 +266,13 @@ class Decision:
             domain=data.get("domain", "general"),
             rounds_used=data.get("rounds_used", 0),
             agents_participated=data.get("agents_participated", []),
-            evidence_chain=[
-                EvidenceLink(**e) for e in data.get("evidence_chain", [])
-            ],
+            evidence_chain=[EvidenceLink(**e) for e in data.get("evidence_chain", [])],
             vote_pivots=[VotePivot(**v) for v in data.get("vote_pivots", [])],
-            belief_changes=[
-                BeliefChange(**b) for b in data.get("belief_changes", [])
-            ],
+            belief_changes=[BeliefChange(**b) for b in data.get("belief_changes", [])],
             confidence_attribution=[
-                ConfidenceAttribution(**c)
-                for c in data.get("confidence_attribution", [])
+                ConfidenceAttribution(**c) for c in data.get("confidence_attribution", [])
             ],
-            counterfactuals=[
-                Counterfactual(**c) for c in data.get("counterfactuals", [])
-            ],
+            counterfactuals=[Counterfactual(**c) for c in data.get("counterfactuals", [])],
             evidence_quality_score=data.get("evidence_quality_score", 0.0),
             agent_agreement_score=data.get("agent_agreement_score", 0.0),
             belief_stability_score=data.get("belief_stability_score", 0.0),
@@ -292,9 +285,7 @@ class Decision:
 
     def get_top_evidence(self, n: int = 5) -> List[EvidenceLink]:
         """Get top N evidence items by relevance."""
-        return sorted(
-            self.evidence_chain, key=lambda e: e.relevance_score, reverse=True
-        )[:n]
+        return sorted(self.evidence_chain, key=lambda e: e.relevance_score, reverse=True)[:n]
 
     def get_pivotal_votes(self, threshold: float = 0.3) -> List[VotePivot]:
         """Get votes with influence above threshold."""
@@ -302,19 +293,13 @@ class Decision:
 
     def get_significant_belief_changes(self, min_delta: float = 0.2) -> List[BeliefChange]:
         """Get belief changes with significant confidence delta."""
-        return [
-            b for b in self.belief_changes if abs(b.confidence_delta) >= min_delta
-        ]
+        return [b for b in self.belief_changes if abs(b.confidence_delta) >= min_delta]
 
     def get_major_confidence_factors(self, threshold: float = 0.1) -> List[ConfidenceAttribution]:
         """Get confidence factors above contribution threshold."""
-        return [
-            c for c in self.confidence_attribution if c.contribution >= threshold
-        ]
+        return [c for c in self.confidence_attribution if c.contribution >= threshold]
 
-    def get_high_sensitivity_counterfactuals(
-        self, threshold: float = 0.5
-    ) -> List[Counterfactual]:
+    def get_high_sensitivity_counterfactuals(self, threshold: float = 0.5) -> List[Counterfactual]:
         """Get counterfactuals with high sensitivity."""
         return [c for c in self.counterfactuals if c.sensitivity >= threshold]
 

@@ -64,6 +64,7 @@ try:
         check_permission,
         PermissionDeniedError,
     )
+
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
@@ -71,6 +72,7 @@ except ImportError:
 # Metrics imports (optional)
 try:
     from aragora.observability.metrics import record_rbac_check
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -178,7 +180,9 @@ def admin_secure_endpoint(
                             "permission_checked": permission,
                         },
                         ip_address=getattr(request, "remote", None),
-                        user_agent=request.headers.get("User-Agent") if hasattr(request, "headers") else None,
+                        user_agent=request.headers.get("User-Agent")
+                        if hasattr(request, "headers")
+                        else None,
                     )
 
                 return result
@@ -306,7 +310,9 @@ class AdminHandler(SecureHandler):
                 return error_response(f"Permission denied: {decision.reason}", 403)
             record_rbac_check(permission_key, allowed=True)
         except PermissionDeniedError as e:
-            logger.warning(f"RBAC permission denied: {permission_key} for admin {auth_ctx.user_id}: {e}")
+            logger.warning(
+                f"RBAC permission denied: {permission_key} for admin {auth_ctx.user_id}: {e}"
+            )
             record_rbac_check(permission_key, allowed=False, handler="AdminHandler")
             return error_response(f"Permission denied: {str(e)}", 403)
 

@@ -56,9 +56,7 @@ _belief_imports, BELIEF_AVAILABLE = try_import(
 BeliefNetwork = _belief_imports["BeliefNetwork"]
 BeliefPropagationAnalyzer = _belief_imports["BeliefPropagationAnalyzer"]
 
-_claims_imports, CLAIMS_AVAILABLE = try_import(
-    "aragora.reasoning.claims", "ClaimsKernel"
-)
+_claims_imports, CLAIMS_AVAILABLE = try_import("aragora.reasoning.claims", "ClaimsKernel")
 ClaimsKernel = _claims_imports["ClaimsKernel"]
 
 
@@ -172,9 +170,7 @@ class DecisionExplainHandler(BaseHandler):
         else:
             return json_response(explanation)
 
-    def _build_explanation(
-        self, nomic_dir: Path, request_id: str
-    ) -> Optional[dict[str, Any]]:
+    def _build_explanation(self, nomic_dir: Path, request_id: str) -> Optional[dict[str, Any]]:
         """Build comprehensive explanation from available data sources."""
         explanation: dict[str, Any] = {
             "request_id": request_id,
@@ -247,9 +243,7 @@ class DecisionExplainHandler(BaseHandler):
 
         return summary
 
-    def _build_reasoning(
-        self, nomic_dir: Path, request_id: str, result: Any
-    ) -> dict[str, Any]:
+    def _build_reasoning(self, nomic_dir: Path, request_id: str, result: Any) -> dict[str, Any]:
         """Build reasoning section with key claims and evidence."""
         reasoning: dict[str, Any] = {
             "key_claims": [],
@@ -305,12 +299,14 @@ class DecisionExplainHandler(BaseHandler):
             contributions = getattr(result, "agent_contributions", [])
             for contrib in contributions:
                 if isinstance(contrib, dict):
-                    votes.append({
-                        "agent": contrib.get("agent", "unknown"),
-                        "vote": "agree",  # Inferred
-                        "confidence": 0.7,
-                        "reasoning": contrib.get("response", "")[:500],
-                    })
+                    votes.append(
+                        {
+                            "agent": contrib.get("agent", "unknown"),
+                            "vote": "agree",  # Inferred
+                            "confidence": 0.7,
+                            "reasoning": contrib.get("response", "")[:500],
+                        }
+                    )
 
         return votes
 
@@ -325,9 +321,7 @@ class DecisionExplainHandler(BaseHandler):
 
         consensus_proof = getattr(result, "consensus_proof", None)
         if consensus_proof:
-            dissent["dissenting_agents"] = getattr(
-                consensus_proof, "dissenting_agents", []
-            )
+            dissent["dissenting_agents"] = getattr(consensus_proof, "dissenting_agents", [])
 
             dissent_records = getattr(consensus_proof, "dissents", [])
             total_severity = 0.0
@@ -337,13 +331,13 @@ class DecisionExplainHandler(BaseHandler):
 
                 alt_view = getattr(record, "alternative_view", None)
                 if alt_view:
-                    dissent["alternative_views"].append({
-                        "agent": getattr(record, "agent", "unknown"),
-                        "view": alt_view,
-                        "suggested_resolution": getattr(
-                            record, "suggested_resolution", None
-                        ),
-                    })
+                    dissent["alternative_views"].append(
+                        {
+                            "agent": getattr(record, "agent", "unknown"),
+                            "view": alt_view,
+                            "suggested_resolution": getattr(record, "suggested_resolution", None),
+                        }
+                    )
                 total_severity += getattr(record, "severity", 0.5)
 
             if dissent_records:
@@ -428,12 +422,14 @@ class DecisionExplainHandler(BaseHandler):
 
                     if event_type == "agent_message":
                         data = event.get("data", {})
-                        messages.append(Message(
-                            agent=event.get("agent", "unknown"),
-                            content=data.get("content", ""),
-                            role=data.get("role", "proposer"),
-                            round=event.get("round", 1),
-                        ))
+                        messages.append(
+                            Message(
+                                agent=event.get("agent", "unknown"),
+                                content=data.get("content", ""),
+                                role=data.get("role", "proposer"),
+                                round=event.get("round", 1),
+                            )
+                        )
 
                     elif event_type == "consensus":
                         data = event.get("data", {})
@@ -487,14 +483,16 @@ class DecisionExplainHandler(BaseHandler):
 
         # Summary
         summary = explanation.get("summary", {})
-        lines.extend([
-            "## Summary",
-            f"**Answer:** {summary.get('answer', 'N/A')}",
-            f"**Confidence:** {summary.get('confidence', 0):.1%}",
-            f"**Consensus Reached:** {'Yes' if summary.get('consensus_reached') else 'No'}",
-            f"**Agreement Ratio:** {summary.get('agreement_ratio', 0):.1%}",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Summary",
+                f"**Answer:** {summary.get('answer', 'N/A')}",
+                f"**Confidence:** {summary.get('confidence', 0):.1%}",
+                f"**Consensus Reached:** {'Yes' if summary.get('consensus_reached') else 'No'}",
+                f"**Agreement Ratio:** {summary.get('agreement_ratio', 0):.1%}",
+                "",
+            ]
+        )
 
         # Key Claims
         reasoning = explanation.get("reasoning", {})
@@ -556,12 +554,14 @@ class DecisionExplainHandler(BaseHandler):
 
         # Audit Trail
         audit = explanation.get("audit_trail", {})
-        lines.extend([
-            "## Audit Trail",
-            f"- **Duration:** {audit.get('duration_seconds', 0):.2f}s",
-            f"- **Rounds:** {audit.get('rounds_completed', 0)}",
-            f"- **Agents:** {', '.join(audit.get('agents_involved', []))}",
-        ])
+        lines.extend(
+            [
+                "## Audit Trail",
+                f"- **Duration:** {audit.get('duration_seconds', 0):.2f}s",
+                f"- **Rounds:** {audit.get('rounds_completed', 0)}",
+                f"- **Agents:** {', '.join(audit.get('agents_involved', []))}",
+            ]
+        )
         if audit.get("checksum"):
             lines.append(f"- **Checksum:** {audit['checksum']}")
 

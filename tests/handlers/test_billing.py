@@ -181,7 +181,9 @@ class MockStripeSubscription:
     ):
         self.id = id
         self.status = status
-        self.current_period_end = current_period_end or (datetime.now(timezone.utc) + timedelta(days=30))
+        self.current_period_end = current_period_end or (
+            datetime.now(timezone.utc) + timedelta(days=30)
+        )
         self.cancel_at_period_end = cancel_at_period_end
         self.trial_start = trial_start
         self.trial_end = trial_end

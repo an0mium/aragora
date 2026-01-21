@@ -55,6 +55,7 @@ def _get_result_store():
     if _decision_result_store is None:
         try:
             from aragora.storage.decision_result_store import get_decision_result_store
+
             _decision_result_store = get_decision_result_store()
         except Exception as e:
             logger.warning(f"DecisionResultStore not available, using in-memory: {e}")
@@ -218,7 +219,9 @@ class DecisionHandler(BaseHandler):
                 )
                 enforcer.require(
                     auth_ctx.user_id,
-                    ResourceType.DECISION if hasattr(ResourceType, "DECISION") else ResourceType.DEBATE,
+                    ResourceType.DECISION
+                    if hasattr(ResourceType, "DECISION")
+                    else ResourceType.DEBATE,
                     Action.CREATE,
                     ctx,
                 )
@@ -237,42 +240,53 @@ class DecisionHandler(BaseHandler):
                 loop.close()
 
             # Cache result for polling (persistent)
-            _save_result(request.request_id, {
-                "request_id": request.request_id,
-                "status": "completed" if result.success else "failed",
-                "result": result.to_dict(),
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-            })
+            _save_result(
+                request.request_id,
+                {
+                    "request_id": request.request_id,
+                    "status": "completed" if result.success else "failed",
+                    "result": result.to_dict(),
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
 
-            return json_response({
-                "request_id": request.request_id,
-                "status": "completed" if result.success else "failed",
-                "decision_type": result.decision_type.value,
-                "answer": result.answer,
-                "confidence": result.confidence,
-                "consensus_reached": result.consensus_reached,
-                "reasoning": result.reasoning,
-                "evidence_used": result.evidence_used,
-                "duration_seconds": result.duration_seconds,
-                "error": result.error,
-            })
+            return json_response(
+                {
+                    "request_id": request.request_id,
+                    "status": "completed" if result.success else "failed",
+                    "decision_type": result.decision_type.value,
+                    "answer": result.answer,
+                    "confidence": result.confidence,
+                    "consensus_reached": result.consensus_reached,
+                    "reasoning": result.reasoning,
+                    "evidence_used": result.evidence_used,
+                    "duration_seconds": result.duration_seconds,
+                    "error": result.error,
+                }
+            )
 
         except asyncio.TimeoutError:
             # Save as pending for async polling
-            _save_result(request.request_id, {
-                "request_id": request.request_id,
-                "status": "timeout",
-                "error": "Decision timed out",
-            })
+            _save_result(
+                request.request_id,
+                {
+                    "request_id": request.request_id,
+                    "status": "timeout",
+                    "error": "Decision timed out",
+                },
+            )
             return error_response("Decision request timed out", 408)
 
         except Exception as e:
             logger.exception(f"Decision routing failed: {e}")
-            _save_result(request.request_id, {
-                "request_id": request.request_id,
-                "status": "failed",
-                "error": str(e),
-            })
+            _save_result(
+                request.request_id,
+                {
+                    "request_id": request.request_id,
+                    "status": "failed",
+                    "error": str(e),
+                },
+            )
             return error_response(f"Decision failed: {e}", 500)
 
     def _get_decision(self, request_id: str) -> HandlerResult:
@@ -294,15 +308,19 @@ class DecisionHandler(BaseHandler):
         # Fallback to in-memory
         if request_id in _decision_results_fallback:
             result = _decision_results_fallback[request_id]
-            return json_response({
+            return json_response(
+                {
+                    "request_id": request_id,
+                    "status": result.get("status", "unknown"),
+                    "completed_at": result.get("completed_at"),
+                }
+            )
+        return json_response(
+            {
                 "request_id": request_id,
-                "status": result.get("status", "unknown"),
-                "completed_at": result.get("completed_at"),
-            })
-        return json_response({
-            "request_id": request_id,
-            "status": "not_found",
-        })
+                "status": "not_found",
+            }
+        )
 
     def _list_decisions(self, query_params: dict) -> HandlerResult:
         """List recent decisions."""
@@ -313,26 +331,30 @@ class DecisionHandler(BaseHandler):
             try:
                 decisions = store.list_recent(limit)
                 total = store.count()
-                return json_response({
-                    "decisions": decisions,
-                    "total": total,
-                })
+                return json_response(
+                    {
+                        "decisions": decisions,
+                        "total": total,
+                    }
+                )
             except Exception as e:
                 logger.warning(f"Failed to list from store: {e}")
 
         # Fallback to in-memory
         decisions = list(_decision_results_fallback.values())[-limit:]
-        return json_response({
-            "decisions": [
-                {
-                    "request_id": d["request_id"],
-                    "status": d.get("status"),
-                    "completed_at": d.get("completed_at"),
-                }
-                for d in decisions
-            ],
-            "total": len(_decision_results_fallback),
-        })
+        return json_response(
+            {
+                "decisions": [
+                    {
+                        "request_id": d["request_id"],
+                        "status": d.get("status"),
+                        "completed_at": d.get("completed_at"),
+                    }
+                    for d in decisions
+                ],
+                "total": len(_decision_results_fallback),
+            }
+        )
 
 
 __all__ = ["DecisionHandler"]

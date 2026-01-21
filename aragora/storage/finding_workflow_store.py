@@ -217,9 +217,7 @@ class InMemoryFindingWorkflowStore(FindingWorkflowStoreBackend):
     async def list_by_assignee(self, user_id: str) -> list[dict[str, Any]]:
         """List all workflows assigned to a user."""
         with self._lock:
-            return [
-                wf for wf in self._data.values() if wf.get("assigned_to") == user_id
-            ]
+            return [wf for wf in self._data.values() if wf.get("assigned_to") == user_id]
 
     async def list_overdue(self) -> list[dict[str, Any]]:
         """List all overdue findings."""
@@ -239,9 +237,7 @@ class InMemoryFindingWorkflowStore(FindingWorkflowStoreBackend):
     async def list_by_state(self, state: str) -> list[dict[str, Any]]:
         """List all findings in a specific state."""
         with self._lock:
-            return [
-                wf for wf in self._data.values() if wf.get("current_state") == state
-            ]
+            return [wf for wf in self._data.values() if wf.get("current_state") == state]
 
     async def close(self) -> None:
         """No-op for in-memory store."""
@@ -603,9 +599,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                 )
                 if keys:
                     # Filter out index keys (keys are bytes from Redis)
-                    data_keys = [
-                        k for k in keys if b":idx:" not in k and b"idx:" not in k
-                    ]
+                    data_keys = [k for k in keys if b":idx:" not in k and b"idx:" not in k]
                     if data_keys:
                         values = self._redis_client.mget(data_keys)
                         for v in values:
@@ -622,9 +616,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             return await self._fallback.list_by_assignee(user_id)
 
         try:
-            finding_ids = self._redis_client.smembers(
-                f"{self.REDIS_INDEX_ASSIGNEE}{user_id}"
-            )
+            finding_ids = self._redis_client.smembers(f"{self.REDIS_INDEX_ASSIGNEE}{user_id}")
             if not finding_ids:
                 return []
 

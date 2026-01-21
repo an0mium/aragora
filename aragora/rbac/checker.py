@@ -371,7 +371,9 @@ class PermissionChecker:
                 )
 
         # Fall back to local cache
-        cache_key = f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
+        cache_key = (
+            f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
+        )
         if cache_key not in self._decision_cache:
             return None
 
@@ -423,7 +425,9 @@ class PermissionChecker:
             )
 
         # Also cache locally (L1 when using distributed, primary otherwise)
-        cache_key = f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
+        cache_key = (
+            f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
+        )
         self._decision_cache[cache_key] = (decision, datetime.now(timezone.utc))
 
     def _on_remote_invalidation(self, key: str) -> None:

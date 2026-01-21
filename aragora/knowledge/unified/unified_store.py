@@ -647,7 +647,9 @@ class KnowledgeMound:
                         source=KnowledgeSource.VECTOR,
                         source_id=result.id,
                         confidence=ConfidenceLevel.MEDIUM,
-                        created_at=datetime.now(timezone.utc),  # Vector store may not have timestamps
+                        created_at=datetime.now(
+                            timezone.utc
+                        ),  # Vector store may not have timestamps
                         updated_at=datetime.now(timezone.utc),
                         metadata=result.metadata or {},
                         importance=result.score if hasattr(result, "score") else 0.5,

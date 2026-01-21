@@ -203,13 +203,15 @@ class IntegratedControlPlane:
         await self._sync_agent_to_shared_state(agent)
 
         # Broadcast event
-        await self._shared_state._broadcast_event({
-            "type": "agent_registered",
-            "agent_id": agent_id,
-            "model": model,
-            "provider": provider,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        await self._shared_state._broadcast_event(
+            {
+                "type": "agent_registered",
+                "agent_id": agent_id,
+                "model": model,
+                "provider": provider,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
         return agent
 
@@ -228,11 +230,13 @@ class IntegratedControlPlane:
         if result:
             # Update shared state
             await self._shared_state.update_agent_status(agent_id, "offline")
-            await self._shared_state._broadcast_event({
-                "type": "agent_unregistered",
-                "agent_id": agent_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            await self._shared_state._broadcast_event(
+                {
+                    "type": "agent_unregistered",
+                    "agent_id": agent_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
         return result
 
@@ -336,15 +340,17 @@ class IntegratedControlPlane:
             TaskPriority.LOW: "low",
         }.get(priority, "normal")
 
-        await self._shared_state.add_task({
-            "id": task_id,
-            "type": task_type,
-            "priority": priority_str,
-            "status": "pending",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "payload": payload,
-            "metadata": metadata or {},
-        })
+        await self._shared_state.add_task(
+            {
+                "id": task_id,
+                "type": task_type,
+                "priority": priority_str,
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "payload": payload,
+                "metadata": metadata or {},
+            }
+        )
 
         return task_id
 
@@ -387,12 +393,14 @@ class IntegratedControlPlane:
                 )
 
             # Broadcast completion
-            await self._shared_state._broadcast_event({
-                "type": "task_completed",
-                "task_id": task_id,
-                "agent_id": agent_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            await self._shared_state._broadcast_event(
+                {
+                    "type": "task_completed",
+                    "task_id": task_id,
+                    "agent_id": agent_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
         return success
 

@@ -583,7 +583,14 @@ class TestUsageSyncPersistence:
                 (org_id, tokens_in, tokens_out, debates, period_start, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                ("org-old", 99999, 88888, 77, "2020-01-01T00:00:00", datetime.now(timezone.utc).isoformat()),
+                (
+                    "org-old",
+                    99999,
+                    88888,
+                    77,
+                    "2020-01-01T00:00:00",
+                    datetime.now(timezone.utc).isoformat(),
+                ),
             )
             conn.commit()
 
@@ -704,7 +711,9 @@ class TestRemainderCarry:
         )
         service.register_org(config)
 
-        period_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_start = datetime.now(timezone.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
 
         # Sync 1: 800 tokens (below threshold)
         mock_usage_tracker.get_summary.return_value = UsageSummary(
@@ -776,7 +785,9 @@ class TestRemainderCarry:
         service._synced_tokens_out["org-flush"] = 1000
 
         # Total usage is 2500 input, 1300 output (500 and 300 remainder)
-        period_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_start = datetime.now(timezone.utc).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
         mock_usage_tracker.get_summary.return_value = UsageSummary(
             org_id="org-flush",
             period_start=period_start,

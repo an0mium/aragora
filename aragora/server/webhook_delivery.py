@@ -91,7 +91,9 @@ class WebhookDelivery:
             "last_error": self.last_error,
             "last_status_code": self.last_status_code,
             "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
-            "dead_lettered_at": self.dead_lettered_at.isoformat() if self.dead_lettered_at else None,
+            "dead_lettered_at": self.dead_lettered_at.isoformat()
+            if self.dead_lettered_at
+            else None,
         }
 
 
@@ -201,7 +203,9 @@ class DeliveryPersistence:
             self._initialized = True
             logger.info(f"Webhook delivery persistence initialized at {self._db_path}")
 
-    def save_delivery(self, delivery: WebhookDelivery, url: str, secret: Optional[str] = None) -> None:
+    def save_delivery(
+        self, delivery: WebhookDelivery, url: str, secret: Optional[str] = None
+    ) -> None:
         """Save or update a delivery record."""
         conn = self._get_connection()
         metadata = delivery.metadata.copy()
@@ -211,32 +215,35 @@ class DeliveryPersistence:
         if secret:
             metadata["retry_secret"] = secret
 
-        conn.execute("""
+        conn.execute(
+            """
             INSERT OR REPLACE INTO webhook_deliveries (
                 delivery_id, webhook_id, event_type, payload, status,
                 created_at, updated_at, attempts, max_attempts,
                 next_retry_at, last_error, last_status_code,
                 delivered_at, dead_lettered_at, metadata, url, secret
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            delivery.delivery_id,
-            delivery.webhook_id,
-            delivery.event_type,
-            json.dumps(delivery.payload),
-            delivery.status.value,
-            delivery.created_at.isoformat(),
-            delivery.updated_at.isoformat(),
-            delivery.attempts,
-            delivery.max_attempts,
-            delivery.next_retry_at.isoformat() if delivery.next_retry_at else None,
-            delivery.last_error,
-            delivery.last_status_code,
-            delivery.delivered_at.isoformat() if delivery.delivered_at else None,
-            delivery.dead_lettered_at.isoformat() if delivery.dead_lettered_at else None,
-            json.dumps(metadata),
-            url,
-            secret,
-        ))
+        """,
+            (
+                delivery.delivery_id,
+                delivery.webhook_id,
+                delivery.event_type,
+                json.dumps(delivery.payload),
+                delivery.status.value,
+                delivery.created_at.isoformat(),
+                delivery.updated_at.isoformat(),
+                delivery.attempts,
+                delivery.max_attempts,
+                delivery.next_retry_at.isoformat() if delivery.next_retry_at else None,
+                delivery.last_error,
+                delivery.last_status_code,
+                delivery.delivered_at.isoformat() if delivery.delivered_at else None,
+                delivery.dead_lettered_at.isoformat() if delivery.dead_lettered_at else None,
+                json.dumps(metadata),
+                url,
+                secret,
+            ),
+        )
         conn.commit()
 
     def delete_delivery(self, delivery_id: str) -> None:
@@ -258,12 +265,15 @@ class DeliveryPersistence:
     def load_dead_letter_queue(self, limit: int = 100) -> List[tuple]:
         """Load dead-lettered deliveries."""
         conn = self._get_connection()
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT * FROM webhook_deliveries
             WHERE status = 'dead_lettered'
             ORDER BY dead_lettered_at DESC
             LIMIT ?
-        """, (limit,))
+        """,
+            (limit,),
+        )
         return cursor.fetchall()
 
     def _row_to_delivery(self, row: sqlite3.Row) -> tuple:
@@ -280,11 +290,17 @@ class DeliveryPersistence:
             updated_at=datetime.fromisoformat(row["updated_at"]),
             attempts=row["attempts"],
             max_attempts=row["max_attempts"],
-            next_retry_at=datetime.fromisoformat(row["next_retry_at"]) if row["next_retry_at"] else None,
+            next_retry_at=datetime.fromisoformat(row["next_retry_at"])
+            if row["next_retry_at"]
+            else None,
             last_error=row["last_error"],
             last_status_code=row["last_status_code"],
-            delivered_at=datetime.fromisoformat(row["delivered_at"]) if row["delivered_at"] else None,
-            dead_lettered_at=datetime.fromisoformat(row["dead_lettered_at"]) if row["dead_lettered_at"] else None,
+            delivered_at=datetime.fromisoformat(row["delivered_at"])
+            if row["delivered_at"]
+            else None,
+            dead_lettered_at=datetime.fromisoformat(row["dead_lettered_at"])
+            if row["dead_lettered_at"]
+            else None,
             metadata=metadata,
         )
         return delivery, row["url"], row["secret"]
@@ -303,10 +319,13 @@ class DeliveryPersistence:
         """Remove delivered records older than N days."""
         conn = self._get_connection()
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             DELETE FROM webhook_deliveries
             WHERE status = 'delivered' AND delivered_at < ?
-        """, (cutoff,))
+        """,
+            (cutoff,),
+        )
         conn.commit()
         return cursor.rowcount
 
@@ -658,6 +677,7 @@ class WebhookDeliveryManager:
         )
         # Add jitter (±25%)
         import random
+
         delay *= 0.75 + random.random() * 0.5
 
         delivery.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
@@ -713,14 +733,19 @@ class WebhookDeliveryManager:
 
                 # Find deliveries ready for retry
                 ready = [
-                    d for d in self._retry_queue.values()
+                    d
+                    for d in self._retry_queue.values()
                     if d.next_retry_at and d.next_retry_at <= now
                 ]
 
                 for delivery in ready:
                     # Get URL/secret from our maps or metadata
-                    url = self._delivery_urls.get(delivery.delivery_id) or delivery.metadata.get("retry_url", "")
-                    secret = self._delivery_secrets.get(delivery.delivery_id) or delivery.metadata.get("retry_secret")
+                    url = self._delivery_urls.get(delivery.delivery_id) or delivery.metadata.get(
+                        "retry_url", ""
+                    )
+                    secret = self._delivery_secrets.get(
+                        delivery.delivery_id
+                    ) or delivery.metadata.get("retry_secret")
 
                     if not url:
                         self._move_to_dead_letter(delivery)

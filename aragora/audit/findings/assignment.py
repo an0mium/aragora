@@ -506,7 +506,9 @@ class AssignmentManager:
             if assignment.sla_hours:
                 from datetime import timedelta
 
-                assignment.due_date = datetime.now(timezone.utc) + timedelta(hours=assignment.sla_hours)
+                assignment.due_date = datetime.now(timezone.utc) + timedelta(
+                    hours=assignment.sla_hours
+                )
 
             self._assignments[finding_id] = assignment
 

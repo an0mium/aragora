@@ -149,7 +149,9 @@ class FederationRegistryStoreBackend(ABC):
     """Abstract base class for federation registry storage backends."""
 
     @abstractmethod
-    async def get(self, region_id: str, workspace_id: Optional[str] = None) -> Optional[FederatedRegionConfig]:
+    async def get(
+        self, region_id: str, workspace_id: Optional[str] = None
+    ) -> Optional[FederatedRegionConfig]:
         """Get a federated region by ID."""
         pass
 
@@ -209,7 +211,9 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
             return f"{workspace_id}:{region_id}"
         return region_id
 
-    async def get(self, region_id: str, workspace_id: Optional[str] = None) -> Optional[FederatedRegionConfig]:
+    async def get(
+        self, region_id: str, workspace_id: Optional[str] = None
+    ) -> Optional[FederatedRegionConfig]:
         """Get a federated region by ID."""
         key = self._make_key(region_id, workspace_id)
         with self._lock:
@@ -235,10 +239,7 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
         """List all federated regions."""
         with self._lock:
             if workspace_id:
-                return [
-                    r for r in self._data.values()
-                    if r.workspace_id == workspace_id
-                ]
+                return [r for r in self._data.values() if r.workspace_id == workspace_id]
             return list(self._data.values())
 
     async def list_enabled(self, workspace_id: Optional[str] = None) -> List[FederatedRegionConfig]:
@@ -352,7 +353,9 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
             finally:
                 conn.close()
 
-    async def get(self, region_id: str, workspace_id: Optional[str] = None) -> Optional[FederatedRegionConfig]:
+    async def get(
+        self, region_id: str, workspace_id: Optional[str] = None
+    ) -> Optional[FederatedRegionConfig]:
         """Get a federated region by ID."""
         ws_id = workspace_id or ""
         with self._lock:
@@ -553,7 +556,9 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         ws_id = workspace_id or "_global"
         return f"{self.REDIS_PREFIX}{ws_id}:{region_id}"
 
-    async def get(self, region_id: str, workspace_id: Optional[str] = None) -> Optional[FederatedRegionConfig]:
+    async def get(
+        self, region_id: str, workspace_id: Optional[str] = None
+    ) -> Optional[FederatedRegionConfig]:
         """Get a federated region by ID."""
         if self._using_fallback:
             return await self._fallback.get(region_id, workspace_id)
@@ -712,7 +717,9 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         self._initialized = True
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
 
-    async def get(self, region_id: str, workspace_id: Optional[str] = None) -> Optional[FederatedRegionConfig]:
+    async def get(
+        self, region_id: str, workspace_id: Optional[str] = None
+    ) -> Optional[FederatedRegionConfig]:
         """Get a federated region by ID."""
         ws_id = workspace_id or ""
         async with self._pool.acquire() as conn:
@@ -729,7 +736,9 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
                     return FederatedRegionConfig.from_dict(data)
             return None
 
-    def get_sync(self, region_id: str, workspace_id: Optional[str] = None) -> Optional[FederatedRegionConfig]:
+    def get_sync(
+        self, region_id: str, workspace_id: Optional[str] = None
+    ) -> Optional[FederatedRegionConfig]:
         """Get a federated region by ID (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(self.get(region_id, workspace_id))
 
@@ -838,7 +847,9 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
                     workspace_id,
                 )
             else:
-                rows = await conn.fetch("SELECT data_json FROM federated_regions WHERE enabled = TRUE")
+                rows = await conn.fetch(
+                    "SELECT data_json FROM federated_regions WHERE enabled = TRUE"
+                )
 
             results = []
             for row in rows:

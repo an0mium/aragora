@@ -146,9 +146,7 @@ class NomicCycleRecord:
     ) -> None:
         """Add or update agent contribution metrics."""
         if agent_name not in self.agent_contributions:
-            self.agent_contributions[agent_name] = AgentContribution(
-                agent_name=agent_name
-            )
+            self.agent_contributions[agent_name] = AgentContribution(agent_name=agent_name)
 
         contrib = self.agent_contributions[agent_name]
         contrib.proposals_made += proposals_made

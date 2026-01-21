@@ -709,7 +709,9 @@ class HookHandlerRegistry:
                     "event": "debate_end",
                     "debate_id": debate_id,
                     "task": task[:200] if task else None,
-                    "timestamp": __import__("datetime").datetime.now(timezone.utc).isoformat(),
+                    "timestamp": __import__("datetime")
+                    .datetime.now(__import__("datetime").timezone.utc)
+                    .isoformat(),
                 }
 
                 # Add result info if available
@@ -729,6 +731,7 @@ class HookHandlerRegistry:
                 # Deliver to each webhook
                 async def deliver_all():
                     from aragora.server.webhook_delivery import get_delivery_manager
+
                     manager = await get_delivery_manager()
 
                     for webhook in webhooks:
@@ -786,7 +789,9 @@ class HookHandlerRegistry:
                     "debate_id": debate_id,
                     "consensus_text": consensus_text[:500] if consensus_text else None,
                     "confidence": confidence,
-                    "timestamp": __import__("datetime").datetime.now(timezone.utc).isoformat(),
+                    "timestamp": __import__("datetime")
+                    .datetime.now(__import__("datetime").timezone.utc)
+                    .isoformat(),
                 }
 
                 store = get_webhook_config_store()
@@ -794,6 +799,7 @@ class HookHandlerRegistry:
 
                 async def deliver_all():
                     from aragora.server.webhook_delivery import get_delivery_manager
+
                     manager = await get_delivery_manager()
 
                     for webhook in webhooks:

@@ -206,6 +206,7 @@ class BeliefAdapter:
                 record_km_operation,
                 record_km_adapter_sync,
             )
+
             record_km_operation(operation, success, latency)
             if operation in ("store", "sync"):
                 record_km_adapter_sync("belief", "forward", success)
@@ -239,6 +240,7 @@ class BeliefAdapter:
             The belief ID if stored, None if below threshold
         """
         import time
+
         start = time.time()
         success = False
 
@@ -282,12 +284,15 @@ class BeliefAdapter:
                 self._debate_beliefs[debate_id].append(belief_id)
 
             # Emit event for WebSocket updates
-            self._emit_event("belief_converged", {
-                "belief_id": belief_id,
-                "claim_statement": node.claim_statement[:100] if node.claim_statement else "",
-                "confidence": confidence,
-                "debate_id": debate_id,
-            })
+            self._emit_event(
+                "belief_converged",
+                {
+                    "belief_id": belief_id,
+                    "claim_statement": node.claim_statement[:100] if node.claim_statement else "",
+                    "confidence": confidence,
+                    "debate_id": debate_id,
+                },
+            )
 
             logger.info(f"Stored converged belief: {belief_id} (confidence={confidence:.2f})")
             success = True
@@ -383,13 +388,16 @@ class BeliefAdapter:
             self._topic_cruxes[topic_lower].append(crux_id)
 
         # Emit event for WebSocket updates
-        self._emit_event("crux_detected", {
-            "crux_id": crux_id,
-            "statement": crux.statement[:100] if crux.statement else "",
-            "crux_score": crux.crux_score,
-            "debate_id": debate_id,
-            "topics": topics or [],
-        })
+        self._emit_event(
+            "crux_detected",
+            {
+                "crux_id": crux_id,
+                "statement": crux.statement[:100] if crux.statement else "",
+                "crux_score": crux.crux_score,
+                "debate_id": debate_id,
+                "topics": topics or [],
+            },
+        )
 
         logger.info(f"Stored crux: {crux_id} (score={crux.crux_score:.2f})")
         return crux_id

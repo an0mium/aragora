@@ -210,7 +210,9 @@ class RankingAdapter:
             "confidence": confidence,
             "debate_count": debate_count,
             "last_debate_id": debate_id,
-            "created_at": existing.get("created_at") if existing else datetime.now(timezone.utc).isoformat(),
+            "created_at": existing.get("created_at")
+            if existing
+            else datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 

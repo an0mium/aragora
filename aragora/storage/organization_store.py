@@ -213,7 +213,11 @@ class OrganizationStore:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(), org_id),
+                (
+                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
+                    org_id,
+                ),
             )
             return cursor.rowcount > 0
 
@@ -417,7 +421,9 @@ class OrganizationStore:
                     (
                         status,
                         accepted_by,
-                        accepted_at.isoformat() if accepted_at else datetime.now(timezone.utc).isoformat(),
+                        accepted_at.isoformat()
+                        if accepted_at
+                        else datetime.now(timezone.utc).isoformat(),
                         invitation_id,
                     ),
                 )

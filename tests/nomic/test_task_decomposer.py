@@ -188,7 +188,10 @@ class TestRationale:
 
         # Should be complex enough to decompose
         if result.should_decompose:
-            assert "refactor" in result.rationale.lower() or "high-complexity" in result.rationale.lower()
+            assert (
+                "refactor" in result.rationale.lower()
+                or "high-complexity" in result.rationale.lower()
+            )
         else:
             # Even if not decomposing, the score should be reasonable
             assert result.complexity_score >= 3
@@ -196,9 +199,7 @@ class TestRationale:
     def test_rationale_mentions_file_count(self):
         """Rationale should mention file count when significant."""
         decomposer = TaskDecomposer()
-        result = decomposer.analyze(
-            "Update a.py, b.py, c.py, d.py, e.py for the new feature"
-        )
+        result = decomposer.analyze("Update a.py, b.py, c.py, d.py, e.py for the new feature")
 
         if "files" in result.rationale.lower():
             assert "5" in result.rationale or "touches" in result.rationale.lower()
@@ -206,9 +207,7 @@ class TestRationale:
     def test_rationale_mentions_concepts(self):
         """Rationale should mention concept areas."""
         decomposer = TaskDecomposer()
-        result = decomposer.analyze(
-            "Update database, api, and security for new feature"
-        )
+        result = decomposer.analyze("Update database, api, and security for new feature")
 
         if result.complexity_score >= 5:
             assert "concept" in result.rationale.lower() or "span" in result.rationale.lower()

@@ -341,7 +341,10 @@ class TestStoreMigrations:
 
     def test_migrate_integration_store_import_error(self):
         """Test graceful handling of import error."""
-        with patch("aragora.storage.integration_store.get_integration_store", side_effect=ImportError("Not found")):
+        with patch(
+            "aragora.storage.integration_store.get_integration_store",
+            side_effect=ImportError("Not found"),
+        ):
             result = migrate_integration_store()
 
             assert result.store_name == "integration_store"
@@ -349,7 +352,10 @@ class TestStoreMigrations:
 
     def test_migrate_gmail_token_store_import_error(self):
         """Test graceful handling of import error."""
-        with patch("aragora.storage.gmail_token_store.get_gmail_token_store", side_effect=ImportError("Not found")):
+        with patch(
+            "aragora.storage.gmail_token_store.get_gmail_token_store",
+            side_effect=ImportError("Not found"),
+        ):
             result = migrate_gmail_token_store()
 
             assert result.store_name == "gmail_token_store"
@@ -378,12 +384,15 @@ class TestStartupMigrationConfig:
 
     def test_get_config_from_env_enabled(self):
         """Test config loading with migration enabled."""
-        with patch.dict("os.environ", {
-            "ARAGORA_MIGRATE_ON_STARTUP": "true",
-            "ARAGORA_MIGRATION_DRY_RUN": "1",
-            "ARAGORA_MIGRATION_STORES": "integration,sync",
-            "ARAGORA_MIGRATION_FAIL_ON_ERROR": "yes",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "ARAGORA_MIGRATE_ON_STARTUP": "true",
+                "ARAGORA_MIGRATION_DRY_RUN": "1",
+                "ARAGORA_MIGRATION_STORES": "integration,sync",
+                "ARAGORA_MIGRATION_FAIL_ON_ERROR": "yes",
+            },
+        ):
             config = get_startup_migration_config()
 
             assert config.enabled is True
@@ -393,9 +402,13 @@ class TestStartupMigrationConfig:
 
     def test_get_config_from_env_disabled(self):
         """Test config loading with migration disabled."""
-        with patch.dict("os.environ", {
-            "ARAGORA_MIGRATE_ON_STARTUP": "false",
-        }, clear=True):
+        with patch.dict(
+            "os.environ",
+            {
+                "ARAGORA_MIGRATE_ON_STARTUP": "false",
+            },
+            clear=True,
+        ):
             config = get_startup_migration_config()
 
             assert config.enabled is False
@@ -422,7 +435,9 @@ class TestRunStartupMigration:
 
         mock_result = MigrationResult(store_name="integration_store", migrated_records=5)
 
-        with patch("aragora.security.migration.migrate_integration_store", return_value=mock_result) as mock_migrate:
+        with patch(
+            "aragora.security.migration.migrate_integration_store", return_value=mock_result
+        ) as mock_migrate:
             results = run_startup_migration(config)
 
             assert len(results) == 1
@@ -454,7 +469,9 @@ class TestRunStartupMigration:
             errors=["Something went wrong"],
         )
 
-        with patch("aragora.security.migration.migrate_integration_store", return_value=mock_result):
+        with patch(
+            "aragora.security.migration.migrate_integration_store", return_value=mock_result
+        ):
             with pytest.raises(RuntimeError) as exc_info:
                 run_startup_migration(config)
 
@@ -477,8 +494,12 @@ class TestRunStartupMigration:
             migrated_records=3,
         )
 
-        with patch("aragora.security.migration.migrate_integration_store", return_value=failed_result):
-            with patch("aragora.security.migration.migrate_sync_store", return_value=success_result):
+        with patch(
+            "aragora.security.migration.migrate_integration_store", return_value=failed_result
+        ):
+            with patch(
+                "aragora.security.migration.migrate_sync_store", return_value=success_result
+            ):
                 results = run_startup_migration(config)
 
                 assert len(results) == 2
@@ -493,7 +514,10 @@ class TestRunStartupMigration:
             fail_on_error=True,
         )
 
-        with patch("aragora.security.migration.migrate_integration_store", side_effect=Exception("DB error")):
+        with patch(
+            "aragora.security.migration.migrate_integration_store",
+            side_effect=Exception("DB error"),
+        ):
             with pytest.raises(Exception) as exc_info:
                 run_startup_migration(config)
 
@@ -509,8 +533,13 @@ class TestRunStartupMigration:
 
         success_result = MigrationResult(store_name="sync_store")
 
-        with patch("aragora.security.migration.migrate_integration_store", side_effect=Exception("DB error")):
-            with patch("aragora.security.migration.migrate_sync_store", return_value=success_result):
+        with patch(
+            "aragora.security.migration.migrate_integration_store",
+            side_effect=Exception("DB error"),
+        ):
+            with patch(
+                "aragora.security.migration.migrate_sync_store", return_value=success_result
+            ):
                 results = run_startup_migration(config)
 
                 # Should have one result for sync store
@@ -530,9 +559,18 @@ class TestRunStartupMigration:
             "sync": MigrationResult(store_name="sync_store"),
         }
 
-        with patch("aragora.security.migration.migrate_integration_store", return_value=results_map["integration"]):
-            with patch("aragora.security.migration.migrate_gmail_token_store", return_value=results_map["gmail"]):
-                with patch("aragora.security.migration.migrate_sync_store", return_value=results_map["sync"]):
+        with patch(
+            "aragora.security.migration.migrate_integration_store",
+            return_value=results_map["integration"],
+        ):
+            with patch(
+                "aragora.security.migration.migrate_gmail_token_store",
+                return_value=results_map["gmail"],
+            ):
+                with patch(
+                    "aragora.security.migration.migrate_sync_store",
+                    return_value=results_map["sync"],
+                ):
                     results = run_startup_migration(config)
 
                     assert len(results) == 3

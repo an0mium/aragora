@@ -115,9 +115,7 @@ class TestIntegratedControlPlane:
         result = await integrated.pause_agent("test-agent")
 
         assert result is True
-        mock_coordinator.heartbeat.assert_called_with(
-            "test-agent", status=AgentStatus.DRAINING
-        )
+        mock_coordinator.heartbeat.assert_called_with("test-agent", status=AgentStatus.DRAINING)
         mock_shared_state.update_agent_status.assert_called_with("test-agent", "paused")
 
     @pytest.mark.asyncio
@@ -126,9 +124,7 @@ class TestIntegratedControlPlane:
         result = await integrated.resume_agent("test-agent")
 
         assert result is True
-        mock_coordinator.heartbeat.assert_called_with(
-            "test-agent", status=AgentStatus.READY
-        )
+        mock_coordinator.heartbeat.assert_called_with("test-agent", status=AgentStatus.READY)
         mock_shared_state.update_agent_status.assert_called_with("test-agent", "active")
 
     @pytest.mark.asyncio
@@ -173,9 +169,7 @@ class TestIntegratedControlPlane:
         mock_shared_state._broadcast_event.assert_called()
 
     @pytest.mark.asyncio
-    async def test_fail_task_records_error(
-        self, integrated, mock_coordinator, mock_shared_state
-    ):
+    async def test_fail_task_records_error(self, integrated, mock_coordinator, mock_shared_state):
         """Test that failing task records error in shared state."""
         result = await integrated.fail_task(
             task_id="task-123",
@@ -231,12 +225,12 @@ class TestSetupIntegration:
     @pytest.mark.asyncio
     async def test_setup_creates_integrated_instance(self):
         """Test that setup creates and returns integrated instance."""
-        with patch(
-            "aragora.control_plane.integration.ControlPlaneCoordinator"
-        ) as mock_coordinator_class, patch(
-            "aragora.control_plane.integration.SharedControlPlaneState"
-        ) as mock_shared_class, patch(
-            "aragora.control_plane.integration.set_shared_state"
+        with (
+            patch(
+                "aragora.control_plane.integration.ControlPlaneCoordinator"
+            ) as mock_coordinator_class,
+            patch("aragora.control_plane.integration.SharedControlPlaneState") as mock_shared_class,
+            patch("aragora.control_plane.integration.set_shared_state"),
         ):
             # Set up mocks
             mock_coordinator = MagicMock()
@@ -249,6 +243,7 @@ class TestSetupIntegration:
 
             # Reset module state
             import aragora.control_plane.integration as integration_module
+
             integration_module._integrated = None
 
             from aragora.control_plane.integration import setup_control_plane_integration

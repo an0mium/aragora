@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 # Try to import SLO metrics
 try:
-    from aragora.observability.metrics.slo import check_and_record_slo, track_operation_slo
+    from aragora.observability.metrics.slo import check_and_record_slo
+
     SLO_AVAILABLE = True
 except ImportError:
     SLO_AVAILABLE = False
@@ -42,16 +43,19 @@ except ImportError:
 
 class EvidenceAdapterError(Exception):
     """Base exception for evidence adapter errors."""
+
     pass
 
 
 class EvidenceStoreUnavailableError(EvidenceAdapterError):
     """Raised when evidence store is not configured."""
+
     pass
 
 
 class EvidenceNotFoundError(EvidenceAdapterError):
     """Raised when evidence item is not found."""
+
     pass
 
 
@@ -149,6 +153,7 @@ class EvidenceAdapter:
                 record_km_operation,
                 record_km_adapter_sync,
             )
+
             record_km_operation(operation, success, latency)
             if operation in ("store", "sync"):
                 record_km_adapter_sync("evidence", "forward", success)
@@ -203,6 +208,7 @@ class EvidenceAdapter:
             EvidenceStoreUnavailableError: If store is not configured
         """
         import time
+
         start = time.time()
         success = False
         store = self._ensure_store()
@@ -323,16 +329,14 @@ class EvidenceAdapter:
             EvidenceAdapterError: If search fails
         """
         import time
+
         start = time.time()
         success = False
 
         try:
             # Try semantic search first
             try:
-                from aragora.knowledge.mound.semantic_store import (
-                    SemanticStore,
-                    SemanticSearchResult,
-                )
+                from aragora.knowledge.mound.semantic_store import SemanticStore
 
                 # Get or create semantic store
                 store = SemanticStore()
@@ -361,24 +365,29 @@ class EvidenceAdapter:
                         enriched.append(evidence)
                     else:
                         # Evidence may not be in store
-                        enriched.append({
-                            "id": r.source_id,
-                            "similarity": r.similarity,
-                            "domain": r.domain,
-                            "importance": r.importance,
-                            "metadata": r.metadata,
-                        })
+                        enriched.append(
+                            {
+                                "id": r.source_id,
+                                "similarity": r.similarity,
+                                "domain": r.domain,
+                                "importance": r.importance,
+                                "metadata": r.metadata,
+                            }
+                        )
 
                 success = True
                 logger.debug(f"Semantic search returned {len(enriched)} results for '{query[:50]}'")
 
                 # Emit event
-                self._emit_event("km_adapter_semantic_search", {
-                    "source": "evidence",
-                    "query_preview": query[:50],
-                    "results_count": len(enriched),
-                    "search_type": "vector",
-                })
+                self._emit_event(
+                    "km_adapter_semantic_search",
+                    {
+                        "source": "evidence",
+                        "query_preview": query[:50],
+                        "results_count": len(enriched),
+                        "search_type": "vector",
+                    },
+                )
 
                 return enriched
 
@@ -420,7 +429,7 @@ class EvidenceAdapter:
 
         # Strip mound prefix if present
         if evidence_id.startswith(self.ID_PREFIX):
-            evidence_id = evidence_id[len(self.ID_PREFIX):]
+            evidence_id = evidence_id[len(self.ID_PREFIX) :]
 
         try:
             return store.get_evidence(evidence_id)
@@ -602,6 +611,7 @@ class EvidenceAdapter:
             EvidenceAdapterError: If storage fails
         """
         import time
+
         start = time.time()
         success = False
         store = self._ensure_store()
@@ -619,13 +629,16 @@ class EvidenceAdapter:
             )
 
             # Emit event for WebSocket updates
-            self._emit_event("knowledge_indexed", {
-                "source": "evidence",
-                "evidence_id": result_id,
-                "title": title,
-                "reliability": reliability_score,
-                "debate_id": debate_id,
-            })
+            self._emit_event(
+                "knowledge_indexed",
+                {
+                    "source": "evidence",
+                    "evidence_id": result_id,
+                    "title": title,
+                    "reliability": reliability_score,
+                    "debate_id": debate_id,
+                },
+            )
 
             success = True
 
@@ -664,7 +677,9 @@ class EvidenceAdapter:
 
         try:
             store.mark_used_in_consensus(debate_id, evidence_id)
-            logger.debug(f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}")
+            logger.debug(
+                f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}"
+            )
         except AttributeError:
             # Store doesn't support this method
             logger.debug("Evidence store does not support mark_used_in_consensus")
@@ -695,7 +710,7 @@ class EvidenceAdapter:
 
         # Strip prefix if present
         if evidence_id.startswith(self.ID_PREFIX):
-            evidence_id = evidence_id[len(self.ID_PREFIX):]
+            evidence_id = evidence_id[len(self.ID_PREFIX) :]
 
         try:
             # Get current evidence

@@ -140,13 +140,11 @@ class TemplateMetadata:
             data["author"] = TemplateAuthor(**data["author"])
         if "contributors" in data:
             data["contributors"] = [
-                TemplateAuthor(**c) if isinstance(c, dict) else c
-                for c in data["contributors"]
+                TemplateAuthor(**c) if isinstance(c, dict) else c for c in data["contributors"]
             ]
         if "dependencies" in data:
             data["dependencies"] = [
-                TemplateDependency(**d) if isinstance(d, dict) else d
-                for d in data["dependencies"]
+                TemplateDependency(**d) if isinstance(d, dict) else d for d in data["dependencies"]
             ]
 
         return cls(**data)

@@ -955,7 +955,14 @@ class PostgresUserStore:
                    (id, email, password_hash, password_salt, name, org_id, role,
                     is_active, email_verified, created_at, updated_at)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, FALSE, $8, $8)""",
-                user_id, email, password_hash, password_salt, name, org_id, role, now,
+                user_id,
+                email,
+                password_hash,
+                password_salt,
+                name,
+                org_id,
+                role,
+                now,
             )
 
         return User(
@@ -1052,7 +1059,8 @@ class PostgresUserStore:
                           token_version, failed_login_attempts, lockout_until,
                           last_failed_login_at, preferences
                    FROM users WHERE api_key_hash = $1 OR api_key = $2""",
-                key_hash, api_key,
+                key_hash,
+                api_key,
             )
             if row:
                 return self._row_to_user(row)
@@ -1116,16 +1124,12 @@ class PostgresUserStore:
 
     def get_user_preferences(self, user_id: str) -> Optional[dict]:
         """Get user preferences (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_user_preferences_async(user_id)
-        )
+        return asyncio.get_event_loop().run_until_complete(self.get_user_preferences_async(user_id))
 
     async def get_user_preferences_async(self, user_id: str) -> Optional[dict]:
         """Get user preferences asynchronously."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT preferences FROM users WHERE id = $1", user_id
-            )
+            row = await conn.fetchrow("SELECT preferences FROM users WHERE id = $1", user_id)
             if row and row["preferences"]:
                 prefs = row["preferences"]
                 return json.loads(prefs) if isinstance(prefs, str) else prefs
@@ -1142,7 +1146,9 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             result = await conn.execute(
                 "UPDATE users SET preferences = $1, updated_at = $2 WHERE id = $3",
-                json.dumps(preferences), datetime.now(timezone.utc), user_id,
+                json.dumps(preferences),
+                datetime.now(timezone.utc),
+                user_id,
             )
             return result != "UPDATE 0"
 
@@ -1158,7 +1164,8 @@ class PostgresUserStore:
             row = await conn.fetchrow(
                 """UPDATE users SET token_version = token_version + 1, updated_at = $1
                    WHERE id = $2 RETURNING token_version""",
-                datetime.now(timezone.utc), user_id,
+                datetime.now(timezone.utc),
+                user_id,
             )
             return row["token_version"] if row else 1
 
@@ -1214,13 +1221,19 @@ class PostgresUserStore:
                 """INSERT INTO organizations
                    (id, name, slug, tier, owner_id, billing_cycle_start, created_at, updated_at)
                    VALUES ($1, $2, $3, $4, $5, $6, $6, $6)""",
-                org_id, name, slug, tier.value if hasattr(tier, 'value') else str(tier),
-                owner_id, now,
+                org_id,
+                name,
+                slug,
+                tier.value if hasattr(tier, "value") else str(tier),
+                owner_id,
+                now,
             )
             # Update owner's org_id
             await conn.execute(
                 "UPDATE users SET org_id = $1, role = 'owner', updated_at = $2 WHERE id = $3",
-                org_id, now, owner_id,
+                org_id,
+                now,
+                owner_id,
             )
 
         return Organization(
@@ -1274,7 +1287,9 @@ class PostgresUserStore:
                 return self._row_to_org(row)
             return None
 
-    def get_organization_by_stripe_customer(self, stripe_customer_id: str) -> Optional[Organization]:
+    def get_organization_by_stripe_customer(
+        self, stripe_customer_id: str
+    ) -> Optional[Organization]:
         """Get organization by Stripe customer ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_organization_by_stripe_customer_async(stripe_customer_id)
@@ -1362,7 +1377,8 @@ class PostgresUserStore:
             result = await conn.execute(
                 """UPDATE organizations SET debates_used_this_month = 0,
                    billing_cycle_start = $1, updated_at = $1 WHERE id = $2""",
-                datetime.now(timezone.utc), org_id,
+                datetime.now(timezone.utc),
+                org_id,
             )
             return result != "UPDATE 0"
 
@@ -1377,7 +1393,10 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             result = await conn.execute(
                 "UPDATE users SET org_id = $1, role = $2, updated_at = $3 WHERE id = $4",
-                org_id, role, datetime.now(timezone.utc), user_id,
+                org_id,
+                role,
+                datetime.now(timezone.utc),
+                user_id,
             )
             return result != "UPDATE 0"
 
@@ -1390,7 +1409,8 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             result = await conn.execute(
                 "UPDATE users SET org_id = NULL, role = 'member', updated_at = $1 WHERE id = $2",
-                datetime.now(timezone.utc), user_id,
+                datetime.now(timezone.utc),
+                user_id,
             )
             return result != "UPDATE 0"
 
@@ -1483,7 +1503,9 @@ class PostgresUserStore:
             row = await conn.fetchrow(
                 """UPDATE organizations SET debates_used_this_month = debates_used_this_month + $1,
                    updated_at = $2 WHERE id = $3 RETURNING debates_used_this_month""",
-                count, datetime.now(timezone.utc), org_id,
+                count,
+                datetime.now(timezone.utc),
+                org_id,
             )
             return row["debates_used_this_month"] if row else 0
 
@@ -1511,7 +1533,11 @@ class PostgresUserStore:
             await conn.execute(
                 """INSERT INTO usage_events (org_id, event_type, count, metadata, created_at)
                    VALUES ($1, $2, $3, $4, $5)""",
-                org_id, event_type, count, json.dumps(metadata or {}), datetime.now(timezone.utc),
+                org_id,
+                event_type,
+                count,
+                json.dumps(metadata or {}),
+                datetime.now(timezone.utc),
             )
 
     def reset_monthly_usage(self) -> int:
@@ -1550,7 +1576,9 @@ class PostgresUserStore:
         return {
             "org_id": org_id,
             "debates_used_this_month": org.debates_used_this_month,
-            "billing_cycle_start": org.billing_cycle_start.isoformat() if org.billing_cycle_start else None,
+            "billing_cycle_start": org.billing_cycle_start.isoformat()
+            if org.billing_cycle_start
+            else None,
             "events": {row["event_type"]: row["total"] for row in rows},
         }
 
@@ -1584,7 +1612,11 @@ class PostgresUserStore:
                     """INSERT INTO oauth_providers (user_id, provider, provider_user_id, email, linked_at)
                        VALUES ($1, $2, $3, $4, $5)
                        ON CONFLICT (provider, provider_user_id) DO NOTHING""",
-                    user_id, provider, provider_user_id, email, datetime.now(timezone.utc),
+                    user_id,
+                    provider,
+                    provider_user_id,
+                    email,
+                    datetime.now(timezone.utc),
                 )
                 return True
             except Exception:
@@ -1601,7 +1633,8 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             result = await conn.execute(
                 "DELETE FROM oauth_providers WHERE user_id = $1 AND provider = $2",
-                user_id, provider,
+                user_id,
+                provider,
             )
             return result != "DELETE 0"
 
@@ -1616,7 +1649,8 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT user_id FROM oauth_providers WHERE provider = $1 AND provider_user_id = $2",
-                provider, provider_user_id,
+                provider,
+                provider_user_id,
             )
             if row:
                 return await self.get_user_by_id_async(row["user_id"])
@@ -1665,8 +1699,16 @@ class PostgresUserStore:
         """Log an audit event (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.log_audit_event_async(
-                action, resource_type, resource_id, user_id, org_id,
-                old_value, new_value, metadata, ip_address, user_agent
+                action,
+                resource_type,
+                resource_id,
+                user_id,
+                org_id,
+                old_value,
+                new_value,
+                metadata,
+                ip_address,
+                user_agent,
             )
         )
 
@@ -1691,11 +1733,17 @@ class PostgresUserStore:
                     old_value, new_value, metadata, ip_address, user_agent)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                    RETURNING id""",
-                datetime.now(timezone.utc), user_id, org_id, action, resource_type, resource_id,
+                datetime.now(timezone.utc),
+                user_id,
+                org_id,
+                action,
+                resource_type,
+                resource_id,
                 json.dumps(old_value) if old_value else None,
                 json.dumps(new_value) if new_value else None,
                 json.dumps(metadata or {}),
-                ip_address, user_agent,
+                ip_address,
+                user_agent,
             )
             return row["id"] if row else 0
 
@@ -1832,9 +1880,7 @@ class PostgresUserStore:
 
     def create_invitation(self, invitation: OrganizationInvitation) -> bool:
         """Create a new organization invitation (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.create_invitation_async(invitation)
-        )
+        return asyncio.get_event_loop().run_until_complete(self.create_invitation_async(invitation))
 
     async def create_invitation_async(self, invitation: OrganizationInvitation) -> bool:
         """Create a new organization invitation asynchronously."""
@@ -1844,9 +1890,15 @@ class PostgresUserStore:
                     """INSERT INTO org_invitations
                        (id, org_id, email, role, token, invited_by, status, created_at, expires_at)
                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
-                    invitation.id, invitation.org_id, invitation.email, invitation.role,
-                    invitation.token, invitation.invited_by, invitation.status,
-                    invitation.created_at, invitation.expires_at,
+                    invitation.id,
+                    invitation.org_id,
+                    invitation.email,
+                    invitation.role,
+                    invitation.token,
+                    invitation.invited_by,
+                    invitation.status,
+                    invitation.created_at,
+                    invitation.expires_at,
                 )
                 return True
             except Exception:
@@ -1858,12 +1910,12 @@ class PostgresUserStore:
             self.get_invitation_by_id_async(invitation_id)
         )
 
-    async def get_invitation_by_id_async(self, invitation_id: str) -> Optional[OrganizationInvitation]:
+    async def get_invitation_by_id_async(
+        self, invitation_id: str
+    ) -> Optional[OrganizationInvitation]:
         """Get invitation by ID asynchronously."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM org_invitations WHERE id = $1", invitation_id
-            )
+            row = await conn.fetchrow("SELECT * FROM org_invitations WHERE id = $1", invitation_id)
             if row:
                 return self._row_to_invitation(row)
             return None
@@ -1877,9 +1929,7 @@ class PostgresUserStore:
     async def get_invitation_by_token_async(self, token: str) -> Optional[OrganizationInvitation]:
         """Get invitation by token asynchronously."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM org_invitations WHERE token = $1", token
-            )
+            row = await conn.fetchrow("SELECT * FROM org_invitations WHERE token = $1", token)
             if row:
                 return self._row_to_invitation(row)
             return None
@@ -1898,7 +1948,8 @@ class PostgresUserStore:
             row = await conn.fetchrow(
                 """SELECT * FROM org_invitations
                    WHERE org_id = $1 AND email = $2 AND status = 'pending'""",
-                org_id, email,
+                org_id,
+                email,
             )
             if row:
                 return self._row_to_invitation(row)
@@ -1959,12 +2010,15 @@ class PostgresUserStore:
             if accepted_at:
                 result = await conn.execute(
                     "UPDATE org_invitations SET status = $1, accepted_at = $2 WHERE id = $3",
-                    status, accepted_at, invitation_id,
+                    status,
+                    accepted_at,
+                    invitation_id,
                 )
             else:
                 result = await conn.execute(
                     "UPDATE org_invitations SET status = $1 WHERE id = $2",
-                    status, invitation_id,
+                    status,
+                    invitation_id,
                 )
             return result != "UPDATE 0"
 
@@ -1977,16 +2031,12 @@ class PostgresUserStore:
     async def delete_invitation_async(self, invitation_id: str) -> bool:
         """Delete an invitation asynchronously."""
         async with self._pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM org_invitations WHERE id = $1", invitation_id
-            )
+            result = await conn.execute("DELETE FROM org_invitations WHERE id = $1", invitation_id)
             return result != "DELETE 0"
 
     def cleanup_expired_invitations(self) -> int:
         """Mark expired invitations as expired (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.cleanup_expired_invitations_async()
-        )
+        return asyncio.get_event_loop().run_until_complete(self.cleanup_expired_invitations_async())
 
     async def cleanup_expired_invitations_async(self) -> int:
         """Mark expired invitations asynchronously."""
@@ -2053,7 +2103,8 @@ class PostgresUserStore:
                    updated_at = $1
                    WHERE email = $2
                    RETURNING failed_login_attempts""",
-                datetime.now(timezone.utc), email,
+                datetime.now(timezone.utc),
+                email,
             )
             if not row:
                 return 0, None
@@ -2072,7 +2123,8 @@ class PostgresUserStore:
             if lockout_until:
                 await conn.execute(
                     "UPDATE users SET lockout_until = $1 WHERE email = $2",
-                    lockout_until, email,
+                    lockout_until,
+                    email,
                 )
 
             return attempts, lockout_until
@@ -2091,7 +2143,8 @@ class PostgresUserStore:
                    failed_login_attempts = 0, lockout_until = NULL,
                    last_failed_login_at = NULL, updated_at = $1
                    WHERE email = $2""",
-                datetime.now(timezone.utc), email,
+                datetime.now(timezone.utc),
+                email,
             )
             return result != "UPDATE 0"
 
@@ -2114,8 +2167,12 @@ class PostgresUserStore:
                 "exists": True,
                 "failed_attempts": row["failed_login_attempts"] or 0,
                 "lockout_until": row["lockout_until"].isoformat() if row["lockout_until"] else None,
-                "last_failed_at": row["last_failed_login_at"].isoformat() if row["last_failed_login_at"] else None,
-                "is_locked": bool(row["lockout_until"] and row["lockout_until"] > datetime.now(timezone.utc)),
+                "last_failed_at": row["last_failed_login_at"].isoformat()
+                if row["last_failed_login_at"]
+                else None,
+                "is_locked": bool(
+                    row["lockout_until"] and row["lockout_until"] > datetime.now(timezone.utc)
+                ),
             }
 
     # =========================================================================
@@ -2148,14 +2205,17 @@ class PostgresUserStore:
                 rows = await conn.fetch(
                     """SELECT * FROM organizations WHERE tier = $1
                        ORDER BY created_at DESC LIMIT $2 OFFSET $3""",
-                    tier_filter, limit, offset,
+                    tier_filter,
+                    limit,
+                    offset,
                 )
             else:
                 total_row = await conn.fetchrow("SELECT COUNT(*) FROM organizations")
                 rows = await conn.fetch(
                     """SELECT * FROM organizations
                        ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
-                    limit, offset,
+                    limit,
+                    offset,
                 )
 
             total = total_row[0] if total_row else 0

@@ -180,7 +180,9 @@ class RlmAdapter:
             "content_markers": content_markers,
             "content_type": content_type,
             "usage_count": usage_count,
-            "created_at": existing.get("created_at") if existing else datetime.now(timezone.utc).isoformat(),
+            "created_at": existing.get("created_at")
+            if existing
+            else datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "metadata": metadata or {},
         }

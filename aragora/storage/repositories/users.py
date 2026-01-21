@@ -30,6 +30,7 @@ def _encrypt_mfa_field(value: str, user_id: str) -> str:
         return value
     try:
         from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+
         if not CRYPTO_AVAILABLE:
             return value
         service = get_encryption_service()
@@ -46,6 +47,7 @@ def _decrypt_mfa_field(value: str, user_id: str) -> str:
         return value
     try:
         from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+
         if not CRYPTO_AVAILABLE:
             return value
         # Check if it looks encrypted (base64-encoded EncryptedData starts with version byte)

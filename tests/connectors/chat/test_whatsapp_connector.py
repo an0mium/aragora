@@ -681,15 +681,11 @@ class TestSendVoiceMessage:
         # Mock media upload response
         mock_upload_response = mock_httpx_response({"id": "media_voice_123"})
         # Mock message send response
-        mock_send_response = mock_httpx_response(
-            {"messages": [{"id": "wamid.voice_456"}]}
-        )
+        mock_send_response = mock_httpx_response({"messages": [{"id": "wamid.voice_456"}]})
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(
-                side_effect=[mock_upload_response, mock_send_response]
-            )
+            mock_instance.post = AsyncMock(side_effect=[mock_upload_response, mock_send_response])
 
             result = await connector.send_voice_message(
                 channel_id="+1234567890",
@@ -702,9 +698,7 @@ class TestSendVoiceMessage:
     @pytest.mark.asyncio
     async def test_send_voice_message_upload_failure(self, connector, mock_httpx_response):
         """Test voice message send with upload failure."""
-        mock_response = mock_httpx_response(
-            {"error": {"message": "Audio upload failed"}}
-        )
+        mock_response = mock_httpx_response({"error": {"message": "Audio upload failed"}})
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
@@ -725,9 +719,7 @@ class TestSendTemplate:
     @pytest.mark.asyncio
     async def test_send_template_success(self, connector, mock_httpx_response):
         """Test successful template message send."""
-        mock_response = mock_httpx_response(
-            {"messages": [{"id": "wamid.template_123"}]}
-        )
+        mock_response = mock_httpx_response({"messages": [{"id": "wamid.template_123"}]})
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
@@ -749,9 +741,7 @@ class TestSendTemplate:
     @pytest.mark.asyncio
     async def test_send_template_with_components(self, connector, mock_httpx_response):
         """Test template message with dynamic components."""
-        mock_response = mock_httpx_response(
-            {"messages": [{"id": "wamid.template_456"}]}
-        )
+        mock_response = mock_httpx_response({"messages": [{"id": "wamid.template_456"}]})
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
@@ -845,10 +835,7 @@ class TestBuildInteractive:
 
     def test_build_interactive_max_buttons(self, connector):
         """Test that buttons are limited to 3 max."""
-        blocks = [
-            {"type": "button", "text": f"Btn {i}", "action_id": f"btn_{i}"}
-            for i in range(5)
-        ]
+        blocks = [{"type": "button", "text": f"Btn {i}", "action_id": f"btn_{i}"} for i in range(5)]
 
         result = connector._build_interactive("Choose:", blocks)
 
@@ -905,9 +892,7 @@ class TestSignatureVerification:
         import hashlib
         import hmac
 
-        payload = {
-            "entry": [{"changes": [{"value": {"messages": []}}]}]
-        }
+        payload = {"entry": [{"changes": [{"value": {"messages": []}}]}]}
         body = json.dumps(payload, separators=(",", ":"))
         signature = hmac.new(
             b"test-app-secret",
@@ -925,9 +910,7 @@ class TestSignatureVerification:
     @pytest.mark.asyncio
     async def test_invalid_signature(self, connector):
         """Test webhook processing with invalid signature."""
-        payload = {
-            "entry": [{"changes": [{"value": {"messages": []}}]}]
-        }
+        payload = {"entry": [{"changes": [{"value": {"messages": []}}]}]}
         headers = {"x-hub-signature-256": "sha256=invalidsignature"}
 
         result = await connector.handle_webhook(payload, headers=headers)

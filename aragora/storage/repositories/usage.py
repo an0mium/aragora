@@ -142,7 +142,11 @@ class UsageRepository:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(), org_id),
+                (
+                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
+                    org_id,
+                ),
             )
             return cursor.rowcount > 0
 

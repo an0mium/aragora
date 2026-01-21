@@ -227,11 +227,7 @@ class InMemoryGauntletRunStore(GauntletRunStoreBackend):
     async def list_active(self) -> list[dict[str, Any]]:
         """List active (pending/running) runs."""
         with self._lock:
-            return [
-                r
-                for r in self._data.values()
-                if r.get("status") in ("pending", "running")
-            ]
+            return [r for r in self._data.values() if r.get("status") in ("pending", "running")]
 
     async def update_status(
         self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
@@ -499,13 +495,15 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                 status_counts = {}
                 for row in rows:
                     run_id, template_id, status, created_at, position, status_count, total = row
-                    queue.append({
-                        "run_id": run_id,
-                        "template_id": template_id,
-                        "status": status,
-                        "created_at": created_at,
-                        "position_in_status": position,
-                    })
+                    queue.append(
+                        {
+                            "run_id": run_id,
+                            "template_id": template_id,
+                            "status": status,
+                            "created_at": created_at,
+                            "position_in_status": position,
+                        }
+                    )
                     status_counts[status] = status_count
 
                 return {
@@ -720,9 +718,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                     count=100,
                 )
                 if keys:
-                    data_keys = [
-                        k for k in keys if b":idx:" not in k and b"idx:" not in k
-                    ]
+                    data_keys = [k for k in keys if b":idx:" not in k and b"idx:" not in k]
                     if data_keys:
                         values = self._redis_client.mget(data_keys)
                         for v in values:
@@ -756,9 +752,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             return await self._fallback.list_by_template(template_id)
 
         try:
-            run_ids = self._redis_client.smembers(
-                f"{self.REDIS_INDEX_TEMPLATE}{template_id}"
-            )
+            run_ids = self._redis_client.smembers(f"{self.REDIS_INDEX_TEMPLATE}{template_id}")
             if not run_ids:
                 return []
 
@@ -956,9 +950,7 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
     async def list_all(self) -> list[dict[str, Any]]:
         """List all runs."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC"
-            )
+            rows = await conn.fetch("SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC")
             results = []
             for row in rows:
                 data = row["data_json"]

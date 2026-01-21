@@ -208,7 +208,9 @@ class AgentDashboardHandler(BaseHandler):
                 return self._error_response(404, f"Agent {agent_id} not found")
 
             if agent["status"] != "active":
-                return self._error_response(400, f"Agent is not active (current: {agent['status']})")
+                return self._error_response(
+                    400, f"Agent is not active (current: {agent['status']})"
+                )
 
             agent = await shared.update_agent_status(agent_id, "paused")
         else:
@@ -217,7 +219,9 @@ class AgentDashboardHandler(BaseHandler):
                 return self._error_response(404, f"Agent {agent_id} not found")
 
             if agent["status"] != "active":
-                return self._error_response(400, f"Agent is not active (current: {agent['status']})")
+                return self._error_response(
+                    400, f"Agent is not active (current: {agent['status']})"
+                )
 
             agent["status"] = "paused"
             agent["paused_at"] = datetime.now(timezone.utc).isoformat()
@@ -243,7 +247,9 @@ class AgentDashboardHandler(BaseHandler):
                 return self._error_response(404, f"Agent {agent_id} not found")
 
             if agent["status"] != "paused":
-                return self._error_response(400, f"Agent is not paused (current: {agent['status']})")
+                return self._error_response(
+                    400, f"Agent is not paused (current: {agent['status']})"
+                )
 
             agent = await shared.update_agent_status(agent_id, "active")
         else:
@@ -252,7 +258,9 @@ class AgentDashboardHandler(BaseHandler):
                 return self._error_response(404, f"Agent {agent_id} not found")
 
             if agent["status"] != "paused":
-                return self._error_response(400, f"Agent is not paused (current: {agent['status']})")
+                return self._error_response(
+                    400, f"Agent is not paused (current: {agent['status']})"
+                )
 
             agent["status"] = "active"
             agent["paused_at"] = None

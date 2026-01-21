@@ -474,9 +474,13 @@ class BatchProcessor:
                         try:
                             job.on_error(job, e)
                         except (TypeError, ValueError, AttributeError) as callback_err:
-                            logger.debug(f"Job {job_id} error callback raised expected error: {callback_err}")
+                            logger.debug(
+                                f"Job {job_id} error callback raised expected error: {callback_err}"
+                            )
                         except Exception as callback_err:
-                            logger.warning(f"Job {job_id} error callback raised unexpected error: {callback_err}")
+                            logger.warning(
+                                f"Job {job_id} error callback raised unexpected error: {callback_err}"
+                            )
                 finally:
                     self._active_workers -= 1
                     self._queue.task_done()

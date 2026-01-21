@@ -685,7 +685,9 @@ class OrganizationInvitation:
     invited_by: Optional[str] = None  # User ID of inviter
     status: str = "pending"  # pending, accepted, expired, revoked
     created_at: datetime = field(default_factory=datetime.utcnow)
-    expires_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7))
+    expires_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7)
+    )
     accepted_by: Optional[str] = None  # User ID who accepted the invitation
     accepted_at: Optional[datetime] = None
 

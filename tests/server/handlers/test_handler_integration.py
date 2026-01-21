@@ -172,8 +172,7 @@ class TestCommandRegistryWithDecisionRouter:
                 # Mock routing
                 route_called = True
                 return CommandResult.ok(
-                    f"Debate started on: **{ctx.raw_args}**\n"
-                    f"Debate ID: `test-debate-123`",
+                    f"Debate started on: **{ctx.raw_args}**\n" f"Debate ID: `test-debate-123`",
                     data={"debate_id": "test-debate-123"},
                 )
 
@@ -570,12 +569,14 @@ class TestCrossPlatformIntegration:
         captured_contexts = []
 
         async def capture_handler(ctx: CommandContext) -> CommandResult:
-            captured_contexts.append({
-                "platform": ctx.platform,
-                "user_id": ctx.user_id,
-                "channel_id": ctx.channel_id,
-                "raw_args": ctx.raw_args,
-            })
+            captured_contexts.append(
+                {
+                    "platform": ctx.platform,
+                    "user_id": ctx.user_id,
+                    "channel_id": ctx.channel_id,
+                    "raw_args": ctx.raw_args,
+                }
+            )
             return CommandResult.ok("OK")
 
         cmd = BotCommand(name="debate", handler=capture_handler, requires_args=True)
@@ -609,6 +610,7 @@ class TestErrorHandlingIntegration:
     @pytest.mark.asyncio
     async def test_graceful_error_handling(self, fresh_registry):
         """Test commands handle errors gracefully."""
+
         async def failing_handler(ctx: CommandContext) -> CommandResult:
             raise RuntimeError("Simulated failure")
 
@@ -625,6 +627,7 @@ class TestErrorHandlingIntegration:
     @pytest.mark.asyncio
     async def test_missing_required_args(self, fresh_registry):
         """Test commands validate required arguments."""
+
         async def handler(ctx: CommandContext) -> CommandResult:
             return CommandResult.ok("OK")
 
