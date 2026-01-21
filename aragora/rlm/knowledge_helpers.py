@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound
+    from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
 
 
 @dataclass

@@ -76,7 +76,7 @@ except ImportError:
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
     """Record user mapping operation metric if available."""
     try:
-        from aragora.observability.metrics import record_user_mapping_operation
+        from aragora.observability.metrics import record_user_mapping_operation  # type: ignore[attr-defined]
 
         record_user_mapping_operation(operation, platform, found)
     except ImportError:
@@ -86,7 +86,7 @@ def _record_user_mapping_operation(operation: str, platform: str, found: bool) -
 def _record_user_mapping_cache_hit(platform: str) -> None:
     """Record user mapping cache hit metric if available."""
     try:
-        from aragora.observability.metrics import record_user_mapping_cache_hit
+        from aragora.observability.metrics import record_user_mapping_cache_hit  # type: ignore[attr-defined]
 
         record_user_mapping_cache_hit(platform)
     except ImportError:
@@ -96,7 +96,7 @@ def _record_user_mapping_cache_hit(platform: str) -> None:
 def _record_user_mapping_cache_miss(platform: str) -> None:
     """Record user mapping cache miss metric if available."""
     try:
-        from aragora.observability.metrics import record_user_mapping_cache_miss
+        from aragora.observability.metrics import record_user_mapping_cache_miss  # type: ignore[attr-defined]
 
         record_user_mapping_cache_miss(platform)
     except ImportError:

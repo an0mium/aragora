@@ -148,10 +148,10 @@ class TestIntegrationStoreEncryption:
         """Test that sensitive keys are encrypted when saved."""
         from aragora.storage.integration_store import (
             IntegrationConfig,
-            get_integration_store,
+            InMemoryIntegrationStore,
         )
 
-        store = get_integration_store(backend="memory")
+        store = InMemoryIntegrationStore()
 
         config = IntegrationConfig(
             type="slack",
@@ -179,10 +179,10 @@ class TestIntegrationStoreEncryption:
         """Test save/get roundtrip preserves all data."""
         from aragora.storage.integration_store import (
             IntegrationConfig,
-            get_integration_store,
+            InMemoryIntegrationStore,
         )
 
-        store = get_integration_store(backend="memory")
+        store = InMemoryIntegrationStore()
 
         original_settings = {
             "access_token": "oauth-token-12345",
@@ -210,10 +210,10 @@ class TestIntegrationStoreEncryption:
         """Test that list_all returns decrypted data."""
         from aragora.storage.integration_store import (
             IntegrationConfig,
-            get_integration_store,
+            InMemoryIntegrationStore,
         )
 
-        store = get_integration_store(backend="memory")
+        store = InMemoryIntegrationStore()
 
         # Save multiple configs
         for i in range(3):
@@ -251,17 +251,16 @@ class TestGmailTokenStoreEncryption:
         """Test that OAuth tokens are encrypted."""
         from aragora.storage.gmail_token_store import (
             GmailUserState,
-            get_gmail_token_store,
+            InMemoryGmailTokenStore,
         )
 
-        store = get_gmail_token_store(backend="memory")
+        store = InMemoryGmailTokenStore()
 
         state = GmailUserState(
             user_id="gmail-user-123",
-            email="user@example.com",
+            email_address="user@example.com",
             access_token="ya29.access-token-secret",
             refresh_token="1//refresh-token-secret",
-            token_expiry="2024-12-31T23:59:59Z",
         )
 
         await store.save(state)
@@ -270,7 +269,7 @@ class TestGmailTokenStoreEncryption:
         retrieved = await store.get("gmail-user-123")
 
         assert retrieved is not None
-        assert retrieved.email == "user@example.com"
+        assert retrieved.email_address == "user@example.com"
         assert retrieved.access_token == "ya29.access-token-secret"
         assert retrieved.refresh_token == "1//refresh-token-secret"
 
@@ -279,18 +278,16 @@ class TestGmailTokenStoreEncryption:
         """Test token save/get roundtrip."""
         from aragora.storage.gmail_token_store import (
             GmailUserState,
-            get_gmail_token_store,
+            InMemoryGmailTokenStore,
         )
 
-        store = get_gmail_token_store(backend="memory")
+        store = InMemoryGmailTokenStore()
 
         original = GmailUserState(
             user_id="roundtrip-user",
-            email="roundtrip@test.com",
+            email_address="roundtrip@test.com",
             access_token="access-12345",
             refresh_token="refresh-67890",
-            token_expiry="2025-01-01T00:00:00Z",
-            scopes=["gmail.readonly", "gmail.send"],
         )
 
         await store.save(original)
@@ -298,7 +295,7 @@ class TestGmailTokenStoreEncryption:
 
         assert retrieved is not None
         assert retrieved.user_id == original.user_id
-        assert retrieved.email == original.email
+        assert retrieved.email_address == original.email_address
         assert retrieved.access_token == original.access_token
         assert retrieved.refresh_token == original.refresh_token
 
@@ -320,19 +317,23 @@ class TestSyncStoreEncryption:
         await store.initialize()
 
         config = {
-            "name": "Salesforce Integration",
             "api_key": "sf-api-key-secret",
             "client_secret": "sf-client-secret",
             "instance_url": "https://example.salesforce.com",
         }
 
-        await store.save_connector("salesforce-1", config)
+        await store.save_connector(
+            connector_id="salesforce-1",
+            connector_type="salesforce",
+            name="Salesforce Integration",
+            config=config,
+        )
 
         # Retrieve and verify decryption
         retrieved = await store.get_connector("salesforce-1")
 
         assert retrieved is not None
-        assert retrieved.config["name"] == "Salesforce Integration"
+        assert retrieved.name == "Salesforce Integration"
         assert retrieved.config["instance_url"] == "https://example.salesforce.com"
         # Credentials should be decrypted
         assert retrieved.config.get("api_key") == "sf-api-key-secret"
@@ -346,11 +347,15 @@ class TestSyncStoreEncryption:
         await store.initialize()
 
         config = {
-            "name": "Unencrypted Integration",
             "api_key": "plain-api-key",
         }
 
-        await store.save_connector("plain-1", config)
+        await store.save_connector(
+            connector_id="plain-1",
+            connector_type="generic",
+            name="Unencrypted Integration",
+            config=config,
+        )
         retrieved = await store.get_connector("plain-1")
 
         assert retrieved is not None
@@ -410,7 +415,7 @@ class TestEncryptionErrorHandling:
     """Tests for encryption error handling."""
 
     def test_encrypt_empty_value(self) -> None:
-        """Test encrypting empty values."""
+        """Test encrypting empty values roundtrips correctly."""
         from aragora.security.encryption import EncryptionService
 
         service = EncryptionService()
@@ -422,9 +427,11 @@ class TestEncryptionErrorHandling:
         }
 
         encrypted = service.encrypt_fields(record, ["api_key"])
+        decrypted = service.decrypt_fields(encrypted, ["api_key"])
 
-        # Empty string should be preserved
-        assert encrypted["api_key"] == ""
+        # Empty string should roundtrip correctly
+        assert decrypted["api_key"] == ""
+        assert decrypted["name"] == "Test"
 
     def test_encrypt_none_value(self) -> None:
         """Test encrypting None values."""

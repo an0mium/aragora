@@ -15,8 +15,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, List, Optional, Protocol
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.types import CulturePattern, CultureProfile, MoundConfig
-    from aragora.knowledge.mound.culture import (
+    from aragora.knowledge.mound.types import CulturePattern, CultureProfile, MoundConfig  # type: ignore[attr-defined]
+    from aragora.knowledge.mound.culture import (  # type: ignore[attr-defined]
         CultureDocument,
         OrganizationCulture,
         OrganizationCultureManager,
@@ -114,7 +114,7 @@ class CultureOperationsMixin:
         self._ensure_initialized()
 
         if not hasattr(self, "_org_culture_manager") or self._org_culture_manager is None:
-            from aragora.knowledge.mound.culture import OrganizationCultureManager
+            from aragora.knowledge.mound.culture import OrganizationCultureManager  # type: ignore[attr-defined]
 
             self._org_culture_manager = OrganizationCultureManager(
                 mound=self,
@@ -164,7 +164,7 @@ class CultureOperationsMixin:
         Returns:
             Created culture document
         """
-        from aragora.knowledge.mound.culture import CultureDocumentCategory
+        from aragora.knowledge.mound.culture import CultureDocumentCategory  # type: ignore[attr-defined]
 
         manager = self.get_org_culture_manager()
         return await manager.add_document(

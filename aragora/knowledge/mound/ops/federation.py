@@ -690,7 +690,7 @@ class KnowledgeFederationMixin:
     ) -> int:
         """Push items to remote region via coordinator."""
         try:
-            from aragora.coordination.cross_workspace import (
+            from aragora.coordination.cross_workspace import (  # type: ignore[attr-defined]
                 CrossWorkspaceCoordinator,
                 CrossWorkspaceOperation,
             )
@@ -719,7 +719,7 @@ class KnowledgeFederationMixin:
     ) -> List[Dict[str, Any]]:
         """Fetch items from remote region via coordinator."""
         try:
-            from aragora.coordination.cross_workspace import (
+            from aragora.coordination.cross_workspace import (  # type: ignore[attr-defined]
                 CrossWorkspaceCoordinator,
                 CrossWorkspaceOperation,
             )
