@@ -271,6 +271,7 @@ class TestCircuitBreakerRegistry:
     def test_get_metrics_provides_summary(self):
         """get_circuit_breaker_metrics provides health summary."""
         import uuid
+
         service_name = f"test-metrics-{uuid.uuid4().hex[:8]}"
         breaker = get_circuit_breaker(service_name, failure_threshold=2)
         breaker.record_failure()
@@ -532,17 +533,21 @@ class TestGracefulDegradation:
 
     def test_health_status_reflects_degradation(self):
         """Health status accurately reflects system degradation."""
-        # Create multiple breakers with failures
-        breaker1 = get_circuit_breaker("service-1", failure_threshold=2)
-        breaker2 = get_circuit_breaker("service-2", failure_threshold=2)
+        import uuid
 
-        # Open one circuit
+        # Use unique names to avoid conflicts with other tests
+        service_name = f"health-degradation-{uuid.uuid4().hex[:8]}"
+
+        # Create breaker and open it
+        breaker1 = get_circuit_breaker(service_name, failure_threshold=2)
+
+        # Open the circuit
         breaker1.record_failure()
         breaker1.record_failure()
 
         metrics = get_circuit_breaker_metrics()
         assert metrics["health"]["status"] == "degraded"
-        assert "service-1" in str(metrics["health"]["open_circuits"])
+        assert service_name in str(metrics["health"]["open_circuits"])
 
     def test_recovery_from_degraded_state(self):
         """System recovers from degraded state."""
