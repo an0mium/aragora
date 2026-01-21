@@ -5,15 +5,23 @@ Provides consistent patterns for obtaining RLM instances across the codebase.
 Hides HAS_OFFICIAL_RLM checks and provides clear logging.
 
 The factory ensures all consumers get the correct RLM behavior:
-- TRUE RLM (REPL-based) when official `rlm` package is installed
+- TRUE RLM (REPL-based) when official `rlm` package is installed (PREFERRED)
 - Compression fallback when official package is not available
 
-Usage:
-    from aragora.rlm import get_rlm
+Phase 12 TRUE RLM Prioritization:
+- AUTO mode (default): Prefer TRUE RLM, gracefully fall back to compression
+- TRUE_RLM mode: Require TRUE RLM, raise error if not available
+- COMPRESSION mode: Force compression (for testing/specific use cases)
 
-    # Get singleton instance (recommended for most cases)
+Usage:
+    from aragora.rlm import get_rlm, RLMMode
+
+    # Get singleton instance - prefers TRUE RLM (recommended)
     rlm = get_rlm()
     result = await rlm.compress_and_query(query, content, source_type)
+
+    # Require TRUE RLM (raises if not available)
+    rlm = get_rlm(mode=RLMMode.TRUE_RLM)
 
     # Or use convenience function
     from aragora.rlm import compress_and_query
@@ -28,8 +36,11 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional
+
+from .types import RLMMode
 
 if TYPE_CHECKING:
     from .bridge import AragoraRLM
@@ -108,24 +119,36 @@ _rlm_instance: Optional["AragoraRLM"] = None
 def get_rlm(
     config: Optional["RLMConfig"] = None,
     force_new: bool = False,
+    mode: Optional[RLMMode] = None,
+    require_true_rlm: bool = False,
 ) -> "AragoraRLM":
     """
-    Get AragoraRLM instance (routes to TRUE RLM when available).
+    Get AragoraRLM instance - PREFERS TRUE RLM when available.
 
     This is the preferred way to obtain RLM functionality across the codebase.
     It will use TRUE RLM (REPL-based) when official library is installed,
     otherwise falls back to compression-based approach.
 
+    Phase 12 TRUE RLM Prioritization:
+    - By default (AUTO mode), prefers TRUE RLM over compression
+    - Logs warning when falling back to compression
+    - Can require TRUE RLM and raise error if not available
+
     Args:
         config: Optional RLMConfig for customization
         force_new: If True, create new instance instead of reusing singleton
+        mode: RLMMode to use (defaults to AUTO which prefers TRUE RLM)
+        require_true_rlm: If True, raise RuntimeError if TRUE RLM not available
 
     Returns:
         AragoraRLM instance
 
+    Raises:
+        RuntimeError: If require_true_rlm=True and TRUE RLM not available
+
     Example:
-        >>> from aragora.rlm import get_rlm
-        >>> rlm = get_rlm()
+        >>> from aragora.rlm import get_rlm, RLMMode
+        >>> rlm = get_rlm()  # AUTO mode - prefers TRUE RLM
         >>> result = await rlm.compress_and_query(
         ...     query="What is the main topic?",
         ...     content=long_document,
@@ -135,35 +158,83 @@ def get_rlm(
         ...     print("Used TRUE RLM (REPL-based)")
         >>> elif result.used_compression_fallback:
         ...     print("Used compression fallback")
+        >>>
+        >>> # Require TRUE RLM (raises if not available)
+        >>> rlm_strict = get_rlm(mode=RLMMode.TRUE_RLM)
     """
     global _rlm_instance
     _metrics.get_rlm_calls += 1
 
+    from .bridge import AragoraRLM, HAS_OFFICIAL_RLM
+
+    # Determine effective mode from config, parameter, or environment
+    effective_mode = mode
+    if effective_mode is None and config is not None:
+        effective_mode = config.mode
+    if effective_mode is None:
+        # Check environment variable
+        env_mode = os.environ.get("ARAGORA_RLM_MODE", "").lower()
+        if env_mode == "true_rlm":
+            effective_mode = RLMMode.TRUE_RLM
+        elif env_mode == "compression":
+            effective_mode = RLMMode.COMPRESSION
+        else:
+            effective_mode = RLMMode.AUTO  # Default: prefer TRUE RLM
+
+    # Check require_true_rlm from config or parameter
+    effective_require = require_true_rlm
+    if not effective_require and config is not None:
+        effective_require = config.require_true_rlm
+    if not effective_require:
+        effective_require = os.environ.get("ARAGORA_RLM_REQUIRE_TRUE", "").lower() == "true"
+
+    # Validate TRUE_RLM mode requirements
+    if effective_mode == RLMMode.TRUE_RLM or effective_require:
+        if not HAS_OFFICIAL_RLM:
+            error_msg = (
+                "TRUE RLM required but official RLM library not installed. "
+                "Install with: pip install aragora[rlm] or pip install rlm"
+            )
+            logger.error(f"[RLM Factory] {error_msg}")
+            raise RuntimeError(error_msg)
+
     # Return cached instance if available and appropriate
-    if _rlm_instance is not None and not force_new and config is None:
+    if _rlm_instance is not None and not force_new and config is None and mode is None:
         _metrics.singleton_hits += 1
         return _rlm_instance
 
     _metrics.singleton_misses += 1
 
-    from .bridge import AragoraRLM, HAS_OFFICIAL_RLM
-
     rlm = AragoraRLM(aragora_config=config)
     _metrics.rlm_instances_created += 1
+
+    # Determine warn_on_fallback setting
+    warn_on_fallback = True
+    if config is not None:
+        warn_on_fallback = config.warn_on_compression_fallback
+    if os.environ.get("ARAGORA_RLM_WARN_FALLBACK", "").lower() == "false":
+        warn_on_fallback = False
 
     if HAS_OFFICIAL_RLM:
         logger.info(
             "[RLM Factory] Created AragoraRLM with TRUE RLM support "
-            "(REPL-based, model writes code to examine context)"
+            "(REPL-based, model writes code to examine context - PREFERRED)"
         )
     else:
-        logger.info(
-            "[RLM Factory] Created AragoraRLM with compression fallback "
-            "(official RLM not installed - pip install rlm for TRUE RLM)"
-        )
+        # Compression fallback - warn if configured
+        if warn_on_fallback and effective_mode in (RLMMode.AUTO, RLMMode.TRUE_RLM):
+            logger.warning(
+                "[RLM Factory] TRUE RLM not available, using compression fallback. "
+                "For better performance, install: pip install aragora[rlm]"
+            )
+        else:
+            logger.info(
+                "[RLM Factory] Created AragoraRLM with compression fallback "
+                "(official RLM not installed - pip install aragora[rlm] for TRUE RLM)"
+            )
 
-    # Cache if using default config
-    if config is None and not force_new:
+    # Cache if using default config and no specific mode
+    if config is None and not force_new and mode is None:
         _rlm_instance = rlm
 
     return rlm
@@ -198,11 +269,13 @@ async def compress_and_query(
     content: str,
     source_type: str = "general",
     config: Optional["RLMConfig"] = None,
+    mode: Optional[RLMMode] = None,
+    require_true_rlm: bool = False,
 ) -> "RLMResult":
     """
     Convenience function for common compress+query pattern.
 
-    Uses TRUE RLM when available, compression fallback otherwise.
+    PREFERS TRUE RLM when available, compression fallback otherwise.
     This is a shortcut for:
         rlm = get_rlm()
         result = await rlm.compress_and_query(...)
@@ -212,6 +285,8 @@ async def compress_and_query(
         content: The content to analyze
         source_type: Type of content (debate, document, email, etc.)
         config: Optional RLMConfig for customization
+        mode: RLMMode to use (defaults to AUTO which prefers TRUE RLM)
+        require_true_rlm: If True, raise RuntimeError if TRUE RLM not available
 
     Returns:
         RLMResult with answer and tracking flags (used_true_rlm, used_compression_fallback)
@@ -224,10 +299,12 @@ async def compress_and_query(
         ...     source_type="document",
         ... )
         >>> print(result.answer)
+        >>> if result.used_true_rlm:
+        ...     print("Used TRUE RLM (preferred)")
     """
     _metrics.compress_and_query_calls += 1
 
-    rlm = get_rlm(config=config)
+    rlm = get_rlm(config=config, mode=mode, require_true_rlm=require_true_rlm)
     try:
         result = await rlm.compress_and_query(
             query=query,
@@ -332,4 +409,5 @@ __all__ = [
     "reset_metrics",
     "log_metrics_summary",
     "RLMFactoryMetrics",
+    "RLMMode",
 ]

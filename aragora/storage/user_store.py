@@ -73,7 +73,8 @@ class UserStore:
         "settings, created_at, updated_at"
     )
     _INVITATION_COLUMNS = (
-        "id, org_id, email, role, token, invited_by, status, " "created_at, expires_at, accepted_at"
+        "id, org_id, email, role, token, invited_by, status, "
+        "created_at, expires_at, accepted_by, accepted_at"
     )
     _AUDIT_LOG_COLUMNS = (
         "id, timestamp, user_id, org_id, action, resource_type, "

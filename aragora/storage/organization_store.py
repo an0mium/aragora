@@ -50,7 +50,8 @@ class OrganizationStore:
         "last_login_at, mfa_secret, mfa_enabled, mfa_backup_codes, token_version"
     )
     _INVITATION_COLUMNS = (
-        "id, org_id, email, role, token, invited_by, status, " "created_at, expires_at, accepted_at"
+        "id, org_id, email, role, token, invited_by, status, "
+        "created_at, expires_at, accepted_by, accepted_at"
     )
 
     def __init__(

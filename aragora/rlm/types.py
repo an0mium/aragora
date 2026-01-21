@@ -9,6 +9,21 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 
+class RLMMode(Enum):
+    """
+    Mode for RLM operation - controls TRUE RLM vs compression behavior.
+
+    Based on arXiv:2512.24601 "Recursive Language Models":
+    - TRUE_RLM: REPL-based approach where model writes code to query context
+    - COMPRESSION: Pre-summarization fallback using hierarchical compression
+    - AUTO: Prefer TRUE RLM when available, gracefully fall back to compression
+    """
+
+    TRUE_RLM = "true_rlm"  # REPL-based, model writes code to examine context
+    COMPRESSION = "compression"  # Hierarchical summarization fallback
+    AUTO = "auto"  # Prefer TRUE_RLM, fallback to COMPRESSION (default)
+
+
 class AbstractionLevel(Enum):
     """
     Levels of context abstraction in hierarchical representation.
@@ -47,6 +62,16 @@ class DecompositionStrategy(Enum):
 @dataclass
 class RLMConfig:
     """Configuration for RLM processing."""
+
+    # TRUE RLM priority settings (Phase 12)
+    # When True, prefer TRUE RLM (REPL-based) over compression
+    prefer_true_rlm: bool = True
+    # When True, log warning when falling back to compression
+    warn_on_compression_fallback: bool = True
+    # When True, raise error if TRUE RLM not available (strict mode)
+    require_true_rlm: bool = False
+    # Default RLM mode: AUTO prefers TRUE RLM, falls back gracefully
+    mode: RLMMode = RLMMode.AUTO
 
     # Model configuration
     root_model: str = "claude"  # Model for root LM

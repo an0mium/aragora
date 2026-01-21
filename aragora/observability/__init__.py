@@ -126,6 +126,19 @@ from aragora.observability.decision_metrics import (
     get_decision_metrics,
     get_decision_summary,
 )
+from aragora.observability.memory_profiler import (
+    ConsensusMemoryProfiler,
+    KMMemoryProfiler,
+    MemoryCategory,
+    MemoryGrowthTracker,
+    MemoryProfiler,
+    MemoryProfileResult,
+    MemorySnapshot,
+    consensus_profiler,
+    km_profiler,
+    profile_memory,
+    track_memory,
+)
 
 __all__ = [
     # Logging

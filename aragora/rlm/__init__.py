@@ -55,6 +55,7 @@ Integration points in Aragora:
 from .types import (
     RLMConfig,
     RLMContext,
+    RLMMode,
     AbstractionLevel,
     CompressionResult,
     DecompositionStrategy,
@@ -131,6 +132,7 @@ __all__ = [
     # Types
     "RLMConfig",
     "RLMContext",
+    "RLMMode",
     "AbstractionLevel",
     "CompressionResult",
     "DecompositionStrategy",
