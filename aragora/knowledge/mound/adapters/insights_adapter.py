@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
@@ -392,8 +392,8 @@ class InsightsAdapter:
             "occurrence_count": occurrence_count,
             "avg_severity": avg_severity,
             "debate_ids": debate_ids or [],
-            "first_seen": datetime.utcnow().isoformat(),
-            "last_seen": datetime.utcnow().isoformat(),
+            "first_seen": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
         }
 
         # Update if exists, otherwise create
@@ -661,9 +661,9 @@ class InsightsAdapter:
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
             except ValueError:
-                created_at = datetime.utcnow()
+                created_at = datetime.now(timezone.utc)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
 
         return KnowledgeItem(
             id=insight["id"],
@@ -714,9 +714,9 @@ class InsightsAdapter:
             try:
                 detected_at = datetime.fromisoformat(detected_at.replace("Z", "+00:00"))
             except ValueError:
-                detected_at = datetime.utcnow()
+                detected_at = datetime.now(timezone.utc)
         elif detected_at is None:
-            detected_at = datetime.utcnow()
+            detected_at = datetime.now(timezone.utc)
 
         content = (
             f"Agent {flip.get('agent_name', 'unknown')} flipped from "
@@ -816,7 +816,7 @@ class InsightsAdapter:
                 "debate_id": debate_id,
                 "was_accurate": was_accurate,
                 "confidence": confidence,
-                "recorded_at": datetime.utcnow().isoformat(),
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -1149,7 +1149,7 @@ class InsightsAdapter:
 
         # Update flip metadata
         flip["km_validated"] = True
-        flip["km_validation_time"] = datetime.utcnow().isoformat()
+        flip["km_validation_time"] = datetime.now(timezone.utc).isoformat()
         flip["km_confidence"] = validation.km_confidence
         flip["km_is_expected"] = validation.is_expected
         flip["km_recommendation"] = validation.recommendation

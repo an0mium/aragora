@@ -11,7 +11,7 @@ Tests cover:
 import pytest
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -32,7 +32,7 @@ class TestPaymentFailure:
 
     def test_create_payment_failure(self):
         """Test creating a payment failure record."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         failure = PaymentFailure(
             id="fail-123",
             org_id="org-456",
@@ -52,7 +52,7 @@ class TestPaymentFailure:
 
     def test_grace_period_auto_calculated(self):
         """Test that grace_ends_at is auto-calculated from first_failure_at."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
@@ -70,14 +70,14 @@ class TestPaymentFailure:
     def test_days_failing_property(self):
         """Test days_failing property calculation."""
         # Failure started 5 days ago
-        five_days_ago = datetime.utcnow() - timedelta(days=5)
+        five_days_ago = datetime.now(timezone.utc) - timedelta(days=5)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
             stripe_customer_id="cus_1",
             stripe_subscription_id=None,
             first_failure_at=five_days_ago,
-            last_failure_at=datetime.utcnow(),
+            last_failure_at=datetime.now(timezone.utc),
             attempt_count=3,
         )
 
@@ -86,14 +86,14 @@ class TestPaymentFailure:
     def test_days_until_downgrade_property(self):
         """Test days_until_downgrade property calculation."""
         # Failure started 3 days ago (grace is 10 days by default)
-        three_days_ago = datetime.utcnow() - timedelta(days=3)
+        three_days_ago = datetime.now(timezone.utc) - timedelta(days=3)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
             stripe_customer_id="cus_1",
             stripe_subscription_id=None,
             first_failure_at=three_days_ago,
-            last_failure_at=datetime.utcnow(),
+            last_failure_at=datetime.now(timezone.utc),
             attempt_count=2,
         )
 
@@ -103,14 +103,14 @@ class TestPaymentFailure:
     def test_days_until_downgrade_never_negative(self):
         """Test that days_until_downgrade is never negative."""
         # Failure from 20 days ago - well past grace period
-        twenty_days_ago = datetime.utcnow() - timedelta(days=20)
+        twenty_days_ago = datetime.now(timezone.utc) - timedelta(days=20)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
             stripe_customer_id="cus_1",
             stripe_subscription_id=None,
             first_failure_at=twenty_days_ago,
-            last_failure_at=datetime.utcnow(),
+            last_failure_at=datetime.now(timezone.utc),
             attempt_count=4,
         )
 
@@ -118,7 +118,7 @@ class TestPaymentFailure:
 
     def test_should_downgrade_false_within_grace(self):
         """Test should_downgrade is False within grace period."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
@@ -134,14 +134,14 @@ class TestPaymentFailure:
     def test_should_downgrade_true_after_grace(self):
         """Test should_downgrade is True after grace period ends."""
         # Failure from 15 days ago - past 10-day grace period
-        fifteen_days_ago = datetime.utcnow() - timedelta(days=15)
+        fifteen_days_ago = datetime.now(timezone.utc) - timedelta(days=15)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
             stripe_customer_id="cus_1",
             stripe_subscription_id=None,
             first_failure_at=fifteen_days_ago,
-            last_failure_at=datetime.utcnow(),
+            last_failure_at=datetime.now(timezone.utc),
             attempt_count=4,
         )
 
@@ -149,7 +149,7 @@ class TestPaymentFailure:
 
     def test_to_dict(self):
         """Test to_dict conversion for API response."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         failure = PaymentFailure(
             id="fail-123",
             org_id="org-456",
@@ -179,7 +179,7 @@ class TestPaymentFailure:
 
     def test_optional_fields_none(self):
         """Test that optional fields can be None."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
@@ -305,7 +305,7 @@ class TestPaymentRecoveryStore:
 
     def test_get_expired_failures(self, store):
         """Test getting failures past their grace period."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         past_grace = now - timedelta(days=15)
 
         store.record_failure(
@@ -332,7 +332,7 @@ class TestPaymentRecoveryStore:
 
     def test_get_failures_needing_notification(self, store):
         """Test getting failures that need notification."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         five_days_ago = now - timedelta(days=5)
 
         store.record_failure(
@@ -370,14 +370,14 @@ class TestGracePeriodEdgeCases:
     def test_grace_period_boundary_exact(self):
         """Test behavior at exact grace period boundary."""
         # Create failure exactly at grace period end
-        grace_end = datetime.utcnow()
+        grace_end = datetime.now(timezone.utc)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
             stripe_customer_id="cus_1",
             stripe_subscription_id=None,
             first_failure_at=grace_end - timedelta(days=PAYMENT_GRACE_DAYS),
-            last_failure_at=datetime.utcnow(),
+            last_failure_at=datetime.now(timezone.utc),
             attempt_count=4,
             grace_ends_at=grace_end,
         )
@@ -387,7 +387,7 @@ class TestGracePeriodEdgeCases:
 
     def test_custom_grace_period(self):
         """Test with custom grace_ends_at value."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         custom_grace_end = now + timedelta(days=30)  # Custom 30-day grace
 
         failure = PaymentFailure(
@@ -407,7 +407,7 @@ class TestGracePeriodEdgeCases:
 
     def test_multiple_attempts_same_day(self):
         """Test multiple failure attempts on the same day."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",
@@ -432,7 +432,7 @@ class TestStatusTransitions:
 
     def test_status_values(self):
         """Test valid status values."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         for status in ["failing", "recovered", "downgraded"]:
             failure = PaymentFailure(
@@ -449,7 +449,7 @@ class TestStatusTransitions:
 
     def test_to_dict_includes_status(self):
         """Test that status is included in to_dict output."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         failure = PaymentFailure(
             id="fail-1",
             org_id="org-1",

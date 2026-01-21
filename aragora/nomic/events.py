@@ -7,7 +7,7 @@ carries data needed for the transition and can be logged for auditing.
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional
 
@@ -134,7 +134,7 @@ class Event:
             timestamp=(
                 datetime.fromisoformat(data["timestamp"])
                 if data.get("timestamp")
-                else datetime.utcnow()
+                else datetime.now(timezone.utc)
             ),
             source=data.get("source", ""),
             data=data.get("data", {}),

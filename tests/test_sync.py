@@ -8,7 +8,7 @@ import asyncio
 import os
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -181,7 +181,7 @@ class TestSyncResult:
         assert result.duration_seconds is None
 
         # Set completed
-        result.completed_at = datetime.utcnow()
+        result.completed_at = datetime.now(timezone.utc)
         assert result.duration_seconds is not None
         assert result.duration_seconds >= 0
 

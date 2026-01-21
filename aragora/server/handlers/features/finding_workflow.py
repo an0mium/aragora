@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -221,8 +221,8 @@ class FindingWorkflowHandler(BaseHandler):
                 "due_date": None,
                 "linked_findings": [],
                 "parent_finding_id": None,
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             await store.save(workflow_dict)
         return workflow_dict
@@ -313,7 +313,7 @@ class FindingWorkflowHandler(BaseHandler):
             workflow_dict = await self._get_or_create_workflow(finding_id)
             old_status = workflow_dict["current_state"]
             workflow_dict["current_state"] = new_status
-            workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+            workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
             workflow_dict["history"].append(
                 {
                     "id": str(uuid4()),
@@ -322,7 +322,7 @@ class FindingWorkflowHandler(BaseHandler):
                     "to_state": new_status,
                     "user_id": user_id,
                     "comment": comment,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
 
@@ -400,8 +400,8 @@ class FindingWorkflowHandler(BaseHandler):
             workflow_dict = await self._get_or_create_workflow(finding_id)
             workflow_dict["assigned_to"] = assignee_id
             workflow_dict["assigned_by"] = user_id
-            workflow_dict["assigned_at"] = datetime.utcnow().isoformat()
-            workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+            workflow_dict["assigned_at"] = datetime.now(timezone.utc).isoformat()
+            workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
             workflow_dict["history"].append(
                 {
                     "id": str(uuid4()),
@@ -409,7 +409,7 @@ class FindingWorkflowHandler(BaseHandler):
                     "new_value": assignee_id,
                     "user_id": user_id,
                     "comment": comment,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
 
@@ -470,7 +470,7 @@ class FindingWorkflowHandler(BaseHandler):
             workflow_dict["assigned_to"] = None
             workflow_dict["assigned_by"] = None
             workflow_dict["assigned_at"] = None
-            workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+            workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
 
             await store.save(workflow_dict)
 
@@ -539,10 +539,10 @@ class FindingWorkflowHandler(BaseHandler):
                 "user_id": user_id,
                 "user_name": user_name,
                 "comment": comment,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             workflow_dict["history"].append(comment_event)
-            workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+            workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
 
             await store.save(workflow_dict)
 
@@ -657,7 +657,7 @@ class FindingWorkflowHandler(BaseHandler):
             workflow_dict = await self._get_or_create_workflow(finding_id)
             old_priority = workflow_dict.get("priority")
             workflow_dict["priority"] = priority
-            workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+            workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
             workflow_dict["history"].append(
                 {
                     "id": str(uuid4()),
@@ -666,7 +666,7 @@ class FindingWorkflowHandler(BaseHandler):
                     "new_value": priority,
                     "user_id": user_id,
                     "comment": comment,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
 
@@ -715,7 +715,7 @@ class FindingWorkflowHandler(BaseHandler):
         workflow_dict = await self._get_or_create_workflow(finding_id)
         old_due = workflow_dict.get("due_date")
         workflow_dict["due_date"] = due_date.isoformat() if due_date else None
-        workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+        workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
         workflow_dict["history"].append(
             {
                 "id": str(uuid4()),
@@ -724,7 +724,7 @@ class FindingWorkflowHandler(BaseHandler):
                 "new_value": due_date.isoformat() if due_date else None,
                 "user_id": user_id,
                 "comment": comment,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -771,7 +771,7 @@ class FindingWorkflowHandler(BaseHandler):
         if linked_id not in linked:
             linked.append(linked_id)
 
-        workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+        workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
         workflow_dict["history"].append(
             {
                 "id": str(uuid4()),
@@ -779,7 +779,7 @@ class FindingWorkflowHandler(BaseHandler):
                 "new_value": linked_id,
                 "user_id": user_id,
                 "comment": comment,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -825,7 +825,7 @@ class FindingWorkflowHandler(BaseHandler):
         old_state = workflow_dict.get("current_state", "open")
         workflow_dict["parent_finding_id"] = parent_id
         workflow_dict["current_state"] = "duplicate"
-        workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+        workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         linked = workflow_dict.setdefault("linked_findings", [])
         if parent_id not in linked:
@@ -839,7 +839,7 @@ class FindingWorkflowHandler(BaseHandler):
                 "to_state": "duplicate",
                 "user_id": user_id,
                 "comment": comment,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -904,7 +904,7 @@ class FindingWorkflowHandler(BaseHandler):
                     if assignee:
                         workflow_dict["assigned_to"] = assignee
                         workflow_dict["assigned_by"] = user_id
-                        workflow_dict["assigned_at"] = datetime.utcnow().isoformat()
+                        workflow_dict["assigned_at"] = datetime.now(timezone.utc).isoformat()
 
                 elif action == "update_status":
                     new_status = params.get("status")
@@ -921,14 +921,14 @@ class FindingWorkflowHandler(BaseHandler):
                     workflow_dict["assigned_by"] = None
                     workflow_dict["assigned_at"] = None
 
-                workflow_dict["updated_at"] = datetime.utcnow().isoformat()
+                workflow_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
                 workflow_dict["history"].append(
                     {
                         "id": str(uuid4()),
                         "event_type": f"bulk_{action}",
                         "user_id": user_id,
                         "comment": comment,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
                 )
 

@@ -11,7 +11,7 @@ import hashlib
 import logging
 import mimetypes
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator, Callable, Optional
 
@@ -384,8 +384,8 @@ class DirectoryWatcher:
             # Yield control periodically
             await asyncio.sleep(0)
 
-        state.last_sync_at = datetime.utcnow()
-        state.updated_at = datetime.utcnow()
+        state.last_sync_at = datetime.now(timezone.utc)
+        state.updated_at = datetime.now(timezone.utc)
 
     async def _watch_loop(self, root: Path, state: SyncState) -> None:
         """Main watch loop that processes file changes."""
@@ -491,7 +491,7 @@ class DirectoryWatcher:
     def _update_state(self, state: SyncState, change: FileChange) -> None:
         """Update sync state based on a file change."""
         state.last_change_at = change.detected_at
-        state.updated_at = datetime.utcnow()
+        state.updated_at = datetime.now(timezone.utc)
 
         if change.change_type == FileChangeType.ADDED:
             state.known_files[change.path] = change.content_hash or ""

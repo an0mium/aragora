@@ -310,7 +310,7 @@ def enforce_admin_mfa_policy(
 
                 if created_at:
                     grace_end = created_at + timedelta(days=grace_period_days)
-                    now = datetime.utcnow()
+                    now = datetime.now(timezone.utc)
                     if hasattr(grace_end, "tzinfo") and grace_end.tzinfo:
                         from datetime import timezone
 

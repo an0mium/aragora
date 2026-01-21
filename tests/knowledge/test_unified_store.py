@@ -1,7 +1,7 @@
 """Tests for Unified Knowledge Store (federated query interface)."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 from aragora.knowledge.unified import (
@@ -70,7 +70,7 @@ class TestKnowledgeItem:
 
     def test_create_item(self):
         """Test creating an item with required fields."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         item = KnowledgeItem(
             id="ki_test",
             content="Test content",
@@ -91,7 +91,7 @@ class TestKnowledgeItem:
 
     def test_create_item_with_all_fields(self):
         """Test creating an item with all fields."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         item = KnowledgeItem(
             id="ki_full",
             content="Full content",
@@ -113,7 +113,7 @@ class TestKnowledgeItem:
 
     def test_to_dict(self):
         """Test serialization to dict."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         item = KnowledgeItem(
             id="ki_test",
             content="Test",
@@ -133,7 +133,7 @@ class TestKnowledgeItem:
 
     def test_from_dict(self):
         """Test deserialization from dict."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         data = {
             "id": "ki_test",
             "content": "Test",
@@ -156,7 +156,7 @@ class TestKnowledgeLink:
 
     def test_create_link(self):
         """Test creating a link."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         link = KnowledgeLink(
             id="kl_1",
             source_id="ki_1",
@@ -175,7 +175,7 @@ class TestKnowledgeLink:
 
     def test_create_link_with_all_fields(self):
         """Test creating a link with all fields."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         link = KnowledgeLink(
             id="kl_custom",
             source_id="ki_1",
@@ -194,7 +194,7 @@ class TestKnowledgeLink:
 
     def test_to_dict(self):
         """Test serialization to dict."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         link = KnowledgeLink(
             id="kl_1",
             source_id="ki_1",
@@ -257,7 +257,7 @@ class TestQueryResult:
 
     def test_create_result(self):
         """Test creating a query result."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         items = [
             KnowledgeItem(
                 id="ki_1",

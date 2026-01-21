@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Optional
 
 if TYPE_CHECKING:
@@ -64,7 +64,7 @@ class UsageRepository:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (count, datetime.utcnow().isoformat(), org_id),
+                (count, datetime.now(timezone.utc).isoformat(), org_id),
             )
             cursor.execute(
                 "SELECT debates_used_this_month FROM organizations WHERE id = ?",
@@ -100,7 +100,7 @@ class UsageRepository:
                     event_type,
                     count,
                     json.dumps(metadata or {}),
-                    datetime.utcnow().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                 ),
             )
 
@@ -119,7 +119,7 @@ class UsageRepository:
                     billing_cycle_start = ?,
                     updated_at = ?
                 """,
-                (datetime.utcnow().isoformat(), datetime.utcnow().isoformat()),
+                (datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat()),
             )
             return cursor.rowcount
 
@@ -142,7 +142,7 @@ class UsageRepository:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.utcnow().isoformat(), datetime.utcnow().isoformat(), org_id),
+                (datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(), org_id),
             )
             return cursor.rowcount > 0
 

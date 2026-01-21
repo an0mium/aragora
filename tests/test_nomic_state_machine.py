@@ -14,7 +14,7 @@ import json
 import os
 import tempfile
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -144,7 +144,7 @@ class TestStateContext:
         """Test StateContext serialization and deserialization."""
         ctx = StateContext(
             cycle_id="test123",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             current_state=NomicState.DEBATE,
             context_result={"files": ["a.py", "b.py"]},
             errors=[{"msg": "test error"}],

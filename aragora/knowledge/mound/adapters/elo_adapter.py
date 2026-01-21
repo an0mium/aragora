@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
@@ -197,7 +197,7 @@ class EloAdapter:
         Returns:
             The rating ID
         """
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         rating_id = f"{self.ID_PREFIX}{rating.agent_name}_{timestamp.replace(':', '-')}"
 
         rating_data = {
@@ -300,7 +300,7 @@ class EloAdapter:
         Returns:
             The calibration ID
         """
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         cal_id = f"{self.ID_PREFIX}cal_{agent_name}_{debate_id}"
 
         cal_data = {
@@ -349,7 +349,7 @@ class EloAdapter:
             "draws": metrics.draws,
             "avg_elo_diff": metrics.avg_elo_diff if hasattr(metrics, "avg_elo_diff") else 0.0,
             "synergy_score": metrics.synergy_score if hasattr(metrics, "synergy_score") else 0.5,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self._relationships[rel_id] = rel_data
@@ -573,9 +573,9 @@ class EloAdapter:
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
             except ValueError:
-                created_at = datetime.utcnow()
+                created_at = datetime.now(timezone.utc)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
 
         elo = rating.get("elo", 1000)
         # Normalize ELO to 0-1 importance (1000 = 0.5, 1500 = 0.75, 2000 = 1.0)

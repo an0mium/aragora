@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from aragora.bots.base import (
@@ -254,7 +254,7 @@ class AragoraDiscordBot:
             text=f"/{command} {args}".strip(),
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.DISCORD,
         )
 

@@ -8,7 +8,7 @@ of organization invitations including creation, lookup, and status updates.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Callable, ContextManager, Optional
 
 if TYPE_CHECKING:
@@ -181,7 +181,7 @@ class InvitationRepository:
                 SET status = 'expired'
                 WHERE status = 'pending' AND expires_at < ?
                 """,
-                (datetime.utcnow().isoformat(),),
+                (datetime.now(timezone.utc).isoformat(),),
             )
             return cursor.rowcount
 

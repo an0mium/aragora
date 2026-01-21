@@ -17,7 +17,7 @@ import logging
 import threading
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -282,7 +282,7 @@ class FolderUploadHandler(BaseHandler):
 
         # Create job
         folder_id = str(uuid.uuid4())
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         job = FolderUploadJob(
             folder_id=folder_id,
@@ -349,7 +349,7 @@ class FolderUploadHandler(BaseHandler):
                     job.included_count = scan_result.included_count
                     job.excluded_count = scan_result.excluded_count
                     job.total_size_bytes = scan_result.included_size_bytes
-                    job.updated_at = datetime.utcnow()
+                    job.updated_at = datetime.now(timezone.utc)
 
             if scan_result.included_count == 0:
                 self._update_job_status(folder_id, FolderUploadStatus.COMPLETED)
@@ -387,7 +387,7 @@ class FolderUploadHandler(BaseHandler):
                             job.files_uploaded += 1
                             job.bytes_uploaded += file_info.size_bytes
                             job.document_ids.append(doc_id)
-                            job.updated_at = datetime.utcnow()
+                            job.updated_at = datetime.now(timezone.utc)
 
                     logger.debug(f"Uploaded {file_path.name} -> {doc_id}")
 
@@ -403,7 +403,7 @@ class FolderUploadHandler(BaseHandler):
                                     "error": str(e),
                                 }
                             )
-                            job.updated_at = datetime.utcnow()
+                            job.updated_at = datetime.now(timezone.utc)
 
             self._update_job_status(folder_id, FolderUploadStatus.COMPLETED)
 
@@ -418,7 +418,7 @@ class FolderUploadHandler(BaseHandler):
             if folder_id in FolderUploadHandler._jobs:
                 job = FolderUploadHandler._jobs[folder_id]
                 job.status = status
-                job.updated_at = datetime.utcnow()
+                job.updated_at = datetime.now(timezone.utc)
 
     def _update_job_error(self, folder_id: str, error: str) -> None:
         """Add error to job."""
@@ -426,7 +426,7 @@ class FolderUploadHandler(BaseHandler):
             if folder_id in FolderUploadHandler._jobs:
                 job = FolderUploadHandler._jobs[folder_id]
                 job.errors.append({"error": error, "fatal": True})
-                job.updated_at = datetime.utcnow()
+                job.updated_at = datetime.now(timezone.utc)
 
     def get_document_store(self):
         """Get document store instance."""

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -236,7 +236,7 @@ def user_store():
     }
     store.audit_log = [
         {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "action": "login",
             "resource_type": "session",
             "resource_id": "sess-1",

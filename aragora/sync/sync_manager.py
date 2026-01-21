@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional
 
@@ -136,7 +136,7 @@ class SyncManager:
                 await self._process_changes(changes, state, result)
 
                 # Update state
-                state.last_sync_at = datetime.utcnow()
+                state.last_sync_at = datetime.now(timezone.utc)
                 state.sync_count += 1
                 state.status = SyncStatus.COMPLETED
 
@@ -148,7 +148,7 @@ class SyncManager:
                 state.error_count += 1
                 state.last_error = str(e)
 
-            result.completed_at = datetime.utcnow()
+            result.completed_at = datetime.now(timezone.utc)
             return result
 
     async def start_watching(

@@ -12,7 +12,7 @@ import logging
 import sqlite3
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -59,7 +59,7 @@ class ABTest:
 
     def __post_init__(self):
         if not self.started_at:
-            self.started_at = datetime.utcnow().isoformat()
+            self.started_at = datetime.now(timezone.utc).isoformat()
 
     @property
     def evolved_win_rate(self) -> float:
@@ -350,7 +350,7 @@ class ABTestManager(SQLiteStore):
                         debate_id,
                         variant,
                         1 if won else 0,
-                        datetime.utcnow().isoformat(),
+                        datetime.now(timezone.utc).isoformat(),
                     ),
                 )
             except sqlite3.IntegrityError:
@@ -449,7 +449,7 @@ class ABTestManager(SQLiteStore):
                     concluded_at = ?
                 WHERE id = ?
                 """,
-                (datetime.utcnow().isoformat(), test_id),
+                (datetime.now(timezone.utc).isoformat(), test_id),
             )
 
         result = ABTestResult(
@@ -481,7 +481,7 @@ class ABTestManager(SQLiteStore):
                     concluded_at = ?
                 WHERE id = ? AND status = 'active'
                 """,
-                (datetime.utcnow().isoformat(), test_id),
+                (datetime.now(timezone.utc).isoformat(), test_id),
             )
             return cursor.rowcount > 0
 

@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import pytest
 
@@ -58,7 +58,7 @@ class TestImpersonationStore:
 
     def test_save_and_get_session(self, impersonation_store):
         """Test saving and retrieving a session."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=1)
 
         impersonation_store.save_session(
@@ -84,7 +84,7 @@ class TestImpersonationStore:
 
     def test_get_active_sessions(self, impersonation_store):
         """Test getting active sessions."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=1)
 
         # Create two active sessions
@@ -124,7 +124,7 @@ class TestImpersonationStore:
 
     def test_end_session(self, impersonation_store):
         """Test ending a session."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=1)
 
         impersonation_store.save_session(
@@ -159,7 +159,7 @@ class TestImpersonationStore:
 
     def test_save_and_query_audit_log(self, impersonation_store):
         """Test saving and querying audit entries."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Save some audit entries
         impersonation_store.save_audit_entry(
@@ -219,7 +219,7 @@ class TestImpersonationStore:
 
     def test_cleanup_expired_sessions(self, impersonation_store):
         """Test cleanup of expired sessions."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expired = now - timedelta(hours=1)  # Already expired
         valid = now + timedelta(hours=1)
 
@@ -408,7 +408,7 @@ class TestSessionRecovery:
         store = ImpersonationStore(db_path=temp_db_path, backend="sqlite")
 
         # Create a session directly in the store (simulating previous run)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=1)
 
         store.save_session(
@@ -475,7 +475,7 @@ class TestSessionRecovery:
 
         store = ImpersonationStore(db_path=temp_db_path, backend="sqlite")
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=1)
 
         store.save_session(
@@ -533,7 +533,7 @@ class TestSessionRecovery:
 
         store = ImpersonationStore(db_path=temp_db_path, backend="sqlite")
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expired = now - timedelta(hours=1)
         valid = now + timedelta(hours=1)
 

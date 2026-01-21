@@ -9,7 +9,7 @@ Covers:
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 from aragora.billing.models import (
     User,
@@ -472,8 +472,8 @@ class TestSubscription:
 
         sub = Subscription(
             status="trialing",
-            trial_start=datetime.utcnow(),
-            trial_end=datetime.utcnow() + timedelta(days=14),
+            trial_start=datetime.now(timezone.utc),
+            trial_end=datetime.now(timezone.utc) + timedelta(days=14),
         )
         assert sub.is_trialing is True
 
@@ -483,8 +483,8 @@ class TestSubscription:
 
         sub = Subscription(
             status="trialing",
-            trial_start=datetime.utcnow() - timedelta(days=15),
-            trial_end=datetime.utcnow() - timedelta(days=1),
+            trial_start=datetime.now(timezone.utc) - timedelta(days=15),
+            trial_end=datetime.now(timezone.utc) - timedelta(days=1),
         )
         assert sub.is_trialing is False
 
@@ -494,7 +494,7 @@ class TestSubscription:
 
         sub = Subscription(
             status="active",
-            trial_end=datetime.utcnow() + timedelta(days=14),
+            trial_end=datetime.now(timezone.utc) + timedelta(days=14),
         )
         assert sub.is_trialing is False
 
@@ -503,7 +503,7 @@ class TestSubscription:
         from aragora.billing.models import Subscription
 
         sub = Subscription(
-            current_period_end=datetime.utcnow() + timedelta(days=15),
+            current_period_end=datetime.now(timezone.utc) + timedelta(days=15),
         )
         # Allow for small timing differences (14 or 15 days)
         assert sub.days_until_renewal in (14, 15)
@@ -513,7 +513,7 @@ class TestSubscription:
         from aragora.billing.models import Subscription
 
         sub = Subscription(
-            current_period_end=datetime.utcnow() - timedelta(days=5),
+            current_period_end=datetime.now(timezone.utc) - timedelta(days=5),
         )
         assert sub.days_until_renewal == 0
 
@@ -588,7 +588,7 @@ class TestOrganizationInvitation:
         inv = OrganizationInvitation(
             org_id="org-123",
             email="user@example.com",
-            expires_at=datetime.utcnow() - timedelta(days=1),
+            expires_at=datetime.now(timezone.utc) - timedelta(days=1),
         )
         assert inv.is_expired is True
         assert inv.is_pending is False
@@ -622,7 +622,7 @@ class TestOrganizationInvitation:
         inv = OrganizationInvitation(
             org_id="org-123",
             email="user@example.com",
-            expires_at=datetime.utcnow() - timedelta(days=1),
+            expires_at=datetime.now(timezone.utc) - timedelta(days=1),
         )
 
         result = inv.accept()

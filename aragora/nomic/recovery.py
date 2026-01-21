@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional
 
@@ -262,7 +262,7 @@ class RecoveryManager:
         # Record decision
         self._recovery_history.append(
             {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "state": state.name,
                 "error_type": error_type,
                 "retry_count": retry_count,

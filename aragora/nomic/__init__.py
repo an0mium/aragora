@@ -77,6 +77,30 @@ from aragora.nomic.phases import (
     VerifyPhase,
     check_design_scope,
 )
+
+# Task decomposition
+from aragora.nomic.task_decomposer import (
+    DecomposerConfig,
+    SubTask,
+    TaskDecomposer,
+    TaskDecomposition,
+    analyze_task,
+    get_task_decomposer,
+)
+
+# Cross-cycle learning
+from aragora.nomic.cycle_record import (
+    AgentContribution,
+    NomicCycleRecord,
+    PatternReinforcement,
+    SurpriseEvent,
+)
+from aragora.nomic.cycle_store import (
+    CycleLearningStore,
+    get_cycle_store,
+    get_recent_cycles,
+    save_cycle,
+)
 from aragora.nomic.metrics import (
     NOMIC_CIRCUIT_BREAKERS_OPEN,
     NOMIC_CURRENT_PHASE,
@@ -259,4 +283,20 @@ __all__ = [
     "PostDebateHooks",
     "ScopeLimiter",
     "check_design_scope",
+    # Task decomposition
+    "TaskDecomposer",
+    "TaskDecomposition",
+    "SubTask",
+    "DecomposerConfig",
+    "analyze_task",
+    "get_task_decomposer",
+    # Cross-cycle learning
+    "NomicCycleRecord",
+    "AgentContribution",
+    "SurpriseEvent",
+    "PatternReinforcement",
+    "CycleLearningStore",
+    "get_cycle_store",
+    "get_recent_cycles",
+    "save_cycle",
 ]

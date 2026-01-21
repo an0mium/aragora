@@ -31,7 +31,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -82,7 +82,7 @@ class FederatedRegionConfig:
 
     def __post_init__(self) -> None:
         """Set default timestamps if not provided."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         if not self.created_at:
             self.created_at = now
         if not self.updated_at:
@@ -217,7 +217,7 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
 
     async def save(self, region: FederatedRegionConfig) -> None:
         """Save a federated region configuration."""
-        region.updated_at = datetime.utcnow().isoformat()
+        region.updated_at = datetime.now(timezone.utc).isoformat()
         key = self._make_key(region.region_id, region.workspace_id)
         with self._lock:
             self._data[key] = region
@@ -257,7 +257,7 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
         """Update sync status after a sync operation."""
         region = await self.get(region_id, workspace_id)
         if region:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             region.last_sync_at = now
             region.last_sync_error = error
             region.updated_at = now
@@ -373,7 +373,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
     async def save(self, region: FederatedRegionConfig) -> None:
         """Save a federated region configuration."""
         now = time.time()
-        region.updated_at = datetime.utcnow().isoformat()
+        region.updated_at = datetime.now(timezone.utc).isoformat()
         data_json = region.to_json()
         ws_id = region.workspace_id or ""
 
@@ -476,7 +476,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
         """Update sync status after a sync operation."""
         region = await self.get(region_id, workspace_id)
         if region:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             region.last_sync_at = now
             region.last_sync_error = error
 
@@ -570,7 +570,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
 
     async def save(self, region: FederatedRegionConfig) -> None:
         """Save a federated region configuration."""
-        region.updated_at = datetime.utcnow().isoformat()
+        region.updated_at = datetime.now(timezone.utc).isoformat()
 
         # Always save to SQLite fallback for durability
         await self._fallback.save(region)
@@ -620,7 +620,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         # Get current region
         region = await self.get(region_id, workspace_id)
         if region:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             region.last_sync_at = now
             region.last_sync_error = error
 
@@ -736,7 +736,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
     async def save(self, region: FederatedRegionConfig) -> None:
         """Save a federated region configuration."""
         now = time.time()
-        region.updated_at = datetime.utcnow().isoformat()
+        region.updated_at = datetime.now(timezone.utc).isoformat()
         data_json = region.to_json()
         ws_id = region.workspace_id or ""
 
@@ -866,7 +866,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         Uses atomic UPDATE to avoid read-modify-write race conditions.
         """
         ws_id = workspace_id or ""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Build atomic update based on direction and error status
         if direction == "push":

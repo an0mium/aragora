@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional
@@ -634,7 +634,7 @@ class TestTokenSecurity:
             "sub": test_user.id,
             "email": test_user.email,
             "role": test_user.role,
-            "exp": datetime.utcnow() + timedelta(hours=1),
+            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         }
 
         fake_token = jwt.encode(fake_payload, "wrong-secret", algorithm="HS256")

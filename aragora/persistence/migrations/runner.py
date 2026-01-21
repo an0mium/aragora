@@ -29,7 +29,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -604,7 +604,7 @@ class MigrationRunner:
         template = f'''"""
 Migration {next_version}: {description}
 
-Created: {datetime.utcnow().isoformat()}
+Created: {datetime.now(timezone.utc).isoformat()}
 
 IMPORTANT: You MUST replace the 'pass' statement in upgrade() with actual SQL.
 Empty migrations will FAIL validation and cannot be applied.

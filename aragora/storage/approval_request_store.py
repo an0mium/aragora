@@ -31,7 +31,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -83,7 +83,7 @@ class ApprovalRequestItem:
 
     def __post_init__(self) -> None:
         """Set default timestamps if not provided."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         if not self.created_at:
             self.created_at = now
         if not self.updated_at:
@@ -259,7 +259,7 @@ class InMemoryApprovalRequestStore(ApprovalRequestStoreBackend):
 
     async def list_expired(self) -> list[dict[str, Any]]:
         """List expired requests."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         with self._lock:
             return [
                 r
@@ -284,8 +284,8 @@ class InMemoryApprovalRequestStore(ApprovalRequestStoreBackend):
                 return False
             self._data[request_id]["status"] = status
             self._data[request_id]["responder_id"] = responder_id
-            self._data[request_id]["responded_at"] = datetime.utcnow().isoformat()
-            self._data[request_id]["updated_at"] = datetime.utcnow().isoformat()
+            self._data[request_id]["responded_at"] = datetime.now(timezone.utc).isoformat()
+            self._data[request_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
             if response_data is not None:
                 self._data[request_id]["response_data"] = response_data
             return True
@@ -515,7 +515,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
 
     async def list_expired(self) -> list[dict[str, Any]]:
         """List expired requests."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -558,8 +558,8 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
                 data = json.loads(row[0])
                 data["status"] = status
                 data["responder_id"] = responder_id
-                data["responded_at"] = datetime.utcnow().isoformat()
-                data["updated_at"] = datetime.utcnow().isoformat()
+                data["responded_at"] = datetime.now(timezone.utc).isoformat()
+                data["updated_at"] = datetime.now(timezone.utc).isoformat()
                 if response_data is not None:
                     data["response_data"] = response_data
 
@@ -825,8 +825,8 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
 
             data["status"] = status
             data["responder_id"] = responder_id
-            data["responded_at"] = datetime.utcnow().isoformat()
-            data["updated_at"] = datetime.utcnow().isoformat()
+            data["responded_at"] = datetime.now(timezone.utc).isoformat()
+            data["updated_at"] = datetime.now(timezone.utc).isoformat()
             if response_data is not None:
                 data["response_data"] = response_data
 
@@ -1074,7 +1074,7 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
 
     async def list_expired_async(self) -> list[dict[str, Any]]:
         """List expired requests asynchronously."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -1123,8 +1123,8 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
             data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
             data["status"] = status
             data["responder_id"] = responder_id
-            data["responded_at"] = datetime.utcnow().isoformat()
-            data["updated_at"] = datetime.utcnow().isoformat()
+            data["responded_at"] = datetime.now(timezone.utc).isoformat()
+            data["updated_at"] = datetime.now(timezone.utc).isoformat()
             if response_data is not None:
                 data["response_data"] = response_data
 

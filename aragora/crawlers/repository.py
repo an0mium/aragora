@@ -19,7 +19,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator, List, Optional
 
@@ -180,7 +180,7 @@ class RepositoryCrawler(BaseCrawler):
         """
         self._stats = CrawlStats(
             status=CrawlStatus.RUNNING,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
 
         try:
@@ -216,7 +216,7 @@ class RepositoryCrawler(BaseCrawler):
             logger.exception(f"Crawl failed: {e}")
 
         finally:
-            self._stats.completed_at = datetime.utcnow()
+            self._stats.completed_at = datetime.now(timezone.utc)
             if self._stats.started_at:
                 self._stats.duration_ms = (
                     self._stats.completed_at - self._stats.started_at

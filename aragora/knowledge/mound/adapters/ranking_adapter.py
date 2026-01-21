@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
@@ -210,8 +210,8 @@ class RankingAdapter:
             "confidence": confidence,
             "debate_count": debate_count,
             "last_debate_id": debate_id,
-            "created_at": existing.get("created_at") if existing else datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": existing.get("created_at") if existing else datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self._expertise[expertise_key] = expertise_data
@@ -236,7 +236,7 @@ class RankingAdapter:
                 "elo": elo,
                 "delta": delta,
                 "debate_id": debate_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -568,12 +568,12 @@ class RankingAdapter:
                     "created_at": (
                         node.created_at.isoformat()
                         if node.created_at
-                        else datetime.utcnow().isoformat()
+                        else datetime.now(timezone.utc).isoformat()
                     ),
                     "updated_at": (
                         node.updated_at.isoformat()
                         if node.updated_at
-                        else datetime.utcnow().isoformat()
+                        else datetime.now(timezone.utc).isoformat()
                     ),
                 }
 

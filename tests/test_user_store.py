@@ -12,7 +12,7 @@ Tests cover:
 
 import pytest
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -263,7 +263,7 @@ class TestUserUpdate:
         result = store.update_user(
             test_user.id,
             api_key=api_key,
-            api_key_created_at=datetime.utcnow(),
+            api_key_created_at=datetime.now(timezone.utc),
         )
 
         assert result is True
@@ -837,7 +837,7 @@ class TestEdgeCases:
 
     def test_last_login_tracking(self, store, test_user):
         """Should track last login time."""
-        login_time = datetime.utcnow()
+        login_time = datetime.now(timezone.utc)
         store.update_user(test_user.id, last_login_at=login_time)
 
         user = store.get_user_by_id(test_user.id)

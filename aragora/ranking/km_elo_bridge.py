@@ -31,7 +31,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # Prometheus metrics - optional dependency
@@ -330,14 +330,14 @@ class KMEloBridge:
             if self._sync_in_progress:
                 return KMEloBridgeSyncResult(
                     errors=["Sync already in progress"],
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
             self._sync_in_progress = True
             _record_sync_start()
 
         start_time = time.time()
         result = KMEloBridgeSyncResult(
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
         sync_status = "failed"  # Default status, updated on success
 

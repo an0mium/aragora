@@ -20,7 +20,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -114,7 +114,7 @@ class StripeSubscription:
             return False
         if self.trial_end is None:
             return False
-        return datetime.utcnow() < self.trial_end
+        return datetime.now(timezone.utc) < self.trial_end
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -620,7 +620,7 @@ class StripeClient:
             UsageRecord with the created record data
         """
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(timezone.utc)
 
         data = {
             "quantity": quantity,

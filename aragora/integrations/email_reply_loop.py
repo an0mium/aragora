@@ -37,7 +37,7 @@ import re
 import sqlite3
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
@@ -191,7 +191,7 @@ class EmailReplyOrigin:
             message_id=data["message_id"],
             recipient_email=data["recipient_email"],
             recipient_name=data.get("recipient_name", ""),
-            sent_at=datetime.fromisoformat(sent_at) if sent_at else datetime.utcnow(),
+            sent_at=datetime.fromisoformat(sent_at) if sent_at else datetime.now(timezone.utc),
             reply_received=data.get("reply_received", False),
             reply_received_at=datetime.fromisoformat(reply_received_at)
             if reply_received_at
@@ -277,7 +277,7 @@ class SQLiteEmailReplyStore:
                 debate_id=row[1],
                 recipient_email=row[2],
                 recipient_name=row[3] or "",
-                sent_at=datetime.fromisoformat(row[4]) if row[4] else datetime.utcnow(),
+                sent_at=datetime.fromisoformat(row[4]) if row[4] else datetime.now(timezone.utc),
                 reply_received=bool(row[5]),
                 reply_received_at=datetime.fromisoformat(row[6]) if row[6] else None,
                 metadata=json.loads(row[7]) if row[7] else {},
@@ -325,7 +325,7 @@ class PostgresEmailReplyStore:
 
     async def save(self, origin: "EmailReplyOrigin") -> None:
         """Save an email reply origin to PostgreSQL."""
-        expires_at = datetime.utcnow().timestamp() + EMAIL_ORIGIN_TTL_SECONDS
+        expires_at = datetime.now(timezone.utc).timestamp() + EMAIL_ORIGIN_TTL_SECONDS
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO email_reply_origins
@@ -364,7 +364,7 @@ class PostgresEmailReplyStore:
                     debate_id=row["debate_id"],
                     recipient_email=row["recipient_email"],
                     recipient_name=row["recipient_name"] or "",
-                    sent_at=row["sent_at"] or datetime.utcnow(),
+                    sent_at=row["sent_at"] or datetime.now(timezone.utc),
                     reply_received=row["reply_received"],
                     reply_received_at=row["reply_received_at"],
                     metadata=json.loads(row["metadata_json"]) if row["metadata_json"] else {},

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -233,7 +233,7 @@ class CodebaseAuditor:
         Returns:
             CodebaseAuditResult with findings and proposals
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         session_id = f"codebase_audit_{start_time.strftime('%Y%m%d_%H%M%S')}"
 
         logger.info(f"[{session_id}] Starting codebase audit")
@@ -301,7 +301,7 @@ class CodebaseAuditor:
         # Generate improvement proposals
         proposals = self.findings_to_proposals(findings)
 
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
 
         # Build summary
         summary = self._build_summary(findings, proposals)

@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -351,11 +351,11 @@ class TestRetentionPolicyManager:
         )
 
         # Item created 31 days ago should be expired
-        old_date = datetime.utcnow() - timedelta(days=31)
+        old_date = datetime.now(timezone.utc) - timedelta(days=31)
         assert policy.is_expired(old_date) is True
 
         # Item created 29 days ago should not be expired
-        recent_date = datetime.utcnow() - timedelta(days=29)
+        recent_date = datetime.now(timezone.utc) - timedelta(days=29)
         assert policy.is_expired(recent_date) is False
 
     def test_days_until_expiry(self, retention_manager):
@@ -367,7 +367,7 @@ class TestRetentionPolicyManager:
         )
 
         # Item created 20 days ago has ~10 days left
-        created = datetime.utcnow() - timedelta(days=20)
+        created = datetime.now(timezone.utc) - timedelta(days=20)
         days_left = policy.days_until_expiry(created)
         assert 9 <= days_left <= 11  # Allow for timing variance
 
@@ -797,8 +797,8 @@ class TestPrivacyAuditLog:
 
         # Query with date range including now
         entries = await audit_log.query(
-            start_date=datetime.utcnow() - timedelta(hours=1),
-            end_date=datetime.utcnow() + timedelta(hours=1),
+            start_date=datetime.now(timezone.utc) - timedelta(hours=1),
+            end_date=datetime.now(timezone.utc) + timedelta(hours=1),
         )
         assert len(entries) >= 1
 
@@ -902,8 +902,8 @@ class TestPrivacyAuditLog:
 
         export_path = tmp_path / "export.jsonl"
         count = await audit_log.export_logs(
-            start_date=datetime.utcnow() - timedelta(hours=1),
-            end_date=datetime.utcnow() + timedelta(hours=1),
+            start_date=datetime.now(timezone.utc) - timedelta(hours=1),
+            end_date=datetime.now(timezone.utc) + timedelta(hours=1),
             output_path=export_path,
         )
 
@@ -968,7 +968,7 @@ class TestPrivacyAuditLog:
         """Test AuditEntry serialization round-trip."""
         entry = AuditEntry(
             id="audit_123",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             action=AuditAction.DELETE,
             outcome=AuditOutcome.SUCCESS,
             actor=Actor(id="user_1", type="user", name="John"),

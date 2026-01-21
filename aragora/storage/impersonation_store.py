@@ -28,7 +28,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -62,7 +62,7 @@ class SessionRecord:
 
     def is_expired(self) -> bool:
         """Check if session has expired."""
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -337,7 +337,7 @@ class ImpersonationStore:
         Returns:
             True if updated
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         self._backend.execute_write(
             """
@@ -379,7 +379,7 @@ class ImpersonationStore:
         Returns:
             List of active SessionRecord
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         query = """
             SELECT session_id, admin_user_id, admin_email, target_user_id,
@@ -416,7 +416,7 @@ class ImpersonationStore:
         params: list = [admin_user_id]
 
         if not include_ended:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             query += " AND ended_at IS NULL AND expires_at > ?"
             params.append(now)
 
@@ -437,7 +437,7 @@ class ImpersonationStore:
                     return datetime.fromisoformat(val)
                 except ValueError:
                     pass
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
 
         def parse_dt_opt(val: Any) -> Optional[datetime]:
             if val is None:
@@ -609,7 +609,7 @@ class ImpersonationStore:
                     return datetime.fromisoformat(val)
                 except ValueError:
                     pass
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
 
         return AuditRecord(
             audit_id=row[0],
@@ -637,7 +637,7 @@ class ImpersonationStore:
         Returns:
             Number of sessions cleaned up
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Get count first
         result = self._backend.fetch_one(

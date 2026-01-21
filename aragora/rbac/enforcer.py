@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .types import (
@@ -234,7 +234,7 @@ class RBACEnforcer:
         if cache_key in self._permission_cache:
             cached_time = self._cache_timestamps.get(cache_key)
             if cached_time:
-                age = (datetime.utcnow() - cached_time).total_seconds()
+                age = (datetime.now(timezone.utc) - cached_time).total_seconds()
                 if age < self.config.cache_ttl_seconds:
                     return self._permission_cache[cache_key]
 
@@ -267,7 +267,7 @@ class RBACEnforcer:
 
         # Cache result
         self._permission_cache[cache_key] = permissions
-        self._cache_timestamps[cache_key] = datetime.utcnow()
+        self._cache_timestamps[cache_key] = datetime.now(timezone.utc)
 
         # Trim cache if too large
         if len(self._permission_cache) > self.config.max_cache_size:
@@ -460,7 +460,7 @@ class RBACEnforcer:
     ) -> None:
         """Log a permission check."""
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "actor": actor,
             "resource": resource.value,
             "action": action.value,

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -238,7 +238,7 @@ class AuditKnowledgeAdapter:
                 topics=[finding.category, finding.audit_type.value, finding.severity.value],
                 workspace_id=self.config.workspace_id,
                 validation_status=status,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
 
             # Store in fact store

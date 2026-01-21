@@ -17,7 +17,7 @@ import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -157,8 +157,8 @@ class TestAPIKeyValidation:
             api_key=api_key,
             api_key_hash=api_key_hash,
             api_key_prefix=api_key[:12],
-            api_key_created_at=datetime.utcnow(),
-            api_key_expires_at=datetime.utcnow() + timedelta(days=365),
+            api_key_created_at=datetime.now(timezone.utc),
+            api_key_expires_at=datetime.now(timezone.utc) + timedelta(days=365),
         )
 
         retrieved = store.get_user_by_api_key(api_key)
@@ -185,8 +185,8 @@ class TestAPIKeyValidation:
             api_key=api_key,
             api_key_hash=api_key_hash,
             api_key_prefix=api_key[:12],
-            api_key_created_at=datetime.utcnow() - timedelta(days=400),
-            api_key_expires_at=datetime.utcnow() - timedelta(days=35),  # Expired
+            api_key_created_at=datetime.now(timezone.utc) - timedelta(days=400),
+            api_key_expires_at=datetime.now(timezone.utc) - timedelta(days=35),  # Expired
         )
 
         result = store.get_user_by_api_key(api_key)
@@ -610,7 +610,7 @@ class TestMigration:
         with store._transaction() as cursor:
             cursor.execute(
                 "UPDATE users SET api_key = ?, api_key_created_at = ? WHERE id = ?",
-                (api_key, datetime.utcnow().isoformat(), user.id),
+                (api_key, datetime.now(timezone.utc).isoformat(), user.id),
             )
 
         # Run migration

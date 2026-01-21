@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -69,7 +69,7 @@ async def handle_audit_events(request: web.Request) -> web.Response:
     params = request.query
 
     # Date range
-    end_date = datetime.utcnow()
+    end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=30)
 
     if params.get("start_date"):

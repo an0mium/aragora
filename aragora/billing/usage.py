@@ -10,7 +10,7 @@ import logging
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -415,7 +415,7 @@ class UsageTracker:
         """
 
         if period_end is None:
-            period_end = datetime.utcnow()
+            period_end = datetime.now(timezone.utc)
         if period_start is None:
             period_start = period_end - timedelta(days=30)
 
@@ -504,7 +504,7 @@ class UsageTracker:
         Returns:
             Usage statistics
         """
-        period_end = datetime.utcnow()
+        period_end = datetime.now(timezone.utc)
         period_start = period_end - timedelta(days=days)
 
         with self._connection() as conn:
@@ -562,7 +562,7 @@ class UsageTracker:
             Number of debates
         """
         # Use first of current month as start
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         with self._connection() as conn:

@@ -10,7 +10,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
 from uuid import uuid4
@@ -194,7 +194,7 @@ class CodexHarness(CodeAnalysisHarness):
             HarnessResult with findings
         """
         options = options or {}
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
 
         try:
             # Gather code files
@@ -227,7 +227,7 @@ class CodexHarness(CodeAnalysisHarness):
             # Parse findings
             findings = self._parse_findings(raw_output, repo_path, analysis_type)
 
-            duration = (datetime.utcnow() - started_at).total_seconds()
+            duration = (datetime.now(timezone.utc) - started_at).total_seconds()
 
             return HarnessResult(
                 harness="codex",
@@ -250,7 +250,7 @@ class CodexHarness(CodeAnalysisHarness):
                 analysis_type=analysis_type,
                 findings=[],
                 raw_output=str(e),
-                duration_seconds=(datetime.utcnow() - started_at).total_seconds(),
+                duration_seconds=(datetime.now(timezone.utc) - started_at).total_seconds(),
                 success=False,
                 error_message=str(e),
             )
@@ -264,7 +264,7 @@ class CodexHarness(CodeAnalysisHarness):
     ) -> HarnessResult:
         """Analyze specific files."""
         options = options or {}
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
 
         try:
             # Read file contents
@@ -292,7 +292,7 @@ class CodexHarness(CodeAnalysisHarness):
             raw_output = await self._call_openai(analysis_prompt)
             findings = self._parse_findings(raw_output, files[0].parent, analysis_type)
 
-            duration = (datetime.utcnow() - started_at).total_seconds()
+            duration = (datetime.now(timezone.utc) - started_at).total_seconds()
 
             return HarnessResult(
                 harness="codex",
@@ -314,7 +314,7 @@ class CodexHarness(CodeAnalysisHarness):
                 analysis_type=analysis_type,
                 findings=[],
                 raw_output=str(e),
-                duration_seconds=(datetime.utcnow() - started_at).total_seconds(),
+                duration_seconds=(datetime.now(timezone.utc) - started_at).total_seconds(),
                 success=False,
                 error_message=str(e),
             )
@@ -374,7 +374,7 @@ class CodexHarness(CodeAnalysisHarness):
         prompt: str,
     ) -> SessionResult:
         """Run an interactive analysis session."""
-        _started_at = datetime.utcnow()  # noqa: F841
+        _started_at = datetime.now(timezone.utc)  # noqa: F841
 
         try:
             # Build context from files

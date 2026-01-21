@@ -10,7 +10,7 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -267,7 +267,7 @@ class PrivacyAuditLog:
 
         entry = AuditEntry(
             id=f"audit_{uuid4().hex[:12]}",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             action=action,
             outcome=outcome,
             actor=actor,
@@ -405,8 +405,8 @@ class PrivacyAuditLog:
         Returns:
             Compliance report data
         """
-        start_date = start_date or (datetime.utcnow() - timedelta(days=30))
-        end_date = end_date or datetime.utcnow()
+        start_date = start_date or (datetime.now(timezone.utc) - timedelta(days=30))
+        end_date = end_date or datetime.now(timezone.utc)
 
         entries = await self.query(
             start_date=start_date,
@@ -439,7 +439,7 @@ class PrivacyAuditLog:
 
         report = {
             "report_id": f"compliance_{uuid4().hex[:8]}",
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "period": {
                 "start": start_date.isoformat(),
                 "end": end_date.isoformat(),
@@ -469,7 +469,7 @@ class PrivacyAuditLog:
         days: int = 30,
     ) -> list[AuditEntry]:
         """Get all actions by a specific actor."""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
         return await self.query(actor_id=actor_id, start_date=start_date)
 
     async def get_resource_history(
@@ -478,7 +478,7 @@ class PrivacyAuditLog:
         days: int = 30,
     ) -> list[AuditEntry]:
         """Get all actions on a specific resource."""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
         return await self.query(resource_id=resource_id, start_date=start_date)
 
     async def get_denied_access_attempts(
@@ -486,7 +486,7 @@ class PrivacyAuditLog:
         days: int = 7,
     ) -> list[AuditEntry]:
         """Get all denied access attempts."""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
         return await self.query(
             start_date=start_date,
             outcome=AuditOutcome.DENIED,
@@ -524,7 +524,7 @@ class PrivacyAuditLog:
             Number of entries removed
         """
         retention = retention_days or self.config.retention_days
-        cutoff = datetime.utcnow() - timedelta(days=retention)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention)
 
         original_count = len(self._entries)
         self._entries = [e for e in self._entries if e.timestamp >= cutoff]

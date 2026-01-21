@@ -248,7 +248,7 @@ class DiscordHandler(BaseHandler):
     ) -> HandlerResult:
         """Execute a command and return Discord response."""
         import asyncio
-        from datetime import datetime
+        from datetime import datetime, timezone
         from aragora.bots.base import (
             BotChannel,
             BotMessage,
@@ -279,7 +279,7 @@ class DiscordHandler(BaseHandler):
             text=f"/{command} {args}".strip(),
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.DISCORD,
         )
 

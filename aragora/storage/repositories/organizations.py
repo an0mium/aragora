@@ -11,7 +11,7 @@ import json
 import logging
 import secrets
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Optional
 
 if TYPE_CHECKING:
@@ -127,7 +127,7 @@ class OrganizationRepository:
             # Update owner's org_id and role
             cursor.execute(
                 "UPDATE users SET org_id = ?, role = ?, updated_at = ? WHERE id = ?",
-                (org.id, "owner", datetime.utcnow().isoformat(), owner_id),
+                (org.id, "owner", datetime.now(timezone.utc).isoformat(), owner_id),
             )
 
         logger.info(f"organization_created id={org.id} name={name} owner={owner_id}")
@@ -202,7 +202,7 @@ class OrganizationRepository:
             return False
 
         updates.append("updated_at = ?")
-        values.append(datetime.utcnow().isoformat())
+        values.append(datetime.now(timezone.utc).isoformat())
         values.append(org_id)
 
         with self._transaction() as cursor:
@@ -221,7 +221,7 @@ class OrganizationRepository:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.utcnow().isoformat(), datetime.utcnow().isoformat(), org_id),
+                (datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(), org_id),
             )
             return cursor.rowcount > 0
 
@@ -230,7 +230,7 @@ class OrganizationRepository:
         with self._transaction() as cursor:
             cursor.execute(
                 "UPDATE users SET org_id = ?, role = ?, updated_at = ? WHERE id = ?",
-                (org_id, role, datetime.utcnow().isoformat(), user_id),
+                (org_id, role, datetime.now(timezone.utc).isoformat(), user_id),
             )
             return cursor.rowcount > 0
 
@@ -239,7 +239,7 @@ class OrganizationRepository:
         with self._transaction() as cursor:
             cursor.execute(
                 "UPDATE users SET org_id = NULL, role = 'member', updated_at = ? WHERE id = ?",
-                (datetime.utcnow().isoformat(), user_id),
+                (datetime.now(timezone.utc).isoformat(), user_id),
             )
             return cursor.rowcount > 0
 

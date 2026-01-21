@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 from uuid import uuid4
@@ -166,7 +166,7 @@ class WorkflowEvent:
             timestamp=(
                 datetime.fromisoformat(data["timestamp"])
                 if isinstance(data.get("timestamp"), str)
-                else datetime.utcnow()
+                else datetime.now(timezone.utc)
             ),
             user_id=data.get("user_id", ""),
             user_name=data.get("user_name", ""),
@@ -276,11 +276,11 @@ class FindingWorkflowData:
             due_date=parse_dt(data.get("due_date")),
             linked_findings=data.get("linked_findings", []),
             parent_finding_id=data.get("parent_finding_id"),
-            created_at=parse_dt(data.get("created_at")) or datetime.utcnow(),
-            updated_at=parse_dt(data.get("updated_at")) or datetime.utcnow(),
+            created_at=parse_dt(data.get("created_at")) or datetime.now(timezone.utc),
+            updated_at=parse_dt(data.get("updated_at")) or datetime.now(timezone.utc),
             resolved_at=parse_dt(data.get("resolved_at")),
             time_in_states=data.get("time_in_states", {}),
-            state_entered_at=parse_dt(data.get("state_entered_at")) or datetime.utcnow(),
+            state_entered_at=parse_dt(data.get("state_entered_at")) or datetime.now(timezone.utc),
         )
 
 
@@ -382,7 +382,7 @@ class FindingWorkflow:
             raise InvalidTransitionError(self.state, to_state)
 
         from_state = self.state
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Update time in state metrics
         time_in_current = (now - self.data.state_entered_at).total_seconds()
@@ -457,7 +457,7 @@ class FindingWorkflow:
         Returns:
             The workflow event created
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old_assignee = self.data.assigned_to
 
         # Update assignment
@@ -493,7 +493,7 @@ class FindingWorkflow:
         comment: str = "",
     ) -> WorkflowEvent:
         """Remove assignment from finding."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old_assignee = self.data.assigned_to
 
         self.data.assigned_to = None
@@ -534,7 +534,7 @@ class FindingWorkflow:
         Returns:
             The workflow event created
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         event = WorkflowEvent(
             finding_id=self.data.finding_id,
@@ -562,7 +562,7 @@ class FindingWorkflow:
         if not 1 <= priority <= 5:
             raise ValueError("Priority must be between 1 and 5")
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old_priority = self.data.priority
 
         self.data.priority = priority
@@ -592,7 +592,7 @@ class FindingWorkflow:
         comment: str = "",
     ) -> WorkflowEvent:
         """Set or clear due date."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         old_due = self.data.due_date
 
         self.data.due_date = due_date
@@ -622,7 +622,7 @@ class FindingWorkflow:
         comment: str = "",
     ) -> WorkflowEvent:
         """Link this finding to another finding."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if linked_finding_id not in self.data.linked_findings:
             self.data.linked_findings.append(linked_finding_id)
@@ -681,7 +681,7 @@ class FindingWorkflow:
         comment: str = "",
     ) -> WorkflowEvent:
         """Record a severity change (actual change happens in finding model)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         event = WorkflowEvent(
             finding_id=self.data.finding_id,

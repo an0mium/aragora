@@ -4,7 +4,7 @@ Tests for persistence module.
 Tests the data models and SupabaseClient (with mocked Supabase).
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock, Mock
 
 import pytest
@@ -141,7 +141,7 @@ class TestDebateArtifactModel:
 
     def test_created_at_defaults_to_now(self):
         """Should default created_at to current time."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
 
         artifact = DebateArtifact(
             loop_id="test",
@@ -154,7 +154,7 @@ class TestDebateArtifactModel:
             confidence=1.0,
         )
 
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
 
         assert before <= artifact.created_at <= after
 

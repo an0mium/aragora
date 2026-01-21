@@ -17,7 +17,7 @@ __all__ = ["DecisionExplainHandler"]
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
@@ -178,7 +178,7 @@ class DecisionExplainHandler(BaseHandler):
         """Build comprehensive explanation from available data sources."""
         explanation: dict[str, Any] = {
             "request_id": request_id,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Try to load from trace file

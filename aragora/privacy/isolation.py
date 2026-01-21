@@ -11,7 +11,7 @@ import logging
 import secrets
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -317,7 +317,7 @@ class DataIsolationManager:
         org_data = {
             "id": org_id,
             "name": name,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "created_by": created_by,
             "settings": settings or {},
             "workspace_count": 0,
@@ -485,7 +485,7 @@ class DataIsolationManager:
                     action="get_workspace",
                 )
 
-        workspace.last_accessed = datetime.utcnow()
+        workspace.last_accessed = datetime.now(timezone.utc)
 
         if self.config.log_all_access:
             await self._log_access(
@@ -756,7 +756,7 @@ class DataIsolationManager:
     ) -> None:
         """Log an access event."""
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "workspace_id": workspace_id,
             "actor": actor,
             "action": action,

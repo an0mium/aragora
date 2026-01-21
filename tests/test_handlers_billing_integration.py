@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import pytest
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Any, Optional
 from unittest.mock import MagicMock, patch
@@ -68,7 +68,7 @@ class MockUserStore:
         if org:
             for key, value in kwargs.items():
                 setattr(org, key, value)
-            org.updated_at = datetime.utcnow()
+            org.updated_at = datetime.now(timezone.utc)
         return org
 
     def reset_org_usage(self, org_id: str) -> None:

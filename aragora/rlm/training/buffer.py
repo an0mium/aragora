@@ -19,7 +19,7 @@ import random
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class Step:
 
     def __post_init__(self) -> None:
         if not self.timestamp:
-            self.timestamp = datetime.utcnow().isoformat()
+            self.timestamp = datetime.now(timezone.utc).isoformat()
 
 
 @dataclass
@@ -91,7 +91,7 @@ class Trajectory:
 
             self.trajectory_id = str(uuid.uuid4())[:12]
         if not self.created_at:
-            self.created_at = datetime.utcnow().isoformat()
+            self.created_at = datetime.now(timezone.utc).isoformat()
 
     def add_step(self, step: Step) -> None:
         """Add a step to the trajectory."""

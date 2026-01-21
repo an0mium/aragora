@@ -16,7 +16,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from aragora.server.handlers.base import (
@@ -241,7 +241,7 @@ class DecisionHandler(BaseHandler):
                 "request_id": request.request_id,
                 "status": "completed" if result.success else "failed",
                 "result": result.to_dict(),
-                "completed_at": datetime.utcnow().isoformat(),
+                "completed_at": datetime.now(timezone.utc).isoformat(),
             })
 
             return json_response({

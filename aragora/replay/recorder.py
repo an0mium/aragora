@@ -25,7 +25,7 @@ import queue
 import threading
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -64,7 +64,7 @@ class ReplayRecorder:
             topic=topic,
             proposal=proposal,
             agents=agents,
-            started_at=datetime.utcnow().isoformat(),
+            started_at=datetime.now(timezone.utc).isoformat(),
         )
 
         self._write_queue: queue.Queue = queue.Queue(maxsize=MAX_REPLAY_QUEUE_SIZE)
@@ -158,7 +158,7 @@ class ReplayRecorder:
                     f"Replay writer thread didn't stop in 10s, queue depth: {self._write_queue.qsize()}"
                 )
         self.meta.status = "completed"
-        self.meta.ended_at = datetime.utcnow().isoformat()
+        self.meta.ended_at = datetime.now(timezone.utc).isoformat()
         self.meta.duration_ms = self._elapsed_ms()
         self.meta.final_verdict = verdict
         self.meta.vote_tally = votes

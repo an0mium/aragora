@@ -12,7 +12,7 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock
 
 from aragora.rbac.checker import (
@@ -347,7 +347,7 @@ class TestRoleAssignments:
             user_id="user-1",
             role_id="editor",
             org_id="org-1",
-            expires_at=datetime.utcnow() - timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
         )
         checker.add_role_assignment(expired)
 

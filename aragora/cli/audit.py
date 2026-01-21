@@ -15,7 +15,7 @@ Commands:
 import argparse
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -418,7 +418,7 @@ async def export_audit(args: Any) -> int:
         report = {
             "session": session.to_dict(),
             "findings": [f.to_dict() for f in session.findings],
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
         }
         with open(args.output, "w") as f:
             json.dump(report, f, indent=2, default=str)

@@ -7,7 +7,7 @@ Defines core types for document ingestion, chunking, and auditing.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
@@ -108,7 +108,7 @@ class DocumentChunk:
         if isinstance(created_at, str):
             created_at = datetime.fromisoformat(created_at)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
 
         return cls(
             id=data.get("id", str(uuid4())),
@@ -270,7 +270,7 @@ class IngestedDocument:
             headings=data.get("headings", []),
             tables_count=data.get("tables_count", 0),
             images_count=data.get("images_count", 0),
-            created_at=parse_dt(data.get("created_at")) or datetime.utcnow(),
+            created_at=parse_dt(data.get("created_at")) or datetime.now(timezone.utc),
             processed_at=parse_dt(data.get("processed_at")),
             indexed_at=parse_dt(data.get("indexed_at")),
             metadata=data.get("metadata", {}),

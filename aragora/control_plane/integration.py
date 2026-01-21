@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from aragora.control_plane.coordinator import (
@@ -208,7 +208,7 @@ class IntegratedControlPlane:
             "agent_id": agent_id,
             "model": model,
             "provider": provider,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         })
 
         return agent
@@ -231,7 +231,7 @@ class IntegratedControlPlane:
             await self._shared_state._broadcast_event({
                 "type": "agent_unregistered",
                 "agent_id": agent_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
         return result
@@ -341,7 +341,7 @@ class IntegratedControlPlane:
             "type": task_type,
             "priority": priority_str,
             "status": "pending",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "payload": payload,
             "metadata": metadata or {},
         })
@@ -391,7 +391,7 @@ class IntegratedControlPlane:
                 "type": "task_completed",
                 "task_id": task_id,
                 "agent_id": agent_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
         return success

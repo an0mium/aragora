@@ -31,7 +31,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -79,7 +79,7 @@ class WorkflowDataItem:
 
     def __post_init__(self) -> None:
         """Set default timestamps if not provided."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         if not self.created_at:
             self.created_at = now
         if not self.updated_at:
@@ -223,7 +223,7 @@ class InMemoryFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     async def list_overdue(self) -> list[dict[str, Any]]:
         """List all overdue findings."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         terminal_states = {"resolved", "false_positive", "duplicate", "accepted_risk"}
         with self._lock:
             return [
@@ -414,7 +414,7 @@ class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     async def list_overdue(self) -> list[dict[str, Any]]:
         """List all overdue findings."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         terminal_states = ("resolved", "false_positive", "duplicate", "accepted_risk")
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))

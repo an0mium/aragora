@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -46,8 +46,8 @@ def sample_audit_session():
         model="test-model",
         status=AuditStatus.COMPLETED,
     )
-    session.started_at = datetime.utcnow() - timedelta(hours=1)
-    session.completed_at = datetime.utcnow()
+    session.started_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    session.completed_at = datetime.now(timezone.utc)
     session.total_chunks = 50
     session.processed_chunks = 50
 

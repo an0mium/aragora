@@ -31,7 +31,7 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
@@ -109,7 +109,7 @@ class AuditEvent:
             timestamp=(
                 datetime.fromisoformat(data["timestamp"])
                 if data.get("timestamp")
-                else datetime.utcnow()
+                else datetime.now(timezone.utc)
             ),
             phase=data.get("phase"),
             actor=data.get("actor", "system"),

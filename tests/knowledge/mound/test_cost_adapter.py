@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import Mock
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from aragora.knowledge.mound.adapters.cost_adapter import (
@@ -28,7 +28,7 @@ class TestCostAnomaly:
             expected_value=10.0,
             actual_value=50.0,
             variance_ratio=5.0,
-            detected_at=datetime.utcnow(),
+            detected_at=datetime.now(timezone.utc),
         )
         assert anomaly.id == "anom_123"
         assert anomaly.variance_ratio == 5.0
@@ -46,7 +46,7 @@ class TestCostAnomaly:
             expected_value=100,
             actual_value=300,
             variance_ratio=3.0,
-            detected_at=datetime.utcnow(),
+            detected_at=datetime.now(timezone.utc),
             metadata={"source": "billing"},
         )
 
@@ -132,7 +132,7 @@ class TestCostAdapterStoreAlert:
         mock_alert.current_spend = Decimal("75.00")
         mock_alert.limit = Decimal("100.00")
         mock_alert.percentage = 75.0
-        mock_alert.created_at = datetime.utcnow()
+        mock_alert.created_at = datetime.now(timezone.utc)
         mock_alert.acknowledged = False
 
         alert_id = adapter.store_alert(mock_alert)
@@ -165,7 +165,7 @@ class TestCostAdapterStoreAlert:
         mock_alert.current_spend = Decimal("90.00")
         mock_alert.limit = Decimal("100.00")
         mock_alert.percentage = 90.0
-        mock_alert.created_at = datetime.utcnow()
+        mock_alert.created_at = datetime.now(timezone.utc)
         mock_alert.acknowledged = False
 
         adapter.store_alert(mock_alert)
@@ -190,7 +190,7 @@ class TestCostAdapterStoreAnomaly:
             expected_value=10.0,
             actual_value=50.0,
             variance_ratio=5.0,
-            detected_at=datetime.utcnow(),
+            detected_at=datetime.now(timezone.utc),
         )
 
         anomaly_id = adapter.store_anomaly(anomaly)
@@ -212,7 +212,7 @@ class TestCostAdapterStoreAnomaly:
             expected_value=10.0,
             actual_value=15.0,
             variance_ratio=1.5,  # Below 2.0
-            detected_at=datetime.utcnow(),
+            detected_at=datetime.now(timezone.utc),
         )
 
         anomaly_id = adapter.store_anomaly(anomaly)

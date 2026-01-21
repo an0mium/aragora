@@ -15,7 +15,7 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import pytest
@@ -257,7 +257,7 @@ class TestTimeFilters:
         conn = store._get_connection()
 
         # Insert old log
-        old_time = (datetime.utcnow() - timedelta(hours=48)).isoformat()
+        old_time = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
         conn.execute(
             """
             INSERT INTO audit_log
@@ -268,7 +268,7 @@ class TestTimeFilters:
         )
 
         # Insert recent log
-        recent_time = datetime.utcnow().isoformat()
+        recent_time = datetime.now(timezone.utc).isoformat()
         conn.execute(
             """
             INSERT INTO audit_log
@@ -283,7 +283,7 @@ class TestTimeFilters:
 
     def test_get_log_since(self, store_with_old_logs):
         """Test filtering logs since a timestamp."""
-        since = datetime.utcnow() - timedelta(hours=24)
+        since = datetime.now(timezone.utc) - timedelta(hours=24)
         logs = store_with_old_logs.get_log(since=since)
 
         # Should only get recent log
@@ -292,7 +292,7 @@ class TestTimeFilters:
 
     def test_get_log_until(self, store_with_old_logs):
         """Test filtering logs until a timestamp."""
-        until = datetime.utcnow() - timedelta(hours=24)
+        until = datetime.now(timezone.utc) - timedelta(hours=24)
         logs = store_with_old_logs.get_log(until=until)
 
         # Should only get old log
@@ -301,8 +301,8 @@ class TestTimeFilters:
 
     def test_get_log_time_range(self, store_with_old_logs):
         """Test filtering logs within a time range."""
-        since = datetime.utcnow() - timedelta(hours=72)
-        until = datetime.utcnow() - timedelta(hours=24)
+        since = datetime.now(timezone.utc) - timedelta(hours=72)
+        until = datetime.now(timezone.utc) - timedelta(hours=24)
         logs = store_with_old_logs.get_log(since=since, until=until)
 
         # Should only get old log (between 72h and 24h ago)
@@ -370,7 +370,7 @@ class TestCleanup:
         conn = store._get_connection()
 
         # Insert old log (100 days ago)
-        old_time = (datetime.utcnow() - timedelta(days=100)).isoformat()
+        old_time = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
         conn.execute(
             """
             INSERT INTO audit_log
@@ -381,7 +381,7 @@ class TestCleanup:
         )
 
         # Insert recent log
-        recent_time = datetime.utcnow().isoformat()
+        recent_time = datetime.now(timezone.utc).isoformat()
         conn.execute(
             """
             INSERT INTO audit_log

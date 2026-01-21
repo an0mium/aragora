@@ -13,7 +13,7 @@ Usage:
 import argparse
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -277,7 +277,7 @@ def cmd_report(args: argparse.Namespace) -> int:
 
             # Build report
             report = {
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "session": session.to_dict(),
                 "findings": [f.to_dict() for f in session.findings],
                 "summary": {

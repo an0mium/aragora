@@ -6,7 +6,7 @@ Tests automatic detection, migration, and startup migration functionality.
 
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aragora.security.migration import (
     MigrationResult,
@@ -61,7 +61,7 @@ class TestMigrationResult:
 
     def test_to_dict(self):
         """Test conversion to dictionary."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         result = MigrationResult(
             store_name="test_store",
             total_records=10,

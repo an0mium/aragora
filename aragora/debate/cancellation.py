@@ -31,7 +31,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 
@@ -112,7 +112,7 @@ class CancellationToken:
 
         self._reason = reason
         self._reason_type = reason_type
-        self._cancelled_at = datetime.utcnow()
+        self._cancelled_at = datetime.now(timezone.utc)
         self._cancelled.set()
 
         logger.info(f"cancellation_signalled reason={reason} type={reason_type.value}")

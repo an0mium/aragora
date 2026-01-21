@@ -16,7 +16,7 @@ import asyncio
 import hmac
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -187,7 +187,7 @@ class TestScheduledJob:
     def test_to_dict_with_timestamps(self):
         """to_dict formats timestamps correctly."""
         config = ScheduleConfig(name="test")
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         job = ScheduledJob(
             job_id="job_123",
             schedule_id="sched_456",
@@ -208,7 +208,7 @@ class TestJobRun:
 
     def test_required_fields(self):
         """Required fields are set."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         run = JobRun(
             run_id="run_123",
             job_id="job_456",
@@ -224,7 +224,7 @@ class TestJobRun:
         run = JobRun(
             run_id="run_123",
             job_id="job_456",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
 
         assert run.completed_at is None
@@ -236,7 +236,7 @@ class TestJobRun:
 
     def test_to_dict(self):
         """to_dict returns proper dictionary."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         run = JobRun(
             run_id="run_123",
             job_id="job_456",
@@ -257,7 +257,7 @@ class TestJobRun:
         run = JobRun(
             run_id="run_123",
             job_id="job_456",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             status="error",
             error_message="Something went wrong",
         )
@@ -396,7 +396,7 @@ class TestAuditScheduler:
 
         assert job.next_run is not None
         # Should be ~30 minutes from now
-        delta = job.next_run - datetime.utcnow()
+        delta = job.next_run - datetime.now(timezone.utc)
         assert 29 <= delta.total_seconds() / 60 <= 31
 
     def test_add_schedule_webhook(self):
@@ -823,7 +823,7 @@ class TestAuditScheduler:
             run = JobRun(
                 run_id=f"run_{i}",
                 job_id="job_123",
-                started_at=datetime.utcnow() - timedelta(hours=i),
+                started_at=datetime.now(timezone.utc) - timedelta(hours=i),
             )
             scheduler._runs[run.run_id] = run
 
@@ -876,7 +876,7 @@ class TestCronParserEdgeCases:
         next_run = CronParser.next_run("0 * * * *")
 
         assert next_run is not None
-        assert next_run > datetime.utcnow()
+        assert next_run > datetime.now(timezone.utc)
 
 
 class TestSchedulerIntegration:

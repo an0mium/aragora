@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ def cmd_security_status(args: argparse.Namespace) -> int:
         print(f"  Active key ID: {service.get_active_key_id()}")
 
         if active_key:
-            age_days = (datetime.utcnow() - active_key.created_at).days
+            age_days = (datetime.now(timezone.utc) - active_key.created_at).days
             print(f"  Key version: {active_key.version}")
             print(f"  Key age: {age_days} days")
             print(f"  Created: {active_key.created_at.isoformat()}")
@@ -306,7 +306,7 @@ def cmd_health(args: argparse.Namespace) -> int:
             print(f"  ✓ Active key: {service.get_active_key_id()} v{active_key.version}")
 
             # Check key age
-            age_days = (datetime.utcnow() - active_key.created_at).days
+            age_days = (datetime.now(timezone.utc) - active_key.created_at).days
             if age_days > 90:
                 warnings.append(f"Key is {age_days} days old (>90 days)")
                 print(f"  ⚠️  Key age: {age_days} days (rotation recommended)")

@@ -15,7 +15,7 @@ import json
 import os
 import pytest
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, Mock
 
 # Check if cryptography is available
@@ -591,7 +591,7 @@ class TestEncryptionKey:
             key_bytes=os.urandom(32),
             algorithm=EncryptionAlgorithm.AES_256_GCM,
             version=1,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         assert key.key_id == "test-key"
@@ -605,8 +605,8 @@ class TestEncryptionKey:
             key_bytes=os.urandom(32),
             algorithm=EncryptionAlgorithm.AES_256_GCM,
             version=1,
-            created_at=datetime.utcnow(),
-            expires_at=datetime.utcnow() - timedelta(days=1),  # Expired
+            created_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) - timedelta(days=1),  # Expired
         )
 
         assert key.is_expired
@@ -618,7 +618,7 @@ class TestEncryptionKey:
             key_bytes=os.urandom(32),
             algorithm=EncryptionAlgorithm.AES_256_GCM,
             version=1,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         data = key.to_dict()

@@ -4,7 +4,7 @@ import asyncio
 import pytest
 import tempfile
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 from aragora.storage.approval_request_store import (
     ApprovalRequestItem,
@@ -196,7 +196,7 @@ class TestInMemoryApprovalRequestStore:
     async def test_list_expired(self, store, sample_request_data):
         """Test listing expired requests."""
         # Set expires_at in the past
-        past_time = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        past_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         sample_request_data["expires_at"] = past_time
         await store.save(sample_request_data)
 
@@ -207,7 +207,7 @@ class TestInMemoryApprovalRequestStore:
     @pytest.mark.asyncio
     async def test_list_expired_excludes_responded(self, store, sample_request_data):
         """Test that expired list excludes already-responded requests."""
-        past_time = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        past_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         sample_request_data["expires_at"] = past_time
         sample_request_data["status"] = "approved"  # Already responded
         await store.save(sample_request_data)

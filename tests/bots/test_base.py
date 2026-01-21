@@ -11,7 +11,7 @@ Tests cover:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import pytest
@@ -166,7 +166,7 @@ class TestBotMessage:
             text="Hello world",
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.SLACK,
         )
 
@@ -186,7 +186,7 @@ class TestBotMessage:
             text="See attachment",
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.DISCORD,
             attachments=[{"url": "https://example.com/file.pdf"}],
         )
@@ -212,7 +212,7 @@ class TestCommandContext:
             text="/debate test",
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.SLACK,
         )
 
@@ -237,7 +237,7 @@ class TestCommandContext:
             text="/debate AI ethics",
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.DISCORD,
         )
 
@@ -262,7 +262,7 @@ class TestCommandContext:
             text="/status",
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.TEAMS,
         )
 

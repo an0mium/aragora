@@ -19,7 +19,7 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -334,7 +334,7 @@ class AgentPerformanceMonitor:
         filepath = self.session_dir / filename
 
         data = {
-            "saved_at": datetime.utcnow().isoformat(),
+            "saved_at": datetime.now(timezone.utc).isoformat(),
             "metrics_count": len(self.metrics),
             "insights": self.get_performance_insights(),
             "phase_breakdown": self.get_phase_breakdown(),

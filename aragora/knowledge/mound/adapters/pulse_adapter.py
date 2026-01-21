@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
@@ -267,7 +267,7 @@ class PulseAdapter:
             "category": topic.category,
             "quality_score": quality,
             "raw_data": topic.raw_data,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self._topics[topic_id] = topic_data
@@ -315,7 +315,7 @@ class PulseAdapter:
             "confidence": record.confidence,
             "rounds_used": record.rounds_used,
             "scheduler_run_id": record.scheduler_run_id,
-            "stored_at": datetime.utcnow().isoformat(),
+            "stored_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self._debates[debate_id] = debate_data
@@ -355,7 +355,7 @@ class PulseAdapter:
             "timestamp": outcome.timestamp,
             "category": outcome.category,
             "volume": outcome.volume,
-            "stored_at": datetime.utcnow().isoformat(),
+            "stored_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self._outcomes[outcome_id] = outcome_data
@@ -617,9 +617,9 @@ class PulseAdapter:
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
             except ValueError:
-                created_at = datetime.utcnow()
+                created_at = datetime.now(timezone.utc)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
 
         return KnowledgeItem(
             id=topic["id"],

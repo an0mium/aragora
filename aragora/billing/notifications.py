@@ -20,7 +20,7 @@ import os
 import smtplib
 import ssl
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import TYPE_CHECKING, Optional
@@ -260,7 +260,7 @@ If you believe this is an error, please contact support@aragora.ai
                 "email": email,
                 "attempt_count": attempt_count,
                 "urgency": urgency,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
         if webhook_result.success:
@@ -380,7 +380,7 @@ Questions? Contact us at support@aragora.ai
                 "days_remaining": days_remaining,
                 "trial_end": trial_end.isoformat(),
                 "urgency": urgency,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
         if webhook_result.success:
@@ -475,7 +475,7 @@ We'd love to hear your feedback. What could we have done better?
                 "org_name": org_name,
                 "email": email,
                 "reason": reason,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
         if webhook_result.success:
@@ -579,7 +579,7 @@ Need help? Contact support@aragora.ai
                 "email": email,
                 "previous_tier": previous_tier.value,
                 "new_tier": "free",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
         if webhook_result.success:

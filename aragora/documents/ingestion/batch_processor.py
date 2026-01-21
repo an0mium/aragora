@@ -32,7 +32,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional, cast
 from uuid import uuid4
@@ -491,7 +491,7 @@ class BatchProcessor:
     async def _process_job(self, job: DocumentJob) -> None:
         """Process a single document job."""
         job.status = JobStatus.PROCESSING
-        job.started_at = datetime.utcnow()
+        job.started_at = datetime.now(timezone.utc)
         job.progress = 0.0
 
         self._update_progress(job, 0.0, "Starting document parsing...")
@@ -559,14 +559,14 @@ class BatchProcessor:
 
         # Step 3: Finalize (100% of progress)
         document.status = DocumentStatus.INDEXED
-        document.processed_at = datetime.utcnow()
-        document.indexed_at = datetime.utcnow()
+        document.processed_at = datetime.now(timezone.utc)
+        document.indexed_at = datetime.now(timezone.utc)
 
         # Store results
         job.document = document
         job.chunks = chunks
         job.status = JobStatus.COMPLETED
-        job.completed_at = datetime.utcnow()
+        job.completed_at = datetime.now(timezone.utc)
         job.progress = 1.0
 
         # Update stats

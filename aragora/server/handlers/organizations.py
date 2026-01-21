@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from aragora.billing.models import OrganizationInvitation
@@ -487,7 +487,7 @@ class OrganizationsHandler(SecureHandler):
             email=email,
             role=role,
             invited_by=user.id,
-            expires_at=datetime.utcnow() + timedelta(days=7),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
         )
 
         # Store invitation in persistent database
@@ -797,7 +797,7 @@ class OrganizationsHandler(SecureHandler):
 
         # Mark invitation as accepted in database
         user_store.update_invitation_status(
-            invitation.id, "accepted", accepted_at=datetime.utcnow()
+            invitation.id, "accepted", accepted_at=datetime.now(timezone.utc)
         )
 
         logger.info(

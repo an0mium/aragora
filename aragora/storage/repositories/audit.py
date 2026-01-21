@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import AbstractContextManager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 
@@ -78,7 +78,7 @@ class AuditRepository:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    datetime.utcnow().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     user_id,
                     org_id,
                     action,

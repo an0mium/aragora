@@ -366,8 +366,18 @@ class WhatsAppHandler(BaseHandler):
         logger.info(f"Debate requested from WhatsApp {contact_name} ({to_number}): {topic[:100]}")
 
     def _start_debate_async(self, to_number: str, contact_name: str, topic: str) -> str:
-        """Start a debate asynchronously via the queue system."""
+        """Start a debate asynchronously via the DecisionRouter.
+
+        Uses the unified DecisionRouter for:
+        - Deduplication across channels
+        - Response caching
+        - RBAC enforcement
+        - Consistent routing
+
+        Falls back to queue system if DecisionRouter unavailable.
+        """
         import uuid
+        import asyncio
 
         debate_id = str(uuid.uuid4())
 
@@ -385,9 +395,70 @@ class WhatsAppHandler(BaseHandler):
         except Exception as e:
             logger.warning(f"Failed to register debate origin: {e}")
 
+        # Try DecisionRouter first (preferred)
+        try:
+            from aragora.core.decision import (
+                DecisionRequest,
+                DecisionType,
+                InputSource,
+                ResponseChannel,
+                RequestContext,
+                get_decision_router,
+            )
+
+            async def route_via_decision_router():
+                request = DecisionRequest(
+                    content=topic,
+                    decision_type=DecisionType.DEBATE,
+                    source=InputSource.WHATSAPP,
+                    response_channels=[
+                        ResponseChannel(
+                            platform="whatsapp",
+                            channel_id=to_number,
+                            user_id=to_number,
+                        )
+                    ],
+                    context=RequestContext(
+                        user_id=f"whatsapp:{to_number}",
+                        metadata={"contact_name": contact_name},
+                    ),
+                )
+
+                # Route through DecisionRouter (handles origin registration, deduplication, caching)
+                router = get_decision_router()
+                result = await router.route(request)
+                if result and result.debate_id:
+                    logger.info(f"DecisionRouter started debate {result.debate_id} from WhatsApp")
+                return result
+
+            # Run async in background
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(route_via_decision_router())
+                else:
+                    asyncio.run(route_via_decision_router())
+                return debate_id
+            except RuntimeError:
+                asyncio.run(route_via_decision_router())
+                return debate_id
+
+        except ImportError:
+            logger.debug("DecisionRouter not available, falling back to queue system")
+        except Exception as e:
+            logger.error(f"DecisionRouter failed: {e}, falling back to queue system")
+
+        # Fallback to queue system
+        return self._start_debate_via_queue(to_number, contact_name, topic, debate_id)
+
+    def _start_debate_via_queue(
+        self, to_number: str, contact_name: str, topic: str, debate_id: str
+    ) -> str:
+        """Fallback to direct queue enqueue if DecisionRouter unavailable."""
+        import asyncio
+
         try:
             from aragora.queue import create_debate_job
-            import asyncio
 
             job = create_debate_job(
                 question=topic,

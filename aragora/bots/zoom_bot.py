@@ -22,7 +22,7 @@ import hashlib
 import hmac
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from aragora.bots.base import (
@@ -64,7 +64,7 @@ class ZoomOAuthManager:
     async def get_access_token(self) -> Optional[str]:
         """Get a valid access token, refreshing if needed."""
         if self._access_token and self._token_expires:
-            if datetime.utcnow() < self._token_expires:
+            if datetime.now(timezone.utc) < self._token_expires:
                 return self._access_token
 
         # Fetch new token using client credentials
@@ -90,7 +90,7 @@ class ZoomOAuthManager:
                         expires_in = data.get("expires_in", 3600)
                         from datetime import timedelta
 
-                        self._token_expires = datetime.utcnow() + timedelta(
+                        self._token_expires = datetime.now(timezone.utc) + timedelta(
                             seconds=expires_in - 60  # Buffer
                         )
                         return self._access_token
@@ -338,7 +338,7 @@ class AragoraZoomBot:
             text=f"/{command} {args}".strip(),
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.ZOOM,
         )
 

@@ -23,7 +23,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
@@ -66,7 +66,7 @@ class OperationMetrics:
         self.total_calls += 1
         self.successful_calls += 1
         self.total_latency_seconds += latency_seconds
-        self.last_call_at = datetime.utcnow()
+        self.last_call_at = datetime.now(timezone.utc)
 
         if self.min_latency_seconds is None or latency_seconds < self.min_latency_seconds:
             self.min_latency_seconds = latency_seconds
@@ -78,7 +78,7 @@ class OperationMetrics:
         self.total_calls += 1
         self.failed_calls += 1
         self.last_error = error
-        self.last_error_at = datetime.utcnow()
+        self.last_error_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -348,7 +348,7 @@ class InstrumentedIntegrationStore:
         Returns:
             Dict with health status and metrics summary
         """
-        self._metrics.last_health_check = datetime.utcnow()
+        self._metrics.last_health_check = datetime.now(timezone.utc)
 
         try:
             # Try a lightweight operation

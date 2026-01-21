@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -728,7 +728,7 @@ class TestGauntletMemoryManagement:
         import time
 
         # Add old entry
-        old_time = datetime.utcnow().isoformat()
+        old_time = datetime.now(timezone.utc).isoformat()
         _gauntlet_runs["old-run"] = {
             "status": "completed",
             "created_at": 0,  # Unix epoch - very old

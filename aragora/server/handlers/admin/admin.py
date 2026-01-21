@@ -26,7 +26,7 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional, TypeVar, ParamSpec
 
 from aragora.auth.lockout import get_lockout_tracker
@@ -485,7 +485,7 @@ class AdminHandler(SecureHandler):
             return err
 
         metrics: dict[str, Any] = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Get user store stats
@@ -966,9 +966,9 @@ class AdminHandler(SecureHandler):
             "phase": target_phase,
             "running": target_phase != "idle",
             "cycle_id": current_state.get(
-                "cycle_id", "reset-" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
+                "cycle_id", "reset-" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
             ),
-            "last_update": datetime.utcnow().isoformat() + "Z",
+            "last_update": datetime.now(timezone.utc).isoformat() + "Z",
             "reset_by": auth_ctx.user_id,
             "reset_reason": reason,
             "previous_phase": current_state.get("phase"),
@@ -1055,11 +1055,11 @@ class AdminHandler(SecureHandler):
             **current_state,
             "phase": "paused",
             "running": False,
-            "paused_at": datetime.utcnow().isoformat() + "Z",
+            "paused_at": datetime.now(timezone.utc).isoformat() + "Z",
             "paused_by": auth_ctx.user_id,
             "pause_reason": reason,
             "previous_phase": current_state.get("phase"),
-            "last_update": datetime.utcnow().isoformat() + "Z",
+            "last_update": datetime.now(timezone.utc).isoformat() + "Z",
         }
 
         nomic_dir.mkdir(parents=True, exist_ok=True)
@@ -1134,9 +1134,9 @@ class AdminHandler(SecureHandler):
             **current_state,
             "phase": resume_phase,
             "running": True,
-            "resumed_at": datetime.utcnow().isoformat() + "Z",
+            "resumed_at": datetime.now(timezone.utc).isoformat() + "Z",
             "resumed_by": auth_ctx.user_id,
-            "last_update": datetime.utcnow().isoformat() + "Z",
+            "last_update": datetime.now(timezone.utc).isoformat() + "Z",
         }
         # Clean up pause-specific fields
         new_state.pop("paused_at", None)

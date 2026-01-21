@@ -11,7 +11,7 @@ import logging
 import os
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
@@ -315,7 +315,7 @@ class User:
     def set_password(self, password: str) -> None:
         """Set user password."""
         self.password_hash, self.password_salt = hash_password(password)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def verify_password(self, password: str) -> bool:
         """Verify user password."""
@@ -341,7 +341,7 @@ class User:
         if not self.needs_password_rehash():
             return False
         self.password_hash, self.password_salt = hash_password(password)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
         logger.info(f"Password hash upgraded for user {self.id}")
         return True
 
@@ -363,9 +363,9 @@ class User:
         # Store hash, not plaintext
         self.api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         self.api_key_prefix = api_key[:12]  # "ara_" + 8 chars for identification
-        self.api_key_created_at = datetime.utcnow()
-        self.api_key_expires_at = datetime.utcnow() + timedelta(days=expires_days)
-        self.updated_at = datetime.utcnow()
+        self.api_key_created_at = datetime.now(timezone.utc)
+        self.api_key_expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
+        self.updated_at = datetime.now(timezone.utc)
 
         return api_key  # Returned to user once, never stored
 
@@ -385,7 +385,7 @@ class User:
             return False
 
         # Check expiration
-        if self.api_key_expires_at and datetime.utcnow() > self.api_key_expires_at:
+        if self.api_key_expires_at and datetime.now(timezone.utc) > self.api_key_expires_at:
             logger.debug(f"API key expired for user {self.id}")
             return False
 
@@ -397,7 +397,7 @@ class User:
         """Check if API key is expired."""
         if not self.api_key_expires_at:
             return False
-        return datetime.utcnow() > self.api_key_expires_at
+        return datetime.now(timezone.utc) > self.api_key_expires_at
 
     def revoke_api_key(self) -> None:
         """Revoke the user's API key."""
@@ -405,7 +405,7 @@ class User:
         self.api_key_prefix = None
         self.api_key_created_at = None
         self.api_key_expires_at = None
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def to_dict(self, include_sensitive: bool = False) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -513,14 +513,14 @@ class Organization:
         if self.is_at_limit:
             return False
         self.debates_used_this_month += count
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
         return True
 
     def reset_monthly_usage(self) -> None:
         """Reset monthly usage counters."""
         self.debates_used_this_month = 0
-        self.billing_cycle_start = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.billing_cycle_start = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -588,7 +588,7 @@ class Subscription:
     # Billing period
     current_period_start: datetime = field(default_factory=datetime.utcnow)
     current_period_end: datetime = field(
-        default_factory=lambda: datetime.utcnow() + timedelta(days=30)
+        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=30)
     )
     cancel_at_period_end: bool = False
 
@@ -611,12 +611,12 @@ class Subscription:
             return False
         if self.trial_end is None:
             return False
-        return datetime.utcnow() < self.trial_end
+        return datetime.now(timezone.utc) < self.trial_end
 
     @property
     def days_until_renewal(self) -> int:
         """Get days until next renewal."""
-        delta = self.current_period_end - datetime.utcnow()
+        delta = self.current_period_end - datetime.now(timezone.utc)
         return max(0, delta.days)
 
     def to_dict(self) -> dict[str, Any]:
@@ -685,14 +685,14 @@ class OrganizationInvitation:
     invited_by: Optional[str] = None  # User ID of inviter
     status: str = "pending"  # pending, accepted, expired, revoked
     created_at: datetime = field(default_factory=datetime.utcnow)
-    expires_at: datetime = field(default_factory=lambda: datetime.utcnow() + timedelta(days=7))
+    expires_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7))
     accepted_by: Optional[str] = None  # User ID who accepted the invitation
     accepted_at: Optional[datetime] = None
 
     @property
     def is_expired(self) -> bool:
         """Check if invitation has expired."""
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     @property
     def is_pending(self) -> bool:
@@ -708,7 +708,7 @@ class OrganizationInvitation:
         if not self.is_pending:
             return False
         self.status = "accepted"
-        self.accepted_at = datetime.utcnow()
+        self.accepted_at = datetime.now(timezone.utc)
         return True
 
     def revoke(self) -> bool:

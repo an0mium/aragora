@@ -38,7 +38,7 @@ import os
 import sqlite3
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
@@ -424,15 +424,15 @@ class SharedControlPlaneState:
         """Register or update an agent."""
         agent = AgentState.from_dict(agent_data)
         if not agent.created_at:
-            agent.created_at = datetime.utcnow().isoformat()
-        agent.last_active = datetime.utcnow().isoformat()
+            agent.created_at = datetime.now(timezone.utc).isoformat()
+        agent.last_active = datetime.now(timezone.utc).isoformat()
 
         await self._save_agent(agent)
         await self._broadcast_event(
             {
                 "type": "agent_registered",
                 "agent_id": agent.id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
         return agent
@@ -460,12 +460,12 @@ class SharedControlPlaneState:
         agent.status = status
 
         if status == "paused":
-            agent.paused_at = datetime.utcnow().isoformat()
+            agent.paused_at = datetime.now(timezone.utc).isoformat()
         elif status == "active" and old_status == "paused":
-            agent.resumed_at = datetime.utcnow().isoformat()
+            agent.resumed_at = datetime.now(timezone.utc).isoformat()
             agent.paused_at = None
 
-        agent.last_active = datetime.utcnow().isoformat()
+        agent.last_active = datetime.now(timezone.utc).isoformat()
         await self._save_agent(agent)
 
         await self._broadcast_event(
@@ -476,7 +476,7 @@ class SharedControlPlaneState:
                 "agent_id": agent_id,
                 "old_status": old_status,
                 "new_status": status,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -497,7 +497,7 @@ class SharedControlPlaneState:
 
         agent.tasks_completed += tasks_completed
         agent.findings_generated += findings_generated
-        agent.last_active = datetime.utcnow().isoformat()
+        agent.last_active = datetime.now(timezone.utc).isoformat()
 
         if response_time_ms is not None:
             # Rolling average
@@ -526,14 +526,14 @@ class SharedControlPlaneState:
         """Add a task to the queue."""
         task = TaskState.from_dict(task_data)
         if not task.created_at:
-            task.created_at = datetime.utcnow().isoformat()
+            task.created_at = datetime.now(timezone.utc).isoformat()
 
         await self._save_task(task)
         await self._broadcast_event(
             {
                 "type": "task_added",
                 "task_id": task.id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
         return task
@@ -556,7 +556,7 @@ class SharedControlPlaneState:
             {
                 "type": "queue_updated",
                 "task_id": task_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -570,7 +570,7 @@ class SharedControlPlaneState:
         tasks = await self._get_all_tasks()
 
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "agents": {
                 "total": len(agents),
                 "active": sum(1 for a in agents if a.status == "active"),

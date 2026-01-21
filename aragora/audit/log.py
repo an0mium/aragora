@@ -42,7 +42,7 @@ import logging
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Generator, Optional
@@ -148,7 +148,7 @@ class AuditEvent:
             timestamp=(
                 datetime.fromisoformat(data["timestamp"])
                 if isinstance(data.get("timestamp"), str)
-                else data.get("timestamp", datetime.utcnow())
+                else data.get("timestamp", datetime.now(timezone.utc))
             ),
             category=AuditCategory(data.get("category", "system")),
             action=data.get("action", ""),
@@ -516,7 +516,7 @@ class AuditLog:
         events = self.query(query)
 
         export_data = {
-            "export_timestamp": datetime.utcnow().isoformat(),
+            "export_timestamp": datetime.now(timezone.utc).isoformat(),
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
             "org_id": org_id,
@@ -649,7 +649,7 @@ class AuditLog:
         # Build SOC 2 report
         report = {
             "report_type": "SOC 2 Type II Audit Log Export",
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "audit_period": {
                 "start": start_date.isoformat(),
                 "end": end_date.isoformat(),
@@ -707,7 +707,7 @@ class AuditLog:
         Returns:
             Number of events deleted
         """
-        cutoff = datetime.utcnow() - timedelta(days=self.retention_days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
 
         with self._connection() as conn:
             result = conn.execute(

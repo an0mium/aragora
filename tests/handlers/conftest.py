@@ -1,7 +1,7 @@
 """Fixtures for handler tests."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
@@ -145,7 +145,7 @@ class MockCoordinator:
             model=model,
             provider=provider,
             status=AgentStatus.IDLE,
-            last_heartbeat=datetime.utcnow(),
+            last_heartbeat=datetime.now(timezone.utc),
             metadata=metadata or {},
         )
         self._agents[agent_id] = agent
@@ -180,7 +180,7 @@ class MockCoordinator:
         agent = self._agents.get(agent_id)
         if not agent:
             return False
-        agent.last_heartbeat = datetime.utcnow()
+        agent.last_heartbeat = datetime.now(timezone.utc)
         if status:
             agent.status = status
         return True
@@ -208,7 +208,7 @@ class MockCoordinator:
             assigned_agent=None,
             result=None,
             error=None,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             metadata=metadata or {},
         )
         self._tasks[task_id] = task

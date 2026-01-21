@@ -9,7 +9,7 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, AsyncMock
 
 from aragora.billing.models import SubscriptionTier
@@ -247,7 +247,7 @@ class TestUsageTracking:
 
     def test_track_last_sync_time(self, service):
         """Test tracking last sync time per org."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         service._last_sync["org-123"] = now
 
         assert service._last_sync["org-123"] == now
@@ -583,7 +583,7 @@ class TestUsageSyncPersistence:
                 (org_id, tokens_in, tokens_out, debates, period_start, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                ("org-old", 99999, 88888, 77, "2020-01-01T00:00:00", datetime.utcnow().isoformat()),
+                ("org-old", 99999, 88888, 77, "2020-01-01T00:00:00", datetime.now(timezone.utc).isoformat()),
             )
             conn.commit()
 
@@ -656,10 +656,10 @@ class TestRemainderCarry:
         # Mock usage tracker to return 1500 tokens
         mock_usage_tracker.get_summary.return_value = UsageSummary(
             org_id="org-remainder",
-            period_start=datetime.utcnow().replace(
+            period_start=datetime.now(timezone.utc).replace(
                 day=1, hour=0, minute=0, second=0, microsecond=0
             ),
-            period_end=datetime.utcnow(),
+            period_end=datetime.now(timezone.utc),
             total_tokens_in=1500,  # 1000 billable + 500 remainder
             total_tokens_out=0,
             total_debates=0,
@@ -704,13 +704,13 @@ class TestRemainderCarry:
         )
         service.register_org(config)
 
-        period_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         # Sync 1: 800 tokens (below threshold)
         mock_usage_tracker.get_summary.return_value = UsageSummary(
             org_id="org-accum",
             period_start=period_start,
-            period_end=datetime.utcnow(),
+            period_end=datetime.now(timezone.utc),
             total_tokens_in=800,
             total_tokens_out=0,
             total_debates=0,
@@ -723,7 +723,7 @@ class TestRemainderCarry:
         mock_usage_tracker.get_summary.return_value = UsageSummary(
             org_id="org-accum",
             period_start=period_start,
-            period_end=datetime.utcnow(),
+            period_end=datetime.now(timezone.utc),
             total_tokens_in=1600,
             total_tokens_out=0,
             total_debates=0,
@@ -737,7 +737,7 @@ class TestRemainderCarry:
         mock_usage_tracker.get_summary.return_value = UsageSummary(
             org_id="org-accum",
             period_start=period_start,
-            period_end=datetime.utcnow(),
+            period_end=datetime.now(timezone.utc),
             total_tokens_in=2500,
             total_tokens_out=0,
             total_debates=0,
@@ -776,11 +776,11 @@ class TestRemainderCarry:
         service._synced_tokens_out["org-flush"] = 1000
 
         # Total usage is 2500 input, 1300 output (500 and 300 remainder)
-        period_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         mock_usage_tracker.get_summary.return_value = UsageSummary(
             org_id="org-flush",
             period_start=period_start,
-            period_end=datetime.utcnow(),
+            period_end=datetime.now(timezone.utc),
             total_tokens_in=2500,  # 500 remainder
             total_tokens_out=1300,  # 300 remainder
             total_debates=0,

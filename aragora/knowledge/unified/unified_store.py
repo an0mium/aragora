@@ -19,7 +19,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
 from aragora.knowledge.unified.types import (
@@ -345,7 +345,7 @@ class KnowledgeMound:
                 target_id=target_id,
                 relationship=relationship,
                 confidence=confidence,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
                 created_by=created_by,
                 metadata=metadata or {},
             )
@@ -555,12 +555,12 @@ class KnowledgeMound:
                         created_at=(
                             datetime.fromisoformat(entry.created_at)
                             if hasattr(entry, "created_at")
-                            else datetime.utcnow()
+                            else datetime.now(timezone.utc)
                         ),
                         updated_at=(
                             datetime.fromisoformat(entry.updated_at)
                             if hasattr(entry, "updated_at")
-                            else datetime.utcnow()
+                            else datetime.now(timezone.utc)
                         ),
                         metadata={
                             "debate_id": entry.debate_id if hasattr(entry, "debate_id") else None,
@@ -647,8 +647,8 @@ class KnowledgeMound:
                         source=KnowledgeSource.VECTOR,
                         source_id=result.id,
                         confidence=ConfidenceLevel.MEDIUM,
-                        created_at=datetime.utcnow(),  # Vector store may not have timestamps
-                        updated_at=datetime.utcnow(),
+                        created_at=datetime.now(timezone.utc),  # Vector store may not have timestamps
+                        updated_at=datetime.now(timezone.utc),
                         metadata=result.metadata or {},
                         importance=result.score if hasattr(result, "score") else 0.5,
                     )

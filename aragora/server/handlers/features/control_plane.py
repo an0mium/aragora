@@ -32,7 +32,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
@@ -220,13 +220,13 @@ class AgentDashboardHandler(BaseHandler):
                 return self._error_response(400, f"Agent is not active (current: {agent['status']})")
 
             agent["status"] = "paused"
-            agent["paused_at"] = datetime.utcnow().isoformat()
+            agent["paused_at"] = datetime.now(timezone.utc).isoformat()
 
             await self._broadcast_update(
                 {
                     "type": "agent_paused",
                     "agent_id": agent_id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
 
@@ -256,13 +256,13 @@ class AgentDashboardHandler(BaseHandler):
 
             agent["status"] = "active"
             agent["paused_at"] = None
-            agent["resumed_at"] = datetime.utcnow().isoformat()
+            agent["resumed_at"] = datetime.now(timezone.utc).isoformat()
 
             await self._broadcast_update(
                 {
                     "type": "agent_resumed",
                     "agent_id": agent_id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
 
@@ -390,7 +390,7 @@ class AgentDashboardHandler(BaseHandler):
                 {
                     "type": "queue_updated",
                     "task_id": task_id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
 
@@ -412,7 +412,7 @@ class AgentDashboardHandler(BaseHandler):
             agents = list(_agents.values())
 
             metrics = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "agents": {
                     "total": len(agents),
                     "active": sum(1 for a in agents if a["status"] == "active"),
@@ -454,7 +454,7 @@ class AgentDashboardHandler(BaseHandler):
         async def event_generator():
             try:
                 # Send initial state
-                yield f"data: {json.dumps({'type': 'connected', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                yield f"data: {json.dumps({'type': 'connected', 'timestamp': datetime.now(timezone.utc).isoformat()})}\n\n"
 
                 # Send current metrics
                 agents = list(_agents.values())
@@ -466,7 +466,7 @@ class AgentDashboardHandler(BaseHandler):
                         yield f"data: {json.dumps(event)}\n\n"
                     except asyncio.TimeoutError:
                         # Send periodic metrics update
-                        yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now(timezone.utc).isoformat()})}\n\n"
 
             finally:
                 if queue in _stream_clients:
@@ -494,7 +494,7 @@ class AgentDashboardHandler(BaseHandler):
 
         health = {
             "status": "healthy" if active_agents > 0 or not agents else "degraded",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "persistence": {
                 "enabled": is_persistent,
                 "backend": "redis" if is_persistent else "in_memory",
@@ -540,8 +540,8 @@ class AgentDashboardHandler(BaseHandler):
                 "findings_generated": 0,
                 "avg_response_time": 0,
                 "error_rate": 0.0,
-                "created_at": datetime.utcnow().isoformat(),
-                "last_active": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "last_active": datetime.now(timezone.utc).isoformat(),
             },
             {
                 "id": "agent-claude-reasoner",
@@ -555,8 +555,8 @@ class AgentDashboardHandler(BaseHandler):
                 "findings_generated": 0,
                 "avg_response_time": 0,
                 "error_rate": 0.0,
-                "created_at": datetime.utcnow().isoformat(),
-                "last_active": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "last_active": datetime.now(timezone.utc).isoformat(),
             },
             {
                 "id": "agent-gpt-verifier",
@@ -570,7 +570,7 @@ class AgentDashboardHandler(BaseHandler):
                 "findings_generated": 0,
                 "avg_response_time": 0,
                 "error_rate": 0.0,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "last_active": None,
             },
         ]
@@ -585,7 +585,7 @@ class AgentDashboardHandler(BaseHandler):
                 "status": "pending",
                 "document_id": "doc-001",
                 "audit_type": "security",
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
             },
             {
                 "id": f"task-{uuid4().hex[:8]}",
@@ -594,7 +594,7 @@ class AgentDashboardHandler(BaseHandler):
                 "status": "pending",
                 "document_id": "doc-002",
                 "audit_type": "compliance",
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
             },
         ]
 

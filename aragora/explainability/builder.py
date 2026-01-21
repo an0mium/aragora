@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from .decision import (
@@ -92,7 +92,7 @@ class ExplanationBuilder:
         decision = Decision(
             decision_id="",
             debate_id=debate_id,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             conclusion=getattr(result, "final_answer", "") or "",
             consensus_reached=getattr(result, "consensus_reached", False),
             confidence=getattr(result, "confidence", 0.0),
@@ -124,7 +124,7 @@ class ExplanationBuilder:
     def _generate_id(self, result: Any) -> str:
         """Generate an ID for the debate."""
         task = getattr(result, "task", "")
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
         return hashlib.sha256(f"{task}:{ts}".encode()).hexdigest()[:16]
 
     def _extract_task(self, result: Any, context: Optional[Any]) -> str:

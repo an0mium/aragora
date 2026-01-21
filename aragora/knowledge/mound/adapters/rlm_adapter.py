@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
@@ -180,8 +180,8 @@ class RlmAdapter:
             "content_markers": content_markers,
             "content_type": content_type,
             "usage_count": usage_count,
-            "created_at": existing.get("created_at") if existing else datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": existing.get("created_at") if existing else datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "metadata": metadata or {},
         }
 
@@ -267,7 +267,7 @@ class RlmAdapter:
             }
 
         self._priorities[content_id]["access_count"] += 1
-        self._priorities[content_id]["last_accessed"] = datetime.utcnow().isoformat()
+        self._priorities[content_id]["last_accessed"] = datetime.now(timezone.utc).isoformat()
 
         # Recalculate priority score
         access_count = self._priorities[content_id]["access_count"]
@@ -509,12 +509,12 @@ class RlmAdapter:
                     "created_at": (
                         node.created_at.isoformat()
                         if node.created_at
-                        else datetime.utcnow().isoformat()
+                        else datetime.now(timezone.utc).isoformat()
                     ),
                     "updated_at": (
                         node.updated_at.isoformat()
                         if node.updated_at
-                        else datetime.utcnow().isoformat()
+                        else datetime.now(timezone.utc).isoformat()
                     ),
                     "metadata": {},
                 }

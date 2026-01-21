@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, Callable
 from uuid import uuid4
@@ -74,12 +74,12 @@ class RetentionPolicy:
     def is_expired(self, created_at: datetime) -> bool:
         """Check if a resource has expired under this policy."""
         expiry_date = created_at + timedelta(days=self.retention_days)
-        return datetime.utcnow() >= expiry_date
+        return datetime.now(timezone.utc) >= expiry_date
 
     def days_until_expiry(self, created_at: datetime) -> int:
         """Calculate days until expiry."""
         expiry_date = created_at + timedelta(days=self.retention_days)
-        delta = expiry_date - datetime.utcnow()
+        delta = expiry_date - datetime.now(timezone.utc)
         return max(0, delta.days)
 
 
@@ -289,7 +289,7 @@ class RetentionPolicyManager:
                 errors=["Policy is disabled"],
             )
 
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
         report = DeletionReport(policy_id=policy_id)
 
         try:
@@ -321,13 +321,13 @@ class RetentionPolicyManager:
                 report.notifications_sent = await self._send_notifications(policy, report, dry_run)
 
             # Update policy
-            policy.last_run = datetime.utcnow()
+            policy.last_run = datetime.now(timezone.utc)
 
         except Exception as e:
             report.errors.append(f"Policy execution error: {e}")
             logger.exception(f"Error executing policy {policy_id}")
 
-        report.duration_seconds = (datetime.utcnow() - started_at).total_seconds()
+        report.duration_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
         return report
 
     async def execute_all_policies(
@@ -404,8 +404,8 @@ class RetentionPolicyManager:
         Returns:
             Compliance report data
         """
-        start_date = start_date or (datetime.utcnow() - timedelta(days=30))
-        end_date = end_date or datetime.utcnow()
+        start_date = start_date or (datetime.now(timezone.utc) - timedelta(days=30))
+        end_date = end_date or datetime.now(timezone.utc)
 
         # Filter deletion records
         records = [

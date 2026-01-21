@@ -40,7 +40,7 @@ import os
 import secrets
 import struct
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, Optional, Union
 
@@ -123,7 +123,7 @@ class EncryptionKey:
         """Check if the key is expired."""
         if self.expires_at is None:
             return False
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (without key material)."""
@@ -279,7 +279,7 @@ class EncryptionService:
             key_bytes=master_key,
             algorithm=self.config.algorithm,
             version=1,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             is_active=True,
         )
         self._keys["master"] = key
@@ -311,14 +311,14 @@ class EncryptionService:
             version = self._keys[key_id].version + 1
 
         ttl = ttl_days or self.config.default_key_ttl_days
-        expires_at = datetime.utcnow() + timedelta(days=ttl) if ttl > 0 else None
+        expires_at = datetime.now(timezone.utc) + timedelta(days=ttl) if ttl > 0 else None
 
         key = EncryptionKey(
             key_id=key_id,
             key_bytes=key_bytes,
             algorithm=self.config.algorithm,
             version=version,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             expires_at=expires_at,
             is_active=True,
         )
@@ -365,7 +365,7 @@ class EncryptionService:
             key_bytes=key_bytes,
             algorithm=self.config.algorithm,
             version=1,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             is_active=True,
         )
 
@@ -549,7 +549,7 @@ class EncryptionService:
         if old_key:
             # Keep old key for overlap period
             if self.config.rotation_overlap_days > 0:
-                old_key.expires_at = datetime.utcnow() + timedelta(
+                old_key.expires_at = datetime.now(timezone.utc) + timedelta(
                     days=self.config.rotation_overlap_days
                 )
             old_key.is_active = False

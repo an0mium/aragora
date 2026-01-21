@@ -12,7 +12,7 @@ All endpoints require admin or owner role.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..base import (
@@ -95,7 +95,7 @@ class SecurityHandler(SecureHandler):
             }
 
             if active_key:
-                age_days = (datetime.utcnow() - active_key.created_at).days
+                age_days = (datetime.now(timezone.utc) - active_key.created_at).days
                 result.update(
                     {
                         "key_version": active_key.version,
@@ -156,7 +156,7 @@ class SecurityHandler(SecureHandler):
                 service = get_encryption_service()
                 active_key = service.get_active_key()
                 if active_key:
-                    age_days = (datetime.utcnow() - active_key.created_at).days
+                    age_days = (datetime.now(timezone.utc) - active_key.created_at).days
                     if age_days < 30:
                         return error_response(
                             f"Key is only {age_days} days old. "
@@ -242,7 +242,7 @@ class SecurityHandler(SecureHandler):
             active_key = service.get_active_key()
             checks["active_key"] = active_key is not None
             if active_key:
-                age_days = (datetime.utcnow() - active_key.created_at).days
+                age_days = (datetime.now(timezone.utc) - active_key.created_at).days
                 checks["key_age_days"] = age_days
                 checks["key_version"] = active_key.version
 
@@ -311,7 +311,7 @@ class SecurityHandler(SecureHandler):
 
             keys_info = []
             for key in all_keys:
-                age_days = (datetime.utcnow() - key.created_at).days
+                age_days = (datetime.now(timezone.utc) - key.created_at).days
                 keys_info.append(
                     {
                         "key_id": key.key_id,

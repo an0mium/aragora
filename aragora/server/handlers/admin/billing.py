@@ -15,7 +15,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from aragora.billing.jwt_auth import extract_user_from_request
@@ -617,7 +617,7 @@ class BillingHandler(SecureHandler):
         output.close()
 
         # Return CSV file
-        filename = f"usage_export_{org.slug}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+        filename = f"usage_export_{org.slug}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
         return HandlerResult(
             status_code=200,
             content_type="text/csv",
@@ -647,7 +647,7 @@ class BillingHandler(SecureHandler):
             return error_response("Organization not found", 404)
 
         # Calculate days elapsed in billing cycle
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         days_elapsed = (now - org.billing_cycle_start).days
         days_in_cycle = 30  # Approximate
 

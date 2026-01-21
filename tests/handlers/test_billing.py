@@ -13,7 +13,7 @@ Tests the billing API endpoints including:
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
@@ -124,7 +124,7 @@ class MockOrganization:
         self.debates_used_this_month = debates_used_this_month
         self.stripe_customer_id = stripe_customer_id
         self.stripe_subscription_id = stripe_subscription_id
-        self.billing_cycle_start = billing_cycle_start or datetime.utcnow().replace(day=1)
+        self.billing_cycle_start = billing_cycle_start or datetime.now(timezone.utc).replace(day=1)
         self.limits = limits or MockTierLimits()
 
     @property
@@ -181,12 +181,12 @@ class MockStripeSubscription:
     ):
         self.id = id
         self.status = status
-        self.current_period_end = current_period_end or (datetime.utcnow() + timedelta(days=30))
+        self.current_period_end = current_period_end or (datetime.now(timezone.utc) + timedelta(days=30))
         self.cancel_at_period_end = cancel_at_period_end
         self.trial_start = trial_start
         self.trial_end = trial_end
         self.is_trialing = trial_start is not None and (
-            trial_end is None or trial_end > datetime.utcnow()
+            trial_end is None or trial_end > datetime.now(timezone.utc)
         )
 
     def to_dict(self) -> dict:
@@ -1380,7 +1380,7 @@ class TestUsageForecast:
         # Set high usage to trigger recommendation
         org = user_store.get_organization_by_id("org_1")
         org.debates_used_this_month = 9  # Near limit
-        org.billing_cycle_start = datetime.utcnow() - timedelta(days=5)  # High rate
+        org.billing_cycle_start = datetime.now(timezone.utc) - timedelta(days=5)  # High rate
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             with patch(

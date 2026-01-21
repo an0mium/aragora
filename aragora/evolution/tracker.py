@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
@@ -30,7 +30,7 @@ class OutcomeRecord:
 
     def __post_init__(self):
         if not self.recorded_at:
-            self.recorded_at = datetime.utcnow().isoformat()
+            self.recorded_at = datetime.now(timezone.utc).isoformat()
 
 
 class EvolutionTracker(SQLiteStore):

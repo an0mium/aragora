@@ -27,7 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -141,8 +141,8 @@ class AuditSessionsHandler(BaseHandler):
             "audit_types": audit_types,
             "config": config,
             "status": "pending",
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "started_at": None,
             "completed_at": None,
             "progress": {
@@ -231,8 +231,8 @@ class AuditSessionsHandler(BaseHandler):
             return self._error_response(400, f"Cannot start session in {session['status']} status")
 
         session["status"] = "running"
-        session["started_at"] = datetime.utcnow().isoformat()
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["started_at"] = datetime.now(timezone.utc).isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Emit event
         await self._emit_event(
@@ -240,7 +240,7 @@ class AuditSessionsHandler(BaseHandler):
             {
                 "type": "audit_started",
                 "session_id": session_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -261,14 +261,14 @@ class AuditSessionsHandler(BaseHandler):
             return self._error_response(400, f"Cannot pause session in {session['status']} status")
 
         session["status"] = "paused"
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         await self._emit_event(
             session_id,
             {
                 "type": "audit_paused",
                 "session_id": session_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -286,14 +286,14 @@ class AuditSessionsHandler(BaseHandler):
             return self._error_response(400, f"Cannot resume session in {session['status']} status")
 
         session["status"] = "running"
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         await self._emit_event(
             session_id,
             {
                 "type": "audit_resumed",
                 "session_id": session_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -329,8 +329,8 @@ class AuditSessionsHandler(BaseHandler):
 
         session["status"] = "cancelled"
         session["cancel_reason"] = reason
-        session["completed_at"] = datetime.utcnow().isoformat()
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["completed_at"] = datetime.now(timezone.utc).isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         await self._emit_event(
             session_id,
@@ -338,7 +338,7 @@ class AuditSessionsHandler(BaseHandler):
                 "type": "audit_cancelled",
                 "session_id": session_id,
                 "reason": reason,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -461,14 +461,14 @@ class AuditSessionsHandler(BaseHandler):
                         finding["human_review"] = {
                             "action": "approved",
                             "reason": reason,
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
                         }
                     else:
                         finding["status"] = "false_positive"
                         finding["human_review"] = {
                             "action": "rejected",
                             "reason": reason,
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
                         }
                     break
 
@@ -478,7 +478,7 @@ class AuditSessionsHandler(BaseHandler):
                 "type": "human_intervention",
                 "action": action,
                 "finding_id": finding_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -643,7 +643,7 @@ class AuditSessionsHandler(BaseHandler):
                 {
                     "session": session,
                     "findings": findings,
-                    "generated_at": datetime.utcnow().isoformat(),
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
                 },
             )
 
@@ -688,7 +688,7 @@ class AuditSessionsHandler(BaseHandler):
                         "type": "finding_discovered",
                         "session_id": session_id,
                         "finding": finding_dict,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
                 )
 
@@ -697,7 +697,7 @@ class AuditSessionsHandler(BaseHandler):
                 if session_id in _sessions:
                     _sessions[session_id]["progress"]["current_phase"] = phase
                     _sessions[session_id]["progress"]["percentage"] = progress
-                    _sessions[session_id]["updated_at"] = datetime.utcnow().isoformat()
+                    _sessions[session_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                 # Emit progress event (fire and forget)
                 asyncio.create_task(
@@ -708,7 +708,7 @@ class AuditSessionsHandler(BaseHandler):
                             "session_id": session_id,
                             "phase": phase,
                             "progress": progress,
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
                         },
                     )
                 )
@@ -751,7 +751,7 @@ class AuditSessionsHandler(BaseHandler):
                         break
 
                     session["progress"]["processed_documents"] = i + 1
-                    session["updated_at"] = datetime.utcnow().isoformat()
+                    session["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                     await self._emit_event(
                         session_id,
@@ -760,7 +760,7 @@ class AuditSessionsHandler(BaseHandler):
                             "session_id": session_id,
                             "document_id": doc_id,
                             "progress": session["progress"],
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
                         },
                     )
 
@@ -772,8 +772,8 @@ class AuditSessionsHandler(BaseHandler):
             # Mark completed if not cancelled
             if session["status"] == "running":
                 session["status"] = "completed"
-                session["completed_at"] = datetime.utcnow().isoformat()
-                session["updated_at"] = datetime.utcnow().isoformat()
+                session["completed_at"] = datetime.now(timezone.utc).isoformat()
+                session["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                 await self._emit_event(
                     session_id,
@@ -781,7 +781,7 @@ class AuditSessionsHandler(BaseHandler):
                         "type": "audit_completed",
                         "session_id": session_id,
                         "findings_count": len(_findings.get(session_id, [])),
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
                 )
 
@@ -793,7 +793,7 @@ class AuditSessionsHandler(BaseHandler):
             if session_id in _sessions:
                 _sessions[session_id]["status"] = "failed"
                 _sessions[session_id]["error"] = str(e)
-                _sessions[session_id]["updated_at"] = datetime.utcnow().isoformat()
+                _sessions[session_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     async def _emit_event(self, session_id: str, event: dict[str, Any]):
         """Emit event to all connected clients for a session."""

@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -826,7 +826,7 @@ class DiscordConnector(ChatPlatformConnector):
                     try:
                         timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
                     except (ValueError, AttributeError):
-                        timestamp = datetime.utcnow()
+                        timestamp = datetime.now(timezone.utc)
 
                     chat_msg = ChatMessage(
                         id=msg.get("id", ""),

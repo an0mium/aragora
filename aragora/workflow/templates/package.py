@@ -27,7 +27,7 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -104,8 +104,8 @@ class TemplateMetadata:
     license: str = "MIT"
 
     # Version management
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     successor: Optional[str] = None  # Template ID of replacement
 
     # Dependencies

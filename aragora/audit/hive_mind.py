@@ -45,7 +45,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence
 
@@ -354,7 +354,7 @@ class QueenOrchestrator:
         """Execute a single worker task."""
         start_time = time.time()
         task.status = TaskStatus.RUNNING
-        task.started_at = datetime.utcnow()
+        task.started_at = datetime.now(timezone.utc)
 
         prompt = self._build_audit_prompt(task)
 
@@ -365,7 +365,7 @@ class QueenOrchestrator:
             )
 
             task.status = TaskStatus.COMPLETED
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
 
             # Parse findings from response
             findings = self._parse_findings(response, task, worker.name, session_id)

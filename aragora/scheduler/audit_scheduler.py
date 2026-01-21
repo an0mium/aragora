@@ -30,7 +30,7 @@ import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, Callable, Optional
 from uuid import uuid4
@@ -213,7 +213,7 @@ class CronParser:
     def next_run(expression: str, after: Optional[datetime] = None) -> datetime:
         """Calculate the next run time for a cron expression."""
         if after is None:
-            after = datetime.utcnow()
+            after = datetime.now(timezone.utc)
 
         parsed = CronParser.parse(expression)
 
@@ -273,7 +273,7 @@ class AuditScheduler:
         if config.trigger_type == TriggerType.CRON and config.cron:
             next_run = CronParser.next_run(config.cron)
         elif config.trigger_type == TriggerType.INTERVAL and config.interval_minutes:
-            next_run = datetime.utcnow() + timedelta(minutes=config.interval_minutes)
+            next_run = datetime.now(timezone.utc) + timedelta(minutes=config.interval_minutes)
 
         job = ScheduledJob(
             job_id=job_id,
@@ -502,7 +502,7 @@ class AuditScheduler:
         """Main scheduler loop."""
         while self._running:
             try:
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
 
                 # Check each job for due execution
                 for job in list(self._jobs.values()):
@@ -541,7 +541,7 @@ class AuditScheduler:
         run = JobRun(
             run_id=run_id,
             job_id=job.job_id,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
         self._runs[run_id] = run
 
@@ -581,7 +581,7 @@ class AuditScheduler:
 
             run.findings_count = len(result.findings)
             run.status = "completed"
-            run.completed_at = datetime.utcnow()
+            run.completed_at = datetime.now(timezone.utc)
             run.duration_ms = int((run.completed_at - run.started_at).total_seconds() * 1000)
 
             job.status = ScheduleStatus.ACTIVE
@@ -604,7 +604,7 @@ class AuditScheduler:
         except asyncio.TimeoutError:
             run.status = "timeout"
             run.error_message = f"Job timed out after {job.config.timeout_minutes} minutes"
-            run.completed_at = datetime.utcnow()
+            run.completed_at = datetime.now(timezone.utc)
             job.status = ScheduleStatus.ACTIVE
             job.error_count += 1
             await self._emit("job_failed", job, run)
@@ -613,7 +613,7 @@ class AuditScheduler:
         except Exception as e:
             run.status = "error"
             run.error_message = str(e)
-            run.completed_at = datetime.utcnow()
+            run.completed_at = datetime.now(timezone.utc)
             job.status = (
                 ScheduleStatus.ERROR
                 if job.error_count >= job.config.max_retries

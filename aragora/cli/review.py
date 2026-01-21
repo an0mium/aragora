@@ -17,7 +17,7 @@ import os
 import subprocess
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -58,7 +58,7 @@ def save_review_for_sharing(
     # Create review record
     review_data = {
         "id": review_id,
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
         "agents": agents.split(","),
         "pr_url": pr_url,
         "diff_preview": diff[:500] + "..." if len(diff) > 500 else diff,

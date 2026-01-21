@@ -6,7 +6,7 @@ import asyncio
 import tempfile
 import os
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -58,7 +58,7 @@ async def test_index_and_search_debate():
             confidence=0.8,
             winning_proposal="Balanced approach",
             vote_tally={"Claude": 1, "Gemini": 1},
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         # Index the debate
@@ -103,7 +103,7 @@ async def test_multiple_debates():
             consensus_reached=True,
             confidence=0.9,
             winning_proposal="Implement safety checks",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         # Debate 2: About AI features
@@ -119,7 +119,7 @@ async def test_multiple_debates():
             consensus_reached=True,
             confidence=0.7,
             winning_proposal="Add embeddings database",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
         await db.index_debate(debate1)

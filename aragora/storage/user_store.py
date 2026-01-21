@@ -30,7 +30,7 @@ import sqlite3
 import threading
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator, Optional
 
@@ -315,7 +315,7 @@ class UserStore:
                 user_id, api_key, _ = row[0], row[1], row[2]
                 key_hash = hashlib.sha256(api_key.encode()).hexdigest()
                 prefix = api_key[:12]
-                expires_at = (datetime.utcnow() + timedelta(days=365)).isoformat()
+                expires_at = (datetime.now(timezone.utc) + timedelta(days=365)).isoformat()
 
                 cursor.execute(
                     """
@@ -323,7 +323,7 @@ class UserStore:
                     SET api_key_hash = ?, api_key_prefix = ?, api_key_expires_at = ?, updated_at = ?
                     WHERE id = ?
                 """,
-                    (key_hash, prefix, expires_at, datetime.utcnow().isoformat(), user_id),
+                    (key_hash, prefix, expires_at, datetime.now(timezone.utc).isoformat(), user_id),
                 )
                 migrated += 1
                 logger.info(f"Migrated API key for user {user_id}")
@@ -947,7 +947,7 @@ class PostgresUserStore:
     ) -> User:
         """Create a new user asynchronously."""
         user_id = str(uuid.uuid4())
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         async with self._pool.acquire() as conn:
             await conn.execute(
@@ -1079,7 +1079,7 @@ class PostgresUserStore:
             param_idx += 1
 
         updates.append(f"updated_at = ${param_idx}")
-        params.append(datetime.utcnow())
+        params.append(datetime.now(timezone.utc))
         param_idx += 1
         params.append(user_id)
 
@@ -1142,7 +1142,7 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             result = await conn.execute(
                 "UPDATE users SET preferences = $1, updated_at = $2 WHERE id = $3",
-                json.dumps(preferences), datetime.utcnow(), user_id,
+                json.dumps(preferences), datetime.now(timezone.utc), user_id,
             )
             return result != "UPDATE 0"
 
@@ -1158,7 +1158,7 @@ class PostgresUserStore:
             row = await conn.fetchrow(
                 """UPDATE users SET token_version = token_version + 1, updated_at = $1
                    WHERE id = $2 RETURNING token_version""",
-                datetime.utcnow(), user_id,
+                datetime.now(timezone.utc), user_id,
             )
             return row["token_version"] if row else 1
 
@@ -1207,7 +1207,7 @@ class PostgresUserStore:
         org_id = str(uuid.uuid4())
         if not slug:
             slug = name.lower().replace(" ", "-")[:50] + "-" + org_id[:8]
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         async with self._pool.acquire() as conn:
             await conn.execute(
@@ -1341,7 +1341,7 @@ class PostgresUserStore:
             param_idx += 1
 
         updates.append(f"updated_at = ${param_idx}")
-        params.append(datetime.utcnow())
+        params.append(datetime.now(timezone.utc))
         param_idx += 1
         params.append(org_id)
 
@@ -1362,7 +1362,7 @@ class PostgresUserStore:
             result = await conn.execute(
                 """UPDATE organizations SET debates_used_this_month = 0,
                    billing_cycle_start = $1, updated_at = $1 WHERE id = $2""",
-                datetime.utcnow(), org_id,
+                datetime.now(timezone.utc), org_id,
             )
             return result != "UPDATE 0"
 
@@ -1377,7 +1377,7 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             result = await conn.execute(
                 "UPDATE users SET org_id = $1, role = $2, updated_at = $3 WHERE id = $4",
-                org_id, role, datetime.utcnow(), user_id,
+                org_id, role, datetime.now(timezone.utc), user_id,
             )
             return result != "UPDATE 0"
 
@@ -1390,7 +1390,7 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             result = await conn.execute(
                 "UPDATE users SET org_id = NULL, role = 'member', updated_at = $1 WHERE id = $2",
-                datetime.utcnow(), user_id,
+                datetime.now(timezone.utc), user_id,
             )
             return result != "UPDATE 0"
 
@@ -1483,7 +1483,7 @@ class PostgresUserStore:
             row = await conn.fetchrow(
                 """UPDATE organizations SET debates_used_this_month = debates_used_this_month + $1,
                    updated_at = $2 WHERE id = $3 RETURNING debates_used_this_month""",
-                count, datetime.utcnow(), org_id,
+                count, datetime.now(timezone.utc), org_id,
             )
             return row["debates_used_this_month"] if row else 0
 
@@ -1511,7 +1511,7 @@ class PostgresUserStore:
             await conn.execute(
                 """INSERT INTO usage_events (org_id, event_type, count, metadata, created_at)
                    VALUES ($1, $2, $3, $4, $5)""",
-                org_id, event_type, count, json.dumps(metadata or {}), datetime.utcnow(),
+                org_id, event_type, count, json.dumps(metadata or {}), datetime.now(timezone.utc),
             )
 
     def reset_monthly_usage(self) -> int:
@@ -1524,7 +1524,7 @@ class PostgresUserStore:
             result = await conn.execute(
                 """UPDATE organizations SET debates_used_this_month = 0,
                    billing_cycle_start = $1, updated_at = $1""",
-                datetime.utcnow(),
+                datetime.now(timezone.utc),
             )
             # Parse "UPDATE N" to get count
             parts = result.split()
@@ -1584,7 +1584,7 @@ class PostgresUserStore:
                     """INSERT INTO oauth_providers (user_id, provider, provider_user_id, email, linked_at)
                        VALUES ($1, $2, $3, $4, $5)
                        ON CONFLICT (provider, provider_user_id) DO NOTHING""",
-                    user_id, provider, provider_user_id, email, datetime.utcnow(),
+                    user_id, provider, provider_user_id, email, datetime.now(timezone.utc),
                 )
                 return True
             except Exception:
@@ -1691,7 +1691,7 @@ class PostgresUserStore:
                     old_value, new_value, metadata, ip_address, user_agent)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                    RETURNING id""",
-                datetime.utcnow(), user_id, org_id, action, resource_type, resource_id,
+                datetime.now(timezone.utc), user_id, org_id, action, resource_type, resource_id,
                 json.dumps(old_value) if old_value else None,
                 json.dumps(new_value) if new_value else None,
                 json.dumps(metadata or {}),
@@ -1994,7 +1994,7 @@ class PostgresUserStore:
             result = await conn.execute(
                 """UPDATE org_invitations SET status = 'expired'
                    WHERE status = 'pending' AND expires_at < $1""",
-                datetime.utcnow(),
+                datetime.now(timezone.utc),
             )
             parts = result.split()
             return int(parts[1]) if len(parts) > 1 else 0
@@ -2035,7 +2035,7 @@ class PostgresUserStore:
             lockout_until = row["lockout_until"]
             attempts = row["failed_login_attempts"] or 0
 
-            if lockout_until and lockout_until > datetime.utcnow():
+            if lockout_until and lockout_until > datetime.now(timezone.utc):
                 return True, lockout_until, attempts
             return False, None, attempts
 
@@ -2053,7 +2053,7 @@ class PostgresUserStore:
                    updated_at = $1
                    WHERE email = $2
                    RETURNING failed_login_attempts""",
-                datetime.utcnow(), email,
+                datetime.now(timezone.utc), email,
             )
             if not row:
                 return 0, None
@@ -2063,11 +2063,11 @@ class PostgresUserStore:
 
             # Determine lockout duration based on attempts
             if attempts >= self.LOCKOUT_THRESHOLD_3:
-                lockout_until = datetime.utcnow() + self.LOCKOUT_DURATION_3
+                lockout_until = datetime.now(timezone.utc) + self.LOCKOUT_DURATION_3
             elif attempts >= self.LOCKOUT_THRESHOLD_2:
-                lockout_until = datetime.utcnow() + self.LOCKOUT_DURATION_2
+                lockout_until = datetime.now(timezone.utc) + self.LOCKOUT_DURATION_2
             elif attempts >= self.LOCKOUT_THRESHOLD_1:
-                lockout_until = datetime.utcnow() + self.LOCKOUT_DURATION_1
+                lockout_until = datetime.now(timezone.utc) + self.LOCKOUT_DURATION_1
 
             if lockout_until:
                 await conn.execute(
@@ -2091,7 +2091,7 @@ class PostgresUserStore:
                    failed_login_attempts = 0, lockout_until = NULL,
                    last_failed_login_at = NULL, updated_at = $1
                    WHERE email = $2""",
-                datetime.utcnow(), email,
+                datetime.now(timezone.utc), email,
             )
             return result != "UPDATE 0"
 
@@ -2115,7 +2115,7 @@ class PostgresUserStore:
                 "failed_attempts": row["failed_login_attempts"] or 0,
                 "lockout_until": row["lockout_until"].isoformat() if row["lockout_until"] else None,
                 "last_failed_at": row["last_failed_login_at"].isoformat() if row["last_failed_login_at"] else None,
-                "is_locked": bool(row["lockout_until"] and row["lockout_until"] > datetime.utcnow()),
+                "is_locked": bool(row["lockout_until"] and row["lockout_until"] > datetime.now(timezone.utc)),
             }
 
     # =========================================================================

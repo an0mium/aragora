@@ -12,7 +12,7 @@ Covers:
 from __future__ import annotations
 
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -503,8 +503,8 @@ class TestSerialization:
                     "severity": "high",
                 }
             ],
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         policy = Policy.from_dict(data)
@@ -538,7 +538,7 @@ class TestSerialization:
             "status": "investigating",
             "description": "Test violation",
             "source": "test.py:1",
-            "detected_at": datetime.utcnow().isoformat(),
+            "detected_at": datetime.now(timezone.utc).isoformat(),
         }
 
         violation = Violation.from_dict(data)

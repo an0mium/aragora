@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, ContextManager, Optional
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class OAuthRepository:
                         provider.lower(),
                         provider_user_id,
                         email,
-                        datetime.utcnow().isoformat(),
+                        datetime.now(timezone.utc).isoformat(),
                     ),
                 )
             logger.info(f"OAuth linked: user={user_id} provider={provider}")

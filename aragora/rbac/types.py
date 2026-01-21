@@ -8,7 +8,7 @@ Supports hierarchical permissions: global -> org -> workspace -> resource.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 
@@ -203,7 +203,7 @@ class RoleAssignment:
         """Check if this assignment has expired."""
         if self.expires_at is None:
             return False
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

@@ -10,7 +10,7 @@ Tests the code analysis harness system including:
 
 import asyncio
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -306,7 +306,7 @@ class TestHarnessResult:
 
     def test_result_duration_calculation(self):
         """Test duration calculation."""
-        started = datetime.utcnow()
+        started = datetime.now(timezone.utc)
         completed = started + timedelta(seconds=30)
 
         result = HarnessResult(

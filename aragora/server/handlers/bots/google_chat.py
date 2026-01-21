@@ -519,12 +519,76 @@ class GoogleChatHandler(BaseHandler):
         space_name: str,
         user_id: str,
     ) -> None:
-        """Run debate asynchronously and post result."""
+        """Run debate asynchronously via DecisionRouter and post result.
+
+        Uses the unified DecisionRouter for:
+        - Deduplication across channels
+        - Response caching
+        - RBAC enforcement
+        - Consistent routing
+
+        Falls back to direct Arena execution if DecisionRouter unavailable.
+        """
         connector = get_google_chat_connector()
         if not connector:
             logger.warning("No Google Chat connector available")
             return
 
+        # Try DecisionRouter first (preferred)
+        try:
+            from aragora.core.decision import (
+                DecisionRequest,
+                DecisionType,
+                InputSource,
+                ResponseChannel,
+                RequestContext,
+                get_decision_router,
+            )
+            from aragora.server.debate_origin import register_debate_origin
+            import uuid
+
+            debate_id = str(uuid.uuid4())
+
+            # Register origin for result routing
+            register_debate_origin(
+                debate_id=debate_id,
+                platform="google_chat",
+                channel_id=space_name,
+                user_id=user_id,
+                metadata={"topic": topic},
+            )
+
+            request = DecisionRequest(
+                content=topic,
+                decision_type=DecisionType.DEBATE,
+                source=InputSource.GOOGLE_CHAT,
+                response_channels=[
+                    ResponseChannel(
+                        platform="google_chat",
+                        channel_id=space_name,
+                        user_id=user_id,
+                    )
+                ],
+                context=RequestContext(
+                    user_id=f"gchat:{user_id}",
+                    metadata={"space_name": space_name},
+                ),
+            )
+
+            router = get_decision_router()
+            result = await router.route(request)
+            if result and result.success:
+                logger.info(f"DecisionRouter completed debate for Google Chat: {result.debate_id}")
+                return  # Response handler will post the result
+            else:
+                logger.warning("DecisionRouter returned unsuccessful result, falling back")
+
+        except ImportError:
+            logger.debug("DecisionRouter not available, falling back to direct execution")
+        except Exception as e:
+            logger.error(f"DecisionRouter failed: {e}, falling back to direct execution")
+
+        # Fallback to direct Arena execution
         try:
             from aragora import Arena, DebateProtocol, Environment
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]

@@ -11,7 +11,7 @@ import logging
 import sqlite3
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
@@ -238,7 +238,7 @@ class UsageSyncService:
                     INSERT OR REPLACE INTO usage_sync_state (key, value, updated_at)
                     VALUES ('last_billing_period', ?, ?)
                     """,
-                    (period.isoformat(), datetime.utcnow().isoformat()),
+                    (period.isoformat(), datetime.now(timezone.utc).isoformat()),
                 )
                 conn.commit()
         except sqlite3.Error as e:
@@ -298,7 +298,7 @@ class UsageSyncService:
         """
         record_id = str(uuid4())
         period_start = self._get_billing_period_start().isoformat()
-        created_at = datetime.utcnow().isoformat()
+        created_at = datetime.now(timezone.utc).isoformat()
 
         try:
             with sqlite3.connect(self._db_path) as conn:
@@ -344,7 +344,7 @@ class UsageSyncService:
         cumulative_total: int,
     ) -> None:
         """Mark a sync operation as completed and update watermark (phase 2)."""
-        completed_at = datetime.utcnow().isoformat()
+        completed_at = datetime.now(timezone.utc).isoformat()
 
         with sqlite3.connect(self._db_path) as conn:
             # Mark record as completed
@@ -372,7 +372,7 @@ class UsageSyncService:
 
     def _fail_sync(self, record_id: str, error: str) -> None:
         """Mark a sync operation as failed."""
-        completed_at = datetime.utcnow().isoformat()
+        completed_at = datetime.now(timezone.utc).isoformat()
 
         try:
             with sqlite3.connect(self._db_path) as conn:
@@ -511,7 +511,7 @@ class UsageSyncService:
     def _save_sync_state(self, org_id: str) -> None:
         """Persist sync watermarks for an organization after successful sync."""
         period_start = self._get_billing_period_start().isoformat()
-        updated_at = datetime.utcnow().isoformat()
+        updated_at = datetime.now(timezone.utc).isoformat()
 
         try:
             with sqlite3.connect(self._db_path) as conn:
@@ -734,7 +734,7 @@ class UsageSyncService:
                     # Note: watermark update now handled by two-phase commit in _report_usage
 
         # Update last sync time
-        self._last_sync[org_id] = datetime.utcnow()
+        self._last_sync[org_id] = datetime.now(timezone.utc)
 
         # Note: sync watermarks are now persisted atomically in _complete_sync
         # (two-phase commit ensures crash safety)
@@ -831,7 +831,7 @@ class UsageSyncService:
 
     def _get_billing_period_start(self) -> datetime:
         """Get the start of the current billing period (first of month)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     def _add_to_history(self, record: UsageSyncRecord) -> None:

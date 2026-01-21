@@ -27,7 +27,7 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Optional
 
@@ -63,17 +63,17 @@ class PaymentFailure:
     @property
     def days_failing(self) -> int:
         """Days since first failure."""
-        return (datetime.utcnow() - self.first_failure_at).days
+        return (datetime.now(timezone.utc) - self.first_failure_at).days
 
     @property
     def days_until_downgrade(self) -> int:
         """Days until automatic downgrade."""
-        return max(0, (self.grace_ends_at - datetime.utcnow()).days)
+        return max(0, (self.grace_ends_at - datetime.now(timezone.utc)).days)
 
     @property
     def should_downgrade(self) -> bool:
         """Check if grace period has ended."""
-        return datetime.utcnow() >= self.grace_ends_at
+        return datetime.now(timezone.utc) >= self.grace_ends_at
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -158,7 +158,7 @@ class PaymentRecoveryStore(SQLiteStore):
         """
         import uuid
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         with self.connection() as conn:
             # Check for existing active failure
@@ -274,7 +274,7 @@ class PaymentRecoveryStore(SQLiteStore):
                 SET status = 'recovered', updated_at = ?
                 WHERE org_id = ? AND status = 'failing'
                 """,
-                (datetime.utcnow().isoformat(), org_id),
+                (datetime.now(timezone.utc).isoformat(), org_id),
             )
             return result.rowcount > 0
 
@@ -297,7 +297,7 @@ class PaymentRecoveryStore(SQLiteStore):
                 SET status = 'downgraded', updated_at = ?
                 WHERE org_id = ? AND status = 'failing'
                 """,
-                (datetime.utcnow().isoformat(), org_id),
+                (datetime.now(timezone.utc).isoformat(), org_id),
             )
             return result.rowcount > 0
 
@@ -349,7 +349,7 @@ class PaymentRecoveryStore(SQLiteStore):
         Returns:
             List of PaymentFailure records ready for downgrade
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         with self.connection() as conn:
             cursor = conn.execute(
                 """
@@ -390,7 +390,7 @@ class PaymentRecoveryStore(SQLiteStore):
         Returns:
             List of PaymentFailure records needing notification
         """
-        cutoff = (datetime.utcnow() - timedelta(days=days_threshold)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days_threshold)).isoformat()
         with self.connection() as conn:
             cursor = conn.execute(
                 """

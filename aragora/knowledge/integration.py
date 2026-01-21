@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 from concurrent.futures import ThreadPoolExecutor
 
@@ -223,7 +223,7 @@ def queue_document_processing(
             job.result = result
             job.status = "completed" if result.success else "failed"
             job.error = result.error
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
 
             logger.info(
                 f"Knowledge processing completed: {job_id} "
@@ -233,7 +233,7 @@ def queue_document_processing(
         except Exception as e:
             job.status = "failed"
             job.error = str(e)
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
             logger.error(f"Knowledge processing failed: {job_id} - {e}")
 
     _executor.submit(run_processing)

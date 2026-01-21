@@ -13,7 +13,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class ImpersonationSession:
 
     def is_expired(self) -> bool:
         """Check if session has expired."""
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def to_audit_dict(self) -> Dict[str, Any]:
         """Convert to audit log format."""
@@ -253,7 +253,7 @@ class ImpersonationManager:
         # Validate reason
         if not reason or len(reason.strip()) < 10:
             entry = ImpersonationAuditEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 event_type="denied",
                 session_id=None,
                 admin_user_id=admin_user_id,
@@ -271,7 +271,7 @@ class ImpersonationManager:
         # Prevent self-impersonation
         if admin_user_id == target_user_id:
             entry = ImpersonationAuditEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 event_type="denied",
                 session_id=None,
                 admin_user_id=admin_user_id,
@@ -290,7 +290,7 @@ class ImpersonationManager:
         target_is_admin = "admin" in target_roles or "owner" in target_roles
         if target_is_admin and self._require_2fa_for_admin_targets and not has_2fa:
             entry = ImpersonationAuditEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 event_type="denied",
                 session_id=None,
                 admin_user_id=admin_user_id,
@@ -315,7 +315,7 @@ class ImpersonationManager:
 
         if len(active_sessions) >= self._max_concurrent_sessions:
             entry = ImpersonationAuditEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 event_type="denied",
                 session_id=None,
                 admin_user_id=admin_user_id,
@@ -340,7 +340,7 @@ class ImpersonationManager:
 
         # Create session
         session_id = self._generate_session_id(admin_user_id, target_user_id)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         session = ImpersonationSession(
             session_id=session_id,
             admin_user_id=admin_user_id,
@@ -427,7 +427,7 @@ class ImpersonationManager:
 
         if session.admin_user_id != admin_user_id:
             entry = ImpersonationAuditEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 event_type="denied",
                 session_id=session_id,
                 admin_user_id=admin_user_id,
@@ -444,7 +444,7 @@ class ImpersonationManager:
 
         # Log end
         entry = ImpersonationAuditEntry(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             event_type="end",
             session_id=session_id,
             admin_user_id=admin_user_id,
@@ -518,7 +518,7 @@ class ImpersonationManager:
                 logger.error(f"Failed to update session actions in store: {e}")
 
         entry = ImpersonationAuditEntry(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             event_type="action",
             session_id=session_id,
             admin_user_id=session.admin_user_id,
@@ -563,7 +563,7 @@ class ImpersonationManager:
             return
 
         entry = ImpersonationAuditEntry(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             event_type="timeout",
             session_id=session_id,
             admin_user_id=session.admin_user_id,

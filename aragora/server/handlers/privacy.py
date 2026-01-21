@@ -13,7 +13,7 @@ SOC 2 Control: P5-01 - User access to personal data
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -125,7 +125,7 @@ class PrivacyHandler(SecureHandler):
 
         # Add export metadata
         export_data["_export_metadata"] = {
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
             "format": export_format,
             "data_controller": "Aragora",
             "contact": "privacy@aragora.ai",
@@ -201,7 +201,7 @@ class PrivacyHandler(SecureHandler):
         # Audit log (user's own actions, last 90 days)
         audit_entries = user_store.get_audit_log(
             user_id=user.id,
-            since=datetime.utcnow() - timedelta(days=90),
+            since=datetime.now(timezone.utc) - timedelta(days=90),
             limit=1000,
         )
         if audit_entries:
@@ -265,7 +265,7 @@ class PrivacyHandler(SecureHandler):
             200,
             {
                 "Content-Type": "text/csv; charset=utf-8",
-                "Content-Disposition": f"attachment; filename=aragora_export_{datetime.utcnow().strftime('%Y%m%d')}.csv",
+                "Content-Disposition": f"attachment; filename=aragora_export_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv",
             },
         )
 

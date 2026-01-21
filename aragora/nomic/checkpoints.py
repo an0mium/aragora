@@ -11,7 +11,7 @@ import json
 import logging
 import re
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -100,7 +100,7 @@ def save_checkpoint(
     # Add metadata
     data["_checkpoint_meta"] = {
         "cycle_id": cycle_id,
-        "saved_at": datetime.utcnow().isoformat(),
+        "saved_at": datetime.now(timezone.utc).isoformat(),
         "suffix": suffix,
     }
 
@@ -287,7 +287,7 @@ def cleanup_old_checkpoints(
     checkpoints.sort(key=lambda p: p.stat().st_mtime)
 
     deleted = 0
-    cutoff_time = datetime.utcnow().timestamp() - (keep_days * 24 * 3600)
+    cutoff_time = datetime.now(timezone.utc).timestamp() - (keep_days * 24 * 3600)
 
     # Delete old checkpoints
     for filepath in checkpoints[:-keep_count]:  # Keep at least keep_count

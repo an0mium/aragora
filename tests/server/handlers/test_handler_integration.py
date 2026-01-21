@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -106,7 +106,7 @@ def create_command_context(platform: Platform, topic: str = "Test topic") -> Com
         text=f"/debate {topic}",
         user=user,
         channel=channel,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         platform=platform,
     )
     return CommandContext(
@@ -644,7 +644,7 @@ class TestErrorHandlingIntegration:
             text="/debate",
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.DISCORD,
         )
         ctx = CommandContext(

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
@@ -210,10 +210,10 @@ class CostAdapter:
             "limit": str(alert.limit),
             "percentage": alert.percentage,
             "created_at": (
-                alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat()
+                alert.created_at.isoformat() if alert.created_at else datetime.now(timezone.utc).isoformat()
             ),
             "acknowledged": alert.acknowledged,
-            "stored_at": datetime.utcnow().isoformat(),
+            "stored_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self._alerts[alert_id] = alert_data
@@ -253,7 +253,7 @@ class CostAdapter:
         anomaly_data = anomaly.to_dict()
         anomaly_data["id"] = anomaly_id
         anomaly_data["original_id"] = anomaly.id
-        anomaly_data["stored_at"] = datetime.utcnow().isoformat()
+        anomaly_data["stored_at"] = datetime.now(timezone.utc).isoformat()
 
         self._anomalies[anomaly_id] = anomaly_data
 
@@ -291,7 +291,7 @@ class CostAdapter:
         Returns:
             The snapshot ID
         """
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         snapshot_id = f"{self.ID_PREFIX}snap_{workspace_id}_{timestamp.replace(':', '-')}"
 
         snapshot_data = {
@@ -554,7 +554,7 @@ class CostAdapter:
                         expected_value=patterns["avg_cost"],
                         actual_value=current_cost,
                         variance_ratio=cost_ratio,
-                        detected_at=datetime.utcnow(),
+                        detected_at=datetime.now(timezone.utc),
                     )
                 )
 
@@ -573,7 +573,7 @@ class CostAdapter:
                         expected_value=patterns["avg_calls"],
                         actual_value=current_calls,
                         variance_ratio=call_ratio,
-                        detected_at=datetime.utcnow(),
+                        detected_at=datetime.now(timezone.utc),
                     )
                 )
 
@@ -610,9 +610,9 @@ class CostAdapter:
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
             except ValueError:
-                created_at = datetime.utcnow()
+                created_at = datetime.now(timezone.utc)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
 
         return KnowledgeItem(
             id=alert["id"],

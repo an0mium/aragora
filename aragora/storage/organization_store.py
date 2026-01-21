@@ -19,7 +19,7 @@ import secrets
 import sqlite3
 import threading
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
@@ -213,7 +213,7 @@ class OrganizationStore:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.utcnow().isoformat(), datetime.utcnow().isoformat(), org_id),
+                (datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(), org_id),
             )
             return cursor.rowcount > 0
 
@@ -252,7 +252,7 @@ class OrganizationStore:
             return False
 
         updates.append("updated_at = ?")
-        values.append(datetime.utcnow().isoformat())
+        values.append(datetime.now(timezone.utc).isoformat())
         values.append(org_id)
 
         with self._transaction() as cursor:
@@ -417,7 +417,7 @@ class OrganizationStore:
                     (
                         status,
                         accepted_by,
-                        accepted_at.isoformat() if accepted_at else datetime.utcnow().isoformat(),
+                        accepted_at.isoformat() if accepted_at else datetime.now(timezone.utc).isoformat(),
                         invitation_id,
                     ),
                 )
@@ -447,7 +447,7 @@ class OrganizationStore:
                 AND expires_at IS NOT NULL
                 AND expires_at < ?
                 """,
-                (datetime.utcnow().isoformat(),),
+                (datetime.now(timezone.utc).isoformat(),),
             )
             count = cursor.rowcount
             if count > 0:

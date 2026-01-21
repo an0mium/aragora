@@ -44,7 +44,7 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Optional, Sequence
 
@@ -83,7 +83,7 @@ class ByzantineMessage:
     sender: str
     proposal_hash: str
     proposal: Optional[str] = None  # Only included in PRE_PREPARE
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def compute_hash(self) -> str:
         """Compute message hash for verification."""

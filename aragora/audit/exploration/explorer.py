@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional, Protocol
 
@@ -218,14 +218,14 @@ class DocumentExplorer:
             if self.memory:
                 await self.memory.consolidate_session(session.id)
 
-            session.completed_at = datetime.utcnow()
+            session.completed_at = datetime.now(timezone.utc)
 
         except asyncio.TimeoutError:
             logger.warning(f"Exploration timed out after {self.config.total_timeout}s")
-            session.completed_at = datetime.utcnow()
+            session.completed_at = datetime.now(timezone.utc)
         except Exception as e:
             logger.error(f"Exploration failed: {e}")
-            session.completed_at = datetime.utcnow()
+            session.completed_at = datetime.now(timezone.utc)
             raise
 
         # Build result

@@ -11,7 +11,7 @@ Tests cover:
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -65,8 +65,8 @@ def owner_user():
     user.role = "owner"
     user.name = "Owner User"
     user.is_active = True
-    user.created_at = datetime.utcnow()
-    user.last_login_at = datetime.utcnow()
+    user.created_at = datetime.now(timezone.utc)
+    user.last_login_at = datetime.now(timezone.utc)
     return user
 
 
@@ -80,8 +80,8 @@ def admin_user():
     user.role = "admin"
     user.name = "Admin User"
     user.is_active = True
-    user.created_at = datetime.utcnow()
-    user.last_login_at = datetime.utcnow()
+    user.created_at = datetime.now(timezone.utc)
+    user.last_login_at = datetime.now(timezone.utc)
     return user
 
 
@@ -95,8 +95,8 @@ def member_user():
     user.role = "member"
     user.name = "Member User"
     user.is_active = True
-    user.created_at = datetime.utcnow()
-    user.last_login_at = datetime.utcnow()
+    user.created_at = datetime.now(timezone.utc)
+    user.last_login_at = datetime.now(timezone.utc)
     return user
 
 
@@ -112,7 +112,7 @@ def sample_org():
     org.debates_used_this_month = 10
     org.limits = MagicMock(debates_per_month=100, users_per_org=10)
     org.settings = {}
-    org.created_at = datetime.utcnow()
+    org.created_at = datetime.now(timezone.utc)
     return org
 
 

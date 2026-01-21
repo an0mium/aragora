@@ -12,7 +12,7 @@ These tests use mock HTTP handlers to verify the complete request/response flow.
 
 import pytest
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from io import BytesIO
 
@@ -206,7 +206,7 @@ class MockKnowledgeMound:
             region_id: {
                 "enabled": r.enabled,
                 "healthy": True,
-                "last_sync": datetime.utcnow().isoformat(),
+                "last_sync": datetime.now(timezone.utc).isoformat(),
             }
             for region_id, r in self._regions.items()
         }

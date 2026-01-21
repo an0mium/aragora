@@ -15,7 +15,7 @@ import hashlib
 import hmac
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -66,7 +66,7 @@ class TestStripeDataClasses:
 
     def test_stripe_subscription_to_dict(self):
         """Test StripeSubscription serialization."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         end = now + timedelta(days=30)
 
         sub = StripeSubscription(
@@ -88,7 +88,7 @@ class TestStripeDataClasses:
 
     def test_stripe_subscription_trialing(self):
         """Test StripeSubscription trialing detection."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         trial_end = now + timedelta(days=7)
 
         sub = StripeSubscription(
@@ -106,7 +106,7 @@ class TestStripeDataClasses:
 
     def test_stripe_subscription_trial_ended(self):
         """Test StripeSubscription trialing detection when trial ended."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         trial_end = now - timedelta(days=1)  # Trial ended yesterday
 
         sub = StripeSubscription(
@@ -150,7 +150,7 @@ class TestStripeDataClasses:
 
     def test_usage_record_to_dict(self):
         """Test UsageRecord serialization."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         record = UsageRecord(
             id="mbur_test123",
             subscription_item_id="si_test123",

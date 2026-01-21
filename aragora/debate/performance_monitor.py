@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Generator, Optional
 
 from contextlib import contextmanager
@@ -519,7 +519,7 @@ class DebatePerformanceMonitor:
         record = SlowDebateRecord(
             debate_id=metric.debate_id,
             task=metric.task,
-            detected_at=datetime.utcnow(),
+            detected_at=datetime.now(timezone.utc),
             total_duration=metric.duration_seconds or 0,
             round_count=len(metric.rounds),
             slow_round_count=metric.slow_round_count,

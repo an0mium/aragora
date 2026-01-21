@@ -17,7 +17,7 @@ import inspect
 import logging
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, Optional
 
 from .events import (
@@ -182,7 +182,7 @@ class NomicStateMachine:
         # Initialize new cycle
         self.context = StateContext(
             cycle_id=str(uuid.uuid4())[:8],
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             current_state=NomicState.IDLE,
         )
         self.event_log = EventLog(cycle_id=self.context.cycle_id)
@@ -491,7 +491,7 @@ class NomicStateMachine:
                     {
                         "state": state.name,
                         "error": str(e),
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
                 )
                 for callback in self._on_error_callbacks:
@@ -546,7 +546,7 @@ class NomicStateMachine:
         checkpoint_data = {
             "context": self.context.to_dict(),
             "event_log": self.event_log.to_dict(),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         save_checkpoint(
             checkpoint_data,

@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -303,7 +303,7 @@ class HealthHandler(BaseHandler):
             "version": version,
             "uptime_seconds": uptime_seconds,
             "checks": checks,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             "response_time_ms": response_time_ms,
         }
 
@@ -1052,7 +1052,7 @@ class HealthHandler(BaseHandler):
                 "checks": checks,
                 "warnings": warnings if warnings else None,
                 "response_time_ms": response_time_ms,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
 
@@ -1088,7 +1088,7 @@ class HealthHandler(BaseHandler):
                         status.last_sync_at.isoformat() + "Z" if status.last_sync_at else None
                     ),
                     "last_error": status.last_error,
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                 }
             )
 
@@ -1097,7 +1097,7 @@ class HealthHandler(BaseHandler):
                 {
                     "enabled": False,
                     "error": "sync_service module not available",
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                 }
             )
         except Exception as e:
@@ -1106,7 +1106,7 @@ class HealthHandler(BaseHandler):
                 {
                     "enabled": False,
                     "error": f"{type(e).__name__}: {str(e)[:80]}",
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                 }
             )
 
@@ -1203,7 +1203,7 @@ class HealthHandler(BaseHandler):
                 "current_slow": current_slow[:20],
                 "recent_slow": recent_slow[:20],
                 "errors": errors if errors else None,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
 
@@ -1234,7 +1234,7 @@ class HealthHandler(BaseHandler):
                     "summary": metrics.get("summary", {}),
                     "circuit_breakers": metrics.get("circuit_breakers", {}),
                     "health": metrics.get("health", {}),
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                 }
             )
 
@@ -1243,7 +1243,7 @@ class HealthHandler(BaseHandler):
                 {
                     "status": "unavailable",
                     "error": "resilience module not available",
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                 }
             )
         except Exception as e:
@@ -1252,7 +1252,7 @@ class HealthHandler(BaseHandler):
                 {
                     "status": "error",
                     "error": f"{type(e).__name__}: {str(e)[:80]}",
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                 }
             )
 
@@ -1444,7 +1444,7 @@ class HealthHandler(BaseHandler):
                 "active_features": active_count,
                 "total_features": total_features,
                 "features": features,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
 
@@ -1494,7 +1494,7 @@ class HealthHandler(BaseHandler):
                     "status": "unavailable",
                     "error": "Knowledge Mound module not installed",
                     "components": components,
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
                 }
             )
 
@@ -1832,7 +1832,7 @@ class HealthHandler(BaseHandler):
                 "components": components,
                 "warnings": warnings if warnings else None,
                 "response_time_ms": response_time_ms,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
 
@@ -1897,7 +1897,7 @@ class HealthHandler(BaseHandler):
         # Check 3: Active key status
         active_key = service.get_active_key()
         if active_key:
-            age_days = (datetime.utcnow() - active_key.created_at).days
+            age_days = (datetime.now(timezone.utc) - active_key.created_at).days
             health["active_key"] = {
                 "healthy": True,
                 "key_id": service.get_active_key_id(),
@@ -1955,7 +1955,7 @@ class HealthHandler(BaseHandler):
                 "issues": issues if issues else None,
                 "warnings": warnings if warnings else None,
                 "response_time_ms": response_time_ms,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             },
             status=http_status,
         )

@@ -16,7 +16,7 @@ import os
 import sqlite3
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -229,7 +229,7 @@ class TestSubscriptionModel:
         from aragora.billing.models import Subscription
 
         sub = Subscription()
-        sub.current_period_end = datetime.utcnow() + timedelta(days=15, hours=12)
+        sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=15, hours=12)
         # Allow for timing variance (14 or 15 days)
         assert 14 <= sub.days_until_renewal <= 15
 
@@ -449,7 +449,7 @@ class TestUsageTracking:
     def test_usage_summary(self):
         from aragora.billing.usage import UsageSummary
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         summary = UsageSummary(
             org_id="org-123",
             period_start=now - timedelta(days=30),

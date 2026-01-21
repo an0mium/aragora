@@ -19,7 +19,7 @@ import shutil
 import sqlite3
 import tempfile
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -216,7 +216,7 @@ class BackupManager:
         if not source.exists():
             raise FileNotFoundError(f"Source database not found: {source}")
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         backup_id = str(uuid4())[:8]
         timestamp = start_time.strftime("%Y%m%d_%H%M%S")
         backup_name = f"{source.stem}_{timestamp}_{backup_id}"
@@ -258,7 +258,7 @@ class BackupManager:
 
             backup_meta.compressed_size_bytes = backup_path.stat().st_size
             backup_meta.checksum = self._compute_checksum(backup_path)
-            backup_meta.duration_seconds = (datetime.utcnow() - start_time).total_seconds()
+            backup_meta.duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
             backup_meta.status = BackupStatus.COMPLETED
 
             # Verify if configured
@@ -309,7 +309,7 @@ class BackupManager:
         Returns:
             VerificationResult with verification details
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         if backup_meta is None:
             backup_meta = self._backups.get(backup_id)
@@ -402,7 +402,7 @@ class BackupManager:
                 result.verified = False
                 result.errors.append(f"Restore test failed: {e}")
 
-        result.duration_seconds = (datetime.utcnow() - start_time).total_seconds()
+        result.duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
         result.verified = result.verified and result.checksum_valid
 
         # Update backup metadata
@@ -454,7 +454,7 @@ class BackupManager:
         # Create backup of target if it exists
         if target.exists():
             target_backup = target.with_suffix(
-                f".backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+                f".backup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
             )
             shutil.copy(target, target_backup)
             logger.info("Created backup of target: %s", target_backup)
@@ -502,7 +502,7 @@ class BackupManager:
             List of deleted backup IDs
         """
         deleted: list[str] = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Sort by date
         backups = sorted(self._backups.values(), key=lambda b: b.created_at, reverse=True)
@@ -633,7 +633,7 @@ class BackupManager:
         """Save backup manifest to disk."""
         data = {
             "backups": {k: v.to_dict() for k, v in self._backups.items()},
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         with open(self._manifest_path, "w") as f:
             json.dump(data, f, indent=2)

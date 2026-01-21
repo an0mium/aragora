@@ -31,7 +31,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -302,7 +302,7 @@ class DeliveryPersistence:
     def cleanup_old_delivered(self, days: int = 7) -> int:
         """Remove delivered records older than N days."""
         conn = self._get_connection()
-        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         cursor = conn.execute("""
             DELETE FROM webhook_deliveries
             WHERE status = 'delivered' AND delivered_at < ?
@@ -431,7 +431,7 @@ class WebhookDeliveryManager:
                 elif delivery.status in (DeliveryStatus.PENDING, DeliveryStatus.IN_PROGRESS):
                     # Treat in-progress as needing retry (server may have crashed)
                     delivery.status = DeliveryStatus.RETRYING
-                    delivery.next_retry_at = datetime.utcnow()
+                    delivery.next_retry_at = datetime.now(timezone.utc)
                     self._retry_queue[delivery.delivery_id] = delivery
                     self._persistence.save_delivery(delivery, url or "", secret)
 
@@ -531,7 +531,7 @@ class WebhookDeliveryManager:
 
         if success:
             delivery.status = DeliveryStatus.DELIVERED
-            delivery.delivered_at = datetime.utcnow()
+            delivery.delivered_at = datetime.now(timezone.utc)
             self._delivered[delivery.delivery_id] = delivery
             del self._pending[delivery.delivery_id]
             self._metrics.successful_deliveries += 1
@@ -562,7 +562,7 @@ class WebhookDeliveryManager:
         """
         delivery.status = DeliveryStatus.IN_PROGRESS
         delivery.attempts += 1
-        delivery.updated_at = datetime.utcnow()
+        delivery.updated_at = datetime.now(timezone.utc)
 
         # Build headers
         headers = {
@@ -649,7 +649,7 @@ class WebhookDeliveryManager:
     ) -> None:
         """Schedule delivery for retry with exponential backoff."""
         delivery.status = DeliveryStatus.RETRYING
-        delivery.updated_at = datetime.utcnow()
+        delivery.updated_at = datetime.now(timezone.utc)
 
         # Exponential backoff with jitter
         delay = min(
@@ -660,7 +660,7 @@ class WebhookDeliveryManager:
         import random
         delay *= 0.75 + random.random() * 0.5
 
-        delivery.next_retry_at = datetime.utcnow() + timedelta(seconds=delay)
+        delivery.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
         delivery.metadata["retry_url"] = url
         delivery.metadata["retry_secret"] = secret
 
@@ -683,8 +683,8 @@ class WebhookDeliveryManager:
     def _move_to_dead_letter(self, delivery: WebhookDelivery) -> None:
         """Move delivery to dead-letter queue."""
         delivery.status = DeliveryStatus.DEAD_LETTERED
-        delivery.dead_lettered_at = datetime.utcnow()
-        delivery.updated_at = datetime.utcnow()
+        delivery.dead_lettered_at = datetime.now(timezone.utc)
+        delivery.updated_at = datetime.now(timezone.utc)
 
         self._dead_letter_queue[delivery.delivery_id] = delivery
 
@@ -709,7 +709,7 @@ class WebhookDeliveryManager:
         """Background task to process retry queue."""
         while self._running:
             try:
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
 
                 # Find deliveries ready for retry
                 ready = [
@@ -740,7 +740,7 @@ class WebhookDeliveryManager:
 
                     if success:
                         delivery.status = DeliveryStatus.DELIVERED
-                        delivery.delivered_at = datetime.utcnow()
+                        delivery.delivered_at = datetime.now(timezone.utc)
                         self._delivered[delivery.delivery_id] = delivery
                         self._metrics.successful_deliveries += 1
                         self._reset_circuit(url)
@@ -765,7 +765,7 @@ class WebhookDeliveryManager:
     def _is_circuit_open(self, url: str) -> bool:
         """Check if circuit breaker is open for an endpoint."""
         if url in self._circuit_open_until:
-            if datetime.utcnow() < self._circuit_open_until[url]:
+            if datetime.now(timezone.utc) < self._circuit_open_until[url]:
                 return True
             # Circuit timeout expired, reset
             del self._circuit_open_until[url]
@@ -779,7 +779,7 @@ class WebhookDeliveryManager:
         if self._circuit_failures[url] >= self._circuit_threshold:
             # Open circuit for 30 seconds * failure count (max 5 minutes)
             timeout = min(30 * self._circuit_failures[url], 300)
-            self._circuit_open_until[url] = datetime.utcnow() + timedelta(seconds=timeout)
+            self._circuit_open_until[url] = datetime.now(timezone.utc) + timedelta(seconds=timeout)
             logger.warning(f"Circuit breaker opened for {url} for {timeout}s")
 
     def _reset_circuit(self, url: str) -> None:
@@ -830,8 +830,8 @@ class WebhookDeliveryManager:
         delivery.status = DeliveryStatus.RETRYING
         delivery.attempts = 0  # Reset attempts
         delivery.dead_lettered_at = None
-        delivery.next_retry_at = datetime.utcnow()
-        delivery.updated_at = datetime.utcnow()
+        delivery.next_retry_at = datetime.now(timezone.utc)
+        delivery.updated_at = datetime.now(timezone.utc)
 
         self._retry_queue[delivery_id] = delivery
         del self._dead_letter_queue[delivery_id]

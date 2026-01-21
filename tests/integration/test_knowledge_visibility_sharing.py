@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -305,7 +305,7 @@ class TestVisibilityOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        expires_at = (datetime.utcnow() + timedelta(days=7)).isoformat() + "Z"
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat() + "Z"
         http_handler = make_handler_with_body(
             {
                 "grantee_type": "workspace",
@@ -826,7 +826,7 @@ class TestFederationOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        since_time = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
+        since_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat() + "Z"
         http_handler = make_handler_with_body(
             {
                 "region_id": "us-west-2",
@@ -852,7 +852,7 @@ class TestFederationOperations:
                 "us-west-2": {
                     "enabled": True,
                     "mode": "bidirectional",
-                    "last_sync": datetime.utcnow().isoformat(),
+                    "last_sync": datetime.now(timezone.utc).isoformat(),
                     "health": "healthy",
                 },
                 "eu-west-1": {

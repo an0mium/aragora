@@ -22,7 +22,7 @@ import logging
 import os
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -781,7 +781,7 @@ class UsageMeter:
 
         Returns projected costs based on usage patterns.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         summary = await self.get_usage_summary(month_start, now, tenant_id)

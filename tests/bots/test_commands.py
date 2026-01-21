@@ -13,7 +13,7 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -56,7 +56,7 @@ def sample_context():
         text="/test command",
         user=user,
         channel=channel,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         platform=Platform.DISCORD,
     )
 
@@ -351,7 +351,7 @@ class TestCooldowns:
             text="test",
             user=user1,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.DISCORD,
         )
         ctx1 = CommandContext(
@@ -369,7 +369,7 @@ class TestCooldowns:
             text="test",
             user=user2,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.DISCORD,
         )
         ctx2 = CommandContext(
@@ -491,7 +491,7 @@ class TestBuiltInCommands:
             text="help",
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.DISCORD,
         )
         return CommandContext(

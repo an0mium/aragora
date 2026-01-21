@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -246,7 +246,7 @@ class ExplorationMemory:
                 if score >= min_similarity:
                     results.append((score, stored))
                     stored.access_count += 1
-                    stored.updated_at = datetime.utcnow()
+                    stored.updated_at = datetime.now(timezone.utc)
 
         # Sort by score and return top results
         results.sort(key=lambda x: x[0], reverse=True)
@@ -286,7 +286,7 @@ class ExplorationMemory:
         if source_tier != target_tier:
             del self._insights[source_tier][insight_id]
             stored.tier = target_tier
-            stored.updated_at = datetime.utcnow()
+            stored.updated_at = datetime.now(timezone.utc)
             self._insights[target_tier][insight_id] = stored
             logger.info(f"Promoted insight {insight_id} from {source_tier} to {target_tier}")
 

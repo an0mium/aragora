@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
@@ -269,7 +269,7 @@ class BeliefAdapter:
                 "debate_id": debate_id,
                 "parent_ids": node.parent_ids,
                 "child_ids": node.child_ids,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "metadata": node.metadata if hasattr(node, "metadata") else {},
             }
 
@@ -365,7 +365,7 @@ class BeliefAdapter:
             "resolution_impact": crux.resolution_impact,
             "debate_id": debate_id,
             "topics": topics or [],
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self._cruxes[crux_id] = crux_data
@@ -436,7 +436,7 @@ class BeliefAdapter:
             "verification_method": verification_method,
             "debate_id": debate_id,
             "metadata": metadata or {},
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self._provenance[prov_id] = prov_data
@@ -632,9 +632,9 @@ class BeliefAdapter:
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
             except ValueError:
-                created_at = datetime.utcnow()
+                created_at = datetime.now(timezone.utc)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
 
         return KnowledgeItem(
             id=belief["id"],
@@ -684,9 +684,9 @@ class BeliefAdapter:
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
             except ValueError:
-                created_at = datetime.utcnow()
+                created_at = datetime.now(timezone.utc)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
 
         return KnowledgeItem(
             id=crux["id"],
@@ -770,7 +770,7 @@ class BeliefAdapter:
                 "debate_id": debate_id,
                 "was_successful": was_successful,
                 "confidence": confidence,
-                "recorded_at": datetime.utcnow().isoformat(),
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -1148,7 +1148,7 @@ class BeliefAdapter:
 
         belief["confidence"] = new_confidence
         belief["km_validated"] = True
-        belief["km_validation_time"] = datetime.utcnow().isoformat()
+        belief["km_validation_time"] = datetime.now(timezone.utc).isoformat()
         belief["km_confidence"] = validation.km_confidence
 
         if "metadata" not in belief:

@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -104,12 +104,12 @@ class Policy:
         if isinstance(created_at, str):
             created_at = datetime.fromisoformat(created_at)
         elif created_at is None:
-            created_at = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
         updated_at = data.get("updated_at")
         if isinstance(updated_at, str):
             updated_at = datetime.fromisoformat(updated_at)
         elif updated_at is None:
-            updated_at = datetime.utcnow()
+            updated_at = datetime.now(timezone.utc)
 
         return cls(
             id=data["id"],
@@ -175,7 +175,7 @@ class Violation:
         if isinstance(detected_at, str):
             detected_at = datetime.fromisoformat(detected_at)
         elif detected_at is None:
-            detected_at = datetime.utcnow()
+            detected_at = datetime.now(timezone.utc)
 
         resolved_at = data.get("resolved_at")
         if isinstance(resolved_at, str):
@@ -376,7 +376,7 @@ class PolicyStore(SQLiteStore):
         if "metadata" in updates:
             current.metadata.update(updates["metadata"])
 
-        current.updated_at = datetime.utcnow()
+        current.updated_at = datetime.now(timezone.utc)
 
         with self.connection() as conn:
             conn.execute(
@@ -517,7 +517,7 @@ class PolicyStore(SQLiteStore):
 
         resolved_at = None
         if status in ("resolved", "false_positive"):
-            resolved_at = datetime.utcnow()
+            resolved_at = datetime.now(timezone.utc)
 
         with self.connection() as conn:
             conn.execute(
@@ -598,8 +598,8 @@ class PolicyStore(SQLiteStore):
             level=row[6] or "recommended",
             enabled=bool(row[7]),
             rules=[PolicyRule.from_dict(r) for r in json.loads(row[8] or "[]")],
-            created_at=datetime.fromisoformat(row[9]) if row[9] else datetime.utcnow(),
-            updated_at=datetime.fromisoformat(row[10]) if row[10] else datetime.utcnow(),
+            created_at=datetime.fromisoformat(row[9]) if row[9] else datetime.now(timezone.utc),
+            updated_at=datetime.fromisoformat(row[10]) if row[10] else datetime.now(timezone.utc),
             created_by=row[11],
             metadata=json.loads(row[12] or "{}"),
         )
@@ -621,7 +621,7 @@ class PolicyStore(SQLiteStore):
             status=row[8] or "open",
             description=row[9] or "",
             source=row[10] or "",
-            detected_at=datetime.fromisoformat(row[11]) if row[11] else datetime.utcnow(),
+            detected_at=datetime.fromisoformat(row[11]) if row[11] else datetime.now(timezone.utc),
             resolved_at=datetime.fromisoformat(row[12]) if row[12] else None,
             resolved_by=row[13],
             resolution_notes=row[14],

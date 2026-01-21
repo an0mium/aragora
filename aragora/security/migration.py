@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ class EncryptionMigrator:
                     result.errors.append(f"Error migrating {record_id}: {str(e)}")
                     logger.warning(f"Failed to migrate record {record_id}: {e}")
 
-            result.completed_at = datetime.utcnow()
+            result.completed_at = datetime.now(timezone.utc)
             result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
             logger.info(
@@ -542,7 +542,7 @@ def rotate_and_reencrypt_store(
                 result.errors.append(f"Error re-encrypting {record_id}: {str(e)}")
                 logger.warning(f"Failed to re-encrypt record {record_id}: {e}")
 
-        result.completed_at = datetime.utcnow()
+        result.completed_at = datetime.now(timezone.utc)
         result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
         logger.info(
@@ -670,7 +670,7 @@ def rotate_encryption_key(
                 result.errors.append(f"Store {store_name} failed: {str(e)}")
                 logger.error(f"Key rotation failed for store {store_name}: {e}")
 
-        result.completed_at = datetime.utcnow()
+        result.completed_at = datetime.now(timezone.utc)
         result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
         logger.info(

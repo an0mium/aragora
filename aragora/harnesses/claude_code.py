@@ -20,7 +20,7 @@ import os
 import re
 import shutil
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
 from uuid import uuid4
@@ -204,7 +204,7 @@ class ClaudeCodeHarness(CodeAnalysisHarness):
         self._validate_path(repo_path)
         options = options or {}
 
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
         findings: list[AnalysisFinding] = []
         raw_output = ""
         error_output = ""
@@ -266,7 +266,7 @@ Respond with a JSON array of findings. Each finding should have:
             error_message = f"Unexpected error: {e}"
             logger.exception("Unexpected error in analyze_repository")
 
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(timezone.utc)
 
         return HarnessResult(
             harness=self.name,

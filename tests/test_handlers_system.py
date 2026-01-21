@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 
@@ -86,7 +86,7 @@ def temp_nomic_dir_with_files():
             "cycle": 3,
             "total_tasks": 5,
             "completed_tasks": 2,
-            "last_update": datetime.utcnow().isoformat() + "Z",
+            "last_update": datetime.now(timezone.utc).isoformat() + "Z",
             "warnings": [],
         }
         state_file.write_text(json.dumps(state))
@@ -356,7 +356,7 @@ class TestNomicEndpoints:
         with tempfile.TemporaryDirectory() as tmpdir:
             nomic_dir = Path(tmpdir)
             # Create state with old timestamp
-            old_time = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
+            old_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat() + "Z"
             state_file = nomic_dir / "nomic_state.json"
             state_file.write_text(
                 json.dumps(

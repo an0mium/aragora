@@ -15,7 +15,7 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -479,7 +479,7 @@ class TestInvitationStatus:
             invitation.id,
             status="accepted",
             accepted_by="user_2",
-            accepted_at=datetime.utcnow(),
+            accepted_at=datetime.now(timezone.utc),
         )
 
         assert result is True
@@ -535,7 +535,7 @@ class TestInvitationCleanup:
             email="expired@example.com",
             role="member",
             invited_by="user_1",
-            expires_at=datetime.utcnow() - timedelta(days=1),
+            expires_at=datetime.now(timezone.utc) - timedelta(days=1),
         )
         store.create_invitation(expired_invitation)
 
@@ -545,7 +545,7 @@ class TestInvitationCleanup:
             email="valid@example.com",
             role="member",
             invited_by="user_1",
-            expires_at=datetime.utcnow() + timedelta(days=7),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
         )
         store.create_invitation(valid_invitation)
 

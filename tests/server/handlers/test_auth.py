@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -77,8 +77,8 @@ class MockUser:
         """Mock API key generation."""
         self.api_key_prefix = "ara_test"
         self.api_key_hash = "hashed_key"
-        self.api_key_created_at = datetime.utcnow()
-        self.api_key_expires_at = datetime.utcnow() + timedelta(days=expires_days)
+        self.api_key_created_at = datetime.now(timezone.utc)
+        self.api_key_expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
         return "ara_test_full_key_12345"
 
     def to_dict(self) -> dict[str, Any]:

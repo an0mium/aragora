@@ -335,7 +335,7 @@ class TestCronExpressions:
         next_run = CronParser.next_run("0 0 * * *")
         if next_run:
             # Should be within 24 hours for daily schedule
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             assert next_run > now
             assert next_run < now + timedelta(days=2)
 

@@ -28,7 +28,7 @@ import threading
 import time
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Any, Callable, Dict, Optional
 
@@ -116,7 +116,7 @@ class JSONFormatter(logging.Formatter):
 
         # Build structured record
         log_record = LogRecord(
-            timestamp=datetime.utcnow().isoformat() + "Z",
+            timestamp=datetime.now(timezone.utc).isoformat() + "Z",
             level=record.levelname,
             logger=record.name,
             message=record.getMessage(),
@@ -145,7 +145,7 @@ class TextFormatter(logging.Formatter):
         ctx = _log_context.get()
 
         log_record = LogRecord(
-            timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             level=record.levelname,
             logger=record.name.split(".")[-1],  # Short name
             message=record.getMessage(),

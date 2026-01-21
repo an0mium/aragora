@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -107,7 +107,7 @@ def sample_financial_document() -> bytes:
 @pytest.fixture
 def temp_workspace() -> Generator[str, None, None]:
     """Provide a temporary workspace ID."""
-    workspace_id = f"test_ws_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    workspace_id = f"test_ws_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     yield workspace_id
 
 

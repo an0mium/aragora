@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
@@ -320,7 +320,7 @@ class RequestContext:
             user_roles=data.get("user_roles", []),
             tenant_id=data.get("tenant_id"),
             workspace_id=data.get("workspace_id"),
-            created_at=created_at or datetime.utcnow(),
+            created_at=created_at or datetime.now(timezone.utc),
             deadline=deadline,
             tags=data.get("tags", []),
             metadata=data.get("metadata", {}),
@@ -841,7 +841,7 @@ class DecisionRouter:
                     error=f"Authorization denied: {e}",
                 )
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         # Record incoming request metric
         if _record_decision_request:
@@ -892,7 +892,7 @@ class DecisionRouter:
                             source=request.source.value,
                             success=dedup_result.success,
                             confidence=dedup_result.confidence,
-                            duration_seconds=(datetime.utcnow() - start_time).total_seconds(),
+                            duration_seconds=(datetime.now(timezone.utc) - start_time).total_seconds(),
                             consensus_reached=dedup_result.consensus_reached,
                             dedup_hit=True,
                         )
@@ -937,7 +937,7 @@ class DecisionRouter:
                 raise ValueError(f"Unknown decision type: {request.decision_type}")
 
             # Calculate duration
-            result.duration_seconds = (datetime.utcnow() - start_time).total_seconds()
+            result.duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             # Record result in span
             if span:
@@ -983,7 +983,7 @@ class DecisionRouter:
                 except Exception as trace_err:  # noqa: BLE001 - Tracing must not break main flow
                     logger.debug(f"Failed to record exception in span: {trace_err}")
 
-            error_duration = (datetime.utcnow() - start_time).total_seconds()
+            error_duration = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             # Record error metrics
             error_type = type(e).__name__

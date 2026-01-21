@@ -18,7 +18,7 @@ import base64
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import (
@@ -268,7 +268,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         # Check if we have a valid cached token
         if self._oauth_token and self._oauth_expires:
-            if datetime.utcnow() < self._oauth_expires:
+            if datetime.now(timezone.utc) < self._oauth_expires:
                 return self._oauth_token
 
         client_id = await self.credentials.get_credential("SERVICENOW_CLIENT_ID")
@@ -298,8 +298,8 @@ class ServiceNowConnector(EnterpriseConnector):
 
         self._oauth_token = token_data["access_token"]
         expires_in = int(token_data.get("expires_in", 3600))
-        self._oauth_expires = datetime.utcnow().replace(
-            second=datetime.utcnow().second + expires_in - 60
+        self._oauth_expires = datetime.now(timezone.utc).replace(
+            second=datetime.now(timezone.utc).second + expires_in - 60
         )
 
         return self._oauth_token

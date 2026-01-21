@@ -709,7 +709,7 @@ class HookHandlerRegistry:
                     "event": "debate_end",
                     "debate_id": debate_id,
                     "task": task[:200] if task else None,
-                    "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+                    "timestamp": __import__("datetime").datetime.now(timezone.utc).isoformat(),
                 }
 
                 # Add result info if available
@@ -786,7 +786,7 @@ class HookHandlerRegistry:
                     "debate_id": debate_id,
                     "consensus_text": consensus_text[:500] if consensus_text else None,
                     "confidence": confidence,
-                    "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+                    "timestamp": __import__("datetime").datetime.now(timezone.utc).isoformat(),
                 }
 
                 store = get_webhook_config_store()

@@ -11,7 +11,7 @@ horizontal scaling in multi-instance deployments.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .defaults import get_role_permissions
@@ -366,7 +366,7 @@ class PermissionChecker:
                     context=context,
                     checked_at=datetime.fromisoformat(cached_dict["checked_at"])
                     if cached_dict.get("checked_at")
-                    else datetime.utcnow(),
+                    else datetime.now(timezone.utc),
                     cached=True,
                 )
 
@@ -376,7 +376,7 @@ class PermissionChecker:
             return None
 
         decision, cached_at = self._decision_cache[cache_key]
-        age = (datetime.utcnow() - cached_at).total_seconds()
+        age = (datetime.now(timezone.utc) - cached_at).total_seconds()
 
         if age > self._cache_ttl:
             del self._decision_cache[cache_key]
@@ -418,13 +418,13 @@ class PermissionChecker:
                     "resource_id": decision.resource_id,
                     "checked_at": decision.checked_at.isoformat()
                     if decision.checked_at
-                    else datetime.utcnow().isoformat(),
+                    else datetime.now(timezone.utc).isoformat(),
                 },
             )
 
         # Also cache locally (L1 when using distributed, primary otherwise)
         cache_key = f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
-        self._decision_cache[cache_key] = (decision, datetime.utcnow())
+        self._decision_cache[cache_key] = (decision, datetime.now(timezone.utc))
 
     def _on_remote_invalidation(self, key: str) -> None:
         """Handle invalidation from distributed cache (pub/sub)."""

@@ -13,7 +13,7 @@ import os
 import pytest
 import tempfile
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
@@ -145,7 +145,7 @@ class TestCrawlResult:
 
     def test_create_result_with_all_fields(self):
         """Test creating a result with all fields."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         result = CrawlResult(
             id="cr_full",
             path="src/utils.py",

@@ -33,7 +33,7 @@ SOC 2 Controls: CC6.1, CC6.3 - Logical access controls
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.server.http_utils import run_async
@@ -1110,7 +1110,7 @@ class WorkspaceHandler(SecureHandler):
                 "valid": is_valid,
                 "errors": errors,
                 "error_count": len(errors),
-                "verified_at": datetime.utcnow().isoformat(),
+                "verified_at": datetime.now(timezone.utc).isoformat(),
             }
         )
 

@@ -10,7 +10,7 @@ Tests cover:
 
 import sqlite3
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import pytest
@@ -68,7 +68,7 @@ def sample_database(temp_dir: Path) -> Path:
     for i in range(5):
         cursor.execute(
             "INSERT INTO debates (topic, created_at) VALUES (?, ?)",
-            (f"Topic {i}", datetime.utcnow().isoformat()),
+            (f"Topic {i}", datetime.now(timezone.utc).isoformat()),
         )
 
     conn.commit()

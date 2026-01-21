@@ -11,7 +11,7 @@ import hashlib
 import json
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Optional
 
 if TYPE_CHECKING:
@@ -210,7 +210,7 @@ class UserRepository:
             if row:
                 user = self._row_to_user(row)
                 # Check expiration
-                if user.api_key_expires_at and datetime.utcnow() > user.api_key_expires_at:
+                if user.api_key_expires_at and datetime.now(timezone.utc) > user.api_key_expires_at:
                     logger.debug(f"API key expired for user {user.id}")
                     return None
                 return user
@@ -274,7 +274,7 @@ class UserRepository:
             return False
 
         updates.append("updated_at = ?")
-        values.append(datetime.utcnow().isoformat())
+        values.append(datetime.now(timezone.utc).isoformat())
         values.append(user_id)
 
         with self._transaction() as cursor:
@@ -298,7 +298,7 @@ class UserRepository:
             return 0
 
         updated_count = 0
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Group updates by the set of fields being updated
         field_groups: dict[tuple[str, ...], list[dict]] = {}
@@ -385,7 +385,7 @@ class UserRepository:
         with self._transaction() as cursor:
             cursor.execute(
                 "UPDATE users SET preferences = ?, updated_at = ? WHERE id = ?",
-                (prefs_json, datetime.utcnow().isoformat(), user_id),
+                (prefs_json, datetime.now(timezone.utc).isoformat(), user_id),
             )
             return cursor.rowcount > 0
 
@@ -409,7 +409,7 @@ class UserRepository:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (datetime.utcnow().isoformat(), user_id),
+                (datetime.now(timezone.utc).isoformat(), user_id),
             )
 
             if cursor.rowcount == 0:

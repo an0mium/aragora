@@ -6,7 +6,7 @@ Tests SLO definitions, compliance calculations, and alerting.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
 import os
 
@@ -59,7 +59,7 @@ class TestSLOResult:
 
     def test_result_compliant(self):
         """Compliant SLO result is created correctly."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         result = SLOResult(
             name="Availability",
             target=0.999,
@@ -78,7 +78,7 @@ class TestSLOResult:
 
     def test_result_non_compliant(self):
         """Non-compliant SLO result is created correctly."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         result = SLOResult(
             name="Availability",
             target=0.999,
@@ -100,7 +100,7 @@ class TestSLOStatus:
 
     def _create_result(self, name: str, compliant: bool) -> SLOResult:
         """Helper to create test results."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return SLOResult(
             name=name,
             target=0.99,

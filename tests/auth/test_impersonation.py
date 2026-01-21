@@ -1,7 +1,7 @@
 """Tests for admin impersonation controls and audit logging."""
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
 
 from aragora.auth.impersonation import (
@@ -25,8 +25,8 @@ class TestImpersonationSession:
             target_user_id="user1",
             target_email="user@example.com",
             reason="Testing impersonation",
-            started_at=datetime.utcnow(),
-            expires_at=datetime.utcnow() + timedelta(hours=1),
+            started_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
             ip_address="127.0.0.1",
             user_agent="TestAgent/1.0",
         )
@@ -41,8 +41,8 @@ class TestImpersonationSession:
             target_user_id="user1",
             target_email="user@example.com",
             reason="Testing impersonation",
-            started_at=datetime.utcnow() - timedelta(hours=2),
-            expires_at=datetime.utcnow() - timedelta(hours=1),
+            started_at=datetime.now(timezone.utc) - timedelta(hours=2),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
             ip_address="127.0.0.1",
             user_agent="TestAgent/1.0",
         )
@@ -50,7 +50,7 @@ class TestImpersonationSession:
 
     def test_to_audit_dict(self):
         """Session should convert to audit dict format."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         session = ImpersonationSession(
             session_id="test123",
             admin_user_id="admin1",
@@ -76,7 +76,7 @@ class TestImpersonationAuditEntry:
     def test_to_dict_includes_all_fields(self):
         """Audit entry should serialize all fields."""
         entry = ImpersonationAuditEntry(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             event_type="start",
             session_id="sess123",
             admin_user_id="admin1",
@@ -332,7 +332,7 @@ class TestImpersonationManager:
             duration=timedelta(seconds=0),  # Expire immediately
         )
         # Manually expire it
-        session.expires_at = datetime.utcnow() - timedelta(seconds=1)
+        session.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
         manager._sessions[session.session_id] = session
 
         result = manager.validate_session(session.session_id)

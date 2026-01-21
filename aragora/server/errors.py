@@ -35,7 +35,7 @@ import logging
 import traceback
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional, Type
 
@@ -103,7 +103,7 @@ class ErrorContext:
     """Context information for error tracking."""
 
     error_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     path: Optional[str] = None
     method: Optional[str] = None
     user_id: Optional[str] = None

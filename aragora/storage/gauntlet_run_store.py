@@ -31,7 +31,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -74,7 +74,7 @@ class GauntletRunItem:
 
     def __post_init__(self) -> None:
         """Set default timestamps if not provided."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         if not self.created_at:
             self.created_at = now
         if not self.updated_at:
@@ -241,11 +241,11 @@ class InMemoryGauntletRunStore(GauntletRunStoreBackend):
             if run_id not in self._data:
                 return False
             self._data[run_id]["status"] = status
-            self._data[run_id]["updated_at"] = datetime.utcnow().isoformat()
+            self._data[run_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
             if status == "running" and not self._data[run_id].get("started_at"):
-                self._data[run_id]["started_at"] = datetime.utcnow().isoformat()
+                self._data[run_id]["started_at"] = datetime.now(timezone.utc).isoformat()
             if status in ("completed", "failed", "cancelled"):
-                self._data[run_id]["completed_at"] = datetime.utcnow().isoformat()
+                self._data[run_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
             if result_data is not None:
                 self._data[run_id]["result_data"] = result_data
             return True
@@ -536,12 +536,12 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
 
                 data = json.loads(row[0])
                 data["status"] = status
-                data["updated_at"] = datetime.utcnow().isoformat()
+                data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                 if status == "running" and not data.get("started_at"):
-                    data["started_at"] = datetime.utcnow().isoformat()
+                    data["started_at"] = datetime.now(timezone.utc).isoformat()
                 if status in ("completed", "failed", "cancelled"):
-                    data["completed_at"] = datetime.utcnow().isoformat()
+                    data["completed_at"] = datetime.now(timezone.utc).isoformat()
                 if result_data is not None:
                     data["result_data"] = result_data
 
@@ -802,12 +802,12 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             old_status = data.get("status")
 
             data["status"] = status
-            data["updated_at"] = datetime.utcnow().isoformat()
+            data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
             if status == "running" and not data.get("started_at"):
-                data["started_at"] = datetime.utcnow().isoformat()
+                data["started_at"] = datetime.now(timezone.utc).isoformat()
             if status in ("completed", "failed", "cancelled"):
-                data["completed_at"] = datetime.utcnow().isoformat()
+                data["completed_at"] = datetime.now(timezone.utc).isoformat()
             if result_data is not None:
                 data["result_data"] = result_data
 
@@ -1039,12 +1039,12 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
                 data = json.loads(data)
 
             data["status"] = status
-            data["updated_at"] = datetime.utcnow().isoformat()
+            data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
             if status == "running" and not data.get("started_at"):
-                data["started_at"] = datetime.utcnow().isoformat()
+                data["started_at"] = datetime.now(timezone.utc).isoformat()
             if status in ("completed", "failed", "cancelled"):
-                data["completed_at"] = datetime.utcnow().isoformat()
+                data["completed_at"] = datetime.now(timezone.utc).isoformat()
             if result_data is not None:
                 data["result_data"] = result_data
 

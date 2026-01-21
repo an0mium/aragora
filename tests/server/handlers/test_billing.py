@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -74,7 +74,7 @@ class MockOrganization:
     stripe_subscription_id: str | None = "sub_test123"
     debates_used_this_month: int = 25
     billing_cycle_start: datetime = field(
-        default_factory=lambda: datetime.utcnow() - timedelta(days=15)
+        default_factory=lambda: datetime.now(timezone.utc) - timedelta(days=15)
     )
 
     @property
@@ -214,7 +214,7 @@ class MockSubscription:
     id: str = "sub_test123"
     status: str = "active"
     current_period_end: datetime = field(
-        default_factory=lambda: datetime.utcnow() + timedelta(days=15)
+        default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=15)
     )
     cancel_at_period_end: bool = False
     trial_start: datetime | None = None

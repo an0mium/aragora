@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from aragora.config import DB_TIMEOUT_SECONDS, resolve_db_path
@@ -63,7 +63,7 @@ class MemoryUsageEvent:
 
     def __post_init__(self):
         if not self.used_at:
-            self.used_at = datetime.utcnow().isoformat()
+            self.used_at = datetime.now(timezone.utc).isoformat()
 
     @property
     def quality_impact(self) -> float:
@@ -83,7 +83,7 @@ class TierMovement:
 
     def __post_init__(self):
         if not self.moved_at:
-            self.moved_at = datetime.utcnow().isoformat()
+            self.moved_at = datetime.now(timezone.utc).isoformat()
 
 
 @dataclass
@@ -101,7 +101,7 @@ class MemoryAnalytics:
 
     def __post_init__(self):
         if not self.generated_at:
-            self.generated_at = datetime.utcnow().isoformat()
+            self.generated_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         """Convert to API response format."""
@@ -291,7 +291,7 @@ class TierAnalyticsTracker:
         Returns:
             TierStats with aggregated metrics
         """
-        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         with self._db.connection() as conn:
             cursor = conn.cursor()
@@ -351,7 +351,7 @@ class TierAnalyticsTracker:
         Returns:
             Effectiveness score 0-1
         """
-        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         with self._db.connection() as conn:
             cursor = conn.cursor()
@@ -401,7 +401,7 @@ class TierAnalyticsTracker:
         Returns:
             Average new entries per day
         """
-        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         with self._db.connection() as conn:
             cursor = conn.cursor()
@@ -521,7 +521,7 @@ class TierAnalyticsTracker:
 
     def take_snapshot(self):
         """Take a daily snapshot for trend analysis."""
-        today = datetime.utcnow().date().isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
 
         with self._db.connection() as conn:
             cursor = conn.cursor()

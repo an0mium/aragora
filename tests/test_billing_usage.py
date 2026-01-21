@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
@@ -210,7 +210,7 @@ class TestUsageSummary:
 
     def test_create_summary(self):
         """Test creating usage summary."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         summary = UsageSummary(
             org_id="org_123",
             period_start=now - timedelta(days=30),
@@ -227,7 +227,7 @@ class TestUsageSummary:
 
     def test_summary_to_dict(self):
         """Test summary serialization."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         summary = UsageSummary(
             org_id="org_123",
             period_start=now - timedelta(days=30),
@@ -401,7 +401,7 @@ class TestUsageTrackerQueries:
         tracker = UsageTracker(db_path=tmp_path / "usage.db")
 
         # Record various events
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Debates
         for i in range(5):
@@ -461,7 +461,7 @@ class TestUsageTrackerQueries:
 
     def test_get_summary_with_date_range(self, tracker_with_data):
         """Test getting summary for specific date range."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         summary = tracker_with_data.get_summary(
             "org_1",
             period_start=now - timedelta(days=2),
@@ -535,7 +535,7 @@ class TestUsageTrackerQueries:
     def test_count_debates_this_month(self, tmp_path):
         """Test counting debates in current billing month."""
         tracker = UsageTracker(db_path=tmp_path / "usage.db")
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Record debates this month
         for i in range(7):

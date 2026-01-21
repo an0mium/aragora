@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
@@ -83,12 +83,12 @@ class MockInvitation:
     token: str = "abc123token"
     invited_by: str = "admin-123"
     status: str = "pending"
-    expires_at: datetime = field(default_factory=lambda: datetime.utcnow() + timedelta(days=7))
+    expires_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7))
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     @property
     def is_pending(self) -> bool:
-        return self.status == "pending" and self.expires_at > datetime.utcnow()
+        return self.status == "pending" and self.expires_at > datetime.now(timezone.utc)
 
     def to_dict(self) -> dict:
         return {

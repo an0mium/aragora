@@ -37,7 +37,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -233,7 +233,7 @@ class DebateSession:
         event = SessionEvent(
             type=event_type,
             session_id=self.id,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             data=data or {},
             previous_state=previous_state,
             new_state=new_state,
@@ -313,7 +313,7 @@ class DebateSession:
             raise RuntimeError(f"Cannot start session in {self.state.value} state")
 
         self._transition_state(DebateSessionState.RUNNING)
-        self.started_at = datetime.utcnow()
+        self.started_at = datetime.now(timezone.utc)
 
         # Create Arena with cancellation token in context
         from aragora.debate.orchestrator import Arena
@@ -351,7 +351,7 @@ class DebateSession:
                 )
             else:
                 self._transition_state(DebateSessionState.COMPLETED)
-                self.completed_at = datetime.utcnow()
+                self.completed_at = datetime.now(timezone.utc)
                 self._emit_event(
                     SessionEventType.COMPLETED,
                     data={
@@ -394,7 +394,7 @@ class DebateSession:
 
         # Signal pause
         self._pause_event.set()
-        self.paused_at = datetime.utcnow()
+        self.paused_at = datetime.now(timezone.utc)
 
         # Create checkpoint if manager available
         checkpoint_id = None
@@ -547,7 +547,7 @@ class DebateSession:
         if self.started_at is None:
             return None
 
-        end_time = self.completed_at or self.paused_at or datetime.utcnow()
+        end_time = self.completed_at or self.paused_at or datetime.now(timezone.utc)
         return (end_time - self.started_at).total_seconds()
 
     def to_dict(self) -> dict:

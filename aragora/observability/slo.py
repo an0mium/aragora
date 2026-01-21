@@ -40,7 +40,7 @@ import importlib.util
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -325,7 +325,7 @@ def _record_measurement(
     """
     global _measurement_window
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Clean old measurements
     cutoff = now - _window_duration
@@ -359,7 +359,7 @@ def check_availability_slo(
     """
     targets = get_slo_targets()
     target = targets["availability"]
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     window_start = now - _window_duration
 
     # Try to get values from Prometheus if not provided
@@ -415,7 +415,7 @@ def check_latency_slo(latency_p99: Optional[float] = None) -> SLOResult:
     """
     targets = get_slo_targets()
     target = targets["latency_p99"]
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     window_start = now - _window_duration
 
     # Try to get value from Prometheus if not provided
@@ -464,7 +464,7 @@ def check_debate_success_slo(
     """
     targets = get_slo_targets()
     target = targets["debate_success"]
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     window_start = now - _window_duration
 
     # Try to get values from Prometheus if not provided

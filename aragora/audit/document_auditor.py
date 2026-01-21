@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 from uuid import uuid4
@@ -162,12 +162,12 @@ class AuditFinding:
             created_at=(
                 datetime.fromisoformat(data["created_at"])
                 if isinstance(data.get("created_at"), str)
-                else datetime.utcnow()
+                else datetime.now(timezone.utc)
             ),
             updated_at=(
                 datetime.fromisoformat(data["updated_at"])
                 if isinstance(data.get("updated_at"), str)
-                else datetime.utcnow()
+                else datetime.now(timezone.utc)
             ),
             tags=data.get("tags", []),
         )
@@ -214,7 +214,7 @@ class AuditSession:
         """Get audit duration in seconds."""
         if not self.started_at:
             return None
-        end = self.completed_at or datetime.utcnow()
+        end = self.completed_at or datetime.now(timezone.utc)
         return (end - self.started_at).total_seconds()
 
     @property
@@ -408,7 +408,7 @@ class DocumentAuditor:
             types = [AuditType(t) for t in audit_types]
 
         session = AuditSession(
-            name=name or f"Audit {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
+            name=name or f"Audit {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
             description=description,
             document_ids=document_ids,
             audit_types=types,
@@ -463,7 +463,7 @@ class DocumentAuditor:
 
         # Start audit
         session.status = AuditStatus.RUNNING
-        session.started_at = datetime.utcnow()
+        session.started_at = datetime.now(timezone.utc)
         session.current_phase = "initializing"
 
         try:
@@ -478,7 +478,7 @@ class DocumentAuditor:
             logger.error(f"Audit session {session_id} failed: {e}")
             raise
         finally:
-            session.completed_at = datetime.utcnow()
+            session.completed_at = datetime.now(timezone.utc)
 
         return session
 
@@ -915,7 +915,7 @@ Is this a valid finding? Respond with:
                 task.cancel()
 
         session.status = AuditStatus.CANCELLED
-        session.completed_at = datetime.utcnow()
+        session.completed_at = datetime.now(timezone.utc)
         return True
 
     def get_findings(
@@ -956,7 +956,7 @@ Is this a valid finding? Respond with:
         for finding in session.findings:
             if finding.id == finding_id:
                 finding.status = status
-                finding.updated_at = datetime.utcnow()
+                finding.updated_at = datetime.now(timezone.utc)
                 if note:
                     finding.tags.append(f"status_note:{note}")
                 return True

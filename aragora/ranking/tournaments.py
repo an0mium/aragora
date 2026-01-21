@@ -23,7 +23,7 @@ import threading
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Generator, Optional
@@ -132,7 +132,7 @@ class TournamentMatch:
     debate_id: Optional[str] = None
     bracket_position: int = 0  # Position in bracket (for elimination)
     is_losers_bracket: bool = False  # For double elimination
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at: Optional[str] = None
 
 
@@ -143,7 +143,7 @@ class TournamentHistoryEntry:
     entry_id: str
     tournament_id: str
     event_type: TournamentEvent
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     details: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -168,7 +168,7 @@ class Tournament:
     rounds_completed: int = 0
     total_rounds: int = 0
     status: str = "pending"  # pending, in_progress, completed
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class TournamentManager:
@@ -645,7 +645,7 @@ class TournamentManager:
         score1 = self._validate_score(score1)
         score2 = self._validate_score(score2)
 
-        completed_at = datetime.utcnow().isoformat()
+        completed_at = datetime.now(timezone.utc).isoformat()
         elo_changes: dict[str, float] = {}
         agent1 = ""
         agent2 = ""

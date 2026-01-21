@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 from uuid import uuid4
@@ -122,7 +122,7 @@ class FindingAssignment:
             team_name=data.get("team_name", ""),
             assigned_by=data.get("assigned_by", ""),
             assigned_by_name=data.get("assigned_by_name", ""),
-            assigned_at=parse_dt(data.get("assigned_at")) or datetime.utcnow(),
+            assigned_at=parse_dt(data.get("assigned_at")) or datetime.now(timezone.utc),
             priority=AssignmentPriority(data.get("priority", "medium")),
             due_date=parse_dt(data.get("due_date")),
             sla_hours=data.get("sla_hours"),
@@ -244,7 +244,7 @@ class AssignmentManager:
         existing = self.get_assignment(finding_id)
         if existing and existing.is_active:
             existing.is_active = False
-            existing.unassigned_at = datetime.utcnow()
+            existing.unassigned_at = datetime.now(timezone.utc)
             existing.unassigned_by = assigned_by
 
         # Calculate due date from SLA if not provided
@@ -254,7 +254,7 @@ class AssignmentManager:
         if due_date is None and sla_hours is not None:
             from datetime import timedelta
 
-            due_date = datetime.utcnow() + timedelta(hours=sla_hours)
+            due_date = datetime.now(timezone.utc) + timedelta(hours=sla_hours)
 
         assignment = FindingAssignment(
             finding_id=finding_id,
@@ -306,7 +306,7 @@ class AssignmentManager:
             return None
 
         assignment.is_active = False
-        assignment.unassigned_at = datetime.utcnow()
+        assignment.unassigned_at = datetime.now(timezone.utc)
         assignment.unassigned_by = unassigned_by
 
         logger.info(f"Unassigned finding {finding_id} by {unassigned_by}")
@@ -331,7 +331,7 @@ class AssignmentManager:
             return None
 
         assignment.is_active = False
-        assignment.completed_at = datetime.utcnow()
+        assignment.completed_at = datetime.now(timezone.utc)
 
         logger.info(f"Completed assignment for finding {finding_id}")
 
@@ -401,7 +401,7 @@ class AssignmentManager:
 
     def get_overdue_assignments(self) -> list[FindingAssignment]:
         """Get all overdue active assignments."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return [
             a for a in self._assignments.values() if a.is_active and a.due_date and a.due_date < now
         ]
@@ -506,7 +506,7 @@ class AssignmentManager:
             if assignment.sla_hours:
                 from datetime import timedelta
 
-                assignment.due_date = datetime.utcnow() + timedelta(hours=assignment.sla_hours)
+                assignment.due_date = datetime.now(timezone.utc) + timedelta(hours=assignment.sla_hours)
 
             self._assignments[finding_id] = assignment
 

@@ -20,7 +20,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Lockout tracker for brute-force protection
@@ -300,7 +300,7 @@ class AuthHandler(SecureHandler):
             is_locked, lockout_until, failed_attempts = user_store.is_account_locked(email)
             if is_locked and lockout_until:
                 remaining_minutes = max(
-                    1, int((lockout_until - datetime.utcnow()).total_seconds() / 60)
+                    1, int((lockout_until - datetime.now(timezone.utc)).total_seconds() / 60)
                 )
                 logger.warning(f"Login attempt on locked account (db): {email}")
                 return error_response(
@@ -354,7 +354,7 @@ class AuthHandler(SecureHandler):
             user_store.reset_failed_login_attempts(email)
 
         # Update last login
-        user_store.update_user(user.id, last_login_at=datetime.utcnow())
+        user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
 
         # Check if MFA is enabled - require second factor before issuing tokens
         if user.mfa_enabled and user.mfa_secret:

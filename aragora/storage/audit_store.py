@@ -32,7 +32,7 @@ import logging
 import sqlite3
 import threading
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
@@ -133,7 +133,7 @@ class AuditStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    datetime.utcnow().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     user_id,
                     org_id,
                     action,
@@ -277,11 +277,11 @@ class AuditStore:
         Returns:
             Number of deleted entries
         """
-        cutoff = datetime.utcnow().isoformat()
+        cutoff = datetime.now(timezone.utc).isoformat()
         # Calculate cutoff date
         from datetime import timedelta
 
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         cutoff = cutoff_date.isoformat()
 
         with self._transaction() as cursor:
@@ -315,7 +315,7 @@ class AuditStore:
         """
         from datetime import timedelta
 
-        since = datetime.utcnow() - timedelta(hours=hours)
+        since = datetime.now(timezone.utc) - timedelta(hours=hours)
         return self.get_log(
             user_id=user_id,
             org_id=org_id,

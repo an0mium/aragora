@@ -9,7 +9,7 @@ Tests cover usage tracking and limit enforcement:
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, Mock, patch
 from io import BytesIO
 
@@ -38,7 +38,7 @@ def free_tier_org():
         tier=SubscriptionTier.FREE,
         owner_id="user-123",
         debates_used_this_month=0,
-        billing_cycle_start=datetime.utcnow() - timedelta(days=15),
+        billing_cycle_start=datetime.now(timezone.utc) - timedelta(days=15),
     )
 
 
@@ -52,7 +52,7 @@ def starter_tier_org():
         tier=SubscriptionTier.STARTER,
         owner_id="user-456",
         debates_used_this_month=25,
-        billing_cycle_start=datetime.utcnow() - timedelta(days=10),
+        billing_cycle_start=datetime.now(timezone.utc) - timedelta(days=10),
     )
 
 
@@ -66,7 +66,7 @@ def professional_tier_org():
         tier=SubscriptionTier.PROFESSIONAL,
         owner_id="user-789",
         debates_used_this_month=150,
-        billing_cycle_start=datetime.utcnow() - timedelta(days=20),
+        billing_cycle_start=datetime.now(timezone.utc) - timedelta(days=20),
     )
 
 
@@ -151,7 +151,7 @@ class TestOrganizationUsageTracking:
 
         assert starter_tier_org.debates_used_this_month == 0
         # billing_cycle_start should be updated
-        assert (datetime.utcnow() - starter_tier_org.billing_cycle_start).seconds < 5
+        assert (datetime.now(timezone.utc) - starter_tier_org.billing_cycle_start).seconds < 5
 
 
 # =============================================================================
@@ -274,7 +274,7 @@ class TestForecastEndpoint:
             user_id="user-789",
         )
         professional_tier_org.debates_used_this_month = 100
-        professional_tier_org.billing_cycle_start = datetime.utcnow() - timedelta(days=15)
+        professional_tier_org.billing_cycle_start = datetime.now(timezone.utc) - timedelta(days=15)
 
         mock_handler = MagicMock()
         # Mock query params
@@ -298,7 +298,7 @@ class TestForecastEndpoint:
             user_id="user-789",
         )
         professional_tier_org.debates_used_this_month = 180
-        professional_tier_org.billing_cycle_start = datetime.utcnow() - timedelta(days=25)
+        professional_tier_org.billing_cycle_start = datetime.now(timezone.utc) - timedelta(days=25)
 
         mock_handler = MagicMock()
         result = billing_handler._get_usage_forecast(mock_handler)
@@ -320,7 +320,7 @@ class TestForecastEndpoint:
             tier=SubscriptionTier.STARTER,
             owner_id="user-456",
             debates_used_this_month=45,
-            billing_cycle_start=datetime.utcnow() - timedelta(days=20),
+            billing_cycle_start=datetime.now(timezone.utc) - timedelta(days=20),
         )
         mock_user_store.get_organization_by_id.return_value = starter_org
         mock_user_store.get_user_by_id.return_value = User(
@@ -399,7 +399,7 @@ class TestMonthlyReset:
             id="org-test",
             tier=SubscriptionTier.PROFESSIONAL,
             debates_used_this_month=150,
-            billing_cycle_start=datetime.utcnow() - timedelta(days=30),
+            billing_cycle_start=datetime.now(timezone.utc) - timedelta(days=30),
         )
 
         # Simulate reset
@@ -407,7 +407,7 @@ class TestMonthlyReset:
 
         assert org.debates_used_this_month == 0
         # Billing cycle should be updated to now
-        assert (datetime.utcnow() - org.billing_cycle_start).seconds < 5
+        assert (datetime.now(timezone.utc) - org.billing_cycle_start).seconds < 5
 
     def test_upgrade_preserves_usage(self):
         """Tier upgrade preserves current usage count."""

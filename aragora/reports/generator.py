@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -152,7 +152,7 @@ class AuditReportGenerator:
             raise ValueError(f"Unsupported format: {format}")
 
         # Generate filename
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         extension = {
             ReportFormat.MARKDOWN: "md",
             ReportFormat.JSON: "json",
@@ -527,7 +527,7 @@ Total Security Findings: {len(sec_findings)}
         """Render report to Markdown format."""
         lines = [
             f"# Audit Report: {session.name or session.id}",
-            f"\n*Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}*",
+            f"\n*Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}*",
             f"*Session: {session.id}*\n",
         ]
 
@@ -549,7 +549,7 @@ Total Security Findings: {len(sec_findings)}
         """Render report to JSON format."""
         report_data = {
             "report": {
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
                 "generator": "Aragora Audit Report Generator",
                 "version": "1.0",
             },
@@ -656,7 +656,7 @@ Total Security Findings: {len(sec_findings)}
 <body>
     <h1>Audit Report: {session.name or session.id}</h1>
     <div class="meta">
-        <p>Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
         <p>Session ID: {session.id}</p>
     </div>
     {"".join(section_html)}

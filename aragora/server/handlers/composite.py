@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from .base import BaseHandler, HandlerResult
@@ -77,7 +77,7 @@ class CompositeHandler(BaseHandler):
         try:
             context: Dict[str, Any] = {
                 "debate_id": debate_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "memory": {},
                 "knowledge": {},
                 "belief": {},
@@ -139,7 +139,7 @@ class CompositeHandler(BaseHandler):
         try:
             metrics: Dict[str, Any] = {
                 "agent_id": agent_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "circuit_breaker": {},
                 "airlock": {},
                 "availability": {},
@@ -207,7 +207,7 @@ class CompositeHandler(BaseHandler):
         try:
             analysis: Dict[str, Any] = {
                 "debate_id": debate_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "compression": {
                     "enabled": False,
                     "rounds_compressed": 0,

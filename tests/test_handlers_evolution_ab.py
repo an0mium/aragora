@@ -13,7 +13,7 @@ Tests cover:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 from unittest.mock import MagicMock, patch
@@ -56,7 +56,7 @@ class MockABTest:
         self.baseline_wins = baseline_wins
         self.evolved_wins = evolved_wins
         self.metadata = metadata or {}
-        self.started_at = datetime.utcnow()
+        self.started_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""

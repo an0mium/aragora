@@ -31,7 +31,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aragora.rlm.training.buffer import ExperienceBuffer, Step, Trajectory
 
@@ -224,7 +224,7 @@ class DebateTrajectoryCollector:
                     action=getattr(msg, "content", str(msg))[:500],
                     action_type="message",
                     observation="",  # Response to this message
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
                 trajectory.add_step(step)
 

@@ -11,7 +11,7 @@ import logging
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Generator, Optional
@@ -272,7 +272,7 @@ class PluginRevenueTracker:
         )
 
         if trial_days > 0:
-            install.trial_ends_at = datetime.utcnow() + timedelta(days=trial_days)
+            install.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=trial_days)
 
         with self._connection() as conn:
             conn.execute(
@@ -558,7 +558,7 @@ class PluginRevenueTracker:
                     completed_at = ?
                 WHERE id = ? AND status = 'pending'
                 """,
-                (stripe_transfer_id, datetime.utcnow().isoformat(), payout_id),
+                (stripe_transfer_id, datetime.now(timezone.utc).isoformat(), payout_id),
             )
             conn.commit()
             return cursor.rowcount > 0

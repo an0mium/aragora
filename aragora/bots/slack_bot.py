@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from aragora.bots.base import (
@@ -276,7 +276,7 @@ class AragoraSlackBot:
             text=f"/{command} {args}".strip(),
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.SLACK,
         )
 
@@ -318,7 +318,7 @@ class AragoraSlackBot:
             text=event.get("text", ""),
             user=user,
             channel=channel,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             platform=Platform.SLACK,
             thread_id=event.get("thread_ts"),
         )
