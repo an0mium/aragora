@@ -5,6 +5,34 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-01-20
+
+### Added
+
+- **Twilio Voice Integration** - Bidirectional voice for phone-triggered debates:
+  - Inbound call handling with speech-to-text transcription
+  - TwiML response generation for interactive prompts
+  - Outbound calls with TTS for debate results
+  - Call session tracking and management
+  - Webhook signature verification
+  - New endpoints: `/api/voice/inbound`, `/api/voice/status`, `/api/voice/gather`
+
+- **Enhanced Observability** - Comprehensive metrics and health monitoring:
+  - Circuit breaker state tracking
+  - Debate throughput metrics
+  - Memory usage monitoring
+  - Readiness and liveness probe support
+
+- **PostgreSQL Backends** - Horizontal scaling support:
+  - PostgreSQL storage backends for user store
+  - Migration infrastructure with Alembic
+  - Database initialization scripts
+
+### Changed
+
+- **Migrations Restructure** - Moved schema to `migrations/sql/001_initial_schema.sql`
+- **Operations Documentation** - Updated with monitoring and alerting guidance
+
 ## [2.1.0] - 2026-01-20
 
 ### Added
