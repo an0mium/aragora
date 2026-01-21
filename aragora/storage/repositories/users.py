@@ -71,6 +71,14 @@ class UserRepository:
     - Token version management for session invalidation
     """
 
+    # Explicit columns for SELECT queries - prevents SELECT * data exposure
+    _USER_COLUMNS = (
+        "id, email, password_hash, password_salt, name, org_id, role, "
+        "is_active, email_verified, api_key_hash, api_key_prefix, "
+        "api_key_created_at, api_key_expires_at, created_at, updated_at, "
+        "last_login_at, mfa_secret, mfa_enabled, mfa_backup_codes, token_version"
+    )
+
     # Column mapping for update operations
     _COLUMN_MAP = {
         "email": "email",
@@ -182,14 +190,16 @@ class UserRepository:
     def get_by_id(self, user_id: str) -> Optional["User"]:
         """Get user by ID."""
         with self._transaction() as cursor:
-            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            cursor.execute(f"SELECT {self._USER_COLUMNS} FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
             return self._row_to_user(row) if row else None
 
     def get_by_email(self, email: str) -> Optional["User"]:
         """Get user by email."""
         with self._transaction() as cursor:
-            cursor.execute("SELECT * FROM users WHERE email = ?", (email.lower(),))
+            cursor.execute(
+                f"SELECT {self._USER_COLUMNS} FROM users WHERE email = ?", (email.lower(),)
+            )
             row = cursor.fetchone()
             return self._row_to_user(row) if row else None
 
@@ -206,7 +216,9 @@ class UserRepository:
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
         with self._transaction() as cursor:
-            cursor.execute("SELECT * FROM users WHERE api_key_hash = ?", (key_hash,))
+            cursor.execute(
+                f"SELECT {self._USER_COLUMNS} FROM users WHERE api_key_hash = ?", (key_hash,)
+            )
             row = cursor.fetchone()
 
             if row:
@@ -238,7 +250,7 @@ class UserRepository:
 
         with self._transaction() as cursor:
             placeholders = ",".join("?" * len(unique_ids))
-            query = f"SELECT * FROM users WHERE id IN ({placeholders})"  # nosec B608
+            query = f"SELECT {self._USER_COLUMNS} FROM users WHERE id IN ({placeholders})"  # nosec B608
             cursor.execute(query, unique_ids)
             return {row["id"]: self._row_to_user(row) for row in cursor.fetchall()}
 

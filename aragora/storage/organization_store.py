@@ -37,6 +37,22 @@ class OrganizationStore:
     Thread-safe with connection pooling via thread-local storage.
     """
 
+    # Explicit columns for SELECT queries - prevents SELECT * data exposure
+    _ORG_COLUMNS = (
+        "id, name, slug, tier, owner_id, stripe_customer_id, "
+        "stripe_subscription_id, debates_used_this_month, billing_cycle_start, "
+        "settings, created_at, updated_at"
+    )
+    _USER_COLUMNS = (
+        "id, email, password_hash, password_salt, name, org_id, role, "
+        "is_active, email_verified, api_key_hash, api_key_prefix, "
+        "api_key_created_at, api_key_expires_at, created_at, updated_at, "
+        "last_login_at, mfa_secret, mfa_enabled, mfa_backup_codes, token_version"
+    )
+    _INVITATION_COLUMNS = (
+        "id, org_id, email, role, token, invited_by, status, " "created_at, expires_at, accepted_at"
+    )
+
     def __init__(
         self,
         db_path: Path | str,

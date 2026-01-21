@@ -333,7 +333,7 @@ If migration fails mid-way:
 
 ## Next Steps
 
-- [ ] Migrate EloSystem to PostgreSQL
-- [ ] Migrate ContinuumMemory to PostgreSQL
+- [x] Migrate EloSystem to PostgreSQL (`PostgresEloDatabase`)
+- [x] Migrate ContinuumMemory to PostgreSQL (`PostgresContinuumMemory`)
 - [ ] Add PostgreSQL support to remaining stores
 - [ ] Implement read replicas for scaling reads

@@ -878,3 +878,137 @@ class TestPostgresContinuumMemoryIntegration:
         results = await memory.get_by_tier(MemoryTier.FAST, limit=50)
         assert isinstance(results, list)
         assert all(r["tier"] == "fast" for r in results)
+
+
+class TestPostgresEloDatabaseIntegration:
+    """Integration tests for PostgresEloDatabase."""
+
+    @pytest.fixture
+    async def db(self, postgres_pool: asyncpg.Pool):
+        """Create and initialize ELO database."""
+        from aragora.ranking.postgres_database import PostgresEloDatabase
+
+        db = PostgresEloDatabase(postgres_pool)
+        await db.initialize()
+        return db
+
+    @pytest.mark.asyncio
+    async def test_set_and_get_rating(self, db):
+        """Test setting and retrieving agent ratings."""
+        unique_id = uuid.uuid4().hex[:8]
+        agent_name = f"test_agent_{unique_id}"
+
+        # Set rating
+        await db.set_rating(
+            agent_name=agent_name,
+            elo=1600.0,
+            domain_elos={"coding": 1700.0, "debate": 1550.0},
+            wins=10,
+            losses=5,
+            draws=2,
+        )
+
+        # Get rating
+        rating = await db.get_rating(agent_name)
+        assert rating is not None
+        assert rating["agent_name"] == agent_name
+        assert rating["elo"] == 1600.0
+        assert rating["wins"] == 10
+        assert rating["losses"] == 5
+
+    @pytest.mark.asyncio
+    async def test_record_match(self, db):
+        """Test recording match results."""
+        unique_id = uuid.uuid4().hex[:8]
+        winner = f"winner_{unique_id}"
+        loser = f"loser_{unique_id}"
+
+        # Initialize ratings
+        await db.set_rating(agent_name=winner, elo=1500.0)
+        await db.set_rating(agent_name=loser, elo=1500.0)
+
+        # Record match
+        match_id = await db.record_match(
+            winner=winner,
+            loser=loser,
+            domain="coding",
+            debate_id=f"debate_{unique_id}",
+            winner_elo_before=1500.0,
+            loser_elo_before=1500.0,
+            winner_elo_after=1516.0,
+            loser_elo_after=1484.0,
+        )
+
+        assert match_id is not None
+        assert isinstance(match_id, int)
+
+    @pytest.mark.asyncio
+    async def test_get_leaderboard(self, db):
+        """Test retrieving the leaderboard."""
+        unique_id = uuid.uuid4().hex[:8]
+
+        # Create a few agents with different ratings
+        for i, elo in enumerate([1800, 1600, 1400]):
+            await db.set_rating(
+                agent_name=f"leaderboard_{unique_id}_{i}",
+                elo=float(elo),
+            )
+
+        # Get leaderboard
+        leaderboard = await db.get_leaderboard(limit=10)
+        assert isinstance(leaderboard, list)
+
+    @pytest.mark.asyncio
+    async def test_update_rating(self, db):
+        """Test updating an existing rating."""
+        unique_id = uuid.uuid4().hex[:8]
+        agent_name = f"update_test_{unique_id}"
+
+        # Set initial rating
+        await db.set_rating(agent_name=agent_name, elo=1500.0, wins=0, losses=0)
+
+        # Update with new values
+        await db.set_rating(agent_name=agent_name, elo=1550.0, wins=5, losses=2)
+
+        # Verify update
+        rating = await db.get_rating(agent_name)
+        assert rating is not None
+        assert rating["elo"] == 1550.0
+        assert rating["wins"] == 5
+
+    @pytest.mark.asyncio
+    async def test_get_match_history(self, db):
+        """Test retrieving match history for an agent."""
+        unique_id = uuid.uuid4().hex[:8]
+        agent = f"history_{unique_id}"
+        opponent = f"opponent_{unique_id}"
+
+        # Initialize ratings
+        await db.set_rating(agent_name=agent, elo=1500.0)
+        await db.set_rating(agent_name=opponent, elo=1500.0)
+
+        # Record some matches
+        await db.record_match(
+            winner=agent,
+            loser=opponent,
+            domain="general",
+            debate_id=f"match1_{unique_id}",
+            winner_elo_before=1500.0,
+            loser_elo_before=1500.0,
+            winner_elo_after=1516.0,
+            loser_elo_after=1484.0,
+        )
+
+        # Get history
+        history = await db.get_match_history(agent, limit=10)
+        assert isinstance(history, list)
+        assert len(history) >= 1
+
+    @pytest.mark.asyncio
+    async def test_get_stats(self, db):
+        """Test getting database statistics."""
+        stats = await db.get_stats()
+
+        assert "total_agents" in stats
+        assert "total_matches" in stats
+        assert isinstance(stats["total_agents"], int)

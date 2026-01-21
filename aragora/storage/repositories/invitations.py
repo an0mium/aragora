@@ -26,6 +26,11 @@ class InvitationRepository:
     - Cleaning up expired invitations
     """
 
+    # Explicit columns for SELECT queries - prevents SELECT * data exposure
+    _INVITATION_COLUMNS = (
+        "id, org_id, email, role, token, invited_by, status, " "created_at, expires_at, accepted_at"
+    )
+
     def __init__(self, transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]]) -> None:
         """
         Initialize the invitation repository.
@@ -72,7 +77,7 @@ class InvitationRepository:
         """Get invitation by ID."""
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT * FROM org_invitations WHERE id = ?",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = ?",
                 (invitation_id,),
             )
             row = cursor.fetchone()
@@ -82,7 +87,7 @@ class InvitationRepository:
         """Get invitation by token."""
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT * FROM org_invitations WHERE token = ?",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = ?",
                 (token,),
             )
             row = cursor.fetchone()
@@ -92,8 +97,8 @@ class InvitationRepository:
         """Get pending invitation by org and email."""
         with self._transaction() as cursor:
             cursor.execute(
-                """
-                SELECT * FROM org_invitations
+                f"""
+                SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                 WHERE org_id = ? AND email = ? AND status = 'pending'
                 ORDER BY created_at DESC LIMIT 1
                 """,
@@ -106,7 +111,7 @@ class InvitationRepository:
         """Get all invitations for an organization."""
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT * FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",
                 (org_id,),
             )
             return [self._row_to_invitation(row) for row in cursor.fetchall()]
@@ -115,8 +120,8 @@ class InvitationRepository:
         """Get all pending invitations for an email address."""
         with self._transaction() as cursor:
             cursor.execute(
-                """
-                SELECT * FROM org_invitations
+                f"""
+                SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                 WHERE email = ? AND status = 'pending'
                 ORDER BY created_at DESC
                 """,
