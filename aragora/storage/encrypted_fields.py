@@ -37,6 +37,10 @@ SENSITIVE_FIELDS: frozenset[str] = frozenset({
     "password",
     "client_secret",
     "signing_secret",
+    # MFA secrets
+    "mfa_secret",
+    "mfa_backup_codes",
+    "totp_secret",
     # Platform-specific credentials
     "webhook_url",  # May contain tokens in URL
     "webhook_secret",

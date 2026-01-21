@@ -50,6 +50,9 @@ except ImportError:
 # Token fields to encrypt
 _TOKEN_FIELDS = ["access_token", "refresh_token"]
 
+# Exported for migration scripts
+ENCRYPTED_FIELDS = _TOKEN_FIELDS
+
 
 def _encrypt_token(token: str, user_id: str = "") -> str:
     """
