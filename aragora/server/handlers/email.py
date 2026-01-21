@@ -834,9 +834,44 @@ class EmailHandler(BaseHandler):
     Integrates with the Aragora server routing system.
     """
 
+    ROUTES = [
+        "/api/email/prioritize",
+        "/api/email/rank-inbox",
+        "/api/email/feedback",
+        "/api/email/inbox",
+        "/api/email/config",
+        "/api/email/vip",
+        "/api/email/gmail/oauth/url",
+        "/api/email/gmail/oauth/callback",
+        "/api/email/gmail/status",
+        "/api/email/context/boost",
+    ]
+
+    # Prefix for dynamic routes like /api/email/context/:email_address
+    ROUTE_PREFIXES = ["/api/email/context/"]
+
     def __init__(self, ctx: Dict[str, Any]):
         """Initialize with server context."""
         super().__init__(ctx)
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can handle the given path."""
+        if path in self.ROUTES:
+            return True
+        # Check prefix routes (e.g., /api/email/context/:email_address)
+        for prefix in self.ROUTE_PREFIXES:
+            if path.startswith(prefix) and path != prefix.rstrip("/"):
+                return True
+        return False
+
+    def handle(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route email endpoint requests."""
+        # This handler uses async methods, so we return None here
+        # and let the server's async handling mechanism process it
+        # The actual handling is done via HTTP method-specific handlers
+        return None
 
     async def handle_post_prioritize(self, data: Dict[str, Any]) -> HandlerResult:
         """POST /api/email/prioritize"""
