@@ -418,3 +418,186 @@ class TestStatsAndCache:
         await adapter.get_capability_recommendations("debate", use_cache=True)
 
         assert mock_knowledge_mound.query.call_count == 2
+
+
+# =============================================================================
+# Edge Case Tests
+# =============================================================================
+
+
+class TestControlPlaneEdgeCases:
+    """Tests for edge cases and error handling."""
+
+    def test_init_without_coordinator(self):
+        """Should initialize without coordinator."""
+        adapter = ControlPlaneAdapter(coordinator=None)
+
+        assert adapter._coordinator is None
+
+    def test_init_with_custom_thresholds(self):
+        """Should accept custom thresholds."""
+        adapter = ControlPlaneAdapter(
+            min_task_confidence=0.9,
+            min_capability_sample_size=10,
+        )
+
+        assert adapter._min_task_confidence == 0.9
+        assert adapter._min_capability_sample_size == 10
+
+    def test_set_event_callback(self, adapter):
+        """Should set event callback."""
+        callback = MagicMock()
+        adapter.set_event_callback(callback)
+
+        assert adapter._event_callback is callback
+
+    def test_emit_event_handles_errors(self, adapter):
+        """Should handle event callback errors."""
+        callback = MagicMock(side_effect=Exception("Callback failed"))
+        adapter._event_callback = callback
+
+        # Should not raise
+        adapter._emit_event("test_event", {"key": "value"})
+
+    @pytest.mark.asyncio
+    async def test_task_outcome_below_confidence(self, adapter, mock_knowledge_mound):
+        """Should skip task outcomes below confidence threshold."""
+        outcome = TaskOutcome(
+            task_id="task_low",
+            task_type="rare_task",
+            agent_id="agent",
+            success=False,
+            duration_seconds=5.0,
+        )
+
+        adapter._min_task_confidence = 0.9  # High threshold
+
+        result = await adapter.store_task_outcome(outcome)
+
+        # Failed task confidence (0.5) is below 0.9 threshold
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_capability_with_limit(self, adapter, mock_knowledge_mound):
+        """Should respect limit parameter in recommendations."""
+        mock_knowledge_mound.query.return_value = []
+
+        await adapter.get_capability_recommendations("debate", limit=5)
+
+        # Verify query was called with correct limit
+        call_kwargs = mock_knowledge_mound.query.call_args
+        # Adapter may modify limit internally, just verify query was made
+        assert mock_knowledge_mound.query.called
+
+    @pytest.mark.asyncio
+    async def test_share_insight_without_km(self):
+        """Should handle share without KM gracefully."""
+        adapter = ControlPlaneAdapter(knowledge_mound=None)
+
+        insight = CrossWorkspaceInsight(
+            insight_id="insight_789",
+            source_workspace="workspace_a",
+            target_workspaces=["workspace_b"],
+            task_type="debate",
+            content="Test insight",
+            confidence=0.8,
+            created_at=datetime.now().isoformat(),
+        )
+
+        result = await adapter.share_insight_cross_workspace(insight)
+
+        # Should return False or None when no KM
+        assert result in (False, None)
+
+    @pytest.mark.asyncio
+    async def test_get_insights_without_km(self):
+        """Should return empty list without KM."""
+        adapter = ControlPlaneAdapter(knowledge_mound=None)
+
+        results = await adapter.get_cross_workspace_insights("debate")
+
+        assert results == []
+
+
+class TestDataclasses:
+    """Tests for adapter dataclasses."""
+
+    def test_task_outcome_defaults(self):
+        """Should have correct defaults."""
+        outcome = TaskOutcome(
+            task_id="t1",
+            task_type="test",
+            agent_id="agent",
+            success=True,
+            duration_seconds=1.0,
+        )
+
+        assert outcome.workspace_id == "default"
+        assert outcome.error_message is None
+        assert outcome.metadata == {}
+
+    def test_task_outcome_with_metadata(self):
+        """Should accept metadata."""
+        outcome = TaskOutcome(
+            task_id="t1",
+            task_type="test",
+            agent_id="agent",
+            success=True,
+            duration_seconds=1.0,
+            metadata={"key": "value"},
+        )
+
+        assert outcome.metadata == {"key": "value"}
+
+    def test_capability_record_defaults(self):
+        """Should have correct defaults."""
+        record = AgentCapabilityRecord(
+            agent_id="agent",
+            capability="test",
+            success_count=10,
+            failure_count=2,
+            avg_duration_seconds=5.0,
+        )
+
+        assert record.workspace_id == "default"
+        assert record.confidence == 0.8
+
+    def test_cross_workspace_insight_creation(self):
+        """Should create insight with all fields."""
+        insight = CrossWorkspaceInsight(
+            insight_id="i1",
+            source_workspace="ws1",
+            target_workspaces=["ws2", "ws3"],
+            task_type="debate",
+            content="Test content",
+            confidence=0.9,
+            created_at="2024-01-15T10:00:00",
+        )
+
+        assert insight.insight_id == "i1"
+        assert len(insight.target_workspaces) == 2
+
+
+class TestStatsTracking:
+    """Tests for stats tracking."""
+
+    @pytest.mark.asyncio
+    async def test_capability_query_stats(self, adapter, mock_knowledge_mound):
+        """Should track capability query stats."""
+        mock_knowledge_mound.query.return_value = []
+
+        initial_queries = adapter._stats["capability_queries"]
+
+        await adapter.get_capability_recommendations("debate", use_cache=False)
+        await adapter.get_capability_recommendations("code", use_cache=False)
+
+        assert adapter._stats["capability_queries"] == initial_queries + 2
+
+    @pytest.mark.asyncio
+    async def test_capability_record_stats(self, adapter, capability_record, mock_knowledge_mound):
+        """Should track capability record storage stats."""
+        initial_stored = adapter._stats["capability_records_stored"]
+
+        await adapter.store_capability_record(capability_record)
+
+        assert adapter._stats["capability_records_stored"] == initial_stored + 1

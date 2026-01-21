@@ -337,14 +337,14 @@ class TestStoreIntegration:
 
 
 class TestMigrations:
-    """Tests for database migrations."""
+    """Tests for database migrations - requires PostgreSQL."""
 
-    @pytest.mark.skip(reason="Migration tests require full schema setup")
-    def test_migration_runs_on_postgres(self, pg_backend):
-        """Test that migrations run successfully on PostgreSQL."""
+    @pytest.mark.skip(reason="Requires PostgreSQL-aware EloSystem - implement after ELO migration")
+    def test_elo_migrations(self, pg_connection_url):
+        """Test ELO system migrations."""
         pass
 
-    @pytest.mark.skip(reason="Migration tests require full schema setup")
-    def test_schema_version_tracking(self, pg_backend):
-        """Test that schema versions are tracked correctly."""
+    @pytest.mark.skip(reason="Requires PostgreSQL-aware ContinuumMemory - implement after memory migration")
+    def test_continuum_migrations(self, pg_connection_url):
+        """Test Continuum memory migrations."""
         pass

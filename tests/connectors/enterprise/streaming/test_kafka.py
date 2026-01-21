@@ -533,3 +533,271 @@ class TestKafkaErrorHandling:
         assert "connector_id" in stats
         assert stats["running"] is False
         assert stats["consumed_count"] == 0
+
+
+# =============================================================================
+# Edge Case Tests
+# =============================================================================
+
+
+class TestKafkaEdgeCases:
+    """Edge case tests for Kafka connector."""
+
+    def test_deserialize_message_with_headers(self):
+        """Should decode headers with bytes values."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+
+        connector = KafkaConnector(KafkaConfig())
+
+        mock_message = MagicMock()
+        mock_message.topic = "test-topic"
+        mock_message.partition = 0
+        mock_message.offset = 1
+        mock_message.key = None
+        mock_message.value = b'{"data": "test"}'
+        mock_message.timestamp = 1234567890000
+        mock_message.headers = [
+            ("producer", b"service-a"),
+            ("trace-id", b"abc-123"),
+        ]
+
+        kafka_msg = connector._deserialize_message(mock_message)
+
+        assert kafka_msg.headers["producer"] == "service-a"
+        assert kafka_msg.headers["trace-id"] == "abc-123"
+
+    def test_to_sync_item_truncates_large_content(self):
+        """Should truncate content exceeding 50k chars."""
+        from aragora.connectors.enterprise.streaming.kafka import KafkaMessage
+        from datetime import datetime, timezone
+
+        large_content = "x" * 60000
+
+        msg = KafkaMessage(
+            topic="test",
+            partition=0,
+            offset=1,
+            key=None,
+            value={"content": large_content},
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+        )
+
+        sync_item = msg.to_sync_item()
+
+        assert len(sync_item.content) <= 50000
+
+    def test_source_type_property(self):
+        """Should return correct source type."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+        from aragora.reasoning.provenance import SourceType
+
+        connector = KafkaConnector(KafkaConfig())
+
+        assert connector.source_type == SourceType.EXTERNAL_API
+
+    def test_name_property(self):
+        """Should return correct name."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+
+        connector = KafkaConnector(KafkaConfig())
+
+        assert connector.name == "Kafka"
+
+    @pytest.mark.asyncio
+    async def test_search_returns_empty_list(self):
+        """Search should return empty list (not supported)."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+
+        connector = KafkaConnector(KafkaConfig())
+
+        result = await connector.search("test query")
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_returns_none(self):
+        """Fetch should return None (not supported)."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+
+        connector = KafkaConnector(KafkaConfig())
+
+        result = await connector.fetch("some-id")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_start_connects_if_not_connected(self):
+        """Start should attempt connection if consumer is None."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+
+        config = KafkaConfig()
+        connector = KafkaConnector(config)
+
+        mock_consumer = AsyncMock()
+        mock_consumer.start = AsyncMock()
+
+        with patch.dict("sys.modules", {"aiokafka": MagicMock()}):
+            with patch(
+                "aiokafka.AIOKafkaConsumer",
+                return_value=mock_consumer,
+            ):
+                await connector.start()
+
+                assert connector._running is True
+
+    @pytest.mark.asyncio
+    async def test_stop_calls_disconnect(self):
+        """Stop should call disconnect."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+
+        connector = KafkaConnector(KafkaConfig())
+        connector._consumer = AsyncMock()
+        connector._consumer.stop = AsyncMock()
+        connector._running = True
+
+        await connector.stop()
+
+        assert connector._running is False
+        assert connector._consumer is None
+
+    def test_config_with_sasl_authentication(self):
+        """Should support SASL authentication config."""
+        from aragora.connectors.enterprise.streaming.kafka import KafkaConfig
+
+        config = KafkaConfig(
+            security_protocol="SASL_SSL",
+            sasl_mechanism="PLAIN",
+            sasl_username="user",
+            sasl_password="secret",
+            ssl_cafile="/path/to/ca.pem",
+        )
+
+        assert config.security_protocol == "SASL_SSL"
+        assert config.sasl_mechanism == "PLAIN"
+        assert config.sasl_username == "user"
+        assert config.sasl_password == "secret"
+
+    @pytest.mark.asyncio
+    async def test_sync_items_uses_sync(self):
+        """sync_items should delegate to sync method."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+        from aragora.connectors.enterprise.base import SyncState
+
+        connector = KafkaConnector(KafkaConfig())
+
+        # Mock the sync method
+        sync_items_yielded = []
+
+        async def mock_sync(batch_size=None):
+            from aragora.connectors.enterprise.base import SyncItem
+            from datetime import datetime, timezone
+
+            for i in range(2):
+                yield SyncItem(
+                    id=f"item-{i}",
+                    content=f"content-{i}",
+                    source_type="event_stream",
+                    source_id=f"kafka/test/{i}",
+                    title=f"Item {i}",
+                    url=None,
+                    author="test",
+                    created_at=datetime.now(tz=timezone.utc),
+                    updated_at=datetime.now(tz=timezone.utc),
+                    domain="test",
+                    confidence=0.9,
+                    metadata={},
+                )
+
+        connector.sync = mock_sync
+
+        state = SyncState(connector_id="kafka", cursor=None)
+        async for item in connector.sync_items(state, batch_size=2):
+            sync_items_yielded.append(item)
+
+        assert len(sync_items_yielded) == 2
+
+    def test_to_sync_item_extracts_type_as_title(self):
+        """Should use 'type' field as title if no 'title' field."""
+        from aragora.connectors.enterprise.streaming.kafka import KafkaMessage
+        from datetime import datetime, timezone
+
+        msg = KafkaMessage(
+            topic="events",
+            partition=0,
+            offset=1,
+            key=None,
+            value={"type": "UserCreated", "user_id": "123"},
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+        )
+
+        sync_item = msg.to_sync_item()
+
+        assert sync_item.title == "UserCreated"
+
+    def test_to_sync_item_non_dict_non_string_value(self):
+        """Should handle non-dict, non-string values."""
+        from aragora.connectors.enterprise.streaming.kafka import KafkaMessage
+        from datetime import datetime, timezone
+
+        msg = KafkaMessage(
+            topic="numbers",
+            partition=0,
+            offset=1,
+            key=None,
+            value=12345,  # Integer value
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+        )
+
+        sync_item = msg.to_sync_item()
+
+        assert sync_item.content == "12345"
+        assert sync_item.title == "Kafka: numbers"
+
+    def test_deserialize_message_with_none_headers(self):
+        """Should handle None headers gracefully."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+
+        connector = KafkaConnector(KafkaConfig())
+
+        mock_message = MagicMock()
+        mock_message.topic = "test-topic"
+        mock_message.partition = 0
+        mock_message.offset = 1
+        mock_message.key = None
+        mock_message.value = b'{"data": "test"}'
+        mock_message.timestamp = 1234567890000
+        mock_message.headers = None
+
+        kafka_msg = connector._deserialize_message(mock_message)
+
+        assert kafka_msg.headers == {}

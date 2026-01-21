@@ -397,3 +397,153 @@ class TestStoredTemplate:
 
         assert "workflow_definition" in data
         assert data["workflow_definition"]["nodes"][0]["id"] == "n1"
+
+
+class TestListTemplatesWithRank:
+    """Test the list_templates_with_rank method using window functions."""
+
+    def test_empty_store_returns_empty(self, store):
+        """Should return empty list and zero total for empty store."""
+        templates, total = store.list_templates_with_rank()
+        assert templates == []
+        assert total == 0
+
+    def test_includes_global_rank(self, store):
+        """Should include global_rank in results."""
+        # Create templates with different ratings
+        store.create_template(
+            name="Low Rated",
+            description="Low",
+            author_id="u1",
+            author_name="U1",
+            category="test",
+            pattern="p1",
+            workflow_definition={},
+        )
+        store.create_template(
+            name="High Rated",
+            description="High",
+            author_id="u2",
+            author_name="U2",
+            category="test",
+            pattern="p2",
+            workflow_definition={},
+        )
+
+        templates, total = store.list_templates_with_rank(sort_by="newest")
+        assert total == 2
+        assert len(templates) == 2
+        # Each template should have global_rank
+        for t in templates:
+            assert "global_rank" in t
+            assert isinstance(t["global_rank"], int)
+
+    def test_includes_category_rank(self, store):
+        """Should include category_rank in results."""
+        # Create templates in different categories
+        store.create_template(
+            name="Security 1",
+            description="Sec1",
+            author_id="u1",
+            author_name="U1",
+            category="security",
+            pattern="p1",
+            workflow_definition={},
+        )
+        store.create_template(
+            name="Security 2",
+            description="Sec2",
+            author_id="u2",
+            author_name="U2",
+            category="security",
+            pattern="p2",
+            workflow_definition={},
+        )
+        store.create_template(
+            name="Testing 1",
+            description="Test1",
+            author_id="u3",
+            author_name="U3",
+            category="testing",
+            pattern="p3",
+            workflow_definition={},
+        )
+
+        templates, total = store.list_templates_with_rank(category="security")
+        assert total == 2
+        # All should be in security category with category ranks 1 and 2
+        for t in templates:
+            assert "category_rank" in t
+            assert t["category_rank"] in [1, 2]
+
+    def test_respects_pagination(self, store):
+        """Should respect limit and offset for pagination."""
+        # Create 5 templates
+        for i in range(5):
+            store.create_template(
+                name=f"Template {i}",
+                description=f"Desc {i}",
+                author_id=f"u{i}",
+                author_name=f"U{i}",
+                category="test",
+                pattern="p1",
+                workflow_definition={},
+            )
+
+        templates, total = store.list_templates_with_rank(limit=2, offset=0)
+        assert total == 5  # Total count from window function
+        assert len(templates) == 2  # Only 2 returned due to limit
+
+    def test_search_filter(self, store):
+        """Should filter by search term."""
+        store.create_template(
+            name="Python Security",
+            description="Python security template",
+            author_id="u1",
+            author_name="U1",
+            category="security",
+            pattern="p1",
+            workflow_definition={},
+        )
+        store.create_template(
+            name="Java Testing",
+            description="Java testing template",
+            author_id="u2",
+            author_name="U2",
+            category="testing",
+            pattern="p2",
+            workflow_definition={},
+        )
+
+        templates, total = store.list_templates_with_rank(search="Python")
+        assert total == 1
+        assert templates[0]["name"] == "Python Security"
+
+    def test_sort_by_downloads(self, store):
+        """Should sort by downloads when requested."""
+        t1 = store.create_template(
+            name="Popular",
+            description="Many downloads",
+            author_id="u1",
+            author_name="U1",
+            category="test",
+            pattern="p1",
+            workflow_definition={},
+        )
+        t2 = store.create_template(
+            name="Unpopular",
+            description="Few downloads",
+            author_id="u2",
+            author_name="U2",
+            category="test",
+            pattern="p2",
+            workflow_definition={},
+        )
+
+        # Increment downloads for first template
+        for _ in range(10):
+            store.increment_download(t1.id)
+
+        templates, _ = store.list_templates_with_rank(sort_by="downloads")
+        assert templates[0]["name"] == "Popular"
+        assert templates[0]["global_rank"] == 1

@@ -270,7 +270,9 @@ class TestCircuitBreakerRegistry:
 
     def test_get_metrics_provides_summary(self):
         """get_circuit_breaker_metrics provides health summary."""
-        breaker = get_circuit_breaker("test-service", failure_threshold=2)
+        import uuid
+        service_name = f"test-metrics-{uuid.uuid4().hex[:8]}"
+        breaker = get_circuit_breaker(service_name, failure_threshold=2)
         breaker.record_failure()
         breaker.record_failure()
 
@@ -279,6 +281,8 @@ class TestCircuitBreakerRegistry:
         assert metrics["summary"]["total"] >= 1
         assert metrics["summary"]["open"] >= 1
         assert metrics["health"]["status"] == "degraded"
+        # Verify our specific breaker is in the open circuits
+        assert service_name in metrics["health"]["open_circuits"]
 
 
 # =============================================================================

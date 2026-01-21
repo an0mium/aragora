@@ -682,3 +682,380 @@ class TestRabbitMQDeadLetterQueue:
                 assert args.get("x-dead-letter-exchange") == "dlx"
                 assert args.get("x-dead-letter-routing-key") == "dead-letters"
                 assert args.get("x-message-ttl") == 60000
+
+
+# =============================================================================
+# Edge Case Tests
+# =============================================================================
+
+
+class TestRabbitMQEdgeCases:
+    """Edge case tests for RabbitMQ connector."""
+
+    @pytest.mark.asyncio
+    async def test_ack_without_channel_is_noop(self):
+        """Should not fail if ack() called without channel."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import RabbitMQMessage
+
+        msg = RabbitMQMessage(
+            queue="test",
+            routing_key="test",
+            delivery_tag=42,
+            body="test",
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+            _channel=None,
+        )
+
+        await msg.ack()  # Should not raise
+
+    @pytest.mark.asyncio
+    async def test_nack_without_channel_is_noop(self):
+        """Should not fail if nack() called without channel."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import RabbitMQMessage
+
+        msg = RabbitMQMessage(
+            queue="test",
+            routing_key="test",
+            delivery_tag=42,
+            body="test",
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+            _channel=None,
+        )
+
+        await msg.nack()  # Should not raise
+
+    @pytest.mark.asyncio
+    async def test_reject_without_channel_is_noop(self):
+        """Should not fail if reject() called without channel."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import RabbitMQMessage
+
+        msg = RabbitMQMessage(
+            queue="test",
+            routing_key="test",
+            delivery_tag=42,
+            body="test",
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+            _channel=None,
+        )
+
+        await msg.reject()  # Should not raise
+
+    def test_to_sync_item_truncates_large_content(self):
+        """Should truncate content exceeding 50k chars."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import RabbitMQMessage
+
+        large_content = "x" * 60000
+
+        msg = RabbitMQMessage(
+            queue="test",
+            routing_key="test",
+            delivery_tag=1,
+            body={"content": large_content},
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+        )
+
+        sync_item = msg.to_sync_item()
+
+        assert len(sync_item.content) <= 50000
+
+    def test_source_type_property(self):
+        """Should return correct source type."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+        from aragora.reasoning.provenance import SourceType
+
+        connector = RabbitMQConnector(RabbitMQConfig())
+
+        assert connector.source_type == SourceType.EXTERNAL_API
+
+    def test_name_property(self):
+        """Should return correct name."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        connector = RabbitMQConnector(RabbitMQConfig())
+
+        assert connector.name == "RabbitMQ"
+
+    @pytest.mark.asyncio
+    async def test_search_returns_empty_list(self):
+        """Search should return empty list (not supported)."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        connector = RabbitMQConnector(RabbitMQConfig())
+
+        result = await connector.search("test query")
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_returns_none(self):
+        """Fetch should return None (not supported)."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        connector = RabbitMQConnector(RabbitMQConfig())
+
+        result = await connector.fetch("some-id")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_start_connects_if_not_connected(self):
+        """Start should attempt connection if connection is None."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        config = RabbitMQConfig()
+        connector = RabbitMQConnector(config)
+
+        mock_queue = AsyncMock()
+        mock_channel = AsyncMock()
+        mock_channel.set_qos = AsyncMock()
+        mock_channel.declare_queue = AsyncMock(return_value=mock_queue)
+        mock_channel.default_exchange = MagicMock()
+
+        mock_connection = AsyncMock()
+        mock_connection.channel = AsyncMock(return_value=mock_channel)
+
+        mock_aio_pika = MagicMock()
+        mock_aio_pika.connect_robust = AsyncMock(return_value=mock_connection)
+
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
+            await connector.start()
+
+            assert connector._running is True
+
+    @pytest.mark.asyncio
+    async def test_stop_calls_disconnect(self):
+        """Stop should call disconnect."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        connector = RabbitMQConnector(RabbitMQConfig())
+        connector._connection = AsyncMock()
+        connector._connection.close = AsyncMock()
+        connector._running = True
+
+        await connector.stop()
+
+        assert connector._running is False
+        assert connector._connection is None
+
+    def test_to_sync_item_extracts_type_as_title(self):
+        """Should use 'type' field as title if no 'title' field."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import RabbitMQMessage
+
+        msg = RabbitMQMessage(
+            queue="events",
+            routing_key="events.new",
+            delivery_tag=1,
+            body={"type": "OrderCreated", "order_id": "456"},
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+        )
+
+        sync_item = msg.to_sync_item()
+
+        assert sync_item.title == "OrderCreated"
+
+    def test_to_sync_item_non_dict_non_string_body(self):
+        """Should handle non-dict, non-string body values."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import RabbitMQMessage
+
+        msg = RabbitMQMessage(
+            queue="numbers",
+            routing_key="numbers",
+            delivery_tag=1,
+            body=98765,  # Integer value
+            headers={},
+            timestamp=datetime.now(tz=timezone.utc),
+        )
+
+        sync_item = msg.to_sync_item()
+
+        assert sync_item.content == "98765"
+        assert sync_item.title == "RabbitMQ: numbers"
+
+    def test_deserialize_message_with_numeric_timestamp(self):
+        """Should handle numeric timestamp instead of datetime."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        connector = RabbitMQConnector(RabbitMQConfig())
+
+        mock_message = MagicMock()
+        mock_message.body = b'{"data": "test"}'
+        mock_message.headers = {}
+        mock_message.routing_key = "test"
+        mock_message.delivery_tag = 1
+        mock_message.timestamp = 1234567890  # Unix timestamp
+        mock_message.message_id = None
+        mock_message.correlation_id = None
+        mock_message.reply_to = None
+        mock_message.expiration = None
+        mock_message.priority = None
+        mock_message.channel = MagicMock()
+
+        rmq_msg = connector._deserialize_message(mock_message)
+
+        assert rmq_msg.timestamp is not None
+
+    def test_config_with_ssl(self):
+        """Should support SSL configuration."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import RabbitMQConfig
+
+        config = RabbitMQConfig(
+            url="amqps://user:pass@secure-rabbitmq.example.com/",
+            ssl=True,
+            ssl_cafile="/path/to/ca.pem",
+            ssl_certfile="/path/to/cert.pem",
+            ssl_keyfile="/path/to/key.pem",
+        )
+
+        assert config.ssl is True
+        assert config.ssl_cafile == "/path/to/ca.pem"
+        assert config.ssl_certfile == "/path/to/cert.pem"
+        assert config.ssl_keyfile == "/path/to/key.pem"
+
+    @pytest.mark.asyncio
+    async def test_sync_items_uses_sync(self):
+        """sync_items should delegate to sync method."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+        from aragora.connectors.enterprise.base import SyncState
+
+        connector = RabbitMQConnector(RabbitMQConfig())
+
+        sync_items_yielded = []
+
+        async def mock_sync(batch_size=None):
+            from aragora.connectors.enterprise.base import SyncItem
+
+            for i in range(2):
+                yield SyncItem(
+                    id=f"item-{i}",
+                    content=f"content-{i}",
+                    source_type="message_queue",
+                    source_id=f"rabbitmq/test/{i}",
+                    title=f"Item {i}",
+                    url=None,
+                    author="test",
+                    created_at=datetime.now(tz=timezone.utc),
+                    updated_at=datetime.now(tz=timezone.utc),
+                    domain="test",
+                    confidence=0.9,
+                    metadata={},
+                )
+
+        connector.sync = mock_sync
+
+        state = SyncState(connector_id="rabbitmq", cursor=None)
+        async for item in connector.sync_items(state, batch_size=2):
+            sync_items_yielded.append(item)
+
+        assert len(sync_items_yielded) == 2
+
+    def test_stats_hides_credentials(self):
+        """Stats should hide credentials from URL."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        config = RabbitMQConfig(
+            url="amqp://secret_user:super_secret_password@rabbitmq.example.com/"
+        )
+        connector = RabbitMQConnector(config)
+
+        stats = connector.get_stats()
+
+        assert "secret_user" not in stats["url"]
+        assert "super_secret_password" not in stats["url"]
+        assert "rabbitmq.example.com" in stats["url"]
+
+    @pytest.mark.asyncio
+    async def test_publish_string_message(self):
+        """Should publish string message."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        config = RabbitMQConfig()
+        connector = RabbitMQConnector(config)
+
+        mock_exchange = AsyncMock()
+        mock_exchange.publish = AsyncMock()
+
+        mock_channel = AsyncMock()
+        mock_channel.default_exchange = mock_exchange
+
+        connector._channel = mock_channel
+
+        mock_aio_pika = MagicMock()
+        mock_aio_pika.Message.return_value = MagicMock()
+        mock_aio_pika.DeliveryMode = MagicMock()
+        mock_aio_pika.DeliveryMode.PERSISTENT = 2
+        mock_aio_pika.DeliveryMode.NOT_PERSISTENT = 1
+
+        with patch.dict("sys.modules", {"aio_pika": mock_aio_pika}):
+            result = await connector.publish(
+                body="plain text message",
+                routing_key="test.key",
+            )
+
+            assert result is True
+
+    def test_deserialize_message_with_bytes_header_values(self):
+        """Should decode bytes header values."""
+        from aragora.connectors.enterprise.streaming.rabbitmq import (
+            RabbitMQConnector,
+            RabbitMQConfig,
+        )
+
+        connector = RabbitMQConnector(RabbitMQConfig())
+
+        mock_message = MagicMock()
+        mock_message.body = b'{"data": "test"}'
+        mock_message.headers = {
+            "producer": b"service-a",
+            "trace-id": b"xyz-789",
+            "null-header": None,
+        }
+        mock_message.routing_key = "test"
+        mock_message.delivery_tag = 1
+        mock_message.timestamp = None
+        mock_message.message_id = None
+        mock_message.correlation_id = None
+        mock_message.reply_to = None
+        mock_message.expiration = None
+        mock_message.priority = None
+        mock_message.channel = MagicMock()
+
+        rmq_msg = connector._deserialize_message(mock_message)
+
+        assert rmq_msg.headers["producer"] == "service-a"
+        assert rmq_msg.headers["trace-id"] == "xyz-789"
+        assert rmq_msg.headers["null-header"] == ""

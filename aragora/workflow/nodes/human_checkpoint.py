@@ -23,6 +23,21 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
+# Lazy-loaded governance store for persistence
+_governance_store = None
+
+
+def _get_governance_store():
+    """Get or create the governance store for approval persistence."""
+    global _governance_store
+    if _governance_store is None:
+        try:
+            from aragora.storage.governance_store import get_governance_store
+            _governance_store = get_governance_store()
+        except Exception as e:
+            logger.debug(f"Governance store not available: {e}")
+    return _governance_store
+
 
 class ApprovalStatus(Enum):
     """Status of a human approval request."""
@@ -168,9 +183,27 @@ class HumanCheckpointStep(BaseStep):
             escalation_emails=config.get("escalation_emails", []),
         )
 
-        # Store the request
+        # Store the request in memory
         _pending_approvals[request.id] = request
         logger.info(f"Created approval request {request.id} for checkpoint '{self.name}'")
+
+        # Persist to GovernanceStore for durability
+        store = _get_governance_store()
+        if store:
+            try:
+                store.save_approval(
+                    approval_id=request.id,
+                    title=request.title,
+                    description=request.description,
+                    risk_level="medium",  # Could be made configurable
+                    status="pending",
+                    requested_by=context.inputs.get("user_id", "system"),
+                    changes=[{"type": "workflow_checkpoint", "step": request.step_id}],
+                    timeout_seconds=int(request.timeout_seconds),
+                    metadata={"workflow_id": request.workflow_id},
+                )
+            except Exception as e:
+                logger.warning(f"Failed to persist approval to store: {e}")
 
         # Notify listeners
         if self.on_approval_requested:
@@ -377,6 +410,20 @@ def resolve_approval(
 
     logger.info(f"Resolved approval request {request_id}: {status.value}")
 
+    # Persist to GovernanceStore
+    store = _get_governance_store()
+    if store:
+        try:
+            rejection_reason = notes if status == ApprovalStatus.REJECTED else None
+            store.update_approval_status(
+                approval_id=request_id,
+                status=status.value,
+                approved_by=responder_id if status == ApprovalStatus.APPROVED else None,
+                rejection_reason=rejection_reason,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to update approval in store: {e}")
+
     # Send resolution notification (async in background)
     _send_resolution_notification_background(request)
 
@@ -420,8 +467,44 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
 
 
 def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalRequest]:
-    """Get all pending approval requests, optionally filtered by workflow."""
+    """Get all pending approval requests, optionally filtered by workflow.
+
+    Merges in-memory approvals with persisted approvals from GovernanceStore
+    to ensure approvals that survived a restart are still accessible.
+    """
+    # Get in-memory approvals
     approvals = [a for a in _pending_approvals.values() if a.status == ApprovalStatus.PENDING]
+    in_memory_ids = {a.id for a in approvals}
+
+    # Merge persisted approvals (those that survived restart)
+    store = _get_governance_store()
+    if store:
+        try:
+            persisted = store.list_approvals(status="pending")
+            for record in persisted:
+                if record.approval_id not in in_memory_ids:
+                    # Convert ApprovalRecord to ApprovalRequest
+                    metadata = {}
+                    if record.metadata_json:
+                        import json
+                        metadata = json.loads(record.metadata_json)
+
+                    request = ApprovalRequest(
+                        id=record.approval_id,
+                        workflow_id=metadata.get("workflow_id", "unknown"),
+                        step_id="unknown",  # Not stored in ApprovalRecord
+                        title=record.title,
+                        description=record.description,
+                        checklist=[],  # Not stored in ApprovalRecord
+                        status=ApprovalStatus(record.status),
+                        timeout_seconds=float(record.timeout_seconds),
+                    )
+                    approvals.append(request)
+                    # Also add to in-memory cache for future lookups
+                    _pending_approvals[record.approval_id] = request
+        except Exception as e:
+            logger.debug(f"Could not query persistent approvals: {e}")
+
     if workflow_id:
         approvals = [a for a in approvals if a.workflow_id == workflow_id]
     return approvals
