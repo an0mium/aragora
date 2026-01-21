@@ -80,9 +80,13 @@ class TestStandardDebateE2E:
         from aragora.core import Environment
 
         env = Environment(task=basic_debate.topic)
+        # Disable calibration and other optional features for mock agents
         protocol = DebateProtocol(
             rounds=basic_debate.rounds,
             consensus="majority",
+            enable_calibration=False,
+            enable_rhetorical_observer=False,
+            enable_trickster=False,
         )
 
         # Mock agents using helper

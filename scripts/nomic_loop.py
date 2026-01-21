@@ -7985,6 +7985,156 @@ DEPENDENCIES: {', '.join(subtask.dependencies) if subtask.dependencies else 'non
             "error": result.get("error"),
         }
 
+    def _start_cycle_record(self) -> None:
+        """Initialize a new cycle record for cross-cycle learning."""
+        if not self.cycle_store:
+            return
+
+        try:
+            from aragora.nomic.cycle_record import NomicCycleRecord
+            import uuid
+
+            self._current_cycle_record = NomicCycleRecord(
+                cycle_id=str(uuid.uuid4()),
+                started_at=time.time(),
+                branch_name=self._get_current_branch(),
+            )
+            self._log(
+                f"  [cross-cycle] Started recording cycle {self._current_cycle_record.cycle_id[:8]}"
+            )
+        except Exception as e:
+            self._log(f"  [cross-cycle] Failed to start record: {e}")
+            self._current_cycle_record = None
+
+    def _get_current_branch(self) -> str:
+        """Get current git branch name."""
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=self.aragora_path,
+            )
+            return result.stdout.strip() if result.returncode == 0 else "unknown"
+        except Exception:
+            return "unknown"
+
+    def _finalize_cycle(self, cycle_result: dict) -> None:
+        """Finalize cycle and record cross-cycle learning data.
+
+        This is called in a finally block to ensure cycle data is always recorded,
+        even on exceptions or early returns.
+        """
+        if not self.cycle_store or not self._current_cycle_record:
+            return
+
+        try:
+            record = self._current_cycle_record
+
+            # Mark completion
+            success = cycle_result.get("outcome") == "success"
+            error_msg = cycle_result.get("error") if not success else None
+            record.mark_complete(success=success, error=error_msg)
+
+            # Record phases completed
+            record.phases_completed = cycle_result.get("phases_completed", [])
+
+            # Record topics debated
+            if cycle_result.get("debate_topic"):
+                record.topics_debated.append(cycle_result["debate_topic"])
+
+            # Record file changes
+            record.files_modified = cycle_result.get("files_modified", [])
+            record.files_created = cycle_result.get("files_created", [])
+
+            # Record test results
+            test_results = cycle_result.get("test_results", {})
+            record.tests_passed = test_results.get("passed", 0)
+            record.tests_failed = test_results.get("failed", 0)
+            record.tests_skipped = test_results.get("skipped", 0)
+
+            # Record commit info
+            record.commit_sha = cycle_result.get("commit_hash")
+            record.rollback_performed = cycle_result.get("rolled_back", False)
+
+            # Add agent contributions from debate phase
+            if cycle_result.get("agent_stats"):
+                for agent_name, stats in cycle_result["agent_stats"].items():
+                    record.add_agent_contribution(
+                        agent_name=agent_name,
+                        proposals_made=stats.get("proposals", 0),
+                        proposals_accepted=stats.get("accepted", 0),
+                        critiques_given=stats.get("critiques", 0),
+                    )
+
+            # Record surprise events (unexpected outcomes)
+            for surprise in cycle_result.get("surprises", []):
+                record.add_surprise(
+                    phase=surprise.get("phase", "unknown"),
+                    description=surprise.get("description", ""),
+                    expected=surprise.get("expected", ""),
+                    actual=surprise.get("actual", ""),
+                    impact=surprise.get("impact", "low"),
+                )
+
+            # Save to store
+            self.cycle_store.save_cycle(record)
+            self._log(
+                f"  [cross-cycle] Recorded cycle {record.cycle_id[:8]} "
+                f"(success={success}, duration={record.duration_seconds:.1f}s)"
+            )
+
+        except Exception as e:
+            self._log(f"  [cross-cycle] Failed to finalize record: {e}")
+        finally:
+            self._current_cycle_record = None
+
+    def _get_cross_cycle_context(self, topic: str) -> str:
+        """Get learning context from previous cycles for debate injection."""
+        if not self.cycle_store:
+            return ""
+
+        try:
+            # Get recent cycles
+            recent = self.cycle_store.get_recent_cycles(5)
+
+            # Query for similar topics
+            similar = self.cycle_store.query_by_topic(topic, limit=3)
+
+            # Get pattern statistics
+            patterns = self.cycle_store.get_pattern_statistics()
+
+            context_parts = []
+
+            # Add recent cycle summary
+            if recent:
+                successful = sum(1 for c in recent if c.success)
+                context_parts.append(
+                    f"RECENT CYCLES: {len(recent)} cycles, {successful} successful"
+                )
+
+            # Add similar topic learnings
+            if similar:
+                context_parts.append("\nSIMILAR PAST DEBATES:")
+                for cycle in similar[:2]:
+                    outcome = "succeeded" if cycle.success else "failed"
+                    context_parts.append(
+                        f"  - {cycle.topics_debated[0] if cycle.topics_debated else 'unknown'}: {outcome}"
+                    )
+
+            # Add pattern success rates
+            if patterns:
+                context_parts.append("\nPATTERN SUCCESS RATES:")
+                for pattern, stats in list(patterns.items())[:3]:
+                    rate = stats.get("success_rate", 0)
+                    context_parts.append(f"  - {pattern}: {rate*100:.0f}%")
+
+            return "\n".join(context_parts) if context_parts else ""
+
+        except Exception as e:
+            self._log(f"  [cross-cycle] Failed to get context: {e}")
+            return ""
+
     async def _run_cycle_impl(self) -> dict:
         """Internal implementation of run_cycle (called with timeout wrapper)."""
         # Note: self.cycle_count already incremented by run_cycle() wrapper
@@ -8011,6 +8161,9 @@ DEPENDENCIES: {', '.join(subtask.dependencies) if subtask.dependencies else 'non
         # Reset per-cycle state and track start time
         self._reset_cycle_state()
         self._cycle_start_time = cycle_start
+
+        # Start cross-cycle learning record
+        self._start_cycle_record()
 
         # Check for deadlock pattern from previous cycles
         deadlock = self._detect_cycle_deadlock()

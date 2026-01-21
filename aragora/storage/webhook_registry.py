@@ -78,6 +78,13 @@ class SQLiteWebhookRegistry:
 
     SCHEMA_VERSION = 1
 
+    # Explicit columns for SELECT queries - prevents SELECT * data exposure
+    _WEBHOOK_COLUMNS = (
+        "id, url, events, secret, active, created_at, updated_at, name, "
+        "description, last_delivery_at, last_delivery_status, delivery_count, "
+        "failure_count, user_id, workspace_id"
+    )
+
     def __init__(self, db_path: Path | str):
         """
         Initialize SQLite webhook registry.
@@ -226,7 +233,7 @@ class SQLiteWebhookRegistry:
         """Get webhook by ID."""
         conn = self._get_conn()
         cursor = conn.execute(
-            "SELECT * FROM webhook_registrations WHERE id = ?",
+            f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE id = ?",
             (webhook_id,),
         )
         row = cursor.fetchone()
@@ -254,7 +261,7 @@ class SQLiteWebhookRegistry:
             conditions.append("active = 1")
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        query = f"SELECT * FROM webhook_registrations WHERE {where_clause} ORDER BY created_at DESC"
+        query = f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE {where_clause} ORDER BY created_at DESC"
 
         cursor = conn.execute(query, params)
         return [self._row_to_config(row) for row in cursor.fetchall()]
@@ -377,7 +384,7 @@ class SQLiteWebhookRegistry:
 
         where_clause = " AND ".join(conditions)
         cursor = conn.execute(
-            f"SELECT * FROM webhook_registrations WHERE {where_clause}",
+            f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE {where_clause}",
             params,
         )
 
