@@ -12,16 +12,12 @@ from __future__ import annotations
 
 import pytest
 
-# Skip all tests in this module - requires full multi-tenancy implementation
-pytestmark = pytest.mark.skip(
-    reason="E2E tests require full multi-tenancy implementation"
-)
+# E2E tests enabled - multi-tenancy implementation complete
 
 import asyncio
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import pytest_asyncio
 
 from tests.e2e.conftest import TestTenant

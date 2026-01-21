@@ -47,6 +47,7 @@ class HealthHandler(BaseHandler):
         "/api/health/slow-debates",
         "/api/health/cross-pollination",
         "/api/health/knowledge-mound",
+        "/api/health/encryption",
     ]
 
     def can_handle(self, path: str) -> bool:

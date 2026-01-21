@@ -4,6 +4,46 @@
 
 ## Current Release
 
+### v2.1.6 - RBAC Checker & Decorators Testing Release (January 2026)
+
+**Production Ready** - Aragora 2.1.6 adds comprehensive tests for the RBAC permission checker and decorator system, with coverage improvements and additional linter fixes.
+
+#### Key Highlights
+- **34,400+ tests** across 928 test files
+- **58 new RBAC tests** - Comprehensive checker and decorator coverage
+- **RBAC coverage increased** - From 61% to 69%
+- **1050+ linter issues resolved** - Auto-fixed with ruff
+- **Lines of Code**: 660,000+ LOC
+- **0 production blockers**
+- **122 fully integrated features**
+
+#### What's New in 2.1.6
+
+**RBAC Checker Tests** (QUALITY)
+- `tests/rbac/test_checker.py` - 29 comprehensive tests:
+  - Permission checking (exact, wildcard, super wildcard)
+  - API key scope restrictions
+  - Resource-level access control and policies
+  - Role checking helpers (has_role, has_any_role, is_admin)
+  - Role assignment management
+  - Decision caching and cache invalidation
+
+**RBAC Decorator Tests** (QUALITY)
+- `tests/rbac/test_decorators.py` - 29 comprehensive tests:
+  - @require_permission decorator
+  - @require_role decorator with require_all option
+  - @require_owner and @require_admin shortcuts
+  - @require_org_access decorator with platform owner support
+  - @require_self_or_admin decorator
+  - @with_permission_context decorator
+  - Async function and method decorator support
+
+**Health Handler Fixes** (QUALITY)
+- Added noqa comments for availability check imports
+- Proper handling of optional module imports
+
+---
+
 ### v2.1.5 - Code Quality & RBAC Testing Release (January 2026)
 
 **Production Ready** - Aragora 2.1.5 delivers comprehensive RBAC enforcer test coverage, automated linter fixes across the codebase, and improved code quality standards.

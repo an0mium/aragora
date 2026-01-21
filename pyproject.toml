@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aragora"
-version = "2.1.5"
+version = "2.1.6"
 description = "Omnivorous Multi Agent Decision Making Engine - Collaborative decision making through structured debate with diverse AI models"
 readme = "README.md"
 license = "MIT"

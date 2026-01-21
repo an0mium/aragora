@@ -1395,6 +1395,11 @@ Production deployment:
 
     create_template_parser(subparsers)
 
+    # Security command (encryption, key rotation)
+    from aragora.cli.security import create_security_parser
+
+    create_security_parser(subparsers)
+
     # Memory command (inspect ContinuumMemory tiers)
     memory_parser = subparsers.add_parser(
         "memory",
