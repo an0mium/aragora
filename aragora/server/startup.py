@@ -16,6 +16,26 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _get_config_value(name: str) -> str | None:
+    """Get configuration value from environment or secrets manager."""
+    import os
+
+    # First check environment
+    value = os.environ.get(name)
+    if value:
+        return value
+
+    # Try secrets manager as fallback
+    try:
+        from aragora.config.secrets import get_secret
+
+        return get_secret(name)
+    except ImportError:
+        return None
+    except Exception:
+        return None
+
+
 def check_production_requirements() -> list[str]:
     """Check if production requirements are met.
 
@@ -29,7 +49,7 @@ def check_production_requirements() -> list[str]:
 
     if env == "production":
         # Encryption key is required for production
-        if not os.environ.get("ARAGORA_ENCRYPTION_KEY"):
+        if not _get_config_value("ARAGORA_ENCRYPTION_KEY"):
             missing.append(
                 "ARAGORA_ENCRYPTION_KEY required in production "
                 "(32-byte hex string for AES-256 encryption)"
