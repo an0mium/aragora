@@ -598,9 +598,123 @@ def _parse_email_address(address: str) -> tuple[str, str]:
     return address, ""
 
 
+# Pattern for detecting debate requests in email subject
+NEW_DEBATE_PATTERN = re.compile(
+    r'^(?:DEBATE|DISCUSS|ASK|QUESTION)[:\s]+(.+)$',
+    re.IGNORECASE
+)
+
+
+async def _try_start_new_debate(email_data: InboundEmail) -> bool:
+    """
+    Try to start a new debate from an email.
+
+    Recognizes subjects like:
+    - "DEBATE: Should we use microservices?"
+    - "DISCUSS: Best practices for API design"
+    - "ASK: How do we handle authentication?"
+
+    Routes through DecisionRouter for unified handling with caching
+    and deduplication across all channels.
+
+    Args:
+        email_data: Parsed inbound email
+
+    Returns:
+        True if a new debate was started
+    """
+    # Check if subject indicates a debate request
+    subject = email_data.subject or ""
+    match = NEW_DEBATE_PATTERN.match(subject.strip())
+    if not match:
+        return False
+
+    topic = match.group(1).strip()
+    if not topic:
+        return False
+
+    logger.info(f"Starting new debate from email: {topic[:80]}...")
+
+    try:
+        from aragora.server.middleware.decision_routing import (
+            DecisionRoutingMiddleware,
+            RoutingContext,
+        )
+
+        # Create routing context
+        context = RoutingContext(
+            channel="email",
+            channel_id=email_data.to_email,
+            user_id=email_data.from_email,
+            request_id=email_data.message_id,
+            message_id=email_data.message_id,
+            metadata={
+                "from_name": email_data.from_name,
+                "subject": email_data.subject,
+                "via": "email_inbound",
+            },
+        )
+
+        # Get or create middleware
+        middleware = DecisionRoutingMiddleware(
+            enable_deduplication=True,
+            enable_caching=True,
+        )
+
+        # Route through middleware
+        result = await middleware.process(
+            content=topic,
+            context=context,
+            decision_type="debate",
+        )
+
+        if result.get("success"):
+            logger.info(
+                f"Email debate started: {result.get('request_id', 'unknown')} "
+                f"from {email_data.from_email}"
+            )
+
+            # Register origin for bidirectional routing
+            try:
+                from aragora.server.debate_origin import register_debate_origin
+
+                register_debate_origin(
+                    debate_id=result.get("request_id", email_data.message_id),
+                    platform="email",
+                    channel_id=email_data.to_email,
+                    user_id=email_data.from_email,
+                    message_id=email_data.message_id,
+                    metadata={
+                        "from_name": email_data.from_name,
+                        "subject": email_data.subject,
+                        "is_new_debate": True,
+                    },
+                )
+            except ImportError:
+                pass
+
+            return True
+        else:
+            logger.warning(
+                f"Email debate failed: {result.get('error', 'unknown error')}"
+            )
+            return False
+
+    except ImportError as e:
+        logger.debug(f"DecisionRouter middleware not available: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to start email debate: {e}")
+        return False
+
+
 async def process_inbound_email(email_data: InboundEmail) -> bool:
     """
     Process an inbound email and route it to the appropriate debate.
+
+    If the email is not a reply to an existing debate, check if it's a request
+    to start a new debate (subject starts with "DEBATE:") and route through
+    DecisionRouter.
 
     Args:
         email_data: Parsed inbound email
@@ -610,6 +724,9 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
     """
     debate_id = email_data.debate_id
     if not debate_id:
+        # Check if this is a request to start a new debate
+        if await _try_start_new_debate(email_data):
+            return True
         logger.debug(f"No debate_id found in email from {email_data.from_email}")
         return False
 

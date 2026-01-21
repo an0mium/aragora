@@ -100,7 +100,7 @@ class TestDecisionRequest:
         """DecisionRequest should support user context."""
         context = RequestContext(
             user_id="user_123",
-            org_id="org_456",
+            tenant_id="org_456",
             workspace_id="ws_789",
         )
         request = DecisionRequest(
@@ -109,7 +109,7 @@ class TestDecisionRequest:
         )
 
         assert request.context.user_id == "user_123"
-        assert request.context.org_id == "org_456"
+        assert request.context.tenant_id == "org_456"
 
     def test_request_from_chat_platform(self):
         """DecisionRequest should work for chat platforms."""
@@ -188,7 +188,6 @@ class TestResponseChannel:
             platform="discord",
             channel_id="123456",
             user_id="654321",
-            message_id="msg_999",
         )
 
         data = channel.to_dict()
@@ -274,8 +273,11 @@ class TestDecisionResult:
         """DecisionResult should support failure states."""
         result = DecisionResult(
             request_id="req_456",
-            success=False,
             decision_type=DecisionType.DEBATE,
+            answer="",
+            confidence=0.0,
+            consensus_reached=False,
+            success=False,
             error="Insufficient agents available",
         )
 
@@ -286,9 +288,10 @@ class TestDecisionResult:
         """DecisionResult should serialize correctly."""
         result = DecisionResult(
             request_id="req_789",
-            success=True,
             decision_type=DecisionType.QUICK,
             answer="Quick answer",
+            confidence=0.8,
+            consensus_reached=True,
         )
 
         data = result.to_dict()

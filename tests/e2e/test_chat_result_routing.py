@@ -441,6 +441,7 @@ class TestOriginCleanup:
 
     def test_cleanup_expired_origins(self):
         """Test that expired origins are cleaned up."""
+        from unittest.mock import MagicMock, patch
         from aragora.server.debate_origin import (
             register_debate_origin,
             cleanup_expired_origins,
@@ -451,23 +452,30 @@ class TestOriginCleanup:
 
         _origin_store.clear()
 
-        # Register an origin
-        debate_id = f"debate-{uuid.uuid4().hex[:8]}"
-        origin = register_debate_origin(
-            debate_id=debate_id,
-            platform="telegram",
-            channel_id="123",
-            user_id="456",
-        )
+        # Mock SQLite store to prevent fallback retrieval
+        mock_store = MagicMock()
+        mock_store.get.return_value = None
+        mock_store.save.return_value = None
 
-        # Manually expire it
-        origin.created_at = time.time() - ORIGIN_TTL_SECONDS - 100
+        with patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store):
+            # Register an origin
+            debate_id = f"debate-{uuid.uuid4().hex[:8]}"
+            origin = register_debate_origin(
+                debate_id=debate_id,
+                platform="telegram",
+                channel_id="123",
+                user_id="456",
+            )
 
-        # Run cleanup
-        cleaned = cleanup_expired_origins()
+            # Manually expire it by updating the store entry directly
+            origin.created_at = time.time() - ORIGIN_TTL_SECONDS - 100
+            _origin_store[debate_id] = origin  # Update the store with expired origin
 
-        assert cleaned == 1
-        assert get_debate_origin(debate_id) is None
+            # Run cleanup
+            cleaned = cleanup_expired_origins()
+
+            assert cleaned == 1
+            assert get_debate_origin(debate_id) is None
 
     def test_cleanup_preserves_fresh_origins(self):
         """Test that fresh origins are not cleaned up."""

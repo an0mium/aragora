@@ -4,24 +4,33 @@
 
 ## Current Release
 
-### v2.1.2 - Test Coverage & Integration Release (January 2026)
+### v2.1.2 - Security & Durability Release (January 2026)
 
-**Production Ready** - Aragora 2.1.2 re-enables previously skipped integration tests, adds comprehensive PostgreSQL storage backends, and includes cloud KMS integration for encryption key management.
+**Production Ready** - Aragora 2.1.2 adds comprehensive security and durability improvements including field-level encryption for sensitive data, SQLite fallbacks for all persistence layers, and RBAC enforcement across all finding workflow endpoints.
 
 #### Key Highlights
-- **41,600+ tests** collected and passing
-- **1,165+ test files** across all modules
+- **41,700+ tests** collected and passing (+100 new security tests)
+- **1,170+ test files** across all modules
 - **47 orchestrator integration tests** re-enabled (was skipped)
-- **Debate performance benchmarks** re-enabled
+- **Field-Level Encryption** - AES-256-GCM for API keys, tokens, secrets
+- **SQLite Durability** - All in-memory stores now have SQLite fallbacks
+- **RBAC Enforcement** - Full permission checks on finding workflow
+- **Governance Wiring** - Approval persistence survives restarts
 - **Cloud KMS Integration** - AWS KMS, Azure Key Vault, GCP Cloud KMS
-- **Encrypted Fields** - Automatic encryption for sensitive storage fields
 - **PostgreSQL Backends** - Full horizontal scaling for all 11 storage modules
-- **Decision Routing Middleware** - Smart request routing
-- **Lines of Code**: 650,000+ LOC
+- **Lines of Code**: 655,000+ LOC
 - **0 production blockers**
-- **118 fully integrated features** (+3 storage/security capabilities)
+- **120 fully integrated features** (+5 security/durability capabilities)
 
 #### What's New in 2.1.2
+
+**Security & Durability Hardening** (SECURITY)
+- Field-level encryption for 12 sensitive keys (API keys, tokens, secrets)
+- SQLite fallbacks for debate origin, approval, and control plane stores
+- Governance wiring for human checkpoint approval persistence
+- RBAC enforcement on all 16 finding workflow endpoints
+- JWT authentication takes precedence over header-based auth
+- 62 new security/durability tests
 
 **Re-enabled Integration Tests** (QUALITY)
 - 47 orchestrator integration tests now passing (was skipped)

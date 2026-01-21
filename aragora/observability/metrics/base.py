@@ -77,6 +77,7 @@ def ensure_metrics_initialized() -> bool:
     from aragora.observability.metrics.stores import init_store_metrics
     from aragora.observability.metrics.gauntlet import init_gauntlet_metrics
     from aragora.observability.metrics.slo import init_slo_metrics
+    from aragora.observability.metrics.security import init_security_metrics
 
     enabled = get_metrics_enabled()
     if enabled:
@@ -88,6 +89,7 @@ def ensure_metrics_initialized() -> bool:
             init_store_metrics()
             init_gauntlet_metrics()
             init_slo_metrics()
+            init_security_metrics()
             logger.info("All metrics submodules initialized")
         except ImportError as e:
             logger.warning(f"prometheus-client not installed: {e}")

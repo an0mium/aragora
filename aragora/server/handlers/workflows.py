@@ -42,6 +42,16 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+# Metrics imports
+try:
+    from aragora.observability.metrics import record_rbac_check
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
+    def record_rbac_check(*args, **kwargs):
+        pass
+
 logger = logging.getLogger(__name__)
 
 
@@ -944,9 +954,12 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 logger.warning(
                     f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
                 )
+                record_rbac_check(permission_key, allowed=False, handler="WorkflowHandler")
                 return error_response(f"Permission denied: {decision.reason}", 403)
+            record_rbac_check(permission_key, allowed=True)
         except PermissionDeniedError as e:
             logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            record_rbac_check(permission_key, allowed=False, handler="WorkflowHandler")
             return error_response(f"Permission denied: {str(e)}", 403)
         return None
 

@@ -42,6 +42,22 @@ except ImportError:
     def get_encryption_service():
         raise RuntimeError("Encryption not available")
 
+# Import metrics (optional - graceful degradation if not available)
+try:
+    from aragora.observability.metrics import (
+        record_encryption_operation,
+        record_encryption_error,
+    )
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
+    def record_encryption_operation(*args, **kwargs):
+        pass
+
+    def record_encryption_error(*args, **kwargs):
+        pass
+
 # Credential fields that should be encrypted
 CREDENTIAL_KEYWORDS = frozenset([
     "api_key", "secret", "password", "token", "auth_token",
@@ -64,17 +80,23 @@ def _encrypt_config(
     Uses connector_id as Associated Authenticated Data (AAD) to bind the
     ciphertext to a specific connector, preventing cross-connector attacks.
     """
+    import time
     if not use_encryption or not CRYPTO_AVAILABLE or not config:
         return config
     try:
+        start = time.perf_counter()
         service = get_encryption_service()
         sensitive_keys = [k for k in config if _is_sensitive_key(k)]
         if not sensitive_keys:
             return config
         # AAD binds config to this specific connector
-        return service.encrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
+        result = service.encrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
+        latency = time.perf_counter() - start
+        record_encryption_operation("encrypt", "sync_store", latency)
+        return result
     except Exception as e:
         logger.warning(f"Config encryption unavailable for {connector_id}: {e}")
+        record_encryption_error("encrypt", type(e).__name__)
         return config
 
 
@@ -86,6 +108,7 @@ def _decrypt_config(
 
     AAD must match what was used during encryption.
     """
+    import time
     if not use_encryption or not CRYPTO_AVAILABLE or not config:
         return config
 
@@ -98,13 +121,18 @@ def _decrypt_config(
         return config  # Legacy unencrypted data - return as-is
 
     try:
+        start = time.perf_counter()
         service = get_encryption_service()
         sensitive_keys = [k for k in config if isinstance(config[k], dict) and config[k].get("_encrypted")]
         if not sensitive_keys:
             return config
-        return service.decrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
+        result = service.decrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
+        latency = time.perf_counter() - start
+        record_encryption_operation("decrypt", "sync_store", latency)
+        return result
     except Exception as e:
         logger.warning(f"Config decryption failed for {connector_id}: {e}")
+        record_encryption_error("decrypt", type(e).__name__)
         return config
 
 

@@ -45,6 +45,19 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
+# Check metrics availability
+try:
+    from aragora.observability.metrics import record_migration_record, record_migration_error
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+
+    def record_migration_record(*args, **kwargs):
+        pass
+
+    def record_migration_error(*args, **kwargs):
+        pass
+
 
 @dataclass
 class MigrationResult:

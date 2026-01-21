@@ -211,6 +211,7 @@ markers = [
     "e2e: marks tests as end-to-end tests",
     "serial: marks tests that must run serially (use with 'pytest -p no:xdist' or '-n0')",
     "knowledge: marks tests for knowledge mound features",
+    "new_features: marks tests for new feature E2E testing",
 ]
 # Parallel test execution: pip install pytest-xdist && pytest -n auto
 # To run serial-only tests: pytest -m serial -n0
