@@ -346,12 +346,25 @@ def init_debate_embeddings(nomic_dir: Path) -> Optional[Any]:
 
 
 def init_consensus_memory() -> tuple[Optional[Any], Optional[Any]]:
-    """Initialize ConsensusMemory and DissentRetriever."""
+    """Initialize ConsensusMemory and DissentRetriever with KM adapter."""
     if not CONSENSUS_MEMORY_AVAILABLE or not ConsensusMemory or not DissentRetriever:
         return None, None
 
     try:
         memory = ConsensusMemory()
+
+        # Wire KM adapter for bidirectional sync (consensus -> KM, KM -> context)
+        try:
+            from aragora.knowledge.mound.adapters.consensus_adapter import ConsensusAdapter
+
+            adapter = ConsensusAdapter(consensus=memory, enable_dual_write=True)
+            memory.set_km_adapter(adapter)
+            logger.info("[init] ConsensusMemory KM adapter wired for bidirectional sync")
+        except ImportError:
+            logger.debug("[init] KM ConsensusAdapter not available")
+        except Exception as e:
+            logger.warning(f"[init] ConsensusAdapter wiring failed: {e}")
+
         retriever = DissentRetriever(memory)
         logger.info("[init] DissentRetriever loaded for historical minority views")
         return memory, retriever
@@ -396,12 +409,25 @@ def init_position_tracker(nomic_dir: Path) -> Optional[Any]:
 
 
 def init_continuum_memory(nomic_dir: Path) -> Optional[Any]:
-    """Initialize ContinuumMemory for multi-tier memory."""
+    """Initialize ContinuumMemory for multi-tier memory with KM adapter."""
     if not CONTINUUM_AVAILABLE or not ContinuumMemory:
         return None
 
     try:
         memory = ContinuumMemory(base_dir=str(nomic_dir))
+
+        # Wire KM adapter for bidirectional sync (memories -> KM, KM -> context)
+        try:
+            from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
+
+            adapter = ContinuumAdapter(continuum=memory, enable_dual_write=True)
+            memory.set_km_adapter(adapter)
+            logger.info("[init] ContinuumMemory KM adapter wired for bidirectional sync")
+        except ImportError:
+            logger.debug("[init] KM ContinuumAdapter not available")
+        except Exception as e:
+            logger.warning(f"[init] ContinuumAdapter wiring failed: {e}")
+
         logger.info("[init] ContinuumMemory loaded for multi-tier memory")
         return memory
     except Exception as e:
