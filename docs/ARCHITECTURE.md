@@ -1,6 +1,6 @@
 # Aragora Architecture
 
-> **Last Updated:** 2026-01-20
+> **Last Updated:** 2026-01-21
 
 
 This document describes the high-level architecture of aragora, the AI red team / decision stress-test platform. The multi-agent debate system is the engine that powers adversarial validation.
@@ -117,7 +117,11 @@ aragora/
 │       ├── vote_weighter.py    # Vote weight calculation
 │       ├── weight_calculator.py# Reputation/calibration weights
 │       ├── consensus_verification.py # Result verification
-│       └── roles_manager.py    # Role/stance assignment
+│       ├── roles_manager.py    # Role/stance assignment
+│       ├── critique_generator.py  # Parallel critique generation
+│       ├── revision_phase.py      # Parallel revision generation
+│       ├── evidence_refresh.py    # Evidence refresh during rounds
+│       └── context_compressor.py  # RLM context compression
 │
 ├── reasoning/              # Logical reasoning components
 │   ├── claims.py          # ClaimsKernel (structured claims)
@@ -709,6 +713,10 @@ DATABASE_URL=postgresql://user:pass@host:5432/aragora
 | `PostgresGovernanceStore` | Decision governance | `governance_artifacts` |
 | `PostgresUserStore` | User accounts | `users` |
 | `PostgresWebhookStore` | Webhook events | `webhooks` |
+| `PostgresConsensusMemory` | Topic consensus tracking | `consensus`, `dissent`, `verified_proofs` |
+| `PostgresCritiqueStore` | Critique patterns | `debates`, `critiques`, `patterns`, `agent_reputation` |
+| `PostgresContinuumMemory` | Multi-tier memory | `continuum_memory`, `tier_transitions` |
+| `PostgresEloDatabase` | Agent skill ratings | `elo_ratings`, `tournaments`, `matches` |
 
 ### Database Migrations
 
