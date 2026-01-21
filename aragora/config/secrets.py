@@ -35,6 +35,7 @@ MANAGED_SECRETS = frozenset(
         # Authentication
         "JWT_SECRET_KEY",
         "JWT_REFRESH_SECRET",
+        "ARAGORA_JWT_SECRET",
         # OAuth
         "GOOGLE_OAUTH_CLIENT_ID",
         "GOOGLE_OAUTH_CLIENT_SECRET",
@@ -46,10 +47,12 @@ MANAGED_SECRETS = frozenset(
         "STRIPE_PRICE_STARTER",
         "STRIPE_PRICE_PROFESSIONAL",
         "STRIPE_PRICE_ENTERPRISE",
-        # Database
+        # Database (Supabase PostgreSQL)
         "DATABASE_URL",
+        "ARAGORA_POSTGRES_DSN",
         "SUPABASE_URL",
         "SUPABASE_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
         # Redis
         "REDIS_URL",
         "REDIS_PASSWORD",
@@ -60,6 +63,7 @@ MANAGED_SECRETS = frozenset(
         "XAI_API_KEY",
         "OPENROUTER_API_KEY",
         "MISTRAL_API_KEY",
+        "DEEPSEEK_API_KEY",
         # Monitoring
         "SENTRY_DSN",
     }

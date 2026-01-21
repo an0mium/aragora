@@ -37,6 +37,51 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Import encryption (optional - graceful degradation if not available)
+try:
+    from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+except ImportError:
+    CRYPTO_AVAILABLE = False
+
+    def get_encryption_service():
+        raise RuntimeError("Encryption not available")
+
+
+# Token fields to encrypt
+_TOKEN_FIELDS = ["access_token", "refresh_token"]
+
+
+def _encrypt_token(token: str) -> str:
+    """Encrypt a token value for storage."""
+    if not CRYPTO_AVAILABLE or not token:
+        return token
+    try:
+        service = get_encryption_service()
+        encrypted = service.encrypt(token)
+        return encrypted.to_base64()
+    except Exception as e:
+        logger.warning(f"Token encryption failed, storing unencrypted: {e}")
+        return token
+
+
+def _decrypt_token(encrypted_token: str) -> str:
+    """Decrypt a token value, handling legacy unencrypted tokens."""
+    if not CRYPTO_AVAILABLE or not encrypted_token:
+        return encrypted_token
+
+    # Check if it looks like an encrypted value (base64-encoded EncryptedData)
+    # EncryptedData always starts with version byte 0x01 which encodes to "A" in base64
+    if not encrypted_token.startswith("A"):
+        return encrypted_token  # Legacy unencrypted token
+
+    try:
+        service = get_encryption_service()
+        return service.decrypt_string(encrypted_token)
+    except Exception as e:
+        # Could be a legacy plain token that happens to start with "A"
+        logger.debug(f"Token decryption failed, returning as-is: {e}")
+        return encrypted_token
+
 
 @dataclass
 class GmailUserState:
@@ -130,8 +175,8 @@ class GmailUserState:
         return cls(
             user_id=row[0],
             email_address=row[1] or "",
-            access_token=row[2] or "",
-            refresh_token=row[3] or "",
+            access_token=_decrypt_token(row[2] or ""),
+            refresh_token=_decrypt_token(row[3] or ""),
             token_expiry=(
                 datetime.fromisoformat(row[4]) if row[4] else None
             ),
@@ -350,8 +395,8 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
             (
                 state.user_id,
                 state.email_address,
-                state.access_token,
-                state.refresh_token,
+                _encrypt_token(state.access_token),
+                _encrypt_token(state.refresh_token),
                 state.token_expiry.isoformat() if state.token_expiry else None,
                 state.history_id,
                 state.last_sync.isoformat() if state.last_sync else None,
@@ -671,8 +716,8 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
         return GmailUserState(
             user_id=row["user_id"],
             email_address=row["email_address"] or "",
-            access_token=row["access_token"] or "",
-            refresh_token=row["refresh_token"] or "",
+            access_token=_decrypt_token(row["access_token"] or ""),
+            refresh_token=_decrypt_token(row["refresh_token"] or ""),
             token_expiry=row["token_expiry"],  # Already a datetime from asyncpg
             history_id=row["history_id"] or "",
             last_sync=row["last_sync"],  # Already a datetime from asyncpg
@@ -714,8 +759,8 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
                     updated_at = EXCLUDED.updated_at""",
                 state.user_id,
                 state.email_address,
-                state.access_token,
-                state.refresh_token,
+                _encrypt_token(state.access_token),
+                _encrypt_token(state.refresh_token),
                 state.token_expiry,
                 state.history_id,
                 state.last_sync,

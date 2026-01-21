@@ -33,6 +33,66 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+# Import encryption (optional - graceful degradation if not available)
+try:
+    from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+except ImportError:
+    CRYPTO_AVAILABLE = False
+
+    def get_encryption_service():
+        raise RuntimeError("Encryption not available")
+
+# Credential fields that should be encrypted
+CREDENTIAL_KEYWORDS = frozenset([
+    "api_key", "secret", "password", "token", "auth_token",
+    "access_key", "private_key", "credentials", "client_secret",
+])
+
+
+def _is_sensitive_key(key: str) -> bool:
+    """Check if a config key is sensitive (should be encrypted)."""
+    key_lower = key.lower()
+    return any(kw in key_lower for kw in CREDENTIAL_KEYWORDS)
+
+
+def _encrypt_config(config: Dict[str, Any], use_encryption: bool) -> Dict[str, Any]:
+    """Encrypt sensitive fields in connector config."""
+    if not use_encryption or not CRYPTO_AVAILABLE or not config:
+        return config
+    try:
+        service = get_encryption_service()
+        sensitive_keys = [k for k in config if _is_sensitive_key(k)]
+        if not sensitive_keys:
+            return config
+        return service.encrypt_fields(config, sensitive_keys)
+    except Exception as e:
+        logger.warning(f"Config encryption unavailable: {e}")
+        return config
+
+
+def _decrypt_config(config: Dict[str, Any], use_encryption: bool) -> Dict[str, Any]:
+    """Decrypt sensitive fields in connector config."""
+    if not use_encryption or not CRYPTO_AVAILABLE or not config:
+        return config
+
+    # Check for encryption markers - if none present, it's legacy data
+    has_encrypted = any(
+        isinstance(v, dict) and v.get("_encrypted")
+        for v in config.values()
+    )
+    if not has_encrypted:
+        return config  # Legacy unencrypted data - return as-is
+
+    try:
+        service = get_encryption_service()
+        sensitive_keys = [k for k in config if isinstance(config[k], dict) and config[k].get("_encrypted")]
+        if not sensitive_keys:
+            return config
+        return service.decrypt_fields(config, sensitive_keys)
+    except Exception as e:
+        logger.warning(f"Config decryption failed: {e}")
+        return config
+
 
 @dataclass
 class ConnectorConfig:
@@ -181,7 +241,7 @@ class SyncStore:
                     id=row[0],
                     connector_type=row[1],
                     name=row[2],
-                    config=json.loads(row[3]),
+                    config=_decrypt_config(json.loads(row[3]), self._use_encryption),
                     status=row[4],
                     created_at=datetime.fromisoformat(row[5]),
                     updated_at=datetime.fromisoformat(row[6]),
@@ -296,7 +356,8 @@ class SyncStore:
 
         # Persist to database
         if self._connection:
-            config_json = json.dumps(config)
+            encrypted_config = _encrypt_config(config, self._use_encryption)
+            config_json = json.dumps(encrypted_config)
 
             if self._database_url.startswith("sqlite"):
                 await self._connection.execute(
@@ -339,7 +400,7 @@ class SyncStore:
                     connector.id,
                     connector.connector_type,
                     connector.name,
-                    config,
+                    encrypted_config,
                     connector.status,
                     connector.created_at,
                     connector.updated_at,

@@ -38,6 +38,47 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Try to import encryption service
+try:
+    from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+except ImportError:
+    CRYPTO_AVAILABLE = False
+
+    def get_encryption_service():
+        return None
+
+
+def _encrypt_secret(secret: str) -> str:
+    """Encrypt webhook secret before storage."""
+    if not CRYPTO_AVAILABLE or not secret:
+        return secret
+    try:
+        service = get_encryption_service()
+        encrypted = service.encrypt(secret)
+        return encrypted.to_base64()
+    except Exception as e:
+        logger.warning(f"Secret encryption failed, storing unencrypted: {e}")
+        return secret
+
+
+def _decrypt_secret(encrypted_secret: str) -> str:
+    """Decrypt webhook secret, handling legacy unencrypted data."""
+    if not CRYPTO_AVAILABLE or not encrypted_secret:
+        return encrypted_secret
+
+    # Check if it looks like encrypted data (base64 with specific structure)
+    # Legacy secrets are 43-char base64 (32 bytes urlsafe)
+    if len(encrypted_secret) < 50 or not encrypted_secret.startswith("AAAA"):
+        # Likely legacy unencrypted secret
+        return encrypted_secret
+
+    try:
+        service = get_encryption_service()
+        return service.decrypt_string(encrypted_secret)
+    except Exception as e:
+        logger.debug(f"Secret decryption failed (may be legacy unencrypted): {e}")
+        return encrypted_secret  # Return as-is if decryption fails
+
 
 # Events that can trigger webhooks
 WEBHOOK_EVENTS: Set[str] = {
@@ -123,7 +164,7 @@ class WebhookConfig:
             id=row[0],
             url=row[1],
             events=json.loads(row[2]) if row[2] else [],
-            secret=row[3],
+            secret=_decrypt_secret(row[3] or ""),
             active=bool(row[4]),
             created_at=row[5] or time.time(),
             updated_at=row[6] or time.time(),
@@ -433,7 +474,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
                 webhook.id,
                 webhook.url,
                 json.dumps(webhook.events),
-                webhook.secret,
+                _encrypt_secret(webhook.secret),
                 int(webhook.active),
                 webhook.created_at,
                 webhook.updated_at,
@@ -880,7 +921,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                 webhook.id,
                 webhook.url,
                 json.dumps(webhook.events),
-                webhook.secret,
+                _encrypt_secret(webhook.secret),
                 webhook.active,
                 webhook.created_at,
                 webhook.updated_at,

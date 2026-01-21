@@ -36,6 +36,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Import encryption (optional - graceful degradation if not available)
+try:
+    from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+except ImportError:
+    CRYPTO_AVAILABLE = False
+
+    def get_encryption_service():
+        raise RuntimeError("Encryption not available")
+
 
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
     """Record user mapping operation metric if available."""
@@ -96,6 +105,69 @@ SENSITIVE_KEYS = frozenset([
     "twilio_auth_token",
     "smtp_password",
 ])
+
+
+def _encrypt_settings(
+    settings: Dict[str, Any],
+    user_id: str = "default",
+    integration_type: str = "",
+) -> Dict[str, Any]:
+    """
+    Encrypt sensitive keys in settings dict before storage.
+
+    Uses Associated Authenticated Data (AAD) to bind ciphertext to user/integration
+    context, preventing cross-user/integration attacks.
+    """
+    if not CRYPTO_AVAILABLE or not settings:
+        return settings
+
+    # Find keys that need encryption and have values
+    keys_to_encrypt = [k for k in SENSITIVE_KEYS if k in settings and settings[k]]
+    if not keys_to_encrypt:
+        return settings
+
+    try:
+        service = get_encryption_service()
+        # AAD binds ciphertext to this specific user + integration
+        aad = f"{user_id}:{integration_type}"
+        encrypted = service.encrypt_fields(settings, keys_to_encrypt, aad)
+        logger.debug(f"Encrypted {len(keys_to_encrypt)} sensitive fields for {integration_type}")
+        return encrypted
+    except Exception as e:
+        logger.warning(f"Encryption unavailable, storing unencrypted: {e}")
+        return settings
+
+
+def _decrypt_settings(
+    settings: Dict[str, Any],
+    user_id: str = "default",
+    integration_type: str = "",
+) -> Dict[str, Any]:
+    """
+    Decrypt sensitive keys, handling legacy unencrypted data.
+
+    AAD must match what was used during encryption.
+    """
+    if not CRYPTO_AVAILABLE or not settings:
+        return settings
+
+    # Check for encryption markers - if none present, it's legacy data
+    encrypted_keys = [
+        k for k in SENSITIVE_KEYS
+        if k in settings and isinstance(settings.get(k), dict) and settings[k].get("_encrypted")
+    ]
+    if not encrypted_keys:
+        return settings  # Legacy unencrypted data - return as-is
+
+    try:
+        service = get_encryption_service()
+        aad = f"{user_id}:{integration_type}"
+        decrypted = service.decrypt_fields(settings, encrypted_keys, aad)
+        logger.debug(f"Decrypted {len(encrypted_keys)} fields for {integration_type}")
+        return decrypted
+    except Exception as e:
+        logger.warning(f"Decryption failed for {integration_type}: {e}")
+        return settings
 
 
 @dataclass
@@ -189,7 +261,7 @@ class IntegrationConfig:
 
     @classmethod
     def from_row(cls, row: tuple) -> "IntegrationConfig":
-        """Create from database row."""
+        """Create from database row (settings decryption done at store level)."""
         return cls(
             type=row[0],
             enabled=bool(row[1]),
@@ -475,13 +547,18 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
         )
         row = cursor.fetchone()
         if row:
-            return IntegrationConfig.from_row(row)
+            config = IntegrationConfig.from_row(row)
+            # Decrypt settings with AAD for integrity verification
+            config.settings = _decrypt_settings(config.settings, user_id, integration_type)
+            return config
         return None
 
     async def save(self, config: IntegrationConfig) -> None:
         conn = self._get_conn()
         config.updated_at = time.time()
         user_id = config.user_id or "default"
+        # Encrypt settings with AAD binding to user + integration type
+        encrypted_settings = _encrypt_settings(config.settings, user_id, config.type)
         conn.execute(
             """INSERT OR REPLACE INTO integrations
                (integration_type, user_id, enabled, created_at, updated_at,
@@ -499,7 +576,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
                 int(config.notify_on_debate_end),
                 int(config.notify_on_error),
                 int(config.notify_on_leaderboard),
-                json.dumps(config.settings),
+                json.dumps(encrypted_settings),
                 config.messages_sent,
                 config.errors_24h,
                 config.last_activity,
@@ -532,7 +609,12 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
                FROM integrations WHERE user_id = ?""",
             (user_id,),
         )
-        return [IntegrationConfig.from_row(row) for row in cursor.fetchall()]
+        configs = []
+        for row in cursor.fetchall():
+            config = IntegrationConfig.from_row(row)
+            config.settings = _decrypt_settings(config.settings, user_id, config.type)
+            configs.append(config)
+        return configs
 
     async def list_all(self) -> List[IntegrationConfig]:
         conn = self._get_conn()
@@ -543,7 +625,14 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
                       errors_24h, last_activity, last_error, user_id, workspace_id
                FROM integrations"""
         )
-        return [IntegrationConfig.from_row(row) for row in cursor.fetchall()]
+        configs = []
+        for row in cursor.fetchall():
+            config = IntegrationConfig.from_row(row)
+            config.settings = _decrypt_settings(
+                config.settings, config.user_id or "default", config.type
+            )
+            configs.append(config)
+        return configs
 
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
@@ -888,7 +977,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
 
     def _row_to_config(self, row: Any) -> IntegrationConfig:
-        """Convert database row to IntegrationConfig."""
+        """Convert database row to IntegrationConfig (settings decryption done at store level)."""
         return IntegrationConfig(
             type=row["integration_type"],
             enabled=bool(row["enabled"]),
@@ -944,7 +1033,10 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                 integration_type,
             )
             if row:
-                return self._row_to_config(row)
+                config = self._row_to_config(row)
+                # Decrypt settings with AAD for integrity verification
+                config.settings = _decrypt_settings(config.settings, user_id, integration_type)
+                return config
             return None
 
     def get_sync(
@@ -963,6 +1055,8 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         """Save integration configuration asynchronously."""
         config.updated_at = time.time()
         user_id = config.user_id or "default"
+        # Encrypt settings with AAD binding to user + integration type
+        encrypted_settings = _encrypt_settings(config.settings, user_id, config.type)
 
         async with self._pool.acquire() as conn:
             await conn.execute(
@@ -997,7 +1091,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                 config.notify_on_debate_end,
                 config.notify_on_error,
                 config.notify_on_leaderboard,
-                json.dumps(config.settings),
+                json.dumps(encrypted_settings),
                 config.messages_sent,
                 config.errors_24h,
                 config.last_activity,
@@ -1052,7 +1146,12 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                    FROM integrations WHERE user_id = $1""",
                 user_id,
             )
-            return [self._row_to_config(row) for row in rows]
+            configs = []
+            for row in rows:
+                config = self._row_to_config(row)
+                config.settings = _decrypt_settings(config.settings, user_id, config.type)
+                configs.append(config)
+            return configs
 
     def list_for_user_sync(self, user_id: str = "default") -> List[IntegrationConfig]:
         """List all integrations for a user (sync wrapper for async)."""

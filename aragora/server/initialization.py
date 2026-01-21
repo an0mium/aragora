@@ -898,3 +898,102 @@ def init_handler_stores(nomic_dir: Path) -> dict:
         logger.debug(f"[init] UsageTracker unavailable: {e}")
 
     return stores
+
+
+# =============================================================================
+# PostgreSQL Store Initialization (Production)
+# =============================================================================
+
+
+async def init_postgres_stores() -> dict[str, bool]:
+    """
+    Initialize all PostgreSQL stores for production deployment.
+
+    This function initializes all PostgreSQL-backed storage modules when
+    the server is configured to use PostgreSQL (via ARAGORA_POSTGRES_DSN
+    or DATABASE_URL environment variables).
+
+    Should be called during server startup when using PostgreSQL backend.
+
+    Returns:
+        Dictionary mapping store names to initialization status (True = success)
+    """
+    from aragora.storage.factory import get_storage_backend, StorageBackend
+
+    backend = get_storage_backend()
+    if backend != StorageBackend.POSTGRES:
+        logger.debug("[init] PostgreSQL backend not configured, skipping store initialization")
+        return {}
+
+    results: dict[str, bool] = {}
+
+    try:
+        from aragora.storage.postgres_store import get_postgres_pool
+
+        pool = await get_postgres_pool()
+        logger.info("[init] PostgreSQL connection pool created")
+    except Exception as e:
+        logger.error(f"[init] Failed to create PostgreSQL pool: {e}")
+        return {"_connection": False}
+
+    # List of PostgreSQL stores to initialize
+    stores_to_init: list[tuple[str, str, str]] = [
+        ("webhook_configs", "aragora.storage.webhook_config_store", "PostgresWebhookConfigStore"),
+        ("integrations", "aragora.storage.integration_store", "PostgresIntegrationStore"),
+        ("gmail_tokens", "aragora.storage.gmail_token_store", "PostgresGmailTokenStore"),
+        ("finding_workflows", "aragora.storage.finding_workflow_store", "PostgresFindingWorkflowStore"),
+        ("gauntlet_runs", "aragora.storage.gauntlet_run_store", "PostgresGauntletRunStore"),
+        ("job_queue", "aragora.storage.job_queue_store", "PostgresJobQueueStore"),
+        ("governance", "aragora.storage.governance_store", "PostgresGovernanceStore"),
+        ("marketplace", "aragora.storage.marketplace_store", "PostgresMarketplaceStore"),
+        ("federation_registry", "aragora.storage.federation_registry_store", "PostgresFederationRegistryStore"),
+        ("approval_requests", "aragora.storage.approval_request_store", "PostgresApprovalRequestStore"),
+        ("token_blacklist", "aragora.storage.token_blacklist_store", "PostgresBlacklist"),
+        ("users", "aragora.storage.user_store", "PostgresUserStore"),
+        ("webhooks", "aragora.storage.webhook_store", "PostgresWebhookStore"),
+    ]
+
+    for name, module_path, class_name in stores_to_init:
+        try:
+            module = __import__(module_path, fromlist=[class_name])
+            store_class = getattr(module, class_name)
+            store = store_class(pool)
+            await store.initialize()
+            results[name] = True
+            logger.info(f"[init] PostgreSQL store initialized: {name}")
+        except ImportError as e:
+            logger.warning(f"[init] Could not import {class_name}: {e}")
+            results[name] = False
+        except Exception as e:
+            logger.error(f"[init] Failed to initialize {name}: {e}")
+            results[name] = False
+
+    # Summary
+    succeeded = sum(1 for s in results.values() if s)
+    failed = sum(1 for s in results.values() if not s)
+    logger.info(f"[init] PostgreSQL stores: {succeeded} initialized, {failed} failed")
+
+    return results
+
+
+def init_postgres_stores_sync() -> dict[str, bool]:
+    """
+    Synchronous wrapper for init_postgres_stores().
+
+    Use this when calling from synchronous server startup code.
+    """
+    import asyncio
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If we're in an async context, create a new task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, init_postgres_stores())
+                return future.result(timeout=60)
+        else:
+            return loop.run_until_complete(init_postgres_stores())
+    except RuntimeError:
+        # No event loop, create one
+        return asyncio.run(init_postgres_stores())

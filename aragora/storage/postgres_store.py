@@ -84,14 +84,23 @@ async def get_postgres_pool(
     if _pool is not None:
         return _pool
 
-    # Get DSN from environment if not provided
+    # Get DSN from environment or secrets manager if not provided
     if dsn is None:
         dsn = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
+
+        # Try secrets manager as fallback
+        if not dsn:
+            try:
+                from aragora.config.secrets import get_secret
+
+                dsn = get_secret("ARAGORA_POSTGRES_DSN") or get_secret("DATABASE_URL")
+            except ImportError:
+                pass  # secrets module not available
 
     if not dsn:
         raise RuntimeError(
             "PostgreSQL DSN not configured. Set ARAGORA_POSTGRES_DSN or DATABASE_URL "
-            "environment variable, or pass dsn parameter."
+            "in environment, AWS Secrets Manager, or pass dsn parameter."
         )
 
     logger.info(f"Creating PostgreSQL pool (min={min_size}, max={max_size})")

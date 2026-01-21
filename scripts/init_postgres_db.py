@@ -232,6 +232,35 @@ async def verify_tables(dsn: str | None = None) -> dict[str, bool]:
     return results
 
 
+def run_alembic_migrations() -> bool:
+    """Run Alembic migrations."""
+    import subprocess
+
+    logger.info("Running Alembic migrations...")
+    project_root = Path(__file__).parent.parent
+
+    try:
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode == 0:
+            logger.info("Alembic migrations completed successfully.")
+            if result.stdout:
+                logger.info(result.stdout)
+            return True
+        else:
+            logger.error(f"Alembic migration failed:\n{result.stderr}")
+            return False
+
+    except FileNotFoundError:
+        logger.error("Alembic not found. Install with: pip install 'aragora[postgres]'")
+        return False
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -245,6 +274,11 @@ def main() -> int:
         "--verify",
         action="store_true",
         help="Only verify tables exist, don't create",
+    )
+    parser.add_argument(
+        "--alembic",
+        action="store_true",
+        help="Run Alembic migrations instead of direct initialization",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -274,6 +308,13 @@ def main() -> int:
             logger.warning(f"Missing tables: {', '.join(missing)}")
             return 1
         logger.info("All tables verified!")
+        return 0
+
+    if args.alembic:
+        logger.info("Using Alembic migrations...")
+        if not run_alembic_migrations():
+            return 1
+        logger.info("Alembic migrations completed!")
         return 0
 
     logger.info("Initializing PostgreSQL database...")
