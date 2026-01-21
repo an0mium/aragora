@@ -97,6 +97,27 @@ class ConsensusAdapter:
             except Exception as e:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
+    def _record_metric(self, operation: str, success: bool, latency: float) -> None:
+        """Record Prometheus metric for adapter operation.
+
+        Args:
+            operation: Operation name (search, store, sync)
+            success: Whether operation succeeded
+            latency: Operation latency in seconds
+        """
+        try:
+            from aragora.observability.metrics.km import (
+                record_km_operation,
+                record_km_adapter_sync,
+            )
+            record_km_operation(operation, success, latency)
+            if operation in ("store", "sync"):
+                record_km_adapter_sync("consensus", "forward", success)
+        except ImportError:
+            pass  # Metrics not available
+        except Exception as e:
+            logger.debug(f"Failed to record metric: {e}")
+
     @property
     def consensus(self) -> "ConsensusMemory":
         """Access the underlying ConsensusMemory."""
@@ -367,38 +388,46 @@ class ConsensusAdapter:
         Returns:
             List of similar consensus records as dicts
         """
-        similar = self._consensus.find_similar_debates(
-            topic=topic,
-            min_confidence=min_confidence,
-            limit=limit,
-        )
+        import time
+        start = time.time()
+        success = False
 
-        # Convert to dict format for consistency
-        results = [
-            {
-                "id": d.consensus.id,
-                "topic": d.consensus.topic,
-                "conclusion": d.consensus.conclusion,
-                "strength": d.consensus.strength.value,
-                "confidence": d.consensus.confidence,
-                "domain": d.consensus.domain,
-                "similarity": d.similarity,
-                "timestamp": d.consensus.timestamp.isoformat()
-                if hasattr(d.consensus.timestamp, "isoformat")
-                else str(d.consensus.timestamp),
-            }
-            for d in similar
-        ]
+        try:
+            similar = self._consensus.find_similar_debates(
+                topic=topic,
+                min_confidence=min_confidence,
+                limit=limit,
+            )
 
-        # Emit dashboard event for reverse flow query
-        self._emit_event("km_adapter_reverse_query", {
-            "source": "consensus",
-            "topic_preview": topic[:50] + "..." if len(topic) > 50 else topic,
-            "results_count": len(results),
-            "limit": limit,
-        })
+            # Convert to dict format for consistency
+            results = [
+                {
+                    "id": d.consensus.id,
+                    "topic": d.consensus.topic,
+                    "conclusion": d.consensus.conclusion,
+                    "strength": d.consensus.strength.value,
+                    "confidence": d.consensus.confidence,
+                    "domain": d.consensus.domain,
+                    "similarity": d.similarity,
+                    "timestamp": d.consensus.timestamp.isoformat()
+                    if hasattr(d.consensus.timestamp, "isoformat")
+                    else str(d.consensus.timestamp),
+                }
+                for d in similar
+            ]
 
-        return results
+            # Emit dashboard event for reverse flow query
+            self._emit_event("km_adapter_reverse_query", {
+                "source": "consensus",
+                "topic_preview": topic[:50] + "..." if len(topic) > 50 else topic,
+                "results_count": len(results),
+                "limit": limit,
+            })
+
+            success = True
+            return results
+        finally:
+            self._record_metric("search", success, time.time() - start)
 
     def store_consensus(self, record: "ConsensusRecord") -> None:
         """

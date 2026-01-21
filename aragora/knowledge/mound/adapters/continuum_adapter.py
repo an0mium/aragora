@@ -130,6 +130,27 @@ class ContinuumAdapter:
             except Exception as e:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
+    def _record_metric(self, operation: str, success: bool, latency: float) -> None:
+        """Record Prometheus metric for adapter operation.
+
+        Args:
+            operation: Operation name (search, store, sync)
+            success: Whether operation succeeded
+            latency: Operation latency in seconds
+        """
+        try:
+            from aragora.observability.metrics.km import (
+                record_km_operation,
+                record_km_adapter_sync,
+            )
+            record_km_operation(operation, success, latency)
+            if operation in ("store", "sync"):
+                record_km_adapter_sync("continuum", "forward", success)
+        except ImportError:
+            pass  # Metrics not available
+        except Exception as e:
+            logger.debug(f"Failed to record metric: {e}")
+
     @property
     def continuum(self) -> "ContinuumMemory":
         """Access the underlying ContinuumMemory."""
@@ -388,39 +409,47 @@ class ContinuumAdapter:
         Returns:
             List of similar memory entries as dicts
         """
-        # Extract key terms for search (first 10 words)
-        words = content.split()[:10]
-        query = " ".join(words)
+        import time
+        start = time.time()
+        success = False
 
-        entries = self.search_by_keyword(query, limit=limit)
+        try:
+            # Extract key terms for search (first 10 words)
+            words = content.split()[:10]
+            query = " ".join(words)
 
-        # Convert to dict format for consistency with other adapters
-        results = [
-            {
-                "id": e.id,
-                "content": e.content,
-                "tier": e.tier.value,
-                "importance": e.importance,
-                "surprise_score": e.surprise_score,
-                "consolidation_score": e.consolidation_score,
-                "update_count": e.update_count,
-                "success_rate": e.success_rate,
-                "created_at": e.created_at,
-                "updated_at": e.updated_at,
-                "metadata": e.metadata,
-            }
-            for e in entries
-        ]
+            entries = self.search_by_keyword(query, limit=limit)
 
-        # Emit dashboard event for reverse flow query
-        self._emit_event("km_adapter_reverse_query", {
-            "source": "continuum",
-            "query_preview": query[:50] + "..." if len(query) > 50 else query,
-            "results_count": len(results),
-            "limit": limit,
-        })
+            # Convert to dict format for consistency with other adapters
+            results = [
+                {
+                    "id": e.id,
+                    "content": e.content,
+                    "tier": e.tier.value,
+                    "importance": e.importance,
+                    "surprise_score": e.surprise_score,
+                    "consolidation_score": e.consolidation_score,
+                    "update_count": e.update_count,
+                    "success_rate": e.success_rate,
+                    "created_at": e.created_at,
+                    "updated_at": e.updated_at,
+                    "metadata": e.metadata,
+                }
+                for e in entries
+            ]
 
-        return results
+            # Emit dashboard event for reverse flow query
+            self._emit_event("km_adapter_reverse_query", {
+                "source": "continuum",
+                "query_preview": query[:50] + "..." if len(query) > 50 else query,
+                "results_count": len(results),
+                "limit": limit,
+            })
+
+            success = True
+            return results
+        finally:
+            self._record_metric("search", success, time.time() - start)
 
     def store_memory(self, entry: "ContinuumMemoryEntry") -> None:
         """
