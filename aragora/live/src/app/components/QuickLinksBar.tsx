@@ -30,7 +30,7 @@ const QUICK_LINKS: QuickLink[] = [
   { href: '/calibration', label: 'CALIBRATE', color: 'gold', minMode: 'advanced' },
   { href: '/modes', label: 'MODES', color: 'warning', minMode: 'advanced' },
   { href: '/compare', label: 'COMPARE', color: 'acid-green', minMode: 'standard' },
-  { href: '/crux', label: 'CRUX', color: 'acid-purple', minMode: 'advanced' },
+  { href: '/crux', label: 'CRUX', color: 'acid-purple', minMode: 'standard' },
   { href: '/red-team', label: 'REDTEAM', color: 'warning', minMode: 'expert' },
   { href: '/memory-analytics', label: 'MEM', color: 'acid-cyan', minMode: 'advanced' },
   { href: '/webhooks', label: 'HOOKS', color: 'acid-green', minMode: 'expert' },

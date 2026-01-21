@@ -1772,12 +1772,12 @@ All stabilization items addressed:
 ### High Priority
 1. ~~Activate Position Ledger by default~~ - **DONE** (initialized in server startup)
 2. ~~Surface Tournament UI~~ - **DONE** (TournamentPanel added)
-3. **Enable Belief Network visualization** - Crux analysis available but hidden
+3. ~~Enable Belief Network visualization~~ - **DONE** (CRUX link moved to standard mode)
 
 ### Medium Priority
 1. ~~Create Agent Routing UI~~ - **DONE** (integrated in DebateInput)
-2. Implement Continuum Memory inspector
-3. Add emergent traits browser from PersonaLaboratory
+2. ~~Implement Continuum Memory inspector~~ - **DONE** (MemoryInspector at /memory-analytics)
+3. ~~Add emergent traits browser from PersonaLaboratory~~ - **DONE** (LaboratoryPanel at /laboratory)
 
 ### Nomic Loop Improvements
 1. **Better Task Splitting**: Decompose large tasks to avoid timeouts

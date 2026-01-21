@@ -267,7 +267,9 @@ class TestBillingIntegrationE2E:
 # ============================================================================
 
 
-@pytest.mark.skip(reason="Requires TenantDataIsolation.register_resource() - not yet implemented")
+@pytest.mark.skip(
+    reason="Requires TenantDataIsolation.register_resource() - use TenantFilter.register_resource() from stream module instead"
+)
 class TestResourceRegistration:
     """Tests for resource registration - requires API additions."""
 
@@ -281,16 +283,71 @@ class TestResourceRegistration:
         pass
 
 
-@pytest.mark.skip(reason="Requires TenantManager.validate_api_key() - not yet implemented")
 class TestTenantSecurityE2E:
-    """Tests for tenant security - requires API additions."""
+    """E2E tests for tenant security using TenantManager."""
 
     @pytest.mark.asyncio
     async def test_api_key_validation(self, tenant_a: TestTenant):
         """Test API key validation for tenant access."""
-        pass
+        from aragora.tenancy.tenant import Tenant, TenantManager, TenantStatus
+
+        manager = TenantManager()
+
+        # Create and register a tenant with an API key
+        tenant = Tenant(
+            id=tenant_a.id,
+            name=tenant_a.name,
+            slug=tenant_a.id.replace("-", "_"),
+        )
+        # Generate and set an API key
+        api_key = tenant.generate_api_key()
+        manager.register_tenant(tenant)
+
+        # Valid API key should return the tenant
+        result = await manager.validate_api_key(api_key)
+        assert result is not None
+        assert result.id == tenant_a.id
+
+        # Invalid API key should return None
+        result = await manager.validate_api_key("invalid_key_12345")
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_tenant_suspension(self, tenant_a: TestTenant):
-        """Test suspended tenant cannot access resources."""
-        pass
+        """Test suspended tenant cannot access resources via API key."""
+        from aragora.tenancy.tenant import (
+            Tenant,
+            TenantManager,
+            TenantStatus,
+            TenantSuspendedError,
+        )
+
+        manager = TenantManager()
+
+        # Create and register a tenant
+        tenant = Tenant(
+            id=tenant_a.id,
+            name=tenant_a.name,
+            slug=tenant_a.id.replace("-", "_"),
+        )
+        api_key = tenant.generate_api_key()
+        manager.register_tenant(tenant)
+
+        # Should work while active
+        result = await manager.validate_api_key(api_key)
+        assert result is not None
+
+        # Suspend the tenant
+        await manager.suspend_tenant(tenant_a.id, "Billing overdue")
+        assert tenant.status == TenantStatus.SUSPENDED
+
+        # Should raise TenantSuspendedError when suspended
+        with pytest.raises(TenantSuspendedError) as exc_info:
+            await manager.validate_api_key(api_key)
+        assert exc_info.value.tenant_id == tenant_a.id
+
+        # Reactivate and verify access restored
+        await manager.activate_tenant(tenant_a.id)
+        result = await manager.validate_api_key(api_key)
+        assert result is not None
+        assert result.status == TenantStatus.ACTIVE
