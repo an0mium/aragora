@@ -570,35 +570,27 @@ class DiscordConnector(ChatPlatformConnector):
         """Verify Discord interaction webhook signature.
 
         SECURITY: Fails closed in production if PyNaCl is unavailable or public_key not configured.
-        Set ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=1 to allow unverified webhooks (dev only).
+        Uses centralized webhook_security module for production-safe bypass handling.
         """
-        import os
-
-        allow_unverified = os.environ.get("ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS", "").lower() in (
-            "1",
-            "true",
-        )
+        from aragora.connectors.chat.webhook_security import should_allow_unverified
 
         if not NACL_AVAILABLE:
-            if allow_unverified:
+            # SECURITY: Use centralized bypass check (ignores flag in production)
+            if should_allow_unverified("discord"):
                 logger.warning(
-                    "Discord webhook verification skipped - PyNaCl not available and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is set"
+                    "Discord webhook verification skipped - PyNaCl not available (dev mode)"
                 )
                 return True
-            logger.error(
-                "Discord webhook rejected - PyNaCl not available and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS not set"
-            )
+            logger.error("Discord webhook rejected - PyNaCl not available")
             return False
 
         if not self.public_key:
-            if allow_unverified:
+            if should_allow_unverified("discord"):
                 logger.warning(
-                    "Discord webhook verification skipped - public_key not configured and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is set"
+                    "Discord webhook verification skipped - public_key not configured (dev mode)"
                 )
                 return True
-            logger.error(
-                "Discord webhook rejected - public_key not configured and ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS not set"
-            )
+            logger.error("Discord webhook rejected - public_key not configured")
             return False
 
         signature = headers.get("X-Signature-Ed25519", "")

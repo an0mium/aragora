@@ -30,11 +30,19 @@ def is_distributed_state_required() -> bool:
     """Check if distributed state backend (Redis) is required.
 
     Returns True if:
-    - ARAGORA_REQUIRE_DISTRIBUTED_STATE=true
+    - ARAGORA_REQUIRE_DISTRIBUTED=true (canonical var, also used by production_guards)
+    - ARAGORA_REQUIRE_DISTRIBUTED_STATE=true (legacy alias, deprecated)
     - ARAGORA_MULTI_INSTANCE=true
     - ARAGORA_ENV=production (unless ARAGORA_SINGLE_INSTANCE=true)
     """
+    # Check canonical var first (shared with production_guards.py)
+    if os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED", "").lower() in ("true", "1", "yes"):
+        return True
+    # Legacy alias for backwards compatibility
     if os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED_STATE", "").lower() in ("true", "1", "yes"):
+        logger.warning(
+            "ARAGORA_REQUIRE_DISTRIBUTED_STATE is deprecated, use ARAGORA_REQUIRE_DISTRIBUTED instead"
+        )
         return True
     if os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in ("true", "1", "yes"):
         return True

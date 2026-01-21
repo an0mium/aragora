@@ -262,9 +262,9 @@ class LocalFineTuner:
     def _check_dependencies(self) -> bool:
         """Check if required dependencies are available."""
         try:
-            import torch
-            import transformers
-            import peft
+            import torch  # noqa: F401
+            import transformers  # noqa: F401
+            import peft  # noqa: F401
 
             return True
         except ImportError as e:
@@ -307,8 +307,8 @@ class LocalFineTuner:
             self.config.base_model,
             trust_remote_code=True,
         )
-        if self._tokenizer.pad_token is None:
-            self._tokenizer.pad_token = self._tokenizer.eos_token
+        if self._tokenizer.pad_token is None:  # type: ignore[union-attr]
+            self._tokenizer.pad_token = self._tokenizer.eos_token  # type: ignore[union-attr]
 
         # Load model
         self._model = AutoModelForCausalLM.from_pretrained(
@@ -319,7 +319,7 @@ class LocalFineTuner:
         )
 
         if self.config.use_gradient_checkpointing:
-            self._model.gradient_checkpointing_enable()
+            self._model.gradient_checkpointing_enable()  # type: ignore[union-attr]
 
         self._is_loaded = True
         logger.info(f"Model loaded: {self.config.base_model}")
@@ -351,7 +351,7 @@ class LocalFineTuner:
         # Apply LoRA
         self._peft_model = get_peft_model(self._model, lora_config)
 
-        trainable, total = self._peft_model.get_nb_trainable_parameters()
+        trainable, total = self._peft_model.get_nb_trainable_parameters()  # type: ignore[union-attr]
         logger.info(
             f"Trainable parameters: {trainable:,} / {total:,} " f"({100 * trainable / total:.2f}%)"
         )
@@ -450,8 +450,8 @@ class LocalFineTuner:
             train_result = trainer.train()
 
             # Save model
-            self._peft_model.save_pretrained(self.config.output_dir)
-            self._tokenizer.save_pretrained(self.config.output_dir)
+            self._peft_model.save_pretrained(self.config.output_dir)  # type: ignore[union-attr]
+            self._tokenizer.save_pretrained(self.config.output_dir)  # type: ignore[union-attr]
 
             training_time = time.time() - start_time
 
@@ -555,24 +555,24 @@ class LocalFineTuner:
         # Format prompt
         formatted_prompt = f"### Instruction:\n{prompt}\n\n### Response:\n"
 
-        inputs = self._tokenizer(
+        inputs = self._tokenizer(  # type: ignore[misc]
             formatted_prompt,
             return_tensors="pt",
             truncation=True,
             max_length=self.config.max_seq_length,
-        ).to(model.device)
+        ).to(model.device)  # type: ignore[union-attr]
 
         with __import__("torch").no_grad():
-            outputs = model.generate(
+            outputs = model.generate(  # type: ignore[union-attr]
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 temperature=temperature,
                 top_p=top_p,
                 do_sample=True,
-                pad_token_id=self._tokenizer.pad_token_id,
+                pad_token_id=self._tokenizer.pad_token_id,  # type: ignore[union-attr]
             )
 
-        generated = self._tokenizer.decode(
+        generated = self._tokenizer.decode(  # type: ignore[union-attr]
             outputs[0][inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         )

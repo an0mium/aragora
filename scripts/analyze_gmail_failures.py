@@ -193,26 +193,51 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
         pass
 
 
-def find_available_port(start_port: int = 8766, max_attempts: int = 20) -> int:
-    """Find an available port starting from start_port."""
+# Standard OAuth ports - add these redirect URIs to Google Cloud Console:
+#   http://localhost:8765/callback
+#   http://localhost:8766/callback
+#   http://localhost:8767/callback
+OAUTH_PORTS = [8765, 8766, 8767, 8768, 8769, 8770]
+
+
+def find_available_port() -> int:
+    """Find an available port from the standard OAuth ports list."""
     import socket
 
-    for i in range(max_attempts):
-        port = start_port + i
+    for port in OAUTH_PORTS:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.bind(("localhost", port))
                 return port
         except OSError:
             continue
-    raise OSError(f"No available ports found in range {start_port}-{start_port + max_attempts}")
+
+    print("\nERROR: All OAuth callback ports are in use!")
+    print("Please free one of these ports or kill conflicting processes:")
+    for port in OAUTH_PORTS:
+        print(f"  lsof -ti:{port} | xargs kill -9  # Kill process on port {port}")
+    raise OSError(f"No available ports found from: {OAUTH_PORTS}")
 
 
 async def get_oauth_token(connector: Any, account_name: str) -> bool:
     """Get OAuth token via browser flow."""
-    port = find_available_port()
-    print(f"Using port {port} for OAuth callback...")
+    try:
+        port = find_available_port()
+    except OSError as e:
+        print(f"ERROR: {e}")
+        return False
+
     redirect_uri = f"http://localhost:{port}/callback"
+
+    print(f"\n{'='*60}")
+    print(f"Connecting Gmail account: {account_name}")
+    print(f"{'='*60}")
+    print(f"\nUsing OAuth callback: {redirect_uri}")
+    print("\nIMPORTANT: If you see 'redirect_uri_mismatch' error:")
+    print("  1. Go to Google Cloud Console -> APIs & Services -> Credentials")
+    print("  2. Edit your OAuth 2.0 Client ID")
+    print("  3. Add this Authorized redirect URI:")
+    print(f"     {redirect_uri}")
 
     # Get authorization URL
     auth_url = connector.get_oauth_url(
@@ -220,9 +245,6 @@ async def get_oauth_token(connector: Any, account_name: str) -> bool:
         state=account_name,
     )
 
-    print(f"\n{'='*60}")
-    print(f"Connecting Gmail account: {account_name}")
-    print(f"{'='*60}")
     print("\nOpening browser for Google authorization...")
     print(f"If browser doesn't open, visit:\n{auth_url}\n")
 
@@ -242,7 +264,12 @@ async def get_oauth_token(connector: Any, account_name: str) -> bool:
             break
 
     if not OAuthCallbackHandler.auth_code:
-        print("Authorization timed out or failed.")
+        print("\nAuthorization timed out or failed.")
+        print("\nTroubleshooting:")
+        print("1. If you saw 'redirect_uri_mismatch', add this URI to Google Cloud Console:")
+        print(f"   {redirect_uri}")
+        print("2. Make sure to select the correct Google account in the browser")
+        print("3. Grant Gmail read access when prompted")
         return False
 
     # Exchange code for tokens
@@ -302,6 +329,8 @@ async def search_failure_emails(
     max_results: int = 500,
 ) -> list[FailureEmail]:
     """Search for failure-related emails."""
+    import time
+
     # Build Gmail search query for failures
     failure_terms = [
         "failed",
@@ -332,9 +361,17 @@ async def search_failure_emails(
     print(f"\nSearching with query: {query}")
     print(f"Looking back {days_back} days, max {max_results} results...")
 
+    if max_results > 1000:
+        # Gmail API ~50 msgs/sec due to quota (getMessage costs 5 units, 250/sec limit)
+        est_minutes = max_results / 50 / 60
+        print(f"Note: Large result set may take ~{est_minutes:.1f} minutes")
+
     failures = []
     page_token = None
     total_fetched = 0
+    total_processed = 0
+    start_time = time.time()
+    errors = 0
 
     while total_fetched < max_results:
         batch_size = min(100, max_results - total_fetched)
@@ -351,6 +388,7 @@ async def search_failure_emails(
             # Get full message
             try:
                 msg = await connector.get_message(msg_summary["id"])
+                total_processed += 1
 
                 # Check if Aragora-related
                 body = msg.body_text or msg.snippet or ""
@@ -375,13 +413,34 @@ async def search_failure_emails(
                     )
                 )
             except Exception as e:
-                print(f"  Error fetching message {msg_summary.get('id', 'unknown')}: {e}")
+                errors += 1
+                if errors <= 5:
+                    print(f"  Error fetching message {msg_summary.get('id', 'unknown')}: {e}")
+                elif errors == 6:
+                    print("  (suppressing further error messages...)")
 
         total_fetched += len(messages)
-        print(f"  Fetched {total_fetched} messages, found {len(failures)} failures...")
+
+        # Progress tracking
+        elapsed = time.time() - start_time
+        rate = total_processed / elapsed if elapsed > 0 else 0
+        remaining = (max_results - total_fetched) / rate / 60 if rate > 0 else 0
+
+        progress_msg = (
+            f"  Progress: {total_fetched}/{max_results} fetched, {len(failures)} failures"
+        )
+        if max_results > 500:
+            progress_msg += f" | {rate:.1f} msg/s | ~{remaining:.1f}min remaining"
+        print(progress_msg)
 
         if not page_token:
             break
+
+    if errors > 0:
+        print(f"\nNote: {errors} messages had errors (skipped)")
+
+    elapsed_total = time.time() - start_time
+    print(f"Completed in {elapsed_total:.1f}s ({total_processed} messages processed)")
 
     return failures
 
