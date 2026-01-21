@@ -190,9 +190,9 @@ class KMCheckpointStore:
         """
         start_time = time.time()
 
-        # Generate checkpoint ID
+        # Generate checkpoint ID (not for security, just uniqueness)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        checkpoint_id = f"km_ckpt_{timestamp}_{hashlib.md5(str(time.time()).encode()).hexdigest()[:8]}"
+        checkpoint_id = f"km_ckpt_{timestamp}_{hashlib.md5(str(time.time()).encode(), usedforsecurity=False).hexdigest()[:8]}"
 
         logger.info(f"Creating KM checkpoint: {checkpoint_id}")
 

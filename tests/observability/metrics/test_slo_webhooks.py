@@ -1,0 +1,356 @@
+"""Tests for SLO webhook integration."""
+
+import pytest
+from unittest.mock import MagicMock, patch
+from datetime import datetime
+
+from aragora.observability.metrics.slo import (
+    init_slo_webhooks,
+    notify_slo_violation,
+    get_slo_webhook_status,
+    record_slo_violation,
+    SLOWebhookConfig,
+    SEVERITY_ORDER,
+)
+
+
+class TestSeverityOrdering:
+    """Tests for severity level ordering."""
+
+    def test_severity_order_values(self):
+        """Test severity ordering is correct."""
+        assert SEVERITY_ORDER["minor"] < SEVERITY_ORDER["moderate"]
+        assert SEVERITY_ORDER["moderate"] < SEVERITY_ORDER["major"]
+        assert SEVERITY_ORDER["major"] < SEVERITY_ORDER["critical"]
+
+    def test_all_severities_present(self):
+        """Test all expected severities are defined."""
+        assert "minor" in SEVERITY_ORDER
+        assert "moderate" in SEVERITY_ORDER
+        assert "major" in SEVERITY_ORDER
+        assert "critical" in SEVERITY_ORDER
+
+
+class TestSLOWebhookConfig:
+    """Tests for SLOWebhookConfig dataclass."""
+
+    def test_default_values(self):
+        """Test default configuration values."""
+        config = SLOWebhookConfig()
+        assert config.enabled is True
+        assert config.min_severity == "minor"
+        assert config.batch_size == 10
+        assert config.cooldown_seconds == 60.0
+
+    def test_custom_values(self):
+        """Test custom configuration values."""
+        config = SLOWebhookConfig(
+            enabled=False,
+            min_severity="major",
+            batch_size=5,
+            cooldown_seconds=120.0,
+        )
+        assert config.enabled is False
+        assert config.min_severity == "major"
+        assert config.batch_size == 5
+        assert config.cooldown_seconds == 120.0
+
+
+class TestInitSLOWebhooks:
+    """Tests for init_slo_webhooks function."""
+
+    def test_returns_false_when_dispatcher_unavailable(self):
+        """Test returns False when webhook dispatcher is not available."""
+        import aragora.observability.metrics.slo as slo_module
+
+        # Reset callback state
+        slo_module._webhook_callback = None
+
+        with patch(
+            "aragora.integrations.webhooks.get_dispatcher",
+            return_value=None,
+        ):
+            result = init_slo_webhooks()
+            assert result is False
+
+    def test_returns_true_when_dispatcher_available(self):
+        """Test returns True when webhook dispatcher is available."""
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.enqueue = MagicMock(return_value=True)
+
+        with patch(
+            "aragora.integrations.webhooks.get_dispatcher",
+            return_value=mock_dispatcher,
+        ):
+            result = init_slo_webhooks()
+            assert result is True
+
+    def test_uses_custom_config(self):
+        """Test custom config is used."""
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.enqueue = MagicMock(return_value=True)
+
+        config = SLOWebhookConfig(min_severity="critical")
+
+        with patch(
+            "aragora.integrations.webhooks.get_dispatcher",
+            return_value=mock_dispatcher,
+        ):
+            result = init_slo_webhooks(webhook_config=config)
+            assert result is True
+
+
+class TestNotifySLOViolation:
+    """Tests for notify_slo_violation function."""
+
+    def test_returns_false_when_not_initialized(self):
+        """Test returns False when webhooks not initialized."""
+        # Reset the callback
+        import aragora.observability.metrics.slo as slo_module
+        slo_module._webhook_callback = None
+
+        result = notify_slo_violation(
+            operation="test_op",
+            percentile="p99",
+            latency_ms=600.0,
+            threshold_ms=500.0,
+            severity="moderate",
+        )
+        assert result is False
+
+    def test_calculates_margins_correctly(self):
+        """Test margin calculations are correct."""
+        captured_data = {}
+
+        def capture_callback(data):
+            captured_data.update(data)
+            return True
+
+        import aragora.observability.metrics.slo as slo_module
+        slo_module._webhook_callback = capture_callback
+        slo_module._last_notification = {}  # Clear cooldown
+
+        notify_slo_violation(
+            operation="margin_test",
+            percentile="p99",
+            latency_ms=750.0,
+            threshold_ms=500.0,
+            severity="major",
+        )
+
+        assert captured_data["margin_ms"] == 250.0
+        assert captured_data["margin_percent"] == 50.0
+
+    def test_includes_context(self):
+        """Test context is included in notification."""
+        captured_data = {}
+
+        def capture_callback(data):
+            captured_data.update(data)
+            return True
+
+        import aragora.observability.metrics.slo as slo_module
+        slo_module._webhook_callback = capture_callback
+        slo_module._last_notification = {}
+
+        notify_slo_violation(
+            operation="context_test",
+            percentile="p90",
+            latency_ms=200.0,
+            threshold_ms=100.0,
+            severity="critical",
+            context={"request_id": "req_123", "user_id": "user_456"},
+        )
+
+        assert captured_data["context"]["request_id"] == "req_123"
+        assert captured_data["context"]["user_id"] == "user_456"
+
+
+class TestGetSLOWebhookStatus:
+    """Tests for get_slo_webhook_status function."""
+
+    def test_returns_status_dict(self):
+        """Test returns proper status dictionary."""
+        status = get_slo_webhook_status()
+
+        assert "enabled" in status
+        assert "cooldown_active" in status
+        assert "buffer_size" in status
+        assert isinstance(status["enabled"], bool)
+        assert isinstance(status["cooldown_active"], dict)
+        assert isinstance(status["buffer_size"], int)
+
+
+class TestRecordSLOViolationWithWebhook:
+    """Tests for record_slo_violation with webhook integration."""
+
+    def test_auto_calculates_severity(self):
+        """Test severity is auto-calculated based on margin."""
+        import aragora.observability.metrics.slo as slo_module
+
+        # Mock metrics to avoid prometheus issues
+        slo_module._initialized = True
+        slo_module.SLO_VIOLATIONS_TOTAL = MagicMock()
+        slo_module.SLO_VIOLATION_MARGIN = MagicMock()
+        slo_module._webhook_callback = None  # Disable webhook for this test
+
+        # Minor: < 20% over
+        severity = record_slo_violation(
+            "test_op", "p99", 110.0, 100.0, notify_webhook=False
+        )
+        assert severity == "minor"
+
+        # Moderate: 20-50% over
+        severity = record_slo_violation(
+            "test_op", "p99", 130.0, 100.0, notify_webhook=False
+        )
+        assert severity == "moderate"
+
+        # Major: 50-100% over
+        severity = record_slo_violation(
+            "test_op", "p99", 175.0, 100.0, notify_webhook=False
+        )
+        assert severity == "major"
+
+        # Critical: > 100% over
+        severity = record_slo_violation(
+            "test_op", "p99", 250.0, 100.0, notify_webhook=False
+        )
+        assert severity == "critical"
+
+    def test_respects_notify_webhook_flag(self):
+        """Test notify_webhook flag controls webhook notification."""
+        import aragora.observability.metrics.slo as slo_module
+
+        called = []
+        def track_callback(data):
+            called.append(data)
+            return True
+
+        slo_module._initialized = True
+        slo_module.SLO_VIOLATIONS_TOTAL = MagicMock()
+        slo_module.SLO_VIOLATION_MARGIN = MagicMock()
+        slo_module._webhook_callback = track_callback
+        slo_module._last_notification = {}
+
+        # With notify_webhook=False, should not call webhook
+        record_slo_violation(
+            "no_notify_op", "p99", 600.0, 500.0, notify_webhook=False
+        )
+        assert len(called) == 0
+
+        # With notify_webhook=True (default), should call webhook
+        record_slo_violation(
+            "yes_notify_op", "p99", 600.0, 500.0, notify_webhook=True
+        )
+        assert len(called) == 1
+
+
+class TestCooldownBehavior:
+    """Tests for cooldown behavior in webhook notifications."""
+
+    def test_cooldown_prevents_rapid_notifications(self):
+        """Test cooldown prevents rapid notifications for same operation."""
+        import aragora.observability.metrics.slo as slo_module
+
+        call_count = [0]
+
+        def counting_callback(data):
+            call_count[0] += 1
+            return True
+
+        # Set the last notification time to now to simulate a recent notification
+        import time
+        slo_module._webhook_callback = counting_callback
+        slo_module._last_notification = {"cooldown_op": time.time()}
+
+        # This call should be blocked by cooldown (within 60 seconds)
+        result = notify_slo_violation(
+            "cooldown_op", "p99", 700.0, 500.0, "moderate"
+        )
+        assert result is False
+        assert call_count[0] == 0  # Should not have been called
+
+    def test_first_notification_goes_through(self):
+        """Test first notification for an operation goes through."""
+        import aragora.observability.metrics.slo as slo_module
+
+        call_count = [0]
+
+        def counting_callback(data):
+            call_count[0] += 1
+            return True
+
+        slo_module._webhook_callback = counting_callback
+        slo_module._last_notification = {}  # Empty - no previous notifications
+
+        # First call should go through
+        result = notify_slo_violation(
+            "first_op", "p99", 600.0, 500.0, "minor"
+        )
+        assert result is True
+        assert call_count[0] == 1
+
+    def test_different_operations_independent_cooldown(self):
+        """Test different operations have independent cooldowns."""
+        import aragora.observability.metrics.slo as slo_module
+
+        call_count = [0]
+
+        def counting_callback(data):
+            call_count[0] += 1
+            return True
+
+        slo_module._webhook_callback = counting_callback
+        slo_module._last_notification = {}
+
+        # First operation
+        notify_slo_violation("op_a", "p99", 600.0, 500.0, "minor")
+        assert call_count[0] == 1
+
+        # Different operation should not be blocked
+        notify_slo_violation("op_b", "p99", 600.0, 500.0, "minor")
+        assert call_count[0] == 2
+
+
+class TestSeverityFiltering:
+    """Tests for severity-based filtering in webhook notifications."""
+
+    def test_filters_by_min_severity(self):
+        """Test violations below min_severity are filtered."""
+        mock_dispatcher = MagicMock()
+        enqueue_calls = []
+
+        def track_enqueue(event):
+            enqueue_calls.append(event)
+            return True
+
+        mock_dispatcher.enqueue = track_enqueue
+
+        with patch(
+            "aragora.integrations.webhooks.get_dispatcher",
+            return_value=mock_dispatcher,
+        ):
+            # Initialize with min_severity="major"
+            config = SLOWebhookConfig(min_severity="major")
+            init_slo_webhooks(webhook_config=config)
+
+            import aragora.observability.metrics.slo as slo_module
+            slo_module._last_notification = {}
+
+            # Minor should be filtered
+            result1 = notify_slo_violation(
+                "filter_op1", "p99", 110.0, 100.0, "minor"
+            )
+            # Moderate should be filtered
+            result2 = notify_slo_violation(
+                "filter_op2", "p99", 140.0, 100.0, "moderate"
+            )
+            # Major should pass
+            result3 = notify_slo_violation(
+                "filter_op3", "p99", 175.0, 100.0, "major"
+            )
+
+            # Only major severity should have been enqueued
+            major_events = [e for e in enqueue_calls if e.get("severity") == "major"]
+            assert len(major_events) >= 1

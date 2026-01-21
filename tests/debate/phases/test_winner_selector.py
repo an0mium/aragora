@@ -482,7 +482,8 @@ class TestAnalyzeBeliefNetwork:
 
         selector.analyze_belief_network(ctx)
 
-    def test_belief_analysis_called(self):
+    @patch("aragora.reasoning.crux_detector.CruxDetector")
+    def test_belief_analysis_called(self, mock_crux_detector_cls):
         """Belief network is analyzed when available."""
         mock_message = MagicMock()
         mock_message.role = "proposer"
@@ -492,8 +493,14 @@ class TestAnalyzeBeliefNetwork:
         ctx = MockDebateContext()
         ctx.result.messages = [mock_message]
 
+        # Mock CruxDetector to return empty cruxes
+        mock_analysis = MagicMock()
+        mock_analysis.cruxes = []
+        mock_detector = MagicMock()
+        mock_detector.detect_cruxes.return_value = mock_analysis
+        mock_crux_detector_cls.return_value = mock_detector
+
         mock_network = MagicMock()
-        mock_network.identify_cruxes.return_value = []
 
         def get_analyzer():
             bn_class = MagicMock(return_value=mock_network)
@@ -505,7 +512,8 @@ class TestAnalyzeBeliefNetwork:
 
         mock_network.add_claim.assert_called()
 
-    def test_cruxes_stored_in_result(self):
+    @patch("aragora.reasoning.crux_detector.CruxDetector")
+    def test_cruxes_stored_in_result(self, mock_crux_detector_cls):
         """Identified cruxes are stored in result."""
         mock_message = MagicMock()
         mock_message.role = "critic"
@@ -515,13 +523,20 @@ class TestAnalyzeBeliefNetwork:
         ctx = MockDebateContext()
         ctx.result.messages = [mock_message]
 
+        # Create mock crux with correct attributes (statement, contesting_agents)
         mock_crux = MagicMock()
-        mock_crux.text = "Key disagreement"
+        mock_crux.statement = "Key disagreement"
         mock_crux.crux_score = 0.8
-        mock_crux.sources = {"agent1", "agent2"}
+        mock_crux.contesting_agents = ["agent1", "agent2"]
+
+        # Mock CruxDetector and its detect_cruxes method
+        mock_analysis = MagicMock()
+        mock_analysis.cruxes = [mock_crux]
+        mock_detector = MagicMock()
+        mock_detector.detect_cruxes.return_value = mock_analysis
+        mock_crux_detector_cls.return_value = mock_detector
 
         mock_network = MagicMock()
-        mock_network.identify_cruxes.return_value = [mock_crux]
 
         def get_analyzer():
             bn_class = MagicMock(return_value=mock_network)

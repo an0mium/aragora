@@ -60,14 +60,21 @@ class MockDebateResult:
     """Mock debate result for testing."""
 
     id: str = "test_id"
+    debate_id: str = "test_id"
     task: str = "Test task"
     messages: list = field(default_factory=list)
     critiques: list = field(default_factory=list)
     votes: list = field(default_factory=list)
     dissenting_views: list = field(default_factory=list)
     rounds_used: int = 0
+    rounds_completed: int = 0
     duration_seconds: float = 0.0
     winner: Optional[str] = None
+    consensus_reached: bool = False
+    avg_novelty: float = 1.0
+    proposals: dict = field(default_factory=dict)
+    participants: list = field(default_factory=list)
+    status: str = "pending"
 
 
 # ============================================================================

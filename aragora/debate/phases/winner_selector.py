@@ -338,31 +338,41 @@ class WinnerSelector:
             return
 
         BN, BPA = self._get_belief_analyzer()
-        if not BN or not BPA:
+        if not BN:
             return
 
         try:
+            # Import CruxDetector for crux identification
+            from aragora.reasoning.crux_detector import CruxDetector
+
             network = BN(max_iterations=3)
-            for msg in result.messages:
+            for i, msg in enumerate(result.messages):
                 if msg.role in ("proposer", "critic"):
+                    # Use correct add_claim signature: claim_id, statement, author
                     network.add_claim(
-                        text=msg.content[:500],
-                        source=msg.agent,
-                        metadata={"round": msg.round, "role": msg.role},
+                        claim_id=f"msg_{i}_{msg.agent}",
+                        statement=msg.content[:500],
+                        author=msg.agent,
                     )
 
-            # Identify cruxes
-            cruxes = network.identify_cruxes(min_disagreement=0.3)
-            if cruxes:
+            # Use CruxDetector to identify cruxes
+            detector = CruxDetector(network)
+            analysis = detector.detect_cruxes(top_k=5, min_score=0.1)
+
+            if analysis.cruxes:
                 setattr(
                     result,
                     "cruxes",
                     [
-                        {"claim": c.text, "score": c.crux_score, "agents": list(c.sources)}
-                        for c in cruxes[:5]
+                        {
+                            "claim": c.statement,
+                            "score": c.crux_score,
+                            "agents": c.contesting_agents,
+                        }
+                        for c in analysis.cruxes
                     ],
                 )
-                logger.info(f"belief_cruxes_identified count={len(cruxes)}")
+                logger.info(f"belief_cruxes_identified count={len(analysis.cruxes)}")
 
         except Exception as e:
             logger.debug(f"Belief network analysis failed: {e}")

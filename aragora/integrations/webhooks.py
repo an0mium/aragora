@@ -94,6 +94,9 @@ DEFAULT_EVENT_TYPES = frozenset(
         # Workflow template events
         "template_execution_complete",
         "template_execution_failed",
+        # SLO monitoring events
+        "slo_violation",
+        "slo_recovery",
     }
 )
 

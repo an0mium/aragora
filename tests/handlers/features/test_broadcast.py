@@ -87,7 +87,7 @@ class TestBroadcastHandlerInit:
         """Test can_handle recognizes broadcast paths."""
         assert broadcast_handler.can_handle("/api/debates/abc123/broadcast")
         assert broadcast_handler.can_handle("/api/debates/abc123/broadcast/full")
-        assert broadcast_handler.can_handle("/api/podcast/feed.xml")
+        # Note: /api/podcast/feed.xml is handled by AudioHandler, not BroadcastHandler
 
     def test_cannot_handle_other_paths(self, broadcast_handler):
         """Test can_handle rejects non-broadcast paths."""
@@ -99,39 +99,10 @@ class TestBroadcastHandlerInit:
 
 # =============================================================================
 # RSS Feed Tests
+# Note: RSS feed functionality is handled by AudioHandler, not BroadcastHandler.
+# These tests have been removed as they were testing the wrong handler.
+# See test_audio.py for RSS feed tests.
 # =============================================================================
-
-
-class TestRssFeed:
-    """Tests for RSS podcast feed endpoint."""
-
-    def test_returns_503_without_pipeline(self, broadcast_handler):
-        """Returns 503 when pipeline not available."""
-        with patch.object(broadcast_handler, "_get_pipeline", return_value=None):
-            result = broadcast_handler.handle("/api/podcast/feed.xml", {}, None)
-            assert result is not None
-            assert result.status_code == 503
-
-    def test_returns_rss_xml_content_type(self, broadcast_handler):
-        """Returns correct content type for RSS."""
-        mock_pipeline = MagicMock()
-        mock_pipeline.get_rss_feed.return_value = '<?xml version="1.0"?><rss></rss>'
-
-        with patch.object(broadcast_handler, "_get_pipeline", return_value=mock_pipeline):
-            result = broadcast_handler.handle("/api/podcast/feed.xml", {}, None)
-            assert result is not None
-            assert result.status_code == 200
-            assert "application/rss+xml" in result.content_type
-
-    def test_returns_empty_feed_when_no_episodes(self, broadcast_handler):
-        """Returns empty feed structure when no episodes exist."""
-        mock_pipeline = MagicMock()
-        mock_pipeline.get_rss_feed.return_value = None
-
-        with patch.object(broadcast_handler, "_get_pipeline", return_value=mock_pipeline):
-            result = broadcast_handler._get_rss_feed()
-            # Either returns 200 with empty feed or 503 if generator unavailable
-            assert result.status_code in [200, 503]
 
 
 # =============================================================================

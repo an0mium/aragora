@@ -52,6 +52,7 @@ class MockEvidenceStore:
     def __init__(self):
         self._evidence: Dict[str, Dict] = {}
         self._debate_evidence: Dict[str, list] = {}
+        self._km_adapter = None  # KnowledgeMound adapter (not needed for tests)
 
     def get_evidence(self, evidence_id: str) -> Optional[Dict]:
         return self._evidence.get(evidence_id)

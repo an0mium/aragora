@@ -151,10 +151,37 @@ class TemplateReview:
         }
 
 
-# In-memory storage (would be replaced with database in production)
+# In-memory storage (fallback when database unavailable)
 _marketplace_templates: Dict[str, MarketplaceTemplate] = {}
 _template_reviews: Dict[str, List[TemplateReview]] = {}
 _user_ratings: Dict[str, Dict[str, int]] = {}  # user_id -> {template_id: rating}
+
+# Production persistence (optional)
+_use_persistent_store: bool = False
+_persistent_store: Optional[Any] = None
+
+
+def _init_persistent_store() -> bool:
+    """Initialize persistent store if available."""
+    global _use_persistent_store, _persistent_store
+    try:
+        from aragora.storage.marketplace_store import get_marketplace_store
+        _persistent_store = get_marketplace_store()
+        _use_persistent_store = True
+        logger.info("Marketplace using persistent SQLite storage")
+        return True
+    except Exception as e:
+        logger.warning(f"Persistent storage unavailable, using in-memory: {e}")
+        _use_persistent_store = False
+        return False
+
+
+def _get_persistent_store():
+    """Get the persistent store, initializing if needed."""
+    global _persistent_store
+    if _persistent_store is None:
+        _init_persistent_store()
+    return _persistent_store if _use_persistent_store else None
 
 
 def _seed_marketplace_templates() -> None:

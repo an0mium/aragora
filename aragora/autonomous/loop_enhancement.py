@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -695,10 +696,14 @@ class CodeVerifier:
         warnings = []
 
         try:
-            target = " ".join(str(f) for f in files) if files else "."
+            # Build command list safely without shell injection
+            cmd = shlex.split(self.lint_command)
+            if files:
+                cmd.extend(str(f) for f in files)
+            else:
+                cmd.append(".")
             result = subprocess.run(
-                f"{self.lint_command} {target}",
-                shell=True,
+                cmd,
                 capture_output=True,
                 text=True,
                 cwd=self.repo_path,
@@ -716,16 +721,16 @@ class CodeVerifier:
     ) -> Dict[str, Any]:
         """Run tests for files."""
         try:
-            cmd = self.test_command
+            # Build command list safely without shell injection
+            cmd = shlex.split(self.test_command)
             if files:
                 # Only run tests for changed files
                 test_files = [str(f) for f in files if "test" in str(f).lower()]
                 if test_files:
-                    cmd = f"{cmd} {' '.join(test_files)}"
+                    cmd.extend(test_files)
 
             result = subprocess.run(
                 cmd,
-                shell=True,
                 capture_output=True,
                 text=True,
                 cwd=self.repo_path,
@@ -778,10 +783,14 @@ class CodeVerifier:
         issues = []
 
         try:
-            target = " ".join(str(f) for f in files) if files else "."
+            # Build command list safely without shell injection
+            cmd = shlex.split(self.security_command)
+            if files:
+                cmd.extend(str(f) for f in files)
+            else:
+                cmd.append(".")
             result = subprocess.run(
-                f"{self.security_command} {target}",
-                shell=True,
+                cmd,
                 capture_output=True,
                 text=True,
                 cwd=self.repo_path,

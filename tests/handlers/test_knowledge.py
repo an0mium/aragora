@@ -151,7 +151,7 @@ def mock_query_engine():
 @pytest.fixture
 def knowledge_handler(mock_fact_store, mock_query_engine):
     """Create KnowledgeHandler for testing."""
-    from aragora.server.handlers.knowledge import KnowledgeHandler
+    from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
     ctx = {}
     handler = KnowledgeHandler(ctx)
@@ -173,42 +173,42 @@ class TestKnowledgeHandlerRouting:
 
     def test_can_handle_query(self):
         """Test can_handle for /api/knowledge/query."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         assert handler.can_handle("/api/knowledge/query") is True
 
     def test_can_handle_facts(self):
         """Test can_handle for /api/knowledge/facts."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         assert handler.can_handle("/api/knowledge/facts") is True
 
     def test_can_handle_facts_with_id(self):
         """Test can_handle for /api/knowledge/facts/:id."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         assert handler.can_handle("/api/knowledge/facts/fact-123") is True
 
     def test_can_handle_search(self):
         """Test can_handle for /api/knowledge/search."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         assert handler.can_handle("/api/knowledge/search") is True
 
     def test_can_handle_stats(self):
         """Test can_handle for /api/knowledge/stats."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         assert handler.can_handle("/api/knowledge/stats") is True
 
     def test_cannot_handle_unrelated(self):
         """Test can_handle returns False for unrelated paths."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         assert handler.can_handle("/api/debates") is False
@@ -519,7 +519,7 @@ class TestFactStoreInitialization:
 
     def test_get_fact_store_fallback_to_memory(self):
         """Test fallback to InMemoryFactStore when FactStore fails."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -537,7 +537,7 @@ class TestFactStoreInitialization:
 
     def test_get_fact_store_caches_instance(self):
         """Test that fact store is cached after first access."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -562,7 +562,7 @@ class TestQueryEngineInitialization:
 
     def test_get_query_engine_creates_simple_engine(self):
         """Test that query engine is created with fact store."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -579,7 +579,7 @@ class TestQueryEngineInitialization:
 
     def test_get_query_engine_caches_instance(self):
         """Test that query engine is cached after first access."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 

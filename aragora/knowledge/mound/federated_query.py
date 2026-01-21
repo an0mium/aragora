@@ -193,9 +193,9 @@ class EmbeddingRelevanceScorer:
         return str(item)
 
     def _cache_key(self, text: str) -> str:
-        """Generate cache key for text."""
+        """Generate cache key for text (not for security)."""
         import hashlib
-        return hashlib.md5(text.encode()).hexdigest()[:16]
+        return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()[:16]
 
     async def _get_embedding(self, text: str) -> Optional[List[float]]:
         """Get embedding for text, using cache if available."""
@@ -664,11 +664,11 @@ class FederatedQueryAggregator:
         return list(seen.values())
 
     def _hash_content(self, content: str) -> str:
-        """Hash content for deduplication."""
+        """Hash content for deduplication (not for security)."""
         import hashlib
         # Normalize and hash
         normalized = " ".join(content.lower().split())
-        return hashlib.md5(normalized.encode()).hexdigest()[:16]
+        return hashlib.md5(normalized.encode(), usedforsecurity=False).hexdigest()[:16]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get aggregator statistics."""

@@ -5,6 +5,7 @@ Provides metrics for monitoring SLO compliance:
 - SLO check totals by operation and result
 - SLO violation counters
 - Latency histograms per operation
+- Webhook notifications for violations
 
 Usage:
     from aragora.observability.metrics.slo import (
@@ -29,12 +30,54 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Generator, Optional
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 from aragora.observability.config import get_metrics_config
 from aragora.observability.metrics.base import NoOpMetric
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    # Core metrics
+    "init_slo_metrics",
+    "record_slo_check",
+    "record_slo_violation",
+    "record_operation_latency",
+    "check_and_record_slo",
+    "track_operation_slo",
+    "get_slo_metrics_summary",
+    # Webhook integration
+    "init_slo_webhooks",
+    "notify_slo_violation",
+    "get_slo_webhook_status",
+    "SLOWebhookConfig",
+    "SEVERITY_ORDER",
+]
+
+# Webhook notification callback (set by init_slo_webhooks)
+_webhook_callback: Optional[Callable[[Dict[str, Any]], bool]] = None
+
+# Violation buffer for batching webhook notifications
+_violation_buffer: List[Dict[str, Any]] = []
+_buffer_lock: Optional[Any] = None  # threading.Lock set on init
+
+# Config for webhook notifications
+@dataclass
+class SLOWebhookConfig:
+    """Configuration for SLO webhook notifications."""
+    enabled: bool = True
+    min_severity: str = "minor"  # minor, moderate, major, critical
+    batch_size: int = 10  # Max violations per webhook call
+    cooldown_seconds: float = 60.0  # Min time between notifications for same operation
+
+
+# Severity ordering for filtering
+SEVERITY_ORDER = {"minor": 0, "moderate": 1, "major": 2, "critical": 3}
+
+# Cooldown tracking
+_last_notification: Dict[str, float] = {}
 
 # Prometheus metrics - initialized lazily
 _initialized = False
@@ -141,8 +184,10 @@ def record_slo_violation(
     latency_ms: float,
     threshold_ms: float,
     severity: Optional[str] = None,
-) -> None:
-    """Record an SLO violation with context.
+    context: Optional[Dict[str, Any]] = None,
+    notify_webhook: bool = True,
+) -> str:
+    """Record an SLO violation with context and optionally notify via webhook.
 
     Args:
         operation: Operation name
@@ -150,13 +195,18 @@ def record_slo_violation(
         latency_ms: Actual latency in milliseconds
         threshold_ms: SLO threshold in milliseconds
         severity: Violation severity (auto-calculated if not provided)
+        context: Optional additional context for webhook notification
+        notify_webhook: Whether to send webhook notification (default True)
+
+    Returns:
+        The calculated severity level
     """
     if not _initialized:
         init_slo_metrics()
 
     # Auto-calculate severity based on how much threshold was exceeded
     if severity is None:
-        margin_pct = ((latency_ms - threshold_ms) / threshold_ms) * 100
+        margin_pct = ((latency_ms - threshold_ms) / threshold_ms) * 100 if threshold_ms > 0 else 0
         if margin_pct < 20:
             severity = "minor"  # < 20% over
         elif margin_pct < 50:
@@ -178,6 +228,19 @@ def record_slo_violation(
         operation=operation,
         percentile=percentile,
     ).set(margin)
+
+    # Send webhook notification if enabled
+    if notify_webhook:
+        notify_slo_violation(
+            operation=operation,
+            percentile=percentile,
+            latency_ms=latency_ms,
+            threshold_ms=threshold_ms,
+            severity=severity,
+            context=context,
+        )
+
+    return severity
 
 
 def record_operation_latency(operation: str, latency_ms: float) -> None:
@@ -293,6 +356,7 @@ def get_slo_metrics_summary() -> dict:
     return {
         "initialized": _initialized,
         "metrics_enabled": get_metrics_config().enabled,
+        "webhooks_enabled": _webhook_callback is not None,
         "tracked_operations": [
             "km_query",
             "km_ingestion",
@@ -307,4 +371,147 @@ def get_slo_metrics_summary() -> dict:
             "debate_round",
             "api_endpoint",
         ],
+    }
+
+
+# --- Webhook Integration ---
+
+def init_slo_webhooks(
+    webhook_config: Optional[SLOWebhookConfig] = None,
+) -> bool:
+    """Initialize SLO webhook notifications.
+
+    Connects SLO violations to the webhook dispatcher for external alerting.
+
+    Args:
+        webhook_config: Optional configuration for webhook behavior
+
+    Returns:
+        True if webhooks were successfully initialized
+    """
+    global _webhook_callback, _buffer_lock
+
+    try:
+        import threading
+        from aragora.integrations.webhooks import get_dispatcher
+
+        _buffer_lock = threading.Lock()
+
+        dispatcher = get_dispatcher()
+        if dispatcher is None:
+            logger.debug("Webhook dispatcher not available, SLO webhooks disabled")
+            return False
+
+        # Create callback that sends to webhook dispatcher
+        config = webhook_config or SLOWebhookConfig()
+
+        def send_violation_webhook(violation_data: Dict[str, Any]) -> bool:
+            """Send violation to webhook dispatcher."""
+            severity = violation_data.get("severity", "minor")
+
+            # Check severity threshold
+            if SEVERITY_ORDER.get(severity, 0) < SEVERITY_ORDER.get(config.min_severity, 0):
+                return False
+
+            # Build webhook event
+            operation = violation_data.get("operation", "unknown")
+            event = {
+                "type": "slo_violation",
+                "timestamp": datetime.now().isoformat(),
+                "operation": operation,
+                "percentile": violation_data.get("percentile", "p99"),
+                "severity": severity,
+                "latency_ms": violation_data.get("latency_ms", 0),
+                "threshold_ms": violation_data.get("threshold_ms", 0),
+                "margin_ms": violation_data.get("margin_ms", 0),
+                "margin_percent": violation_data.get("margin_percent", 0),
+                "context": violation_data.get("context", {}),
+            }
+
+            return dispatcher.enqueue(event)
+
+        _webhook_callback = send_violation_webhook
+        logger.info("SLO webhook notifications initialized")
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Could not initialize SLO webhooks: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to initialize SLO webhooks: {e}")
+        return False
+
+
+def notify_slo_violation(
+    operation: str,
+    percentile: str,
+    latency_ms: float,
+    threshold_ms: float,
+    severity: str,
+    context: Optional[Dict[str, Any]] = None,
+    cooldown_seconds: float = 60.0,
+) -> bool:
+    """Send SLO violation notification via webhook.
+
+    Args:
+        operation: Operation name that violated SLO
+        percentile: SLO percentile that was violated
+        latency_ms: Actual latency in milliseconds
+        threshold_ms: SLO threshold in milliseconds
+        severity: Violation severity (minor, moderate, major, critical)
+        context: Optional additional context
+        cooldown_seconds: Minimum time between notifications for same operation
+
+    Returns:
+        True if notification was sent successfully
+    """
+    if _webhook_callback is None:
+        return False
+
+    # Check cooldown
+    now = time.time()
+    last_time = _last_notification.get(operation, 0)
+    if now - last_time < cooldown_seconds:
+        logger.debug(
+            f"SLO webhook cooldown for {operation}, skipping notification"
+        )
+        return False
+
+    margin_ms = latency_ms - threshold_ms
+    margin_percent = (margin_ms / threshold_ms) * 100 if threshold_ms > 0 else 0
+
+    violation_data = {
+        "operation": operation,
+        "percentile": percentile,
+        "latency_ms": latency_ms,
+        "threshold_ms": threshold_ms,
+        "margin_ms": margin_ms,
+        "margin_percent": margin_percent,
+        "severity": severity,
+        "context": context or {},
+    }
+
+    try:
+        result = _webhook_callback(violation_data)
+        if result:
+            _last_notification[operation] = now
+        return result
+    except Exception as e:
+        logger.debug(f"Failed to send SLO violation webhook: {e}")
+        return False
+
+
+def get_slo_webhook_status() -> Dict[str, Any]:
+    """Get status of SLO webhook integration.
+
+    Returns:
+        Dict with webhook status information
+    """
+    return {
+        "enabled": _webhook_callback is not None,
+        "cooldown_active": {
+            op: time.time() - ts < 60.0
+            for op, ts in _last_notification.items()
+        },
+        "buffer_size": len(_violation_buffer),
     }

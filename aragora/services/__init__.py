@@ -109,6 +109,13 @@ __all__ = [
     "CostConfig",
     "UsageStats",
     "create_cost_optimized_prioritizer",
+    # Multi-Inbox Manager
+    "MultiInboxManager",
+    "InboxAccount",
+    "UnifiedEmail",
+    "CrossAccountSenderProfile",
+    "AccountType",
+    "create_multi_inbox_manager",
 ]
 
 # Email Prioritization Service
@@ -143,4 +150,14 @@ from .email_cost_optimizer import (
     CostConfig,
     UsageStats,
     create_cost_optimized_prioritizer,
+)
+
+# Multi-Inbox Manager
+from .multi_inbox_manager import (
+    MultiInboxManager,
+    InboxAccount,
+    UnifiedEmail,
+    CrossAccountSenderProfile,
+    AccountType,
+    create_multi_inbox_manager,
 )

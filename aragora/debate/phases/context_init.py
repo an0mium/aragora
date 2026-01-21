@@ -409,8 +409,8 @@ class ContextInitializer:
             return
 
         try:
-            # Generate cache key from task content
-            query_hash = hashlib.md5(ctx.env.task.encode()).hexdigest()
+            # Generate cache key from task content (not for security)
+            query_hash = hashlib.md5(ctx.env.task.encode(), usedforsecurity=False).hexdigest()
 
             # Check cache first
             cached = self._get_cached_knowledge(query_hash)

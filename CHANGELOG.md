@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **BeliefNetwork API Mismatch** - Fixed `WinnerSelector.analyze_belief_network()` to use correct `add_claim()` signature and `CruxDetector` for crux identification
+- **MockDebateResult Test Fixture** - Added missing attributes (`consensus_reached`, `proposals`, `participants`, etc.)
 - **Knowledge Mound Query Pagination** - Added `offset` parameter to `QueryOperationsMixin.query()` for proper pagination support
 - **Knowledge Bridge Tests** - Fixed `MockKnowledgeMound` missing `workspace_id` attribute
 - **Checkpoint Restore** - Graceful handling of corrupted checkpoint files with proper error messages
