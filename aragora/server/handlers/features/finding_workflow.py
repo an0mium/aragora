@@ -537,6 +537,10 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_history(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Get full workflow history for a finding."""
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.read", finding_id):
+            return error
+
         workflow_dict = await self._get_or_create_workflow(finding_id)
 
         return self._json_response(
@@ -561,6 +565,10 @@ class FindingWorkflowHandler(BaseHandler):
             "comment": "Optional reason"
         }
         """
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.update", finding_id):
+            return error
+
         try:
             body = await self._parse_json_body(request)
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -645,6 +653,10 @@ class FindingWorkflowHandler(BaseHandler):
             "comment": "Optional reason"
         }
         """
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.update", finding_id):
+            return error
+
         try:
             body = await self._parse_json_body(request)
         except (json.JSONDecodeError, ValueError, TypeError):

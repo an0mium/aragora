@@ -863,7 +863,19 @@ async def run_startup_sequence(
 
     Returns:
         Dictionary with startup status for each component
+
+    Raises:
+        RuntimeError: If production requirements are not met
     """
+    # Check production requirements first (fail fast)
+    missing_requirements = check_production_requirements()
+    if missing_requirements:
+        for req in missing_requirements:
+            logger.error(f"Missing production requirement: {req}")
+        raise RuntimeError(
+            f"Production requirements not met: {', '.join(missing_requirements)}"
+        )
+
     status: dict[str, Any] = {
         "error_monitoring": False,
         "opentelemetry": False,

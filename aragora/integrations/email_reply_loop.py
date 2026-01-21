@@ -350,7 +350,13 @@ def register_email_origin(
     )
     _reply_origins[message_id] = origin
 
-    # Persist to Redis for durability across restarts
+    # Persist to SQLite for durability (always available)
+    try:
+        _get_sqlite_email_store().save(origin)
+    except Exception as e:
+        logger.warning(f"SQLite email origin storage failed: {e}")
+
+    # Also persist to Redis for durability across restarts
     try:
         _store_email_origin_redis(origin)
     except Exception as e:
