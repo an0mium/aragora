@@ -434,10 +434,13 @@ class DecisionRoutingMiddleware:
             "telegram": InputSource.TELEGRAM,
             "whatsapp": InputSource.WHATSAPP,
             "email": InputSource.EMAIL,
-            "web": InputSource.WEB,
-            "api": InputSource.API,
+            "gmail": InputSource.GMAIL,
+            "web": InputSource.HTTP_API,
+            "api": InputSource.HTTP_API,
+            "websocket": InputSource.WEBSOCKET,
+            "cli": InputSource.CLI,
         }
-        source = source_map.get(context.channel.lower(), InputSource.API)
+        source = source_map.get(context.channel.lower(), InputSource.HTTP_API)
 
         # Map decision type
         type_map = {
