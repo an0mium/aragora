@@ -378,3 +378,102 @@ class TestEncryptionAvailability:
 
             # Should return data unchanged
             assert result["api_key"] == "secret"
+
+
+class TestEncryptionEnforcement:
+    """Test encryption enforcement with ARAGORA_ENCRYPTION_REQUIRED flag."""
+
+    def test_encryption_required_flag_default_false(self):
+        """ENCRYPTION_REQUIRED should default to False."""
+        import aragora.security.encryption as enc_module
+
+        # Default is False (allows plaintext fallback)
+        assert enc_module.is_encryption_required() is False
+
+    def test_encryption_required_raises_when_crypto_unavailable(self):
+        """Should raise EncryptionError when encryption required but unavailable."""
+        from aragora.storage.integration_store import _encrypt_settings
+        from aragora.security.encryption import EncryptionError
+
+        settings = {"api_key": "secret-key", "name": "test"}
+
+        # Mock crypto unavailable + encryption required
+        with patch("aragora.storage.integration_store.CRYPTO_AVAILABLE", False):
+            with patch("aragora.storage.integration_store.is_encryption_required", return_value=True):
+                with pytest.raises(EncryptionError) as exc_info:
+                    _encrypt_settings(settings, "user1", "slack")
+
+                assert "cryptography library not available" in str(exc_info.value)
+                assert "integration_store" in str(exc_info.value)
+
+    def test_encryption_required_raises_on_service_error(self):
+        """Should raise EncryptionError when encryption fails and required."""
+        from aragora.storage.integration_store import _encrypt_settings
+        from aragora.security.encryption import EncryptionError
+
+        settings = {"api_key": "secret-key", "name": "test"}
+
+        # Mock encryption service failure + encryption required
+        with patch("aragora.storage.integration_store.get_encryption_service") as mock_svc:
+            mock_svc.side_effect = RuntimeError("Key not found")
+            with patch("aragora.storage.integration_store.is_encryption_required", return_value=True):
+                with pytest.raises(EncryptionError) as exc_info:
+                    _encrypt_settings(settings, "user1", "slack")
+
+                assert "Key not found" in str(exc_info.value)
+
+    def test_encryption_not_required_returns_plaintext_on_failure(self):
+        """Should return plaintext when encryption fails and not required."""
+        from aragora.storage.integration_store import _encrypt_settings
+
+        settings = {"api_key": "secret-key", "name": "test"}
+
+        # Mock encryption service failure + encryption NOT required (default)
+        with patch("aragora.storage.integration_store.get_encryption_service") as mock_svc:
+            mock_svc.side_effect = RuntimeError("Key not found")
+            with patch("aragora.storage.integration_store.is_encryption_required", return_value=False):
+                result = _encrypt_settings(settings, "user1", "slack")
+
+                # Should return original plaintext data
+                assert result["api_key"] == "secret-key"
+
+    def test_gmail_token_store_encryption_enforcement(self):
+        """GmailTokenStore should enforce encryption when required."""
+        from aragora.storage.gmail_token_store import _encrypt_token
+        from aragora.security.encryption import EncryptionError
+
+        token = "ya29.access_token_here"
+
+        # Mock crypto unavailable + encryption required
+        with patch("aragora.storage.gmail_token_store.CRYPTO_AVAILABLE", False):
+            with patch("aragora.storage.gmail_token_store.is_encryption_required", return_value=True):
+                with pytest.raises(EncryptionError) as exc_info:
+                    _encrypt_token(token, "user123")
+
+                assert "gmail_token_store" in str(exc_info.value)
+
+    def test_sync_store_encryption_enforcement(self):
+        """SyncStore should enforce encryption when required."""
+        from aragora.connectors.enterprise.sync_store import _encrypt_config
+        from aragora.security.encryption import EncryptionError
+
+        config = {"api_key": "secret", "endpoint": "https://api.example.com"}
+
+        # Mock crypto unavailable + encryption required
+        with patch("aragora.connectors.enterprise.sync_store.CRYPTO_AVAILABLE", False):
+            with patch("aragora.connectors.enterprise.sync_store.is_encryption_required", return_value=True):
+                with pytest.raises(EncryptionError) as exc_info:
+                    _encrypt_config(config, use_encryption=True, connector_id="salesforce")
+
+                assert "sync_store" in str(exc_info.value)
+
+    def test_encryption_error_has_helpful_message(self):
+        """EncryptionError should include helpful remediation message."""
+        from aragora.security.encryption import EncryptionError
+
+        error = EncryptionError("encrypt", "test reason", "test_store")
+        message = str(error)
+
+        assert "ARAGORA_ENCRYPTION_REQUIRED=false" in message
+        assert "test reason" in message
+        assert "test_store" in message

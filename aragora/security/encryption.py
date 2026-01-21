@@ -59,6 +59,35 @@ except ImportError:
     logger.warning("cryptography library not available - encryption disabled")
 
 
+# Encryption enforcement configuration
+# When True, encryption failures raise exceptions instead of returning plaintext
+ENCRYPTION_REQUIRED = os.environ.get(
+    "ARAGORA_ENCRYPTION_REQUIRED", ""
+).lower() in ("true", "1", "yes")
+
+
+class EncryptionError(Exception):
+    """Raised when encryption/decryption fails and ENCRYPTION_REQUIRED is True."""
+
+    def __init__(self, operation: str, reason: str, store: str = ""):
+        self.operation = operation
+        self.reason = reason
+        self.store = store
+        super().__init__(
+            f"Encryption {operation} failed for {store or 'unknown'}: {reason}. "
+            f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
+        )
+
+
+def is_encryption_required() -> bool:
+    """Check if encryption is required (fail-fast mode).
+
+    When True, stores must raise EncryptionError instead of falling back
+    to plaintext storage.
+    """
+    return ENCRYPTION_REQUIRED
+
+
 class EncryptionAlgorithm(str, Enum):
     """Supported encryption algorithms."""
 
@@ -629,7 +658,10 @@ __all__ = [
     "EncryptedData",
     "EncryptionAlgorithm",
     "KeyDerivationFunction",
+    "EncryptionError",
     "get_encryption_service",
     "init_encryption_service",
+    "is_encryption_required",
     "CRYPTO_AVAILABLE",
+    "ENCRYPTION_REQUIRED",
 ]

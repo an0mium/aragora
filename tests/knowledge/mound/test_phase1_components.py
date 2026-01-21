@@ -45,14 +45,41 @@ def temp_db_path():
         yield Path(tmpdir)
 
 
+class MockEmbeddingProvider:
+    """Mock embedding provider for tests - avoids rate limiting."""
+
+    dimension = 1536
+
+    async def embed(self, text: str) -> list[float]:
+        """Return deterministic mock embedding based on text hash."""
+        import hashlib
+
+        # Generate deterministic embedding from text
+        hash_bytes = hashlib.sha256(text.encode()).digest()
+        # Use hash bytes to seed pseudo-random embedding
+        embedding = []
+        for i in range(self.dimension):
+            byte_idx = i % len(hash_bytes)
+            # Normalize to [-1, 1] range
+            embedding.append((hash_bytes[byte_idx] / 128.0) - 1.0)
+        return embedding
+
+
+@pytest.fixture
+def mock_embedding_provider():
+    """Provide mock embedding provider to avoid API rate limits."""
+    return MockEmbeddingProvider()
+
+
 class TestSemanticStore:
     """Tests for SemanticStore."""
 
     @pytest.mark.asyncio
-    async def test_index_item_generates_embedding(self, temp_db_path):
+    async def test_index_item_generates_embedding(self, temp_db_path, mock_embedding_provider):
         """Verify embedding is always generated."""
         store = SemanticStore(
             db_path=temp_db_path / "semantic.db",
+            embedding_provider=mock_embedding_provider,
             default_tenant_id="test_tenant",
         )
 
@@ -71,9 +98,12 @@ class TestSemanticStore:
         assert entry.embedding_model != ""
 
     @pytest.mark.asyncio
-    async def test_deduplication_via_content_hash(self, temp_db_path):
+    async def test_deduplication_via_content_hash(self, temp_db_path, mock_embedding_provider):
         """Verify duplicate content returns same ID."""
-        store = SemanticStore(db_path=temp_db_path / "semantic.db")
+        store = SemanticStore(
+            db_path=temp_db_path / "semantic.db",
+            embedding_provider=mock_embedding_provider,
+        )
 
         content = "This is duplicate content"
 
@@ -91,9 +121,12 @@ class TestSemanticStore:
         assert id1 == id2
 
     @pytest.mark.asyncio
-    async def test_semantic_search(self, temp_db_path):
+    async def test_semantic_search(self, temp_db_path, mock_embedding_provider):
         """Test semantic similarity search."""
-        store = SemanticStore(db_path=temp_db_path / "semantic.db")
+        store = SemanticStore(
+            db_path=temp_db_path / "semantic.db",
+            embedding_provider=mock_embedding_provider,
+        )
 
         # Index some items
         await store.index_item(
@@ -119,9 +152,12 @@ class TestSemanticStore:
         assert len(results) >= 1
 
     @pytest.mark.asyncio
-    async def test_retrieval_metrics(self, temp_db_path):
+    async def test_retrieval_metrics(self, temp_db_path, mock_embedding_provider):
         """Test retrieval tracking for meta-learning."""
-        store = SemanticStore(db_path=temp_db_path / "semantic.db")
+        store = SemanticStore(
+            db_path=temp_db_path / "semantic.db",
+            embedding_provider=mock_embedding_provider,
+        )
 
         km_id = await store.index_item(
             source_type=KnowledgeSource.FACT,
@@ -325,9 +361,12 @@ class TestIntegration:
     """Integration tests combining multiple components."""
 
     @pytest.mark.asyncio
-    async def test_semantic_store_with_taxonomy(self, temp_db_path):
+    async def test_semantic_store_with_taxonomy(self, temp_db_path, mock_embedding_provider):
         """Test integrating SemanticStore with DomainTaxonomy."""
-        semantic_store = SemanticStore(db_path=temp_db_path / "semantic.db")
+        semantic_store = SemanticStore(
+            db_path=temp_db_path / "semantic.db",
+            embedding_provider=mock_embedding_provider,
+        )
         graph_store = KnowledgeGraphStore(db_path=temp_db_path / "graph.db")
         taxonomy = DomainTaxonomy(graph_store)
 
@@ -348,9 +387,12 @@ class TestIntegration:
         assert "legal" in entry.domain or "compliance" in entry.domain
 
     @pytest.mark.asyncio
-    async def test_graph_store_with_semantic_store(self, temp_db_path):
+    async def test_graph_store_with_semantic_store(self, temp_db_path, mock_embedding_provider):
         """Test linking semantically indexed items."""
-        semantic_store = SemanticStore(db_path=temp_db_path / "semantic.db")
+        semantic_store = SemanticStore(
+            db_path=temp_db_path / "semantic.db",
+            embedding_provider=mock_embedding_provider,
+        )
         graph_store = KnowledgeGraphStore(db_path=temp_db_path / "graph.db")
 
         # Index two related items

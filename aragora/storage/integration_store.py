@@ -38,12 +38,23 @@ logger = logging.getLogger(__name__)
 
 # Import encryption (optional - graceful degradation if not available)
 try:
-    from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+    from aragora.security.encryption import (
+        get_encryption_service,
+        is_encryption_required,
+        EncryptionError,
+        CRYPTO_AVAILABLE,
+    )
 except ImportError:
     CRYPTO_AVAILABLE = False
 
     def get_encryption_service():
         raise RuntimeError("Encryption not available")
+
+    def is_encryption_required() -> bool:
+        return False
+
+    class EncryptionError(Exception):
+        pass
 
 
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
@@ -117,13 +128,25 @@ def _encrypt_settings(
 
     Uses Associated Authenticated Data (AAD) to bind ciphertext to user/integration
     context, preventing cross-user/integration attacks.
+
+    Raises:
+        EncryptionError: If encryption fails and ARAGORA_ENCRYPTION_REQUIRED is True.
     """
-    if not CRYPTO_AVAILABLE or not settings:
+    if not settings:
         return settings
 
     # Find keys that need encryption and have values
     keys_to_encrypt = [k for k in SENSITIVE_KEYS if k in settings and settings[k]]
     if not keys_to_encrypt:
+        return settings
+
+    if not CRYPTO_AVAILABLE:
+        if is_encryption_required():
+            raise EncryptionError(
+                "encrypt",
+                "cryptography library not available",
+                "integration_store",
+            )
         return settings
 
     try:
@@ -134,6 +157,12 @@ def _encrypt_settings(
         logger.debug(f"Encrypted {len(keys_to_encrypt)} sensitive fields for {integration_type}")
         return encrypted
     except Exception as e:
+        if is_encryption_required():
+            raise EncryptionError(
+                "encrypt",
+                str(e),
+                "integration_store",
+            ) from e
         logger.warning(f"Encryption unavailable, storing unencrypted: {e}")
         return settings
 

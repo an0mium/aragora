@@ -35,12 +35,23 @@ logger = logging.getLogger(__name__)
 
 # Import encryption (optional - graceful degradation if not available)
 try:
-    from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+    from aragora.security.encryption import (
+        get_encryption_service,
+        is_encryption_required,
+        EncryptionError,
+        CRYPTO_AVAILABLE,
+    )
 except ImportError:
     CRYPTO_AVAILABLE = False
 
     def get_encryption_service():
         raise RuntimeError("Encryption not available")
+
+    def is_encryption_required() -> bool:
+        return False
+
+    class EncryptionError(Exception):
+        pass
 
 # Import metrics (optional - graceful degradation if not available)
 try:
@@ -79,24 +90,44 @@ def _encrypt_config(
 
     Uses connector_id as Associated Authenticated Data (AAD) to bind the
     ciphertext to a specific connector, preventing cross-connector attacks.
+
+    Raises:
+        EncryptionError: If encryption fails and ARAGORA_ENCRYPTION_REQUIRED is True.
     """
     import time
-    if not use_encryption or not CRYPTO_AVAILABLE or not config:
+    if not use_encryption or not config:
         return config
+
+    sensitive_keys = [k for k in config if _is_sensitive_key(k)]
+    if not sensitive_keys:
+        return config
+
+    if not CRYPTO_AVAILABLE:
+        if is_encryption_required():
+            raise EncryptionError(
+                "encrypt",
+                "cryptography library not available",
+                "sync_store",
+            )
+        return config
+
     try:
         start = time.perf_counter()
         service = get_encryption_service()
-        sensitive_keys = [k for k in config if _is_sensitive_key(k)]
-        if not sensitive_keys:
-            return config
         # AAD binds config to this specific connector
         result = service.encrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
         latency = time.perf_counter() - start
         record_encryption_operation("encrypt", "sync_store", latency)
         return result
     except Exception as e:
-        logger.warning(f"Config encryption unavailable for {connector_id}: {e}")
         record_encryption_error("encrypt", type(e).__name__)
+        if is_encryption_required():
+            raise EncryptionError(
+                "encrypt",
+                str(e),
+                "sync_store",
+            ) from e
+        logger.warning(f"Config encryption unavailable for {connector_id}: {e}")
         return config
 
 

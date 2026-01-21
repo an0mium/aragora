@@ -39,12 +39,23 @@ logger = logging.getLogger(__name__)
 
 # Import encryption (optional - graceful degradation if not available)
 try:
-    from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+    from aragora.security.encryption import (
+        get_encryption_service,
+        is_encryption_required,
+        EncryptionError,
+        CRYPTO_AVAILABLE,
+    )
 except ImportError:
     CRYPTO_AVAILABLE = False
 
     def get_encryption_service():
         raise RuntimeError("Encryption not available")
+
+    def is_encryption_required() -> bool:
+        return False
+
+    class EncryptionError(Exception):
+        pass
 
 
 # Token fields to encrypt
@@ -60,15 +71,34 @@ def _encrypt_token(token: str, user_id: str = "") -> str:
 
     Uses user_id as Associated Authenticated Data (AAD) to bind the ciphertext
     to a specific user, preventing cross-user token attacks.
+
+    Raises:
+        EncryptionError: If encryption fails and ARAGORA_ENCRYPTION_REQUIRED is True.
     """
-    if not CRYPTO_AVAILABLE or not token:
+    if not token:
         return token
+
+    if not CRYPTO_AVAILABLE:
+        if is_encryption_required():
+            raise EncryptionError(
+                "encrypt",
+                "cryptography library not available",
+                "gmail_token_store",
+            )
+        return token
+
     try:
         service = get_encryption_service()
         # AAD binds token to this specific user
         encrypted = service.encrypt(token, associated_data=user_id if user_id else None)
         return encrypted.to_base64()
     except Exception as e:
+        if is_encryption_required():
+            raise EncryptionError(
+                "encrypt",
+                str(e),
+                "gmail_token_store",
+            ) from e
         logger.warning(f"Token encryption failed, storing unencrypted: {e}")
         return token
 
