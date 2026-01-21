@@ -539,8 +539,8 @@ class TestWorkflowHandlerRBACPermissionKeys:
 
         with patch.object(handler, "_check_permission") as mock_check:
             mock_check.return_value = None  # Allow
-            # Mock the store to prevent actual execution
-            with patch.object(handler, "_get_store") as mock_store:
+            # Mock the store at the module level to prevent actual execution
+            with patch("aragora.server.handlers.workflows._get_store") as mock_store:
                 mock_store.return_value.get.return_value = None
 
                 method = getattr(handler, method_name)
@@ -567,7 +567,7 @@ class TestWorkflowHandlerRBACPermissionKeys:
 
         with patch.object(handler, "_check_permission") as mock_check:
             mock_check.return_value = None  # Allow
-            with patch.object(handler, "_get_store"):
+            with patch("aragora.server.handlers.workflows._get_store"):
                 handler._handle_resolve_approval("approval_req_456", {}, {}, mock_http)
 
                 mock_check.assert_called_once()

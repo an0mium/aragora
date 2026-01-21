@@ -1,0 +1,16 @@
+{
+  "id": "cp_49c7876ec7c6",
+  "workflow_id": "exec_7b807882df83",
+  "definition_id": "<MagicMock name='_get_store().get_workflow().id' id='4420442192'>",
+  "current_step": "<MagicMock name='_get_store().get_workflow().get_step().next_steps.__getitem__()' id='4499028880'>",
+  "completed_steps": [],
+  "step_outputs": {},
+  "context_state": {
+    "inputs": {},
+    "state": {},
+    "metadata": {}
+  },
+  "created_at": "2026-01-21T07:30:12.883582+00:00",
+  "checksum": "ea3e195f4f6b24dc",
+  "checkpoint_id": "exec_7b807882df83_20260121_013012"
+}

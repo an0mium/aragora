@@ -36,6 +36,8 @@ MANAGED_SECRETS = frozenset(
         "JWT_SECRET_KEY",
         "JWT_REFRESH_SECRET",
         "ARAGORA_JWT_SECRET",
+        # Encryption
+        "ARAGORA_ENCRYPTION_KEY",
         # OAuth
         "GOOGLE_OAUTH_CLIENT_ID",
         "GOOGLE_OAUTH_CLIENT_SECRET",
