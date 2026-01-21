@@ -497,30 +497,46 @@ class TestWorkflowHandlerRBACPermissionKeys:
         return WorkflowHandler(mock_server_context)
 
     @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
-    @pytest.mark.parametrize("method_name,permission_key,has_resource_id", [
-        ("_handle_list_workflows", "workflows.read", False),
-        ("_handle_create_workflow", "workflows.create", False),
-        ("_handle_list_templates", "workflows.read", False),
-        ("_handle_list_approvals", "workflows.read", False),
-        ("_handle_list_executions", "workflows.read", False),
+    @pytest.mark.parametrize("method_name,permission_key", [
+        ("_handle_list_workflows", "workflows.read"),
+        ("_handle_list_templates", "workflows.read"),
+        ("_handle_list_approvals", "workflows.read"),
+        ("_handle_list_executions", "workflows.read"),
     ])
-    def test_permission_key_for_list_operations(self, handler, method_name, permission_key, has_resource_id):
+    def test_permission_key_for_list_operations(self, handler, method_name, permission_key):
         """Verify list operations use correct permission keys."""
+        from aragora.server.handlers.base import error_response
+
         mock_http = MagicMock()
         mock_http.headers = {}
 
         with patch.object(handler, "_check_permission") as mock_check:
-            mock_check.return_value = None  # Allow
+            # Return 403 to short-circuit execution
+            mock_check.return_value = error_response("denied", 403)
 
             method = getattr(handler, method_name)
-            if method_name == "_handle_create_workflow":
-                method({}, {}, mock_http)
-            else:
-                method({}, mock_http)
+            method({}, mock_http)
 
             mock_check.assert_called_once()
             call_args = mock_check.call_args[0]
             assert call_args[1] == permission_key
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_create_workflow_permission_key(self, handler):
+        """Verify create workflow uses workflows.create permission."""
+        from aragora.server.handlers.base import error_response
+
+        mock_http = MagicMock()
+        mock_http.headers = {}
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            handler._handle_create_workflow({}, {}, mock_http)
+
+            mock_check.assert_called_once()
+            call_args = mock_check.call_args[0]
+            assert call_args[1] == "workflows.create"
 
     @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
     @pytest.mark.parametrize("method_name,permission_key", [
@@ -534,43 +550,46 @@ class TestWorkflowHandlerRBACPermissionKeys:
     ])
     def test_permission_key_for_resource_operations(self, handler, method_name, permission_key):
         """Verify resource operations use correct permission keys with resource ID."""
+        from aragora.server.handlers.base import error_response
+
         mock_http = MagicMock()
         mock_http.headers = {}
 
         with patch.object(handler, "_check_permission") as mock_check:
-            mock_check.return_value = None  # Allow
-            # Mock the store at the module level to prevent actual execution
-            with patch("aragora.server.handlers.workflows._get_store") as mock_store:
-                mock_store.return_value.get.return_value = None
+            # Return 403 to short-circuit execution
+            mock_check.return_value = error_response("denied", 403)
 
-                method = getattr(handler, method_name)
-                resource_id = "wf_test_123"
+            method = getattr(handler, method_name)
+            resource_id = "wf_test_123"
 
-                # Call with appropriate args
-                if method_name in ("_handle_get_workflow", "_handle_get_status", "_handle_get_versions"):
-                    method(resource_id, {}, mock_http)
-                elif method_name == "_handle_delete_workflow":
-                    method(resource_id, {}, mock_http)
-                else:
-                    method(resource_id, {}, {}, mock_http)
+            # Call with appropriate args
+            if method_name in ("_handle_get_workflow", "_handle_get_status", "_handle_get_versions"):
+                method(resource_id, {}, mock_http)
+            elif method_name == "_handle_delete_workflow":
+                method(resource_id, {}, mock_http)
+            else:
+                method(resource_id, {}, {}, mock_http)
 
-                mock_check.assert_called_once()
-                call_args = mock_check.call_args[0]
-                assert call_args[1] == permission_key
-                assert call_args[2] == resource_id  # Resource ID passed
+            mock_check.assert_called_once()
+            call_args = mock_check.call_args[0]
+            assert call_args[1] == permission_key
+            assert call_args[2] == resource_id  # Resource ID passed
 
     @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
     def test_resolve_approval_uses_request_id(self, handler):
         """Verify resolve approval uses request ID as resource."""
+        from aragora.server.handlers.base import error_response
+
         mock_http = MagicMock()
         mock_http.headers = {}
 
         with patch.object(handler, "_check_permission") as mock_check:
-            mock_check.return_value = None  # Allow
-            with patch("aragora.server.handlers.workflows._get_store"):
-                handler._handle_resolve_approval("approval_req_456", {}, {}, mock_http)
+            # Return 403 to short-circuit execution
+            mock_check.return_value = error_response("denied", 403)
 
-                mock_check.assert_called_once()
-                call_args = mock_check.call_args[0]
-                assert call_args[1] == "workflows.approve"
-                assert call_args[2] == "approval_req_456"
+            handler._handle_resolve_approval("approval_req_456", {}, {}, mock_http)
+
+            mock_check.assert_called_once()
+            call_args = mock_check.call_args[0]
+            assert call_args[1] == "workflows.approve"
+            assert call_args[2] == "approval_req_456"
