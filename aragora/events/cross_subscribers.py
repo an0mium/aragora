@@ -82,6 +82,18 @@ except ImportError:
         pass
 
 
+# Import SLO metrics (optional - graceful fallback)
+try:
+    from aragora.observability.metrics.slo import check_and_record_slo
+
+    SLO_METRICS_AVAILABLE = True
+except ImportError:
+    SLO_METRICS_AVAILABLE = False
+
+    def check_and_record_slo(operation: str, latency_ms: float, percentile: str = "p99"):
+        return True, f"SLO metrics not available for {operation}"
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -334,11 +346,18 @@ class CrossSubscriberManager:
             self._handle_mound_to_trickster,
         )
 
-        # Phase 6: Culture → Debate
+        # Phase 6: Culture → Debate (pattern updates)
         self.register(
             "culture_to_debate",
             StreamEventType.MOUND_UPDATED,
             self._handle_culture_to_debate,
+        )
+
+        # Phase 6b: Debate Start → Load Culture (active retrieval)
+        self.register(
+            "mound_to_culture",
+            StreamEventType.DEBATE_START,
+            self._handle_mound_to_culture,
         )
 
         # Phase 7: Staleness → Debate
@@ -538,6 +557,10 @@ class CrossSubscriberManager:
                         record_handler_call(name, "success", duration=latency_ms / 1000.0)
                         set_circuit_breaker_state(name, is_open=False)
 
+                    # Check handler execution SLO
+                    if SLO_METRICS_AVAILABLE:
+                        check_and_record_slo("handler_execution", latency_ms)
+
                     last_error = None
                     break  # Success - exit retry loop
 
@@ -608,6 +631,10 @@ class CrossSubscriberManager:
                     stats.total_latency_ms += latency_ms
                     stats.min_latency_ms = min(stats.min_latency_ms, latency_ms)
                     stats.max_latency_ms = max(stats.max_latency_ms, latency_ms)
+
+                # Check handler execution SLO
+                if SLO_METRICS_AVAILABLE:
+                    check_and_record_slo("handler_execution", latency_ms)
 
             except Exception as e:
                 logger.error(f"Cross-subscriber error in {name}: {e}")

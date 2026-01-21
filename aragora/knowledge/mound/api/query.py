@@ -167,6 +167,13 @@ class QueryOperationsMixin:
 
         execution_time = (time.time() - start_time) * 1000
 
+        # Check and record SLO compliance
+        try:
+            from aragora.observability.metrics.slo import check_and_record_slo
+            check_and_record_slo("km_query", execution_time)
+        except ImportError:
+            pass  # Metrics not available
+
         result = QueryResult(
             items=items,
             total_count=len(items),
