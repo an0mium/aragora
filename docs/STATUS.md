@@ -4,6 +4,44 @@
 
 ## Current Release
 
+### v2.1.10 - Quality & Testing Release (January 2026)
+
+**Production Ready** - Aragora 2.1.10 adds comprehensive testing improvements, type safety fixes, and multi-instance deployment support.
+
+#### Key Highlights
+- **42,500+ tests** across 950+ test files
+- **Type safety fixes** - Resolved mypy errors in 5 key modules
+- **Multi-instance support** - PostgreSQL required for distributed deployments
+- **Telegram connector** - Full ChatPlatformConnector implementation
+- **Lines of Code**: 665,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.1.10
+
+**Testing Improvements** (QUALITY)
+- E2E tenant security tests now enabled (API key validation, suspension)
+- 950 new tests for telegram connector and notification config store
+- Multi-instance durability tests for marketplace store
+- Security regression tests for Gmail auth and notifications
+
+**Type Safety** (QUALITY)
+- Fixed mypy errors in explainability/builder.py, gauntlet/api/export.py
+- Proper Dict[str, Any] typing for nested structures
+- Workflow schema type narrowing for YAML parsing
+- Credentials provider string conversion fixes
+
+**Multi-Instance Deployment** (INFRASTRUCTURE)
+- Marketplace store requires PostgreSQL in ARAGORA_MULTI_INSTANCE mode
+- SQLite fallback explicitly disabled for distributed deployments
+- Centralized distributed state checking in control plane
+
+**Telegram Connector** (FEATURE)
+- Implemented ChatPlatformConnector abstract methods
+- format_blocks(), format_button(), format_select_menu() support
+- send_ephemeral() for user-specific messages
+
+---
+
 ### v2.1.9 - Security Hardening Release (January 2026)
 
 **Production Ready** - Aragora 2.1.9 implements refined security approaches from audit findings, including tenant isolation and fail-closed webhook verification.
