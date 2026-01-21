@@ -120,9 +120,7 @@ if LANGCHAIN_AVAILABLE:
             default=None,
             description="List of agent types to use (e.g., ['claude', 'gpt', 'gemini'])",
         )
-        rounds: Optional[int] = Field(
-            default=3, description="Number of debate rounds"
-        )
+        rounds: Optional[int] = Field(default=3, description="Number of debate rounds")
         consensus_threshold: Optional[float] = Field(
             default=0.8, description="Confidence threshold for consensus (0-1)"
         )
@@ -294,19 +292,25 @@ class AragoraTool(BaseTool):
                         return self._format_result(result)
                     else:
                         error = await response.text()
-                        return json.dumps({
-                            "error": f"API error: {response.status}",
-                            "details": error,
-                        })
+                        return json.dumps(
+                            {
+                                "error": f"API error: {response.status}",
+                                "details": error,
+                            }
+                        )
         except asyncio.TimeoutError:
-            return json.dumps({
-                "error": "Debate timed out",
-                "timeout_seconds": self.timeout_seconds,
-            })
+            return json.dumps(
+                {
+                    "error": "Debate timed out",
+                    "timeout_seconds": self.timeout_seconds,
+                }
+            )
         except Exception as e:
-            return json.dumps({
-                "error": f"Failed to run debate: {str(e)}",
-            })
+            return json.dumps(
+                {
+                    "error": f"Failed to run debate: {str(e)}",
+                }
+            )
 
     def _format_result(self, result: Dict[str, Any]) -> str:
         """Format the debate result as a readable string."""
@@ -588,16 +592,21 @@ def create_aragora_chain(
         tools.append(retriever_tool)
 
     # Create prompt
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", (
-            "You are an intelligent assistant with access to Aragora's multi-agent "
-            "decision-making system. Use the aragora_debate tool for complex questions "
-            "that benefit from multiple AI perspectives. Use the aragora_knowledge tool "
-            "to search for relevant background information."
-        )),
-        ("human", "{input}"),
-        ("placeholder", "{agent_scratchpad}"),
-    ])
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                (
+                    "You are an intelligent assistant with access to Aragora's multi-agent "
+                    "decision-making system. Use the aragora_debate tool for complex questions "
+                    "that benefit from multiple AI perspectives. Use the aragora_knowledge tool "
+                    "to search for relevant background information."
+                ),
+            ),
+            ("human", "{input}"),
+            ("placeholder", "{agent_scratchpad}"),
+        ]
+    )
 
     # Create agent
     if llm is None:
@@ -629,8 +638,9 @@ def get_langchain_version() -> Optional[str]:
         return None
     try:
         import langchain_core
+
         return getattr(langchain_core, "__version__", "unknown")
-    except Exception:
+    except Exception:  # noqa: BLE001 - Version check fallback
         return None
 
 

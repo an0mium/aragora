@@ -117,7 +117,8 @@ def is_cluster_mode() -> bool:
         return client is not None and client.is_cluster
     except ImportError:
         return False
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - Cluster check fallback
+        logger.debug(f"Redis cluster mode check failed: {e}")
         return False
 
 

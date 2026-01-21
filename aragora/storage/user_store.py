@@ -1619,7 +1619,8 @@ class PostgresUserStore:
                     datetime.now(timezone.utc),
                 )
                 return True
-            except Exception:
+            except Exception as e:  # noqa: BLE001 - Database errors return False
+                logger.debug(f"Failed to link OAuth provider {provider} for user {user_id}: {e}")
                 return False
 
     def unlink_oauth_provider(self, user_id: str, provider: str) -> bool:
@@ -1901,7 +1902,8 @@ class PostgresUserStore:
                     invitation.expires_at,
                 )
                 return True
-            except Exception:
+            except Exception as e:  # noqa: BLE001 - Database errors return False
+                logger.debug(f"Failed to create invitation for {invitation.email}: {e}")
                 return False
 
     def get_invitation_by_id(self, invitation_id: str) -> Optional[OrganizationInvitation]:
