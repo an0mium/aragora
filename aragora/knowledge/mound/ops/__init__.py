@@ -10,6 +10,7 @@ This module provides operational mixins for the KnowledgeMound facade:
 - KnowledgeFederationMixin: Multi-region knowledge synchronization
 - DedupOperationsMixin: Similarity-based deduplication
 - PruningOperationsMixin: Automatic and manual pruning
+- AutoCurationMixin: Intelligent automated knowledge maintenance (Phase 4)
 """
 
 from aragora.knowledge.mound.ops.staleness import StalenessOperationsMixin
@@ -39,6 +40,16 @@ from aragora.knowledge.mound.ops.pruning import (
     PruneHistory,
     PruningAction,
 )
+from aragora.knowledge.mound.ops.auto_curation import (
+    AutoCurationMixin,
+    CurationPolicy,
+    CurationCandidate,
+    CurationResult,
+    CurationHistory,
+    CurationAction,
+    QualityScore,
+    TierLevel,
+)
 
 __all__ = [
     "StalenessOperationsMixin",
@@ -65,4 +76,13 @@ __all__ = [
     "PruneResult",
     "PruneHistory",
     "PruningAction",
+    # Auto-curation (Phase 4)
+    "AutoCurationMixin",
+    "CurationPolicy",
+    "CurationCandidate",
+    "CurationResult",
+    "CurationHistory",
+    "CurationAction",
+    "QualityScore",
+    "TierLevel",
 ]

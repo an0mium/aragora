@@ -25,10 +25,13 @@ from __future__ import annotations
 
 __all__ = [
     "AuditStore",
+    "get_audit_store",  # noqa: F822
+    "reset_audit_store",  # noqa: F822
 ]
 
 import json
 import logging
+import os
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -36,35 +39,73 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
+from aragora.storage.backends import (
+    POSTGRESQL_AVAILABLE,
+    DatabaseBackend,
+    PostgreSQLBackend,
+    SQLiteBackend,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class AuditStore:
     """
-    SQLite-backed storage for audit logging.
+    Database-backed storage for audit logging.
 
+    Supports SQLite (default) and PostgreSQL backends.
     Can be used standalone or composed with UserStore.
-    Thread-safe with connection pooling via thread-local storage.
+    Thread-safe with connection pooling.
     """
 
     def __init__(
         self,
-        db_path: Path | str,
+        db_path: Path | str = "audit.db",
         get_connection: Optional[Callable[[], sqlite3.Connection]] = None,
+        backend: Optional[str] = None,
+        database_url: Optional[str] = None,
     ):
         """
         Initialize AuditStore.
 
         Args:
-            db_path: Path to SQLite database file
+            db_path: Path to SQLite database file (used when backend="sqlite")
             get_connection: Optional connection factory (for sharing with UserStore)
+            backend: Database backend ("sqlite" or "postgresql")
+            database_url: PostgreSQL connection URL
         """
         self.db_path = Path(db_path)
         self._local = threading.local()
         self._external_get_connection = get_connection
 
+        # Determine backend type
+        env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
+        actual_url = database_url or env_url
+
+        if backend is None:
+            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+            backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
+
+        self.backend_type = backend
+        self._backend: Optional[DatabaseBackend] = None
+
+        # Only create backend if not using external connection
+        if get_connection is None:
+            if backend == "postgresql":
+                if not actual_url:
+                    raise ValueError("PostgreSQL backend requires DATABASE_URL")
+                if not POSTGRESQL_AVAILABLE:
+                    raise ImportError("psycopg2 required for PostgreSQL")
+                self._backend = PostgreSQLBackend(actual_url)
+                logger.info("AuditStore using PostgreSQL backend")
+            else:
+                self._backend = SQLiteBackend(str(db_path))
+                logger.info(f"AuditStore using SQLite backend: {db_path}")
+
+            self._init_db()
+
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
+        """Get thread-local database connection (legacy SQLite mode)."""
         if self._external_get_connection:
             return self._external_get_connection()
 
@@ -78,7 +119,7 @@ class AuditStore:
 
     @contextmanager
     def _transaction(self) -> Iterator[sqlite3.Cursor]:
-        """Context manager for database transactions."""
+        """Context manager for database transactions (legacy SQLite mode)."""
         conn = self._get_connection()
         cursor = conn.cursor()
         try:
@@ -88,6 +129,43 @@ class AuditStore:
             conn.rollback()
             logger.debug("Transaction rolled back due to: %s", e)
             raise
+
+    def _init_db(self) -> None:
+        """Initialize database schema."""
+        if self._backend is None:
+            return
+
+        # Create audit_log table
+        self._backend.execute_write("""
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY,
+                timestamp TEXT NOT NULL,
+                user_id TEXT,
+                org_id TEXT,
+                action TEXT NOT NULL,
+                resource_type TEXT NOT NULL,
+                resource_id TEXT,
+                old_value TEXT,
+                new_value TEXT,
+                metadata TEXT,
+                ip_address TEXT,
+                user_agent TEXT
+            )
+        """)
+
+        # Create indexes for common queries
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_log(org_id)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource_type, resource_id)",
+        ]
+        for idx_sql in indexes:
+            try:
+                self._backend.execute_write(idx_sql)
+            except Exception as e:
+                logger.debug(f"Index creation skipped: {e}")
 
     # =========================================================================
     # Audit Logging Methods
@@ -124,6 +202,34 @@ class AuditStore:
         Returns:
             Audit log entry ID
         """
+        params = (
+            datetime.now(timezone.utc).isoformat(),
+            user_id,
+            org_id,
+            action,
+            resource_type,
+            resource_id,
+            json.dumps(old_value) if old_value else None,
+            json.dumps(new_value) if new_value else None,
+            json.dumps(metadata or {}),
+            ip_address,
+            user_agent,
+        )
+
+        if self._backend is not None:
+            self._backend.execute_write(
+                """
+                INSERT INTO audit_log
+                (timestamp, user_id, org_id, action, resource_type, resource_id,
+                 old_value, new_value, metadata, ip_address, user_agent)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                params,
+            )
+            # PostgreSQL doesn't easily return lastrowid, return 0
+            return 0
+
+        # Legacy SQLite path
         with self._transaction() as cursor:
             cursor.execute(
                 """
@@ -132,19 +238,7 @@ class AuditStore:
                  old_value, new_value, metadata, ip_address, user_agent)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    datetime.now(timezone.utc).isoformat(),
-                    user_id,
-                    org_id,
-                    action,
-                    resource_type,
-                    resource_id,
-                    json.dumps(old_value) if old_value else None,
-                    json.dumps(new_value) if new_value else None,
-                    json.dumps(metadata or {}),
-                    ip_address,
-                    user_agent,
-                ),
+                params,
             )
             return cursor.lastrowid or 0
 
@@ -204,33 +298,39 @@ class AuditStore:
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         params.extend([limit, offset])
 
+        query = f"""
+            SELECT id, timestamp, user_id, org_id, action, resource_type,
+                   resource_id, old_value, new_value, metadata, ip_address, user_agent
+            FROM audit_log
+            WHERE {where_clause}
+            ORDER BY timestamp DESC
+            LIMIT ? OFFSET ?
+            """  # nosec B608 - where_clause built from hardcoded conditions
+
+        def _row_to_dict(row: tuple) -> dict:
+            return {
+                "id": row[0],
+                "timestamp": row[1],
+                "user_id": row[2],
+                "org_id": row[3],
+                "action": row[4],
+                "resource_type": row[5],
+                "resource_id": row[6],
+                "old_value": json.loads(row[7]) if row[7] else None,
+                "new_value": json.loads(row[8]) if row[8] else None,
+                "metadata": json.loads(row[9]) if row[9] else {},
+                "ip_address": row[10],
+                "user_agent": row[11],
+            }
+
+        if self._backend is not None:
+            rows = self._backend.fetch_all(query, tuple(params))
+            return [_row_to_dict(row) for row in rows]
+
+        # Legacy SQLite path
         with self._transaction() as cursor:
-            query = f"""
-                SELECT id, timestamp, user_id, org_id, action, resource_type,
-                       resource_id, old_value, new_value, metadata, ip_address, user_agent
-                FROM audit_log
-                WHERE {where_clause}
-                ORDER BY timestamp DESC
-                LIMIT ? OFFSET ?
-                """  # nosec B608 - where_clause built from hardcoded conditions
             cursor.execute(query, params)
-            return [
-                {
-                    "id": row[0],
-                    "timestamp": row[1],
-                    "user_id": row[2],
-                    "org_id": row[3],
-                    "action": row[4],
-                    "resource_type": row[5],
-                    "resource_id": row[6],
-                    "old_value": json.loads(row[7]) if row[7] else None,
-                    "new_value": json.loads(row[8]) if row[8] else None,
-                    "metadata": json.loads(row[9]) if row[9] else {},
-                    "ip_address": row[10],
-                    "user_agent": row[11],
-                }
-                for row in cursor.fetchall()
-            ]
+            return [_row_to_dict(row) for row in cursor.fetchall()]
 
     def get_log_count(
         self,
@@ -261,9 +361,14 @@ class AuditStore:
             params.append(resource_type)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
+        query = f"SELECT COUNT(*) FROM audit_log WHERE {where_clause}"  # nosec B608
 
+        if self._backend is not None:
+            result = self._backend.fetch_one(query, tuple(params))
+            return result[0] if result else 0
+
+        # Legacy SQLite path
         with self._transaction() as cursor:
-            query = f"SELECT COUNT(*) FROM audit_log WHERE {where_clause}"  # nosec B608
             cursor.execute(query, params)
             return cursor.fetchone()[0]
 
@@ -277,13 +382,27 @@ class AuditStore:
         Returns:
             Number of deleted entries
         """
-        cutoff = datetime.now(timezone.utc).isoformat()
-        # Calculate cutoff date
         from datetime import timedelta
 
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         cutoff = cutoff_date.isoformat()
 
+        if self._backend is not None:
+            # For backend, we can't easily get rowcount, do a count first
+            result = self._backend.fetch_one(
+                "SELECT COUNT(*) FROM audit_log WHERE timestamp < ?",
+                (cutoff,),
+            )
+            count = result[0] if result else 0
+            if count > 0:
+                self._backend.execute_write(
+                    "DELETE FROM audit_log WHERE timestamp < ?",
+                    (cutoff,),
+                )
+                logger.info(f"Cleaned up {count} audit log entries older than {days} days")
+            return count
+
+        # Legacy SQLite path
         with self._transaction() as cursor:
             cursor.execute(
                 "DELETE FROM audit_log WHERE timestamp < ?",
@@ -369,9 +488,55 @@ class AuditStore:
 
     def close(self) -> None:
         """Close database connection if we own it."""
-        if self._external_get_connection is None and hasattr(self._local, "connection"):
+        if self._backend is not None:
+            self._backend.close()
+            self._backend = None
+        elif self._external_get_connection is None and hasattr(self._local, "connection"):
             self._local.connection.close()
             del self._local.connection
+
+
+# Module-level singleton
+_default_store: Optional[AuditStore] = None
+_store_lock = threading.Lock()
+
+
+def get_audit_store(
+    db_path: str = "audit.db",
+    backend: Optional[str] = None,
+    database_url: Optional[str] = None,
+) -> AuditStore:
+    """
+    Get or create the default AuditStore instance.
+
+    Uses environment variables to configure:
+    - ARAGORA_DB_BACKEND: Global database backend ("sqlite" or "postgresql")
+    - DATABASE_URL or ARAGORA_DATABASE_URL: PostgreSQL connection string
+
+    Returns:
+        Configured AuditStore instance
+    """
+    global _default_store
+
+    if _default_store is None:
+        with _store_lock:
+            if _default_store is None:
+                _default_store = AuditStore(
+                    db_path=db_path,
+                    backend=backend,
+                    database_url=database_url,
+                )
+
+    return _default_store
+
+
+def reset_audit_store() -> None:
+    """Reset the default store instance (for testing)."""
+    global _default_store
+    with _store_lock:
+        if _default_store is not None:
+            _default_store.close()
+            _default_store = None
 
 
 # Backwards compatibility alias

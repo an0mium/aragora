@@ -1036,6 +1036,13 @@ else:
 - **Federation**: Multi-region sync with push/pull/bidirectional modes
 - **Deduplication** (PHASE 3): Find/merge duplicate knowledge items
 - **Pruning** (PHASE 3): Archive/delete stale items with policy-based automation
+- **Auto-Curation** (PHASE 4): Intelligent automated knowledge maintenance
+  - Quality scoring with configurable weights (freshness, confidence, usage, relevance, relationships)
+  - Tier promotion/demotion based on quality thresholds
+  - Automated scheduling with cron expressions
+  - Integration with dedup/pruning for comprehensive maintenance
+  - CurationPolicy per workspace with customizable thresholds
+  - Full audit history and workspace quality summaries
 - **Bidirectional Adapters**: ELO, Insights, Critique, Belief, Evidence adapters with reverse flows
 - React hooks: `useVisibility`, `useSharing`, `useFederation`, `useGlobalKnowledge`, `useDedup`, `usePruning`
 - UI components: ShareDialog, FederationStatus, VisibilitySelector, DedupTab, PruningTab

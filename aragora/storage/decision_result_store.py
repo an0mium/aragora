@@ -29,6 +29,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from aragora.storage.backends import (
+    POSTGRESQL_AVAILABLE,
+    DatabaseBackend,
+    PostgreSQLBackend,
+    SQLiteBackend,
+)
+
 logger = logging.getLogger(__name__)
 
 # Default configuration
@@ -73,7 +80,9 @@ class DecisionResultEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], ttl_seconds: int = DEFAULT_TTL_SECONDS) -> "DecisionResultEntry":
+    def from_dict(
+        cls, data: Dict[str, Any], ttl_seconds: int = DEFAULT_TTL_SECONDS
+    ) -> "DecisionResultEntry":
         """Create from dictionary."""
         return cls(
             request_id=data["request_id"],
@@ -110,6 +119,8 @@ class DecisionResultStore:
         max_entries: int = DEFAULT_MAX_ENTRIES,
         cache_size: int = DEFAULT_CACHE_SIZE,
         cleanup_interval: int = DEFAULT_CLEANUP_INTERVAL,
+        backend: Optional[str] = None,
+        database_url: Optional[str] = None,
     ):
         """
         Initialize the decision result store.
@@ -120,6 +131,8 @@ class DecisionResultStore:
             max_entries: Maximum entries before LRU eviction (default: 10000)
             cache_size: In-memory cache size (default: 1000)
             cleanup_interval: Seconds between automatic cleanups (default: 5 min)
+            backend: Database backend ("sqlite" or "postgresql")
+            database_url: PostgreSQL connection URL
         """
         self._db_path = Path(db_path)
         self._ttl_seconds = ttl_seconds
@@ -131,16 +144,39 @@ class DecisionResultStore:
         self._cache: OrderedDict[str, DecisionResultEntry] = OrderedDict()
         self._cache_lock = threading.Lock()
 
-        # Thread-local SQLite connections
+        # Thread-local SQLite connections (legacy)
         self._local = threading.local()
         self._last_cleanup = time.time()
+
+        # Determine backend type
+        env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
+        actual_url = database_url or env_url
+
+        if backend is None:
+            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+            backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
+
+        self.backend_type = backend
+        self._backend: Optional[DatabaseBackend] = None
+
+        # Initialize backend
+        if backend == "postgresql":
+            if not actual_url:
+                raise ValueError("PostgreSQL backend requires DATABASE_URL")
+            if not POSTGRESQL_AVAILABLE:
+                raise ImportError("psycopg2 required for PostgreSQL")
+            self._backend = PostgreSQLBackend(actual_url)
+            logger.info("DecisionResultStore using PostgreSQL backend")
+        else:
+            self._backend = SQLiteBackend(str(db_path))
+            logger.info(f"DecisionResultStore using SQLite backend: {db_path}")
 
         # Initialize database
         self._init_db()
         self._cleanup_expired()
 
         logger.info(
-            f"DecisionResultStore initialized: {db_path}, "
+            f"DecisionResultStore initialized: backend={backend}, "
             f"ttl={ttl_seconds}s, max={max_entries}, cache={cache_size}"
         )
 
@@ -161,6 +197,33 @@ class DecisionResultStore:
 
     def _init_db(self) -> None:
         """Initialize database schema."""
+        if self._backend is not None:
+            # Use backend for schema creation
+            self._backend.execute_write("""
+                CREATE TABLE IF NOT EXISTS decision_results (
+                    request_id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    result_json TEXT,
+                    created_at REAL NOT NULL,
+                    completed_at TEXT,
+                    error TEXT,
+                    expires_at REAL NOT NULL
+                )
+            """)
+            # Create indexes
+            indexes = [
+                "CREATE INDEX IF NOT EXISTS idx_decision_results_expires ON decision_results(expires_at)",
+                "CREATE INDEX IF NOT EXISTS idx_decision_results_status ON decision_results(status)",
+                "CREATE INDEX IF NOT EXISTS idx_decision_results_created ON decision_results(created_at DESC)",
+            ]
+            for idx_sql in indexes:
+                try:
+                    self._backend.execute_write(idx_sql)
+                except Exception as e:
+                    logger.debug(f"Index creation skipped: {e}")
+            return
+
+        # Legacy path
         conn = self._get_connection()
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS decision_results (

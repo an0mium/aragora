@@ -58,10 +58,22 @@ from aragora.control_plane.registry import (
     AgentStatus,
 )
 from aragora.control_plane.scheduler import (
+    RegionRoutingMode,
     Task,
     TaskPriority,
     TaskScheduler,
     TaskStatus,
+)
+from aragora.control_plane.regional_sync import (
+    RegionalEvent,
+    RegionalEventBus,
+    RegionalEventType,
+    RegionalStateManager,
+    RegionalSyncConfig,
+    RegionHealth,
+    get_regional_event_bus,
+    init_regional_sync,
+    set_regional_event_bus,
 )
 from aragora.control_plane.health import (
     HealthCheck,
@@ -111,6 +123,17 @@ __all__ = [
     "Task",
     "TaskStatus",
     "TaskPriority",
+    "RegionRoutingMode",
+    # Regional Sync
+    "RegionalEventBus",
+    "RegionalEventType",
+    "RegionalEvent",
+    "RegionalSyncConfig",
+    "RegionalStateManager",
+    "RegionHealth",
+    "get_regional_event_bus",
+    "set_regional_event_bus",
+    "init_regional_sync",
     # Health
     "HealthMonitor",
     "HealthCheck",

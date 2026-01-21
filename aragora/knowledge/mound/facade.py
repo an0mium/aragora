@@ -61,6 +61,7 @@ from aragora.knowledge.mound.ops.sharing import KnowledgeSharingMixin
 from aragora.knowledge.mound.ops.federation import KnowledgeFederationMixin
 from aragora.knowledge.mound.ops.dedup import DedupOperationsMixin
 from aragora.knowledge.mound.ops.pruning import PruningOperationsMixin
+from aragora.knowledge.mound.ops.auto_curation import AutoCurationMixin
 from aragora.knowledge.mound.types import MoundConfig
 
 
@@ -76,6 +77,7 @@ class KnowledgeMound(
     KnowledgeFederationMixin,
     DedupOperationsMixin,
     PruningOperationsMixin,
+    AutoCurationMixin,
     KnowledgeMoundCore,
 ):
     """
@@ -103,6 +105,9 @@ class KnowledgeMound(
     - GlobalKnowledgeMixin: store_verified_fact, query_global_knowledge, promote_to_global
     - KnowledgeSharingMixin: share_with_workspace, share_with_user, get_shared_with_me, revoke_share
     - KnowledgeFederationMixin: register_federated_region, sync_to_region, pull_from_region
+    - DedupOperationsMixin: find_duplicates, merge_duplicates, get_dedup_report
+    - PruningOperationsMixin: prune_workspace, get_prunable_items, set_pruning_policy
+    - AutoCurationMixin: run_curation, set_curation_policy, calculate_quality_score
     - KnowledgeMoundCore: initialize, close, session, get_stats, storage adapters
     """
 
