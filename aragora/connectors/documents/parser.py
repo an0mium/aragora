@@ -288,7 +288,7 @@ class DocumentParser:
     def _parse_pdf(self, content: bytes) -> ParsedDocument:
         """Parse PDF document."""
         chunks: List[DocumentChunk] = []
-        tables: List[List[List[str]]] = []
+        tables: List[Union[DocumentTable, List[List[str]]]] = []
         all_text: List[str] = []
         metadata: Dict[str, Any] = {}
         errors: List[str] = []
@@ -402,7 +402,7 @@ class DocumentParser:
     def _parse_docx(self, content: bytes) -> ParsedDocument:
         """Parse Word document (.docx)."""
         chunks: List[DocumentChunk] = []
-        tables: List[List[List[str]]] = []
+        tables: List[Union[DocumentTable, List[List[str]]]] = []
         all_text: List[str] = []
         metadata: Dict[str, Any] = {}
         errors: List[str] = []
@@ -477,7 +477,7 @@ class DocumentParser:
     def _parse_excel(self, content: bytes) -> ParsedDocument:
         """Parse Excel spreadsheet (.xlsx, .xls)."""
         chunks: List[DocumentChunk] = []
-        tables: List[List[List[str]]] = []
+        tables: List[Union[DocumentTable, List[List[str]]]] = []
         all_text: List[str] = []
         metadata: Dict[str, Any] = {}
         errors: List[str] = []

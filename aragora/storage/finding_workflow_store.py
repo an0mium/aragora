@@ -598,9 +598,9 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                     count=100,
                 )
                 if keys:
-                    # Filter out index keys
+                    # Filter out index keys (keys are bytes from Redis)
                     data_keys = [
-                        k for k in keys if b":idx:" not in k and b"idx:" not in str(k)
+                        k for k in keys if b":idx:" not in k and b"idx:" not in k
                     ]
                     if data_keys:
                         values = self._redis_client.mget(data_keys)

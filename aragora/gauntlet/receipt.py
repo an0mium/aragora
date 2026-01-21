@@ -670,7 +670,7 @@ class DecisionReceipt:
         }
 
         # Build rules from unique vulnerability categories
-        rules = []
+        rules: list[dict[str, Any]] = []
         rule_ids: dict[str, int] = {}
 
         for idx, vuln in enumerate(self.vulnerability_details):

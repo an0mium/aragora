@@ -426,7 +426,7 @@ def get_decision_summary() -> Dict[str, Any]:
     try:
         from prometheus_client import REGISTRY
 
-        summary = {
+        summary: dict[str, dict[str, Any]] = {
             "requests": {},
             "latency": {},
             "confidence": {},
