@@ -16,7 +16,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import logging
 import time
 import uuid
 from datetime import datetime, timezone
@@ -43,7 +42,10 @@ from aragora.workflow.step import (
 )
 from aragora.workflow.checkpoint_store import CheckpointStore, get_checkpoint_store
 
-logger = logging.getLogger(__name__)
+# Observability
+from aragora.observability import get_logger, create_span, add_span_attributes
+
+logger = get_logger(__name__)
 
 
 class WorkflowEngine:
@@ -163,7 +165,12 @@ class WorkflowEngine:
         workflow_id = workflow_id or f"wf_{uuid.uuid4().hex[:12]}"
         inputs = inputs or {}
 
-        logger.info(f"Starting workflow {workflow_id}: {definition.name}")
+        logger.info(
+            "workflow_started",
+            workflow_id=workflow_id,
+            workflow_name=definition.name,
+            step_count=len(definition.steps),
+        )
 
         # Create execution context
         context = WorkflowContext(
@@ -180,39 +187,67 @@ class WorkflowEngine:
         start_time = time.time()
         checkpoints_created = 0
 
-        try:
-            # Execute with overall timeout
-            final_output = await asyncio.wait_for(
-                self._execute_workflow(definition, context),
-                timeout=self._config.total_timeout_seconds,
+        with create_span("workflow.execute"):
+            add_span_attributes(
+                workflow_id=workflow_id,
+                workflow_name=definition.name,
+                step_count=len(definition.steps),
             )
-            success = all(r.success for r in self._results)
-            error = None
 
-        except asyncio.TimeoutError:
-            logger.error(f"Workflow timed out after {self._config.total_timeout_seconds}s")
-            success = False
-            error = f"Workflow timed out after {self._config.total_timeout_seconds}s"
-            final_output = None
+            try:
+                # Execute with overall timeout
+                final_output = await asyncio.wait_for(
+                    self._execute_workflow(definition, context),
+                    timeout=self._config.total_timeout_seconds,
+                )
+                success = all(r.success for r in self._results)
+                error = None
 
-        except Exception as e:
-            logger.exception(f"Workflow execution failed: {e}")
-            success = False
-            error = str(e)
-            final_output = None
+            except asyncio.TimeoutError:
+                logger.error(
+                    "workflow_timeout",
+                    workflow_id=workflow_id,
+                    timeout_seconds=self._config.total_timeout_seconds,
+                )
+                success = False
+                error = f"Workflow timed out after {self._config.total_timeout_seconds}s"
+                final_output = None
 
-        total_duration = (time.time() - start_time) * 1000
+            except Exception as e:
+                logger.exception(
+                    "workflow_failed",
+                    workflow_id=workflow_id,
+                    error=str(e),
+                )
+                success = False
+                error = str(e)
+                final_output = None
 
-        return WorkflowResult(
-            workflow_id=workflow_id,
-            definition_id=definition.id,
-            success=success,
-            steps=self._results.copy(),
-            total_duration_ms=total_duration,
-            final_output=final_output,
-            error=error,
-            checkpoints_created=checkpoints_created,
-        )
+            total_duration = (time.time() - start_time) * 1000
+            add_span_attributes(
+                success=success,
+                duration_ms=total_duration,
+                steps_executed=len(self._results),
+            )
+
+            logger.info(
+                "workflow_completed",
+                workflow_id=workflow_id,
+                success=success,
+                duration_ms=total_duration,
+                steps_executed=len(self._results),
+            )
+
+            return WorkflowResult(
+                workflow_id=workflow_id,
+                definition_id=definition.id,
+                success=success,
+                steps=self._results.copy(),
+                total_duration_ms=total_duration,
+                final_output=final_output,
+                error=error,
+                checkpoints_created=checkpoints_created,
+            )
 
     async def resume(
         self,
@@ -366,88 +401,139 @@ class WorkflowEngine:
         started_at = datetime.now(timezone.utc)
         start_time = time.time()
 
-        logger.debug(f"Executing step: {step_def.name} ({step_def.id})")
+        logger.debug(
+            "step_started",
+            step_id=step_def.id,
+            step_name=step_def.name,
+            step_type=step_def.step_type,
+            workflow_id=context.workflow_id,
+        )
 
-        # Update context with current step info
-        context.current_step_id = step_def.id
-        context.current_step_config = step_def.config
-
-        # Get or create step instance
-        step = self._get_step_instance(step_def)
-        if step is None:
-            return StepResult(
+        with create_span("workflow.step"):
+            add_span_attributes(
                 step_id=step_def.id,
                 step_name=step_def.name,
-                status=StepStatus.FAILED,
-                error=f"Unknown step type: {step_def.step_type}",
+                step_type=step_def.step_type,
+                workflow_id=context.workflow_id,
             )
 
-        # Execute with retries
-        retry_count = 0
-        last_error = None
+            # Update context with current step info
+            context.current_step_id = step_def.id
+            context.current_step_config = step_def.config
 
-        while retry_count <= step_def.retries:
-            try:
-                output = await asyncio.wait_for(
-                    step.execute(context),
-                    timeout=step_def.timeout_seconds,
-                )
-
-                duration_ms = (time.time() - start_time) * 1000
-                logger.debug(f"Completed step '{step_def.name}' in {duration_ms:.1f}ms")
-
+            # Get or create step instance
+            step = self._get_step_instance(step_def)
+            if step is None:
+                add_span_attributes(success=False, error="unknown_step_type")
                 return StepResult(
                     step_id=step_def.id,
                     step_name=step_def.name,
-                    status=StepStatus.COMPLETED,
+                    status=StepStatus.FAILED,
+                    error=f"Unknown step type: {step_def.step_type}",
+                )
+
+            # Execute with retries
+            retry_count = 0
+            last_error = None
+
+            while retry_count <= step_def.retries:
+                try:
+                    output = await asyncio.wait_for(
+                        step.execute(context),
+                        timeout=step_def.timeout_seconds,
+                    )
+
+                    duration_ms = (time.time() - start_time) * 1000
+                    add_span_attributes(
+                        success=True,
+                        duration_ms=duration_ms,
+                        retry_count=retry_count,
+                    )
+                    logger.debug(
+                        "step_completed",
+                        step_id=step_def.id,
+                        step_name=step_def.name,
+                        duration_ms=duration_ms,
+                    )
+
+                    return StepResult(
+                        step_id=step_def.id,
+                        step_name=step_def.name,
+                        status=StepStatus.COMPLETED,
+                        started_at=started_at,
+                        completed_at=datetime.now(timezone.utc),
+                        duration_ms=duration_ms,
+                        output=output,
+                        retry_count=retry_count,
+                    )
+
+                except asyncio.TimeoutError:
+                    last_error = f"Timed out after {step_def.timeout_seconds}s"
+                    retry_count += 1
+                    if retry_count <= step_def.retries:
+                        logger.warning(
+                            "step_timeout_retry",
+                            step_name=step_def.name,
+                            retry=retry_count,
+                            max_retries=step_def.retries,
+                        )
+
+                except Exception as e:
+                    last_error = str(e)
+                    retry_count += 1
+                    if retry_count <= step_def.retries:
+                        logger.warning(
+                            "step_error_retry",
+                            step_name=step_def.name,
+                            error=str(e),
+                            retry=retry_count,
+                            max_retries=step_def.retries,
+                        )
+
+            # All retries exhausted
+            duration_ms = (time.time() - start_time) * 1000
+            add_span_attributes(
+                success=False,
+                duration_ms=duration_ms,
+                retry_count=retry_count,
+                error=last_error,
+            )
+
+            if step_def.optional and self._config.skip_optional_on_timeout:
+                logger.info(
+                    "step_skipped",
+                    step_id=step_def.id,
+                    step_name=step_def.name,
+                    reason="optional_timeout",
+                )
+                return StepResult(
+                    step_id=step_def.id,
+                    step_name=step_def.name,
+                    status=StepStatus.SKIPPED,
                     started_at=started_at,
                     completed_at=datetime.now(timezone.utc),
                     duration_ms=duration_ms,
-                    output=output,
+                    error=last_error,
                     retry_count=retry_count,
                 )
-
-            except asyncio.TimeoutError:
-                last_error = f"Timed out after {step_def.timeout_seconds}s"
-                retry_count += 1
-                if retry_count <= step_def.retries:
-                    logger.warning(
-                        f"Step '{step_def.name}' timed out, retrying ({retry_count}/{step_def.retries})"
-                    )
-
-            except Exception as e:
-                last_error = str(e)
-                retry_count += 1
-                if retry_count <= step_def.retries:
-                    logger.warning(
-                        f"Step '{step_def.name}' failed, retrying ({retry_count}/{step_def.retries})"
-                    )
-
-        # All retries exhausted
-        duration_ms = (time.time() - start_time) * 1000
-
-        if step_def.optional and self._config.skip_optional_on_timeout:
-            return StepResult(
-                step_id=step_def.id,
-                step_name=step_def.name,
-                status=StepStatus.SKIPPED,
-                started_at=started_at,
-                completed_at=datetime.now(timezone.utc),
-                duration_ms=duration_ms,
-                error=last_error,
-                retry_count=retry_count,
-            )
-        else:
-            return StepResult(
-                step_id=step_def.id,
-                step_name=step_def.name,
-                status=StepStatus.FAILED,
-                started_at=started_at,
-                completed_at=datetime.now(timezone.utc),
-                duration_ms=duration_ms,
-                error=last_error,
-                retry_count=retry_count,
-            )
+            else:
+                logger.error(
+                    "step_failed",
+                    step_id=step_def.id,
+                    step_name=step_def.name,
+                    error=last_error,
+                    retry_count=retry_count,
+                )
+                return StepResult(
+                    step_id=step_def.id,
+                    step_name=step_def.name,
+                    status=StepStatus.FAILED,
+                    started_at=started_at,
+                    completed_at=datetime.now(timezone.utc),
+                    duration_ms=duration_ms,
+                    error=last_error,
+                    retry_count=retry_count,
+                )
 
     def _get_step_instance(self, step_def: StepDefinition) -> Optional[WorkflowStep]:
         """Get or create a step instance."""

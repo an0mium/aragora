@@ -8,7 +8,6 @@ debate protocols and consensus mechanisms.
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from collections import deque
 from functools import lru_cache
@@ -56,9 +55,8 @@ from aragora.server.metrics import (
 from aragora.spectate.stream import SpectatorStream
 from aragora.utils.cache_registry import register_lru_cache
 
-logger = logging.getLogger(__name__)
-# Structured logger for key debate events (JSON-formatted in production)
-slog = get_structured_logger(__name__)
+# Structured logger for all debate events (JSON-formatted in production)
+logger = get_structured_logger(__name__)
 
 # TYPE_CHECKING imports for type hints without runtime import overhead
 if TYPE_CHECKING:
@@ -1655,7 +1653,7 @@ class Arena:
 
         # Structured logging for debate lifecycle (JSON in production)
         with correlation_context(correlation_id):
-            slog.info(
+            logger.info(
                 "debate_start",
                 debate_id=debate_id,
                 complexity=task_complexity.value,
@@ -1773,7 +1771,7 @@ class Arena:
                 )
 
                 # Structured logging for debate completion
-                slog.info(
+                logger.info(
                     "debate_end",
                     debate_id=debate_id,
                     status=debate_status,
