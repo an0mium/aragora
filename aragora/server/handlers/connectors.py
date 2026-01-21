@@ -8,7 +8,7 @@ sync operations, and scheduler configuration.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from aragora.connectors.enterprise import (
     SyncScheduler,
@@ -21,29 +21,34 @@ from aragora.connectors.enterprise import (
 )
 from aragora.connectors.enterprise.sync.scheduler import SyncStatus
 
+if TYPE_CHECKING:
+    from aragora.rbac import AuthorizationContext as AuthorizationContextType
+else:
+    AuthorizationContextType = None
+
 logger = logging.getLogger(__name__)
 
 # RBAC imports (optional - graceful degradation if not available)
 try:
     from aragora.rbac import (
-        AuthorizationContext,
         check_permission,
         PermissionDeniedError,
     )
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None
+
+
+def _record_rbac_check(*args: Any, **kwargs: Any) -> None:
+    """No-op fallback for when metrics module is not available."""
+    pass
+
 
 # Metrics imports (optional)
 try:
     from aragora.observability.metrics import record_rbac_check
-    METRICS_AVAILABLE = True
 except ImportError:
-    METRICS_AVAILABLE = False
-
-    def record_rbac_check(*args, **kwargs):
-        pass
+    record_rbac_check = _record_rbac_check  # type: ignore[assignment]
 
 
 def _check_permission(

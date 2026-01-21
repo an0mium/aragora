@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    pass
+    from aragora.knowledge.mound.types import MoundConfig
 
 logger = logging.getLogger(__name__)
 
@@ -917,6 +917,8 @@ async def run_startup_sequence(
         "durable_jobs_recovered": 0,
         "gauntlet_worker": False,
         "redis_state_backend": False,
+        "key_rotation_scheduler": False,
+        "rbac_distributed_cache": False,
     }
 
     # Initialize in parallel where possible
@@ -956,7 +958,191 @@ async def run_startup_sequence(
     # Initialize DecisionRouter with platform response handlers
     status["decision_router"] = await init_decision_router()
 
+    # Initialize key rotation scheduler for automated encryption key management
+    status["key_rotation_scheduler"] = await init_key_rotation_scheduler()
+
+    # Initialize RBAC distributed cache for horizontal scaling
+    status["rbac_distributed_cache"] = await init_rbac_distributed_cache()
+
     return status
+
+
+async def init_rbac_distributed_cache() -> bool:
+    """Initialize Redis-backed RBAC cache for distributed deployments.
+
+    Enables cross-instance RBAC decision caching for horizontal scaling.
+    Only initializes if Redis is available.
+
+    Environment Variables:
+        REDIS_URL: Redis connection URL
+        RBAC_CACHE_ENABLED: Set to "false" to disable (default: true)
+        RBAC_CACHE_DECISION_TTL: Cache TTL for decisions (default: 300s)
+        RBAC_CACHE_L1_ENABLED: Enable local L1 cache (default: true)
+
+    Returns:
+        True if distributed cache was initialized, False otherwise
+    """
+    import os
+
+    # Check if RBAC cache is enabled
+    if os.environ.get("RBAC_CACHE_ENABLED", "true").lower() == "false":
+        logger.debug("RBAC distributed cache disabled (RBAC_CACHE_ENABLED=false)")
+        return False
+
+    # Check if Redis URL is configured
+    redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
+    if not redis_url:
+        logger.debug("RBAC distributed cache not initialized (no REDIS_URL)")
+        return False
+
+    try:
+        from aragora.rbac.cache import (
+            RBACCacheConfig,
+            RBACDistributedCache,
+            get_rbac_cache,
+        )
+        from aragora.rbac.checker import (
+            PermissionChecker,
+            get_permission_checker,
+            set_permission_checker,
+        )
+
+        # Create cache config from environment
+        config = RBACCacheConfig.from_env()
+
+        # Initialize distributed cache
+        cache = get_rbac_cache(config)
+        cache.start()
+
+        # Check if Redis is actually available
+        if not cache.is_distributed:
+            logger.debug("RBAC cache Redis not available, using local-only")
+            return False
+
+        # Create new permission checker with distributed cache backend
+        current_checker = get_permission_checker()
+        new_checker = PermissionChecker(
+            auditor=current_checker._auditor if hasattr(current_checker, "_auditor") else None,
+            cache_ttl=config.decision_ttl_seconds,
+            enable_cache=True,
+            cache_backend=cache,
+        )
+        set_permission_checker(new_checker)
+
+        logger.info(
+            f"RBAC distributed cache initialized "
+            f"(decision_ttl={config.decision_ttl_seconds}s, "
+            f"l1={'enabled' if config.l1_enabled else 'disabled'})"
+        )
+        return True
+
+    except ImportError as e:
+        logger.debug(f"RBAC distributed cache not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize RBAC distributed cache: {e}")
+
+    return False
+
+
+async def init_key_rotation_scheduler() -> bool:
+    """Initialize the key rotation scheduler for automated key management.
+
+    Starts the scheduler that automatically rotates encryption keys based on
+    configured intervals and handles re-encryption of data if enabled.
+
+    Environment Variables:
+        ARAGORA_KEY_ROTATION_ENABLED: Set to "true" to enable (default: false in dev, true in prod)
+        ARAGORA_KEY_ROTATION_INTERVAL_DAYS: Days between rotations (default: 90)
+        ARAGORA_KEY_ROTATION_OVERLAP_DAYS: Days to keep old keys valid (default: 7)
+        ARAGORA_KEY_ROTATION_RE_ENCRYPT: Re-encrypt data after rotation (default: false)
+        ARAGORA_KEY_ROTATION_ALERT_DAYS: Days before rotation to alert (default: 7)
+
+    Returns:
+        True if scheduler was started, False otherwise
+    """
+    import os
+
+    # In production, enabled by default; in development, disabled by default
+    env = os.environ.get("ARAGORA_ENV", "development")
+    default_enabled = "true" if env == "production" else "false"
+    enabled = os.environ.get("ARAGORA_KEY_ROTATION_ENABLED", default_enabled).lower() == "true"
+
+    if not enabled:
+        logger.debug("Key rotation scheduler disabled (set ARAGORA_KEY_ROTATION_ENABLED=true to enable)")
+        return False
+
+    # Check if encryption key is configured
+    if not os.environ.get("ARAGORA_ENCRYPTION_KEY"):
+        logger.debug("Key rotation scheduler not started (no ARAGORA_ENCRYPTION_KEY configured)")
+        return False
+
+    try:
+        from aragora.operations.key_rotation import (
+            get_key_rotation_scheduler,
+            KeyRotationConfig,
+        )
+        from aragora.observability.metrics.security import set_active_keys
+
+        # Create scheduler with config from environment
+        config = KeyRotationConfig.from_env()
+        scheduler = get_key_rotation_scheduler()
+        scheduler.config = config
+
+        # Set up alert callback to integrate with notification systems
+        def alert_callback(severity: str, message: str, details: dict) -> None:
+            """Forward key rotation alerts to notification systems."""
+            try:
+                from aragora.integrations.webhooks import get_webhook_dispatcher
+
+                dispatcher = get_webhook_dispatcher()
+                if dispatcher:
+                    dispatcher.enqueue({
+                        "type": "security.key_rotation",
+                        "severity": severity,
+                        "message": message,
+                        **details,
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to dispatch key rotation alert: {e}")
+
+        scheduler.alert_callback = alert_callback
+
+        # Start the scheduler
+        await scheduler.start()
+
+        # Set initial key metrics
+        try:
+            from aragora.security.encryption import get_encryption_service
+
+            service = get_encryption_service()
+            active_key_id = service.get_active_key_id()
+            if active_key_id:
+                set_active_keys(master=1)
+        except Exception:
+            pass
+
+        # Get initial status for logging
+        status = await scheduler.get_status()
+        next_rotation = status.get("next_rotation", "unknown")
+
+        logger.info(
+            f"Key rotation scheduler started "
+            f"(interval={config.rotation_interval_days}d, "
+            f"overlap={config.key_overlap_days}d, "
+            f"re_encrypt={config.re_encrypt_on_rotation})"
+        )
+
+        if next_rotation and next_rotation != "unknown":
+            logger.info(f"Next key rotation scheduled: {next_rotation}")
+
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Key rotation scheduler not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start key rotation scheduler: {e}")
+
+    return False
 
 
 async def init_decision_router() -> bool:
@@ -1060,5 +1246,7 @@ __all__ = [
     "init_gauntlet_worker",
     "init_redis_state_backend",
     "init_decision_router",
+    "init_key_rotation_scheduler",
+    "init_rbac_distributed_cache",
     "run_startup_sequence",
 ]
