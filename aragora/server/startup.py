@@ -108,11 +108,13 @@ def check_production_requirements() -> list[str]:
     """
     import os
 
+    from aragora.control_plane.leader import is_distributed_state_required
+
     missing = []
     warnings = []
     env = os.environ.get("ARAGORA_ENV", "development")
     is_production = env == "production"
-    is_multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in ("true", "1", "yes")
+    distributed_state_required = is_distributed_state_required()
     require_database = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
         "true",
         "1",
@@ -131,13 +133,14 @@ def check_production_requirements() -> list[str]:
                 "(32-byte hex string for AES-256 encryption)"
             )
 
-        # Multi-instance mode requires Redis for distributed state
-        if is_multi_instance:
+        # Distributed state mode requires Redis
+        if distributed_state_required:
             if not os.environ.get("REDIS_URL"):
                 missing.append(
-                    "REDIS_URL required when ARAGORA_MULTI_INSTANCE=true. "
+                    "REDIS_URL required for distributed state (multi-instance or production). "
                     "Redis is needed for: session store, control-plane leader election, "
-                    "debate origins, and distributed caching."
+                    "debate origins, and distributed caching. "
+                    "Set ARAGORA_SINGLE_INSTANCE=true if running single-node."
                 )
 
         # Database requirement (optional flag for strict deployments)
@@ -154,7 +157,7 @@ def check_production_requirements() -> list[str]:
         # =====================================================================
 
         # Redis recommended for durable state
-        if not is_multi_instance and not os.environ.get("REDIS_URL"):
+        if not distributed_state_required and not os.environ.get("REDIS_URL"):
             warnings.append(
                 "REDIS_URL not set - using in-memory state for sessions, "
                 "debate origins, and control plane. Data will be lost on restart. "

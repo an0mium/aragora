@@ -33,6 +33,10 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.control_plane.leader import (
+    is_distributed_state_required,
+    DistributedStateError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +81,7 @@ def _cache_decision(debate_id: str, decision: Any) -> None:
 
 class BatchStatus(Enum):
     """Status of a batch explainability job."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -87,6 +92,7 @@ class BatchStatus(Enum):
 @dataclass
 class BatchDebateResult:
     """Result for a single debate in a batch."""
+
     debate_id: str
     status: str  # success, error, not_found
     explanation: Optional[Dict[str, Any]] = None
@@ -109,6 +115,7 @@ class BatchDebateResult:
 @dataclass
 class BatchJob:
     """A batch explainability job."""
+
     batch_id: str
     debate_ids: List[str]
     status: BatchStatus = BatchStatus.PENDING
@@ -131,25 +138,132 @@ class BatchJob:
             "started_at": self.started_at,
             "completed_at": self.completed_at,
             "progress_pct": round((self.processed_count / len(self.debate_ids)) * 100, 1)
-            if self.debate_ids else 0,
+            if self.debate_ids
+            else 0,
         }
 
 
-# Batch job storage (in-memory, production would use Redis/DB)
-_batch_jobs: Dict[str, BatchJob] = {}
+# Batch job storage - uses Redis when available, in-memory fallback
 BATCH_JOB_TTL = 3600  # 1 hour retention
 MAX_BATCH_SIZE = 100
 
+# In-memory fallback (only used when Redis unavailable)
+_batch_jobs_memory: Dict[str, BatchJob] = {}
+_redis_client: Optional[Any] = None
+_storage_warned = False
+
+
+def _get_redis_client() -> Optional[Any]:
+    """Get Redis client for batch job storage."""
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+
+    try:
+        import os
+
+        redis_url = os.environ.get("REDIS_URL")
+        if not redis_url:
+            return None
+
+        import redis
+
+        _redis_client = redis.from_url(redis_url)
+        _redis_client.ping()  # Test connection
+        logger.info("BATCH JOBS: Using Redis for durable storage")
+        return _redis_client
+    except Exception as e:
+        logger.debug(f"Redis not available for batch jobs: {e}")
+        return None
+
+
+def _check_batch_storage_requirements() -> None:
+    """Check and warn about batch job storage in production."""
+    global _storage_warned
+    if _storage_warned:
+        return
+    _storage_warned = True
+
+    import os
+
+    if _get_redis_client() is None:
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "batch_jobs",
+                "Redis not available for batch job storage",
+            )
+        is_production = os.environ.get("ARAGORA_ENV") == "production"
+        if is_production:
+            logger.warning(
+                "BATCH JOBS: Using in-memory storage in production. "
+                "Batch jobs will be lost on restart. Set REDIS_URL for durability."
+            )
+
+
+def _save_batch_job(job: BatchJob) -> None:
+    """Save batch job to storage."""
+    _check_batch_storage_requirements()
+    client = _get_redis_client()
+
+    if client:
+        # Store in Redis with TTL
+        key = f"batch_job:{job.batch_id}"
+        job_dict = job.to_dict()
+        job_dict["debate_ids"] = job.debate_ids
+        job_dict["results"] = [r.to_dict() for r in job.results]
+        job_dict["options"] = job.options
+        client.setex(key, BATCH_JOB_TTL, json.dumps(job_dict))
+    else:
+        _batch_jobs_memory[job.batch_id] = job
+
+
+def _get_batch_job(batch_id: str) -> Optional[BatchJob]:
+    """Get batch job from storage."""
+    client = _get_redis_client()
+
+    if client:
+        key = f"batch_job:{batch_id}"
+        data = client.get(key)
+        if data:
+            job_dict = json.loads(data)
+            job = BatchJob(
+                batch_id=job_dict["batch_id"],
+                debate_ids=job_dict.get("debate_ids", []),
+                status=BatchStatus(job_dict.get("status", "pending")),
+                created_at=job_dict.get("created_at", time.time()),
+                started_at=job_dict.get("started_at"),
+                completed_at=job_dict.get("completed_at"),
+                processed_count=job_dict.get("processed_count", 0),
+                options=job_dict.get("options", {}),
+            )
+            # Restore results
+            for r in job_dict.get("results", []):
+                job.results.append(
+                    BatchDebateResult(
+                        debate_id=r["debate_id"],
+                        status=r["status"],
+                        explanation=r.get("explanation"),
+                        error=r.get("error"),
+                        processing_time_ms=r.get("processing_time_ms", 0),
+                    )
+                )
+            return job
+        return None
+    else:
+        return _batch_jobs_memory.get(batch_id)
+
 
 def _prune_old_batches() -> None:
-    """Remove old batch jobs."""
+    """Remove old batch jobs from in-memory storage."""
+    # Redis handles TTL automatically, only prune memory storage
     now = time.time()
     expired = [
-        batch_id for batch_id, job in _batch_jobs.items()
+        batch_id
+        for batch_id, job in _batch_jobs_memory.items()
         if now - job.created_at > BATCH_JOB_TTL
     ]
     for batch_id in expired:
-        del _batch_jobs[batch_id]
+        del _batch_jobs_memory[batch_id]
 
 
 class ExplainabilityHandler(BaseHandler):
@@ -182,6 +296,7 @@ class ExplainabilityHandler(BaseHandler):
         # Try to get calibration tracker from global
         try:
             from aragora.ranking.calibration import get_calibration_tracker
+
             self.calibration_tracker = get_calibration_tracker()
         except (ImportError, Exception):
             pass
@@ -207,7 +322,13 @@ class ExplainabilityHandler(BaseHandler):
         # Check versioned routes
         if path.startswith("/api/v1/debates/") and any(
             path.endswith(suffix)
-            for suffix in ["/explanation", "/evidence", "/votes/pivots", "/counterfactuals", "/summary"]
+            for suffix in [
+                "/explanation",
+                "/evidence",
+                "/votes/pivots",
+                "/counterfactuals",
+                "/summary",
+            ]
         ):
             return True
 
@@ -408,12 +529,14 @@ class ExplainabilityHandler(BaseHandler):
 
             evidence = sorted(evidence, key=lambda e: e.relevance_score, reverse=True)[:limit]
 
-            result = json_response({
-                "debate_id": debate_id,
-                "evidence_count": len(evidence),
-                "evidence_quality_score": decision.evidence_quality_score,
-                "evidence": [e.to_dict() for e in evidence],
-            })
+            result = json_response(
+                {
+                    "debate_id": debate_id,
+                    "evidence_count": len(evidence),
+                    "evidence_quality_score": decision.evidence_quality_score,
+                    "evidence": [e.to_dict() for e in evidence],
+                }
+            )
 
             return self._add_headers(result, is_legacy)
 
@@ -446,13 +569,15 @@ class ExplainabilityHandler(BaseHandler):
             if min_influence > 0:
                 pivots = [p for p in pivots if p.influence_score >= min_influence]
 
-            result = json_response({
-                "debate_id": debate_id,
-                "total_votes": len(decision.vote_pivots),
-                "pivotal_votes": len(pivots),
-                "agent_agreement_score": decision.agent_agreement_score,
-                "votes": [p.to_dict() for p in pivots],
-            })
+            result = json_response(
+                {
+                    "debate_id": debate_id,
+                    "total_votes": len(decision.vote_pivots),
+                    "pivotal_votes": len(pivots),
+                    "agent_agreement_score": decision.agent_agreement_score,
+                    "votes": [p.to_dict() for p in pivots],
+                }
+            )
 
             return self._add_headers(result, is_legacy)
 
@@ -483,15 +608,15 @@ class ExplainabilityHandler(BaseHandler):
 
             counterfactuals = decision.counterfactuals
             if min_sensitivity > 0:
-                counterfactuals = [
-                    c for c in counterfactuals if c.sensitivity >= min_sensitivity
-                ]
+                counterfactuals = [c for c in counterfactuals if c.sensitivity >= min_sensitivity]
 
-            result = json_response({
-                "debate_id": debate_id,
-                "counterfactual_count": len(counterfactuals),
-                "counterfactuals": [c.to_dict() for c in counterfactuals],
-            })
+            result = json_response(
+                {
+                    "debate_id": debate_id,
+                    "counterfactual_count": len(counterfactuals),
+                    "counterfactuals": [c.to_dict() for c in counterfactuals],
+                }
+            )
 
             return self._add_headers(result, is_legacy)
 
@@ -526,14 +651,17 @@ class ExplainabilityHandler(BaseHandler):
             format_type = get_string_param(query_params, "format", "markdown")
 
             if format_type == "json":
-                result = json_response({
-                    "debate_id": debate_id,
-                    "summary": summary,
-                    "confidence": decision.confidence,
-                    "consensus_reached": decision.consensus_reached,
-                })
+                result = json_response(
+                    {
+                        "debate_id": debate_id,
+                        "summary": summary,
+                        "confidence": decision.confidence,
+                        "consensus_reached": decision.consensus_reached,
+                    }
+                )
             elif format_type == "html":
                 import markdown
+
                 html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -635,18 +763,21 @@ h3 {{ color: #666; }}
             debate_ids=debate_ids,
             options=options,
         )
-        _batch_jobs[batch_id] = job
+        _save_batch_job(job)
 
         # Start processing in background
         self._start_batch_processing(job)
 
-        return json_response({
-            "batch_id": batch_id,
-            "status": job.status.value,
-            "total_debates": len(debate_ids),
-            "status_url": f"/api/v1/explainability/batch/{batch_id}/status",
-            "results_url": f"/api/v1/explainability/batch/{batch_id}/results",
-        }, status=202)
+        return json_response(
+            {
+                "batch_id": batch_id,
+                "status": job.status.value,
+                "total_debates": len(debate_ids),
+                "status_url": f"/api/v1/explainability/batch/{batch_id}/status",
+                "results_url": f"/api/v1/explainability/batch/{batch_id}/results",
+            },
+            status=202,
+        )
 
     def _start_batch_processing(self, job: BatchJob) -> None:
         """Start processing batch job asynchronously."""
@@ -670,6 +801,7 @@ h3 {{ color: #666; }}
         """Process all debates in the batch."""
         job.status = BatchStatus.PROCESSING
         job.started_at = time.time()
+        _save_batch_job(job)  # Persist initial processing state
 
         options = job.options
         include_evidence = options.get("include_evidence", True)
@@ -684,12 +816,14 @@ h3 {{ color: #666; }}
                 decision = await self._get_or_build_decision(debate_id)
 
                 if decision is None:
-                    job.results.append(BatchDebateResult(
-                        debate_id=debate_id,
-                        status="not_found",
-                        error=f"Debate not found: {debate_id}",
-                        processing_time_ms=(time.time() - start_time) * 1000,
-                    ))
+                    job.results.append(
+                        BatchDebateResult(
+                            debate_id=debate_id,
+                            status="not_found",
+                            error=f"Debate not found: {debate_id}",
+                            processing_time_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
                 else:
                     # Build explanation based on options
                     explanation = self._build_explanation_dict(
@@ -700,23 +834,30 @@ h3 {{ color: #666; }}
                         format_type=format_type,
                     )
 
-                    job.results.append(BatchDebateResult(
-                        debate_id=debate_id,
-                        status="success",
-                        explanation=explanation,
-                        processing_time_ms=(time.time() - start_time) * 1000,
-                    ))
+                    job.results.append(
+                        BatchDebateResult(
+                            debate_id=debate_id,
+                            status="success",
+                            explanation=explanation,
+                            processing_time_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
 
             except Exception as e:
                 logger.error(f"Error processing {debate_id} in batch: {e}")
-                job.results.append(BatchDebateResult(
-                    debate_id=debate_id,
-                    status="error",
-                    error=str(e)[:200],
-                    processing_time_ms=(time.time() - start_time) * 1000,
-                ))
+                job.results.append(
+                    BatchDebateResult(
+                        debate_id=debate_id,
+                        status="error",
+                        error=str(e)[:200],
+                        processing_time_ms=(time.time() - start_time) * 1000,
+                    )
+                )
 
             job.processed_count += 1
+            # Persist progress periodically (every 5 items or when done)
+            if job.processed_count % 5 == 0 or job.processed_count == len(job.debate_ids):
+                _save_batch_job(job)
 
         # Set final status
         job.completed_at = time.time()
@@ -729,18 +870,24 @@ h3 {{ color: #666; }}
         else:
             job.status = BatchStatus.PARTIAL
 
+        # Persist final state
+        _save_batch_job(job)
+
         # Emit WebSocket event
         try:
             from aragora.events.types import StreamEventType
             from aragora.events.emitter import global_emitter
 
-            global_emitter().emit(StreamEventType.EXPLAINABILITY_COMPLETE.value, {
-                "batch_id": job.batch_id,
-                "status": job.status.value,
-                "total": len(job.debate_ids),
-                "success_count": len(job.debate_ids) - error_count,
-                "error_count": error_count,
-            })
+            global_emitter().emit(
+                StreamEventType.EXPLAINABILITY_COMPLETE.value,
+                {
+                    "batch_id": job.batch_id,
+                    "status": job.status.value,
+                    "total": len(job.debate_ids),
+                    "success_count": len(job.debate_ids) - error_count,
+                    "error_count": error_count,
+                },
+            )
         except Exception:
             pass  # WebSocket events are optional
 
@@ -761,11 +908,14 @@ h3 {{ color: #666; }}
                 "primary_factors": [
                     {"name": f.name, "contribution": f.contribution}
                     for f in decision.contributing_factors[:3]
-                ] if hasattr(decision, "contributing_factors") else [],
+                ]
+                if hasattr(decision, "contributing_factors")
+                else [],
             }
 
         if format_type == "summary":
             from aragora.explainability import ExplanationBuilder
+
             builder = ExplanationBuilder()
             return {
                 "debate_id": getattr(decision, "debate_id", None),
@@ -791,51 +941,56 @@ h3 {{ color: #666; }}
         """Get status of a batch job."""
         _prune_old_batches()
 
-        job = _batch_jobs.get(batch_id)
+        job = _get_batch_job(batch_id)
         if not job:
             return error_response(f"Batch job not found: {batch_id}", 404)
 
         return json_response(job.to_dict())
 
-    def _handle_batch_results(
-        self, batch_id: str, query_params: Dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_batch_results(self, batch_id: str, query_params: Dict[str, Any]) -> HandlerResult:
         """Get results of a completed batch job."""
         _prune_old_batches()
 
-        job = _batch_jobs.get(batch_id)
+        job = _get_batch_job(batch_id)
         if not job:
             return error_response(f"Batch job not found: {batch_id}", 404)
 
         # Allow fetching partial results while processing
-        include_partial = get_string_param(query_params, "include_partial", "false").lower() == "true"
+        include_partial = (
+            get_string_param(query_params, "include_partial", "false").lower() == "true"
+        )
 
         if job.status == BatchStatus.PENDING:
             return error_response("Batch job not yet started", 202)
 
         if job.status == BatchStatus.PROCESSING and not include_partial:
-            return json_response({
-                **job.to_dict(),
-                "message": "Batch still processing. Use ?include_partial=true for partial results.",
-            }, status_code=202)
+            return json_response(
+                {
+                    **job.to_dict(),
+                    "message": "Batch still processing. Use ?include_partial=true for partial results.",
+                },
+                status_code=202,
+            )
 
         # Pagination
         offset = int(get_string_param(query_params, "offset", "0"))
         limit = int(get_string_param(query_params, "limit", "50"))
         limit = min(limit, 100)  # Cap at 100
 
-        paginated_results = job.results[offset:offset + limit]
+        paginated_results = job.results[offset : offset + limit]
 
-        return json_response({
-            **job.to_dict(),
-            "results": [r.to_dict() for r in paginated_results],
-            "pagination": {
-                "offset": offset,
-                "limit": limit,
-                "total": len(job.results),
-                "has_more": offset + limit < len(job.results),
-            },
-        })
+        return json_response(
+            {
+                **job.to_dict(),
+                "results": [r.to_dict() for r in paginated_results],
+                "pagination": {
+                    "offset": offset,
+                    "limit": limit,
+                    "total": len(job.results),
+                    "has_more": offset + limit < len(job.results),
+                },
+            }
+        )
 
     # ========================================================================
     # Compare Explanations
@@ -868,9 +1023,10 @@ h3 {{ color: #666; }}
         if len(debate_ids) > 10:
             return error_response("Maximum 10 debates can be compared at once", 400)
 
-        compare_fields = data.get("compare_fields", [
-            "confidence", "consensus_reached", "contributing_factors", "evidence_quality"
-        ])
+        compare_fields = data.get(
+            "compare_fields",
+            ["confidence", "consensus_reached", "contributing_factors", "evidence_quality"],
+        )
 
         try:
             loop = asyncio.get_event_loop()
@@ -897,8 +1053,7 @@ h3 {{ color: #666; }}
 
             if "confidence" in compare_fields:
                 comparison["comparison"]["confidence"] = {
-                    debate_id: decision.confidence
-                    for debate_id, decision in debates.items()
+                    debate_id: decision.confidence for debate_id, decision in debates.items()
                 }
                 confidences = list(comparison["comparison"]["confidence"].values())
                 comparison["comparison"]["confidence_stats"] = {
@@ -910,12 +1065,11 @@ h3 {{ color: #666; }}
 
             if "consensus_reached" in compare_fields:
                 comparison["comparison"]["consensus_reached"] = {
-                    debate_id: decision.consensus_reached
-                    for debate_id, decision in debates.items()
+                    debate_id: decision.consensus_reached for debate_id, decision in debates.items()
                 }
-                comparison["comparison"]["consensus_agreement"] = len(
-                    set(d.consensus_reached for d in debates.values())
-                ) == 1
+                comparison["comparison"]["consensus_agreement"] = (
+                    len(set(d.consensus_reached for d in debates.values())) == 1
+                )
 
             if "contributing_factors" in compare_fields:
                 factor_names = {}
@@ -928,8 +1082,7 @@ h3 {{ color: #666; }}
 
                 comparison["comparison"]["contributing_factors"] = factor_names
                 comparison["comparison"]["common_factors"] = [
-                    name for name, vals in factor_names.items()
-                    if len(vals) == len(debates)
+                    name for name, vals in factor_names.items() if len(vals) == len(debates)
                 ]
 
             if "evidence_quality" in compare_fields:

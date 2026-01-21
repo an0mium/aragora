@@ -36,6 +36,10 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+from aragora.control_plane.leader import (
+    is_distributed_state_required,
+    DistributedStateError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -604,19 +608,11 @@ def get_session_store(force_memory: bool = False) -> SessionStore:
         except Exception as e:
             logger.debug(f"Redis session store unavailable: {e}")
 
-        # Check if multi-instance mode requires Redis
-        import os
-
-        is_multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-        if is_multi_instance:
-            raise RuntimeError(
-                "ARAGORA_MULTI_INSTANCE=true requires Redis for session store. "
-                "Sessions will not be shared across instances without Redis. "
-                "Configure REDIS_URL or set ARAGORA_SINGLE_INSTANCE=true."
+        # Check if distributed state is required (multi-instance or production)
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "session_store",
+                "Redis not available for distributed session management",
             )
 
         # Fall back to in-memory (single instance only)

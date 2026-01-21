@@ -18,7 +18,7 @@ from aragora.server.handlers.explainability import (
     BatchStatus,
     BatchJob,
     BatchDebateResult,
-    _batch_jobs,
+    _batch_jobs_memory as _batch_jobs,
 )
 from aragora.server.handlers.base import HandlerResult
 
@@ -140,9 +140,7 @@ class TestBatchJob:
             debate_ids=["d1", "d2", "d3"],
             status=BatchStatus.PROCESSING,
             processed_count=1,
-            results=[
-                BatchDebateResult(debate_id="d1", status="success", processing_time_ms=100)
-            ],
+            results=[BatchDebateResult(debate_id="d1", status="success", processing_time_ms=100)],
         )
         data = job.to_dict()
 
@@ -283,7 +281,9 @@ class TestGetBatchStatus:
         )
         _batch_jobs["batch-test-123"] = job
 
-        result = handler.handle("/api/v1/explainability/batch/batch-test-123/status", {}, mock_get_request)
+        result = handler.handle(
+            "/api/v1/explainability/batch/batch-test-123/status", {}, mock_get_request
+        )
         response_body, status = parse_handler_result(result)
 
         assert status == 200
@@ -301,7 +301,9 @@ class TestGetBatchStatus:
         )
         _batch_jobs["batch-test-456"] = job
 
-        result = handler.handle("/api/v1/explainability/batch/batch-test-456/status", {}, mock_get_request)
+        result = handler.handle(
+            "/api/v1/explainability/batch/batch-test-456/status", {}, mock_get_request
+        )
         response_body, status = parse_handler_result(result)
 
         assert status == 200
@@ -310,7 +312,9 @@ class TestGetBatchStatus:
         assert response_body["progress_pct"] == 33.3
 
     def test_get_status_not_found(self, handler, mock_get_request):
-        result = handler.handle("/api/v1/explainability/batch/nonexistent/status", {}, mock_get_request)
+        result = handler.handle(
+            "/api/v1/explainability/batch/nonexistent/status", {}, mock_get_request
+        )
         response_body, status = parse_handler_result(result)
 
         assert status == 404
@@ -333,13 +337,25 @@ class TestGetBatchResults:
             processed_count=2,
             completed_at=time.time(),
             results=[
-                BatchDebateResult(debate_id="d1", status="success", explanation={"confidence": 0.9}, processing_time_ms=100),
-                BatchDebateResult(debate_id="d2", status="success", explanation={"confidence": 0.8}, processing_time_ms=150),
+                BatchDebateResult(
+                    debate_id="d1",
+                    status="success",
+                    explanation={"confidence": 0.9},
+                    processing_time_ms=100,
+                ),
+                BatchDebateResult(
+                    debate_id="d2",
+                    status="success",
+                    explanation={"confidence": 0.8},
+                    processing_time_ms=150,
+                ),
             ],
         )
         _batch_jobs["batch-results-123"] = job
 
-        result = handler.handle("/api/v1/explainability/batch/batch-results-123/results", {}, mock_get_request)
+        result = handler.handle(
+            "/api/v1/explainability/batch/batch-results-123/results", {}, mock_get_request
+        )
         response_body, status = parse_handler_result(result)
 
         assert status == 200
@@ -356,7 +372,9 @@ class TestGetBatchResults:
         )
         _batch_jobs["batch-pending-123"] = job
 
-        result = handler.handle("/api/v1/explainability/batch/batch-pending-123/results", {}, mock_get_request)
+        result = handler.handle(
+            "/api/v1/explainability/batch/batch-pending-123/results", {}, mock_get_request
+        )
         response_body, status = parse_handler_result(result)
 
         assert status == 202
@@ -369,7 +387,12 @@ class TestGetBatchResults:
             status=BatchStatus.PROCESSING,
             processed_count=1,
             results=[
-                BatchDebateResult(debate_id="d1", status="success", explanation={"confidence": 0.9}, processing_time_ms=100),
+                BatchDebateResult(
+                    debate_id="d1",
+                    status="success",
+                    explanation={"confidence": 0.9},
+                    processing_time_ms=100,
+                ),
             ],
         )
         _batch_jobs["batch-partial-123"] = job
@@ -386,7 +409,9 @@ class TestGetBatchResults:
 
     def test_get_results_pagination(self, handler, mock_get_request):
         results = [
-            BatchDebateResult(debate_id=f"d{i}", status="success", explanation={}, processing_time_ms=100)
+            BatchDebateResult(
+                debate_id=f"d{i}", status="success", explanation={}, processing_time_ms=100
+            )
             for i in range(10)
         ]
         job = BatchJob(
@@ -412,7 +437,9 @@ class TestGetBatchResults:
         assert response_body["pagination"]["has_more"] is True
 
     def test_get_results_not_found(self, handler, mock_get_request):
-        result = handler.handle("/api/v1/explainability/batch/nonexistent/results", {}, mock_get_request)
+        result = handler.handle(
+            "/api/v1/explainability/batch/nonexistent/results", {}, mock_get_request
+        )
         response_body, status = parse_handler_result(result)
 
         assert status == 404

@@ -91,11 +91,24 @@ def validate_all(strict: bool = False) -> Dict[str, Any]:
             warnings.append("ARAGORA_BASE_URL should use HTTPS in production")
 
     # Check Redis configuration for horizontal scaling
+    try:
+        from aragora.control_plane.leader import is_distributed_state_required
+
+        distributed_required = is_distributed_state_required()
+    except ImportError:
+        distributed_required = False
+
     state_backend = os.environ.get("ARAGORA_STATE_BACKEND", "")
     redis_url = os.environ.get("ARAGORA_REDIS_URL", "") or os.environ.get("REDIS_URL", "")
 
     if state_backend == "redis" and not redis_url:
         errors.append("ARAGORA_STATE_BACKEND=redis but no Redis URL configured")
+
+    if distributed_required and not redis_url:
+        errors.append(
+            "Distributed state required (multi-instance or production) but REDIS_URL not configured. "
+            "Set ARAGORA_SINGLE_INSTANCE=true for single-node deployments."
+        )
 
     if redis_url:
         config_summary["redis_configured"] = True
