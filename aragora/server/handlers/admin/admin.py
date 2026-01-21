@@ -164,8 +164,8 @@ class AdminHandler(BaseHandler):
 
             rbac_context = AuthorizationContext(
                 user_id=auth_ctx.user_id,
-                roles=roles,
-                tenant_id=getattr(auth_ctx, "org_id", None),
+                roles=set(roles),
+                org_id=getattr(auth_ctx, "org_id", None),
             )
 
             decision = check_permission(rbac_context, permission_key, resource_id)
