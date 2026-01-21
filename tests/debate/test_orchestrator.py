@@ -705,7 +705,6 @@ class TestArenaEventEmission:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestArenaRun:
     """Tests for Arena.run() execution."""
 
@@ -725,7 +724,6 @@ class TestArenaRun:
         return DebateProtocol(rounds=1, consensus="majority")
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Test requires full KnowledgeMound integration")
     async def test_run_returns_debate_result(self, environment, agents, protocol):
         """Arena.run() returns a DebateResult."""
         arena = Arena(environment, agents, protocol)
@@ -801,7 +799,6 @@ class TestArenaRun:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestRoundExecutionFlow:
     """Tests for the debate round execution flow (proposal -> critique -> vote -> consensus)."""
 
@@ -887,7 +884,6 @@ class TestRoundExecutionFlow:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestPhaseTransitions:
     """Tests for debate phase transitions."""
 
@@ -961,7 +957,6 @@ class TestPhaseTransitions:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestEarlyTerminationOnConvergence:
     """Tests for early termination when consensus/convergence is detected."""
 
@@ -1042,7 +1037,6 @@ class TestEarlyTerminationOnConvergence:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestConsensusDetection:
     """Tests for consensus detection mechanisms."""
 
@@ -1125,7 +1119,6 @@ class TestConsensusDetection:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestErrorHandling:
     """Tests for error handling in Arena."""
 
@@ -1202,7 +1195,6 @@ class TestErrorHandling:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestMemoryIntegration:
     """Tests for memory system integration."""
 
@@ -1915,7 +1907,6 @@ class TestLifecycleManagement:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestFullDebateFlow:
     """Integration tests for complete debate execution."""
 
@@ -2063,7 +2054,6 @@ class TestFullDebateFlow:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Tests require full KnowledgeMound integration")
 class TestAgentFailureHandling:
     """Tests for handling agent failures during debate."""
 
