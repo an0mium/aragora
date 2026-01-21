@@ -29,17 +29,16 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="All tests passed",
-                stderr="",
-            )
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 0
+            mock_proc.communicate = AsyncMock(return_value=(b"All tests passed", b""))
+            mock_exec.return_value = mock_proc
 
-            result = await phase.run_tests()
+            result = await phase._run_tests()
 
             assert result["passed"] is True
-            mock_run.assert_called()
+            mock_exec.assert_called()
 
     @pytest.mark.asyncio
     async def test_detects_test_failures(self, mock_aragora_path):
@@ -51,21 +50,20 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="FAILED test_example.py::test_func",
-                stderr="AssertionError",
-            )
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 1
+            mock_proc.communicate = AsyncMock(return_value=(b"FAILED test_example.py::test_func", b""))
+            mock_exec.return_value = mock_proc
 
-            result = await phase.run_tests()
+            result = await phase._run_tests()
 
             assert result["passed"] is False
-            assert "failures" in result
+            assert result["check"] == "tests"
 
     @pytest.mark.asyncio
-    async def test_runs_mypy_type_checking(self, mock_aragora_path):
-        """Should run mypy type checking."""
+    async def test_runs_syntax_checking(self, mock_aragora_path):
+        """Should run syntax checking via AST."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
@@ -73,20 +71,19 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="Success: no issues found",
-                stderr="",
-            )
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 0
+            mock_proc.communicate = AsyncMock(return_value=(b"", b""))
+            mock_exec.return_value = mock_proc
 
-            result = await phase.run_type_check()
+            result = await phase._check_syntax()
 
-            assert result["clean"] is True
+            assert result["check"] == "syntax"
 
     @pytest.mark.asyncio
-    async def test_detects_mypy_errors(self, mock_aragora_path):
-        """Should detect mypy type errors."""
+    async def test_detects_syntax_errors(self, mock_aragora_path):
+        """Should detect syntax errors."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
@@ -94,88 +91,99 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=1,
-                stdout="aragora/core.py:10: error: Incompatible types",
-                stderr="",
-            )
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 1
+            mock_proc.communicate = AsyncMock(return_value=(b"SyntaxError: invalid syntax", b""))
+            mock_exec.return_value = mock_proc
 
-            result = await phase.run_type_check()
+            result = await phase._check_syntax()
 
-            assert result["clean"] is False
-            assert "errors" in result
+            assert result["check"] == "syntax"
+            assert result["passed"] is False
 
 
 class TestVerifyPhaseSafetyGates:
-    """Tests for safety gate checks."""
+    """Tests for safety gate checks.
+
+    Note: Safety gates are implemented in the nomic loop orchestrator,
+    not in the VerifyPhase directly. These tests verify the expected
+    behavior of the changed files detection.
+    """
 
     @pytest.mark.asyncio
-    async def test_blocks_on_protected_file_changes(self, mock_aragora_path):
-        """Should block changes to protected files."""
+    async def test_detects_changed_files(self, mock_aragora_path):
+        """Should detect changed files via git."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
             aragora_path=mock_aragora_path,
             log_fn=MagicMock(),
-            protected_files=["CLAUDE.md", "core.py"],
         )
 
-        changes = {
-            "files_modified": ["aragora/core.py", "CLAUDE.md"],
-        }
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 0
+            mock_proc.communicate = AsyncMock(return_value=(b"aragora/core.py\nCLAUDE.md", b""))
+            mock_exec.return_value = mock_proc
 
-        result = await phase.check_safety_gates(changes)
+            changed = await phase._get_changed_files()
 
-        assert result["safe"] is False
-        assert "protected" in result["reason"].lower()
+            assert "aragora/core.py" in changed
+            assert "CLAUDE.md" in changed
 
     @pytest.mark.asyncio
-    async def test_allows_non_protected_file_changes(self, mock_aragora_path):
-        """Should allow changes to non-protected files."""
+    async def test_handles_no_changes(self, mock_aragora_path):
+        """Should handle case with no changes."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
             aragora_path=mock_aragora_path,
             log_fn=MagicMock(),
-            protected_files=["CLAUDE.md"],
         )
 
-        changes = {
-            "files_modified": ["aragora/utils.py", "tests/test_utils.py"],
-        }
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 0
+            mock_proc.communicate = AsyncMock(return_value=(b"", b""))
+            mock_exec.return_value = mock_proc
 
-        result = await phase.check_safety_gates(changes)
+            changed = await phase._get_changed_files()
 
-        assert result["safe"] is True
+            assert changed == []
 
     @pytest.mark.asyncio
-    async def test_blocks_on_excessive_changes(self, mock_aragora_path):
-        """Should block excessively large changes."""
+    async def test_handles_git_error(self, mock_aragora_path):
+        """Should handle git command errors gracefully."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
             aragora_path=mock_aragora_path,
             log_fn=MagicMock(),
-            max_files_changed=5,
         )
 
-        changes = {
-            "files_modified": [f"file{i}.py" for i in range(20)],
-        }
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.returncode = 128
+            mock_proc.communicate = AsyncMock(return_value=(b"", b"fatal: not a git repository"))
+            mock_exec.return_value = mock_proc
 
-        result = await phase.check_safety_gates(changes)
+            changed = await phase._get_changed_files()
 
-        assert result["safe"] is False
-        assert "too many" in result["reason"].lower()
+            # Should return empty list on error
+            assert changed == []
 
 
 class TestVerifyPhaseRollback:
-    """Tests for rollback functionality."""
+    """Tests for rollback functionality.
+
+    Note: Rollback is handled by the RollbackManager in the nomic loop,
+    not by VerifyPhase directly. These tests verify execute() behavior.
+    """
 
     @pytest.mark.asyncio
-    async def test_creates_backup_before_changes(self, mock_aragora_path):
-        """Should create backup before applying changes."""
+    async def test_execute_returns_result(self, mock_aragora_path):
+        """Should return VerifyResult from execute."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
@@ -183,15 +191,21 @@ class TestVerifyPhaseRollback:
             log_fn=MagicMock(),
         )
 
-        with patch("shutil.copytree") as mock_copy:
-            backup_path = await phase.create_backup()
+        with patch.object(phase, "_check_syntax", new_callable=AsyncMock) as mock_syntax:
+            with patch.object(phase, "_check_imports", new_callable=AsyncMock) as mock_imports:
+                with patch.object(phase, "_run_tests", new_callable=AsyncMock) as mock_tests:
+                    mock_syntax.return_value = {"check": "syntax", "passed": True}
+                    mock_imports.return_value = {"check": "import", "passed": True}
+                    mock_tests.return_value = {"check": "tests", "passed": True}
 
-            mock_copy.assert_called_once()
-            assert backup_path is not None
+                    result = await phase.execute()
+
+                    assert result is not None
+                    assert "success" in result
 
     @pytest.mark.asyncio
-    async def test_restores_from_backup_on_failure(self, mock_aragora_path):
-        """Should restore from backup when verification fails."""
+    async def test_execute_fails_on_test_failure(self, mock_aragora_path):
+        """Should fail verification when tests fail."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
@@ -199,15 +213,17 @@ class TestVerifyPhaseRollback:
             log_fn=MagicMock(),
         )
 
-        backup_path = mock_aragora_path / ".backup"
-        backup_path.mkdir()
+        with patch.object(phase, "_check_syntax", new_callable=AsyncMock) as mock_syntax:
+            with patch.object(phase, "_check_imports", new_callable=AsyncMock) as mock_imports:
+                with patch.object(phase, "_run_tests", new_callable=AsyncMock) as mock_tests:
+                    mock_syntax.return_value = {"check": "syntax", "passed": True}
+                    mock_imports.return_value = {"check": "import", "passed": True}
+                    mock_tests.return_value = {"check": "tests", "passed": False, "error": "Test failed"}
 
-        with patch("shutil.rmtree") as mock_rm:
-            with patch("shutil.copytree") as mock_copy:
-                await phase.restore_from_backup(backup_path)
+                    result = await phase.execute()
 
-                # Should remove current state and restore backup
-                assert mock_copy.called or mock_rm.called
+                    assert result["success"] is False
+
 
 
 class TestVerifyPhaseIntegration:
@@ -225,18 +241,17 @@ class TestVerifyPhaseIntegration:
             log_fn=MagicMock(),
         )
 
-        with patch.object(phase, "run_tests", new_callable=AsyncMock) as mock_tests:
-            with patch.object(phase, "run_type_check", new_callable=AsyncMock) as mock_mypy:
-                with patch.object(phase, "run_lint", new_callable=AsyncMock) as mock_lint:
-                    mock_tests.return_value = {"passed": True, "failures": []}
-                    mock_mypy.return_value = {"clean": True, "errors": []}
-                    mock_lint.return_value = {"clean": True, "issues": []}
+        with patch.object(phase, "_check_syntax", new_callable=AsyncMock) as mock_syntax:
+            with patch.object(phase, "_check_imports", new_callable=AsyncMock) as mock_imports:
+                with patch.object(phase, "_run_tests", new_callable=AsyncMock) as mock_tests:
+                    mock_syntax.return_value = {"check": "syntax", "passed": True}
+                    mock_imports.return_value = {"check": "import", "passed": True}
+                    mock_tests.return_value = {"check": "tests", "passed": True}
 
-                    result = await phase.run()
+                    result = await phase.execute()
 
-                    assert result["passed"] is True
+                    assert result["success"] is True
                     mock_tests.assert_called_once()
-                    mock_mypy.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_full_verification_flow_failure(self, mock_aragora_path):
@@ -248,13 +263,17 @@ class TestVerifyPhaseIntegration:
             log_fn=MagicMock(),
         )
 
-        with patch.object(phase, "run_tests", new_callable=AsyncMock) as mock_tests:
-            mock_tests.return_value = {
-                "passed": False,
-                "failures": ["test_example.py::test_func"],
-            }
+        with patch.object(phase, "_check_syntax", new_callable=AsyncMock) as mock_syntax:
+            with patch.object(phase, "_check_imports", new_callable=AsyncMock) as mock_imports:
+                with patch.object(phase, "_run_tests", new_callable=AsyncMock) as mock_tests:
+                    mock_syntax.return_value = {"check": "syntax", "passed": True}
+                    mock_imports.return_value = {"check": "import", "passed": True}
+                    mock_tests.return_value = {
+                        "check": "tests",
+                        "passed": False,
+                        "output": "FAILED test_example.py::test_func",
+                    }
 
-            result = await phase.run()
+                    result = await phase.execute()
 
-            assert result["passed"] is False
-            assert len(result.get("failures", [])) > 0
+                    assert result["success"] is False
