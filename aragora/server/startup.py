@@ -36,6 +36,62 @@ def _get_config_value(name: str) -> str | None:
         return None
 
 
+def check_connector_dependencies() -> list[str]:
+    """Check if connector dependencies are available.
+
+    SECURITY: Connectors fail-closed when dependencies are missing, but this
+    function provides early warnings at startup to help operators identify
+    misconfiguration before runtime failures occur.
+
+    Returns:
+        List of warnings for missing connector dependencies
+    """
+    import os
+
+    warnings = []
+
+    # Discord webhook verification requires PyNaCl
+    if os.environ.get("DISCORD_PUBLIC_KEY") or os.environ.get("DISCORD_WEBHOOK_URL"):
+        try:
+            import nacl.signing  # noqa: F401
+        except ImportError:
+            warnings.append(
+                "Discord connector configured but PyNaCl not installed. "
+                "Webhook signature verification will fail-closed. "
+                "Install with: pip install pynacl"
+            )
+
+    # Teams/Google Chat webhook verification requires PyJWT
+    teams_configured = os.environ.get("TEAMS_TENANT_ID") or os.environ.get("TEAMS_WEBHOOK_URL")
+    gchat_configured = os.environ.get("GOOGLE_CHAT_PROJECT") or os.environ.get(
+        "GOOGLE_CHAT_WEBHOOK_URL"
+    )
+    if teams_configured or gchat_configured:
+        try:
+            import jwt  # noqa: F401
+        except ImportError:
+            connectors = []
+            if teams_configured:
+                connectors.append("Teams")
+            if gchat_configured:
+                connectors.append("Google Chat")
+            warnings.append(
+                f"{'/'.join(connectors)} connector configured but PyJWT not installed. "
+                "Webhook signature verification will fail-closed. "
+                "Install with: pip install pyjwt"
+            )
+
+    # Slack webhook verification requires signing secret
+    if os.environ.get("SLACK_WEBHOOK_URL") and not os.environ.get("SLACK_SIGNING_SECRET"):
+        warnings.append(
+            "Slack webhook configured but SLACK_SIGNING_SECRET not set. "
+            "Webhook signature verification will fail-closed unless "
+            "ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 is set (not recommended for production)."
+        )
+
+    return warnings
+
+
 def check_production_requirements() -> list[str]:
     """Check if production requirements are met.
 
@@ -68,6 +124,11 @@ def check_production_requirements() -> list[str]:
                 "DATABASE_URL not set in production - using SQLite. "
                 "PostgreSQL recommended for governance store."
             )
+
+    # Check connector dependencies (warnings, not errors)
+    connector_warnings = check_connector_dependencies()
+    for warning in connector_warnings:
+        logger.warning(warning)
 
     return missing
 

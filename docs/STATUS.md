@@ -4,6 +4,37 @@
 
 ## Current Release
 
+### v2.1.9 - Security Hardening Release (January 2026)
+
+**Production Ready** - Aragora 2.1.9 implements refined security approaches from audit findings, including tenant isolation and fail-closed webhook verification.
+
+#### Key Highlights
+- **Gmail tenant isolation** - org_id binding for admin delegation (Option B)
+- **Webhook verification hardened** - Fail-closed with explicit `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` override (Option C)
+- **Consistent security patterns** - SecureHandler with RBAC across all sensitive endpoints
+- **Lines of Code**: 660,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.1.9
+
+**Gmail Handler Security** (SECURITY)
+- Added `org_id` field to `GmailUserState` for tenant isolation
+- Pass org_id through OAuth callback chain for strict org scoping
+- Enables future admin delegation within organizational boundaries
+- Matches enterprise patterns (Google Workspace, Microsoft 365)
+
+**Webhook Verification Hardening** (SECURITY)
+- Renamed env var to `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` for clarity
+- Self-documenting flag name for explicit dev mode acknowledgment
+- Applied consistently across all chat connectors:
+  - Slack (HMAC signature verification)
+  - Discord (Ed25519 signature verification)
+  - Teams (JWT token verification)
+  - Google Chat (JWT token verification)
+- Fail-closed by default in production
+
+---
+
 ### v2.1.8 - Security Verification & Backend Fixes (January 2026)
 
 **Production Ready** - Aragora 2.1.8 verifies security/durability implementations and adds a SentenceTransformer fallback fix.

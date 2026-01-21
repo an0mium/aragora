@@ -48,10 +48,26 @@ except ImportError:
         raise RuntimeError("Encryption not available")
 
     def is_encryption_required() -> bool:
+        """Fallback when security module unavailable - still check env vars."""
+        import os
+
+        if os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in ("true", "1", "yes"):
+            return True
+        if os.environ.get("ARAGORA_ENV") == "production":
+            return True
         return False
 
     class EncryptionError(Exception):
-        pass
+        """Fallback exception when security module unavailable."""
+
+        def __init__(self, operation: str, reason: str, store: str = ""):
+            self.operation = operation
+            self.reason = reason
+            self.store = store
+            super().__init__(
+                f"Encryption {operation} failed in {store}: {reason}. "
+                f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
+            )
 
 
 # Import metrics (optional - graceful degradation if not available)

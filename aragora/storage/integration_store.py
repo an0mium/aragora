@@ -51,16 +51,33 @@ except ImportError:
         raise RuntimeError("Encryption not available")
 
     def is_encryption_required() -> bool:
+        """Fallback when security module unavailable - still check env vars."""
+        import os
+
+        if os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in ("true", "1", "yes"):
+            return True
+        if os.environ.get("ARAGORA_ENV") == "production":
+            return True
         return False
 
     class EncryptionError(Exception):
-        pass
+        """Fallback exception when security module unavailable."""
+
+        def __init__(self, operation: str, reason: str, store: str = ""):
+            self.operation = operation
+            self.reason = reason
+            self.store = store
+            super().__init__(
+                f"Encryption {operation} failed in {store}: {reason}. "
+                f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
+            )
 
 
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
     """Record user mapping operation metric if available."""
     try:
         from aragora.observability.metrics import record_user_mapping_operation
+
         record_user_mapping_operation(operation, platform, found)
     except ImportError:
         pass
@@ -70,6 +87,7 @@ def _record_user_mapping_cache_hit(platform: str) -> None:
     """Record user mapping cache hit metric if available."""
     try:
         from aragora.observability.metrics import record_user_mapping_cache_hit
+
         record_user_mapping_cache_hit(platform)
     except ImportError:
         pass
@@ -79,6 +97,7 @@ def _record_user_mapping_cache_miss(platform: str) -> None:
     """Record user mapping cache miss metric if available."""
     try:
         from aragora.observability.metrics import record_user_mapping_cache_miss
+
         record_user_mapping_cache_miss(platform)
     except ImportError:
         pass
@@ -88,9 +107,7 @@ def _record_user_mapping_cache_miss(platform: str) -> None:
 # Integration Types and Models
 # =============================================================================
 
-IntegrationType = Literal[
-    "slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"
-]
+IntegrationType = Literal["slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"]
 
 VALID_INTEGRATION_TYPES: set[str] = {
     "slack",
@@ -103,19 +120,21 @@ VALID_INTEGRATION_TYPES: set[str] = {
 }
 
 # Sensitive keys that should be encrypted or masked
-SENSITIVE_KEYS = frozenset([
-    "access_token",
-    "api_key",
-    "bot_token",
-    "webhook_url",
-    "secret",
-    "password",
-    "auth_token",
-    "sendgrid_api_key",
-    "ses_secret_access_key",
-    "twilio_auth_token",
-    "smtp_password",
-])
+SENSITIVE_KEYS = frozenset(
+    [
+        "access_token",
+        "api_key",
+        "bot_token",
+        "webhook_url",
+        "secret",
+        "password",
+        "auth_token",
+        "sendgrid_api_key",
+        "ses_secret_access_key",
+        "twilio_auth_token",
+        "smtp_password",
+    ]
+)
 
 
 def _encrypt_settings(
@@ -182,7 +201,8 @@ def _decrypt_settings(
 
     # Check for encryption markers - if none present, it's legacy data
     encrypted_keys = [
-        k for k in SENSITIVE_KEYS
+        k
+        for k in SENSITIVE_KEYS
         if k in settings and isinstance(settings.get(k), dict) and settings[k].get("_encrypted")
     ]
     if not encrypted_keys:
@@ -533,9 +553,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
                 PRIMARY KEY (user_id, integration_type)
             )
         """)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_integrations_user ON integrations(user_id)"
-        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_integrations_user ON integrations(user_id)")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_integrations_type ON integrations(integration_type)"
         )
@@ -553,9 +571,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
                 PRIMARY KEY (user_id, platform, email)
             )
         """)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_mappings_email ON user_id_mappings(email)"
-        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mappings_email ON user_id_mappings(email)")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_mappings_platform ON user_id_mappings(platform)"
         )
@@ -761,9 +777,7 @@ class RedisIntegrationStore(IntegrationStoreBackend):
     def __init__(self, db_path: Path | str, redis_url: Optional[str] = None):
         self._sqlite = SQLiteIntegrationStore(db_path)
         self._redis: Optional[Any] = None
-        self._redis_url = redis_url or os.environ.get(
-            "ARAGORA_REDIS_URL", "redis://localhost:6379"
-        )
+        self._redis_url = redis_url or os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379")
         self._redis_checked = False
         logger.info("RedisIntegrationStore initialized with SQLite fallback")
 
@@ -775,9 +789,7 @@ class RedisIntegrationStore(IntegrationStoreBackend):
         try:
             import redis
 
-            self._redis = redis.from_url(
-                self._redis_url, encoding="utf-8", decode_responses=True
-            )
+            self._redis = redis.from_url(self._redis_url, encoding="utf-8", decode_responses=True)
             # Test connection
             self._redis.ping()
             self._redis_checked = True
@@ -903,9 +915,7 @@ class RedisIntegrationStore(IntegrationStoreBackend):
         redis = self._get_redis()
         if redis:
             try:
-                key = self._mapping_redis_key(
-                    mapping.email, mapping.platform, mapping.user_id
-                )
+                key = self._mapping_redis_key(mapping.email, mapping.platform, mapping.user_id)
                 redis.setex(key, self.REDIS_TTL, mapping.to_json())
             except Exception as e:
                 logger.debug(f"Redis mapping cache update failed: {e}")
@@ -1184,9 +1194,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def list_for_user_sync(self, user_id: str = "default") -> List[IntegrationConfig]:
         """List all integrations for a user (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.list_for_user_async(user_id)
-        )
+        return asyncio.get_event_loop().run_until_complete(self.list_for_user_async(user_id))
 
     async def list_all(self) -> List[IntegrationConfig]:
         """List all integrations (async)."""
@@ -1286,9 +1294,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def save_user_mapping_sync(self, mapping: UserIdMapping) -> None:
         """Save user ID mapping (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(
-            self.save_user_mapping_async(mapping)
-        )
+        asyncio.get_event_loop().run_until_complete(self.save_user_mapping_async(mapping))
 
     async def delete_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
@@ -1311,9 +1317,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
             _record_user_mapping_operation("delete", platform, deleted)
             return deleted
 
-    def delete_user_mapping_sync(
-        self, email: str, platform: str, user_id: str = "default"
-    ) -> bool:
+    def delete_user_mapping_sync(self, email: str, platform: str, user_id: str = "default") -> bool:
         """Delete user ID mapping (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.delete_user_mapping_async(email, platform, user_id)

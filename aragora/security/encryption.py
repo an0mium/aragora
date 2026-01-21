@@ -87,7 +87,10 @@ def is_encryption_required() -> bool:
     When True, stores must raise EncryptionError instead of falling back
     to plaintext storage.
     """
-    return ENCRYPTION_REQUIRED
+    # SECURITY: Auto-require encryption in production mode
+    if ENCRYPTION_REQUIRED or os.environ.get("ARAGORA_ENV") == "production":
+        return True
+    return False
 
 
 class EncryptionAlgorithm(str, Enum):

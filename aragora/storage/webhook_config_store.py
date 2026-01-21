@@ -40,23 +40,67 @@ logger = logging.getLogger(__name__)
 
 # Try to import encryption service
 try:
-    from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+    from aragora.security.encryption import (
+        get_encryption_service,
+        CRYPTO_AVAILABLE,
+        is_encryption_required,
+        EncryptionError,
+    )
 except ImportError:
     CRYPTO_AVAILABLE = False
 
     def get_encryption_service():
         return None
 
+    def is_encryption_required() -> bool:
+        """Fallback when security module unavailable - still check env vars."""
+        if os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in ("true", "1", "yes"):
+            return True
+        if os.environ.get("ARAGORA_ENV") == "production":
+            return True
+        return False
+
+    class EncryptionError(Exception):
+        """Fallback exception when security module unavailable."""
+
+        def __init__(self, operation: str, reason: str, store: str = ""):
+            self.operation = operation
+            self.reason = reason
+            self.store = store
+            super().__init__(
+                f"Encryption {operation} failed in {store}: {reason}. "
+                f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
+            )
+
 
 def _encrypt_secret(secret: str) -> str:
-    """Encrypt webhook secret before storage."""
-    if not CRYPTO_AVAILABLE or not secret:
+    """Encrypt webhook secret before storage.
+
+    SECURITY: Fails if encryption is required but unavailable.
+    """
+    if not secret:
         return secret
+
+    if not CRYPTO_AVAILABLE:
+        if is_encryption_required():
+            raise EncryptionError(
+                "encrypt",
+                "cryptography library not available",
+                "webhook_config_store",
+            )
+        return secret
+
     try:
         service = get_encryption_service()
         encrypted = service.encrypt(secret)
         return encrypted.to_base64()
     except Exception as e:
+        if is_encryption_required():
+            raise EncryptionError(
+                "encrypt",
+                str(e),
+                "webhook_config_store",
+            ) from e
         logger.warning(f"Secret encryption failed, storing unencrypted: {e}")
         return secret
 
@@ -651,9 +695,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     def __init__(self, db_path: Path | str, redis_url: Optional[str] = None):
         self._sqlite = SQLiteWebhookConfigStore(db_path)
         self._redis: Optional[Any] = None
-        self._redis_url = redis_url or os.environ.get(
-            "ARAGORA_REDIS_URL", "redis://localhost:6379"
-        )
+        self._redis_url = redis_url or os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379")
         self._redis_checked = False
         logger.info("RedisWebhookConfigStore initialized with SQLite fallback")
 
@@ -665,9 +707,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         try:
             import redis
 
-            self._redis = redis.from_url(
-                self._redis_url, encoding="utf-8", decode_responses=True
-            )
+            self._redis = redis.from_url(self._redis_url, encoding="utf-8", decode_responses=True)
             self._redis.ping()
             self._redis_checked = True
             logger.info("Redis connected for webhook config store")
@@ -704,9 +744,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         redis = self._get_redis()
         if redis:
             try:
-                redis.setex(
-                    self._redis_key(webhook.id), self.REDIS_TTL, webhook.to_json()
-                )
+                redis.setex(self._redis_key(webhook.id), self.REDIS_TTL, webhook.to_json())
             except Exception as e:
                 logger.debug(f"Redis cache update failed: {e}")
 
@@ -730,9 +768,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         # Populate Redis cache if found
         if webhook and redis:
             try:
-                redis.setex(
-                    self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json()
-                )
+                redis.setex(self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json())
             except (ConnectionError, TimeoutError) as e:
                 logger.debug(f"Redis cache population failed (connection issue): {e}")
             except Exception as e:
@@ -786,9 +822,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             redis = self._get_redis()
             if redis:
                 try:
-                    redis.setex(
-                        self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json()
-                    )
+                    redis.setex(self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json())
                 except Exception as e:
                     logger.debug(f"Redis cache update failed: {e}")
 
@@ -1033,9 +1067,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
     async def delete_async(self, webhook_id: str) -> bool:
         """Delete webhook asynchronously."""
         async with self._pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM webhook_configs WHERE id = $1", webhook_id
-            )
+            result = await conn.execute("DELETE FROM webhook_configs WHERE id = $1", webhook_id)
             deleted = result != "DELETE 0"
             if deleted:
                 logger.info(f"Deleted webhook {webhook_id}")
@@ -1154,9 +1186,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
     def get_for_event(self, event_type: str) -> List[WebhookConfig]:
         """Get webhooks for event (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_for_event_async(event_type)
-        )
+        return asyncio.get_event_loop().run_until_complete(self.get_for_event_async(event_type))
 
     async def get_for_event_async(self, event_type: str) -> List[WebhookConfig]:
         """Get webhooks for event asynchronously."""

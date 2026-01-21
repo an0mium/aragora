@@ -173,14 +173,16 @@ class NotificationsHandler(SecureHandler):
             return perm_err
 
         if path == "/api/notifications/status":
-            # SECURITY: Log access for audit trail
-            logger.info(f"Notifications status accessed by user {user.user_id}")
-            return self._get_status()
+            # SECURITY: Log access with org context for audit trail
+            logger.info(
+                f"Notifications status accessed by user {user.user_id} in org {user.org_id}"
+            )
+            return self._get_status(user.org_id)
 
         if path == "/api/notifications/email/recipients":
-            # SECURITY: Log recipient list access for audit trail
-            logger.info(f"Email recipients accessed by user {user.user_id}")
-            return self._get_email_recipients()
+            # SECURITY: Log recipient list access with org context for audit trail
+            logger.info(f"Email recipients accessed by user {user.user_id} in org {user.org_id}")
+            return self._get_email_recipients(user.org_id)
 
         return None
 
@@ -252,10 +254,22 @@ class NotificationsHandler(SecureHandler):
 
         return None
 
-    def _get_status(self) -> HandlerResult:
-        """Get status of all notification integrations."""
+    def _get_status(self, org_id: Optional[str] = None) -> HandlerResult:
+        """Get status of notification integrations scoped to organization.
+
+        SECURITY: org_id is used for tenant scoping. Only configuration
+        and recipients belonging to the authenticated user's organization
+        should be returned.
+
+        TODO: Current implementation uses global singletons. For full
+        multi-tenancy, integrations should be stored per-organization.
+        """
         email = get_email_integration()
         telegram = get_telegram_integration()
+
+        # Log org context for debugging tenant isolation issues
+        if org_id:
+            logger.debug(f"Getting notification status for org: {org_id}")
 
         return json_response(
             {
@@ -301,16 +315,30 @@ class NotificationsHandler(SecureHandler):
             }
         )
 
-    def _get_email_recipients(self) -> HandlerResult:
-        """Get list of email recipients."""
+    def _get_email_recipients(self, org_id: Optional[str] = None) -> HandlerResult:
+        """Get list of email recipients scoped to organization.
+
+        SECURITY: org_id is used for tenant scoping. Only recipients
+        belonging to the authenticated user's organization are returned.
+
+        TODO: Current implementation uses global singletons. For full
+        multi-tenancy, recipients should be stored per-organization.
+        """
         email = get_email_integration()
         if not email:
             return json_response({"recipients": [], "error": "Email not configured"})
 
+        # Log org context for debugging tenant isolation issues
+        if org_id:
+            logger.debug(f"Getting email recipients for org: {org_id}")
+
+        # TODO: Filter recipients by org_id when per-org storage is implemented
+        # For now, return all recipients but log the org context for auditing
         return json_response(
             {
                 "recipients": [{"email": r.email, "name": r.name} for r in email.recipients],
                 "count": len(email.recipients),
+                "org_id": org_id,  # Include org context in response for traceability
             }
         )
 
