@@ -363,7 +363,7 @@ class TestSecureEndpointDecorator:
         with patch.object(
             handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
         ):
-            with patch("aragora.server.handlers.secure.record_auth_attempt"):
+            with patch("aragora.observability.metrics.security.record_auth_attempt"):
                 result = await handler.handle_get(mock_request)
                 assert result.status_code == 200
 
@@ -384,8 +384,8 @@ class TestSecureEndpointDecorator:
             handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
         ):
             with patch.object(handler, "check_permission", return_value=True) as mock_check:
-                with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                    with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                    with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                         await handler.handle_post(mock_request)
                         mock_check.assert_called_once_with(auth_context, "debates.create", None)
 
@@ -406,8 +406,8 @@ class TestSecureEndpointDecorator:
             handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
         ):
             with patch.object(handler, "check_permission", return_value=True) as mock_check:
-                with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                    with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                    with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                         await handler.handle_get(mock_request, debate_id="debate-123")
                         mock_check.assert_called_once_with(
                             auth_context, "debates.read", "debate-123"
@@ -431,8 +431,8 @@ class TestSecureEndpointDecorator:
         ):
             with patch.object(handler, "check_permission", return_value=True):
                 with patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit:
-                    with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                        with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                    with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                        with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                             await handler.handle_post(mock_request, item_id="item-456")
                             mock_audit.assert_awaited_once()
                             call_kwargs = mock_audit.call_args.kwargs
@@ -462,8 +462,8 @@ class TestSecureEndpointDecorator:
         ):
             with patch.object(handler, "check_permission", return_value=True):
                 with patch.object(handler, "audit_action", new_callable=AsyncMock) as mock_audit:
-                    with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                        with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                    with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                        with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                             await handler.handle_delete(mock_request, item_id="item-789")
                             call_kwargs = mock_audit.call_args.kwargs
                             assert call_kwargs["action"] == "purge"
@@ -484,7 +484,7 @@ class TestSecureEndpointDecorator:
         with patch.object(
             handler, "get_auth_context", new_callable=AsyncMock, return_value=anonymous_context
         ):
-            with patch("aragora.server.handlers.secure.record_auth_attempt"):
+            with patch("aragora.observability.metrics.security.record_auth_attempt"):
                 result = await handler.handle_get(mock_request)
                 assert result.status_code == 200
 
@@ -536,8 +536,8 @@ class TestSecureEndpointDecorator:
                     "handle_security_error",
                     return_value=error_response("Forbidden", 403),
                 ) as mock_error:
-                    with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                        with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                    with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                        with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                             result = await handler.handle_post(mock_request)
                             mock_error.assert_called_once()
                             assert result.status_code == 403
@@ -568,8 +568,8 @@ class TestSecureEndpointDecorator:
                     "handle_security_error",
                     return_value=error_response("Permission denied", 403),
                 ):
-                    with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                        with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                    with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                        with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                             result = await handler.handle_delete(mock_request)
                             assert result.status_code == 403
 
@@ -590,15 +590,15 @@ class TestSecureEndpointDecorator:
             handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
         ):
             with patch.object(
-                handler, "check_permission", side_effect=RoleRequiredError("owner")
+                handler, "check_permission", side_effect=RoleRequiredError("Role required", {"owner"}, {"member"})
             ):
                 with patch.object(
                     handler,
                     "handle_security_error",
                     return_value=error_response("Role required", 403),
                 ):
-                    with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                        with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                    with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                        with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                             result = await handler.handle_post(mock_request)
                             assert result.status_code == 403
 
@@ -627,10 +627,10 @@ class TestAuditSensitiveAccessDecorator:
         handler = TestHandler(server_context)
 
         with patch(
-            "aragora.server.handlers.secure.record_secret_access"
+            "aragora.observability.metrics.security.record_secret_access"
         ) as mock_metric:
             with patch(
-                "aragora.server.handlers.secure.audit_secret_access", new_callable=AsyncMock
+                "aragora.observability.security_audit.audit_secret_access", new_callable=AsyncMock
             ):
                 await handler.get_api_key(mock_request, auth_context)
                 mock_metric.assert_called_once_with("api_key", "read")
@@ -650,9 +650,9 @@ class TestAuditSensitiveAccessDecorator:
 
         handler = TestHandler(server_context)
 
-        with patch("aragora.server.handlers.secure.record_secret_access"):
+        with patch("aragora.observability.metrics.security.record_secret_access"):
             with patch(
-                "aragora.server.handlers.secure.audit_secret_access", new_callable=AsyncMock
+                "aragora.observability.security_audit.audit_secret_access", new_callable=AsyncMock
             ) as mock_audit:
                 await handler.get_token(mock_request, auth_context)
                 mock_audit.assert_awaited_once()
@@ -677,9 +677,9 @@ class TestAuditSensitiveAccessDecorator:
 
         handler = TestHandler(server_context)
 
-        with patch("aragora.server.handlers.secure.record_secret_access"):
+        with patch("aragora.observability.metrics.security.record_secret_access"):
             with patch(
-                "aragora.server.handlers.secure.audit_secret_access", new_callable=AsyncMock
+                "aragora.observability.security_audit.audit_secret_access", new_callable=AsyncMock
             ) as mock_audit:
                 await handler.decrypt_password(mock_request, auth_context)
                 call_kwargs = mock_audit.call_args.kwargs
@@ -761,12 +761,12 @@ class TestSecureHandlerIntegration:
             handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
         ):
             with patch(
-                "aragora.server.handlers.secure.get_permission_checker",
+                "aragora.rbac.checker.get_permission_checker",
                 return_value=mock_checker,
             ):
-                with patch("aragora.server.handlers.secure.record_rbac_decision"):
-                    with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                        with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                with patch("aragora.observability.metrics.security.record_rbac_decision"):
+                    with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                        with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                             with patch.object(
                                 handler, "audit_action", new_callable=AsyncMock
                             ) as mock_audit:
@@ -805,7 +805,7 @@ class TestSecureHandlerIntegration:
             handler, "get_auth_context", new_callable=AsyncMock, return_value=auth_context
         ):
             with patch.object(handler, "check_permission", return_value=True):
-                with patch("aragora.server.handlers.secure.record_auth_attempt"):
-                    with patch("aragora.server.handlers.secure.track_rbac_evaluation"):
+                with patch("aragora.observability.metrics.security.record_auth_attempt"):
+                    with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                         result = await handler.handle_get(mock_request)
                         assert result.status_code == 200
