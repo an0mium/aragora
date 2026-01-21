@@ -634,6 +634,37 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Clear rate limiters to prevent test pollution
+    try:
+        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
+        clear_all_limiters()
+    except (ImportError, AttributeError):
+        pass
+
+    # Clear module-level rate limiters (not in registry)
+    try:
+        import aragora.server.handlers.analytics as analytics
+
+        if hasattr(analytics, "_analytics_limiter"):
+            analytics._analytics_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset event loop if closed (prevents "Event loop is closed" errors)
+    try:
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                asyncio.set_event_loop(asyncio.new_event_loop())
+        except RuntimeError:
+            # No event loop in current thread - create one
+            asyncio.set_event_loop(asyncio.new_event_loop())
+    except ImportError:
+        pass
+
 
 @pytest.fixture(autouse=True)
 def reset_lazy_globals():
