@@ -81,6 +81,7 @@ class QueryProtocol(Protocol):
         sources: Sequence["SourceFilter"] = ("all",),
         filters: Optional["QueryFilters"] = None,
         limit: int = 20,
+        offset: int = 0,
         workspace_id: Optional[str] = None,
     ) -> "QueryResult": ...
     async def query_graph(
@@ -101,6 +102,7 @@ class QueryOperationsMixin:
         sources: Sequence["SourceFilter"] = ("all",),
         filters: Optional["QueryFilters"] = None,
         limit: int = 20,
+        offset: int = 0,
         workspace_id: Optional[str] = None,
     ) -> "QueryResult":
         """
@@ -111,6 +113,7 @@ class QueryOperationsMixin:
             sources: Which sources to query ("all" or specific sources)
             filters: Optional filters to apply
             limit: Maximum number of results
+            offset: Number of results to skip (for pagination)
             workspace_id: Workspace to query (defaults to self.workspace_id)
 
         Returns:
@@ -124,8 +127,8 @@ class QueryOperationsMixin:
         ws_id = workspace_id or self.workspace_id
         limit = min(limit, self.config.max_query_limit)
 
-        # Check cache first
-        cache_key = f"{ws_id}:{query}:{limit}:{sources}"
+        # Check cache first (include offset in cache key)
+        cache_key = f"{ws_id}:{query}:{limit}:{offset}:{sources}"
         if self._cache:
             cached = await self._cache.get_query(cache_key)
             if cached:
@@ -156,8 +159,10 @@ class QueryOperationsMixin:
                     elif isinstance(result, Exception):
                         logger.warning(f"Query source failed: {result}")
 
-        # Sort by importance/relevance and limit
+        # Sort by importance/relevance, apply offset, and limit
         items.sort(key=lambda x: x.importance or 0, reverse=True)
+        if offset > 0:
+            items = items[offset:]
         items = items[:limit]
 
         execution_time = (time.time() - start_time) * 1000
