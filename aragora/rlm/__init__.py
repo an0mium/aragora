@@ -55,7 +55,7 @@ Integration points in Aragora:
 from .types import (
     RLMConfig,
     RLMContext,
-    RLMMode,
+    RLMMode as RLMMode,  # Re-exported
     AbstractionLevel,
     CompressionResult,
     DecompositionStrategy,
