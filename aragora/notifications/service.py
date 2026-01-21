@@ -272,8 +272,12 @@ class SlackProvider(NotificationProvider):
         if not self.is_configured():
             latency = time.perf_counter() - start_time
             _record_notification_metric(
-                "slack", notification.severity, notification.priority.value,
-                False, latency, "not_configured"
+                "slack",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                "not_configured",
             )
             return NotificationResult(
                 success=False,
@@ -294,8 +298,7 @@ class SlackProvider(NotificationProvider):
 
             latency = time.perf_counter() - start_time
             _record_notification_metric(
-                "slack", notification.severity, notification.priority.value,
-                True, latency
+                "slack", notification.severity, notification.priority.value, True, latency
             )
             return NotificationResult(
                 success=True,
@@ -309,8 +312,12 @@ class SlackProvider(NotificationProvider):
             latency = time.perf_counter() - start_time
             error_type = "rate_limited" if "rate" in str(e).lower() else "delivery_error"
             _record_notification_metric(
-                "slack", notification.severity, notification.priority.value,
-                False, latency, error_type
+                "slack",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                error_type,
             )
             return NotificationResult(
                 success=False,
@@ -445,8 +452,12 @@ class EmailProvider(NotificationProvider):
         if not self.is_configured():
             latency = time.perf_counter() - start_time
             _record_notification_metric(
-                "email", notification.severity, notification.priority.value,
-                False, latency, "not_configured"
+                "email",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                "not_configured",
             )
             return NotificationResult(
                 success=False,
@@ -468,8 +479,7 @@ class EmailProvider(NotificationProvider):
 
             latency = time.perf_counter() - start_time
             _record_notification_metric(
-                "email", notification.severity, notification.priority.value,
-                True, latency
+                "email", notification.severity, notification.priority.value, True, latency
             )
             return NotificationResult(
                 success=True,
@@ -483,8 +493,12 @@ class EmailProvider(NotificationProvider):
             latency = time.perf_counter() - start_time
             error_type = "connection_error" if "connection" in str(e).lower() else "delivery_error"
             _record_notification_metric(
-                "email", notification.severity, notification.priority.value,
-                False, latency, error_type
+                "email",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                error_type,
             )
             return NotificationResult(
                 success=False,
@@ -610,8 +624,12 @@ class WebhookProvider(NotificationProvider):
         if not endpoint:
             latency = time.perf_counter() - start_time
             _record_notification_metric(
-                "webhook", notification.severity, notification.priority.value,
-                False, latency, "endpoint_not_found"
+                "webhook",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                "endpoint_not_found",
             )
             return NotificationResult(
                 success=False,
@@ -624,8 +642,12 @@ class WebhookProvider(NotificationProvider):
         if not endpoint.enabled:
             latency = time.perf_counter() - start_time
             _record_notification_metric(
-                "webhook", notification.severity, notification.priority.value,
-                False, latency, "endpoint_disabled"
+                "webhook",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                "endpoint_disabled",
             )
             return NotificationResult(
                 success=False,
@@ -671,8 +693,7 @@ class WebhookProvider(NotificationProvider):
 
             latency = time.perf_counter() - start_time
             _record_notification_metric(
-                "webhook", notification.severity, notification.priority.value,
-                True, latency
+                "webhook", notification.severity, notification.priority.value, True, latency
             )
             return NotificationResult(
                 success=True,
@@ -686,8 +707,12 @@ class WebhookProvider(NotificationProvider):
             latency = time.perf_counter() - start_time
             error_type = "timeout" if "timeout" in str(e).lower() else "delivery_error"
             _record_notification_metric(
-                "webhook", notification.severity, notification.priority.value,
-                False, latency, error_type
+                "webhook",
+                notification.severity,
+                notification.priority.value,
+                False,
+                latency,
+                error_type,
             )
             return NotificationResult(
                 success=False,
@@ -1357,7 +1382,9 @@ async def notify_batch_job_failed(
         title=title,
         message="\n".join(message_parts),
         severity=severity,
-        priority=NotificationPriority.HIGH if failure_count > success_count else NotificationPriority.NORMAL,
+        priority=NotificationPriority.HIGH
+        if failure_count > success_count
+        else NotificationPriority.NORMAL,
         resource_type="batch_job",
         resource_id=job_id,
         workspace_id=workspace_id,

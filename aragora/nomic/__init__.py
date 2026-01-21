@@ -302,4 +302,6 @@ __all__ = [
     "get_cycle_store",
     "get_recent_cycles",
     "save_cycle",
+    # Legacy API
+    "NomicLoop",
 ]

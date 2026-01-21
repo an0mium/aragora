@@ -21,7 +21,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 import uuid
@@ -117,9 +116,7 @@ class NomicLoop:
             else:
                 self._consecutive_failures += 1
                 if self._consecutive_failures >= self.max_consecutive_failures:
-                    self._log(
-                        f"Stopping after {self._consecutive_failures} consecutive failures"
-                    )
+                    self._log(f"Stopping after {self._consecutive_failures} consecutive failures")
                     break
 
         return {
@@ -440,9 +437,7 @@ class NomicLoop:
                 import json
 
                 self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
-                checkpoint_path = (
-                    self.checkpoint_dir / f"checkpoint_{self._current_cycle_id}.json"
-                )
+                checkpoint_path = self.checkpoint_dir / f"checkpoint_{self._current_cycle_id}.json"
                 checkpoint_path.write_text(json.dumps(checkpoint, indent=2, default=str))
                 self._log(f"Checkpoint saved: {checkpoint_path}")
             except Exception as e:

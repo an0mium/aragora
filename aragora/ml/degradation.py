@@ -24,8 +24,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import logging
 import math
 import re
@@ -33,7 +31,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, List, Optional, Sequence, TypeVar
+from typing import Any, Optional, Sequence, TypeVar
 
 from aragora.resilience import CircuitBreaker, get_circuit_breaker
 
@@ -252,13 +250,9 @@ class MLDegradationManager:
     def get_status(self) -> dict[str, Any]:
         """Get overall degradation status."""
         return {
-            "features": {
-                f.value: self._feature_status[f].to_dict() for f in MLFeature
-            },
+            "features": {f.value: self._feature_status[f].to_dict() for f in MLFeature},
             "degraded_count": sum(
-                1
-                for s in self._feature_status.values()
-                if s.level != DegradationLevel.FULL
+                1 for s in self._feature_status.values() if s.level != DegradationLevel.FULL
             ),
             "recent_events": [
                 {
@@ -418,7 +412,11 @@ def heuristic_quality_score(text: str) -> float:
 
     # Factor 1: Length (prefer medium-length responses)
     word_count = len(words)
-    length_score = min(1.0, word_count / 100) if word_count < 500 else max(0.5, 1.0 - (word_count - 500) / 1000)
+    length_score = (
+        min(1.0, word_count / 100)
+        if word_count < 500
+        else max(0.5, 1.0 - (word_count - 500) / 1000)
+    )
 
     # Factor 2: Sentence structure
     avg_sentence_len = word_count / max(1, len(sentences))
@@ -503,7 +501,11 @@ def heuristic_sentiment(text: str) -> dict[str, Any]:
     total = pos_count + neg_count
 
     if total == 0:
-        return {"label": "neutral", "confidence": 0.3, "scores": {"positive": 0.33, "negative": 0.33, "neutral": 0.34}}
+        return {
+            "label": "neutral",
+            "confidence": 0.3,
+            "scores": {"positive": 0.33, "negative": 0.33, "neutral": 0.34},
+        }
 
     pos_ratio = pos_count / total
     neg_ratio = neg_count / total
@@ -698,9 +700,10 @@ class MLFallbackService:
         Returns:
             Sentiment dict with label and confidence
         """
-        level = self._manager.get_level(MLFeature.SENTIMENT_ANALYSIS)
+        _level = self._manager.get_level(MLFeature.SENTIMENT_ANALYSIS)
 
         # For now, always use heuristic (no ML sentiment model integrated)
+        # Level check reserved for future ML sentiment model integration
         return heuristic_sentiment(text)
 
     def get_status(self) -> dict[str, Any]:

@@ -193,9 +193,7 @@ class ConsensusHealingWorker:
                         except Exception as e:
                             logger.error(f"Error in on_healing_needed callback: {e}")
 
-            logger.debug(
-                f"[{self.worker_id}] Scan complete: {len(candidates)} candidates found"
-            )
+            logger.debug(f"[{self.worker_id}] Scan complete: {len(candidates)} candidates found")
         except Exception as e:
             logger.error(f"[{self.worker_id}] Error scanning for candidates: {e}")
 
@@ -206,7 +204,7 @@ class ConsensusHealingWorker:
 
         try:
             # Try to use consensus memory if available
-            from aragora.memory.consensus import ConsensusMemory, get_consensus_memory
+            from aragora.memory.consensus import get_consensus_memory
 
             memory = get_consensus_memory()
 
@@ -371,7 +369,11 @@ class ConsensusHealingWorker:
 
         if candidate.reason == HealingReason.TIMEOUT:
             if candidate.rounds_completed >= self.config.min_rounds_for_redebate:
-                return HealingAction.RE_DEBATE if self.config.auto_redebate_enabled else HealingAction.NOTIFY_USER
+                return (
+                    HealingAction.RE_DEBATE
+                    if self.config.auto_redebate_enabled
+                    else HealingAction.NOTIFY_USER
+                )
             return HealingAction.EXTEND_ROUNDS
 
         if candidate.reason == HealingReason.NO_CONSENSUS:

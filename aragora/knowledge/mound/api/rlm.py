@@ -30,7 +30,6 @@ try:
         RLMConfig,
         RLMMode,
         AbstractionLevel,
-        RLMContext as _RLMContext,
         HAS_OFFICIAL_RLM,
     )
 
@@ -275,10 +274,14 @@ class RLMOperationsMixin:
 
         try:
             # Configure for TRUE RLM priority
-            config = RLMConfig(
-                prefer_true_rlm=True,
-                warn_on_compression_fallback=prefer_true_rlm,
-            ) if RLMConfig else None
+            config = (
+                RLMConfig(
+                    prefer_true_rlm=True,
+                    warn_on_compression_fallback=prefer_true_rlm,
+                )
+                if RLMConfig
+                else None
+            )
 
             # Get RLM with AUTO mode (prefers TRUE RLM)
             mode = RLMMode.AUTO if RLMMode else None
@@ -357,8 +360,7 @@ class RLMOperationsMixin:
         """
         if not HAS_RLM or not HAS_OFFICIAL_RLM:
             logger.warning(
-                "[rlm] TRUE RLM REPL not available. "
-                "Install with: pip install aragora[rlm]"
+                "[rlm] TRUE RLM REPL not available. " "Install with: pip install aragora[rlm]"
             )
             return None
 
@@ -379,8 +381,7 @@ class RLMOperationsMixin:
 
             if env:
                 logger.info(
-                    "[rlm] Created TRUE RLM REPL environment for knowledge "
-                    "(workspace=%s)",
+                    "[rlm] Created TRUE RLM REPL environment for knowledge " "(workspace=%s)",
                     ws_id,
                 )
 

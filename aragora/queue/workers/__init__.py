@@ -30,6 +30,17 @@ from aragora.queue.workers.routing_worker import (
     enqueue_routing_job,
     recover_interrupted_routing,
 )
+from aragora.queue.workers.consensus_healing_worker import (
+    ConsensusHealingWorker,
+    HealingAction,
+    HealingCandidate,
+    HealingConfig,
+    HealingReason,
+    HealingResult,
+    get_consensus_healing_worker,
+    start_consensus_healing,
+    stop_consensus_healing,
+)
 
 __all__ = [
     # Gauntlet
@@ -52,4 +63,14 @@ __all__ = [
     "JOB_TYPE_ROUTING_EMAIL",
     "enqueue_routing_job",
     "recover_interrupted_routing",
+    # Consensus Healing
+    "ConsensusHealingWorker",
+    "HealingAction",
+    "HealingCandidate",
+    "HealingConfig",
+    "HealingReason",
+    "HealingResult",
+    "get_consensus_healing_worker",
+    "start_consensus_healing",
+    "stop_consensus_healing",
 ]

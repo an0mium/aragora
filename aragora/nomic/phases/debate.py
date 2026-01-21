@@ -114,10 +114,10 @@ class DebatePhase:
     def __init__(
         self,
         aragora_path: Path,
-        agents: List[Any],
-        arena_factory: Callable[..., Any],
-        environment_factory: Callable[..., Any],
-        protocol_factory: Callable[..., Any],
+        agents: Optional[List[Any]] = None,
+        arena_factory: Optional[Callable[..., Any]] = None,
+        environment_factory: Optional[Callable[..., Any]] = None,
+        protocol_factory: Optional[Callable[..., Any]] = None,
         config: Optional[DebateConfig] = None,
         nomic_integration: Optional[Any] = None,
         cycle_count: int = 0,
@@ -125,6 +125,10 @@ class DebatePhase:
         log_fn: Optional[Callable[[str], None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
         record_replay_fn: Optional[Callable[..., None]] = None,
+        # Legacy API compatibility
+        claude_agent: Optional[Any] = None,
+        codex_agent: Optional[Any] = None,
+        consensus_threshold: float = 0.5,
     ):
         """
         Initialize the debate phase.
@@ -144,7 +148,15 @@ class DebatePhase:
             record_replay_fn: Function to record replay events
         """
         self.aragora_path = aragora_path
-        self.agents = agents
+
+        # Handle legacy API: individual agents -> agents list
+        if agents is not None:
+            self.agents = agents
+        elif claude_agent or codex_agent:
+            self.agents = [a for a in [claude_agent, codex_agent] if a is not None]
+        else:
+            self.agents = []
+
         self._arena_factory = arena_factory
         self._environment_factory = environment_factory
         self._protocol_factory = protocol_factory
@@ -155,6 +167,165 @@ class DebatePhase:
         self._log = log_fn or print
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._record_replay = record_replay_fn or (lambda *args: None)
+
+        # Legacy API attributes
+        self.claude = claude_agent
+        self.codex = codex_agent
+        self.consensus_threshold = consensus_threshold
+        self._proposals: List[Dict[str, Any]] = []
+        self._votes: Dict[str, str] = {}
+
+    # =========================================================================
+    # Legacy API methods (for backward compatibility with tests)
+    # =========================================================================
+
+    async def run(self, context: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Legacy API: Run the debate phase.
+
+        Args:
+            context: Optional context for the debate
+
+        Returns:
+            Debate result dictionary
+        """
+        # Generate proposals
+        proposals = await self._generate_proposals(context)
+        if not proposals:
+            return {
+                "consensus": False,
+                "error": "No proposals generated",
+            }
+        self._proposals = proposals
+
+        # Vote on proposals
+        votes = await self._vote_on_proposals(proposals)
+        self._votes = votes
+
+        # Determine consensus
+        consensus_result = self._determine_consensus(proposals, votes)
+
+        return {
+            "consensus": consensus_result.get("has_consensus", False),
+            "confidence": consensus_result.get("confidence", 0.0),
+            "winner": consensus_result.get("winner"),
+            "proposals": proposals,
+            "votes": votes,
+            **consensus_result,
+        }
+
+    async def _generate_proposals(self, context: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Legacy API: Generate proposals from agents.
+
+        Args:
+            context: Optional context for proposals
+
+        Returns:
+            List of proposal dictionaries
+        """
+        proposals = []
+        for agent in self.agents:
+            try:
+                prompt = f"Propose an improvement for the codebase. Context: {context or 'None'}"
+                response = await agent.generate(prompt)
+                proposals.append(
+                    {
+                        "agent": getattr(agent, "name", str(agent)),
+                        "proposal": response,
+                        "reasoning": "Generated from agent",
+                    }
+                )
+            except Exception as e:
+                self._log(f"Agent {agent} failed to generate proposal: {e}")
+
+        return proposals
+
+    async def _vote_on_proposals(self, proposals: List[Dict[str, Any]]) -> Dict[str, str]:
+        """
+        Legacy API: Collect votes from agents on proposals.
+
+        Args:
+            proposals: List of proposals to vote on
+
+        Returns:
+            Dict mapping agent name to chosen proposal
+        """
+        votes = {}
+        for agent in self.agents:
+            try:
+                agent_name = getattr(agent, "name", str(agent))
+                # Simple voting: each agent votes for a proposal
+                if hasattr(agent, "vote"):
+                    vote_result = await agent.vote(proposals)
+                    choice_idx = getattr(vote_result, "choice", 0)
+                    if 0 <= choice_idx < len(proposals):
+                        votes[agent_name] = proposals[choice_idx]["proposal"]
+                else:
+                    # Default: vote for first proposal
+                    if proposals:
+                        votes[agent_name] = proposals[0]["proposal"]
+            except Exception as e:
+                self._log(f"Agent {agent} failed to vote: {e}")
+
+        return votes
+
+    def _determine_consensus(
+        self,
+        proposals: List[Dict[str, Any]],
+        votes: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """
+        Legacy API: Determine if consensus was reached.
+
+        Args:
+            proposals: List of proposals
+            votes: Dict of votes
+
+        Returns:
+            Consensus result dictionary
+        """
+        if not proposals or not votes:
+            return {
+                "has_consensus": False,
+                "reason": "No proposals or votes",
+            }
+
+        # Count votes per proposal
+        vote_counts: Dict[str, int] = {}
+        for vote in votes.values():
+            vote_counts[vote] = vote_counts.get(vote, 0) + 1
+
+        # Find winner
+        total_votes = len(votes)
+        if total_votes == 0:
+            return {"has_consensus": False, "reason": "No votes cast"}
+
+        winner = max(vote_counts.keys(), key=lambda k: vote_counts[k])
+        winner_votes = vote_counts[winner]
+        confidence = winner_votes / total_votes
+
+        has_consensus = confidence >= self.consensus_threshold
+
+        return {
+            "has_consensus": has_consensus,
+            "winner": winner,
+            "confidence": confidence,
+            "vote_counts": vote_counts,
+            "threshold": self.consensus_threshold,
+        }
+
+    def get_proposals(self) -> List[Dict[str, Any]]:
+        """Legacy API: Get generated proposals."""
+        return self._proposals
+
+    def get_votes(self) -> Dict[str, str]:
+        """Legacy API: Get collected votes."""
+        return self._votes
+
+    # =========================================================================
+    # Original execute method
+    # =========================================================================
 
     async def execute(
         self,

@@ -726,6 +726,7 @@ class REPLContextAdapter(RLMContextAdapter):
         """Check if TRUE RLM (official library) is available."""
         try:
             from .bridge import HAS_OFFICIAL_RLM
+
             return HAS_OFFICIAL_RLM
         except ImportError:
             return False

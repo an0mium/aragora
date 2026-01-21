@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMound
@@ -110,7 +110,7 @@ def load_knowledge_context(
         # Try to get facts
         if hasattr(mound, "get_facts"):
             raw_facts = mound.get_facts(workspace_id, limit=limit)
-            for f in (raw_facts or []):
+            for f in raw_facts or []:
                 item = _to_knowledge_item(f, "fact")
                 facts.append(item)
                 all_items.append(item)
@@ -119,7 +119,7 @@ def load_knowledge_context(
         # Try to get claims
         if hasattr(mound, "get_claims"):
             raw_claims = mound.get_claims(workspace_id, limit=limit)
-            for c in (raw_claims or []):
+            for c in raw_claims or []:
                 item = _to_knowledge_item(c, "claim")
                 claims.append(item)
                 all_items.append(item)
@@ -128,7 +128,7 @@ def load_knowledge_context(
         # Try to get evidence
         if hasattr(mound, "get_evidence"):
             raw_evidence = mound.get_evidence(workspace_id, limit=limit)
-            for e in (raw_evidence or []):
+            for e in raw_evidence or []:
                 item = _to_knowledge_item(e, "evidence")
                 evidence.append(item)
                 all_items.append(item)
@@ -144,10 +144,7 @@ def load_knowledge_context(
 
     # Calculate stats
     total_items = len(all_items)
-    avg_confidence = (
-        sum(i.confidence for i in all_items) / total_items
-        if total_items > 0 else 0.0
-    )
+    avg_confidence = sum(i.confidence for i in all_items) / total_items if total_items > 0 else 0.0
 
     return KnowledgeREPLContext(
         workspace_id=workspace_id,
@@ -300,10 +297,7 @@ def filter_by_confidence(
         >>> high_conf = filter_by_confidence(km.all_items, min_confidence=0.8)
         >>> low_conf = filter_by_confidence(km.all_items, max_confidence=0.3)
     """
-    return [
-        item for item in items
-        if min_confidence <= item.confidence <= max_confidence
-    ]
+    return [item for item in items if min_confidence <= item.confidence <= max_confidence]
 
 
 def group_by_source(
@@ -457,6 +451,7 @@ def partition_by_topic(
 
 
 # RLM Primitives (for use in REPL)
+
 
 def RLM_M(query: str, subset: Optional[list[KnowledgeItem]] = None) -> str:
     """

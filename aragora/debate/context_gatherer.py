@@ -730,7 +730,9 @@ class ContextGatherer:
                 source_name = (
                     source.value
                     if hasattr(source, "value")
-                    else str(source) if source else "unknown"
+                    else str(source)
+                    if source
+                    else "unknown"
                 )
                 content = item.content[:500] if item.content else ""
                 confidence = getattr(item, "confidence", 0.5)
@@ -942,7 +944,10 @@ class ContextGatherer:
             from aragora.knowledge.mound.culture.accumulator import CultureAccumulator
 
             # Get or create accumulator from mound (or mound's internal accumulator)
-            if hasattr(self._knowledge_mound, "_culture_accumulator") and self._knowledge_mound._culture_accumulator:
+            if (
+                hasattr(self._knowledge_mound, "_culture_accumulator")
+                and self._knowledge_mound._culture_accumulator
+            ):
                 accumulator = self._knowledge_mound._culture_accumulator
             else:
                 accumulator = CultureAccumulator(mound=self._knowledge_mound)
@@ -1194,9 +1199,7 @@ class ContextGatherer:
                     return result.answer
 
             # TRUE RLM not available - fall back to compress_and_query
-            logger.debug(
-                "[rlm] TRUE RLM not available for query, using compress_and_query"
-            )
+            logger.debug("[rlm] TRUE RLM not available for query, using compress_and_query")
             result = await asyncio.wait_for(
                 self._aragora_rlm.compress_and_query(
                     query=query,
@@ -1208,9 +1211,7 @@ class ContextGatherer:
 
             if result.answer:
                 approach = "TRUE RLM" if result.used_true_rlm else "compression"
-                logger.debug(
-                    f"[rlm] Query via {approach}: {len(result.answer)} chars"
-                )
+                logger.debug(f"[rlm] Query via {approach}: {len(result.answer)} chars")
                 return result.answer
 
         except asyncio.TimeoutError:

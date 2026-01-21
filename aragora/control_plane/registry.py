@@ -284,6 +284,8 @@ class AgentRegistry:
         provider: str = "unknown",
         metadata: Optional[Dict[str, Any]] = None,
         tags: Optional[List[str]] = None,
+        region_id: str = "default",
+        available_regions: Optional[List[str]] = None,
     ) -> AgentInfo:
         """
         Register a new agent or update existing registration.
@@ -295,12 +297,22 @@ class AgentRegistry:
             provider: Model provider
             metadata: Additional metadata
             tags: Optional tags for filtering
+            region_id: Primary region where agent is deployed
+            available_regions: All regions where agent can accept tasks
 
         Returns:
             AgentInfo for the registered agent
         """
         cap_strs = {c.value if isinstance(c, AgentCapability) else c for c in capabilities}
 
+        # Default available_regions to include region_id
+        if available_regions is None:
+            available_regions_set = {region_id}
+        else:
+            available_regions_set = set(available_regions)
+            available_regions_set.add(region_id)  # Ensure primary is included
+
+        now = time.time()
         agent = AgentInfo(
             agent_id=agent_id,
             capabilities=cap_strs,
@@ -308,13 +320,19 @@ class AgentRegistry:
             model=model,
             provider=provider,
             metadata=metadata or {},
-            registered_at=time.time(),
-            last_heartbeat=time.time(),
+            registered_at=now,
+            last_heartbeat=now,
             tags=set(tags or []),
+            region_id=region_id,
+            available_regions=available_regions_set,
+            last_heartbeat_by_region={region_id: now},
         )
 
         await self._save_agent(agent)
-        logger.info(f"Agent registered: {agent_id} (model={model}, capabilities={cap_strs})")
+        logger.info(
+            f"Agent registered: {agent_id} (model={model}, region={region_id}, "
+            f"capabilities={cap_strs})"
+        )
 
         return agent
 
@@ -487,8 +505,7 @@ class AgentRegistry:
         return [
             a
             for a in agents
-            if a.is_available_in_region(region_id)
-            and (not only_available or a.is_available())
+            if a.is_available_in_region(region_id) and (not only_available or a.is_available())
         ]
 
     async def find_by_capability_and_region(
@@ -542,8 +559,7 @@ class AgentRegistry:
         candidates = [
             a
             for a in agents
-            if a.has_all_capabilities(capabilities)
-            and (not only_available or a.is_available())
+            if a.has_all_capabilities(capabilities) and (not only_available or a.is_available())
         ]
 
         # Group by region priority
@@ -601,6 +617,113 @@ class AgentRegistry:
             return random.choice(candidates)
         else:
             return candidates[0]
+
+    async def select_agent_in_region(
+        self,
+        capabilities: List[str | AgentCapability],
+        target_region: Optional[str] = None,
+        fallback_regions: Optional[List[str]] = None,
+        strategy: str = "least_loaded",
+        exclude: Optional[List[str]] = None,
+        prefer_low_latency: bool = True,
+    ) -> Optional[AgentInfo]:
+        """
+        Select an agent based on capabilities and regional preference.
+
+        This method provides region-aware agent selection, trying the target
+        region first, then fallback regions, with optional latency-based
+        sorting within each region.
+
+        Args:
+            capabilities: Required capabilities
+            target_region: Preferred region for execution
+            fallback_regions: Regions to try if target has no suitable agents
+            strategy: Selection strategy ("least_loaded", "round_robin", "random")
+            exclude: Agent IDs to exclude from selection
+            prefer_low_latency: Sort by latency within region
+
+        Returns:
+            Selected agent or None if no suitable agent found
+        """
+        # Build region priority list
+        regions = []
+        if target_region:
+            regions.append(target_region)
+        if fallback_regions:
+            regions.extend([r for r in fallback_regions if r not in regions])
+
+        # Get candidates with capabilities in specified regions
+        if regions:
+            candidates = await self.find_by_capabilities_and_regions(
+                capabilities, regions, only_available=True
+            )
+        else:
+            candidates = await self.find_by_capabilities(capabilities, only_available=True)
+
+        if exclude:
+            candidates = [a for a in candidates if a.agent_id not in exclude]
+
+        if not candidates:
+            return None
+
+        # Sort by region priority and latency
+        if prefer_low_latency and target_region:
+
+            def sort_key(agent: AgentInfo) -> tuple:
+                # Primary: is in target region (lower is better)
+                in_target = 0 if agent.is_available_in_region(target_region) else 1
+                # Secondary: latency to target region
+                latency = agent.get_latency_for_region(target_region)
+                return (in_target, latency)
+
+            candidates.sort(key=sort_key)
+
+        # Apply final selection strategy
+        if strategy == "least_loaded":
+            # Among top candidates by region, pick least loaded
+            if target_region:
+                top_region_candidates = [
+                    a for a in candidates if a.is_available_in_region(target_region)
+                ]
+                if top_region_candidates:
+                    return min(top_region_candidates, key=lambda a: a.tasks_completed)
+            return min(candidates, key=lambda a: a.tasks_completed)
+        elif strategy == "random":
+            import random
+
+            return random.choice(candidates)
+        else:
+            return candidates[0]
+
+    async def list_regions(self) -> List[str]:
+        """
+        List all unique regions with registered agents.
+
+        Returns:
+            List of region IDs
+        """
+        agents = await self.list_all()
+        regions = set()
+        for agent in agents:
+            regions.add(agent.region_id)
+            regions.update(agent.available_regions)
+        return sorted(regions)
+
+    async def get_agents_by_region(self) -> Dict[str, List[AgentInfo]]:
+        """
+        Get agents grouped by their primary region.
+
+        Returns:
+            Dict mapping region_id to list of agents
+        """
+        agents = await self.list_all()
+        by_region: Dict[str, List[AgentInfo]] = {}
+        for agent in agents:
+            region = agent.region_id
+            if region not in by_region:
+                by_region[region] = []
+            by_region[region].append(agent)
+        return by_region
 
     async def update_status(self, agent_id: str, status: AgentStatus) -> bool:
         """

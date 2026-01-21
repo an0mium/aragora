@@ -62,6 +62,9 @@ class ImplementPhase:
         save_state_fn: Optional[Callable[[dict], None]] = None,
         constitution_verifier: Optional[Any] = None,
         design_gate: Optional["DesignGate"] = None,
+        # Legacy API compatibility
+        codex_agent: Optional[Any] = None,
+        backup_path: Optional[Path] = None,
     ):
         """
         Initialize the implement phase.
@@ -96,6 +99,235 @@ class ImplementPhase:
         self._save_state = save_state_fn or (lambda state: None)
         self._constitution_verifier = constitution_verifier
         self._design_gate = design_gate
+
+        # Legacy API compatibility
+        self.codex = codex_agent
+        self.backup_path = backup_path or (aragora_path / ".nomic" / "backups")
+        self._backup_manifest: Optional[dict] = None
+
+    # =========================================================================
+    # Legacy API methods (for backward compatibility with tests)
+    # =========================================================================
+
+    async def run(self, design: Any) -> dict:
+        """
+        Legacy API: Run implementation phase.
+
+        Args:
+            design: Design specification (dict or str)
+
+        Returns:
+            Result dictionary with success status
+        """
+        design_str = design if isinstance(design, str) else str(design)
+
+        # Generate code
+        try:
+            code_changes = await self.generate_code(design_str)
+        except Exception as e:
+            return {"success": False, "error": f"Code generation failed: {e}"}
+
+        # Validate syntax
+        for file_path, code in code_changes.items():
+            if file_path.endswith(".py") and not self.validate_syntax(code):
+                return {
+                    "success": False,
+                    "error": f"Syntax error in generated code for {file_path}",
+                }
+
+        # Create backup and write files
+        try:
+            files_to_backup = [f for f in code_changes.keys() if (self.aragora_path / f).exists()]
+            self._backup_manifest = await self.create_backup(files_to_backup)
+            await self.write_files(code_changes)
+        except Exception as e:
+            if self._backup_manifest:
+                await self.rollback(self._backup_manifest)
+            return {"success": False, "error": f"Write failed: {e}"}
+
+        return {
+            "success": True,
+            "files_modified": list(code_changes.keys()),
+        }
+
+    async def generate_code(self, design: Any) -> dict:
+        """
+        Legacy API: Generate code from design.
+
+        Args:
+            design: Design specification
+
+        Returns:
+            Dictionary mapping file paths to code content
+        """
+        return await self._generate_code(design)
+
+    async def _generate_code(self, design: Any) -> dict:
+        """
+        Internal method for code generation.
+
+        Override or mock this method to customize code generation.
+
+        Args:
+            design: Design specification
+
+        Returns:
+            Dictionary mapping file paths to code content
+        """
+        # Default: use codex agent if available
+        if self.codex:
+            response = await self.codex.generate(str(design))
+            return {"generated.py": response}
+
+        # Default: return empty dict (tests should mock this)
+        return {}
+
+    def validate_syntax(self, code: str) -> bool:
+        """
+        Legacy API: Validate Python syntax.
+
+        Args:
+            code: Python source code
+
+        Returns:
+            True if syntax is valid
+        """
+        import ast
+
+        try:
+            ast.parse(code)
+            return True
+        except SyntaxError:
+            return False
+
+    def check_dangerous_patterns(self, code: str) -> dict:
+        """
+        Legacy API: Check for dangerous code patterns.
+
+        Args:
+            code: Source code to check
+
+        Returns:
+            Dict with 'safe' bool and 'patterns_found' list
+        """
+        dangerous_patterns = [
+            ("os.system", "System command execution"),
+            ("subprocess.call", "Subprocess execution"),
+            ("eval(", "Code evaluation"),
+            ("exec(", "Code execution"),
+            ("__import__", "Dynamic import"),
+            ("open(", "File operations"),
+        ]
+
+        patterns_found = []
+        for pattern, description in dangerous_patterns:
+            if pattern in code:
+                patterns_found.append({"pattern": pattern, "description": description})
+
+        return {
+            "safe": len(patterns_found) == 0,
+            "patterns_found": patterns_found,
+        }
+
+    async def create_backup(self, files: List[str]) -> dict:
+        """
+        Legacy API: Create backup of files before modification.
+
+        Args:
+            files: List of file paths to backup
+
+        Returns:
+            Backup manifest dict
+        """
+        import shutil
+        from datetime import datetime
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_dir = self.backup_path / timestamp
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+        backed_up = []
+        for file_path in files:
+            src = self.aragora_path / file_path
+            if src.exists():
+                dst = backup_dir / file_path
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                backed_up.append(file_path)
+
+        return {
+            "path": str(backup_dir),
+            "timestamp": timestamp,
+            "files": backed_up,
+            "files_created": [],
+        }
+
+    async def write_files(self, code_changes: dict) -> dict:
+        """
+        Legacy API: Write code changes to files.
+
+        Args:
+            code_changes: Dict mapping file paths to content
+
+        Returns:
+            Result dict
+        """
+        files_written = []
+        files_created = []
+
+        for file_path, content in code_changes.items():
+            full_path = self.aragora_path / file_path
+            is_new = not full_path.exists()
+
+            # Create parent directories
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write file (using open() for testability with builtins.open patches)
+            with open(full_path, "w") as f:
+                f.write(content)
+            files_written.append(file_path)
+
+            if is_new:
+                files_created.append(file_path)
+
+        # Track created files for rollback
+        if self._backup_manifest:
+            self._backup_manifest["files_created"] = files_created
+
+        return {
+            "success": True,
+            "files_written": files_written,
+            "files_created": files_created,
+        }
+
+    async def rollback(self, backup_manifest: dict) -> None:
+        """
+        Legacy API: Rollback changes using backup manifest.
+
+        Args:
+            backup_manifest: Manifest from create_backup()
+        """
+        import shutil
+
+        # Remove newly created files
+        for file_path in backup_manifest.get("files_created", []):
+            full_path = self.aragora_path / file_path
+            if full_path.exists():
+                full_path.unlink()
+
+        # Restore backed up files
+        backup_path = Path(backup_manifest.get("path", ""))
+        if backup_path.exists():
+            for file_path in backup_manifest.get("files", []):
+                src = backup_path / file_path
+                dst = self.aragora_path / file_path
+                if src.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dst)
+
+    # =========================================================================
+    # Original execute method
+    # =========================================================================
 
     async def execute(self, design: str) -> ImplementResult:
         """

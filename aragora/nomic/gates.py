@@ -24,6 +24,233 @@ from typing import Any, Callable, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# Simple Gate Functions (for backward compatibility with tests)
+# =============================================================================
+
+# Default protected files
+DEFAULT_PROTECTED_FILES = [
+    "CLAUDE.md",
+    "core.py",
+    "aragora/__init__.py",
+    ".env",
+    ".env.local",
+    "scripts/nomic_loop.py",
+]
+
+# Default dangerous patterns to detect
+DEFAULT_DANGEROUS_PATTERNS = [
+    "eval(",
+    "exec(",
+    "os.system(",
+    "subprocess.call(",
+    "__import__(",
+    "compile(",
+]
+
+
+@dataclass
+class GateConfig:
+    """Configuration for simple gate functions."""
+
+    protected_files: List[str] = field(default_factory=lambda: DEFAULT_PROTECTED_FILES.copy())
+    dangerous_patterns: List[str] = field(default_factory=lambda: DEFAULT_DANGEROUS_PATTERNS.copy())
+    max_files: int = 20
+    max_lines: int = 1000
+    max_duration_seconds: int = 600
+
+
+# Module-level config (can be overridden in tests)
+_gate_config: Optional[GateConfig] = None
+
+
+def _get_config() -> GateConfig:
+    """Get the current gate configuration."""
+    global _gate_config
+    if _gate_config is None:
+        _gate_config = GateConfig()
+    return _gate_config
+
+
+def is_protected_file(file_path: str) -> bool:
+    """
+    Check if a file is protected from modification.
+
+    Args:
+        file_path: Path to the file (relative or absolute)
+
+    Returns:
+        True if the file is protected
+    """
+    config = _get_config()
+    path = Path(file_path)
+
+    # Normalize the path
+    name = path.name
+    path_str = str(path)
+
+    for protected in config.protected_files:
+        # Check if the protected file matches the name or is in the path
+        if name == protected or protected in path_str:
+            return True
+        # Check for .env pattern matching
+        if protected.startswith(".env") and name.startswith(".env"):
+            return True
+
+    return False
+
+
+def check_change_volume(
+    files_changed: List[str],
+    max_files: Optional[int] = None,
+    lines_added: int = 0,
+    lines_removed: int = 0,
+    max_lines: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Check if the change volume is within acceptable limits.
+
+    Args:
+        files_changed: List of file paths being changed
+        max_files: Maximum allowed files (uses config default if None)
+        lines_added: Number of lines added
+        lines_removed: Number of lines removed
+        max_lines: Maximum allowed lines changed (uses config default if None)
+
+    Returns:
+        Dict with 'allowed' bool and 'reason' if blocked
+    """
+    config = _get_config()
+    max_files = max_files if max_files is not None else config.max_files
+    max_lines = max_lines if max_lines is not None else config.max_lines
+
+    # Check file count
+    if len(files_changed) > max_files:
+        return {
+            "allowed": False,
+            "reason": f"Too many files changed ({len(files_changed)} > {max_files})",
+        }
+
+    # Check line count
+    total_lines = lines_added + lines_removed
+    if total_lines > max_lines:
+        return {
+            "allowed": False,
+            "reason": f"Too many lines changed ({total_lines} > {max_lines})",
+        }
+
+    return {"allowed": True, "reason": ""}
+
+
+def check_dangerous_patterns(code: str) -> Dict[str, Any]:
+    """
+    Check for dangerous code patterns.
+
+    Args:
+        code: Source code to check
+
+    Returns:
+        Dict with 'safe' bool and 'patterns_found' list
+    """
+    config = _get_config()
+    patterns_found = []
+
+    for pattern in config.dangerous_patterns:
+        if pattern in code:
+            # Extract pattern name (e.g., "eval(" -> "eval")
+            pattern_name = pattern.rstrip("(")
+            patterns_found.append(pattern_name)
+
+    return {
+        "safe": len(patterns_found) == 0,
+        "patterns_found": patterns_found,
+    }
+
+
+def check_resource_limits(
+    estimated_duration_seconds: int,
+    max_duration_seconds: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Check if resource usage is within limits.
+
+    Args:
+        estimated_duration_seconds: Estimated operation duration
+        max_duration_seconds: Maximum allowed duration (uses config default if None)
+
+    Returns:
+        Dict with 'allowed' bool and 'reason' if blocked
+    """
+    config = _get_config()
+    max_duration = (
+        max_duration_seconds if max_duration_seconds is not None else config.max_duration_seconds
+    )
+
+    if estimated_duration_seconds > max_duration:
+        return {
+            "allowed": False,
+            "reason": f"Operation time exceeds limit ({estimated_duration_seconds}s > {max_duration}s)",
+        }
+
+    return {"allowed": True, "reason": ""}
+
+
+def check_all_gates(changes: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Check all gates for a set of changes.
+
+    Args:
+        changes: Dict with keys:
+            - files_changed: List of file paths
+            - lines_added: Number of lines added
+            - lines_removed: Number of lines removed
+            - code_content: Code to check for dangerous patterns
+            - estimated_duration: Estimated operation time in seconds
+
+    Returns:
+        Dict with 'allowed' bool and 'blocked_by' list of gate names
+    """
+    blocked_by = []
+
+    # Check protected files
+    for file_path in changes.get("files_changed", []):
+        if is_protected_file(file_path):
+            blocked_by.append(f"protected_file:{file_path}")
+
+    # Check change volume
+    volume_result = check_change_volume(
+        files_changed=changes.get("files_changed", []),
+        lines_added=changes.get("lines_added", 0),
+        lines_removed=changes.get("lines_removed", 0),
+    )
+    if not volume_result["allowed"]:
+        blocked_by.append(f"change_volume:{volume_result['reason']}")
+
+    # Check dangerous patterns
+    code_content = changes.get("code_content", "")
+    if code_content:
+        pattern_result = check_dangerous_patterns(code_content)
+        if not pattern_result["safe"]:
+            blocked_by.append(f"dangerous_patterns:{','.join(pattern_result['patterns_found'])}")
+
+    # Check resource limits
+    estimated_duration = changes.get("estimated_duration", 0)
+    if estimated_duration:
+        resource_result = check_resource_limits(estimated_duration)
+        if not resource_result["allowed"]:
+            blocked_by.append(f"resource_limits:{resource_result['reason']}")
+
+    return {
+        "allowed": len(blocked_by) == 0,
+        "blocked_by": blocked_by,
+    }
+
+
+# =============================================================================
+# Approval Gate Classes (structured decision points)
+# =============================================================================
+
+
 class ApprovalStatus(Enum):
     """Status of a gate approval."""
 
@@ -558,6 +785,14 @@ def create_standard_gates(
 
 
 __all__ = [
+    # Simple gate functions
+    "GateConfig",
+    "is_protected_file",
+    "check_change_volume",
+    "check_dangerous_patterns",
+    "check_resource_limits",
+    "check_all_gates",
+    # Approval gate classes
     "ApprovalGate",
     "ApprovalDecision",
     "ApprovalRequired",

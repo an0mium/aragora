@@ -235,6 +235,16 @@ class DatabaseSettings(BaseSettings):
     # Default: 20 base + 15 overflow = 35 total connections
     pool_size: int = Field(default=20, ge=1, le=100, alias="ARAGORA_DB_POOL_SIZE")
     pool_max_overflow: int = Field(default=15, ge=0, le=100, alias="ARAGORA_DB_POOL_OVERFLOW")
+    # Connection timeout (seconds) - how long to wait for a connection from pool
+    pool_timeout: float = Field(default=30.0, ge=1.0, le=300.0, alias="ARAGORA_DB_POOL_TIMEOUT")
+    # Command timeout (seconds) - max time for any single query
+    command_timeout: float = Field(
+        default=60.0, ge=1.0, le=600.0, alias="ARAGORA_DB_COMMAND_TIMEOUT"
+    )
+    # Statement timeout (seconds) - max time before PostgreSQL cancels query
+    statement_timeout: int = Field(default=60, ge=1, le=600, alias="ARAGORA_DB_STATEMENT_TIMEOUT")
+    # Idle connection recycling (seconds) - recycle connections older than this
+    pool_recycle: int = Field(default=1800, ge=60, le=7200, alias="ARAGORA_DB_POOL_RECYCLE")
 
     # Legacy paths (for backwards compatibility)
     elo_path: str = Field(default="agent_elo.db", alias="ARAGORA_DB_ELO")
