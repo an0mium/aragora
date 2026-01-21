@@ -9,6 +9,7 @@ Provides pluggable backends for persisting revoked JWT tokens:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sqlite3
@@ -16,7 +17,10 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -304,6 +308,134 @@ except ImportError:
     HAS_REDIS = False
 
 
+class PostgresBlacklist(BlacklistBackend):
+    """
+    PostgreSQL-backed token blacklist.
+
+    Async implementation for production multi-instance deployments
+    with horizontal scaling and concurrent writes.
+    """
+
+    SCHEMA_NAME = "token_blacklist"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS token_blacklist (
+            jti TEXT PRIMARY KEY,
+            expires_at TIMESTAMPTZ NOT NULL,
+            revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_blacklist_expires ON token_blacklist(expires_at);
+    """
+
+    def __init__(self, pool: "Pool", cleanup_interval: int = 300):
+        """
+        Initialize PostgreSQL blacklist.
+
+        Args:
+            pool: asyncpg connection pool
+            cleanup_interval: Seconds between automatic cleanups
+        """
+        self._pool = pool
+        self._initialized = False
+        self._cleanup_interval = cleanup_interval
+        self._last_cleanup = time.time()
+        logger.info("PostgresBlacklist initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    def add(self, token_jti: str, expires_at: float) -> None:
+        """Add token to blacklist (sync wrapper for async)."""
+        asyncio.get_event_loop().run_until_complete(
+            self.add_async(token_jti, expires_at)
+        )
+
+    async def add_async(self, token_jti: str, expires_at: float) -> None:
+        """Add token to blacklist asynchronously."""
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO token_blacklist (jti, expires_at, revoked_at)
+                   VALUES ($1, to_timestamp($2), NOW())
+                   ON CONFLICT (jti) DO UPDATE SET
+                       expires_at = to_timestamp($2),
+                       revoked_at = NOW()""",
+                token_jti,
+                expires_at,
+            )
+        self._maybe_cleanup()
+
+    def contains(self, token_jti: str) -> bool:
+        """Check if token is blacklisted (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.contains_async(token_jti)
+        )
+
+    async def contains_async(self, token_jti: str) -> bool:
+        """Check if token is blacklisted asynchronously."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT 1 FROM token_blacklist
+                   WHERE jti = $1 AND expires_at > NOW()""",
+                token_jti,
+            )
+            return row is not None
+
+    def cleanup_expired(self) -> int:
+        """Remove expired tokens (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.cleanup_expired_async()
+        )
+
+    async def cleanup_expired_async(self) -> int:
+        """Remove expired tokens asynchronously."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM token_blacklist WHERE expires_at < NOW()"
+            )
+            # Extract count from result string like "DELETE 5"
+            removed = 0
+            if result and result.startswith("DELETE "):
+                try:
+                    removed = int(result.split()[1])
+                except (IndexError, ValueError):
+                    pass
+            self._last_cleanup = time.time()
+            if removed > 0:
+                logger.debug(f"PostgresBlacklist cleanup: removed {removed}")
+            return removed
+
+    def _maybe_cleanup(self) -> None:
+        """Run cleanup if enough time has passed."""
+        now = time.time()
+        if now - self._last_cleanup > self._cleanup_interval:
+            self.cleanup_expired()
+
+    def size(self) -> int:
+        """Get current blacklist size (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(self.size_async())
+
+    async def size_async(self) -> int:
+        """Get current blacklist size asynchronously."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT COUNT(*) as cnt FROM token_blacklist WHERE expires_at > NOW()"
+            )
+            return row["cnt"] if row else 0
+
+    def close(self) -> None:
+        """Close is a no-op for pool-based stores (pool managed externally)."""
+        pass
+
+
 # Global blacklist backend instance
 _blacklist_backend: Optional[BlacklistBackend] = None
 
@@ -313,9 +445,11 @@ def get_blacklist_backend() -> BlacklistBackend:
     Get or create the token blacklist backend.
 
     Uses environment variables to configure:
-    - ARAGORA_BLACKLIST_BACKEND: "memory", "sqlite" (default), or "redis"
+    - ARAGORA_BLACKLIST_BACKEND: "memory", "sqlite" (default), "postgres", or "redis"
+    - ARAGORA_DB_BACKEND: Global database backend (fallback if store-specific not set)
     - ARAGORA_DATA_DIR: Directory for SQLite database (from config)
     - ARAGORA_REDIS_URL: Redis URL for redis backend
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
 
     Returns:
         Configured BlacklistBackend instance
@@ -324,7 +458,11 @@ def get_blacklist_backend() -> BlacklistBackend:
     if _blacklist_backend is not None:
         return _blacklist_backend
 
-    backend_type = os.environ.get("ARAGORA_BLACKLIST_BACKEND", "sqlite").lower()
+    # Check store-specific backend first, then global database backend
+    backend_type = os.environ.get("ARAGORA_BLACKLIST_BACKEND")
+    if not backend_type:
+        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite")
+    backend_type = backend_type.lower()
 
     # Import DATA_DIR from config (handles environment variable)
     try:
@@ -337,6 +475,20 @@ def get_blacklist_backend() -> BlacklistBackend:
     if backend_type == "memory":
         logger.info("Using in-memory token blacklist (not persistent)")
         _blacklist_backend = InMemoryBlacklist()
+
+    elif backend_type == "postgres" or backend_type == "postgresql":
+        logger.info("Using PostgreSQL token blacklist")
+        try:
+            from aragora.storage.postgres_store import get_postgres_pool
+
+            # Initialize PostgreSQL store with connection pool
+            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+            store = PostgresBlacklist(pool)
+            asyncio.get_event_loop().run_until_complete(store.initialize())
+            _blacklist_backend = store
+        except Exception as e:
+            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+            _blacklist_backend = SQLiteBlacklist(data_dir / "token_blacklist.db")
 
     elif backend_type == "redis":
         redis_url = os.environ.get("ARAGORA_REDIS_URL", "redis://localhost:6379/0")
@@ -377,6 +529,7 @@ __all__ = [
     "BlacklistBackend",
     "InMemoryBlacklist",
     "SQLiteBlacklist",
+    "PostgresBlacklist",
     "get_blacklist_backend",
     "set_blacklist_backend",
     "HAS_REDIS",

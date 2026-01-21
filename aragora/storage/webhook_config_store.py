@@ -1139,9 +1139,11 @@ def get_webhook_config_store() -> WebhookConfigStoreBackend:
     Get or create the webhook config store.
 
     Uses environment variables to configure:
-    - ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND: "memory", "sqlite", or "redis" (default: sqlite)
+    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
+    - ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
     - ARAGORA_DATA_DIR: Directory for SQLite database
     - ARAGORA_REDIS_URL: Redis connection URL (for redis backend)
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
 
     Returns:
         Configured WebhookConfigStoreBackend instance
@@ -1150,9 +1152,14 @@ def get_webhook_config_store() -> WebhookConfigStoreBackend:
     if _webhook_config_store is not None:
         return _webhook_config_store
 
-    backend_type = os.environ.get("ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND", "sqlite").lower()
+    # Check store-specific backend first, then global database backend
+    backend_type = os.environ.get("ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND")
+    if not backend_type:
+        # Fall back to global database backend setting
+        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+    backend_type = backend_type.lower()
 
-    # Get data directory
+    # Get data directory for SQLite
     try:
         from aragora.config.legacy import DATA_DIR
 
@@ -1166,6 +1173,19 @@ def get_webhook_config_store() -> WebhookConfigStoreBackend:
     if backend_type == "memory":
         logger.info("Using in-memory webhook config store (not persistent)")
         _webhook_config_store = InMemoryWebhookConfigStore()
+    elif backend_type == "postgres" or backend_type == "postgresql":
+        logger.info("Using PostgreSQL webhook config store")
+        try:
+            from aragora.storage.postgres_store import get_postgres_pool
+
+            # Initialize PostgreSQL store with connection pool
+            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+            store = PostgresWebhookConfigStore(pool)
+            asyncio.get_event_loop().run_until_complete(store.initialize())
+            _webhook_config_store = store
+        except Exception as e:
+            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+            _webhook_config_store = SQLiteWebhookConfigStore(db_path)
     elif backend_type == "redis":
         logger.info("Using Redis webhook config store with SQLite fallback")
         _webhook_config_store = RedisWebhookConfigStore(db_path)
@@ -1199,6 +1219,7 @@ __all__ = [
     "InMemoryWebhookConfigStore",
     "SQLiteWebhookConfigStore",
     "RedisWebhookConfigStore",
+    "PostgresWebhookConfigStore",
     "get_webhook_config_store",
     "set_webhook_config_store",
     "reset_webhook_config_store",

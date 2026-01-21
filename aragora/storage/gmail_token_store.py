@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -29,7 +30,10 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -584,6 +588,272 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
             self._redis.close()
 
 
+class PostgresGmailTokenStore(GmailTokenStoreBackend):
+    """
+    PostgreSQL-backed Gmail token store.
+
+    Async implementation for production multi-instance deployments
+    with horizontal scaling and concurrent writes.
+    """
+
+    SCHEMA_NAME = "gmail_tokens"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS gmail_tokens (
+            user_id TEXT PRIMARY KEY,
+            email_address TEXT,
+            access_token TEXT,
+            refresh_token TEXT,
+            token_expiry TIMESTAMPTZ,
+            history_id TEXT,
+            last_sync TIMESTAMPTZ,
+            indexed_count INTEGER DEFAULT 0,
+            total_count INTEGER DEFAULT 0,
+            connected_at TIMESTAMPTZ,
+            created_at DOUBLE PRECISION NOT NULL,
+            updated_at DOUBLE PRECISION NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_gmail_tokens_email ON gmail_tokens(email_address);
+
+        CREATE TABLE IF NOT EXISTS gmail_sync_jobs (
+            user_id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            progress INTEGER DEFAULT 0,
+            messages_synced INTEGER DEFAULT 0,
+            started_at TEXT,
+            completed_at TEXT,
+            failed_at TEXT,
+            error TEXT
+        );
+    """
+
+    def __init__(self, pool: "Pool"):
+        self._pool = pool
+        self._initialized = False
+        logger.info("PostgresGmailTokenStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    async def get(self, user_id: str) -> Optional[GmailUserState]:
+        """Get Gmail state for a user."""
+        return await self.get_async(user_id)
+
+    def get_sync(self, user_id: str) -> Optional[GmailUserState]:
+        """Get Gmail state for a user (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(self.get_async(user_id))
+
+    async def get_async(self, user_id: str) -> Optional[GmailUserState]:
+        """Get Gmail state for a user asynchronously."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT user_id, email_address, access_token, refresh_token,
+                          token_expiry, history_id, last_sync, indexed_count,
+                          total_count, connected_at, created_at, updated_at
+                   FROM gmail_tokens WHERE user_id = $1""",
+                user_id,
+            )
+            if row:
+                return self._row_to_state(row)
+            return None
+
+    def _row_to_state(self, row: Any) -> GmailUserState:
+        """Convert database row to GmailUserState."""
+        return GmailUserState(
+            user_id=row["user_id"],
+            email_address=row["email_address"] or "",
+            access_token=row["access_token"] or "",
+            refresh_token=row["refresh_token"] or "",
+            token_expiry=row["token_expiry"],  # Already a datetime from asyncpg
+            history_id=row["history_id"] or "",
+            last_sync=row["last_sync"],  # Already a datetime from asyncpg
+            indexed_count=row["indexed_count"] or 0,
+            total_count=row["total_count"] or 0,
+            connected_at=row["connected_at"],  # Already a datetime from asyncpg
+            created_at=row["created_at"] or time.time(),
+            updated_at=row["updated_at"] or time.time(),
+        )
+
+    async def save(self, state: GmailUserState) -> None:
+        """Save Gmail state for a user."""
+        await self.save_async(state)
+
+    def save_sync(self, state: GmailUserState) -> None:
+        """Save Gmail state for a user (sync wrapper for async)."""
+        asyncio.get_event_loop().run_until_complete(self.save_async(state))
+
+    async def save_async(self, state: GmailUserState) -> None:
+        """Save Gmail state for a user asynchronously."""
+        state.updated_at = time.time()
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO gmail_tokens
+                   (user_id, email_address, access_token, refresh_token,
+                    token_expiry, history_id, last_sync, indexed_count,
+                    total_count, connected_at, created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                   ON CONFLICT (user_id) DO UPDATE SET
+                    email_address = EXCLUDED.email_address,
+                    access_token = EXCLUDED.access_token,
+                    refresh_token = EXCLUDED.refresh_token,
+                    token_expiry = EXCLUDED.token_expiry,
+                    history_id = EXCLUDED.history_id,
+                    last_sync = EXCLUDED.last_sync,
+                    indexed_count = EXCLUDED.indexed_count,
+                    total_count = EXCLUDED.total_count,
+                    connected_at = EXCLUDED.connected_at,
+                    updated_at = EXCLUDED.updated_at""",
+                state.user_id,
+                state.email_address,
+                state.access_token,
+                state.refresh_token,
+                state.token_expiry,
+                state.history_id,
+                state.last_sync,
+                state.indexed_count,
+                state.total_count,
+                state.connected_at,
+                state.created_at,
+                state.updated_at,
+            )
+        logger.debug(f"Saved Gmail state for user {state.user_id}")
+
+    async def delete(self, user_id: str) -> bool:
+        """Delete Gmail state for a user."""
+        return await self.delete_async(user_id)
+
+    def delete_sync(self, user_id: str) -> bool:
+        """Delete Gmail state for a user (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(self.delete_async(user_id))
+
+    async def delete_async(self, user_id: str) -> bool:
+        """Delete Gmail state for a user asynchronously."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM gmail_tokens WHERE user_id = $1", user_id
+            )
+            deleted = result != "DELETE 0"
+            if deleted:
+                logger.debug(f"Deleted Gmail state for user {user_id}")
+            return deleted
+
+    async def list_all(self) -> List[GmailUserState]:
+        """List all Gmail states (admin use)."""
+        return await self.list_all_async()
+
+    def list_all_sync(self) -> List[GmailUserState]:
+        """List all Gmail states (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_all_async())
+
+    async def list_all_async(self) -> List[GmailUserState]:
+        """List all Gmail states asynchronously."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT user_id, email_address, access_token, refresh_token,
+                          token_expiry, history_id, last_sync, indexed_count,
+                          total_count, connected_at, created_at, updated_at
+                   FROM gmail_tokens"""
+            )
+            return [self._row_to_state(row) for row in rows]
+
+    async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:
+        """Get sync job state for a user."""
+        return await self.get_sync_job_async(user_id)
+
+    def get_sync_job_sync(self, user_id: str) -> Optional[SyncJobState]:
+        """Get sync job state for a user (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.get_sync_job_async(user_id)
+        )
+
+    async def get_sync_job_async(self, user_id: str) -> Optional[SyncJobState]:
+        """Get sync job state for a user asynchronously."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT user_id, status, progress, messages_synced,
+                          started_at, completed_at, failed_at, error
+                   FROM gmail_sync_jobs WHERE user_id = $1""",
+                user_id,
+            )
+            if row:
+                return SyncJobState(
+                    user_id=row["user_id"],
+                    status=row["status"],
+                    progress=row["progress"] or 0,
+                    messages_synced=row["messages_synced"] or 0,
+                    started_at=row["started_at"],
+                    completed_at=row["completed_at"],
+                    failed_at=row["failed_at"],
+                    error=row["error"],
+                )
+            return None
+
+    async def save_sync_job(self, job: SyncJobState) -> None:
+        """Save sync job state."""
+        await self.save_sync_job_async(job)
+
+    def save_sync_job_sync(self, job: SyncJobState) -> None:
+        """Save sync job state (sync wrapper for async)."""
+        asyncio.get_event_loop().run_until_complete(self.save_sync_job_async(job))
+
+    async def save_sync_job_async(self, job: SyncJobState) -> None:
+        """Save sync job state asynchronously."""
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO gmail_sync_jobs
+                   (user_id, status, progress, messages_synced,
+                    started_at, completed_at, failed_at, error)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                   ON CONFLICT (user_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    progress = EXCLUDED.progress,
+                    messages_synced = EXCLUDED.messages_synced,
+                    started_at = EXCLUDED.started_at,
+                    completed_at = EXCLUDED.completed_at,
+                    failed_at = EXCLUDED.failed_at,
+                    error = EXCLUDED.error""",
+                job.user_id,
+                job.status,
+                job.progress,
+                job.messages_synced,
+                job.started_at,
+                job.completed_at,
+                job.failed_at,
+                job.error,
+            )
+
+    async def delete_sync_job(self, user_id: str) -> bool:
+        """Delete sync job for a user."""
+        return await self.delete_sync_job_async(user_id)
+
+    def delete_sync_job_sync(self, user_id: str) -> bool:
+        """Delete sync job for a user (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.delete_sync_job_async(user_id)
+        )
+
+    async def delete_sync_job_async(self, user_id: str) -> bool:
+        """Delete sync job for a user asynchronously."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM gmail_sync_jobs WHERE user_id = $1", user_id
+            )
+            return result != "DELETE 0"
+
+    async def close(self) -> None:
+        """Close is a no-op for pool-based stores (pool managed externally)."""
+        pass
+
+
 # =============================================================================
 # Global Store Factory
 # =============================================================================
@@ -596,9 +866,11 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
     Get or create the Gmail token store.
 
     Uses environment variables to configure:
-    - ARAGORA_GMAIL_STORE_BACKEND: "memory", "sqlite", or "redis" (default: sqlite)
+    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
+    - ARAGORA_GMAIL_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
     - ARAGORA_DATA_DIR: Directory for SQLite database
     - ARAGORA_REDIS_URL: Redis connection URL (for redis backend)
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
 
     Returns:
         Configured GmailTokenStoreBackend instance
@@ -607,9 +879,14 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
     if _gmail_token_store is not None:
         return _gmail_token_store
 
-    backend_type = os.environ.get("ARAGORA_GMAIL_STORE_BACKEND", "sqlite").lower()
+    # Check store-specific backend first, then global database backend
+    backend_type = os.environ.get("ARAGORA_GMAIL_STORE_BACKEND")
+    if not backend_type:
+        # Fall back to global database backend setting
+        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+    backend_type = backend_type.lower()
 
-    # Get data directory
+    # Get data directory for SQLite
     try:
         from aragora.config.legacy import DATA_DIR
 
@@ -623,6 +900,19 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
     if backend_type == "memory":
         logger.info("Using in-memory Gmail token store (not persistent)")
         _gmail_token_store = InMemoryGmailTokenStore()
+    elif backend_type == "postgres" or backend_type == "postgresql":
+        logger.info("Using PostgreSQL Gmail token store")
+        try:
+            from aragora.storage.postgres_store import get_postgres_pool
+
+            # Initialize PostgreSQL store with connection pool
+            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+            store = PostgresGmailTokenStore(pool)
+            asyncio.get_event_loop().run_until_complete(store.initialize())
+            _gmail_token_store = store
+        except Exception as e:
+            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+            _gmail_token_store = SQLiteGmailTokenStore(db_path)
     elif backend_type == "redis":
         logger.info("Using Redis Gmail token store with SQLite fallback")
         _gmail_token_store = RedisGmailTokenStore(db_path)
@@ -653,6 +943,7 @@ __all__ = [
     "InMemoryGmailTokenStore",
     "SQLiteGmailTokenStore",
     "RedisGmailTokenStore",
+    "PostgresGmailTokenStore",
     "get_gmail_token_store",
     "set_gmail_token_store",
     "reset_gmail_token_store",

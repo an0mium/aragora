@@ -22,6 +22,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -32,7 +33,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -854,6 +858,297 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
                 logger.debug(f"Redis close failed: {e}")
 
 
+class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
+    """
+    PostgreSQL-backed approval request store.
+
+    Async implementation for production multi-instance deployments
+    with horizontal scaling and concurrent writes.
+    """
+
+    SCHEMA_NAME = "approval_requests"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS approval_requests (
+            request_id TEXT PRIMARY KEY,
+            workflow_id TEXT NOT NULL,
+            step_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            requester_id TEXT,
+            responder_id TEXT,
+            priority INTEGER DEFAULT 3,
+            workspace_id TEXT,
+            expires_at TEXT,
+            responded_at TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            data_json JSONB NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_approval_status ON approval_requests(status);
+        CREATE INDEX IF NOT EXISTS idx_approval_workflow ON approval_requests(workflow_id);
+        CREATE INDEX IF NOT EXISTS idx_approval_expires ON approval_requests(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_approval_workspace ON approval_requests(workspace_id);
+    """
+
+    def __init__(self, pool: "Pool"):
+        self._pool = pool
+        self._initialized = False
+        logger.info("PostgresApprovalRequestStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    async def get(self, request_id: str) -> Optional[dict[str, Any]]:
+        """Get request data by ID."""
+        return await self.get_async(request_id)
+
+    async def get_async(self, request_id: str) -> Optional[dict[str, Any]]:
+        """Get request data by ID asynchronously."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT data_json FROM approval_requests WHERE request_id = $1",
+                request_id,
+            )
+            if row:
+                data = row["data_json"]
+                return json.loads(data) if isinstance(data, str) else data
+            return None
+
+    async def save(self, data: dict[str, Any]) -> None:
+        """Save request data."""
+        await self.save_async(data)
+
+    async def save_async(self, data: dict[str, Any]) -> None:
+        """Save request data asynchronously."""
+        request_id = data.get("request_id")
+        if not request_id:
+            raise ValueError("request_id is required")
+
+        now = time.time()
+        data_json = json.dumps(data)
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO approval_requests
+                (request_id, workflow_id, step_id, title, status,
+                 requester_id, responder_id, priority, workspace_id,
+                 expires_at, responded_at, created_at, updated_at, data_json)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                        to_timestamp($12), to_timestamp($13), $14)
+                ON CONFLICT (request_id) DO UPDATE SET
+                    workflow_id = EXCLUDED.workflow_id,
+                    step_id = EXCLUDED.step_id,
+                    title = EXCLUDED.title,
+                    status = EXCLUDED.status,
+                    requester_id = EXCLUDED.requester_id,
+                    responder_id = EXCLUDED.responder_id,
+                    priority = EXCLUDED.priority,
+                    workspace_id = EXCLUDED.workspace_id,
+                    expires_at = EXCLUDED.expires_at,
+                    responded_at = EXCLUDED.responded_at,
+                    updated_at = to_timestamp($13),
+                    data_json = EXCLUDED.data_json
+                """,
+                request_id,
+                data.get("workflow_id", ""),
+                data.get("step_id", ""),
+                data.get("title", ""),
+                data.get("status", "pending"),
+                data.get("requester_id"),
+                data.get("responder_id"),
+                data.get("priority", 3),
+                data.get("workspace_id"),
+                data.get("expires_at"),
+                data.get("responded_at"),
+                now,
+                now,
+                data_json,
+            )
+
+    async def delete(self, request_id: str) -> bool:
+        """Delete request data."""
+        return await self.delete_async(request_id)
+
+    async def delete_async(self, request_id: str) -> bool:
+        """Delete request data asynchronously."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM approval_requests WHERE request_id = $1",
+                request_id,
+            )
+            return result != "DELETE 0"
+
+    async def list_all(self) -> list[dict[str, Any]]:
+        """List all requests."""
+        return await self.list_all_async()
+
+    async def list_all_async(self) -> list[dict[str, Any]]:
+        """List all requests asynchronously."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT data_json FROM approval_requests
+                   ORDER BY EXTRACT(EPOCH FROM created_at) DESC"""
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    async def list_by_status(self, status: str) -> list[dict[str, Any]]:
+        """List requests by status."""
+        return await self.list_by_status_async(status)
+
+    async def list_by_status_async(self, status: str) -> list[dict[str, Any]]:
+        """List requests by status asynchronously."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT data_json FROM approval_requests
+                WHERE status = $1
+                ORDER BY priority ASC, EXTRACT(EPOCH FROM created_at) DESC
+                """,
+                status,
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    async def list_by_workflow(self, workflow_id: str) -> list[dict[str, Any]]:
+        """List requests by workflow."""
+        return await self.list_by_workflow_async(workflow_id)
+
+    async def list_by_workflow_async(self, workflow_id: str) -> list[dict[str, Any]]:
+        """List requests by workflow asynchronously."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT data_json FROM approval_requests
+                WHERE workflow_id = $1
+                ORDER BY EXTRACT(EPOCH FROM created_at) DESC
+                """,
+                workflow_id,
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    async def list_pending(self) -> list[dict[str, Any]]:
+        """List pending requests."""
+        return await self.list_pending_async()
+
+    async def list_pending_async(self) -> list[dict[str, Any]]:
+        """List pending requests asynchronously."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT data_json FROM approval_requests
+                WHERE status = 'pending'
+                ORDER BY priority ASC, EXTRACT(EPOCH FROM created_at) DESC
+                """
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    async def list_expired(self) -> list[dict[str, Any]]:
+        """List expired requests."""
+        return await self.list_expired_async()
+
+    async def list_expired_async(self) -> list[dict[str, Any]]:
+        """List expired requests asynchronously."""
+        now = datetime.utcnow().isoformat()
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT data_json FROM approval_requests
+                WHERE status = 'pending'
+                  AND expires_at IS NOT NULL
+                  AND expires_at < $1
+                ORDER BY expires_at ASC
+                """,
+                now,
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    async def respond(
+        self,
+        request_id: str,
+        status: str,
+        responder_id: str,
+        response_data: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Record a response to an approval request."""
+        return await self.respond_async(request_id, status, responder_id, response_data)
+
+    async def respond_async(
+        self,
+        request_id: str,
+        status: str,
+        responder_id: str,
+        response_data: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Record a response to an approval request asynchronously."""
+        async with self._pool.acquire() as conn:
+            # Get current data
+            row = await conn.fetchrow(
+                "SELECT data_json FROM approval_requests WHERE request_id = $1",
+                request_id,
+            )
+            if not row:
+                return False
+
+            raw_data = row["data_json"]
+            data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+            data["status"] = status
+            data["responder_id"] = responder_id
+            data["responded_at"] = datetime.utcnow().isoformat()
+            data["updated_at"] = datetime.utcnow().isoformat()
+            if response_data is not None:
+                data["response_data"] = response_data
+
+            result = await conn.execute(
+                """
+                UPDATE approval_requests
+                SET status = $1, responder_id = $2, responded_at = $3,
+                    updated_at = to_timestamp($4), data_json = $5
+                WHERE request_id = $6
+                """,
+                status,
+                responder_id,
+                data["responded_at"],
+                time.time(),
+                json.dumps(data),
+                request_id,
+            )
+            return result != "UPDATE 0"
+
+    async def close(self) -> None:
+        """Close is a no-op for pool-based stores (pool managed externally)."""
+        pass
+
+
 def get_approval_request_store() -> ApprovalRequestStoreBackend:
     """
     Get the global approval request store instance.
@@ -861,7 +1156,10 @@ def get_approval_request_store() -> ApprovalRequestStoreBackend:
     Backend is selected based on ARAGORA_APPROVAL_STORE_BACKEND env var:
     - "memory": InMemoryApprovalRequestStore (for testing)
     - "sqlite": SQLiteApprovalRequestStore (default, single-instance)
+    - "postgres" or "postgresql": PostgresApprovalRequestStore (multi-instance)
     - "redis": RedisApprovalRequestStore (multi-instance)
+
+    Also checks ARAGORA_DB_BACKEND for global database backend selection.
     """
     global _approval_request_store
 
@@ -869,11 +1167,28 @@ def get_approval_request_store() -> ApprovalRequestStoreBackend:
         if _approval_request_store is not None:
             return _approval_request_store
 
-        backend = os.getenv("ARAGORA_APPROVAL_STORE_BACKEND", "sqlite").lower()
+        # Check store-specific backend first, then global database backend
+        backend = os.getenv("ARAGORA_APPROVAL_STORE_BACKEND")
+        if not backend:
+            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
+        backend = backend.lower()
 
         if backend == "memory":
             _approval_request_store = InMemoryApprovalRequestStore()
             logger.info("Using in-memory approval request store")
+        elif backend == "postgres" or backend == "postgresql":
+            logger.info("Using PostgreSQL approval request store")
+            try:
+                from aragora.storage.postgres_store import get_postgres_pool
+
+                # Initialize PostgreSQL store with connection pool
+                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+                store = PostgresApprovalRequestStore(pool)
+                asyncio.get_event_loop().run_until_complete(store.initialize())
+                _approval_request_store = store
+            except Exception as e:
+                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+                _approval_request_store = SQLiteApprovalRequestStore()
         elif backend == "redis":
             _approval_request_store = RedisApprovalRequestStore()
             logger.info("Using Redis approval request store")
@@ -906,6 +1221,7 @@ __all__ = [
     "InMemoryApprovalRequestStore",
     "SQLiteApprovalRequestStore",
     "RedisApprovalRequestStore",
+    "PostgresApprovalRequestStore",
     "get_approval_request_store",
     "set_approval_request_store",
     "reset_approval_request_store",

@@ -332,14 +332,21 @@ class StateManager:
 
         Runs registered shutdown callbacks and cleans up executor.
         """
-        logger.info("StateManager shutdown initiated")
+        try:
+            logger.info("StateManager shutdown initiated")
+        except (ValueError, OSError):
+            # Logger may be closed during interpreter shutdown
+            pass
 
         # Run callbacks
         for callback in self._shutdown_callbacks:
             try:
                 callback()
             except Exception as e:
-                logger.error(f"Shutdown callback error: {e}")
+                try:
+                    logger.error(f"Shutdown callback error: {e}")
+                except (ValueError, OSError):
+                    pass
 
         # Shutdown executor
         self.shutdown_executor(wait=True)
@@ -348,7 +355,11 @@ class StateManager:
         with self._debates_lock:
             self._active_debates.clear()
 
-        logger.info("StateManager shutdown complete")
+        try:
+            logger.info("StateManager shutdown complete")
+        except (ValueError, OSError):
+            # Logger may be closed during interpreter shutdown
+            pass
 
     # ==================== Stats ====================
 

@@ -574,3 +574,183 @@ class TestEdgeCases:
         except TypeError:
             # Expected if None is returned
             pass
+
+
+# =============================================================================
+# KM Expertise Selection Tests
+# =============================================================================
+
+
+@dataclass
+class MockAgentExpertise:
+    """Mock AgentExpertise for testing."""
+
+    agent_name: str
+    domain: str
+    elo: float
+    confidence: float = 0.8
+
+
+class MockRankingAdapter:
+    """Mock RankingAdapter for testing KM expertise."""
+
+    def __init__(self, domain_experts: dict[str, list[MockAgentExpertise]] = None):
+        self._domain_experts = domain_experts or {}
+
+    def get_domain_experts(
+        self,
+        domain: str,
+        limit: int = 10,
+        min_confidence: float = 0.0,
+        use_cache: bool = True,
+    ) -> list[MockAgentExpertise]:
+        return self._domain_experts.get(domain.lower(), [])
+
+
+class TestKMExpertiseSelection:
+    """Tests for KM-powered expertise selection."""
+
+    def test_km_expertise_affects_ordering(self):
+        """Agents with KM expertise should rank higher."""
+        agents = [
+            MockAgent(name="novice"),
+            MockAgent(name="expert"),
+            MockAgent(name="intermediate"),
+        ]
+        ranking_adapter = MockRankingAdapter(
+            domain_experts={
+                "technical": [
+                    MockAgentExpertise("expert", "technical", 1600, 0.9),
+                    MockAgentExpertise("intermediate", "technical", 1200, 0.7),
+                ]
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_km_expertise=True,
+            km_expertise_weight=0.5,
+        )
+        selector = TeamSelector(ranking_adapter=ranking_adapter, config=config)
+
+        selected = selector.select(agents, domain="technical")
+
+        # Expert should rank highest due to KM expertise
+        assert selected[0].name == "expert"
+        # Novice with no KM data should rank lowest
+        assert selected[-1].name == "novice"
+
+    def test_km_expertise_score_with_confidence(self):
+        """KM expertise score should factor in confidence."""
+        agent = MockAgent(name="high_confidence")
+        ranking_adapter = MockRankingAdapter(
+            domain_experts={
+                "research": [
+                    MockAgentExpertise("high_confidence", "research", 1500, 0.95),
+                ]
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_km_expertise=True,
+            km_expertise_weight=1.0,
+        )
+        selector = TeamSelector(ranking_adapter=ranking_adapter, config=config)
+
+        score = selector.score_agent(agent, domain="research")
+
+        # Base (1.0) + high KM expertise with 0.95 confidence
+        assert score > 1.5
+
+    def test_km_expertise_disabled(self):
+        """KM expertise should be skipped when disabled."""
+        agent = MockAgent(name="expert")
+        ranking_adapter = MockRankingAdapter(
+            domain_experts={
+                "technical": [
+                    MockAgentExpertise("expert", "technical", 1600, 0.9),
+                ]
+            }
+        )
+        config = TeamSelectionConfig(enable_km_expertise=False)
+        selector = TeamSelector(ranking_adapter=ranking_adapter, config=config)
+
+        score = selector.score_agent(agent, domain="technical")
+
+        # Should be base score only since KM is disabled
+        assert score == pytest.approx(1.0, abs=0.01)
+
+    def test_km_expertise_no_adapter(self):
+        """Should handle missing ranking adapter gracefully."""
+        agent = MockAgent(name="test")
+        config = TeamSelectionConfig(enable_km_expertise=True)
+        selector = TeamSelector(ranking_adapter=None, config=config)
+
+        score = selector.score_agent(agent, domain="technical")
+
+        # Should not raise, just return base score
+        assert score == pytest.approx(1.0, abs=0.01)
+
+    def test_km_expertise_cache(self):
+        """KM expertise lookups should be cached."""
+        agent = MockAgent(name="expert")
+        ranking_adapter = MockRankingAdapter(
+            domain_experts={
+                "research": [
+                    MockAgentExpertise("expert", "research", 1500, 0.9),
+                ]
+            }
+        )
+        config = TeamSelectionConfig(enable_km_expertise=True)
+        selector = TeamSelector(ranking_adapter=ranking_adapter, config=config)
+
+        # First call populates cache
+        selector.score_agent(agent, domain="research")
+
+        # Cache should be populated
+        assert "research" in selector._km_expertise_cache
+
+        # Second call should use cache
+        score = selector.score_agent(agent, domain="research")
+        assert score > 1.0
+
+    def test_km_expertise_empty_domain(self):
+        """Should handle domains with no experts."""
+        agent = MockAgent(name="test")
+        ranking_adapter = MockRankingAdapter(domain_experts={})
+        config = TeamSelectionConfig(enable_km_expertise=True)
+        selector = TeamSelector(ranking_adapter=ranking_adapter, config=config)
+
+        score = selector.score_agent(agent, domain="obscure_domain")
+
+        # No KM data = base score only
+        assert score == pytest.approx(1.0, abs=0.01)
+
+    def test_km_expertise_combined_with_elo(self):
+        """KM expertise should combine with ELO scoring."""
+        agents = [
+            MockAgent(name="km_expert"),
+            MockAgent(name="elo_expert"),
+        ]
+        elo = MockEloSystem({"km_expert": 1000, "elo_expert": 1500})
+        ranking_adapter = MockRankingAdapter(
+            domain_experts={
+                "coding": [
+                    MockAgentExpertise("km_expert", "coding", 1600, 0.95),
+                ]
+            }
+        )
+        config = TeamSelectionConfig(
+            elo_weight=0.3,
+            km_expertise_weight=0.5,
+            enable_km_expertise=True,
+        )
+        selector = TeamSelector(
+            elo_system=elo,
+            ranking_adapter=ranking_adapter,
+            config=config,
+        )
+
+        km_score = selector.score_agent(agents[0], domain="coding")
+        elo_score = selector.score_agent(agents[1], domain="coding")
+
+        # Both should contribute, km_expert should edge out due to high KM expertise
+        assert km_score > 1.0
+        assert elo_score > 1.0

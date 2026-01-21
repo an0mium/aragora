@@ -388,6 +388,95 @@ class TeamSelector:
 
         return 0.0
 
+    def _get_km_domain_experts(self, domain: str) -> list[Any]:
+        """Get domain experts from KM with caching.
+
+        Uses the RankingAdapter to query historical expertise data stored in
+        the Knowledge Mound, providing organizational learning about which
+        agents perform best in specific domains.
+
+        Args:
+            domain: Domain to query expertise for
+
+        Returns:
+            List of AgentExpertise objects sorted by ELO
+        """
+        import time
+
+        if not self.ranking_adapter or not self.config.enable_km_expertise:
+            return []
+
+        cache_key = domain.lower()
+        current_time = time.time()
+
+        # Check cache
+        if cache_key in self._km_expertise_cache:
+            cached_time, cached_experts = self._km_expertise_cache[cache_key]
+            if current_time - cached_time < self.config.km_expertise_cache_ttl:
+                return cached_experts
+
+        # Query KM for domain experts
+        try:
+            experts = self.ranking_adapter.get_domain_experts(
+                domain=domain,
+                limit=20,
+                min_confidence=0.3,
+                use_cache=True,
+            )
+            self._km_expertise_cache[cache_key] = (current_time, experts)
+            logger.debug(
+                f"km_expertise_lookup domain={domain} experts={len(experts)}"
+            )
+            return experts
+        except Exception as e:
+            logger.debug(f"KM expertise lookup failed for {domain}: {e}")
+            return []
+
+    def _compute_km_expertise_score(
+        self,
+        agent: "Agent",
+        domain: str,
+    ) -> float:
+        """Compute score bonus based on KM-stored expertise.
+
+        Looks up the agent's historical performance in the domain from the
+        Knowledge Mound and provides a score bonus based on their ranking.
+
+        Args:
+            agent: Agent to score
+            domain: Domain to check expertise for
+
+        Returns:
+            Score bonus (0.0 to 1.0) based on KM expertise ranking
+        """
+        experts = self._get_km_domain_experts(domain)
+        if not experts:
+            return 0.0
+
+        agent_name_lower = agent.name.lower()
+
+        # Find agent in expert list
+        for idx, expert in enumerate(experts):
+            expert_name = getattr(expert, "agent_name", "").lower()
+            if expert_name and (
+                expert_name in agent_name_lower or agent_name_lower in expert_name
+            ):
+                # Score based on ranking position (first = 1.0, decreasing)
+                max_experts = min(len(experts), 10)
+                position_score = 1.0 - (idx / max_experts)
+
+                # Boost by confidence if available
+                confidence = getattr(expert, "confidence", 0.8)
+                adjusted_score = position_score * (0.5 + confidence * 0.5)
+
+                logger.debug(
+                    f"km_expertise_score agent={agent.name} domain={domain} "
+                    f"rank={idx+1} score={adjusted_score:.3f}"
+                )
+                return max(0.0, min(1.0, adjusted_score))
+
+        return 0.0
+
     def _compute_score(
         self,
         agent: "Agent",
@@ -443,6 +532,11 @@ class TeamSelector:
         if self.knowledge_mound and self.config.enable_culture_selection and domain:
             culture_score = self._compute_culture_score(agent, domain)
             score += culture_score * self.config.culture_weight
+
+        # KM expertise contribution (historical performance from Knowledge Mound)
+        if self.ranking_adapter and self.config.enable_km_expertise and domain:
+            km_expertise_score = self._compute_km_expertise_score(agent, domain)
+            score += km_expertise_score * self.config.km_expertise_weight
 
         return score
 

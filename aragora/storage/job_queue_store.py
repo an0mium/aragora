@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -30,7 +31,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -554,6 +558,356 @@ class SQLiteJobStore(JobStoreBackend):
             del self._local.conn
 
 
+class PostgresJobQueueStore(JobStoreBackend):
+    """
+    PostgreSQL-backed job store.
+
+    Async implementation for production multi-instance deployments
+    with horizontal scaling and concurrent job processing.
+    """
+
+    SCHEMA_NAME = "job_queue"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS job_queue (
+            id TEXT PRIMARY KEY,
+            job_type TEXT NOT NULL,
+            payload_json JSONB,
+            status TEXT NOT NULL DEFAULT 'pending',
+            priority INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            started_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ,
+            attempts INTEGER DEFAULT 0,
+            max_attempts INTEGER DEFAULT 3,
+            worker_id TEXT,
+            error TEXT,
+            result_json JSONB,
+            user_id TEXT,
+            workspace_id TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_job_status ON job_queue(status);
+        CREATE INDEX IF NOT EXISTS idx_job_type ON job_queue(job_type);
+        CREATE INDEX IF NOT EXISTS idx_job_priority ON job_queue(priority DESC);
+        CREATE INDEX IF NOT EXISTS idx_job_pending ON job_queue(status, priority DESC, created_at);
+    """
+
+    def __init__(self, pool: "Pool"):
+        self._pool = pool
+        self._initialized = False
+        logger.info("PostgresJobQueueStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    def _run_sync(self, coro: Any) -> Any:
+        """Run async coroutine synchronously."""
+        return asyncio.get_event_loop().run_until_complete(coro)
+
+    async def enqueue(self, job: QueuedJob) -> None:
+        """Add a job to the queue."""
+        job.updated_at = time.time()
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO job_queue
+                   (id, job_type, payload_json, status, priority, created_at, updated_at,
+                    started_at, completed_at, attempts, max_attempts, worker_id, error,
+                    result_json, user_id, workspace_id)
+                   VALUES ($1, $2, $3, $4, $5, to_timestamp($6), to_timestamp($7),
+                           $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                   ON CONFLICT (id) DO UPDATE SET
+                       status = EXCLUDED.status,
+                       priority = EXCLUDED.priority,
+                       updated_at = EXCLUDED.updated_at,
+                       payload_json = EXCLUDED.payload_json""",
+                job.id,
+                job.job_type,
+                json.dumps(job.payload),
+                job.status.value,
+                job.priority,
+                job.created_at,
+                job.updated_at,
+                None,  # started_at
+                None,  # completed_at
+                job.attempts,
+                job.max_attempts,
+                job.worker_id,
+                job.error,
+                json.dumps(job.result) if job.result else None,
+                job.user_id,
+                job.workspace_id,
+            )
+        logger.debug(f"Enqueued job {job.id} ({job.job_type})")
+
+    async def dequeue(
+        self,
+        worker_id: str,
+        job_types: Optional[List[str]] = None,
+    ) -> Optional[QueuedJob]:
+        """Get the next available job and mark it as processing."""
+        now = time.time()
+
+        async with self._pool.acquire() as conn:
+            # Use FOR UPDATE SKIP LOCKED for atomic claim
+            if job_types:
+                placeholders = ", ".join(f"${i+2}" for i in range(len(job_types)))
+                row = await conn.fetchrow(
+                    f"""UPDATE job_queue
+                       SET status = 'processing', worker_id = $1, started_at = NOW(),
+                           updated_at = NOW(), attempts = attempts + 1
+                       WHERE id = (
+                           SELECT id FROM job_queue
+                           WHERE status = 'pending' AND job_type IN ({placeholders})
+                           ORDER BY priority DESC, created_at ASC
+                           LIMIT 1
+                           FOR UPDATE SKIP LOCKED
+                       )
+                       RETURNING id, job_type, payload_json, status, priority,
+                                 EXTRACT(EPOCH FROM created_at) as created_at,
+                                 EXTRACT(EPOCH FROM updated_at) as updated_at,
+                                 EXTRACT(EPOCH FROM started_at) as started_at,
+                                 EXTRACT(EPOCH FROM completed_at) as completed_at,
+                                 attempts, max_attempts, worker_id, error, result_json,
+                                 user_id, workspace_id""",
+                    worker_id,
+                    *job_types,
+                )
+            else:
+                row = await conn.fetchrow(
+                    """UPDATE job_queue
+                       SET status = 'processing', worker_id = $1, started_at = NOW(),
+                           updated_at = NOW(), attempts = attempts + 1
+                       WHERE id = (
+                           SELECT id FROM job_queue
+                           WHERE status = 'pending'
+                           ORDER BY priority DESC, created_at ASC
+                           LIMIT 1
+                           FOR UPDATE SKIP LOCKED
+                       )
+                       RETURNING id, job_type, payload_json, status, priority,
+                                 EXTRACT(EPOCH FROM created_at) as created_at,
+                                 EXTRACT(EPOCH FROM updated_at) as updated_at,
+                                 EXTRACT(EPOCH FROM started_at) as started_at,
+                                 EXTRACT(EPOCH FROM completed_at) as completed_at,
+                                 attempts, max_attempts, worker_id, error, result_json,
+                                 user_id, workspace_id""",
+                    worker_id,
+                )
+
+            if not row:
+                return None
+
+            job = self._row_to_job(row)
+            logger.debug(f"Worker {worker_id} claimed job {job.id}")
+            return job
+
+    def _row_to_job(self, row: Any) -> QueuedJob:
+        """Convert database row to QueuedJob."""
+        return QueuedJob(
+            id=row["id"],
+            job_type=row["job_type"],
+            payload=json.loads(row["payload_json"]) if row["payload_json"] else {},
+            status=JobStatus(row["status"]),
+            priority=row["priority"] or 0,
+            created_at=row["created_at"] or time.time(),
+            updated_at=row["updated_at"] or time.time(),
+            started_at=row["started_at"],
+            completed_at=row["completed_at"],
+            attempts=row["attempts"] or 0,
+            max_attempts=row["max_attempts"] or 3,
+            worker_id=row["worker_id"],
+            error=row["error"],
+            result=json.loads(row["result_json"]) if row["result_json"] else None,
+            user_id=row["user_id"],
+            workspace_id=row["workspace_id"],
+        )
+
+    async def get(self, job_id: str) -> Optional[QueuedJob]:
+        """Get a job by ID."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT id, job_type, payload_json, status, priority,
+                          EXTRACT(EPOCH FROM created_at) as created_at,
+                          EXTRACT(EPOCH FROM updated_at) as updated_at,
+                          EXTRACT(EPOCH FROM started_at) as started_at,
+                          EXTRACT(EPOCH FROM completed_at) as completed_at,
+                          attempts, max_attempts, worker_id, error, result_json,
+                          user_id, workspace_id
+                   FROM job_queue WHERE id = $1""",
+                job_id,
+            )
+            if row:
+                return self._row_to_job(row)
+            return None
+
+    async def update(self, job: QueuedJob) -> None:
+        """Update a job's state."""
+        job.updated_at = time.time()
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE job_queue
+                   SET status = $1, priority = $2, updated_at = to_timestamp($3),
+                       started_at = $4, completed_at = $5, attempts = $6,
+                       max_attempts = $7, worker_id = $8, error = $9, result_json = $10
+                   WHERE id = $11""",
+                job.status.value,
+                job.priority,
+                job.updated_at,
+                None if job.started_at is None else f"to_timestamp({job.started_at})",
+                None if job.completed_at is None else f"to_timestamp({job.completed_at})",
+                job.attempts,
+                job.max_attempts,
+                job.worker_id,
+                job.error,
+                json.dumps(job.result) if job.result else None,
+                job.id,
+            )
+
+    async def complete(
+        self,
+        job_id: str,
+        result: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Mark a job as completed."""
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE job_queue
+                   SET status = 'completed', completed_at = NOW(), updated_at = NOW(),
+                       result_json = $1
+                   WHERE id = $2""",
+                json.dumps(result) if result else None,
+                job_id,
+            )
+        logger.debug(f"Job {job_id} completed")
+
+    async def fail(
+        self,
+        job_id: str,
+        error: str,
+        should_retry: bool = True,
+    ) -> None:
+        """Mark a job as failed, optionally scheduling a retry."""
+        job = await self.get(job_id)
+        if not job:
+            return
+
+        async with self._pool.acquire() as conn:
+            if should_retry and job.attempts < job.max_attempts:
+                # Schedule retry
+                await conn.execute(
+                    """UPDATE job_queue
+                       SET status = 'pending', error = $1, updated_at = NOW(), worker_id = NULL
+                       WHERE id = $2""",
+                    error,
+                    job_id,
+                )
+                logger.info(f"Job {job_id} scheduled for retry ({job.attempts}/{job.max_attempts})")
+            else:
+                # Final failure
+                await conn.execute(
+                    """UPDATE job_queue
+                       SET status = 'failed', error = $1, completed_at = NOW(), updated_at = NOW()
+                       WHERE id = $2""",
+                    error,
+                    job_id,
+                )
+                logger.warning(f"Job {job_id} failed permanently: {error}")
+
+    async def cancel(self, job_id: str) -> bool:
+        """Cancel a pending job."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                """UPDATE job_queue
+                   SET status = 'cancelled', completed_at = NOW(), updated_at = NOW()
+                   WHERE id = $1 AND status = 'pending'""",
+                job_id,
+            )
+            cancelled = result != "UPDATE 0"
+            if cancelled:
+                logger.info(f"Job {job_id} cancelled")
+            return cancelled
+
+    async def recover_stale_jobs(
+        self,
+        stale_threshold_seconds: float = 300.0,
+    ) -> int:
+        """Recover jobs that have been processing too long."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                """UPDATE job_queue
+                   SET status = 'pending', worker_id = NULL, updated_at = NOW()
+                   WHERE status = 'processing'
+                   AND started_at < NOW() - INTERVAL '1 second' * $1""",
+                stale_threshold_seconds,
+            )
+            # Parse the result to get row count
+            try:
+                recovered = int(result.split()[-1]) if result else 0
+            except (ValueError, IndexError):
+                recovered = 0
+            if recovered > 0:
+                logger.info(f"Recovered {recovered} stale jobs")
+            return recovered
+
+    async def list_jobs(
+        self,
+        status: Optional[JobStatus] = None,
+        job_type: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[QueuedJob]:
+        """List jobs with optional filtering."""
+        query = """SELECT id, job_type, payload_json, status, priority,
+                          EXTRACT(EPOCH FROM created_at) as created_at,
+                          EXTRACT(EPOCH FROM updated_at) as updated_at,
+                          EXTRACT(EPOCH FROM started_at) as started_at,
+                          EXTRACT(EPOCH FROM completed_at) as completed_at,
+                          attempts, max_attempts, worker_id, error, result_json,
+                          user_id, workspace_id
+                   FROM job_queue WHERE 1=1"""
+        params: List[Any] = []
+        param_idx = 1
+
+        if status:
+            query += f" AND status = ${param_idx}"
+            params.append(status.value)
+            param_idx += 1
+        if job_type:
+            query += f" AND job_type = ${param_idx}"
+            params.append(job_type)
+            param_idx += 1
+
+        query += f" ORDER BY created_at DESC LIMIT ${param_idx}"
+        params.append(limit)
+
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, *params)
+            return [self._row_to_job(row) for row in rows]
+
+    async def get_stats(self) -> Dict[str, int]:
+        """Get queue statistics."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT status, COUNT(*) as count FROM job_queue GROUP BY status"""
+            )
+            stats = {row["status"]: row["count"] for row in rows}
+            stats["total"] = sum(stats.values())
+            return stats
+
+    async def close(self) -> None:
+        """Close is a no-op for pool-based stores (pool managed externally)."""
+        pass
+
+
 # Global store singleton
 _job_store: Optional[JobStoreBackend] = None
 
@@ -563,8 +917,10 @@ def get_job_store() -> JobStoreBackend:
     Get or create the job queue store.
 
     Uses environment variables to configure:
-    - ARAGORA_JOB_STORE_BACKEND: "sqlite" (default) or "memory"
+    - ARAGORA_JOB_STORE_BACKEND: "sqlite", "postgres", or "postgresql"
+    - ARAGORA_DB_BACKEND: Global database backend (fallback)
     - ARAGORA_DATA_DIR: Directory for SQLite database
+    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
 
     Returns:
         Configured JobStoreBackend instance
@@ -573,7 +929,12 @@ def get_job_store() -> JobStoreBackend:
     if _job_store is not None:
         return _job_store
 
-    backend_type = os.environ.get("ARAGORA_JOB_STORE_BACKEND", "sqlite").lower()
+    # Check store-specific backend first, then global database backend
+    backend_type = os.environ.get("ARAGORA_JOB_STORE_BACKEND")
+    if not backend_type:
+        # Fall back to global database backend setting
+        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+    backend_type = backend_type.lower()
 
     # Get data directory
     try:
@@ -586,7 +947,20 @@ def get_job_store() -> JobStoreBackend:
 
     db_path = data_dir / "job_queue.db"
 
-    if backend_type == "sqlite":
+    if backend_type == "postgres" or backend_type == "postgresql":
+        logger.info("Using PostgreSQL job store")
+        try:
+            from aragora.storage.postgres_store import get_postgres_pool
+
+            # Initialize PostgreSQL store with connection pool
+            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+            store = PostgresJobQueueStore(pool)
+            asyncio.get_event_loop().run_until_complete(store.initialize())
+            _job_store = store
+        except Exception as e:
+            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+            _job_store = SQLiteJobStore(db_path)
+    elif backend_type == "sqlite":
         logger.info(f"Using SQLite job store: {db_path}")
         _job_store = SQLiteJobStore(db_path)
     else:
@@ -614,6 +988,7 @@ __all__ = [
     "QueuedJob",
     "JobStoreBackend",
     "SQLiteJobStore",
+    "PostgresJobQueueStore",
     "get_job_store",
     "set_job_store",
     "reset_job_store",

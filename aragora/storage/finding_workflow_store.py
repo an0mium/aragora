@@ -22,6 +22,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -32,7 +33,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -665,13 +669,216 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                 logger.debug(f"Redis close failed: {e}")
 
 
+class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
+    """
+    PostgreSQL-backed finding workflow store.
+
+    Async implementation for production multi-instance deployments
+    with horizontal scaling and concurrent writes.
+    """
+
+    SCHEMA_NAME = "finding_workflows"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS finding_workflows (
+            finding_id TEXT PRIMARY KEY,
+            current_state TEXT NOT NULL DEFAULT 'open',
+            assigned_to TEXT,
+            assigned_by TEXT,
+            assigned_at TIMESTAMPTZ,
+            priority INTEGER DEFAULT 3,
+            due_date TIMESTAMPTZ,
+            parent_finding_id TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            data_json JSONB NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_workflow_assigned_to ON finding_workflows(assigned_to);
+        CREATE INDEX IF NOT EXISTS idx_workflow_state ON finding_workflows(current_state);
+        CREATE INDEX IF NOT EXISTS idx_workflow_due_date ON finding_workflows(due_date);
+    """
+
+    def __init__(self, pool: "Pool") -> None:
+        self._pool = pool
+        self._initialized = False
+        logger.info("PostgresFindingWorkflowStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    async def get(self, finding_id: str) -> Optional[dict[str, Any]]:
+        """Get workflow data for a finding."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT data_json FROM finding_workflows WHERE finding_id = $1",
+                finding_id,
+            )
+            if row:
+                data = row["data_json"]
+                return json.loads(data) if isinstance(data, str) else data
+            return None
+
+    def get_sync(self, finding_id: str) -> Optional[dict[str, Any]]:
+        """Get workflow data for a finding (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.get(finding_id))
+
+    async def save(self, data: dict[str, Any]) -> None:
+        """Save workflow data for a finding."""
+        finding_id = data.get("finding_id")
+        if not finding_id:
+            raise ValueError("finding_id is required")
+
+        now = time.time()
+        data_json = json.dumps(data)
+
+        # Parse assigned_at and due_date if they are ISO strings
+        assigned_at = data.get("assigned_at")
+        due_date = data.get("due_date")
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO finding_workflows
+                   (finding_id, current_state, assigned_to, assigned_by, assigned_at,
+                    priority, due_date, parent_finding_id, created_at, updated_at, data_json)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_timestamp($9), to_timestamp($10), $11)
+                   ON CONFLICT (finding_id) DO UPDATE SET
+                       current_state = EXCLUDED.current_state,
+                       assigned_to = EXCLUDED.assigned_to,
+                       assigned_by = EXCLUDED.assigned_by,
+                       assigned_at = EXCLUDED.assigned_at,
+                       priority = EXCLUDED.priority,
+                       due_date = EXCLUDED.due_date,
+                       parent_finding_id = EXCLUDED.parent_finding_id,
+                       updated_at = EXCLUDED.updated_at,
+                       data_json = EXCLUDED.data_json""",
+                finding_id,
+                data.get("current_state", "open"),
+                data.get("assigned_to"),
+                data.get("assigned_by"),
+                assigned_at,
+                data.get("priority", 3),
+                due_date,
+                data.get("parent_finding_id"),
+                now,
+                now,
+                data_json,
+            )
+
+    def save_sync(self, data: dict[str, Any]) -> None:
+        """Save workflow data for a finding (sync wrapper)."""
+        asyncio.get_event_loop().run_until_complete(self.save(data))
+
+    async def delete(self, finding_id: str) -> bool:
+        """Delete workflow data for a finding."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM finding_workflows WHERE finding_id = $1",
+                finding_id,
+            )
+            return result != "DELETE 0"
+
+    def delete_sync(self, finding_id: str) -> bool:
+        """Delete workflow data for a finding (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.delete(finding_id))
+
+    async def list_all(self) -> list[dict[str, Any]]:
+        """List all workflow data."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT data_json FROM finding_workflows ORDER BY created_at DESC"
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    def list_all_sync(self) -> list[dict[str, Any]]:
+        """List all workflow data (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_all())
+
+    async def list_by_assignee(self, user_id: str) -> list[dict[str, Any]]:
+        """List all workflows assigned to a user."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT data_json FROM finding_workflows WHERE assigned_to = $1 ORDER BY created_at DESC",
+                user_id,
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    def list_by_assignee_sync(self, user_id: str) -> list[dict[str, Any]]:
+        """List all workflows assigned to a user (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_by_assignee(user_id))
+
+    async def list_overdue(self) -> list[dict[str, Any]]:
+        """List all overdue findings."""
+        terminal_states = ("resolved", "false_positive", "duplicate", "accepted_risk")
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT data_json FROM finding_workflows
+                   WHERE due_date IS NOT NULL
+                     AND due_date < NOW()
+                     AND current_state NOT IN ($1, $2, $3, $4)
+                   ORDER BY due_date ASC""",
+                *terminal_states,
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    def list_overdue_sync(self) -> list[dict[str, Any]]:
+        """List all overdue findings (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_overdue())
+
+    async def list_by_state(self, state: str) -> list[dict[str, Any]]:
+        """List all findings in a specific state."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT data_json FROM finding_workflows WHERE current_state = $1 ORDER BY created_at DESC",
+                state,
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    def list_by_state_sync(self, state: str) -> list[dict[str, Any]]:
+        """List all findings in a specific state (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_by_state(state))
+
+    async def close(self) -> None:
+        """Close is a no-op for pool-based stores (pool managed externally)."""
+        pass
+
+
 def get_finding_workflow_store() -> FindingWorkflowStoreBackend:
     """
     Get the global finding workflow store instance.
 
-    Backend is selected based on ARAGORA_WORKFLOW_STORE_BACKEND env var:
+    Backend is selected based on environment variables:
+    - ARAGORA_WORKFLOW_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
+    - ARAGORA_DB_BACKEND: fallback if ARAGORA_WORKFLOW_STORE_BACKEND not set
+
+    Options:
     - "memory": InMemoryFindingWorkflowStore (for testing)
     - "sqlite": SQLiteFindingWorkflowStore (default, single-instance)
+    - "postgres" or "postgresql": PostgresFindingWorkflowStore (multi-instance)
     - "redis": RedisFindingWorkflowStore (multi-instance)
     """
     global _finding_workflow_store
@@ -680,11 +887,27 @@ def get_finding_workflow_store() -> FindingWorkflowStoreBackend:
         if _finding_workflow_store is not None:
             return _finding_workflow_store
 
-        backend = os.getenv("ARAGORA_WORKFLOW_STORE_BACKEND", "sqlite").lower()
+        # Check store-specific backend first, then global database backend
+        backend = os.getenv("ARAGORA_WORKFLOW_STORE_BACKEND")
+        if not backend:
+            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
+        backend = backend.lower()
 
         if backend == "memory":
             _finding_workflow_store = InMemoryFindingWorkflowStore()
             logger.info("Using in-memory finding workflow store")
+        elif backend in ("postgres", "postgresql"):
+            logger.info("Using PostgreSQL finding workflow store")
+            try:
+                from aragora.storage.postgres_store import get_postgres_pool
+
+                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+                store = PostgresFindingWorkflowStore(pool)
+                asyncio.get_event_loop().run_until_complete(store.initialize())
+                _finding_workflow_store = store
+            except Exception as e:
+                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+                _finding_workflow_store = SQLiteFindingWorkflowStore()
         elif backend == "redis":
             _finding_workflow_store = RedisFindingWorkflowStore()
             logger.info("Using Redis finding workflow store")
@@ -717,6 +940,7 @@ __all__ = [
     "InMemoryFindingWorkflowStore",
     "SQLiteFindingWorkflowStore",
     "RedisFindingWorkflowStore",
+    "PostgresFindingWorkflowStore",
     "get_finding_workflow_store",
     "set_finding_workflow_store",
     "reset_finding_workflow_store",

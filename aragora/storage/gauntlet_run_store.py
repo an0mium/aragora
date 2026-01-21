@@ -22,6 +22,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -32,7 +33,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -766,13 +770,255 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                 logger.debug(f"Redis close failed: {e}")
 
 
+class PostgresGauntletRunStore(GauntletRunStoreBackend):
+    """
+    PostgreSQL-backed gauntlet run store.
+
+    Async implementation for production multi-instance deployments
+    with horizontal scaling and concurrent writes.
+    """
+
+    SCHEMA_NAME = "gauntlet_runs"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS gauntlet_runs (
+            run_id TEXT PRIMARY KEY,
+            template_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            triggered_by TEXT,
+            workspace_id TEXT,
+            started_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            data_json JSONB NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_gauntlet_run_status ON gauntlet_runs(status);
+        CREATE INDEX IF NOT EXISTS idx_gauntlet_run_template ON gauntlet_runs(template_id);
+        CREATE INDEX IF NOT EXISTS idx_gauntlet_run_workspace ON gauntlet_runs(workspace_id);
+    """
+
+    def __init__(self, pool: "Pool") -> None:
+        self._pool = pool
+        self._initialized = False
+        logger.info("PostgresGauntletRunStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    async def get(self, run_id: str) -> Optional[dict[str, Any]]:
+        """Get run data by ID."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT data_json FROM gauntlet_runs WHERE run_id = $1",
+                run_id,
+            )
+            if row:
+                data = row["data_json"]
+                return json.loads(data) if isinstance(data, str) else data
+            return None
+
+    def get_sync(self, run_id: str) -> Optional[dict[str, Any]]:
+        """Get run data by ID (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.get(run_id))
+
+    async def save(self, data: dict[str, Any]) -> None:
+        """Save run data."""
+        run_id = data.get("run_id")
+        if not run_id:
+            raise ValueError("run_id is required")
+
+        now = time.time()
+        data_json = json.dumps(data)
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO gauntlet_runs
+                   (run_id, template_id, status, triggered_by, workspace_id,
+                    started_at, completed_at, created_at, updated_at, data_json)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8), to_timestamp($9), $10)
+                   ON CONFLICT (run_id) DO UPDATE SET
+                       template_id = EXCLUDED.template_id,
+                       status = EXCLUDED.status,
+                       triggered_by = EXCLUDED.triggered_by,
+                       workspace_id = EXCLUDED.workspace_id,
+                       started_at = EXCLUDED.started_at,
+                       completed_at = EXCLUDED.completed_at,
+                       updated_at = EXCLUDED.updated_at,
+                       data_json = EXCLUDED.data_json""",
+                run_id,
+                data.get("template_id", ""),
+                data.get("status", "pending"),
+                data.get("triggered_by"),
+                data.get("workspace_id"),
+                data.get("started_at"),
+                data.get("completed_at"),
+                now,
+                now,
+                data_json,
+            )
+
+    def save_sync(self, data: dict[str, Any]) -> None:
+        """Save run data (sync wrapper)."""
+        asyncio.get_event_loop().run_until_complete(self.save(data))
+
+    async def delete(self, run_id: str) -> bool:
+        """Delete run data."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM gauntlet_runs WHERE run_id = $1",
+                run_id,
+            )
+            return result != "DELETE 0"
+
+    def delete_sync(self, run_id: str) -> bool:
+        """Delete run data (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.delete(run_id))
+
+    async def list_all(self) -> list[dict[str, Any]]:
+        """List all runs."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC"
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    def list_all_sync(self) -> list[dict[str, Any]]:
+        """List all runs (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_all())
+
+    async def list_by_status(self, status: str) -> list[dict[str, Any]]:
+        """List runs by status."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT data_json FROM gauntlet_runs WHERE status = $1 ORDER BY created_at DESC",
+                status,
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    def list_by_status_sync(self, status: str) -> list[dict[str, Any]]:
+        """List runs by status (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_by_status(status))
+
+    async def list_by_template(self, template_id: str) -> list[dict[str, Any]]:
+        """List runs by template."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT data_json FROM gauntlet_runs WHERE template_id = $1 ORDER BY created_at DESC",
+                template_id,
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    def list_by_template_sync(self, template_id: str) -> list[dict[str, Any]]:
+        """List runs by template (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_by_template(template_id))
+
+    async def list_active(self) -> list[dict[str, Any]]:
+        """List active (pending/running) runs."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT data_json FROM gauntlet_runs
+                   WHERE status IN ('pending', 'running')
+                   ORDER BY created_at DESC"""
+            )
+            results = []
+            for row in rows:
+                data = row["data_json"]
+                results.append(json.loads(data) if isinstance(data, str) else data)
+            return results
+
+    def list_active_sync(self) -> list[dict[str, Any]]:
+        """List active runs (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(self.list_active())
+
+    async def update_status(
+        self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
+    ) -> bool:
+        """Update run status and optionally set result."""
+        async with self._pool.acquire() as conn:
+            # Get current data
+            row = await conn.fetchrow(
+                "SELECT data_json FROM gauntlet_runs WHERE run_id = $1",
+                run_id,
+            )
+            if not row:
+                return False
+
+            data = row["data_json"]
+            if isinstance(data, str):
+                data = json.loads(data)
+
+            data["status"] = status
+            data["updated_at"] = datetime.utcnow().isoformat()
+
+            if status == "running" and not data.get("started_at"):
+                data["started_at"] = datetime.utcnow().isoformat()
+            if status in ("completed", "failed", "cancelled"):
+                data["completed_at"] = datetime.utcnow().isoformat()
+            if result_data is not None:
+                data["result_data"] = result_data
+
+            now = time.time()
+            await conn.execute(
+                """UPDATE gauntlet_runs
+                   SET status = $1, started_at = $2, completed_at = $3,
+                       updated_at = to_timestamp($4), data_json = $5
+                   WHERE run_id = $6""",
+                status,
+                data.get("started_at"),
+                data.get("completed_at"),
+                now,
+                json.dumps(data),
+                run_id,
+            )
+            return True
+
+    def update_status_sync(
+        self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
+    ) -> bool:
+        """Update run status (sync wrapper)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.update_status(run_id, status, result_data)
+        )
+
+    async def close(self) -> None:
+        """Close is a no-op for pool-based stores (pool managed externally)."""
+        pass
+
+
 def get_gauntlet_run_store() -> GauntletRunStoreBackend:
     """
     Get the global gauntlet run store instance.
 
-    Backend is selected based on ARAGORA_GAUNTLET_STORE_BACKEND env var:
+    Backend is selected based on environment variables:
+    - ARAGORA_GAUNTLET_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
+    - ARAGORA_DB_BACKEND: fallback if ARAGORA_GAUNTLET_STORE_BACKEND not set
+
+    Options:
     - "memory": InMemoryGauntletRunStore (for testing)
     - "sqlite": SQLiteGauntletRunStore (default, single-instance)
+    - "postgres" or "postgresql": PostgresGauntletRunStore (multi-instance)
     - "redis": RedisGauntletRunStore (multi-instance)
     """
     global _gauntlet_run_store
@@ -781,11 +1027,27 @@ def get_gauntlet_run_store() -> GauntletRunStoreBackend:
         if _gauntlet_run_store is not None:
             return _gauntlet_run_store
 
-        backend = os.getenv("ARAGORA_GAUNTLET_STORE_BACKEND", "sqlite").lower()
+        # Check store-specific backend first, then global database backend
+        backend = os.getenv("ARAGORA_GAUNTLET_STORE_BACKEND")
+        if not backend:
+            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
+        backend = backend.lower()
 
         if backend == "memory":
             _gauntlet_run_store = InMemoryGauntletRunStore()
             logger.info("Using in-memory gauntlet run store")
+        elif backend in ("postgres", "postgresql"):
+            logger.info("Using PostgreSQL gauntlet run store")
+            try:
+                from aragora.storage.postgres_store import get_postgres_pool
+
+                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+                store = PostgresGauntletRunStore(pool)
+                asyncio.get_event_loop().run_until_complete(store.initialize())
+                _gauntlet_run_store = store
+            except Exception as e:
+                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+                _gauntlet_run_store = SQLiteGauntletRunStore()
         elif backend == "redis":
             _gauntlet_run_store = RedisGauntletRunStore()
             logger.info("Using Redis gauntlet run store")
@@ -818,6 +1080,7 @@ __all__ = [
     "InMemoryGauntletRunStore",
     "SQLiteGauntletRunStore",
     "RedisGauntletRunStore",
+    "PostgresGauntletRunStore",
     "get_gauntlet_run_store",
     "set_gauntlet_run_store",
     "reset_gauntlet_run_store",
