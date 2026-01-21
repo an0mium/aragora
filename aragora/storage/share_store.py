@@ -180,13 +180,31 @@ class ShareLinkStore(SQLiteStore):
         Args:
             settings: ShareSettings object to persist
         """
-        with self.connection() as conn:
-            # Generate token if needed and not already set
-            token = settings.share_token
-            if token is None:
-                token = self._generate_token()
+        # Generate token if needed and not already set
+        token = settings.share_token
+        if token is None:
+            token = self._generate_token()
 
-            conn.execute(
+        params = (
+            token,
+            settings.debate_id,
+            (
+                settings.visibility.value
+                if hasattr(settings.visibility, "value")
+                else settings.visibility
+            ),
+            settings.owner_id,
+            settings.org_id,
+            settings.created_at,
+            settings.expires_at,
+            int(settings.allow_comments),
+            int(settings.allow_forking),
+            settings.view_count,
+            None,
+        )
+
+        if self._backend is not None:
+            self._backend.execute_write(
                 """
                 INSERT INTO share_links (
                     token, debate_id, visibility, owner_id, org_id,
@@ -194,32 +212,36 @@ class ShareLinkStore(SQLiteStore):
                     view_count, last_viewed_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(debate_id) DO UPDATE SET
-                    token = COALESCE(excluded.token, token),
-                    visibility = excluded.visibility,
-                    owner_id = COALESCE(excluded.owner_id, owner_id),
-                    org_id = COALESCE(excluded.org_id, org_id),
-                    expires_at = excluded.expires_at,
-                    allow_comments = excluded.allow_comments,
-                    allow_forking = excluded.allow_forking
+                    token = COALESCE(EXCLUDED.token, share_links.token),
+                    visibility = EXCLUDED.visibility,
+                    owner_id = COALESCE(EXCLUDED.owner_id, share_links.owner_id),
+                    org_id = COALESCE(EXCLUDED.org_id, share_links.org_id),
+                    expires_at = EXCLUDED.expires_at,
+                    allow_comments = EXCLUDED.allow_comments,
+                    allow_forking = EXCLUDED.allow_forking
                 """,
-                (
-                    token,
-                    settings.debate_id,
-                    (
-                        settings.visibility.value
-                        if hasattr(settings.visibility, "value")
-                        else settings.visibility
-                    ),
-                    settings.owner_id,
-                    settings.org_id,
-                    settings.created_at,
-                    settings.expires_at,
-                    int(settings.allow_comments),
-                    int(settings.allow_forking),
-                    settings.view_count,
-                    None,
-                ),
+                params,
             )
+        else:
+            with self.connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO share_links (
+                        token, debate_id, visibility, owner_id, org_id,
+                        created_at, expires_at, allow_comments, allow_forking,
+                        view_count, last_viewed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(debate_id) DO UPDATE SET
+                        token = COALESCE(excluded.token, token),
+                        visibility = excluded.visibility,
+                        owner_id = COALESCE(excluded.owner_id, owner_id),
+                        org_id = COALESCE(excluded.org_id, org_id),
+                        expires_at = excluded.expires_at,
+                        allow_comments = excluded.allow_comments,
+                        allow_forking = excluded.allow_forking
+                    """,
+                    params,
+                )
 
         self._maybe_cleanup()
         logger.debug(f"Saved share settings for debate {settings.debate_id}")
@@ -234,16 +256,18 @@ class ShareLinkStore(SQLiteStore):
         Returns:
             ShareSettings if found and not expired, None otherwise
         """
-        row = self.fetch_one(
-            """
+        query = """
             SELECT token, debate_id, visibility, owner_id, org_id,
                    created_at, expires_at, allow_comments, allow_forking,
                    view_count, last_viewed_at
             FROM share_links
             WHERE debate_id = ?
-            """,
-            (debate_id,),
-        )
+        """
+
+        if self._backend is not None:
+            row = self._backend.fetch_one(query, (debate_id,))
+        else:
+            row = self.fetch_one(query, (debate_id,))
 
         if not row:
             return None
@@ -260,16 +284,18 @@ class ShareLinkStore(SQLiteStore):
         Returns:
             ShareSettings if found and not expired, None otherwise
         """
-        row = self.fetch_one(
-            """
+        query = """
             SELECT token, debate_id, visibility, owner_id, org_id,
                    created_at, expires_at, allow_comments, allow_forking,
                    view_count, last_viewed_at
             FROM share_links
             WHERE token = ?
-            """,
-            (token,),
-        )
+        """
+
+        if self._backend is not None:
+            row = self._backend.fetch_one(query, (token,))
+        else:
+            row = self.fetch_one(query, (token,))
 
         if not row:
             return None
@@ -286,6 +312,20 @@ class ShareLinkStore(SQLiteStore):
         Returns:
             True if a record was deleted
         """
+        if self._backend is not None:
+            row = self._backend.fetch_one(
+                "SELECT 1 FROM share_links WHERE debate_id = ?",
+                (debate_id,),
+            )
+            if not row:
+                return False
+            self._backend.execute_write(
+                "DELETE FROM share_links WHERE debate_id = ?",
+                (debate_id,),
+            )
+            logger.info(f"Deleted share settings for debate {debate_id}")
+            return True
+
         with self.connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM share_links WHERE debate_id = ?",
@@ -311,6 +351,24 @@ class ShareLinkStore(SQLiteStore):
         Returns:
             True if a token was revoked
         """
+        if self._backend is not None:
+            row = self._backend.fetch_one(
+                "SELECT 1 FROM share_links WHERE debate_id = ? AND token IS NOT NULL",
+                (debate_id,),
+            )
+            if not row:
+                return False
+            self._backend.execute_write(
+                """
+                UPDATE share_links
+                SET token = NULL
+                WHERE debate_id = ? AND token IS NOT NULL
+                """,
+                (debate_id,),
+            )
+            logger.info(f"Revoked share token for debate {debate_id}")
+            return True
+
         with self.connection() as conn:
             cursor = conn.execute(
                 """
@@ -336,16 +394,29 @@ class ShareLinkStore(SQLiteStore):
         Args:
             debate_id: The debate identifier
         """
-        with self.connection() as conn:
-            conn.execute(
+        params = (time.time(), debate_id)
+
+        if self._backend is not None:
+            self._backend.execute_write(
                 """
                 UPDATE share_links
                 SET view_count = view_count + 1,
                     last_viewed_at = ?
                 WHERE debate_id = ?
                 """,
-                (time.time(), debate_id),
+                params,
             )
+        else:
+            with self.connection() as conn:
+                conn.execute(
+                    """
+                    UPDATE share_links
+                    SET view_count = view_count + 1,
+                        last_viewed_at = ?
+                    WHERE debate_id = ?
+                    """,
+                    params,
+                )
 
     def cleanup_expired(self) -> int:
         """
@@ -354,15 +425,35 @@ class ShareLinkStore(SQLiteStore):
         Returns:
             Number of expired records deleted
         """
-        with self.connection() as conn:
-            cursor = conn.execute(
+        cutoff = time.time()
+
+        if self._backend is not None:
+            row = self._backend.fetch_one(
                 """
-                DELETE FROM share_links
+                SELECT COUNT(*) FROM share_links
                 WHERE expires_at IS NOT NULL AND expires_at < ?
                 """,
-                (time.time(),),
+                (cutoff,),
             )
-            removed = cursor.rowcount
+            removed = row[0] if row else 0
+            if removed > 0:
+                self._backend.execute_write(
+                    """
+                    DELETE FROM share_links
+                    WHERE expires_at IS NOT NULL AND expires_at < ?
+                    """,
+                    (cutoff,),
+                )
+        else:
+            with self.connection() as conn:
+                cursor = conn.execute(
+                    """
+                    DELETE FROM share_links
+                    WHERE expires_at IS NOT NULL AND expires_at < ?
+                    """,
+                    (cutoff,),
+                )
+                removed = cursor.rowcount
 
         self._last_cleanup = time.time()
 
@@ -408,33 +499,72 @@ class ShareLinkStore(SQLiteStore):
         """
         stats = {}
 
-        # Total count
-        row = self.fetch_one("SELECT COUNT(*) FROM share_links")
-        stats["total"] = row[0] if row else 0
+        if self._backend is not None:
+            # Total count
+            row = self._backend.fetch_one("SELECT COUNT(*) FROM share_links")
+            stats["total"] = row[0] if row else 0
 
-        # By visibility
-        rows = self.fetch_all("SELECT visibility, COUNT(*) FROM share_links GROUP BY visibility")
-        stats["by_visibility"] = {row[0]: row[1] for row in rows}
+            # By visibility
+            rows = self._backend.fetch_all(
+                "SELECT visibility, COUNT(*) FROM share_links GROUP BY visibility"
+            )
+            stats["by_visibility"] = {r[0]: r[1] for r in rows}
 
-        # With active tokens
-        row = self.fetch_one("SELECT COUNT(*) FROM share_links WHERE token IS NOT NULL")
-        stats["with_tokens"] = row[0] if row else 0
+            # With active tokens
+            row = self._backend.fetch_one(
+                "SELECT COUNT(*) FROM share_links WHERE token IS NOT NULL"
+            )
+            stats["with_tokens"] = row[0] if row else 0
 
-        # Expired (but not yet cleaned up)
-        row = self.fetch_one(
-            """
-            SELECT COUNT(*) FROM share_links
-            WHERE expires_at IS NOT NULL AND expires_at < ?
-            """,
-            (time.time(),),
-        )
-        stats["expired"] = row[0] if row else 0
+            # Expired (but not yet cleaned up)
+            row = self._backend.fetch_one(
+                """
+                SELECT COUNT(*) FROM share_links
+                WHERE expires_at IS NOT NULL AND expires_at < ?
+                """,
+                (time.time(),),
+            )
+            stats["expired"] = row[0] if row else 0
 
-        # Total views
-        row = self.fetch_one("SELECT SUM(view_count) FROM share_links")
-        stats["total_views"] = row[0] or 0 if row else 0
+            # Total views
+            row = self._backend.fetch_one("SELECT SUM(view_count) FROM share_links")
+            stats["total_views"] = row[0] or 0 if row else 0
+        else:
+            # Total count
+            row = self.fetch_one("SELECT COUNT(*) FROM share_links")
+            stats["total"] = row[0] if row else 0
+
+            # By visibility
+            rows = self.fetch_all(
+                "SELECT visibility, COUNT(*) FROM share_links GROUP BY visibility"
+            )
+            stats["by_visibility"] = {row[0]: row[1] for row in rows}
+
+            # With active tokens
+            row = self.fetch_one("SELECT COUNT(*) FROM share_links WHERE token IS NOT NULL")
+            stats["with_tokens"] = row[0] if row else 0
+
+            # Expired (but not yet cleaned up)
+            row = self.fetch_one(
+                """
+                SELECT COUNT(*) FROM share_links
+                WHERE expires_at IS NOT NULL AND expires_at < ?
+                """,
+                (time.time(),),
+            )
+            stats["expired"] = row[0] if row else 0
+
+            # Total views
+            row = self.fetch_one("SELECT SUM(view_count) FROM share_links")
+            stats["total_views"] = row[0] or 0 if row else 0
 
         return stats
+
+    def close(self) -> None:
+        """Close database connection."""
+        if self._backend is not None:
+            self._backend.close()
+            self._backend = None
 
 
 __all__ = ["ShareLinkStore"]
