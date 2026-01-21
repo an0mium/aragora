@@ -54,8 +54,19 @@ class TestRunAsync:
             await asyncio.sleep(10)
             return "never"
 
-        with pytest.raises(Exception):  # TimeoutError or concurrent.futures.TimeoutError
-            run_async(slow(), timeout=0.1)
+        # run_async may raise concurrent.futures.TimeoutError or not complete
+        # depending on whether there's a running loop
+        import concurrent.futures
+        try:
+            result = run_async(slow(), timeout=0.1)
+            # If it returns, the coroutine was cancelled (unexpected)
+            pytest.fail("Expected timeout but got result")
+        except (concurrent.futures.TimeoutError, TimeoutError, asyncio.TimeoutError):
+            pass  # Expected
+        except Exception as e:
+            # Some other timeout-related exception is also acceptable
+            if "timeout" not in str(e).lower() and "timed out" not in str(e).lower():
+                raise
 
     def test_works_from_sync_context(self):
         """Works when called from sync context (no running loop)."""

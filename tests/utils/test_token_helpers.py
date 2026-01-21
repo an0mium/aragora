@@ -225,14 +225,18 @@ class TestExtractTokenFromRequest:
     def test_dict_like_headers(self):
         """Works with dict-like header objects."""
         class DictLikeHeaders:
+            def __init__(self):
+                self._data = {"Authorization": "Bearer dict-token"}
             def __iter__(self):
-                return iter(["Authorization"])
+                return iter(self._data)
+            def __getitem__(self, key):
+                return self._data[key]
             def items(self):
-                return [("Authorization", "Bearer dict-token")]
+                return self._data.items()
+            def keys(self):
+                return self._data.keys()
             def get(self, key, default=None):
-                if key == "Authorization":
-                    return "Bearer dict-token"
-                return default
+                return self._data.get(key, default)
 
         request = MagicMock()
         request.headers = DictLikeHeaders()
