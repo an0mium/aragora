@@ -160,6 +160,26 @@ Benchmarks run automatically in CI on:
 
 Results are stored in `.benchmarks/` and compared against baseline.
 
+## Hot Path Profiling Results
+
+*Latest run: 2026-01-21*
+
+Core operations profiled with `scripts/profile_hot_paths.py`:
+
+| Operation | Avg (ms) | Min (ms) | Max (ms) | StdDev (ms) | Iterations |
+|-----------|----------|----------|----------|-------------|------------|
+| Cosine similarity (1536d) | 0.227 | 0.073 | 62.484 | 2.463 | 1000 |
+| Text similarity (word-based) | 0.002 | 0.002 | 0.070 | 0.003 | 1000 |
+| SQLite SELECT (indexed) | 0.017 | 0.015 | 0.085 | 0.003 | 500 |
+| SQLite GROUP BY | 1.006 | 0.263 | 41.123 | 4.380 | 100 |
+| CritiqueStore.get_stats | 0.011 | 0.002 | 0.199 | 0.027 | 100 |
+| CritiqueStore.retrieve_patterns | 0.014 | 0.003 | 0.687 | 0.071 | 100 |
+| MetaCritiqueAnalyzer.analyze | 0.610 | 0.287 | 7.094 | 0.979 | 100 |
+
+**Recommendations:**
+- SQLite GROUP BY aggregation (1.01ms avg) - consider caching for repeated queries
+- MetaCritiqueAnalyzer.analyze (0.61ms avg) - candidate for result caching
+
 ## Related Documentation
 
 - [Performance Targets](./PERFORMANCE_TARGETS.md)

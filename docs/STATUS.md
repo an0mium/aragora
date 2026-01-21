@@ -9,8 +9,8 @@
 **Production Ready** - Aragora 2.1.2 adds comprehensive security and durability improvements including field-level encryption for sensitive data, SQLite fallbacks for all persistence layers, and RBAC enforcement across all finding workflow endpoints.
 
 #### Key Highlights
-- **41,700+ tests** collected and passing (+100 new security tests)
-- **1,170+ test files** across all modules
+- **41,950+ tests** collected and passing (+250 new tests)
+- **1,200 test files** across all modules
 - **47 orchestrator integration tests** re-enabled (was skipped)
 - **Field-Level Encryption** - AES-256-GCM for API keys, tokens, secrets
 - **SQLite Durability** - All in-memory stores now have SQLite fallbacks
