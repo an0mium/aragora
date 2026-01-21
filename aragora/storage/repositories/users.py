@@ -20,6 +20,44 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# MFA fields that require encryption
+_MFA_SENSITIVE_FIELDS = {"mfa_secret", "mfa_backup_codes"}
+
+
+def _encrypt_mfa_field(value: str, user_id: str) -> str:
+    """Encrypt MFA-related field for storage."""
+    if not value:
+        return value
+    try:
+        from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+        if not CRYPTO_AVAILABLE:
+            return value
+        service = get_encryption_service()
+        encrypted = service.encrypt(value, associated_data=user_id)
+        return encrypted.to_base64()
+    except Exception as e:
+        logger.warning(f"MFA field encryption failed: {e}")
+        return value
+
+
+def _decrypt_mfa_field(value: str, user_id: str) -> str:
+    """Decrypt MFA-related field, handling legacy unencrypted values."""
+    if not value:
+        return value
+    try:
+        from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+        if not CRYPTO_AVAILABLE:
+            return value
+        # Check if it looks encrypted (base64-encoded EncryptedData starts with version byte)
+        if not value.startswith("A"):
+            return value  # Legacy unencrypted
+        service = get_encryption_service()
+        return service.decrypt_string(value, associated_data=user_id)
+    except Exception as e:
+        logger.debug(f"MFA field decryption failed (may be legacy): {e}")
+        return value
+
+
 class UserRepository:
     """
     Repository for user identity and authentication operations.
@@ -226,6 +264,9 @@ class UserRepository:
                     values.append(1 if value else 0)
                 elif isinstance(value, datetime):
                     values.append(value.isoformat())
+                elif field in _MFA_SENSITIVE_FIELDS and value:
+                    # Encrypt MFA-related sensitive fields
+                    values.append(_encrypt_mfa_field(str(value), user_id))
                 else:
                     values.append(value)
 
@@ -423,8 +464,8 @@ class UserRepository:
             last_login_at=(
                 datetime.fromisoformat(row["last_login_at"]) if row["last_login_at"] else None
             ),
-            mfa_secret=safe_get("mfa_secret"),
+            mfa_secret=_decrypt_mfa_field(safe_get("mfa_secret") or "", row["id"]),
             mfa_enabled=bool(safe_get("mfa_enabled", 0)),
-            mfa_backup_codes=safe_get("mfa_backup_codes"),
+            mfa_backup_codes=_decrypt_mfa_field(safe_get("mfa_backup_codes") or "", row["id"]),
             token_version=safe_get("token_version", 1) or 1,
         )

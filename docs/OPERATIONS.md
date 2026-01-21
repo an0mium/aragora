@@ -1114,3 +1114,121 @@ python -m aragora.storage.migrations.encrypt_existing_data --all -v
 # - Database connection failures
 # - Records with corrupt data (logged as errors, others continue)
 ```
+
+### Security Audit Checklist
+
+Use this checklist to verify security posture before production deployment or during periodic security reviews.
+
+#### Pre-Deployment Checklist
+
+**Encryption**
+- [ ] `ARAGORA_ENCRYPTION_KEY` is set (64 hex characters)
+- [ ] Key is stored in a secrets manager (not environment file in production)
+- [ ] Run `python -c "from aragora.security.encryption import CRYPTO_AVAILABLE; print(CRYPTO_AVAILABLE)"` returns `True`
+- [ ] Migration utility has been run to encrypt existing plaintext data
+
+**Authentication**
+- [ ] `ARAGORA_JWT_SECRET` is set (32+ characters, cryptographically random)
+- [ ] JWT expiration is reasonable (default: 24 hours)
+- [ ] Refresh token expiration is reasonable (default: 30 days)
+- [ ] OAuth redirect URLs are validated against allowlist
+- [ ] MFA is enabled for admin users (SOC 2 CC5-01)
+
+**Authorization (RBAC)**
+- [ ] All sensitive endpoints require authentication
+- [ ] Permission checks are in place for CRUD operations
+- [ ] Admin endpoints require admin role + MFA
+- [ ] Service-to-service calls use proper authentication headers
+
+**Network Security**
+- [ ] CORS origins are explicitly configured (no wildcards in production)
+- [ ] TLS is enabled for all external connections
+- [ ] API rate limiting is configured
+- [ ] WebSocket connections are authenticated
+
+**Data Protection**
+- [ ] Sensitive fields are encrypted at rest (credentials, tokens, secrets)
+- [ ] Audit logging is enabled
+- [ ] PII handling complies with privacy regulations
+- [ ] Backup encryption is enabled
+
+#### Periodic Security Review
+
+**Weekly**
+- [ ] Review `aragora_rbac_permission_denied_total` for unusual patterns
+- [ ] Check `aragora_encryption_errors_total` for failures
+- [ ] Review admin impersonation audit logs
+
+**Monthly**
+- [ ] Review user access and remove inactive accounts
+- [ ] Verify backup integrity and restore capability
+- [ ] Check for unused API tokens and revoke them
+- [ ] Review OAuth provider connections
+
+**Quarterly**
+- [ ] Rotate encryption keys (see Key Rotation section)
+- [ ] Update dependencies for security patches
+- [ ] Review and update security documentation
+- [ ] Conduct access review with team leads
+
+#### Security Metrics Dashboard
+
+Monitor these metrics continuously:
+
+| Metric | Alert Threshold | Description |
+|--------|-----------------|-------------|
+| `aragora_rbac_permission_denied_total` | >10/min sustained | Potential attack or misconfiguration |
+| `aragora_encryption_errors_total` | Any | Encryption failures need immediate attention |
+| `aragora_auth_failures_total` | >5/min per IP | Potential brute force attack |
+| `aragora_admin_impersonate_total` | Any | All impersonations should be reviewed |
+
+**Grafana Alert Rules**
+
+```yaml
+# Alert on high permission denial rate
+- alert: HighPermissionDenialRate
+  expr: rate(aragora_rbac_permission_denied_total[5m]) > 0.1
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: High rate of permission denials
+
+# Alert on encryption errors
+- alert: EncryptionErrors
+  expr: increase(aragora_encryption_errors_total[5m]) > 0
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: Encryption errors detected
+
+# Alert on admin impersonation
+- alert: AdminImpersonation
+  expr: increase(aragora_admin_impersonate_total[5m]) > 0
+  labels:
+    severity: info
+  annotations:
+    summary: Admin impersonation event - review audit log
+```
+
+#### Compliance Mapping
+
+| Control | Implementation | Verification |
+|---------|----------------|--------------|
+| SOC 2 CC5-01 | Admin MFA enforcement | Check `enforce_admin_mfa_policy()` in admin handlers |
+| SOC 2 CC6-01 | Encryption at rest | Verify `CRYPTO_AVAILABLE` and key configuration |
+| SOC 2 CC6-07 | Access control | RBAC permission checks in all handlers |
+| GDPR Art. 32 | Data protection | Field-level encryption, audit logging |
+| HIPAA 164.312 | Access controls | RBAC, MFA, audit trails |
+
+#### Incident Response Contacts
+
+Maintain this section with current contact information:
+
+```
+Security Team Lead: [Name] - [Contact]
+On-Call Engineer: [Rotation Schedule/PagerDuty]
+Legal/Compliance: [Name] - [Contact]
+Data Protection Officer: [Name] - [Contact]
+```

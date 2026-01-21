@@ -383,3 +383,194 @@ class TestWorkflowHandlerRBACIntegration:
 
             mock_check.assert_called_once_with(mock_http, "workflows.approve", "req_123")
             assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_get_workflow_checks_read_permission_with_id(self, handler, mock_http):
+        """_handle_get_workflow checks workflows.read with resource ID."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_get_workflow("wf_abc", {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.read", "wf_abc")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_update_workflow_checks_update_permission(self, handler, mock_http):
+        """_handle_update_workflow checks workflows.update permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_update_workflow("wf_xyz", {}, {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.update", "wf_xyz")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_simulate_workflow_checks_read_permission(self, handler, mock_http):
+        """_handle_simulate checks workflows.read permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_simulate("wf_sim", {}, {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.read", "wf_sim")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_get_status_checks_read_permission(self, handler, mock_http):
+        """_handle_get_status checks workflows.read permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_get_status("wf_status", {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.read", "wf_status")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_get_versions_checks_read_permission(self, handler, mock_http):
+        """_handle_get_versions checks workflows.read permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_get_versions("wf_ver", {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.read", "wf_ver")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_list_templates_checks_read_permission(self, handler, mock_http):
+        """_handle_list_templates checks workflows.read permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_list_templates({}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.read")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_list_approvals_checks_read_permission(self, handler, mock_http):
+        """_handle_list_approvals checks workflows.read permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_list_approvals({}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.read")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_list_executions_checks_read_permission(self, handler, mock_http):
+        """_handle_list_executions checks workflows.read permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_list_executions({}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.read")
+            assert result.status_code == 403
+
+
+class TestWorkflowHandlerRBACPermissionKeys:
+    """Verify correct permission keys are used for each operation."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    @pytest.mark.parametrize("method_name,permission_key,has_resource_id", [
+        ("_handle_list_workflows", "workflows.read", False),
+        ("_handle_create_workflow", "workflows.create", False),
+        ("_handle_list_templates", "workflows.read", False),
+        ("_handle_list_approvals", "workflows.read", False),
+        ("_handle_list_executions", "workflows.read", False),
+    ])
+    def test_permission_key_for_list_operations(self, handler, method_name, permission_key, has_resource_id):
+        """Verify list operations use correct permission keys."""
+        mock_http = MagicMock()
+        mock_http.headers = {}
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = None  # Allow
+
+            method = getattr(handler, method_name)
+            if method_name == "_handle_create_workflow":
+                method({}, {}, mock_http)
+            else:
+                method({}, mock_http)
+
+            mock_check.assert_called_once()
+            call_args = mock_check.call_args[0]
+            assert call_args[1] == permission_key
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    @pytest.mark.parametrize("method_name,permission_key", [
+        ("_handle_get_workflow", "workflows.read"),
+        ("_handle_update_workflow", "workflows.update"),
+        ("_handle_delete_workflow", "workflows.delete"),
+        ("_handle_execute", "workflows.execute"),
+        ("_handle_simulate", "workflows.read"),
+        ("_handle_get_status", "workflows.read"),
+        ("_handle_get_versions", "workflows.read"),
+    ])
+    def test_permission_key_for_resource_operations(self, handler, method_name, permission_key):
+        """Verify resource operations use correct permission keys with resource ID."""
+        mock_http = MagicMock()
+        mock_http.headers = {}
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = None  # Allow
+            # Mock the store to prevent actual execution
+            with patch.object(handler, "_get_store") as mock_store:
+                mock_store.return_value.get.return_value = None
+
+                method = getattr(handler, method_name)
+                resource_id = "wf_test_123"
+
+                # Call with appropriate args
+                if method_name in ("_handle_get_workflow", "_handle_get_status", "_handle_get_versions"):
+                    method(resource_id, {}, mock_http)
+                elif method_name == "_handle_delete_workflow":
+                    method(resource_id, {}, mock_http)
+                else:
+                    method(resource_id, {}, {}, mock_http)
+
+                mock_check.assert_called_once()
+                call_args = mock_check.call_args[0]
+                assert call_args[1] == permission_key
+                assert call_args[2] == resource_id  # Resource ID passed
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_resolve_approval_uses_request_id(self, handler):
+        """Verify resolve approval uses request ID as resource."""
+        mock_http = MagicMock()
+        mock_http.headers = {}
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = None  # Allow
+            with patch.object(handler, "_get_store"):
+                handler._handle_resolve_approval("approval_req_456", {}, {}, mock_http)
+
+                mock_check.assert_called_once()
+                call_args = mock_check.call_args[0]
+                assert call_args[1] == "workflows.approve"
+                assert call_args[2] == "approval_req_456"
