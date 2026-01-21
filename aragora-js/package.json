@@ -40,10 +40,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aragora/aragora"
+    "url": "https://github.com/an0mium/aragora"
   },
   "bugs": {
-    "url": "https://github.com/aragora/aragora/issues"
+    "url": "https://github.com/an0mium/aragora/issues"
   },
   "homepage": "https://aragora.ai",
   "engines": {
