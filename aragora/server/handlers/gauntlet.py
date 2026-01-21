@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 # In-memory storage for in-flight gauntlet runs (pending/running)
 # Completed runs are persisted to GauntletStorage
 # Using OrderedDict for FIFO eviction when memory limit reached
+import os
 import threading
 from collections import OrderedDict
 
@@ -56,6 +57,14 @@ _GAUNTLET_MAX_AGE_SECONDS = 7200  # Max 2 hours for any entry regardless of stat
 
 # Lock for atomic quota check-and-increment (prevents TOCTOU race)
 _quota_lock = threading.Lock()
+
+# Enable durable job queue for gauntlet execution (survives restarts)
+# Set ARAGORA_DURABLE_GAUNTLET=1 to enable
+_USE_DURABLE_QUEUE = os.environ.get("ARAGORA_DURABLE_GAUNTLET", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
@@ -549,6 +558,17 @@ class GauntletHandler(BaseHandler):
         }
 
         # Persist to database for durability across server restarts
+        # Include config_json so jobs can be recovered if server restarts
+        import json as _json
+
+        config_json = _json.dumps({
+            "input_content": input_content,
+            "input_type": input_type,
+            "persona": persona,
+            "agents": agents,
+            "profile": profile,
+        })
+
         try:
             storage = _get_storage()
             storage.save_inflight(
@@ -560,19 +580,46 @@ class GauntletHandler(BaseHandler):
                 persona=persona,
                 profile=profile,
                 agents=agents,
+                config_json=config_json,
             )
             logger.debug(f"Persisted inflight gauntlet run: {gauntlet_id}")
         except (OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Failed to persist inflight gauntlet {gauntlet_id}: {e}")
 
-        # In a production system, this would be queued for async processing
-        # For now, we'll run it synchronously in a background task
-        create_tracked_task(
-            self._run_gauntlet_async(
-                gauntlet_id, input_content, input_type, persona, agents, profile
-            ),
-            name=f"gauntlet-{gauntlet_id}",
-        )
+        # Use durable job queue if enabled, otherwise fire-and-forget
+        if _USE_DURABLE_QUEUE:
+            # Durable queue - survives server restarts, supports retry
+            try:
+                from aragora.queue.workers.gauntlet_worker import enqueue_gauntlet_job
+
+                create_tracked_task(
+                    enqueue_gauntlet_job(
+                        gauntlet_id=gauntlet_id,
+                        input_content=input_content,
+                        input_type=input_type,
+                        persona=persona,
+                        agents=agents,
+                        profile=profile,
+                    ),
+                    name=f"enqueue-gauntlet-{gauntlet_id}",
+                )
+                logger.info(f"Enqueued gauntlet {gauntlet_id} to durable job queue")
+            except ImportError as ie:
+                logger.warning(f"Durable queue unavailable, falling back: {ie}")
+                create_tracked_task(
+                    self._run_gauntlet_async(
+                        gauntlet_id, input_content, input_type, persona, agents, profile
+                    ),
+                    name=f"gauntlet-{gauntlet_id}",
+                )
+        else:
+            # Fire-and-forget - simpler but doesn't survive restarts
+            create_tracked_task(
+                self._run_gauntlet_async(
+                    gauntlet_id, input_content, input_type, persona, agents, profile
+                ),
+                name=f"gauntlet-{gauntlet_id}",
+            )
 
         # Note: Usage increment moved to atomic check-and-increment section above
 
@@ -581,6 +628,7 @@ class GauntletHandler(BaseHandler):
                 "gauntlet_id": gauntlet_id,
                 "status": "pending",
                 "message": "Gauntlet stress-test started",
+                "durable_queue": _USE_DURABLE_QUEUE,
             },
             status=202,
         )

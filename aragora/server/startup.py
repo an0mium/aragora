@@ -644,6 +644,48 @@ def init_webhook_dispatcher() -> bool:
     return False
 
 
+async def init_redis_state_backend() -> bool:
+    """Initialize Redis-backed state management for horizontal scaling.
+
+    Enables cross-instance debate state sharing and WebSocket broadcasting.
+    Only initializes if ARAGORA_STATE_BACKEND=redis or ARAGORA_REDIS_URL is set.
+
+    Environment Variables:
+        ARAGORA_STATE_BACKEND: "redis" to enable, "memory" to disable (default)
+        ARAGORA_REDIS_URL: Redis connection URL
+
+    Returns:
+        True if Redis state backend was initialized, False otherwise
+    """
+    import os
+
+    # Check if Redis state is enabled
+    state_backend = os.environ.get("ARAGORA_STATE_BACKEND", "memory").lower()
+    redis_url = os.environ.get("ARAGORA_REDIS_URL", "")
+
+    if state_backend != "redis" and not redis_url:
+        logger.debug("Redis state backend disabled (set ARAGORA_STATE_BACKEND=redis to enable)")
+        return False
+
+    try:
+        from aragora.server.redis_state import get_redis_state_manager
+
+        manager = await get_redis_state_manager(auto_connect=True)
+        if manager.is_connected:
+            logger.info("Redis state backend initialized for horizontal scaling")
+            return True
+        else:
+            logger.warning("Redis state backend failed to connect, falling back to in-memory")
+            return False
+
+    except ImportError as e:
+        logger.debug(f"Redis state backend not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Redis state backend: {e}")
+
+    return False
+
+
 def init_gauntlet_run_recovery() -> int:
     """Recover stale gauntlet runs after server restart.
 
@@ -668,6 +710,80 @@ def init_gauntlet_run_recovery() -> int:
         logger.warning(f"Failed to recover stale gauntlet runs: {e}")
 
     return 0
+
+
+async def init_durable_job_queue_recovery() -> int:
+    """Recover interrupted jobs from the durable job queue.
+
+    When ARAGORA_DURABLE_GAUNTLET=1 is enabled, this recovers gauntlet jobs
+    that were in-flight when the server stopped and re-enqueues them for
+    processing.
+
+    Returns:
+        Number of jobs recovered and re-enqueued
+    """
+    import os
+
+    # Only run if durable queue is enabled
+    if os.environ.get("ARAGORA_DURABLE_GAUNTLET", "").lower() not in ("1", "true", "yes"):
+        logger.debug("Durable job queue recovery skipped (ARAGORA_DURABLE_GAUNTLET not enabled)")
+        return 0
+
+    try:
+        from aragora.queue.workers.gauntlet_worker import recover_interrupted_gauntlets
+
+        recovered = await recover_interrupted_gauntlets()
+        if recovered > 0:
+            logger.info(f"Recovered {recovered} interrupted gauntlet jobs to durable queue")
+        return recovered
+
+    except ImportError as e:
+        logger.debug(f"Durable job queue recovery not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to recover durable job queue: {e}")
+
+    return 0
+
+
+async def init_gauntlet_worker() -> bool:
+    """Initialize and start the gauntlet job queue worker.
+
+    When ARAGORA_DURABLE_GAUNTLET=1 is enabled, this starts a background worker
+    that processes gauntlet jobs from the durable queue.
+
+    Environment Variables:
+        ARAGORA_DURABLE_GAUNTLET: "1" to enable durable queue
+        ARAGORA_GAUNTLET_WORKERS: Number of concurrent jobs (default: 3)
+
+    Returns:
+        True if worker was started, False otherwise
+    """
+    import os
+
+    # Only start if durable queue is enabled
+    if os.environ.get("ARAGORA_DURABLE_GAUNTLET", "").lower() not in ("1", "true", "yes"):
+        logger.debug("Gauntlet worker not started (ARAGORA_DURABLE_GAUNTLET not enabled)")
+        return False
+
+    try:
+        from aragora.queue.workers.gauntlet_worker import GauntletWorker
+
+        max_concurrent = int(os.environ.get("ARAGORA_GAUNTLET_WORKERS", "3"))
+        worker = GauntletWorker(max_concurrent=max_concurrent)
+
+        # Start worker in background
+        import asyncio
+
+        asyncio.create_task(worker.start())
+        logger.info(f"Gauntlet worker started (max_concurrent={max_concurrent})")
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Gauntlet worker not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start gauntlet worker: {e}")
+
+    return False
 
 
 def init_workflow_checkpoint_persistence() -> bool:
@@ -733,6 +849,9 @@ async def run_startup_sequence(
         "webhook_dispatcher": False,
         "slo_webhooks": False,
         "gauntlet_runs_recovered": 0,
+        "durable_jobs_recovered": 0,
+        "gauntlet_worker": False,
+        "redis_state_backend": False,
     }
 
     # Initialize in parallel where possible
@@ -760,6 +879,15 @@ async def run_startup_sequence(
     # Recover stale gauntlet runs from previous session
     status["gauntlet_runs_recovered"] = init_gauntlet_run_recovery()
 
+    # Recover and re-enqueue interrupted jobs from durable queue (if enabled)
+    status["durable_jobs_recovered"] = await init_durable_job_queue_recovery()
+
+    # Start gauntlet worker for durable queue processing (if enabled)
+    status["gauntlet_worker"] = await init_gauntlet_worker()
+
+    # Initialize Redis state backend for horizontal scaling
+    status["redis_state_backend"] = await init_redis_state_backend()
+
     return status
 
 
@@ -781,5 +909,8 @@ __all__ = [
     "init_webhook_dispatcher",
     "init_slo_webhooks",
     "init_gauntlet_run_recovery",
+    "init_durable_job_queue_recovery",
+    "init_gauntlet_worker",
+    "init_redis_state_backend",
     "run_startup_sequence",
 ]
