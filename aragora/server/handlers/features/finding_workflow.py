@@ -964,6 +964,10 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_workflow_states(self, request: Any) -> dict[str, Any]:
         """Get valid workflow states and transitions."""
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.read"):
+            return error
+
         try:
             from aragora.audit.findings.workflow import (
                 WorkflowState,
@@ -1028,6 +1032,10 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_presets(self, request: Any) -> dict[str, Any]:
         """Get available audit presets."""
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.read"):
+            return error
+
         try:
             from aragora.audit.registry import audit_registry
 
@@ -1056,6 +1064,10 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_audit_types(self, request: Any) -> dict[str, Any]:
         """Get registered audit types."""
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.read"):
+            return error
+
         try:
             from aragora.audit.registry import audit_registry
 

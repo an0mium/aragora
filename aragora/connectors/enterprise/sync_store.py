@@ -55,8 +55,15 @@ def _is_sensitive_key(key: str) -> bool:
     return any(kw in key_lower for kw in CREDENTIAL_KEYWORDS)
 
 
-def _encrypt_config(config: Dict[str, Any], use_encryption: bool) -> Dict[str, Any]:
-    """Encrypt sensitive fields in connector config."""
+def _encrypt_config(
+    config: Dict[str, Any], use_encryption: bool, connector_id: str = ""
+) -> Dict[str, Any]:
+    """
+    Encrypt sensitive fields in connector config.
+
+    Uses connector_id as Associated Authenticated Data (AAD) to bind the
+    ciphertext to a specific connector, preventing cross-connector attacks.
+    """
     if not use_encryption or not CRYPTO_AVAILABLE or not config:
         return config
     try:
@@ -64,14 +71,21 @@ def _encrypt_config(config: Dict[str, Any], use_encryption: bool) -> Dict[str, A
         sensitive_keys = [k for k in config if _is_sensitive_key(k)]
         if not sensitive_keys:
             return config
-        return service.encrypt_fields(config, sensitive_keys)
+        # AAD binds config to this specific connector
+        return service.encrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
     except Exception as e:
-        logger.warning(f"Config encryption unavailable: {e}")
+        logger.warning(f"Config encryption unavailable for {connector_id}: {e}")
         return config
 
 
-def _decrypt_config(config: Dict[str, Any], use_encryption: bool) -> Dict[str, Any]:
-    """Decrypt sensitive fields in connector config."""
+def _decrypt_config(
+    config: Dict[str, Any], use_encryption: bool, connector_id: str = ""
+) -> Dict[str, Any]:
+    """
+    Decrypt sensitive fields in connector config.
+
+    AAD must match what was used during encryption.
+    """
     if not use_encryption or not CRYPTO_AVAILABLE or not config:
         return config
 
@@ -88,9 +102,9 @@ def _decrypt_config(config: Dict[str, Any], use_encryption: bool) -> Dict[str, A
         sensitive_keys = [k for k in config if isinstance(config[k], dict) and config[k].get("_encrypted")]
         if not sensitive_keys:
             return config
-        return service.decrypt_fields(config, sensitive_keys)
+        return service.decrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
     except Exception as e:
-        logger.warning(f"Config decryption failed: {e}")
+        logger.warning(f"Config decryption failed for {connector_id}: {e}")
         return config
 
 

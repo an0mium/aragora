@@ -127,7 +127,7 @@ class TestLocalKmsProvider:
         provider = LocalKmsProvider(master_key=b"x" * 32)
 
         # Use exactly 32 bytes for the key
-        original = b"test-data-key-exactly-32-bytes!"
+        original = b"test-data-key-exactly-32-bytes!!"
         assert len(original) == 32
 
         encrypted = await provider.encrypt_data_key(original, "test")
