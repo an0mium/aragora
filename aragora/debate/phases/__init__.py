@@ -74,6 +74,10 @@ from aragora.debate.phases.batch_utils import (
     batch_generate_critiques,
     batch_collect_votes,
 )
+from aragora.debate.phases.context_compressor import ContextCompressor
+from aragora.debate.phases.critique_generator import CritiqueGenerator, CritiqueResult
+from aragora.debate.phases.evidence_refresh import EvidenceRefresher
+from aragora.debate.phases.revision_phase import RevisionGenerator, calculate_phase_timeout
 
 __all__ = [
     "DebateContext",
@@ -108,6 +112,10 @@ __all__ = [
     "VoteWeighterDeps",
     "SynthesisGenerator",
     "TrainingEmitter",
+    # Ready signal utilities
+    "AgentReadinessSignal",
+    "CollectiveReadiness",
+    "parse_ready_signal",
     # Batch utilities (RLM parallelism)
     "DebateBatchConfig",
     "DebateBatchResult",
@@ -118,4 +126,11 @@ __all__ = [
     "EloFeedback",
     "PersonaFeedback",
     "EvolutionFeedback",
+    # Extracted debate rounds components
+    "ContextCompressor",
+    "CritiqueGenerator",
+    "CritiqueResult",
+    "EvidenceRefresher",
+    "RevisionGenerator",
+    "calculate_phase_timeout",
 ]
