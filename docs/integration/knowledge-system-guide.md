@@ -565,6 +565,100 @@ Consensus events are enriched before storage:
 }
 ```
 
+## Bidirectional Adapter Integration
+
+The Knowledge Mound uses adapters to enable bidirectional data flow between subsystems:
+
+### Available Adapters
+
+| Adapter | Source System | Forward Flow | Reverse Flow |
+|---------|--------------|--------------|--------------|
+| `EvidenceAdapter` | EvidenceStore | Evidence → KM | KM → Similar evidence |
+| `ContinuumAdapter` | ContinuumMemory | Memories → KM | KM → Similar memories |
+| `ConsensusAdapter` | ConsensusMemory | Consensus → KM | KM → Past debates |
+| `BeliefAdapter` | BeliefNetwork | Beliefs/cruxes → KM | KM → Prior beliefs |
+| `InsightsAdapter` | InsightStore | Insights/flips → KM | KM → Pattern matching |
+| `EloAdapter` | EloSystem | Ratings → KM | KM → Skill history |
+| `CostAdapter` | CostTracker | Alerts → KM | KM → Cost patterns |
+
+### Automatic Wiring
+
+Adapters are automatically wired at server initialization:
+
+```python
+# In aragora/server/initialization.py
+def init_continuum_memory(nomic_dir: Path):
+    memory = ContinuumMemory(base_dir=str(nomic_dir))
+
+    # Adapter is automatically created and wired
+    adapter = ContinuumAdapter(continuum=memory, enable_dual_write=True)
+    memory.set_km_adapter(adapter)
+
+    return memory
+```
+
+### Manual Adapter Configuration
+
+For custom setups, adapters can be manually configured:
+
+```python
+from aragora.memory.continuum import ContinuumMemory
+from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
+
+# Create memory system
+memory = ContinuumMemory()
+
+# Create and wire adapter with event callback
+adapter = ContinuumAdapter(
+    continuum=memory,
+    enable_dual_write=True,
+    event_callback=my_event_handler,
+)
+memory.set_km_adapter(adapter)
+
+# Now memory operations sync bidirectionally with KM
+```
+
+### Reverse Flow Queries
+
+Query KM from source systems for context before creating new data:
+
+```python
+# Check KM for similar memories before storing
+similar = memory.query_km_for_similar(
+    content="Error handling patterns",
+    limit=5,
+    min_similarity=0.7,
+)
+
+if similar:
+    # Found existing knowledge - avoid duplication
+    print(f"Found {len(similar)} similar entries in KM")
+```
+
+### Prometheus Metrics
+
+All adapters emit Prometheus metrics for operation tracking:
+
+```
+# Operations total
+aragora_km_operations_total{operation="search", status="success"}
+
+# Operation latency
+aragora_km_operation_latency_seconds{operation="search"}
+
+# Adapter sync tracking
+aragora_km_adapter_syncs_total{adapter="continuum", direction="forward", status="success"}
+```
+
+### Dashboard Events
+
+Adapters emit WebSocket events for real-time dashboard updates:
+
+- `km_adapter_forward_sync` - Data synced to KM
+- `km_adapter_reverse_query` - Reverse flow query executed
+- `km_adapter_validation` - KM validation feedback received
+
 ## API Reference
 
 Core modules:
