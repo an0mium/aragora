@@ -1,0 +1,1014 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Aragora API - New Features",
+    "description": "API documentation for new Aragora features: Template Marketplace, Batch Explainability, and Webhooks.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Aragora Team"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.aragora.ai",
+      "description": "Production server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Marketplace",
+      "description": "Template marketplace operations - browse, publish, rate, and import templates"
+    },
+    {
+      "name": "Explainability",
+      "description": "Decision explanation and batch processing"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Webhook registration and event delivery"
+    }
+  ],
+  "paths": {
+    "/api/marketplace/templates": {
+      "get": {
+        "tags": ["Marketplace"],
+        "summary": "List marketplace templates",
+        "description": "Browse and search templates in the community marketplace",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Filter by category",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search in name and description",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort order",
+            "schema": {
+              "type": "string",
+              "enum": ["popular", "recent", "rating"]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum results",
+            "schema": { "type": "integer", "default": 20 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Pagination offset",
+            "schema": { "type": "integer", "default": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Marketplace"],
+        "summary": "Publish template to marketplace",
+        "description": "Publish a workflow template to the community marketplace",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Template published",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketplaceTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/marketplace/templates/{id}": {
+      "get": {
+        "tags": ["Marketplace"],
+        "summary": "Get template details",
+        "description": "Get full details of a marketplace template",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketplaceTemplateDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Template not found"
+          }
+        }
+      }
+    },
+    "/api/marketplace/templates/{id}/rate": {
+      "post": {
+        "tags": ["Marketplace"],
+        "summary": "Rate a template",
+        "description": "Submit a rating for a marketplace template (1-5 stars)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["rating"],
+                "properties": {
+                  "rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rating submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/marketplace/templates/{id}/reviews": {
+      "get": {
+        "tags": ["Marketplace"],
+        "summary": "List template reviews",
+        "description": "Get reviews for a marketplace template",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of reviews",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Marketplace"],
+        "summary": "Submit a review",
+        "description": "Submit a review for a marketplace template",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/marketplace/templates/{id}/import": {
+      "post": {
+        "tags": ["Marketplace"],
+        "summary": "Import template",
+        "description": "Import a marketplace template to your workspace",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template imported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/marketplace/featured": {
+      "get": {
+        "tags": ["Marketplace"],
+        "summary": "Get featured templates",
+        "description": "Get list of featured marketplace templates",
+        "responses": {
+          "200": {
+            "description": "Featured templates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/marketplace/categories": {
+      "get": {
+        "tags": ["Marketplace"],
+        "summary": "List categories",
+        "description": "Get list of marketplace categories with template counts",
+        "responses": {
+          "200": {
+            "description": "List of categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/debates/{debate_id}/explanation": {
+      "get": {
+        "tags": ["Explainability"],
+        "summary": "Get decision explanation",
+        "description": "Get full explanation for a debate decision",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decision explanation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Explanation"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        }
+      }
+    },
+    "/api/v1/debates/{debate_id}/evidence": {
+      "get": {
+        "tags": ["Explainability"],
+        "summary": "Get evidence chain",
+        "description": "Get evidence chain for a debate decision",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evidence chain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceChain"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/explainability/batch": {
+      "post": {
+        "tags": ["Explainability"],
+        "summary": "Create batch job",
+        "description": "Create a batch explainability job for multiple debates",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Batch job created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchJob"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/explainability/batch/{batch_id}/status": {
+      "get": {
+        "tags": ["Explainability"],
+        "summary": "Get batch job status",
+        "description": "Get status and progress of a batch explainability job",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Batch job status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchJobStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Batch job not found"
+          }
+        }
+      }
+    },
+    "/api/v1/explainability/batch/{batch_id}/results": {
+      "get": {
+        "tags": ["Explainability"],
+        "summary": "Get batch results",
+        "description": "Get results of a completed batch explainability job",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Batch results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResults"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks": {
+      "get": {
+        "tags": ["Webhooks"],
+        "summary": "List webhooks",
+        "description": "List registered webhooks for the current user",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "active_only",
+            "in": "query",
+            "description": "Only return active webhooks",
+            "schema": { "type": "boolean", "default": false }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of webhooks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Register webhook",
+        "description": "Register a new webhook endpoint. The webhook secret is only returned once.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Webhook created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookWithSecret"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid URL or events"
+          }
+        }
+      }
+    },
+    "/api/webhooks/events": {
+      "get": {
+        "tags": ["Webhooks"],
+        "summary": "List event types",
+        "description": "Get list of available webhook event types",
+        "responses": {
+          "200": {
+            "description": "List of event types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventTypesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}": {
+      "get": {
+        "tags": ["Webhooks"],
+        "summary": "Get webhook",
+        "description": "Get details of a specific webhook",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Webhook"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Webhooks"],
+        "summary": "Update webhook",
+        "description": "Update webhook configuration",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Webhook"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Webhooks"],
+        "summary": "Delete webhook",
+        "description": "Delete a webhook",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook deleted"
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}/test": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Test webhook",
+        "description": "Send a test event to the webhook endpoint",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test delivered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookTestResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Delivery failed"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "MarketplaceTemplate": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "category": { "type": "string" },
+          "pattern": { "type": "string" },
+          "author_id": { "type": "string" },
+          "author_name": { "type": "string" },
+          "version": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "rating": { "type": "number" },
+          "rating_count": { "type": "integer" },
+          "download_count": { "type": "integer" },
+          "is_featured": { "type": "boolean" },
+          "is_verified": { "type": "boolean" },
+          "created_at": { "type": "number" }
+        }
+      },
+      "MarketplaceTemplateDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/MarketplaceTemplate" },
+          {
+            "type": "object",
+            "properties": {
+              "workflow_definition": { "type": "object" },
+              "input_schema": { "type": "object" },
+              "output_schema": { "type": "object" },
+              "documentation": { "type": "string" },
+              "examples": { "type": "array", "items": { "type": "object" } }
+            }
+          }
+        ]
+      },
+      "TemplateListResponse": {
+        "type": "object",
+        "properties": {
+          "templates": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MarketplaceTemplate" }
+          },
+          "total": { "type": "integer" }
+        }
+      },
+      "PublishTemplateRequest": {
+        "type": "object",
+        "required": ["name", "description", "category", "pattern", "workflow_definition"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "category": { "type": "string" },
+          "pattern": { "type": "string" },
+          "workflow_definition": { "type": "object" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "input_schema": { "type": "object" },
+          "output_schema": { "type": "object" },
+          "documentation": { "type": "string" },
+          "examples": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "RatingResponse": {
+        "type": "object",
+        "properties": {
+          "average_rating": { "type": "number" },
+          "rating_count": { "type": "integer" }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "template_id": { "type": "string" },
+          "user_id": { "type": "string" },
+          "user_name": { "type": "string" },
+          "rating": { "type": "integer" },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "created_at": { "type": "number" }
+        }
+      },
+      "ReviewListResponse": {
+        "type": "object",
+        "properties": {
+          "reviews": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Review" }
+          },
+          "count": { "type": "integer" }
+        }
+      },
+      "CreateReviewRequest": {
+        "type": "object",
+        "required": ["rating", "title", "content"],
+        "properties": {
+          "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "title": { "type": "string" },
+          "content": { "type": "string" }
+        }
+      },
+      "ImportResponse": {
+        "type": "object",
+        "properties": {
+          "workflow_id": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+      "CategoryListResponse": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "template_count": { "type": "integer" }
+              }
+            }
+          }
+        }
+      },
+      "Explanation": {
+        "type": "object",
+        "properties": {
+          "debate_id": { "type": "string" },
+          "summary": { "type": "string" },
+          "decision": { "type": "string" },
+          "confidence": { "type": "number" },
+          "key_factors": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "evidence_chain": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "agent_contributions": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          },
+          "counterfactuals": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "EvidenceChain": {
+        "type": "object",
+        "properties": {
+          "debate_id": { "type": "string" },
+          "chain": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "claim_id": { "type": "string" },
+                "claim": { "type": "string" },
+                "source": { "type": "string" },
+                "confidence": { "type": "number" },
+                "supports": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      },
+      "BatchJobRequest": {
+        "type": "object",
+        "required": ["debate_ids"],
+        "properties": {
+          "debate_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "include_counterfactuals": { "type": "boolean", "default": false },
+              "include_evidence_chain": { "type": "boolean", "default": true },
+              "depth": {
+                "type": "string",
+                "enum": ["summary", "standard", "detailed"],
+                "default": "standard"
+              }
+            }
+          }
+        }
+      },
+      "BatchJob": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "processing", "completed", "partial", "failed"]
+          },
+          "total": { "type": "integer" },
+          "processed": { "type": "integer" },
+          "failed": { "type": "integer" },
+          "created_at": { "type": "number" }
+        }
+      },
+      "BatchJobStatus": {
+        "allOf": [
+          { "$ref": "#/components/schemas/BatchJob" },
+          {
+            "type": "object",
+            "properties": {
+              "progress_percent": { "type": "number" },
+              "elapsed_seconds": { "type": "number" },
+              "estimated_remaining_seconds": { "type": "number" }
+            }
+          }
+        ]
+      },
+      "BatchResults": {
+        "type": "object",
+        "properties": {
+          "batch_id": { "type": "string" },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "debate_id": { "type": "string" },
+                "status": { "type": "string", "enum": ["success", "error"] },
+                "explanation": { "$ref": "#/components/schemas/Explanation" },
+                "error": { "type": "string" }
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer" },
+              "succeeded": { "type": "integer" },
+              "failed": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "Webhook": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "events": { "type": "array", "items": { "type": "string" } },
+          "active": { "type": "boolean" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "created_at": { "type": "number" },
+          "last_delivery_at": { "type": "number" },
+          "last_delivery_status": { "type": "integer" },
+          "delivery_count": { "type": "integer" },
+          "failure_count": { "type": "integer" }
+        }
+      },
+      "WebhookWithSecret": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Webhook" },
+          {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "type": "string",
+                "description": "HMAC secret for verifying webhooks. Only shown once."
+              }
+            }
+          }
+        ]
+      },
+      "WebhookListResponse": {
+        "type": "object",
+        "properties": {
+          "webhooks": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Webhook" }
+          },
+          "count": { "type": "integer" }
+        }
+      },
+      "CreateWebhookRequest": {
+        "type": "object",
+        "required": ["url", "events"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTPS URL to receive webhook events"
+          },
+          "events": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Event types to subscribe to. Use '*' for all events."
+          },
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "UpdateWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "events": { "type": "array", "items": { "type": "string" } },
+          "active": { "type": "boolean" },
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      },
+      "EventTypesResponse": {
+        "type": "object",
+        "properties": {
+          "events": { "type": "array", "items": { "type": "string" } },
+          "count": { "type": "integer" },
+          "description": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      },
+      "WebhookTestResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "status_code": { "type": "integer" },
+          "message": { "type": "string" },
+          "error": { "type": "string" }
+        }
+      }
+    }
+  }
+}
