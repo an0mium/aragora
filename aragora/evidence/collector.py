@@ -25,12 +25,24 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
-    from aragora.connectors.documents.parser import DocumentTable, ParsedDocument
+    from aragora.connectors.documents.parser import ParsedDocument
 
 logger = logging.getLogger(__name__)
 
@@ -463,9 +475,9 @@ class EvidenceCollector:
 
         # Create snippets from document chunks
         for i, chunk in enumerate(doc.chunks):
-            snippet_id = hashlib.sha256(
-                f"{source}_{i}_{chunk.content[:50]}".encode()
-            ).hexdigest()[:12]
+            snippet_id = hashlib.sha256(f"{source}_{i}_{chunk.content[:50]}".encode()).hexdigest()[
+                :12
+            ]
 
             snippets.append(
                 EvidenceSnippet(
@@ -620,9 +632,22 @@ class EvidenceCollector:
             True if URL ends with document extension
         """
         doc_extensions = {
-            ".pdf", ".doc", ".docx", ".xls", ".xlsx",
-            ".ppt", ".pptx", ".csv", ".json", ".yaml",
-            ".yml", ".xml", ".html", ".htm", ".txt", ".md",
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".ppt",
+            ".pptx",
+            ".csv",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".xml",
+            ".html",
+            ".htm",
+            ".txt",
+            ".md",
         }
         parsed = urlparse(url)
         path_lower = parsed.path.lower()
@@ -810,11 +835,15 @@ class EvidenceCollector:
         # This avoids redundant external API calls and leverages organizational memory
         km_evidence = self.query_km_for_existing(task, limit=10, min_reliability=0.6)
         if km_evidence:
-            logger.info(f"Found {len(km_evidence)} existing evidence items in KM for: {task[:50]}...")
+            logger.info(
+                f"Found {len(km_evidence)} existing evidence items in KM for: {task[:50]}..."
+            )
             # Convert KM results to EvidenceSnippet format
             for ev in km_evidence:
                 snippet = EvidenceSnippet(
-                    id=ev.get("id", f"km_{hashlib.sha256(ev.get('snippet', '').encode()).hexdigest()[:8]}"),
+                    id=ev.get(
+                        "id", f"km_{hashlib.sha256(ev.get('snippet', '').encode()).hexdigest()[:8]}"
+                    ),
                     source=f"km:{ev.get('source', 'knowledge_mound')}",
                     title=ev.get("title", "Knowledge Mound Evidence"),
                     snippet=ev.get("snippet", ""),

@@ -199,7 +199,7 @@ class ChatPlatformConnector(ABC):
 
                 if attempt < max_retries - 1:
                     # Calculate delay with exponential backoff and jitter
-                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    delay = min(base_delay * (2**attempt), max_delay)
                     jitter = random.uniform(0, delay * 0.1)
                     total_delay = delay + jitter
 
