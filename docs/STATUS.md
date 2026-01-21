@@ -1,8 +1,75 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026 (24:00 UTC)*
+*Last updated: January 20, 2026*
 
 ## Current Release
+
+### v2.1.1 - Voice & Observability Release (January 2026)
+
+**Production Ready** - Aragora 2.1.1 adds bidirectional Twilio Voice integration for phone-triggered debates, enhanced observability with comprehensive metrics, and PostgreSQL backends for horizontal scaling.
+
+#### Key Highlights
+- **41,700+ tests** collected and passing (+1,000 new tests)
+- **1,161 test files** across all modules
+- **Twilio Voice** - Bidirectional voice for phone-triggered debates
+- **Enhanced Observability** - Circuit breaker metrics, debate throughput, memory monitoring
+- **PostgreSQL Backends** - Horizontal scaling support for user store
+- **JWT Webhook Security** - Proper cryptographic verification for Teams/Google Chat
+- **Lines of Code**: 638,000+ LOC (+183,000)
+- **0 production blockers**
+- **115 fully integrated features** (+5 voice/observability capabilities)
+
+#### What's New in 2.1.1
+
+**Twilio Voice Integration** (NEW)
+- `aragora/integrations/twilio_voice.py` - Complete voice integration:
+  - `TwilioVoiceConfig` - Voice settings and webhook configuration
+  - `CallSession` - Active call session tracking
+  - `TwilioVoiceIntegration` - Inbound call handling with speech-to-text
+  - TwiML response generation for interactive prompts
+  - Outbound calls with TTS for debate results
+  - Webhook signature verification with HMAC-SHA1
+- `aragora/server/handlers/voice/` - Voice webhook handlers:
+  - `POST /api/voice/inbound` - Inbound call handling
+  - `POST /api/voice/status` - Call status updates
+  - `POST /api/voice/gather` - Speech recognition results
+  - `POST /api/voice/gather/confirm` - Confirmation input
+- 17 tests in `tests/integrations/test_twilio_voice.py`
+
+**Enhanced Observability** (NEW)
+- Circuit breaker state tracking metrics
+- Debate throughput monitoring
+- Memory usage metrics
+- Readiness and liveness probe support
+- `/api/health/cross-pollination` endpoint
+
+**PostgreSQL Backends** (NEW)
+- PostgreSQL storage backend for user store
+- Migration infrastructure with Alembic
+- Database initialization scripts
+- `migrations/sql/001_initial_schema.sql`
+
+**JWT Webhook Verification** (SECURITY)
+- `aragora/connectors/chat/jwt_verify.py` - JWT verification module:
+  - Microsoft Teams JWT validation against Azure AD public keys
+  - Google Chat JWT validation against Google's JWKS endpoint
+  - JWKS client caching with hourly refresh
+  - Graceful fallback when PyJWT not installed (with security warning)
+- 20 tests in `tests/connectors/chat/test_jwt_verify.py`
+
+---
+
+### v2.1.0 - Audit Findings & Security Release (January 2026)
+
+**Production Ready** - Aragora 2.1.0 addresses audit findings with proper JWT webhook verification, AgentSpec test coverage, and improved deprecation handling.
+
+#### Key Highlights
+- JWT webhook verification for Teams and Google Chat
+- Comprehensive AgentSpec test suite
+- Chat webhook router tests for platform detection
+- Improved rlm_backend deprecation with sentinel value
+
+---
 
 ### v2.0.10 - Bidirectional Knowledge Mound Integration (January 2026)
 
