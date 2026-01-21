@@ -522,7 +522,19 @@ class TestBuiltInCommands:
         registry = get_default_registry()
         default_context.args = ["status"]
 
-        result = await registry.execute(default_context)
+        # Mock aiohttp to avoid requiring a running server
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_response)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            result = await registry.execute(default_context)
 
         assert result.success is True
         assert result.message is not None
