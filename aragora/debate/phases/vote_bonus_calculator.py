@@ -9,7 +9,7 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
-from aragora.observability.metrics import (
+from aragora.observability.metrics import (  # type: ignore[attr-defined]
     record_evidence_citation_bonus,
     record_process_evaluation_bonus,
 )

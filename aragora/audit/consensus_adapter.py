@@ -352,7 +352,7 @@ class FindingVerifier:
         dissents: list[DissentRecord] = []
 
         try:
-            from aragora.agents import get_agent
+            from aragora.agents import get_agent  # type: ignore[attr-defined]
         except ImportError:
             logger.warning("Could not import agents, using mock verification")
             return self._mock_verification(finding)

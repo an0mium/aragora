@@ -48,7 +48,7 @@ if TYPE_CHECKING:
     from aragora.knowledge.fact_store import FactStore
     from aragora.evidence.store import EvidenceStore
     from aragora.memory.store import CritiqueStore
-    from aragora.knowledge.mound.culture import OrganizationCultureManager
+    from aragora.knowledge.mound.culture import OrganizationCultureManager  # type: ignore[attr-defined]
     from aragora.types.protocols import EventEmitterProtocol
 
 logger = logging.getLogger(__name__)

@@ -607,7 +607,7 @@ ANSWER:"""
         """Call an LLM to generate the answer."""
         # Try primary model
         try:
-            from aragora.agents import get_agent
+            from aragora.agents import get_agent  # type: ignore[attr-defined]
 
             agent = get_agent(self.config.model)
             if agent:
@@ -620,7 +620,7 @@ ANSWER:"""
 
         # Try fallback model
         try:
-            from aragora.agents import get_agent
+            from aragora.agents import get_agent  # type: ignore[attr-defined]
 
             agent = get_agent(self.config.fallback_model)
             if agent:
@@ -647,7 +647,7 @@ ANSWER:"""
         prompt = self._build_answer_prompt(question, context, QueryMode.FACTUAL)
 
         try:
-            from aragora.agents import get_agent
+            from aragora.agents import get_agent  # type: ignore[attr-defined]
 
             agent = get_agent(self.config.model)
             if agent and hasattr(agent, "generate_stream"):

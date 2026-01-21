@@ -140,7 +140,7 @@ def _validate_agent_name(agent_name: str) -> None:
 def _record_learning_bonus(agent: str, category: str) -> None:
     """Record learning bonus metric with lazy import."""
     try:
-        from aragora.observability.metrics import record_learning_bonus
+        from aragora.observability.metrics import record_learning_bonus  # type: ignore[attr-defined]
 
         record_learning_bonus(agent, category)
     except ImportError:
@@ -150,7 +150,7 @@ def _record_learning_bonus(agent: str, category: str) -> None:
 def _record_voting_accuracy(result: str) -> None:
     """Record voting accuracy update metric with lazy import."""
     try:
-        from aragora.observability.metrics import record_voting_accuracy_update
+        from aragora.observability.metrics import record_voting_accuracy_update  # type: ignore[attr-defined]
 
         record_voting_accuracy_update(result)
     except ImportError:

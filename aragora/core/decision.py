@@ -1242,7 +1242,7 @@ class DecisionRouter:
             span.set_attribute("quick.agent", agent_name)
 
         try:
-            from aragora.agents import get_agent
+            from aragora.agents import get_agent  # type: ignore[attr-defined]
 
             agent = get_agent(agent_name)
 
