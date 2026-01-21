@@ -85,6 +85,7 @@ from ...base import (
 from ...utils.rate_limit import RateLimiter, get_client_ip
 
 from .culture import CultureOperationsMixin
+from .curation import CurationOperationsMixin
 from .dashboard import DashboardOperationsMixin
 from .dedup import DedupOperationsMixin
 from .export import ExportOperationsMixin
@@ -113,6 +114,7 @@ class KnowledgeMoundHandler(
     RelationshipOperationsMixin,
     GraphOperationsMixin,
     CultureOperationsMixin,
+    CurationOperationsMixin,
     StalenessOperationsMixin,
     SyncOperationsMixin,
     ExportOperationsMixin,
@@ -177,6 +179,13 @@ class KnowledgeMoundHandler(
         "/api/knowledge/mound/dashboard/adapters",
         "/api/knowledge/mound/dashboard/queries",
         "/api/knowledge/mound/dashboard/batcher",
+        # Auto-curation (Phase 4)
+        "/api/knowledge/mound/curation/policy",
+        "/api/knowledge/mound/curation/status",
+        "/api/knowledge/mound/curation/run",
+        "/api/knowledge/mound/curation/history",
+        "/api/knowledge/mound/curation/scores",
+        "/api/knowledge/mound/curation/tiers",
     ]
 
     def __init__(self, server_context: dict):
@@ -264,6 +273,10 @@ class KnowledgeMoundHandler(
 
         if path == "/api/knowledge/mound/schedule-revalidation":
             return self._handle_schedule_revalidation(handler)
+
+        # Auto-curation endpoints (Phase 4)
+        if path.startswith("/api/knowledge/mound/curation/"):
+            return self._handle_curation_routes(path, query_params, handler)
 
         # Sync endpoints
         if path == "/api/knowledge/mound/sync/continuum":

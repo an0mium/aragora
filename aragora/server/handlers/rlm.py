@@ -52,6 +52,8 @@ class RLMContextHandler(BaseHandler):
         "/api/rlm/compress": "handle_compress",
         "/api/rlm/query": "handle_query",
         "/api/rlm/contexts": "handle_list_contexts",
+        "/api/rlm/stream": "handle_stream",
+        "/api/rlm/stream/modes": "handle_stream_modes",
     }
 
     # Dynamic routes for context operations
@@ -118,6 +120,8 @@ class RLMContextHandler(BaseHandler):
             return self.handle_strategies(path, query_params, handler)
         elif path == "/api/rlm/contexts":
             return self.handle_list_contexts(path, query_params, handler)
+        elif path == "/api/rlm/stream/modes":
+            return self.handle_stream_modes(path, query_params, handler)
 
         # Handle context-specific routes (GET)
         if path.startswith(self.CONTEXT_ROUTE_PREFIX):
@@ -136,6 +140,8 @@ class RLMContextHandler(BaseHandler):
             return self.handle_compress(path, query_params, handler)
         elif path == "/api/rlm/query":
             return self.handle_query(path, query_params, handler)
+        elif path == "/api/rlm/stream":
+            return self.handle_stream(path, query_params, handler)
 
         return None
 
@@ -727,3 +733,220 @@ class RLMContextHandler(BaseHandler):
         except (json.JSONDecodeError, ValueError, AttributeError) as e:
             logger.debug(f"Failed to parse JSON body: {e}")
             return None
+
+    # ============================================================================
+    # Streaming Handlers
+    # ============================================================================
+
+    @rate_limit(rpm=30, limiter_name="rlm_stream_modes")
+    @handle_errors("get stream modes")
+    def handle_stream_modes(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """
+        Get available streaming modes.
+
+        Returns:
+            List of streaming modes with descriptions.
+        """
+        try:
+            from aragora.rlm.streaming import StreamMode
+
+            modes = [
+                {
+                    "mode": StreamMode.TOP_DOWN.value,
+                    "description": "Start with abstract summaries, drill down to details",
+                    "use_case": "When you need quick overview first",
+                },
+                {
+                    "mode": StreamMode.BOTTOM_UP.value,
+                    "description": "Start with details, roll up to summaries",
+                    "use_case": "When you need specific details first",
+                },
+                {
+                    "mode": StreamMode.TARGETED.value,
+                    "description": "Jump directly to a specific abstraction level",
+                    "use_case": "When you know exactly what level you need",
+                },
+                {
+                    "mode": StreamMode.PROGRESSIVE.value,
+                    "description": "Load content progressively with configurable delays",
+                    "use_case": "For UI streaming with real-time updates",
+                },
+            ]
+            return json_response({"modes": modes})
+        except ImportError:
+            return json_response(
+                {
+                    "modes": [
+                        {"mode": "top_down", "description": "Top-down streaming"},
+                        {"mode": "bottom_up", "description": "Bottom-up streaming"},
+                        {"mode": "targeted", "description": "Targeted level access"},
+                        {"mode": "progressive", "description": "Progressive loading"},
+                    ],
+                    "note": "Full streaming module not available",
+                }
+            )
+
+    @rate_limit(rpm=30, limiter_name="rlm_stream")
+    @handle_errors("stream context")
+    def handle_stream(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """
+        Stream context with configurable modes.
+
+        POST body:
+            context_id: str - ID of stored compressed context
+            mode: str - Streaming mode (top_down, bottom_up, targeted, progressive)
+            query: str - Optional search query for filtering
+            level: str - Optional starting level (for targeted mode)
+            chunk_size: int - Approximate tokens per chunk (default: 500)
+            include_metadata: bool - Include chunk metadata (default: true)
+
+        Returns:
+            Streamed chunks with content at different abstraction levels.
+        """
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("JSON body required", 400)
+
+        context_id = body.get("context_id")
+        if not context_id:
+            return error_response("'context_id' field required", 400)
+
+        if context_id not in self._contexts:
+            return error_response(f"Context not found: {context_id}", 404)
+
+        context_data = self._contexts[context_id]
+        context = context_data["context"]
+
+        # Parse streaming configuration
+        mode_str = body.get("mode", "top_down")
+        query = body.get("query")
+        level = body.get("level")
+        chunk_size = body.get("chunk_size", 500)
+        include_metadata = body.get("include_metadata", True)
+
+        try:
+            from aragora.rlm.streaming import (
+                StreamConfig,
+                StreamMode,
+                StreamingRLMQuery,
+            )
+
+            # Map mode string to enum
+            mode_map = {
+                "top_down": StreamMode.TOP_DOWN,
+                "bottom_up": StreamMode.BOTTOM_UP,
+                "targeted": StreamMode.TARGETED,
+                "progressive": StreamMode.PROGRESSIVE,
+            }
+            mode = mode_map.get(mode_str, StreamMode.TOP_DOWN)
+
+            # Create streaming config
+            config = StreamConfig(
+                mode=mode,
+                chunk_size=int(chunk_size),
+                include_metadata=bool(include_metadata),
+            )
+
+            # Create streaming query
+            stream_query = StreamingRLMQuery(context, config=config)
+
+            # Collect chunks synchronously for HTTP response
+            # (WebSocket would allow true streaming)
+            chunks = []
+
+            async def collect_chunks():
+                if query:
+                    async for chunk in stream_query.search(query):
+                        chunks.append(
+                            {
+                                "level": chunk.level,
+                                "content": chunk.content,
+                                "token_count": chunk.token_count,
+                                "is_final": chunk.is_final,
+                                "metadata": chunk.metadata if include_metadata else {},
+                            }
+                        )
+                elif level:
+                    async for chunk in stream_query.drill_down(level):
+                        chunks.append(
+                            {
+                                "level": chunk.level,
+                                "content": chunk.content,
+                                "token_count": chunk.token_count,
+                                "is_final": chunk.is_final,
+                                "metadata": chunk.metadata if include_metadata else {},
+                            }
+                        )
+                else:
+                    async for chunk in stream_query.stream_all():
+                        chunks.append(
+                            {
+                                "level": chunk.level,
+                                "content": chunk.content,
+                                "token_count": chunk.token_count,
+                                "is_final": chunk.is_final,
+                                "metadata": chunk.metadata if include_metadata else {},
+                            }
+                        )
+
+            # Run async collection
+            asyncio.get_event_loop().run_until_complete(collect_chunks())
+
+            logger.info(
+                "rlm_stream context_id=%s mode=%s chunks=%d",
+                context_id,
+                mode_str,
+                len(chunks),
+            )
+
+            return json_response(
+                {
+                    "context_id": context_id,
+                    "mode": mode_str,
+                    "query": query,
+                    "chunks": chunks,
+                    "total_chunks": len(chunks),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
+
+        except ImportError:
+            # Fallback: return summary content as single chunk
+            logger.warning("Streaming module not available, using fallback")
+            try:
+                from aragora.rlm import AbstractionLevel
+
+                summary_nodes = context.get_at_level(AbstractionLevel.SUMMARY)
+                if summary_nodes:
+                    content = "\n".join(n.content for n in summary_nodes[:10])
+                    return json_response(
+                        {
+                            "context_id": context_id,
+                            "mode": "fallback",
+                            "chunks": [
+                                {
+                                    "level": "summary",
+                                    "content": content,
+                                    "token_count": len(content.split()),
+                                    "is_final": True,
+                                }
+                            ],
+                            "total_chunks": 1,
+                            "note": "Streaming module not available",
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
+            except (ImportError, AttributeError, TypeError):
+                pass
+
+            return error_response("Streaming module not available", 501)
