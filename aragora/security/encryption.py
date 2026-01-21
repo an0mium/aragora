@@ -61,9 +61,11 @@ except ImportError:
 
 # Encryption enforcement configuration
 # When True, encryption failures raise exceptions instead of returning plaintext
-ENCRYPTION_REQUIRED = os.environ.get(
-    "ARAGORA_ENCRYPTION_REQUIRED", ""
-).lower() in ("true", "1", "yes")
+ENCRYPTION_REQUIRED = os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 
 class EncryptionError(Exception):
@@ -624,8 +626,10 @@ def get_encryption_service() -> EncryptionService:
     global _encryption_service
 
     if _encryption_service is None:
-        # Try to initialize from environment
-        master_key_hex = os.environ.get("ARAGORA_ENCRYPTION_KEY")
+        # Try to initialize from secrets manager or environment
+        from aragora.config.secrets import get_secret
+
+        master_key_hex = get_secret("ARAGORA_ENCRYPTION_KEY")
         if master_key_hex:
             master_key = bytes.fromhex(master_key_hex)
             _encryption_service = EncryptionService(master_key=master_key)

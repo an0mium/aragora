@@ -411,6 +411,8 @@ class HealthHandler(BaseHandler):
         """
         import os
 
+        from aragora.config.secrets import get_secret
+
         result: Dict[str, Any] = {"healthy": True}
         is_production = os.environ.get("ARAGORA_ENV") == "production"
 
@@ -420,7 +422,7 @@ class HealthHandler(BaseHandler):
 
             service = get_encryption_service()
             result["encryption_available"] = service is not None
-            result["encryption_configured"] = bool(os.environ.get("ARAGORA_ENCRYPTION_KEY"))
+            result["encryption_configured"] = bool(get_secret("ARAGORA_ENCRYPTION_KEY"))
 
             if is_production and not result["encryption_configured"]:
                 result["healthy"] = False
