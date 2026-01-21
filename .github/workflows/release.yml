@@ -184,7 +184,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy:
-    needs: [validate, release]
-    uses: ./.github/workflows/deploy.yml
-    secrets: inherit
+  # Note: Deployment happens automatically via deploy-secure.yml when push to main occurs.
+  # The deprecated deploy.yml workflow does not support workflow_call.

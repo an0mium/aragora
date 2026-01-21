@@ -1,5 +1,11 @@
 name: Release NPM
 
+# Publishes @aragora/sdk to npm registry
+#
+# IMPORTANT: NPM_TOKEN secret must be an "Automation" token, not a regular access token.
+# Automation tokens bypass 2FA for CI/CD publishing.
+# To create one: npm.js Settings -> Access Tokens -> Generate New Token -> Automation
+
 on:
   push:
     tags:
@@ -30,6 +36,16 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify NPM token type
+        run: |
+          # Check if token is configured
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "::error::NPM_TOKEN secret is not configured"
+            exit 1
+          fi
+          echo "NPM token is configured"
+        shell: bash
 
       - name: Get version
         id: get-version
@@ -62,6 +78,15 @@ jobs:
         run: npm test
 
       - name: Publish to npm
+        id: npm-publish
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Handle OTP error
+        if: failure() && steps.npm-publish.outcome == 'failure'
+        run: |
+          echo "::error::NPM publish failed. If you see 'EOTP' error, the NPM_TOKEN needs to be an Automation token."
+          echo "::error::Go to npmjs.com -> Settings -> Access Tokens -> Generate New Token -> Automation"
+          echo "::error::Then update the NPM_TOKEN secret in GitHub repository settings."
+          exit 1
