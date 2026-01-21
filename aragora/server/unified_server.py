@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from aragora.broadcast.video_gen import VideoGenerator
     from aragora.connectors.twitter_poster import TwitterPosterConnector
     from aragora.connectors.youtube_uploader import YouTubeUploaderConnector
+    from aragora.core.decision import DecisionRouter
     from aragora.debate.embeddings import DebateEmbeddingsDatabase
     from aragora.insights.flip_detector import FlipDetector
     from aragora.insights.store import InsightStore
@@ -99,11 +100,20 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     control_plane_stream: Optional["ControlPlaneStreamServer"] = None
     nomic_loop_stream: Optional["NomicLoopStreamServer"] = None
     tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
-    rbac: RBACMiddleware = RBACMiddleware(RBACMiddlewareConfig(
-        bypass_paths={"/health", "/healthz", "/ready", "/metrics", "/api/docs", "/openapi.json"},
-        bypass_methods={"OPTIONS"},
-        default_authenticated=False,  # Allow unauthenticated by default, handlers enforce auth
-    ))
+    rbac: RBACMiddleware = RBACMiddleware(
+        RBACMiddlewareConfig(
+            bypass_paths={
+                "/health",
+                "/healthz",
+                "/ready",
+                "/metrics",
+                "/api/docs",
+                "/openapi.json",
+            },
+            bypass_methods={"OPTIONS"},
+            default_authenticated=False,  # Allow unauthenticated by default, handlers enforce auth
+        )
+    )
     nomic_state_file: Optional[Path] = None
     persistence: Optional["SupabaseClient"] = None
     insight_store: Optional["InsightStore"] = None
@@ -123,6 +133,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     moment_detector: Optional["MomentDetector"] = None
     user_store: Optional["UserStore"] = None
     usage_tracker: Optional["UsageTracker"] = None
+    decision_router: Optional["DecisionRouter"] = None
 
     # Debate controller and factory (initialized lazily)
     _debate_controller: Optional[DebateController] = None
@@ -833,6 +844,32 @@ class UnifiedServer:
         UnifiedHandler.youtube_connector = stores["youtube_connector"]
         UnifiedHandler.user_store = stores["user_store"]
         UnifiedHandler.usage_tracker = stores["usage_tracker"]
+
+        # Initialize DecisionRouter for unified decision routing
+        self._init_decision_router()
+
+    def _init_decision_router(self) -> None:
+        """Initialize DecisionRouter for unified decision routing.
+
+        The DecisionRouter provides:
+        - Unified entry point for debates, workflows, and gauntlets
+        - Request caching and deduplication
+        - RBAC enforcement
+        - Response delivery across channels
+        """
+        try:
+            from aragora.core.decision import DecisionRouter
+
+            UnifiedHandler.decision_router = DecisionRouter(
+                enable_caching=True,
+                enable_deduplication=True,
+                cache_ttl_seconds=3600.0,
+            )
+            logger.info("DecisionRouter initialized for unified routing")
+        except ImportError as e:
+            logger.debug(f"DecisionRouter not available: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize DecisionRouter: {e}")
 
     @property
     def emitter(self) -> SyncEventEmitter:

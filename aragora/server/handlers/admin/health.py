@@ -1833,3 +1833,127 @@ class HealthHandler(BaseHandler):
                 "timestamp": datetime.utcnow().isoformat() + "Z",
             }
         )
+
+    def _encryption_health(self) -> HandlerResult:
+        """Encryption health check - verifies encryption service status.
+
+        Checks:
+        - Cryptography library availability
+        - Encryption service initialization
+        - Active encryption key status
+        - Key age and rotation recommendations
+        - Encrypt/decrypt round-trip verification
+        """
+        start_time = time.time()
+        issues: list[str] = []
+        warnings: list[str] = []
+        health: Dict[str, Any] = {}
+
+        # Check 1: Crypto library availability
+        try:
+            from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+
+            if CRYPTO_AVAILABLE:
+                health["cryptography_library"] = {"healthy": True, "status": "installed"}
+            else:
+                health["cryptography_library"] = {"healthy": False, "status": "not_installed"}
+                issues.append("Cryptography library not installed")
+        except ImportError:
+            health["cryptography_library"] = {"healthy": False, "status": "import_error"}
+            issues.append("Cannot import encryption module")
+            return json_response(
+                {
+                    "status": "error",
+                    "issues": issues,
+                    "health": health,
+                    "response_time_ms": round((time.time() - start_time) * 1000, 2),
+                },
+                status=503,
+            )
+
+        # Check 2: Encryption service initialization
+        try:
+            service = get_encryption_service()
+            health["encryption_service"] = {"healthy": True, "status": "initialized"}
+        except Exception as e:
+            health["encryption_service"] = {
+                "healthy": False,
+                "status": "error",
+                "error": str(e)[:100],
+            }
+            issues.append(f"Encryption service error: {str(e)[:50]}")
+            return json_response(
+                {
+                    "status": "error",
+                    "issues": issues,
+                    "health": health,
+                    "response_time_ms": round((time.time() - start_time) * 1000, 2),
+                },
+                status=503,
+            )
+
+        # Check 3: Active key status
+        active_key = service.get_active_key()
+        if active_key:
+            age_days = (datetime.utcnow() - active_key.created_at).days
+            health["active_key"] = {
+                "healthy": True,
+                "key_id": service.get_active_key_id(),
+                "version": active_key.version,
+                "age_days": age_days,
+                "created_at": active_key.created_at.isoformat(),
+            }
+
+            # Key age warnings
+            if age_days > 90:
+                warnings.append(f"Key is {age_days} days old (>90 days). Rotation recommended.")
+                health["active_key"]["rotation_recommended"] = True
+            elif age_days > 60:
+                health["active_key"]["days_until_rotation"] = 90 - age_days
+        else:
+            health["active_key"] = {"healthy": False, "status": "no_active_key"}
+            issues.append("No active encryption key")
+
+        # Check 4: Encrypt/decrypt round-trip
+        try:
+            test_data = b"encryption_health_check"
+            encrypted = service.encrypt(test_data)
+            decrypted = service.decrypt(encrypted)
+
+            if decrypted == test_data:
+                health["roundtrip_test"] = {"healthy": True, "status": "passed"}
+            else:
+                health["roundtrip_test"] = {"healthy": False, "status": "data_mismatch"}
+                issues.append("Encrypt/decrypt round-trip failed")
+        except Exception as e:
+            health["roundtrip_test"] = {
+                "healthy": False,
+                "status": "error",
+                "error": str(e)[:100],
+            }
+            issues.append(f"Encrypt/decrypt error: {str(e)[:50]}")
+
+        # Calculate overall status
+        response_time_ms = round((time.time() - start_time) * 1000, 2)
+
+        if issues:
+            status = "error"
+            http_status = 503
+        elif warnings:
+            status = "warning"
+            http_status = 200
+        else:
+            status = "healthy"
+            http_status = 200
+
+        return json_response(
+            {
+                "status": status,
+                "health": health,
+                "issues": issues if issues else None,
+                "warnings": warnings if warnings else None,
+                "response_time_ms": response_time_ms,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            },
+            status=http_status,
+        )
