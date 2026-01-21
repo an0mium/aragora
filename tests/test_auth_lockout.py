@@ -516,11 +516,19 @@ class TestAdminUnlockEndpoint:
         ctx = {"user_store": mock_user_store}
         handler = AdminHandler(ctx)
 
-        # Mock authentication and MFA policy
+        # Mock RBAC permission check to allow
+        mock_decision = Mock()
+        mock_decision.allowed = True
+        mock_decision.reason = "Test mock: allowed"
+
+        # Mock authentication, MFA policy, and RBAC permission
         with (
             patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract,
             patch(
                 "aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None
+            ),
+            patch(
+                "aragora.server.handlers.admin.admin.check_permission", return_value=mock_decision
             ),
         ):
             mock_auth_ctx = Mock()
@@ -570,11 +578,19 @@ class TestAdminUnlockEndpoint:
         ctx = {"user_store": mock_user_store}
         handler = AdminHandler(ctx)
 
-        # Mock authentication and MFA policy
+        # Mock RBAC permission check to allow
+        mock_decision = Mock()
+        mock_decision.allowed = True
+        mock_decision.reason = "Test mock: allowed"
+
+        # Mock authentication, MFA policy, and RBAC permission
         with (
             patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract,
             patch(
                 "aragora.server.handlers.admin.admin.enforce_admin_mfa_policy", return_value=None
+            ),
+            patch(
+                "aragora.server.handlers.admin.admin.check_permission", return_value=mock_decision
             ),
         ):
             mock_auth_ctx = Mock()

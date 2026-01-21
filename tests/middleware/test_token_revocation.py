@@ -515,6 +515,11 @@ class TestRedisRevocationStore:
 
     def test_get_client_creates_redis_connection(self, redis_store):
         """Test _get_client creates Redis connection."""
+        pytest.importorskip("redis")
+
+        # Reset any cached client first
+        redis_store._client = None
+
         with patch.dict(os.environ, {}, clear=False):
             with patch("redis.from_url") as mock_from_url:
                 mock_client = MagicMock()
