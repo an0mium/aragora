@@ -35,6 +35,11 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
+from aragora.control_plane.leader import (
+    DistributedStateError,
+    is_distributed_state_required,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -191,7 +196,18 @@ class RBACDistributedCache:
             logger.info("RBAC cache connected to Redis (distributed mode)")
             return self._redis
         except Exception as e:
-            logger.warning(f"RBAC cache Redis unavailable, using local-only: {e}")
+            # Check if distributed state is required (multi-instance or production)
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "rbac_cache",
+                    f"Redis unavailable for distributed RBAC cache: {e}. "
+                    "Configure REDIS_URL or set ARAGORA_SINGLE_INSTANCE=true.",
+                )
+
+            logger.warning(
+                f"RBAC cache Redis unavailable, using local-only: {e}. "
+                "Set ARAGORA_MULTI_INSTANCE=true to enforce distributed cache."
+            )
             self._redis_checked = True
             self._redis = None
             return None

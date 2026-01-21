@@ -33,6 +33,12 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+# Import distributed state requirements
+from aragora.control_plane.leader import (
+    DistributedStateError,
+    is_distributed_state_required,
+)
+
 # Import encryption (optional - graceful degradation if not available)
 try:
     from aragora.security.encryption import (
@@ -285,16 +291,17 @@ class SyncStore:
         try:
             import aiosqlite
         except ImportError:
-            is_production = os.environ.get("ARAGORA_ENV") == "production"
-            if is_production:
-                raise RuntimeError(
-                    "CONNECTOR SYNC STORE: aiosqlite required in production. "
-                    "Connector sync state will be lost without it. "
-                    "Install with: pip install aiosqlite"
+            # Check if distributed state is required (multi-instance or production)
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "sync_store",
+                    "aiosqlite not installed for SQLite persistence. "
+                    "Install with: pip install aiosqlite or set ARAGORA_SINGLE_INSTANCE=true.",
                 )
             logger.warning(
                 "CONNECTOR SYNC STORE: aiosqlite not installed - using in-memory fallback. "
-                "DATA WILL BE LOST ON RESTART! Install with: pip install aiosqlite"
+                "DATA WILL BE LOST ON RESTART! Install with: pip install aiosqlite. "
+                "Set ARAGORA_MULTI_INSTANCE=true to enforce persistent storage."
             )
             return
 
@@ -374,16 +381,17 @@ class SyncStore:
         try:
             import asyncpg
         except ImportError:
-            is_production = os.environ.get("ARAGORA_ENV") == "production"
-            if is_production:
-                raise RuntimeError(
-                    "CONNECTOR SYNC STORE: asyncpg required in production for PostgreSQL. "
-                    "Connector sync state will be lost without it. "
-                    "Install with: pip install asyncpg"
+            # Check if distributed state is required (multi-instance or production)
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "sync_store",
+                    "asyncpg not installed for PostgreSQL persistence. "
+                    "Install with: pip install asyncpg or set ARAGORA_SINGLE_INSTANCE=true.",
                 )
             logger.warning(
                 "CONNECTOR SYNC STORE: asyncpg not installed - using in-memory fallback. "
-                "DATA WILL BE LOST ON RESTART! Install with: pip install asyncpg"
+                "DATA WILL BE LOST ON RESTART! Install with: pip install asyncpg. "
+                "Set ARAGORA_MULTI_INSTANCE=true to enforce persistent storage."
             )
             return
 

@@ -205,6 +205,154 @@ def check_production_requirements() -> list[str]:
     return missing
 
 
+async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[bool, str]:
+    """Test Redis connectivity with a PING command.
+
+    This function validates that Redis is actually reachable when required,
+    not just that REDIS_URL is configured. This catches common issues like:
+    - Network connectivity problems
+    - Authentication failures
+    - Redis server not running
+
+    Args:
+        timeout_seconds: Connection timeout in seconds
+
+    Returns:
+        Tuple of (success: bool, message: str)
+    """
+    import os
+
+    redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
+    if not redis_url:
+        return True, "Redis not configured (skipping connectivity check)"
+
+    try:
+        import redis.asyncio as aioredis
+
+        client = aioredis.from_url(
+            redis_url,
+            socket_connect_timeout=timeout_seconds,
+            socket_timeout=timeout_seconds,
+        )
+        try:
+            result = await asyncio.wait_for(client.ping(), timeout=timeout_seconds)
+            if result:
+                # Check if we can get server info (validates auth)
+                info = await asyncio.wait_for(client.info("server"), timeout=timeout_seconds)
+                redis_version = info.get("redis_version", "unknown")
+                return True, f"Redis connected (version {redis_version})"
+            return False, "Redis PING failed"
+        finally:
+            await client.aclose()
+    except ImportError:
+        return False, "redis package not installed - run: pip install redis"
+    except asyncio.TimeoutError:
+        return False, f"Redis connection timed out after {timeout_seconds}s"
+    except Exception as e:
+        return False, f"Redis connection failed: {e}"
+
+
+async def validate_database_connectivity(timeout_seconds: float = 5.0) -> tuple[bool, str]:
+    """Test PostgreSQL connectivity with a simple query.
+
+    This function validates that PostgreSQL is actually reachable when required,
+    not just that DATABASE_URL is configured. This catches common issues like:
+    - Network connectivity problems
+    - Authentication failures
+    - Database server not running
+    - Database doesn't exist
+
+    Args:
+        timeout_seconds: Connection timeout in seconds
+
+    Returns:
+        Tuple of (success: bool, message: str)
+    """
+    import os
+
+    database_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_POSTGRES_DSN")
+    if not database_url:
+        return True, "PostgreSQL not configured (skipping connectivity check)"
+
+    try:
+        import asyncpg
+
+        try:
+            conn = await asyncio.wait_for(
+                asyncpg.connect(database_url, timeout=timeout_seconds),
+                timeout=timeout_seconds,
+            )
+            try:
+                # Run a simple query to validate connection
+                version = await conn.fetchval("SELECT version()")
+                # Extract just the version string (e.g., "PostgreSQL 15.4")
+                version_short = version.split(",")[0] if version else "unknown"
+                return True, f"PostgreSQL connected ({version_short})"
+            finally:
+                await conn.close()
+        except asyncio.TimeoutError:
+            return False, f"PostgreSQL connection timed out after {timeout_seconds}s"
+    except ImportError:
+        return False, "asyncpg package not installed - run: pip install asyncpg"
+    except Exception as e:
+        return False, f"PostgreSQL connection failed: {e}"
+
+
+async def validate_backend_connectivity(
+    require_redis: bool = False,
+    require_database: bool = False,
+    timeout_seconds: float = 5.0,
+) -> dict[str, Any]:
+    """Validate connectivity to all configured backends.
+
+    This function should be called during startup after environment validation
+    to ensure that configured backends are actually reachable.
+
+    Args:
+        require_redis: If True, fail if Redis is not reachable
+        require_database: If True, fail if PostgreSQL is not reachable
+        timeout_seconds: Timeout for each connectivity test
+
+    Returns:
+        Dictionary with connectivity status:
+        {
+            "valid": True/False,
+            "redis": {"connected": bool, "message": str},
+            "database": {"connected": bool, "message": str},
+            "errors": [str, ...]
+        }
+    """
+    errors: list[str] = []
+
+    # Test Redis connectivity
+    redis_ok, redis_msg = await validate_redis_connectivity(timeout_seconds)
+    if not redis_ok and require_redis:
+        errors.append(f"Redis connectivity required but failed: {redis_msg}")
+
+    # Test database connectivity
+    db_ok, db_msg = await validate_database_connectivity(timeout_seconds)
+    if not db_ok and require_database:
+        errors.append(f"PostgreSQL connectivity required but failed: {db_msg}")
+
+    # Log results
+    if redis_ok and "connected" in redis_msg.lower():
+        logger.info(f"[BACKEND CHECK] {redis_msg}")
+    elif not redis_ok:
+        logger.warning(f"[BACKEND CHECK] Redis: {redis_msg}")
+
+    if db_ok and "connected" in db_msg.lower():
+        logger.info(f"[BACKEND CHECK] {db_msg}")
+    elif not db_ok:
+        logger.warning(f"[BACKEND CHECK] PostgreSQL: {db_msg}")
+
+    return {
+        "valid": len(errors) == 0,
+        "redis": {"connected": redis_ok, "message": redis_msg},
+        "database": {"connected": db_ok, "message": db_msg},
+        "errors": errors,
+    }
+
+
 async def init_error_monitoring() -> bool:
     """Initialize error monitoring (Sentry).
 
@@ -1023,6 +1171,10 @@ async def run_startup_sequence(
     Raises:
         RuntimeError: If production requirements are not met
     """
+    import os
+
+    from aragora.control_plane.leader import is_distributed_state_required
+
     # Check production requirements first (fail fast)
     missing_requirements = check_production_requirements()
     if missing_requirements:
@@ -1030,7 +1182,31 @@ async def run_startup_sequence(
             logger.error(f"Missing production requirement: {req}")
         raise RuntimeError(f"Production requirements not met: {', '.join(missing_requirements)}")
 
+    # Validate actual backend connectivity (not just config presence)
+    env = os.environ.get("ARAGORA_ENV", "development")
+    is_production = env == "production"
+    distributed_required = is_distributed_state_required()
+    require_database = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+
+    connectivity = await validate_backend_connectivity(
+        require_redis=distributed_required,
+        require_database=require_database,
+        timeout_seconds=10.0 if is_production else 5.0,
+    )
+
+    if not connectivity["valid"]:
+        for error in connectivity["errors"]:
+            logger.error(f"Backend connectivity failure: {error}")
+        raise RuntimeError(
+            f"Backend connectivity validation failed: {'; '.join(connectivity['errors'])}"
+        )
+
     status: dict[str, Any] = {
+        "backend_connectivity": connectivity,
         "error_monitoring": False,
         "opentelemetry": False,
         "prometheus": False,
@@ -1399,6 +1575,11 @@ async def init_decision_router() -> bool:
 
 
 __all__ = [
+    "check_connector_dependencies",
+    "check_production_requirements",
+    "validate_redis_connectivity",
+    "validate_database_connectivity",
+    "validate_backend_connectivity",
     "init_error_monitoring",
     "init_opentelemetry",
     "init_prometheus_metrics",

@@ -20,10 +20,42 @@ This checklist ensures Aragora is properly configured for production deployment.
   - [ ] Database migrations applied (`python -m aragora.db.migrate`)
   - [ ] Connection pooling configured for production load
 
+- [ ] **Distributed State (Multi-Instance Deployments)**
+  - [ ] `REDIS_URL` set for session store, control plane, and caching
+  - [ ] `ARAGORA_MULTI_INSTANCE=true` or `ARAGORA_ENV=production` set
+  - [ ] Redis connectivity verified (`python -m aragora.cli validate-env`)
+
+- [ ] **Encryption Requirements**
+  - [ ] `ARAGORA_ENCRYPTION_KEY` set (32-byte hex string for AES-256)
+  - [ ] Key stored in secrets manager (AWS KMS, HashiCorp Vault, etc.)
+  - [ ] Key rotation schedule documented
+
 - [ ] **Security Settings**
   - [ ] `ARAGORA_ALLOWED_ORIGINS` set (no wildcards in production)
   - [ ] HTTPS enforced (SSL/TLS certificates installed)
   - [ ] Rate limiting enabled (default: 120 req/min per IP)
+
+### Environment Validation
+
+```bash
+# Validate configuration and backend connectivity
+python -m aragora.cli validate-env
+
+# Example output:
+# ✓ Environment: production
+# ✓ Encryption key: configured (32 bytes)
+# ✓ Redis: connected (version 7.2.3)
+# ✓ PostgreSQL: connected (PostgreSQL 15.4)
+# ✓ AI provider: anthropic configured
+# ✓ All production requirements met
+```
+
+**Startup Validation**: The server automatically validates backend connectivity at startup:
+- **Redis connectivity** (when `ARAGORA_MULTI_INSTANCE=true` or `ARAGORA_ENV=production`)
+- **PostgreSQL connectivity** (when `ARAGORA_REQUIRE_DATABASE=true`)
+- **Configuration integrity** (encryption keys, JWT secrets)
+
+If validation fails, the server refuses to start with a clear error message.
 
 ### Code Quality Gates
 

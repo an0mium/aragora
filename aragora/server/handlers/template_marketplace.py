@@ -30,6 +30,11 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from aragora.control_plane.leader import (
+    DistributedStateError,
+    is_distributed_state_required,
+)
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -163,7 +168,12 @@ _persistent_store: Optional[Any] = None
 
 
 def _init_persistent_store() -> bool:
-    """Initialize persistent store if available."""
+    """Initialize persistent store if available.
+
+    Raises:
+        DistributedStateError: If distributed state is required but persistent
+            storage is unavailable.
+    """
     global _use_persistent_store, _persistent_store
     try:
         from aragora.storage.marketplace_store import get_marketplace_store
@@ -173,9 +183,18 @@ def _init_persistent_store() -> bool:
         logger.info("Template marketplace using persistent SQLite storage")
         return True
     except Exception as e:
+        # Check if distributed state is required (multi-instance or production)
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "template_marketplace",
+                f"Persistent storage unavailable: {e}. "
+                "Configure database backend or set ARAGORA_SINGLE_INSTANCE=true.",
+            )
+
         logger.warning(
             f"TEMPLATE MARKETPLACE: Persistent storage unavailable ({e}). "
-            "Using in-memory fallback - TEMPLATES AND REVIEWS WILL BE LOST ON RESTART!"
+            "Using in-memory fallback - TEMPLATES AND REVIEWS WILL BE LOST ON RESTART! "
+            "Set ARAGORA_MULTI_INSTANCE=true to enforce persistent storage."
         )
         _use_persistent_store = False
         return False
