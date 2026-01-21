@@ -460,7 +460,7 @@ class QualityAuditor:
         findings = []
 
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAgent  # type: ignore[attr-defined]
 
             agent = AnthropicAgent(name="quality_analyst", model="claude-3.5-sonnet")
 

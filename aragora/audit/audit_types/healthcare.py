@@ -330,7 +330,7 @@ class HealthcareAuditor(BaseAuditor):
         findings = []
 
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAgent  # type: ignore[attr-defined]
 
             agent = AnthropicAgent(name="healthcare_analyst", model=context.model)
 

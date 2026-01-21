@@ -390,7 +390,7 @@ class AcademicAuditor(BaseAuditor):
         findings = []
 
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAgent  # type: ignore[attr-defined]
 
             agent = AnthropicAgent(name="academic_reviewer", model=context.model)
 

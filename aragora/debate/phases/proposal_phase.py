@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 def _record_calibration_adjustment(agent: str) -> None:
     """Record calibration adjustment metric with lazy import."""
     try:
-        from aragora.observability.metrics import record_calibration_adjustment
+        from aragora.observability.metrics import record_calibration_adjustment  # type: ignore[attr-defined]
 
         record_calibration_adjustment(agent)
     except ImportError:
