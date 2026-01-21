@@ -537,9 +537,9 @@ class ResearchKnowledge(BaseVerticalKnowledge):
             "statistics": "Statistical analysis",
         }
 
-        found = []
-        missing = []
-        evidence = []
+        found: list[str] = []
+        missing: list[str] = []
+        evidence: list[str] = []
 
         for category, name in consort_elements.items():
             cat_facts = [f for f in facts if f.category == category]

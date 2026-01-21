@@ -205,8 +205,12 @@ class TestWorkflowHandlerRBAC:
             assert context is None
 
     @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
-    def test_get_auth_context_from_headers(self, handler, mock_http):
-        """_get_auth_context extracts context from headers."""
+    def test_get_auth_context_rejects_without_jwt(self, handler, mock_http):
+        """_get_auth_context returns 'unauthenticated' sentinel when JWT auth fails.
+
+        SECURITY: Header-based authentication fallback was removed to prevent
+        identity spoofing and privilege escalation attacks.
+        """
         mock_http.headers = {
             "X-User-ID": "user-123",
             "X-Org-ID": "org-456",
@@ -222,11 +226,28 @@ class TestWorkflowHandlerRBAC:
 
             context = handler._get_auth_context(mock_http)
 
+            # Should return "unauthenticated" sentinel, NOT fall back to headers
+            assert context == "unauthenticated"
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_get_auth_context_from_jwt(self, handler, mock_http):
+        """_get_auth_context extracts context from valid JWT token."""
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            # Simulate valid JWT auth
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = True
+            mock_jwt_context.user_id = "jwt-user-123"
+            mock_jwt_context.org_id = "org-456"
+            mock_jwt_context.role = "admin"
+            mock_extract.return_value = mock_jwt_context
+
+            context = handler._get_auth_context(mock_http)
+
             assert context is not None
-            assert context.user_id == "user-123"
+            assert context != "unauthenticated"
+            assert context.user_id == "jwt-user-123"
             assert context.org_id == "org-456"
             assert "admin" in context.roles
-            assert "member" in context.roles
 
     def test_check_permission_without_rbac(self, handler, mock_http):
         """_check_permission returns None (allows) when RBAC not available."""
@@ -272,6 +293,7 @@ class TestWorkflowHandlerRBAC:
                 assert error.status_code == 403
                 # Parse the JSON body to check for error message
                 import json
+
                 body = json.loads(error.body)
                 assert "Permission denied" in body.get("error", "")
 
@@ -497,12 +519,15 @@ class TestWorkflowHandlerRBACPermissionKeys:
         return WorkflowHandler(mock_server_context)
 
     @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
-    @pytest.mark.parametrize("method_name,permission_key", [
-        ("_handle_list_workflows", "workflows.read"),
-        ("_handle_list_templates", "workflows.read"),
-        ("_handle_list_approvals", "workflows.read"),
-        ("_handle_list_executions", "workflows.read"),
-    ])
+    @pytest.mark.parametrize(
+        "method_name,permission_key",
+        [
+            ("_handle_list_workflows", "workflows.read"),
+            ("_handle_list_templates", "workflows.read"),
+            ("_handle_list_approvals", "workflows.read"),
+            ("_handle_list_executions", "workflows.read"),
+        ],
+    )
     def test_permission_key_for_list_operations(self, handler, method_name, permission_key):
         """Verify list operations use correct permission keys."""
         from aragora.server.handlers.base import error_response
@@ -539,15 +564,18 @@ class TestWorkflowHandlerRBACPermissionKeys:
             assert call_args[1] == "workflows.create"
 
     @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
-    @pytest.mark.parametrize("method_name,permission_key", [
-        ("_handle_get_workflow", "workflows.read"),
-        ("_handle_update_workflow", "workflows.update"),
-        ("_handle_delete_workflow", "workflows.delete"),
-        ("_handle_execute", "workflows.execute"),
-        ("_handle_simulate", "workflows.read"),
-        ("_handle_get_status", "workflows.read"),
-        ("_handle_get_versions", "workflows.read"),
-    ])
+    @pytest.mark.parametrize(
+        "method_name,permission_key",
+        [
+            ("_handle_get_workflow", "workflows.read"),
+            ("_handle_update_workflow", "workflows.update"),
+            ("_handle_delete_workflow", "workflows.delete"),
+            ("_handle_execute", "workflows.execute"),
+            ("_handle_simulate", "workflows.read"),
+            ("_handle_get_status", "workflows.read"),
+            ("_handle_get_versions", "workflows.read"),
+        ],
+    )
     def test_permission_key_for_resource_operations(self, handler, method_name, permission_key):
         """Verify resource operations use correct permission keys with resource ID."""
         from aragora.server.handlers.base import error_response
@@ -563,7 +591,11 @@ class TestWorkflowHandlerRBACPermissionKeys:
             resource_id = "wf_test_123"
 
             # Call with appropriate args
-            if method_name in ("_handle_get_workflow", "_handle_get_status", "_handle_get_versions"):
+            if method_name in (
+                "_handle_get_workflow",
+                "_handle_get_status",
+                "_handle_get_versions",
+            ):
                 method(resource_id, {}, mock_http)
             elif method_name == "_handle_delete_workflow":
                 method(resource_id, {}, mock_http)

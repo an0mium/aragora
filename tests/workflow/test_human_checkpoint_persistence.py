@@ -134,10 +134,12 @@ class TestPendingApprovalsMerge:
 
     @pytest.fixture(autouse=True)
     def clear_approvals(self):
-        """Clear in-memory approvals before each test."""
+        """Clear in-memory approvals and reset recovery state before each test."""
         _pending_approvals.clear()
+        reset_approval_recovery()
         yield
         _pending_approvals.clear()
+        reset_approval_recovery()
 
     def test_get_pending_includes_in_memory(self):
         """get_pending_approvals returns in-memory approvals."""

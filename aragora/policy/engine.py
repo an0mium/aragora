@@ -234,7 +234,9 @@ class Policy:
 
         elif isinstance(node, ast.Constant):
             # Allow literal values (str, int, float, None, bool)
-            return node.value
+            if isinstance(node.value, (str, int, float, bool)) or node.value is None:
+                return node.value
+            raise ValueError(f"Unsupported constant type: {type(node.value)}")
 
         elif isinstance(node, ast.List):
             # Allow list literals for "in" checks
