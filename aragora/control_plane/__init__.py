@@ -89,6 +89,12 @@ from aragora.control_plane.leader import (
     LeaderElection,
     LeaderInfo,
     LeaderState,
+    RegionalLeaderConfig,
+    RegionalLeaderElection,
+    RegionalLeaderInfo,
+    get_regional_leader_election,
+    init_regional_leader_election,
+    set_regional_leader_election,
 )
 from aragora.control_plane.multi_tenancy import (
     TenantContext,
@@ -146,6 +152,13 @@ __all__ = [
     "LeaderConfig",
     "LeaderInfo",
     "LeaderState",
+    # Regional Leader Election
+    "RegionalLeaderElection",
+    "RegionalLeaderConfig",
+    "RegionalLeaderInfo",
+    "get_regional_leader_election",
+    "set_regional_leader_election",
+    "init_regional_leader_election",
     # Multi-Tenancy
     "TenantContext",
     "TenantEnforcer",

@@ -509,9 +509,455 @@ class _InMemoryRedis:
         return self._hashes.get(key, {})
 
 
+@dataclass
+class RegionalLeaderConfig(LeaderConfig):
+    """Configuration for regional leader election."""
+
+    region_id: str = "default"
+    sync_regions: list[str] = field(default_factory=list)
+    broadcast_leadership: bool = True  # Broadcast leadership changes via event bus
+
+    def get_region_key_prefix(self) -> str:
+        """Get region-scoped key prefix."""
+        return f"{self.key_prefix}region:{self.region_id}:"
+
+    @classmethod
+    def from_env(cls) -> "RegionalLeaderConfig":
+        """Create config from environment variables."""
+        base = LeaderConfig.from_env()
+        return cls(
+            redis_url=base.redis_url,
+            key_prefix=base.key_prefix,
+            lock_ttl_seconds=base.lock_ttl_seconds,
+            heartbeat_interval=base.heartbeat_interval,
+            election_timeout=base.election_timeout,
+            retry_interval=base.retry_interval,
+            node_id=base.node_id,
+            region_id=os.environ.get("ARAGORA_REGION_ID", "default"),
+            sync_regions=[
+                r.strip()
+                for r in os.environ.get("ARAGORA_SYNC_REGIONS", "").split(",")
+                if r.strip()
+            ],
+            broadcast_leadership=os.environ.get("ARAGORA_BROADCAST_LEADERSHIP", "true").lower()
+            in ("true", "1", "yes"),
+        )
+
+
+@dataclass
+class RegionalLeaderInfo(LeaderInfo):
+    """Information about a regional leader."""
+
+    region_id: str = "default"
+    is_global_coordinator: bool = False  # If this region is the global coordinator
+
+
+class RegionalLeaderElection(LeaderElection):
+    """
+    Per-region leader election for multi-region deployments.
+
+    Each region has its own leader, enabling:
+    - Regional autonomy for local operations
+    - Reduced cross-region latency
+    - Fault isolation per region
+
+    Additionally, a global coordinator can be elected from regional leaders
+    for cross-region operations.
+
+    Usage:
+        election = RegionalLeaderElection(
+            config=RegionalLeaderConfig(region_id="us-west-2")
+        )
+        await election.start()
+
+        if election.is_regional_leader:
+            # Handle regional leadership tasks
+            pass
+
+        if election.is_global_coordinator:
+            # Handle global coordination tasks
+            pass
+    """
+
+    def __init__(
+        self,
+        config: Optional[RegionalLeaderConfig] = None,
+        redis_client: Optional[Any] = None,
+        event_bus: Optional[Any] = None,
+    ):
+        """
+        Initialize regional leader election.
+
+        Args:
+            config: Regional election configuration
+            redis_client: Optional pre-configured Redis client
+            event_bus: Optional RegionalEventBus for broadcasting
+        """
+        self._regional_config = config or RegionalLeaderConfig.from_env()
+        super().__init__(
+            config=self._regional_config,
+            redis_client=redis_client,
+        )
+
+        self._event_bus = event_bus
+        self._is_global_coordinator = False
+        self._regional_leaders: dict[str, RegionalLeaderInfo] = {}
+
+        # Callbacks for regional events
+        self._on_become_regional_leader: list[Callable[[], Any]] = []
+        self._on_lose_regional_leader: list[Callable[[], Any]] = []
+        self._on_become_global_coordinator: list[Callable[[], Any]] = []
+        self._on_lose_global_coordinator: list[Callable[[], Any]] = []
+
+    @property
+    def region_id(self) -> str:
+        """This node's region identifier."""
+        return self._regional_config.region_id
+
+    @property
+    def is_regional_leader(self) -> bool:
+        """Check if this node is the leader of its region."""
+        return self.is_leader
+
+    @property
+    def is_global_coordinator(self) -> bool:
+        """Check if this node is the global coordinator."""
+        return self._is_global_coordinator
+
+    @property
+    def regional_leaders(self) -> dict[str, RegionalLeaderInfo]:
+        """Get info about all known regional leaders."""
+        return self._regional_leaders.copy()
+
+    def on_become_regional_leader(self, callback: Callable[[], Any]) -> None:
+        """Register callback for when this node becomes regional leader."""
+        self._on_become_regional_leader.append(callback)
+
+    def on_lose_regional_leader(self, callback: Callable[[], Any]) -> None:
+        """Register callback for when this node loses regional leadership."""
+        self._on_lose_regional_leader.append(callback)
+
+    def on_become_global_coordinator(self, callback: Callable[[], Any]) -> None:
+        """Register callback for when this node becomes global coordinator."""
+        self._on_become_global_coordinator.append(callback)
+
+    def on_lose_global_coordinator(self, callback: Callable[[], Any]) -> None:
+        """Register callback for when this node loses global coordinator role."""
+        self._on_lose_global_coordinator.append(callback)
+
+    async def start(self) -> None:
+        """Start the regional leader election process."""
+        # Override key prefix to be region-scoped
+        original_prefix = self._config.key_prefix
+        self._config.key_prefix = self._regional_config.get_region_key_prefix()
+
+        logger.info(
+            f"[regional-leader] Starting election for node {self._config.node_id} "
+            f"in region {self.region_id}"
+        )
+
+        await super().start()
+
+        # Restore original prefix for global coordinator election
+        self._config.key_prefix = original_prefix
+
+        # Register for event bus updates if available
+        await self._subscribe_to_leadership_events()
+
+    async def _subscribe_to_leadership_events(self) -> None:
+        """Subscribe to leadership events from other regions."""
+        if self._event_bus is None:
+            return
+
+        try:
+            from aragora.control_plane.regional_sync import RegionalEventType
+
+            # Subscribe to leader elected events
+            self._event_bus.subscribe(
+                RegionalEventType.LEADER_ELECTED,
+                self._handle_remote_leader_elected,
+            )
+            self._event_bus.subscribe(
+                RegionalEventType.LEADER_RESIGNED,
+                self._handle_remote_leader_resigned,
+            )
+            logger.debug("[regional-leader] Subscribed to leadership events")
+        except ImportError:
+            logger.debug("[regional-leader] RegionalEventBus not available")
+
+    async def _handle_remote_leader_elected(self, event: Any) -> None:
+        """Handle leader election from another region."""
+        import time
+
+        source_region = event.source_region
+        if source_region == self.region_id:
+            return  # Ignore our own region
+
+        self._regional_leaders[source_region] = RegionalLeaderInfo(
+            node_id=event.entity_id,
+            region_id=source_region,
+            elected_at=event.timestamp,
+            last_heartbeat=time.time(),
+            is_global_coordinator=event.data.get("is_global_coordinator", False),
+        )
+        logger.debug(f"[regional-leader] Region {source_region} elected leader: {event.entity_id}")
+
+    async def _handle_remote_leader_resigned(self, event: Any) -> None:
+        """Handle leader resignation from another region."""
+        source_region = event.source_region
+        if source_region in self._regional_leaders:
+            del self._regional_leaders[source_region]
+            logger.debug(f"[regional-leader] Region {source_region} leader resigned")
+
+    async def _handle_become_leader(self) -> None:
+        """Handle becoming the regional leader."""
+        await super()._handle_become_leader()
+
+        # Notify regional callbacks
+        for callback in self._on_become_regional_leader:
+            try:
+                result = callback()
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                logger.error(f"[regional-leader] Regional callback error: {e}")
+
+        # Broadcast leadership via event bus
+        await self._broadcast_leadership_change(elected=True)
+
+        # Try to become global coordinator if we're regional leader
+        await self._try_become_global_coordinator()
+
+    async def _handle_lose_leader(self) -> None:
+        """Handle losing regional leadership."""
+        was_global = self._is_global_coordinator
+
+        # Lose global coordinator role if we had it
+        if self._is_global_coordinator:
+            await self._release_global_coordinator()
+
+        await super()._handle_lose_leader()
+
+        # Notify regional callbacks
+        for callback in self._on_lose_regional_leader:
+            try:
+                result = callback()
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                logger.error(f"[regional-leader] Regional callback error: {e}")
+
+        # Broadcast leadership change
+        await self._broadcast_leadership_change(elected=False)
+
+        if was_global:
+            for callback in self._on_lose_global_coordinator:
+                try:
+                    result = callback()
+                    if asyncio.iscoroutine(result):
+                        await result
+                except Exception as e:
+                    logger.error(f"[regional-leader] Global coordinator callback error: {e}")
+
+    async def _broadcast_leadership_change(self, elected: bool) -> None:
+        """Broadcast leadership change to other regions."""
+        if self._event_bus is None or not self._regional_config.broadcast_leadership:
+            return
+
+        try:
+            from aragora.control_plane.regional_sync import (
+                RegionalEvent,
+                RegionalEventType,
+            )
+
+            event_type = (
+                RegionalEventType.LEADER_ELECTED if elected else RegionalEventType.LEADER_RESIGNED
+            )
+            event = RegionalEvent(
+                event_type=event_type,
+                source_region=self.region_id,
+                entity_id=self._config.node_id,
+                data={
+                    "is_global_coordinator": self._is_global_coordinator,
+                    "region_id": self.region_id,
+                },
+            )
+            await self._event_bus.publish(event)
+            logger.debug(
+                f"[regional-leader] Broadcast leadership {'elected' if elected else 'resigned'}"
+            )
+        except Exception as e:
+            logger.warning(f"[regional-leader] Failed to broadcast leadership: {e}")
+
+    async def _try_become_global_coordinator(self) -> None:
+        """Try to become the global coordinator (elected from regional leaders)."""
+        if not self.is_regional_leader:
+            return
+
+        import time
+
+        global_key = f"{self._config.key_prefix}global:coordinator"
+
+        try:
+            # Try to acquire global coordinator lock
+            result = await self._redis.set(
+                global_key,
+                self._config.node_id,
+                nx=True,
+                ex=int(self._regional_config.lock_ttl_seconds * 2),  # Longer TTL for global
+            )
+
+            if result:
+                self._is_global_coordinator = True
+                logger.info(
+                    f"[regional-leader] Node {self._config.node_id} is now GLOBAL COORDINATOR"
+                )
+
+                # Store coordinator info
+                info_key = f"{self._config.key_prefix}global:coordinator_info"
+                await self._redis.hset(
+                    info_key,
+                    mapping={
+                        "node_id": self._config.node_id,
+                        "region_id": self.region_id,
+                        "elected_at": str(time.time()),
+                    },
+                )
+
+                # Notify callbacks
+                for callback in self._on_become_global_coordinator:
+                    try:
+                        result = callback()
+                        if asyncio.iscoroutine(result):
+                            await result
+                    except Exception as e:
+                        logger.error(f"[regional-leader] Global coordinator callback error: {e}")
+
+                # Broadcast updated status
+                await self._broadcast_leadership_change(elected=True)
+
+        except Exception as e:
+            logger.debug(f"[regional-leader] Failed to become global coordinator: {e}")
+
+    async def _release_global_coordinator(self) -> None:
+        """Release the global coordinator role."""
+        if not self._is_global_coordinator:
+            return
+
+        global_key = f"{self._config.key_prefix}global:coordinator"
+
+        try:
+            current = await self._redis.get(global_key)
+            if current == self._config.node_id:
+                await self._redis.delete(global_key)
+                logger.info(
+                    f"[regional-leader] Node {self._config.node_id} released global coordinator"
+                )
+        except Exception as e:
+            logger.error(f"[regional-leader] Failed to release global coordinator: {e}")
+
+        self._is_global_coordinator = False
+
+    async def get_global_coordinator(self) -> Optional[RegionalLeaderInfo]:
+        """Get information about the current global coordinator."""
+        import time
+
+        global_key = f"{self._config.key_prefix}global:coordinator"
+        info_key = f"{self._config.key_prefix}global:coordinator_info"
+
+        try:
+            node_id = await self._redis.get(global_key)
+            if not node_id:
+                return None
+
+            info = await self._redis.hgetall(info_key)
+            return RegionalLeaderInfo(
+                node_id=info.get("node_id", node_id),
+                region_id=info.get("region_id", "unknown"),
+                elected_at=float(info.get("elected_at", time.time())),
+                last_heartbeat=time.time(),
+                is_global_coordinator=True,
+            )
+        except Exception as e:
+            logger.error(f"[regional-leader] Failed to get global coordinator: {e}")
+            return None
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get regional election statistics."""
+        base_stats = super().get_stats()
+        base_stats.update(
+            {
+                "region_id": self.region_id,
+                "is_regional_leader": self.is_regional_leader,
+                "is_global_coordinator": self.is_global_coordinator,
+                "known_regional_leaders": list(self._regional_leaders.keys()),
+            }
+        )
+        return base_stats
+
+
+# Singleton for regional leader election
+_regional_leader_election: Optional[RegionalLeaderElection] = None
+
+
+def get_regional_leader_election() -> Optional[RegionalLeaderElection]:
+    """Get the global regional leader election instance."""
+    return _regional_leader_election
+
+
+def set_regional_leader_election(election: RegionalLeaderElection) -> None:
+    """Set the global regional leader election instance."""
+    global _regional_leader_election
+    _regional_leader_election = election
+
+
+async def init_regional_leader_election(
+    region_id: Optional[str] = None,
+    event_bus: Optional[Any] = None,
+) -> Optional[RegionalLeaderElection]:
+    """
+    Initialize and start regional leader election.
+
+    Args:
+        region_id: Optional region ID (defaults to ARAGORA_REGION_ID env var)
+        event_bus: Optional RegionalEventBus for cross-region communication
+
+    Returns:
+        RegionalLeaderElection instance if started, None otherwise
+    """
+    global _regional_leader_election
+
+    if _regional_leader_election is not None:
+        return _regional_leader_election
+
+    config = RegionalLeaderConfig.from_env()
+    if region_id:
+        config.region_id = region_id
+
+    election = RegionalLeaderElection(config=config, event_bus=event_bus)
+
+    try:
+        await election.start()
+        _regional_leader_election = election
+        logger.info(f"[regional-leader] Initialized election for region {config.region_id}")
+        return election
+    except Exception as e:
+        logger.warning(f"[regional-leader] Failed to initialize: {e}")
+        return None
+
+
 __all__ = [
     "LeaderState",
     "LeaderConfig",
     "LeaderInfo",
     "LeaderElection",
+    "DistributedStateError",
+    "is_distributed_state_required",
+    # Regional
+    "RegionalLeaderConfig",
+    "RegionalLeaderInfo",
+    "RegionalLeaderElection",
+    "get_regional_leader_election",
+    "set_regional_leader_election",
+    "init_regional_leader_election",
 ]
