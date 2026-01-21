@@ -89,6 +89,7 @@ persistence = [
 ]
 postgres = [
     "asyncpg>=0.29.0,<1.0",
+    "alembic>=1.13.0,<2.0",  # Database migrations
 ]
 documents = [
     "pypdf>=6.6,<7.0",  # CVE fixes require 6.6+

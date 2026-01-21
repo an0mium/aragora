@@ -53,8 +53,8 @@ from aragora.storage.schema import SchemaManager
 from aragora.utils.cache import TTLCache
 from aragora.utils.json_helpers import safe_json_loads
 
-# Cache for KM similarity queries (5 min TTL, 200 entries)
-_km_similarity_cache: TTLCache[list] = TTLCache(maxsize=200, ttl_seconds=300)
+# Cache for KM similarity queries (5 min TTL, 1000 entries)
+_km_similarity_cache: TTLCache[list] = TTLCache(maxsize=1000, ttl_seconds=300)
 
 # Schema version for ContinuumMemory
 CONTINUUM_SCHEMA_VERSION = 3

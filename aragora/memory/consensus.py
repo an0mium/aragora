@@ -34,15 +34,15 @@ from aragora.storage.base_store import SQLiteStore
 from aragora.utils.cache import TTLCache, invalidate_cache
 from aragora.utils.json_helpers import safe_json_loads
 
-# Cache for KM similarity queries (5 min TTL, 200 entries)
-_km_consensus_cache: TTLCache[list] = TTLCache(maxsize=200, ttl_seconds=300)
+# Cache for KM similarity queries (5 min TTL, 1000 entries)
+_km_consensus_cache: TTLCache[list] = TTLCache(maxsize=1000, ttl_seconds=300)
 
 logger = logging.getLogger(__name__)
 
-# LRU cache for consensus queries (5 min TTL, 500 entries max)
+# LRU cache for consensus queries (5 min TTL, 2000 entries max)
 # Using Any type to avoid forward reference issues with ConsensusRecord
-_consensus_cache: TTLCache[Any] = TTLCache(maxsize=500, ttl_seconds=300)
-_dissents_cache: TTLCache[list] = TTLCache(maxsize=500, ttl_seconds=300)
+_consensus_cache: TTLCache[Any] = TTLCache(maxsize=2000, ttl_seconds=300)
+_dissents_cache: TTLCache[list] = TTLCache(maxsize=2000, ttl_seconds=300)
 
 # Schema version for ConsensusMemory migrations
 # v1: Initial schema (consensus + dissent tables)

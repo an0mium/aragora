@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @register_lru_cache
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=1024)
 def compute_domain_from_task(task_lower: str) -> str:
     """Compute domain from lowercased task string.
 

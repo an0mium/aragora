@@ -59,11 +59,11 @@ _GAUNTLET_MAX_AGE_SECONDS = 7200  # Max 2 hours for any entry regardless of stat
 _quota_lock = threading.Lock()
 
 # Enable durable job queue for gauntlet execution (survives restarts)
-# Set ARAGORA_DURABLE_GAUNTLET=1 to enable
-_USE_DURABLE_QUEUE = os.environ.get("ARAGORA_DURABLE_GAUNTLET", "").lower() in (
-    "1",
-    "true",
-    "yes",
+# Set ARAGORA_DURABLE_GAUNTLET=0 to disable (enabled by default)
+_USE_DURABLE_QUEUE = os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() not in (
+    "0",
+    "false",
+    "no",
 )
 
 

@@ -21,14 +21,21 @@ maintaining backward compatibility while enabling modular testing.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import json
 import logging
+import os
 import sqlite3
 import threading
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
 from aragora.storage.repositories import (

@@ -715,18 +715,16 @@ def init_gauntlet_run_recovery() -> int:
 async def init_durable_job_queue_recovery() -> int:
     """Recover interrupted jobs from the durable job queue.
 
-    When ARAGORA_DURABLE_GAUNTLET=1 is enabled, this recovers gauntlet jobs
-    that were in-flight when the server stopped and re-enqueues them for
-    processing.
+    This is enabled by default. Set ARAGORA_DURABLE_GAUNTLET=0 to disable.
 
     Returns:
         Number of jobs recovered and re-enqueued
     """
     import os
 
-    # Only run if durable queue is enabled
-    if os.environ.get("ARAGORA_DURABLE_GAUNTLET", "").lower() not in ("1", "true", "yes"):
-        logger.debug("Durable job queue recovery skipped (ARAGORA_DURABLE_GAUNTLET not enabled)")
+    # Enabled by default - set to "0" to disable
+    if os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() in ("0", "false", "no"):
+        logger.debug("Durable job queue recovery skipped (ARAGORA_DURABLE_GAUNTLET disabled)")
         return 0
 
     try:
@@ -748,11 +746,10 @@ async def init_durable_job_queue_recovery() -> int:
 async def init_gauntlet_worker() -> bool:
     """Initialize and start the gauntlet job queue worker.
 
-    When ARAGORA_DURABLE_GAUNTLET=1 is enabled, this starts a background worker
-    that processes gauntlet jobs from the durable queue.
+    Enabled by default. Set ARAGORA_DURABLE_GAUNTLET=0 to disable.
 
     Environment Variables:
-        ARAGORA_DURABLE_GAUNTLET: "1" to enable durable queue
+        ARAGORA_DURABLE_GAUNTLET: "0" to disable (enabled by default)
         ARAGORA_GAUNTLET_WORKERS: Number of concurrent jobs (default: 3)
 
     Returns:
@@ -760,9 +757,9 @@ async def init_gauntlet_worker() -> bool:
     """
     import os
 
-    # Only start if durable queue is enabled
-    if os.environ.get("ARAGORA_DURABLE_GAUNTLET", "").lower() not in ("1", "true", "yes"):
-        logger.debug("Gauntlet worker not started (ARAGORA_DURABLE_GAUNTLET not enabled)")
+    # Enabled by default - set to "0" to disable
+    if os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() in ("0", "false", "no"):
+        logger.debug("Gauntlet worker not started (ARAGORA_DURABLE_GAUNTLET disabled)")
         return False
 
     try:

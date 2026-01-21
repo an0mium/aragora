@@ -80,7 +80,7 @@ if TYPE_CHECKING:
 
 
 @register_lru_cache
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=1024)
 def _compute_domain_from_task(task_lower: str) -> str:
     """Compute domain from lowercased task string.
 
