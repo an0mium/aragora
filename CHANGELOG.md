@@ -5,6 +5,38 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-01-20
+
+### Added
+
+- **JWT Webhook Verification** - Proper cryptographic verification for chat platform webhooks:
+  - Microsoft Teams: JWT validation against Azure AD public keys
+  - Google Chat: JWT validation against Google's JWKS endpoint
+  - Graceful fallback when PyJWT not installed (with security warning)
+  - JWKS client caching with hourly refresh
+
+- **AgentSpec Test Suite** - Comprehensive tests for unified agent specification:
+  - Creation with explicit fields
+  - Deprecated string parsing with warnings
+  - Team creation from dicts
+  - String serialization and equality
+
+- **Chat Webhook Router Tests** - Platform detection and routing tests:
+  - Slack, Discord, Telegram, WhatsApp detection
+  - Connector caching behavior
+  - Signature format verification
+
+### Changed
+
+- **rlm_backend Deprecation** - Improved deprecation handling:
+  - Now uses sentinel value to detect ANY explicit use
+  - Warns for all uses (not just non-default values)
+  - Documented removal planned for v3.0
+
+### Security
+
+- **Webhook Signature Verification** - Teams and Google Chat webhooks now properly validate JWT signatures instead of just checking for Bearer token presence
+
 ## [2.0.8] - 2026-01-20
 
 ### Added
