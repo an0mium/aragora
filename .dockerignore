@@ -18,7 +18,8 @@ docs/
 .claude/
 aragora-js/
 tutorials/
-aragora/live/
+# Note: aragora/live/ is needed for frontend Docker build
+# aragora/live/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
