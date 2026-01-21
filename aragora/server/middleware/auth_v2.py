@@ -1,11 +1,25 @@
 """
-Supabase JWT Authentication Middleware.
+Supabase JWT Authentication Middleware - Core Implementation.
 
-Provides user authentication via Supabase Auth JWTs.
+Provides comprehensive user authentication via Supabase Auth JWTs.
 Supports both session tokens (browser) and API keys (programmatic).
 
+This is the primary authentication implementation. The companion auth.py
+module provides simplified decorator wrappers (@require_auth, @optional_auth)
+for basic token validation. Both modules are exported through __init__.py.
+
+Module Structure:
+- auth_v2.py (this file): Full implementation (User, Workspace, JWT, Supabase)
+- auth.py: Simple decorators for basic auth flows
+
+Key exports:
+- User, Workspace, APIKey: Data classes for authenticated entities
+- require_user, require_admin: Decorators requiring user authentication
+- authenticate_request: Function to authenticate a request
+- get_current_user: Get the authenticated user from context
+
 Usage:
-    from aragora.server.middleware.auth_v2 import require_user, get_current_user
+    from aragora.server.middleware import require_user, get_current_user, User
 
     @require_user
     async def protected_endpoint(request, user: User):

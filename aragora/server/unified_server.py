@@ -40,6 +40,7 @@ from urllib.parse import urlparse
 
 from .auth import auth_config, check_auth
 from .middleware.tracing import TracingMiddleware
+from aragora.rbac.middleware import RBACMiddleware, RBACMiddlewareConfig
 from .storage import DebateStorage
 from .stream import (
     ControlPlaneStreamServer,
@@ -98,6 +99,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     control_plane_stream: Optional["ControlPlaneStreamServer"] = None
     nomic_loop_stream: Optional["NomicLoopStreamServer"] = None
     tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
+    rbac: RBACMiddleware = RBACMiddleware(RBACMiddlewareConfig(
+        bypass_paths={"/health", "/healthz", "/ready", "/metrics", "/api/docs", "/openapi.json"},
+        bypass_methods={"OPTIONS"},
+        default_authenticated=False,  # Allow unauthenticated by default, handlers enforce auth
+    ))
     nomic_state_file: Optional[Path] = None
     persistence: Optional["SupabaseClient"] = None
     insight_store: Optional["InsightStore"] = None
@@ -434,6 +440,57 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
                 },
                 status=429,
             )
+            return False
+
+        return True
+
+    def _check_rbac(self, path: str, method: str) -> bool:
+        """Check RBAC permission for the request.
+
+        Returns True if allowed, False if blocked.
+        Sends 401/403 error response if denied.
+        """
+        from aragora.billing.auth import extract_user_from_request
+        from aragora.rbac import AuthorizationContext, get_role_permissions
+
+        # Build authorization context from JWT
+        auth_ctx = None
+        try:
+            user_ctx = extract_user_from_request(self, UnifiedHandler.user_store)
+            if user_ctx.authenticated and user_ctx.user_id:
+                roles = {user_ctx.role} if user_ctx.role else {"member"}
+                permissions: set[str] = set()
+                for role in roles:
+                    permissions |= get_role_permissions(role, include_inherited=True)
+
+                auth_ctx = AuthorizationContext(
+                    user_id=user_ctx.user_id,
+                    org_id=user_ctx.org_id,
+                    roles=roles,
+                    permissions=permissions,
+                    ip_address=user_ctx.client_ip,
+                )
+        except Exception as e:
+            logger.debug(f"RBAC context extraction failed: {e}")
+
+        # Check permission
+        allowed, reason, permission_key = self.rbac.check_request(path, method, auth_ctx)
+
+        if not allowed:
+            if auth_ctx is None:
+                self._send_json(
+                    {"error": "Authentication required", "code": "auth_required"},
+                    status=401,
+                )
+            else:
+                self._send_json(
+                    {
+                        "error": f"Permission denied: {reason}",
+                        "code": "permission_denied",
+                        "required_permission": permission_key,
+                    },
+                    status=403,
+                )
             return False
 
         return True

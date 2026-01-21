@@ -676,47 +676,36 @@ def _create_decision_router_debate_starter():
             # Map platform to InputSource
             source_map = {
                 "slack": InputSource.SLACK,
-                "discord": InputSource.SLACK,  # Fallback to SLACK for similar platforms
-                "teams": InputSource.SLACK,
+                "discord": InputSource.DISCORD,
+                "teams": InputSource.TEAMS,
                 "telegram": InputSource.TELEGRAM,
                 "whatsapp": InputSource.WHATSAPP,
-                "google_chat": InputSource.SLACK,
+                "google_chat": InputSource.GOOGLE_CHAT,
             }
 
-            # Map platform to ResponseChannel
-            channel_map = {
-                "slack": ResponseChannel.SLACK,
-                "discord": ResponseChannel.SLACK,
-                "teams": ResponseChannel.SLACK,
-                "telegram": ResponseChannel.TELEGRAM,
-                "whatsapp": ResponseChannel.WHATSAPP,
-                "google_chat": ResponseChannel.SLACK,
-            }
-
-            request = DecisionRequest(
-                query=topic,
-                decision_type=DecisionType.COMPLEX,
-                context={
-                    "platform": platform,
-                    "channel": channel,
-                    "initiated_by": user,
-                    **kwargs,
-                },
+            # Create ResponseChannel with platform string
+            response_channel = ResponseChannel(
+                platform=platform,
+                channel_id=channel,
+                user_id=user,
             )
 
+            # Create request context
             context = RequestContext(
-                source=source_map.get(platform, InputSource.API),
-                channels=[channel_map.get(platform, ResponseChannel.API)],
                 user_id=user,
                 session_id=f"{platform}:{channel}",
-                metadata={
-                    "platform": platform,
-                    "channel_id": channel,
-                },
+            )
+
+            request = DecisionRequest(
+                content=topic,
+                decision_type=DecisionType.DEBATE,
+                source=source_map.get(platform, InputSource.HTTP_API),
+                response_channels=[response_channel],
+                context=context,
             )
 
             router = get_decision_router()
-            result = await router.route(request, context)
+            result = await router.route(request)
 
             return {
                 "debate_id": result.debate_id or "pending",

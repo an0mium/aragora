@@ -200,7 +200,15 @@ class HumanCheckpointStep(BaseStep):
                     requested_by=context.inputs.get("user_id", "system"),
                     changes=[{"type": "workflow_checkpoint", "step": request.step_id}],
                     timeout_seconds=int(request.timeout_seconds),
-                    metadata={"workflow_id": request.workflow_id},
+                    metadata={
+                        "workflow_id": request.workflow_id,
+                        "step_id": request.step_id,
+                        "escalation_emails": request.escalation_emails,
+                        "checklist": [
+                            {"id": c.id, "label": c.label, "required": c.required}
+                            for c in request.checklist
+                        ],
+                    },
                 )
             except Exception as e:
                 logger.warning(f"Failed to persist approval to store: {e}")
@@ -230,6 +238,18 @@ class HumanCheckpointStep(BaseStep):
             request.status = ApprovalStatus.TIMEOUT
             logger.warning(f"Approval request {request.id} timed out")
 
+            # Persist timeout status to GovernanceStore
+            store = _get_governance_store()
+            if store:
+                try:
+                    store.update_approval_status(
+                        approval_id=request.id,
+                        status="timeout",
+                        rejection_reason="Approval request timed out",
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to persist timeout status: {e}")
+
             # Trigger escalation
             await self._handle_escalation(request)
 
@@ -241,16 +261,45 @@ class HumanCheckpointStep(BaseStep):
             }
 
     async def _wait_for_approval(self, request: ApprovalRequest) -> Dict[str, Any]:
-        """Wait for the approval request to be resolved."""
+        """Wait for the approval request to be resolved.
+
+        Polls both in-memory cache and GovernanceStore to detect approvals
+        that may have been made via other server instances or direct API calls.
+        """
+        poll_count = 0
         while request.status == ApprovalStatus.PENDING:
             await asyncio.sleep(1.0)
+            poll_count += 1
 
-            # Check if request was updated
+            # Check if request was updated in memory
             if request.id in _pending_approvals:
                 updated = _pending_approvals[request.id]
                 if updated.status != ApprovalStatus.PENDING:
                     request = updated
                     break
+
+            # Periodically check GovernanceStore (every 5 seconds)
+            # This catches approvals made via other instances or direct API
+            if poll_count % 5 == 0:
+                store = _get_governance_store()
+                if store:
+                    try:
+                        record = store.get_approval(request.id)
+                        if record and record.status != "pending":
+                            # Status changed in persistent store
+                            request.status = ApprovalStatus(record.status)
+                            request.responder_id = record.approved_by
+                            if record.decided_at:
+                                request.responded_at = record.decided_at
+                            # Update in-memory cache
+                            _pending_approvals[request.id] = request
+                            logger.debug(
+                                f"Detected approval {request.id} status change "
+                                f"from governance store: {record.status}"
+                            )
+                            break
+                    except Exception as e:
+                        logger.debug(f"Error polling governance store: {e}")
 
         # Validate checklist if approved
         if request.status == ApprovalStatus.APPROVED:
@@ -283,6 +332,18 @@ class HumanCheckpointStep(BaseStep):
 
         request.status = ApprovalStatus.ESCALATED
         logger.info(f"Escalating approval request {request.id} to: {request.escalation_emails}")
+
+        # Persist escalation status to GovernanceStore
+        store = _get_governance_store()
+        if store:
+            try:
+                store.update_approval_status(
+                    approval_id=request.id,
+                    status="escalated",
+                    rejection_reason=f"Escalated to: {', '.join(request.escalation_emails)}",
+                )
+            except Exception as e:
+                logger.warning(f"Failed to persist escalation status: {e}")
 
         # Send escalation notifications via Slack/Email
         try:
@@ -394,10 +455,11 @@ def resolve_approval(
     Returns:
         True if request was found and updated, False otherwise
     """
-    if request_id not in _pending_approvals:
+    # Try to get request from memory or recover from persistent store
+    request = get_approval_request(request_id)
+    if request is None:
+        logger.warning(f"Approval request {request_id} not found in memory or store")
         return False
-
-    request = _pending_approvals[request_id]
     request.status = status
     request.responder_id = responder_id
     request.responder_notes = notes
@@ -480,24 +542,39 @@ def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalReq
     store = _get_governance_store()
     if store:
         try:
+            import json
+
             persisted = store.list_approvals(status="pending")
             for record in persisted:
                 if record.approval_id not in in_memory_ids:
                     # Convert ApprovalRecord to ApprovalRequest
                     metadata = {}
                     if record.metadata_json:
-                        import json
                         metadata = json.loads(record.metadata_json)
+
+                    # Reconstruct checklist from stored metadata
+                    checklist = []
+                    for item in metadata.get("checklist", []):
+                        checklist.append(
+                            ChecklistItem(
+                                id=item.get("id", ""),
+                                label=item.get("label", ""),
+                                required=item.get("required", True),
+                                checked=item.get("checked", False),
+                                notes=item.get("notes", ""),
+                            )
+                        )
 
                     request = ApprovalRequest(
                         id=record.approval_id,
                         workflow_id=metadata.get("workflow_id", "unknown"),
-                        step_id="unknown",  # Not stored in ApprovalRecord
+                        step_id=metadata.get("step_id", "unknown"),
                         title=record.title,
                         description=record.description,
-                        checklist=[],  # Not stored in ApprovalRecord
+                        checklist=checklist,
                         status=ApprovalStatus(record.status),
                         timeout_seconds=float(record.timeout_seconds),
+                        escalation_emails=metadata.get("escalation_emails", []),
                     )
                     approvals.append(request)
                     # Also add to in-memory cache for future lookups
@@ -511,5 +588,59 @@ def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalReq
 
 
 def get_approval_request(request_id: str) -> Optional[ApprovalRequest]:
-    """Get an approval request by ID."""
-    return _pending_approvals.get(request_id)
+    """Get an approval request by ID.
+
+    First checks in-memory cache, then falls back to GovernanceStore
+    to recover approvals that survived a server restart.
+    """
+    # Check in-memory cache first
+    if request_id in _pending_approvals:
+        return _pending_approvals[request_id]
+
+    # Try to recover from persistent store
+    store = _get_governance_store()
+    if store:
+        try:
+            record = store.get_approval(request_id)
+            if record:
+                import json
+
+                metadata = {}
+                if record.metadata_json:
+                    metadata = json.loads(record.metadata_json)
+
+                # Reconstruct checklist from stored metadata
+                checklist = []
+                for item in metadata.get("checklist", []):
+                    checklist.append(
+                        ChecklistItem(
+                            id=item.get("id", ""),
+                            label=item.get("label", ""),
+                            required=item.get("required", True),
+                            checked=item.get("checked", False),
+                            notes=item.get("notes", ""),
+                        )
+                    )
+
+                # Reconstruct ApprovalRequest from stored record
+                request = ApprovalRequest(
+                    id=record.approval_id,
+                    workflow_id=metadata.get("workflow_id", "unknown"),
+                    step_id=metadata.get("step_id", "unknown"),
+                    title=record.title,
+                    description=record.description,
+                    checklist=checklist,
+                    status=ApprovalStatus(record.status),
+                    timeout_seconds=float(record.timeout_seconds),
+                    escalation_emails=metadata.get("escalation_emails", []),
+                    responder_id=record.approved_by,
+                    responded_at=record.decided_at,
+                )
+                # Cache for future lookups
+                _pending_approvals[request_id] = request
+                logger.debug(f"Recovered approval {request_id} from governance store")
+                return request
+        except Exception as e:
+            logger.debug(f"Could not recover approval {request_id}: {e}")
+
+    return None

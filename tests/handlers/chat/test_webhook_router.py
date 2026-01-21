@@ -234,3 +234,153 @@ class TestWebhookRouting:
         router = ChatWebhookRouter(debate_starter=starter)
 
         assert router.debate_starter is starter
+
+
+class TestDecisionRouterIntegration:
+    """Tests for DecisionRouter integration."""
+
+    def test_decision_router_debate_starter_factory(self):
+        """Test the DecisionRouter debate starter factory exists."""
+        from aragora.server.handlers.chat.router import _create_decision_router_debate_starter
+
+        starter = _create_decision_router_debate_starter()
+        assert starter is not None
+        assert callable(starter)
+
+    @pytest.mark.asyncio
+    async def test_decision_router_debate_starter_creates_request(self):
+        """Test debate starter creates proper DecisionRequest."""
+        from aragora.server.handlers.chat.router import _create_decision_router_debate_starter
+
+        starter = _create_decision_router_debate_starter()
+
+        # Mock the DecisionRouter at the aragora.core level
+        with patch("aragora.core.get_decision_router") as mock_get_router:
+            mock_router = MagicMock()
+            mock_result = MagicMock()
+            mock_result.debate_id = "test-debate-123"
+            mock_result.status = MagicMock(value="started")
+            mock_router.route = AsyncMock(return_value=mock_result)
+            mock_get_router.return_value = mock_router
+
+            result = await starter(
+                topic="Test debate topic",
+                platform="slack",
+                channel="C123",
+                user="U456",
+            )
+
+            assert result["debate_id"] == "test-debate-123"
+            assert result["topic"] == "Test debate topic"
+            mock_router.route.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_decision_router_debate_starter_handles_import_error(self):
+        """Test debate starter handles missing DecisionRouter gracefully."""
+        from aragora.server.handlers.chat.router import _create_decision_router_debate_starter
+
+        starter = _create_decision_router_debate_starter()
+
+        # Mock import failure by making get_decision_router raise ImportError
+        with patch("aragora.core.get_decision_router", side_effect=ImportError("Not available")):
+            result = await starter(
+                topic="Test topic",
+                platform="slack",
+                channel="C123",
+                user="U456",
+            )
+
+            # Should return minimal response
+            assert result["debate_id"] == "pending"
+            assert result["topic"] == "Test topic"
+
+    def test_get_webhook_router_uses_decision_router_by_default(self):
+        """Test get_webhook_router uses DecisionRouter starter by default."""
+        from aragora.server.handlers.chat.router import get_webhook_router, _router
+
+        # Reset singleton
+        import aragora.server.handlers.chat.router as router_module
+        router_module._router = None
+
+        with patch("aragora.server.handlers.chat.router._create_decision_router_debate_starter") as mock_create:
+            mock_starter = AsyncMock()
+            mock_create.return_value = mock_starter
+
+            router = get_webhook_router()
+
+            mock_create.assert_called_once()
+            assert router.debate_starter is mock_starter
+
+        # Cleanup
+        router_module._router = None
+
+    def test_get_webhook_router_custom_starter_overrides(self):
+        """Test custom debate_starter overrides DecisionRouter."""
+        from aragora.server.handlers.chat.router import get_webhook_router
+
+        # Reset singleton
+        import aragora.server.handlers.chat.router as router_module
+        router_module._router = None
+
+        custom_starter = AsyncMock()
+
+        with patch("aragora.server.handlers.chat.router._create_decision_router_debate_starter") as mock_create:
+            router = get_webhook_router(debate_starter=custom_starter)
+
+            # Should not create DecisionRouter starter when custom provided
+            mock_create.assert_not_called()
+            assert router.debate_starter is custom_starter
+
+        # Cleanup
+        router_module._router = None
+
+    def test_get_webhook_router_can_disable_decision_router(self):
+        """Test DecisionRouter can be disabled via flag."""
+        from aragora.server.handlers.chat.router import get_webhook_router
+
+        # Reset singleton
+        import aragora.server.handlers.chat.router as router_module
+        router_module._router = None
+
+        with patch("aragora.server.handlers.chat.router._create_decision_router_debate_starter") as mock_create:
+            router = get_webhook_router(use_decision_router=False)
+
+            mock_create.assert_not_called()
+            assert router.debate_starter is None
+
+        # Cleanup
+        router_module._router = None
+
+    @pytest.mark.asyncio
+    async def test_decision_router_maps_platforms_correctly(self):
+        """Test platform to InputSource/ResponseChannel mapping."""
+        from aragora.server.handlers.chat.router import _create_decision_router_debate_starter
+
+        starter = _create_decision_router_debate_starter()
+
+        platforms_to_test = ["slack", "telegram", "whatsapp", "discord"]
+
+        for platform in platforms_to_test:
+            with patch("aragora.core.get_decision_router") as mock_get_router:
+                mock_router = MagicMock()
+                mock_result = MagicMock()
+                mock_result.debate_id = f"debate-{platform}"
+                mock_result.status = MagicMock(value="started")
+                mock_router.route = AsyncMock(return_value=mock_result)
+                mock_get_router.return_value = mock_router
+
+                result = await starter(
+                    topic=f"Test for {platform}",
+                    platform=platform,
+                    channel="channel",
+                    user="user",
+                )
+
+                assert result["debate_id"] == f"debate-{platform}"
+
+                # Verify route was called with proper request
+                call_args = mock_router.route.call_args
+                request = call_args[0][0]  # First positional argument
+                # Check the response channels include the platform
+                assert len(request.response_channels) == 1
+                assert request.response_channels[0].platform == platform

@@ -200,6 +200,15 @@ from .performance_slos import (
     AvailabilitySLO,
 )
 
+# Re-export configuration validator
+from .validator import (
+    ConfigurationError as ValidatorConfigurationError,
+    get_missing_required_keys,
+    print_config_status,
+    validate_all,
+    validate_production,
+)
+
 __all__ = [
     # Main settings
     "Settings",
@@ -239,6 +248,12 @@ __all__ = [
     "LatencySLO",
     "ThroughputSLO",
     "AvailabilitySLO",
+    # Configuration Validator
+    "validate_all",
+    "validate_production",
+    "get_missing_required_keys",
+    "print_config_status",
+    "ValidatorConfigurationError",
     # Constants
     "ALLOWED_AGENT_TYPES",
 ]

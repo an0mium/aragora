@@ -185,7 +185,7 @@ class ZoomHandler(BaseHandler):
                         "error": "Zoom bot not configured",
                         "details": "Set ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET environment variables",
                     },
-                    status_code=503,
+                    status=503,
                 )
 
             # Process event asynchronously

@@ -36,6 +36,7 @@ from aragora.rbac import (
     check_permission,
     PermissionDeniedError,
 )
+from aragora.billing.auth import extract_user_from_request, UserAuthContext
 
 logger = logging.getLogger(__name__)
 
@@ -118,22 +119,75 @@ class FindingWorkflowHandler(BaseHandler):
         return self._error_response(404, "Endpoint not found")
 
     def _get_user_from_request(self, request: Any) -> tuple[str, str]:
-        """Extract user ID and name from request (auth token)."""
-        # In production, this would extract from JWT/session
-        user_id = request.headers.get("X-User-ID", "anonymous")
-        user_name = request.headers.get("X-User-Name", "Anonymous User")
-        return user_id, user_name
+        """Extract user ID and name from validated JWT token.
+
+        Returns user info from JWT claims. Falls back to headers only
+        for backward compatibility with internal service calls.
+        """
+        # Try JWT authentication first (secure)
+        auth_context = extract_user_from_request(request)
+        if auth_context.authenticated and auth_context.user_id:
+            # Get display name from email or user_id
+            display_name = auth_context.email or auth_context.user_id
+            if "@" in display_name:
+                display_name = display_name.split("@")[0]
+            return auth_context.user_id, display_name
+
+        # Fall back to headers for internal/service calls only if no JWT
+        # This allows service-to-service calls but logs a warning
+        user_id = request.headers.get("X-User-ID", "")
+        if user_id and user_id != "anonymous":
+            logger.warning(
+                f"finding_workflow: Using header-based auth for user {user_id}. "
+                "Consider using JWT for production security."
+            )
+            user_name = request.headers.get("X-User-Name", "Anonymous User")
+            return user_id, user_name
+
+        return "anonymous", "Anonymous User"
 
     def _get_auth_context(self, request: Any) -> AuthorizationContext:
-        """Build AuthorizationContext from request headers."""
+        """Build AuthorizationContext from validated JWT token.
+
+        Prioritizes JWT claims over headers for secure authentication.
+        Headers are only used as fallback for internal service calls.
+        """
+        from aragora.rbac import get_role_permissions
+
+        # Try JWT authentication first (secure)
+        jwt_context = extract_user_from_request(request)
+        if jwt_context.authenticated and jwt_context.user_id:
+            # Build roles set from JWT role claim
+            roles = {jwt_context.role} if jwt_context.role else {"member"}
+
+            # Get resolved permissions for the roles
+            permissions: set[str] = set()
+            for role in roles:
+                permissions |= get_role_permissions(role, include_inherited=True)
+
+            return AuthorizationContext(
+                user_id=jwt_context.user_id,
+                org_id=jwt_context.org_id,
+                roles=roles,
+                permissions=permissions,
+                ip_address=jwt_context.client_ip,
+            )
+
+        # Fall back to headers for internal/service calls
+        # Log warning when using header-based auth
         user_id = request.headers.get("X-User-ID", "anonymous")
+        if user_id and user_id != "anonymous":
+            logger.warning(
+                f"finding_workflow: Header-based auth for user {user_id}. "
+                "JWT auth recommended for security."
+            )
+
         org_id = request.headers.get("X-Org-ID")
         # Roles from header (comma-separated) or default to member
         roles_header = request.headers.get("X-User-Roles", "member")
         roles = set(r.strip() for r in roles_header.split(",") if r.strip())
 
         # Get resolved permissions for the roles
-        from aragora.rbac import get_role_permissions
         permissions: set[str] = set()
         for role in roles:
             permissions |= get_role_permissions(role, include_inherited=True)

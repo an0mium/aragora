@@ -739,6 +739,7 @@ class DecisionRouter:
         enable_caching: bool = True,
         enable_deduplication: bool = True,
         cache_ttl_seconds: float = 3600.0,
+        rbac_enforcer: Optional[Any] = None,
     ):
         """
         Initialize the router.
@@ -751,6 +752,7 @@ class DecisionRouter:
             enable_caching: Whether to cache decision results
             enable_deduplication: Whether to deduplicate concurrent identical requests
             cache_ttl_seconds: How long to cache results (default 1 hour)
+            rbac_enforcer: Optional RBACEnforcer for authorization checks
         """
         self._debate_engine = debate_engine
         self._workflow_engine = workflow_engine
@@ -758,6 +760,7 @@ class DecisionRouter:
         self._response_handlers: Dict[str, Callable] = {}
         self._enable_voice_responses = enable_voice_responses
         self._tts_bridge: Optional[Any] = None
+        self._rbac_enforcer = rbac_enforcer
 
         # Cache configuration
         self._enable_caching = enable_caching
@@ -781,6 +784,9 @@ class DecisionRouter:
 
         Returns:
             DecisionResult with the outcome
+
+        Raises:
+            PermissionDeniedError: If RBAC check fails
         """
         # Initialize tracing, caching, and metrics if available
         _import_tracing()
@@ -791,6 +797,51 @@ class DecisionRouter:
             f"Routing decision request {request.request_id} "
             f"(type={request.decision_type.value}, source={request.source.value})"
         )
+
+        # RBAC authorization check
+        if self._rbac_enforcer and request.context.user_id:
+            try:
+                from aragora.rbac import ResourceType, Action, IsolationContext
+
+                # Map decision type to resource type
+                resource_type_map = {
+                    DecisionType.DEBATE: ResourceType.DEBATE,
+                    DecisionType.WORKFLOW: ResourceType.WORKFLOW,
+                    DecisionType.GAUNTLET: ResourceType.AUDIT_FINDING,
+                    DecisionType.QUICK: ResourceType.DEBATE,
+                }
+                resource_type = resource_type_map.get(
+                    request.decision_type, ResourceType.DEBATE
+                )
+
+                # Build isolation context
+                isolation_ctx = IsolationContext(
+                    workspace_id=request.context.workspace_id,
+                    user_id=request.context.user_id,
+                )
+
+                # Require CREATE permission
+                await self._rbac_enforcer.require_async(
+                    request.context.user_id,
+                    resource_type,
+                    Action.CREATE,
+                    isolation_ctx,
+                )
+                logger.debug(
+                    f"RBAC check passed for user {request.context.user_id} "
+                    f"on {resource_type.value}"
+                )
+            except ImportError:
+                logger.debug("RBAC module not available, skipping authorization")
+            except Exception as e:
+                logger.warning(f"RBAC check failed: {e}")
+                return DecisionResult(
+                    request_id=request.request_id,
+                    decision_type=request.decision_type,
+                    answer="",
+                    success=False,
+                    error=f"Authorization denied: {e}",
+                )
 
         start_time = datetime.utcnow()
 

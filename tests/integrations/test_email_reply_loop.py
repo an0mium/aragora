@@ -230,6 +230,176 @@ class TestEmailReplyOrigin:
         assert origin.message_id == "<test-msg@aragora.com>"
         assert origin.metadata["extra"] == "data"
 
+    def test_to_dict(self):
+        """Test EmailReplyOrigin serialization to dict."""
+        origin = EmailReplyOrigin(
+            debate_id="debate-456",
+            message_id="<dict-test@aragora.com>",
+            recipient_email="dict@example.com",
+            recipient_name="Dict User",
+            metadata={"key": "value"},
+        )
+
+        result = origin.to_dict()
+
+        assert result["debate_id"] == "debate-456"
+        assert result["message_id"] == "<dict-test@aragora.com>"
+        assert result["recipient_email"] == "dict@example.com"
+        assert result["recipient_name"] == "Dict User"
+        assert result["reply_received"] is False
+        assert result["metadata"]["key"] == "value"
+        assert "sent_at" in result
+
+    def test_from_dict(self):
+        """Test EmailReplyOrigin deserialization from dict."""
+        data = {
+            "debate_id": "debate-789",
+            "message_id": "<from-dict@aragora.com>",
+            "recipient_email": "from@example.com",
+            "recipient_name": "From User",
+            "sent_at": "2026-01-20T10:00:00",
+            "reply_received": True,
+            "reply_received_at": "2026-01-20T11:00:00",
+            "metadata": {"restored": True},
+        }
+
+        origin = EmailReplyOrigin.from_dict(data)
+
+        assert origin.debate_id == "debate-789"
+        assert origin.message_id == "<from-dict@aragora.com>"
+        assert origin.recipient_email == "from@example.com"
+        assert origin.reply_received is True
+        assert origin.metadata["restored"] is True
+
+    def test_to_dict_from_dict_roundtrip(self):
+        """Test serialization/deserialization roundtrip."""
+        original = EmailReplyOrigin(
+            debate_id="roundtrip-123",
+            message_id="<roundtrip@aragora.com>",
+            recipient_email="roundtrip@example.com",
+            recipient_name="Roundtrip User",
+            metadata={"round": "trip"},
+        )
+
+        data = original.to_dict()
+        restored = EmailReplyOrigin.from_dict(data)
+
+        assert restored.debate_id == original.debate_id
+        assert restored.message_id == original.message_id
+        assert restored.recipient_email == original.recipient_email
+        assert restored.recipient_name == original.recipient_name
+        assert restored.metadata == original.metadata
+
+
+# ===========================================================================
+# Redis Persistence Tests
+# ===========================================================================
+
+
+class TestEmailOriginRedisPersistence:
+    """Tests for Redis persistence of email origins."""
+
+    @patch("aragora.integrations.email_reply_loop._store_email_origin_redis")
+    def test_register_origin_stores_to_redis(self, mock_store_redis):
+        """Test that registering an origin attempts Redis storage."""
+        origin = register_email_origin(
+            debate_id="redis-test-1",
+            message_id="<redis-store@aragora.com>",
+            recipient_email="redis@example.com",
+        )
+
+        # Should attempt to store in Redis
+        mock_store_redis.assert_called_once()
+        call_args = mock_store_redis.call_args[0]
+        assert call_args[0].debate_id == "redis-test-1"
+
+    @patch("aragora.integrations.email_reply_loop._store_email_origin_redis")
+    def test_register_origin_continues_on_redis_failure(self, mock_store_redis):
+        """Test that registration succeeds even if Redis fails."""
+        mock_store_redis.side_effect = Exception("Redis unavailable")
+
+        # Should not raise, just log warning
+        origin = register_email_origin(
+            debate_id="redis-fail-test",
+            message_id="<redis-fail@aragora.com>",
+            recipient_email="fail@example.com",
+        )
+
+        assert origin is not None
+        assert origin.debate_id == "redis-fail-test"
+
+    @pytest.mark.asyncio
+    @patch("aragora.integrations.email_reply_loop._load_email_origin_redis")
+    async def test_get_origin_falls_back_to_redis(self, mock_load_redis):
+        """Test that get_origin_by_reply checks Redis when not in memory."""
+        from aragora.integrations.email_reply_loop import get_origin_by_reply, _reply_origins
+
+        # Ensure not in memory
+        test_msg_id = "<redis-fallback@aragora.com>"
+        _reply_origins.pop(test_msg_id, None)
+
+        # Mock Redis returning an origin
+        mock_origin = EmailReplyOrigin(
+            debate_id="redis-loaded",
+            message_id=test_msg_id,
+            recipient_email="loaded@example.com",
+        )
+        mock_load_redis.return_value = mock_origin
+
+        result = await get_origin_by_reply(test_msg_id)
+
+        assert result is not None
+        assert result.debate_id == "redis-loaded"
+        mock_load_redis.assert_called_once_with(test_msg_id)
+
+    @pytest.mark.asyncio
+    @patch("aragora.integrations.email_reply_loop._load_email_origin_redis")
+    async def test_get_origin_caches_redis_result(self, mock_load_redis):
+        """Test that Redis results are cached in memory."""
+        from aragora.integrations.email_reply_loop import get_origin_by_reply, _reply_origins
+
+        test_msg_id = "<cache-test@aragora.com>"
+        _reply_origins.pop(test_msg_id, None)
+
+        mock_origin = EmailReplyOrigin(
+            debate_id="cached",
+            message_id=test_msg_id,
+            recipient_email="cache@example.com",
+        )
+        mock_load_redis.return_value = mock_origin
+
+        # First call should hit Redis
+        result1 = await get_origin_by_reply(test_msg_id)
+        assert mock_load_redis.call_count == 1
+
+        # Second call should use cache
+        result2 = await get_origin_by_reply(test_msg_id)
+        assert mock_load_redis.call_count == 1  # Not called again
+
+        assert result1.debate_id == result2.debate_id
+
+    @pytest.mark.asyncio
+    async def test_get_origin_prefers_memory(self):
+        """Test that in-memory origins are returned without Redis call."""
+        from aragora.integrations.email_reply_loop import get_origin_by_reply, _reply_origins
+
+        test_msg_id = "<memory-pref@aragora.com>"
+        memory_origin = EmailReplyOrigin(
+            debate_id="from-memory",
+            message_id=test_msg_id,
+            recipient_email="memory@example.com",
+        )
+        _reply_origins[test_msg_id] = memory_origin
+
+        with patch("aragora.integrations.email_reply_loop._load_email_origin_redis") as mock_load:
+            result = await get_origin_by_reply(test_msg_id)
+
+            assert result.debate_id == "from-memory"
+            mock_load.assert_not_called()
+
+        # Cleanup
+        _reply_origins.pop(test_msg_id, None)
+
 
 # ===========================================================================
 # Parse Raw Email Tests

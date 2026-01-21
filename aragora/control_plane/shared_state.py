@@ -34,9 +34,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import sqlite3
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
@@ -180,7 +183,7 @@ class SharedControlPlaneState:
     - Metrics aggregation
 
     When Redis is available, state is shared across server instances.
-    Falls back to in-memory for single-instance deployments.
+    Falls back to SQLite for durable single-instance deployments (no data loss on restart).
     """
 
     def __init__(
@@ -188,6 +191,7 @@ class SharedControlPlaneState:
         redis_url: str = "redis://localhost:6379",
         key_prefix: str = "aragora:cp:shared:",
         heartbeat_timeout: float = 30.0,
+        sqlite_path: Optional[str] = None,
     ):
         """
         Initialize shared state.
@@ -196,6 +200,7 @@ class SharedControlPlaneState:
             redis_url: Redis connection URL
             key_prefix: Prefix for Redis keys
             heartbeat_timeout: Seconds before agent is considered offline
+            sqlite_path: Optional SQLite database path for fallback storage
         """
         self._redis_url = redis_url
         self._key_prefix = key_prefix
@@ -203,7 +208,14 @@ class SharedControlPlaneState:
         self._redis: Optional[Any] = None
         self._connected = False
 
-        # In-memory fallback
+        # SQLite fallback path
+        if sqlite_path is None:
+            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
+            sqlite_path = str(Path(data_dir) / "control_plane_state.db")
+        self._sqlite_path = sqlite_path
+        self._sqlite_initialized = False
+
+        # In-memory cache (backed by SQLite when Redis unavailable)
         self._local_agents: Dict[str, AgentState] = {}
         self._local_tasks: List[TaskState] = []
         self._local_metrics: Dict[str, Any] = {
@@ -216,15 +228,113 @@ class SharedControlPlaneState:
 
     @property
     def is_persistent(self) -> bool:
-        """Check if using persistent (Redis) backing."""
+        """Check if using persistent (Redis or SQLite) backing."""
+        return (self._redis is not None and self._connected) or self._sqlite_initialized
+
+    @property
+    def is_redis_connected(self) -> bool:
+        """Check if connected to Redis (multi-instance mode)."""
         return self._redis is not None and self._connected
+
+    def _init_sqlite(self) -> None:
+        """Initialize SQLite database for fallback persistence."""
+        try:
+            Path(self._sqlite_path).parent.mkdir(parents=True, exist_ok=True)
+            conn = sqlite3.connect(self._sqlite_path)
+
+            # Agents table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS control_plane_agents (
+                    id TEXT PRIMARY KEY,
+                    data_json TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+            """)
+
+            # Tasks table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS control_plane_tasks (
+                    id TEXT PRIMARY KEY,
+                    data_json TEXT NOT NULL,
+                    priority TEXT NOT NULL,
+                    position INTEGER,
+                    updated_at REAL NOT NULL
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_cp_tasks_priority ON control_plane_tasks(priority, position)"
+            )
+
+            # Metrics table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS control_plane_metrics (
+                    key TEXT PRIMARY KEY,
+                    value_int INTEGER DEFAULT 0,
+                    updated_at REAL NOT NULL
+                )
+            """)
+
+            conn.commit()
+            conn.close()
+            self._sqlite_initialized = True
+            logger.info(f"SharedControlPlaneState SQLite initialized: {self._sqlite_path}")
+
+            # Load existing state into memory cache
+            self._load_sqlite_state()
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize SQLite fallback: {e}")
+            self._sqlite_initialized = False
+
+    def _load_sqlite_state(self) -> None:
+        """Load existing state from SQLite into memory cache."""
+        if not self._sqlite_initialized:
+            return
+
+        try:
+            conn = sqlite3.connect(self._sqlite_path)
+
+            # Load agents
+            cursor = conn.execute("SELECT id, data_json FROM control_plane_agents")
+            for row in cursor.fetchall():
+                try:
+                    agent = AgentState.from_dict(json.loads(row[1]))
+                    self._local_agents[row[0]] = agent
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+            # Load tasks
+            cursor = conn.execute(
+                "SELECT id, data_json FROM control_plane_tasks ORDER BY priority, position"
+            )
+            self._local_tasks = []
+            for row in cursor.fetchall():
+                try:
+                    task = TaskState.from_dict(json.loads(row[1]))
+                    self._local_tasks.append(task)
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+            # Load metrics
+            cursor = conn.execute("SELECT key, value_int FROM control_plane_metrics")
+            for row in cursor.fetchall():
+                if row[0] in self._local_metrics:
+                    self._local_metrics[row[0]] = row[1]
+
+            conn.close()
+            logger.debug(
+                f"Loaded {len(self._local_agents)} agents, {len(self._local_tasks)} tasks from SQLite"
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to load state from SQLite: {e}")
 
     async def connect(self) -> bool:
         """
-        Connect to Redis backend.
+        Connect to Redis backend. Falls back to SQLite if Redis unavailable.
 
         Returns:
-            True if connected to Redis, False if using in-memory fallback
+            True if connected to Redis, False if using SQLite fallback
         """
         try:
             import redis.asyncio as aioredis
@@ -240,14 +350,16 @@ class SharedControlPlaneState:
             return True
 
         except ImportError:
-            logger.warning("redis package not installed, using in-memory fallback")
+            logger.warning("redis package not installed, using SQLite fallback")
             self._redis = None
             self._connected = False
+            self._init_sqlite()
             return False
         except Exception as e:
-            logger.warning(f"Failed to connect to Redis, using in-memory fallback: {e}")
+            logger.warning(f"Failed to connect to Redis, using SQLite fallback: {e}")
             self._redis = None
             self._connected = False
+            self._init_sqlite()
             return False
 
     async def close(self) -> None:
@@ -460,6 +572,22 @@ class SharedControlPlaneState:
             if metric_name in self._local_metrics:
                 self._local_metrics[metric_name] += value
 
+            # Persist to SQLite
+            if self._sqlite_initialized:
+                try:
+                    conn = sqlite3.connect(self._sqlite_path)
+                    conn.execute(
+                        """INSERT INTO control_plane_metrics (key, value_int, updated_at)
+                           VALUES (?, ?, ?)
+                           ON CONFLICT(key) DO UPDATE SET
+                           value_int = value_int + ?, updated_at = ?""",
+                        (metric_name, value, time.time(), value, time.time()),
+                    )
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    logger.debug(f"Failed to persist metric to SQLite: {e}")
+
     # --- Stream/Events ---
 
     def register_stream_client(self, queue: asyncio.Queue) -> None:
@@ -515,7 +643,7 @@ class SharedControlPlaneState:
             return list(self._local_agents.values())
 
     async def _save_agent(self, agent: AgentState) -> None:
-        """Save agent to storage."""
+        """Save agent to storage (Redis or SQLite)."""
         if self._redis:
             key = f"{self._key_prefix}agents:{agent.id}"
             await self._redis.set(
@@ -524,7 +652,22 @@ class SharedControlPlaneState:
                 ex=86400,  # 24 hour expiry
             )
         else:
+            # Save to memory cache
             self._local_agents[agent.id] = agent
+
+            # Persist to SQLite
+            if self._sqlite_initialized:
+                try:
+                    conn = sqlite3.connect(self._sqlite_path)
+                    conn.execute(
+                        """INSERT OR REPLACE INTO control_plane_agents
+                           (id, data_json, updated_at) VALUES (?, ?, ?)""",
+                        (agent.id, json.dumps(agent.to_dict()), time.time()),
+                    )
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    logger.debug(f"Failed to persist agent to SQLite: {e}")
 
     async def _get_task(self, task_id: str) -> Optional[TaskState]:
         """Get task from storage."""
@@ -557,7 +700,7 @@ class SharedControlPlaneState:
             return list(self._local_tasks)
 
     async def _save_task(self, task: TaskState, position: Optional[int] = None) -> None:
-        """Save task to storage."""
+        """Save task to storage (Redis or SQLite)."""
         if self._redis:
             key = f"{self._key_prefix}tasks:{task.id}"
             await self._redis.set(
@@ -593,6 +736,21 @@ class SharedControlPlaneState:
                 # Sort by priority
                 priority_order = {"high": 0, "normal": 1, "low": 2}
                 self._local_tasks.sort(key=lambda t: priority_order.get(t.priority, 1))
+
+            # Persist to SQLite
+            if self._sqlite_initialized:
+                try:
+                    conn = sqlite3.connect(self._sqlite_path)
+                    task_position = position if position is not None else self._local_tasks.index(task)
+                    conn.execute(
+                        """INSERT OR REPLACE INTO control_plane_tasks
+                           (id, data_json, priority, position, updated_at) VALUES (?, ?, ?, ?, ?)""",
+                        (task.id, json.dumps(task.to_dict()), task.priority, task_position, time.time()),
+                    )
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    logger.debug(f"Failed to persist task to SQLite: {e}")
 
     def _calculate_avg_duration(self, agents: List[AgentState]) -> float:
         """Calculate average task duration."""

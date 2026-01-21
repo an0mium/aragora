@@ -1,0 +1,273 @@
+"""
+Decision Router HTTP Handler.
+
+Provides REST API endpoints for unified decision-making capabilities:
+- POST /api/decisions - Create a new decision request (debate, workflow, gauntlet)
+- GET  /api/decisions/:id - Get decision result by ID
+- GET  /api/decisions/:id/status - Get decision status for polling
+
+Usage:
+    # In unified_server.py
+    from aragora.server.handlers.decision import DecisionHandler
+
+    handlers.append(DecisionHandler(ctx))
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+from aragora.server.handlers.base import (
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    json_response,
+)
+
+logger = logging.getLogger(__name__)
+
+# Lazy-loaded router instance
+_decision_router = None
+
+
+def _get_decision_router():
+    """Get or create the decision router singleton."""
+    global _decision_router
+    if _decision_router is None:
+        try:
+            from aragora.core.decision import DecisionRouter
+
+            _decision_router = DecisionRouter()
+        except Exception as e:
+            logger.warning(f"DecisionRouter not available: {e}")
+    return _decision_router
+
+
+# In-memory result cache (for polling)
+_decision_results: Dict[str, Dict[str, Any]] = {}
+
+
+class DecisionHandler(BaseHandler):
+    """
+    Handler for unified decision-making API endpoints.
+
+    Provides a single entry point for debates, workflows, gauntlets,
+    and quick decisions via the DecisionRouter.
+    """
+
+    ROUTES = [
+        "/api/decisions",
+        "/api/decisions/*",
+    ]
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can handle the request."""
+        if path == "/api/decisions":
+            return True
+        if path.startswith("/api/decisions/"):
+            return True
+        return False
+
+    def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+        """Handle GET requests."""
+        if path == "/api/decisions":
+            # List recent decisions (optional)
+            return self._list_decisions(query_params)
+
+        if path.startswith("/api/decisions/"):
+            parts = path.split("/")
+            if len(parts) >= 4:
+                request_id = parts[3]
+                if len(parts) == 5 and parts[4] == "status":
+                    return self._get_decision_status(request_id)
+                return self._get_decision(request_id)
+
+        return None
+
+    def handle_post(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+        """Handle POST requests."""
+        if path == "/api/decisions":
+            return self._create_decision(handler)
+        return None
+
+    def _create_decision(self, handler) -> HandlerResult:
+        """
+        Create a new decision request.
+
+        Expected body:
+        {
+            "content": "Question or topic",
+            "decision_type": "debate|workflow|gauntlet|quick|auto",
+            "config": {
+                "agents": ["anthropic-api", "openai-api"],
+                "rounds": 3,
+                "consensus": "majority",
+                "timeout_seconds": 300
+            },
+            "context": {
+                "user_id": "user-123",
+                "workspace_id": "ws-456"
+            },
+            "priority": "high|normal|low",
+            "response_channels": [
+                {"platform": "http_api"}
+            ]
+        }
+        """
+        # Parse body
+        body, err = self.read_json_body_validated(handler)
+        if err:
+            return err
+
+        if not body.get("content"):
+            return error_response("Missing required field: content", 400)
+
+        # Get authentication context
+        from aragora.billing.auth import extract_user_from_request
+
+        auth_ctx = extract_user_from_request(handler)
+
+        # Build decision request
+        try:
+            from aragora.core.decision import DecisionRequest
+
+            # Get headers for correlation ID
+            headers = {}
+            if hasattr(handler, "headers"):
+                headers = dict(handler.headers)
+
+            request = DecisionRequest.from_http(body, headers)
+
+            # Set user context from auth if not provided
+            if auth_ctx.authenticated:
+                if not request.context.user_id:
+                    request.context.user_id = auth_ctx.user_id
+                if not request.context.workspace_id:
+                    request.context.workspace_id = auth_ctx.org_id
+
+        except ValueError as e:
+            return error_response(f"Invalid request: {e}", 400)
+        except Exception as e:
+            logger.warning(f"Failed to parse decision request: {e}")
+            return error_response(f"Failed to parse request: {e}", 400)
+
+        # Get router
+        router = _get_decision_router()
+        if not router:
+            return error_response("Decision router not available", 503)
+
+        # Check RBAC if user is authenticated
+        if auth_ctx.authenticated:
+            try:
+                from aragora.rbac import (
+                    RBACEnforcer,
+                    ResourceType,
+                    Action,
+                    IsolationContext,
+                )
+
+                enforcer = RBACEnforcer()
+                ctx = IsolationContext(
+                    workspace_id=request.context.workspace_id,
+                    user_id=request.context.user_id,
+                )
+                enforcer.require(
+                    auth_ctx.user_id,
+                    ResourceType.DECISION if hasattr(ResourceType, "DECISION") else ResourceType.DEBATE,
+                    Action.CREATE,
+                    ctx,
+                )
+            except Exception as e:
+                logger.debug(f"RBAC check skipped: {e}")
+
+        # Route the decision (run synchronously for now)
+        import asyncio
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(router.route(request))
+            finally:
+                loop.close()
+
+            # Cache result for polling
+            _decision_results[request.request_id] = {
+                "request_id": request.request_id,
+                "status": "completed" if result.success else "failed",
+                "result": result.to_dict(),
+                "completed_at": datetime.utcnow().isoformat(),
+            }
+
+            return json_response({
+                "request_id": request.request_id,
+                "status": "completed" if result.success else "failed",
+                "decision_type": result.decision_type.value,
+                "answer": result.answer,
+                "confidence": result.confidence,
+                "consensus_reached": result.consensus_reached,
+                "reasoning": result.reasoning,
+                "evidence_used": result.evidence_used,
+                "duration_seconds": result.duration_seconds,
+                "error": result.error,
+            })
+
+        except asyncio.TimeoutError:
+            # Save as pending for async polling
+            _decision_results[request.request_id] = {
+                "request_id": request.request_id,
+                "status": "timeout",
+                "error": "Decision timed out",
+            }
+            return error_response("Decision request timed out", 408)
+
+        except Exception as e:
+            logger.exception(f"Decision routing failed: {e}")
+            _decision_results[request.request_id] = {
+                "request_id": request.request_id,
+                "status": "failed",
+                "error": str(e),
+            }
+            return error_response(f"Decision failed: {e}", 500)
+
+    def _get_decision(self, request_id: str) -> HandlerResult:
+        """Get a decision result by ID."""
+        if request_id in _decision_results:
+            return json_response(_decision_results[request_id])
+        return error_response("Decision not found", 404)
+
+    def _get_decision_status(self, request_id: str) -> HandlerResult:
+        """Get decision status for polling."""
+        if request_id in _decision_results:
+            result = _decision_results[request_id]
+            return json_response({
+                "request_id": request_id,
+                "status": result.get("status", "unknown"),
+                "completed_at": result.get("completed_at"),
+            })
+        return json_response({
+            "request_id": request_id,
+            "status": "not_found",
+        })
+
+    def _list_decisions(self, query_params: dict) -> HandlerResult:
+        """List recent decisions."""
+        limit = int(query_params.get("limit", 20))
+        decisions = list(_decision_results.values())[-limit:]
+        return json_response({
+            "decisions": [
+                {
+                    "request_id": d["request_id"],
+                    "status": d.get("status"),
+                    "completed_at": d.get("completed_at"),
+                }
+                for d in decisions
+            ],
+            "total": len(_decision_results),
+        })
+
+
+__all__ = ["DecisionHandler"]

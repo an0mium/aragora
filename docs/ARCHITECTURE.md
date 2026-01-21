@@ -681,10 +681,59 @@ flowchart LR
     style outputs fill:#0d1117,stroke:#a371f7
 ```
 
+## Storage Architecture
+
+Aragora supports multiple storage backends for horizontal scaling and persistence.
+
+### Backend Selection
+
+```
+ARAGORA_DB_BACKEND=postgres  # or sqlite (default)
+DATABASE_URL=postgresql://user:pass@host:5432/aragora
+```
+
+### PostgreSQL Store Implementations
+
+| Store | Purpose | Tables |
+|-------|---------|--------|
+| `PostgresWebhookConfigStore` | Webhook configuration | `webhook_configs` |
+| `PostgresIntegrationStore` | Chat platform configs | `integrations`, `user_id_mappings` |
+| `PostgresGmailTokenStore` | OAuth token storage | `gmail_tokens` |
+| `PostgresFindingWorkflowStore` | Audit workflow state | `finding_workflows` |
+| `PostgresGauntletRunStore` | In-flight gauntlet runs | `gauntlet_runs` |
+| `PostgresApprovalRequestStore` | Human approval requests | `approval_requests` |
+| `PostgresJobQueueStore` | Background job queue | `job_queue` |
+| `PostgresMarketplaceStore` | Template marketplace | `marketplace_items` |
+| `PostgresTokenBlacklistStore` | JWT revocation | `token_blacklist` |
+| `PostgresFederationRegistryStore` | Multi-region federation | `federation_nodes` |
+| `PostgresGovernanceStore` | Decision governance | `governance_artifacts` |
+| `PostgresUserStore` | User accounts | `users` |
+| `PostgresWebhookStore` | Webhook events | `webhooks` |
+
+### Database Migrations
+
+```bash
+# Initialize using Alembic (recommended for production)
+python scripts/init_postgres_db.py --alembic
+
+# Or run Alembic directly
+alembic upgrade head
+
+# Verify tables
+python scripts/init_postgres_db.py --verify
+```
+
+### Transaction Safety
+
+Critical operations use explicit transactions:
+- `PostgresGovernanceStore.cleanup_old_records_async()` - Atomic multi-table cleanup
+- `PostgresFederationRegistryStore.update_sync_status()` - Atomic counter increments
+
 ## Performance Characteristics
 
 - **Debate latency**: 2-5 seconds per round (depends on agent response time)
 - **Memory tiers**: Fast (1min TTL), Medium (1hr), Slow (1day), Glacial (1week)
-- **Test coverage**: 35,784 test functions across 1,050+ test files
-- **Type safety**: 50 modules in strict mypy mode (Phase 26)
+- **Test coverage**: 38,000+ test functions across 1,100+ test files
+- **Type safety**: 250+ modules in strict mypy mode
 - **Source LOC**: 495,713 lines across 1,203 modules
+- **Storage tests**: 468 tests covering all backends

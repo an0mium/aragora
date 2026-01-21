@@ -251,11 +251,12 @@ class SyncStore:
         # Load connectors into cache
         async with self._connection.execute("SELECT * FROM connectors") as cursor:
             async for row in cursor:
+                connector_id = row[0]
                 config = ConnectorConfig(
-                    id=row[0],
+                    id=connector_id,
                     connector_type=row[1],
                     name=row[2],
-                    config=_decrypt_config(json.loads(row[3]), self._use_encryption),
+                    config=_decrypt_config(json.loads(row[3]), self._use_encryption, connector_id),
                     status=row[4],
                     created_at=datetime.fromisoformat(row[5]),
                     updated_at=datetime.fromisoformat(row[6]),
@@ -370,7 +371,8 @@ class SyncStore:
 
         # Persist to database
         if self._connection:
-            encrypted_config = _encrypt_config(config, self._use_encryption)
+            # Encrypt config with connector_id as AAD for integrity
+            encrypted_config = _encrypt_config(config, self._use_encryption, connector_id)
             config_json = json.dumps(encrypted_config)
 
             if self._database_url.startswith("sqlite"):

@@ -29,6 +29,21 @@ from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
+# Lazy-loaded job store for persistence
+_job_store = None
+
+
+def _get_job_store():
+    """Get or create the job store for transcription job persistence."""
+    global _job_store
+    if _job_store is None:
+        try:
+            from aragora.storage.job_queue_store import get_job_store
+            _job_store = get_job_store()
+        except Exception as e:
+            logger.debug(f"Job store not available: {e}")
+    return _job_store
+
 # Rate limiters (per minute limits)
 _audio_limiter = RateLimiter(requests_per_minute=10)
 _youtube_limiter = RateLimiter(requests_per_minute=5)
@@ -41,8 +56,91 @@ MAX_VIDEO_SIZE_MB = 500
 AUDIO_FORMATS = {".mp3", ".wav", ".m4a", ".webm", ".ogg", ".flac", ".aac"}
 VIDEO_FORMATS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
 
-# In-memory job storage (replace with database in production)
+# In-memory job cache (backed by durable store)
 _transcription_jobs: Dict[str, Dict[str, Any]] = {}
+
+
+def _save_job(job_id: str, job_data: Dict[str, Any]) -> None:
+    """Save a transcription job to both memory and durable store."""
+    _transcription_jobs[job_id] = job_data
+
+    # Persist to job store for durability
+    store = _get_job_store()
+    if store:
+        try:
+            from aragora.storage.job_queue_store import QueuedJob, JobStatus
+
+            status_map = {
+                "processing": JobStatus.PROCESSING,
+                "completed": JobStatus.COMPLETED,
+                "failed": JobStatus.FAILED,
+            }
+
+            job = QueuedJob(
+                id=job_id,
+                job_type="transcription",
+                payload=job_data,
+                status=status_map.get(job_data.get("status", "pending"), JobStatus.PENDING),
+                result=job_data.get("result"),
+                error=job_data.get("error"),
+            )
+
+            # Use sync wrapper since handler is sync
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Schedule for later
+                    asyncio.ensure_future(store.enqueue(job))
+                else:
+                    loop.run_until_complete(store.enqueue(job))
+            except RuntimeError:
+                # No event loop, create one
+                asyncio.run(store.enqueue(job))
+        except Exception as e:
+            logger.debug(f"Failed to persist transcription job: {e}")
+
+
+def _get_job(job_id: str) -> Optional[Dict[str, Any]]:
+    """Get a transcription job from memory cache or durable store."""
+    # Check memory cache first
+    if job_id in _transcription_jobs:
+        return _transcription_jobs[job_id]
+
+    # Try durable store
+    store = _get_job_store()
+    if store:
+        try:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Can't block, return None for now
+                    return None
+                job = loop.run_until_complete(store.get(job_id))
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    job = loop.run_until_complete(store.get(job_id))
+                finally:
+                    loop.close()
+
+            if job:
+                # Cache in memory
+                job_data = {
+                    "status": job.status.value if hasattr(job.status, "value") else job.status,
+                    "progress": 100 if job.status == "completed" else 0,
+                    "result": job.result,
+                    "error": job.error,
+                    **job.payload,
+                }
+                _transcription_jobs[job_id] = job_data
+                return job_data
+        except Exception as e:
+            logger.debug(f"Failed to load transcription job from store: {e}")
+
+    return None
 
 
 def _check_transcription_available() -> tuple[bool, Optional[str]]:
@@ -171,7 +269,7 @@ class TranscriptionHandler(BaseHandler):
 
     def _get_status(self, job_id: str) -> HandlerResult:
         """Get transcription job status."""
-        job = _transcription_jobs.get(job_id)
+        job = _get_job(job_id)
         if not job:
             return error_response("Job not found", 404)
 
@@ -221,11 +319,11 @@ class TranscriptionHandler(BaseHandler):
             try:
                 # Create job
                 job_id = str(uuid.uuid4())
-                _transcription_jobs[job_id] = {
+                _save_job(job_id, {
                     "status": "processing",
                     "progress": 0,
                     "filename": filename,
-                }
+                })
 
                 # Run transcription (synchronous for now, can be made async with job queue)
                 from aragora.transcription import transcribe_audio
@@ -241,11 +339,11 @@ class TranscriptionHandler(BaseHandler):
                 finally:
                     loop.close()
 
-                _transcription_jobs[job_id] = {
+                _save_job(job_id, {
                     "status": "completed",
                     "progress": 100,
                     "result": result.to_dict(),
-                }
+                })
 
                 return json_response(
                     {
@@ -312,11 +410,11 @@ class TranscriptionHandler(BaseHandler):
 
             try:
                 job_id = str(uuid.uuid4())
-                _transcription_jobs[job_id] = {
+                _save_job(job_id, {
                     "status": "processing",
                     "progress": 0,
                     "filename": filename,
-                }
+                })
 
                 from aragora.transcription import transcribe_video
 
@@ -331,11 +429,11 @@ class TranscriptionHandler(BaseHandler):
                 finally:
                     loop.close()
 
-                _transcription_jobs[job_id] = {
+                _save_job(job_id, {
                     "status": "completed",
                     "progress": 100,
                     "result": result.to_dict(),
-                }
+                })
 
                 return json_response(
                     {
@@ -390,11 +488,11 @@ class TranscriptionHandler(BaseHandler):
                 return error_response("Invalid YouTube URL", 400)
 
             job_id = str(uuid.uuid4())
-            _transcription_jobs[job_id] = {
+            _save_job(job_id, {
                 "status": "processing",
                 "progress": 0,
                 "url": url,
-            }
+            })
 
             try:
                 from aragora.transcription import transcribe_youtube
@@ -416,11 +514,11 @@ class TranscriptionHandler(BaseHandler):
                 finally:
                     loop.close()
 
-                _transcription_jobs[job_id] = {
+                _save_job(job_id, {
                     "status": "completed",
                     "progress": 100,
                     "result": result.to_dict(),
-                }
+                })
 
                 return json_response(
                     {
@@ -440,10 +538,10 @@ class TranscriptionHandler(BaseHandler):
 
             except ValueError as e:
                 # Video too long or other validation error
-                _transcription_jobs[job_id] = {
+                _save_job(job_id, {
                     "status": "failed",
                     "error": str(e),
-                }
+                })
                 return error_response(str(e), 400)
 
         except (KeyError, TypeError) as e:

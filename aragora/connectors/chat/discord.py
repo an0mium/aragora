@@ -695,7 +695,7 @@ class DiscordConnector(ChatPlatformConnector):
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.api_base}/channels/{channel_id}/messages",
+                    f"{DISCORD_API_BASE}/channels/{channel_id}/messages",
                     headers=self._get_headers(),
                     params=params,
                 )

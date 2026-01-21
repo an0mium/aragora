@@ -43,6 +43,7 @@ dependencies = [
     "pydantic>=2.0,<3.0",
     "pydantic-settings>=2.0,<3.0",
     "bcrypt>=4.0,<5.0",  # Secure password hashing
+    "cryptography>=43.0,<47.0",  # AES-256-GCM encryption for secrets at rest
     "markupsafe>=2.1.0,<3.0",  # HTML escaping for XSS prevention
     "defusedxml>=0.7,<1.0",  # Safe XML parsing to prevent XXE attacks
     "pyotp>=2.9,<3.0",  # TOTP/HOTP for MFA

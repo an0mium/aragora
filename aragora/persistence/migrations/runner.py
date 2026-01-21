@@ -442,6 +442,137 @@ class MigrationRunner:
             results[db_name] = self.migrate(db_name, dry_run=dry_run)
         return results
 
+    def rollback(
+        self,
+        db_name: str,
+        dry_run: bool = False,
+    ) -> dict:
+        """
+        Rollback the last applied migration.
+
+        WARNING: Rollback is not recommended in production. SQLite has
+        limited ALTER TABLE support, so downgrades may not work properly.
+
+        Args:
+            db_name: Name of the database module
+            dry_run: If True, show what would be done without executing
+
+        Returns:
+            Dict with rollback results
+        """
+        db_path = self.get_db_path(db_name)
+        migrations = self.discover_migrations(db_name)
+
+        if not migrations:
+            return {
+                "db_name": db_name,
+                "status": "no_migrations",
+                "message": f"No migrations found for {db_name}",
+            }
+
+        if not db_path.exists():
+            return {
+                "db_name": db_name,
+                "status": "no_database",
+                "message": f"Database {db_path} does not exist",
+            }
+
+        conn = get_wal_connection(db_path)
+        try:
+            manager = SchemaManager(conn, db_name, current_version=0)
+            current_version = manager.get_version()
+
+            if current_version == 0:
+                return {
+                    "db_name": db_name,
+                    "status": "nothing_to_rollback",
+                    "current_version": 0,
+                    "message": "No migrations have been applied",
+                }
+
+            # Find the migration that matches current version
+            migration = next(
+                (m for m in migrations if m.version == current_version),
+                None,
+            )
+
+            if not migration:
+                return {
+                    "db_name": db_name,
+                    "status": "migration_not_found",
+                    "current_version": current_version,
+                    "message": f"Migration file for version {current_version} not found",
+                }
+
+            if dry_run:
+                return {
+                    "db_name": db_name,
+                    "status": "dry_run",
+                    "current_version": current_version,
+                    "would_rollback": {
+                        "version": migration.version,
+                        "name": migration.name,
+                        "description": migration.description,
+                    },
+                }
+
+            # Execute rollback
+            logger.info(
+                f"[{db_name}] Rolling back migration {migration.version}: {migration.description}"
+            )
+
+            try:
+                module = self._load_migration_module(migration)
+                if not hasattr(module, "downgrade"):
+                    return {
+                        "db_name": db_name,
+                        "status": "no_downgrade",
+                        "current_version": current_version,
+                        "message": f"Migration {migration.version} does not have a downgrade() function",
+                    }
+
+                # Check if downgrade is empty
+                if self._is_empty_migration(module.downgrade):
+                    return {
+                        "db_name": db_name,
+                        "status": "empty_downgrade",
+                        "current_version": current_version,
+                        "message": f"Migration {migration.version} has empty downgrade() - implement it first",
+                    }
+
+                module.downgrade(conn)
+                conn.commit()
+
+                # Calculate new version (previous migration or 0)
+                previous_versions = [m.version for m in migrations if m.version < current_version]
+                new_version = max(previous_versions) if previous_versions else 0
+                manager.set_version(new_version)
+
+                logger.info(
+                    f"[{db_name}] Rolled back migration {migration.version} successfully"
+                )
+
+                return {
+                    "db_name": db_name,
+                    "status": "completed",
+                    "previous_version": current_version,
+                    "current_version": new_version,
+                    "rolled_back": migration.version,
+                }
+
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"[{db_name}] Rollback failed: {e}")
+                return {
+                    "db_name": db_name,
+                    "status": "failed",
+                    "current_version": current_version,
+                    "error": str(e),
+                }
+
+        finally:
+            conn.close()
+
     def create_migration(
         self,
         db_name: str,
@@ -602,6 +733,11 @@ def main() -> int:
         help="Create a new migration with the given description",
     )
     parser.add_argument(
+        "--rollback",
+        action="store_true",
+        help="Rollback the last migration (requires --db, not recommended in production)",
+    )
+    parser.add_argument(
         "--db",
         metavar="NAME",
         help="Target specific database (default: all)",
@@ -685,6 +821,42 @@ def main() -> int:
         path = runner.create_migration(args.db, args.create)
         print(f"Created migration: {path}")
         return 0
+
+    if args.rollback:
+        if not args.db:
+            print("Error: --db is required when rolling back")
+            print("Rollback must target a specific database for safety.")
+            return 1
+
+        # Show warning
+        print("\n⚠️  WARNING: Rollback is not recommended in production!")
+        print("SQLite has limited ALTER TABLE support, so downgrades may not work properly.")
+        print()
+
+        if args.dry_run:
+            result = runner.rollback(args.db, dry_run=True)
+            print(f"[{args.db}] Rollback dry run:")
+            if result.get("would_rollback"):
+                rb = result["would_rollback"]
+                print(f"  Would rollback: v{rb['version']} - {rb['description']}")
+            else:
+                print(f"  Status: {result.get('status')} - {result.get('message', '')}")
+            return 0
+
+        result = runner.rollback(args.db)
+        print(f"\n[{args.db}] Rollback result: {result['status']}")
+
+        if result["status"] == "completed":
+            print(f"  Rolled back: v{result['rolled_back']}")
+            print(f"  Previous version: {result['previous_version']}")
+            print(f"  Current version: {result['current_version']}")
+            return 0
+        elif result.get("error"):
+            print(f"  Error: {result['error']}")
+            return 1
+        else:
+            print(f"  Message: {result.get('message', 'Unknown status')}")
+            return 1 if result["status"] in ("failed", "error") else 0
 
     # No command specified, show help
     parser.print_help()

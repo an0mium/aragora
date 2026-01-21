@@ -933,7 +933,89 @@ async def run_startup_sequence(
     # Initialize Redis state backend for horizontal scaling
     status["redis_state_backend"] = await init_redis_state_backend()
 
+    # Initialize DecisionRouter with platform response handlers
+    status["decision_router"] = await init_decision_router()
+
     return status
+
+
+async def init_decision_router() -> bool:
+    """Initialize the DecisionRouter with platform response handlers.
+
+    Registers response handlers for all supported platforms so the router
+    can deliver debate results back to the originating channel.
+
+    Returns:
+        True if initialization succeeded
+    """
+    try:
+        from aragora.core.decision import get_decision_router
+        from aragora.server.debate_origin import route_debate_result
+
+        router = get_decision_router()
+
+        # Register platform response handlers
+        # These handlers use route_debate_result to deliver results
+        # back to the originating channel
+
+        async def telegram_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin, mark_result_sent
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "telegram":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def slack_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "slack":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def discord_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "discord":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def whatsapp_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "whatsapp":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def teams_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "teams":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def email_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "email":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def google_chat_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform in ("google_chat", "gchat"):
+                await route_debate_result(result.request_id, result.to_dict())
+
+        # Register all handlers
+        router.register_response_handler("telegram", telegram_handler)
+        router.register_response_handler("slack", slack_handler)
+        router.register_response_handler("discord", discord_handler)
+        router.register_response_handler("whatsapp", whatsapp_handler)
+        router.register_response_handler("teams", teams_handler)
+        router.register_response_handler("email", email_handler)
+        router.register_response_handler("google_chat", google_chat_handler)
+        router.register_response_handler("gchat", google_chat_handler)
+
+        logger.info("DecisionRouter initialized with 8 platform response handlers")
+        return True
+
+    except Exception as e:
+        logger.warning(f"Failed to initialize DecisionRouter: {e}")
+        return False
 
 
 __all__ = [
@@ -957,5 +1039,6 @@ __all__ = [
     "init_durable_job_queue_recovery",
     "init_gauntlet_worker",
     "init_redis_state_backend",
+    "init_decision_router",
     "run_startup_sequence",
 ]

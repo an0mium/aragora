@@ -1,7 +1,17 @@
 """
-Authentication Middleware.
+Authentication Middleware - High-Level Decorators.
 
-Provides decorators and utilities for authenticating API requests.
+Provides decorator-based authentication for API handlers. This module
+provides the simplified decorator interface while auth_v2.py contains
+the comprehensive authentication implementation (JWT validation, Supabase
+integration, user/workspace management).
+
+Module Structure:
+- auth.py (this file): Decorators like @require_auth, @optional_auth
+- auth_v2.py: Full auth implementation (User, Workspace, JWT validation)
+
+Both are exported through __init__.py, so consumers can simply:
+    from aragora.server.middleware import require_auth, User, authenticate_request
 
 Usage:
     from aragora.server.middleware import require_auth, optional_auth
