@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from aragora.workflow.queue.task import (
     TaskPriority,
+    TaskResult,
     TaskStatus,
     WorkflowTask,
 )
@@ -397,7 +398,7 @@ class DependencyScheduler:
         self,
         workflow_id: str,
         timeout: Optional[float] = None,
-    ) -> WorkflowState:
+    ) -> Dict[str, TaskResult]:
         """
         Wait for a workflow to complete.
 
@@ -406,7 +407,7 @@ class DependencyScheduler:
             timeout: Maximum wait time in seconds
 
         Returns:
-            Final workflow state
+            Dict mapping task IDs to their results
         """
         return await self._queue.wait_for_workflow(workflow_id, timeout)
 

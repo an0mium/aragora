@@ -35,7 +35,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Generator, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +314,7 @@ class MemoryProfiler:
 def profile_memory(
     operation: str,
     category: MemoryCategory = MemoryCategory.GENERAL,
-) -> MemoryProfiler:
+) -> Generator[MemoryProfiler, None, None]:
     """Convenience context manager for memory profiling."""
     profiler = MemoryProfiler(category=category)
     with profiler.profile(operation):

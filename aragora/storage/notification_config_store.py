@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # Import encryption (optional - graceful degradation if not available)
+# Use type: ignore to handle conditional definitions cleanly
 try:
     from aragora.security.encryption import (
         get_encryption_service,
@@ -39,9 +40,18 @@ try:
         CRYPTO_AVAILABLE,
     )
 except ImportError:
-    CRYPTO_AVAILABLE = False
+    CRYPTO_AVAILABLE = False  # type: ignore[misc]
 
-    def get_encryption_service():
+    class EncryptionError(Exception):  # type: ignore[no-redef]
+        """Fallback exception when security module unavailable."""
+
+        def __init__(self, operation: str, reason: str, store: str = ""):
+            self.operation = operation
+            self.reason = reason
+            self.store = store
+            super().__init__(f"Encryption {operation} failed: {reason}")
+
+    def get_encryption_service() -> Any:  # type: ignore[misc]
         raise RuntimeError("Encryption not available")
 
     def is_encryption_required() -> bool:
@@ -51,15 +61,6 @@ except ImportError:
         if os.environ.get("ARAGORA_ENV") == "production":
             return True
         return False
-
-    class EncryptionError(Exception):
-        """Fallback exception when security module unavailable."""
-
-        def __init__(self, operation: str, reason: str, store: str = ""):
-            self.operation = operation
-            self.reason = reason
-            self.store = store
-            super().__init__(f"Encryption {operation} failed: {reason}")
 
 
 # Sensitive keys that should be encrypted

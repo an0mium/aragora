@@ -67,6 +67,10 @@ const advancedItems: NavItem[] = [
   { label: 'Introspection', href: '/introspection', icon: '?', minMode: 'expert' },
   { label: 'Verticals', href: '/verticals', icon: '/', minMode: 'advanced' },
   { label: 'Integrations', href: '/integrations', icon: ':', minMode: 'advanced' },
+  { label: 'Agent Network', href: '/network', icon: '~', minMode: 'advanced' },
+  { label: 'Capability Probe', href: '/probe', icon: '^', minMode: 'expert' },
+  { label: 'Red Team', href: '/red-team', icon: '!', minMode: 'advanced' },
+  { label: 'Op Modes', href: '/modes', icon: '#', minMode: 'expert' },
 ];
 
 const adminNavItems: NavItem[] = [

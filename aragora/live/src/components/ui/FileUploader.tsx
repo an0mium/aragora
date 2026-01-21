@@ -203,7 +203,17 @@ export function FileUploader({
     <div className={className}>
       {/* Drop zone */}
       <div
+        role="button"
+        tabIndex={disabled || isUploading ? -1 : 0}
+        aria-label={isDragging ? 'Drop files here' : 'Click or drag files to upload'}
+        aria-disabled={disabled || isUploading}
         onClick={handleClick}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !disabled && !isUploading) {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -211,6 +221,7 @@ export function FileUploader({
         className={`
           relative border-2 border-dashed rounded-lg p-6 text-center
           transition-all duration-200 cursor-pointer
+          focus:outline-none focus:ring-2 focus:ring-acid-green focus:ring-offset-2 focus:ring-offset-background
           ${isDragging
             ? 'border-acid-green bg-acid-green/10'
             : 'border-acid-green/30 hover:border-acid-green/50 hover:bg-acid-green/5'
@@ -258,6 +269,7 @@ export function FileUploader({
             </span>
             <button
               onClick={clearFiles}
+              aria-label="Clear all uploaded files"
               className="text-xs text-acid-green/70 hover:text-acid-green font-mono"
             >
               Clear all

@@ -264,6 +264,14 @@ export function VoiceInput({
       <button
         onClick={toggleRecording}
         disabled={disabled || state === 'processing' || state === 'requesting'}
+        aria-label={
+          state === 'recording'
+            ? 'Stop voice recording'
+            : state === 'processing'
+            ? 'Processing audio transcription'
+            : 'Start voice recording'
+        }
+        aria-pressed={state === 'recording'}
         className={`
           relative w-10 h-10 rounded-full border-2 transition-all
           flex items-center justify-center font-mono
@@ -296,7 +304,7 @@ export function VoiceInput({
       {state === 'recording' && (
         <div className="flex items-center gap-2 text-xs font-mono">
           {showWaveform && (
-            <div className="flex items-end gap-0.5 h-4">
+            <div className="flex items-end gap-0.5 h-4" aria-hidden="true" role="presentation">
               {Array.from({ length: 5 }).map((_, i) => {
                 const threshold = (i + 1) * 20;
                 const active = audioLevel >= threshold;
@@ -334,6 +342,7 @@ function MicrophoneIcon() {
       viewBox="0 0 24 24"
       stroke="currentColor"
       strokeWidth={2}
+      aria-hidden="true"
     >
       <path
         strokeLinecap="round"

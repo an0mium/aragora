@@ -41,7 +41,7 @@ import asyncio
 import functools
 import logging
 import time
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Set, TypeVar, cast
 
@@ -79,7 +79,7 @@ class TenantContext:
 
     def __init__(self, tenant_id: str):
         self.tenant_id = tenant_id
-        self._token = None
+        self._token: Optional[Token[Optional[str]]] = None
 
     def __enter__(self) -> "TenantContext":
         self._token = _current_tenant.set(self.tenant_id)

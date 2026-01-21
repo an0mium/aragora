@@ -10,35 +10,48 @@ The name "nomic" comes from the game of Nomic, where players modify the rules of
 
 ## Architecture
 
+The nomic loop is a 6-phase cycle with two implementations:
+
+### State Machine (Recommended)
+
+Event-driven, robust, checkpoint-resumable. Uses `NomicStateMachine` with phase handlers.
+
+### Legacy Integration
+
+Phase-based, integrated with aragora features. Uses `NomicLoop` class for backward compatibility.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         NOMIC LOOP                                   │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
-│   Phase 0: Context Gathering                                        │
+│   Phase 1: CONTEXT                                                  │
 │   ├── Claude (Claude Code) ──┐                                      │
 │   ├── Codex (Codex CLI)      ├── Explore codebase, read docs        │
 │   ├── Gemini (Kilo Code)     │                                      │
 │   └── Grok (Kilo Code) ──────┘                                      │
 │                                                                      │
-│   Phase 1: Proposal                                                 │
-│   └── All agents propose improvements based on context              │
-│                                                                      │
-│   Phase 2: Debate                                                   │
-│   └── Arena orchestrates critique rounds                            │
-│                                                                      │
-│   Phase 3: Voting                                                   │
+│   Phase 2: DEBATE                                                   │
+│   ├── Agents propose improvements based on context                  │
+│   ├── Arena orchestrates critique rounds                            │
 │   └── Agents vote on proposals (weighted by Elo rating)             │
 │                                                                      │
-│   Phase 4: Implementation                                           │
-│   └── Winning agent implements via CLI tool                         │
+│   Phase 3: DESIGN                                                   │
+│   ├── Generate implementation design                                │
+│   ├── Identify affected files                                       │
+│   └── Safety review (auto-approve or human review)                  │
 │                                                                      │
-│   Phase 5: Verification                                             │
+│   Phase 4: IMPLEMENT                                                │
+│   ├── Generate code from design                                     │
+│   ├── Validate syntax and dangerous patterns                        │
+│   └── Write files with backup                                       │
+│                                                                      │
+│   Phase 5: VERIFY                                                   │
 │   ├── Syntax check (python -m py_compile)                           │
 │   ├── Import check (python -c "import aragora")                     │
 │   └── Test suite (pytest)                                           │
 │                                                                      │
-│   Phase 6: Commit (if all checks pass)                              │
+│   Phase 6: COMMIT (if all checks pass)                              │
 │   └── Auto-commit with detailed message                             │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
@@ -83,20 +96,25 @@ The streaming version provides real-time visibility:
 
 ## Cycle Phases
 
-### Phase 0: Context Gathering
+### Phase 1: Context
 
-All 4 agents explore the codebase using their respective CLI tools:
+All agents explore the codebase using their respective CLI tools:
 
 - **Claude**: Uses Claude Code for deep analysis
 - **Codex**: Uses OpenAI Codex CLI
 - **Gemini**: Uses Google's Kilo Code
 - **Grok**: Uses xAI's Grok CLI (via Kilo Code)
 
-Each agent reads key files (nomic_loop.py, core.py, etc.) and identifies potential improvements.
+Each agent reads key files and identifies potential improvements. Implemented by `ContextPhase` class.
 
-### Phase 1: Proposal
+### Phase 2: Debate
 
-Agents submit structured proposals:
+The Arena orchestrates a structured debate cycle:
+
+1. **Proposal**: Agents submit structured proposals
+2. **Critique**: Each agent critiques other proposals (severity scores 0-1)
+3. **Voting**: Agents vote on proposals (weighted by Elo rating)
+4. **Consensus**: Check if threshold is reached
 
 ```json
 {
@@ -108,41 +126,44 @@ Agents submit structured proposals:
 }
 ```
 
-### Phase 2: Debate
+Implemented by `DebatePhase` class with `consensus_threshold` configuration.
 
-The Arena orchestrates structured critique:
+### Phase 3: Design
 
-1. Each agent critiques other proposals
-2. Severity scores (0-1) indicate issue importance
-3. Suggestions are concrete and actionable
-4. Multiple rounds until convergence or max rounds
+Generate implementation design from the winning proposal:
 
-### Phase 3: Voting
+1. **Generate Design**: Create detailed implementation plan
+2. **Identify Files**: Determine affected files
+3. **Safety Review**: Check for protected files and dangerous patterns
+4. **Approval**: Auto-approve low-risk designs or flag for human review
 
-Agents vote on the best proposal:
+Implemented by `DesignPhase` class with `auto_approve_threshold` configuration.
 
-- Votes are weighted by Elo rating
-- Confidence scores (0-1) indicate certainty
-- Reasoning is recorded for learning
+### Phase 4: Implement
 
-### Phase 4: Implementation
+Code generation from the approved design:
 
-The winning agent implements via CLI:
+1. **Generate Code**: Agent produces implementation
+2. **Validate Syntax**: Check for syntax errors
+3. **Check Patterns**: Detect dangerous code patterns
+4. **Write Files**: Create backup and write changes
 
 ```bash
 # Example: Claude implements
 claude-code --task "Implement the approved proposal" --context proposal.json
 ```
 
-Implementation is sandboxed and limited to approved file changes.
+Implemented by `ImplementPhase` class with backup/rollback support.
 
-### Phase 5: Verification
+### Phase 5: Verify
 
 Three-stage verification:
 
 1. **Syntax Check**: `python -m py_compile` on all modified files
 2. **Import Check**: `python -c "import aragora"` ensures no broken imports
-3. **Test Suite**: `pytest tests/` must pass (currently 12,349 tests)
+3. **Test Suite**: `pytest tests/` must pass (currently 34,400+ tests)
+
+Implemented by `VerifyPhase` class. Triggers rollback on failure.
 
 ### Phase 6: Commit
 
@@ -159,6 +180,120 @@ Approved by: <voters>
 Cycle: N
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+```
+
+Implemented by `CommitPhase` class.
+
+## Python API
+
+### Using NomicLoop (Legacy)
+
+```python
+from aragora.nomic import NomicLoop
+
+# Create loop with agents
+loop = NomicLoop(
+    aragora_path="/path/to/project",
+    agents=agents,
+    max_cycles=10,
+    auto_commit=True,
+)
+
+# Run cycles
+await loop.run()
+
+# Or run a single cycle
+result = await loop.run_cycle()
+```
+
+### Using NomicStateMachine (Recommended)
+
+```python
+from aragora.nomic import (
+    NomicStateMachine,
+    create_nomic_state_machine,
+    create_handlers,
+    NomicState,
+)
+
+# Create with factory
+state_machine = create_nomic_state_machine(
+    aragora_path="/path/to/project",
+    agents=agents,
+)
+
+# Or create manually with handlers
+handlers = create_handlers(aragora_path, agents)
+state_machine = NomicStateMachine(handlers=handlers)
+
+# Run the loop
+await state_machine.run()
+```
+
+### Phase Classes
+
+Each phase can be used independently:
+
+```python
+from aragora.nomic.phases import (
+    ContextPhase,
+    DebatePhase,
+    DesignPhase,
+    ImplementPhase,
+    VerifyPhase,
+    CommitPhase,
+)
+
+# Example: Run debate phase
+debate = DebatePhase(
+    aragora_path=path,
+    claude_agent=claude,
+    codex_agent=codex,
+    consensus_threshold=0.66,
+)
+result = await debate.run(context="Improve error handling")
+
+# Example: Run design phase
+design = DesignPhase(
+    aragora_path=path,
+    claude_agent=claude,
+    protected_files=["CLAUDE.md", "core.py"],
+    auto_approve_threshold=0.5,
+)
+result = await design.run(proposal=winning_proposal)
+```
+
+### Safety Gates
+
+```python
+from aragora.nomic.gates import (
+    is_protected_file,
+    check_change_volume,
+    check_dangerous_patterns,
+    check_all_gates,
+    GateConfig,
+)
+
+# Check if file is protected
+if is_protected_file("CLAUDE.md"):
+    print("Cannot modify protected file")
+
+# Check change volume
+result = check_change_volume(
+    files_changed=15,
+    max_files=20,
+    lines_added=500,
+    lines_removed=100,
+    max_lines=1000,
+)
+
+# Check all gates at once
+config = GateConfig(max_files=10, max_lines=500)
+result = check_all_gates({
+    "files": ["a.py", "b.py"],
+    "code": "import os\nos.system('echo hello')",
+    "estimated_duration": 300,
+})
 ```
 
 ## State Management

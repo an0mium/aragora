@@ -10,10 +10,10 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Union
 
 if TYPE_CHECKING:
-    from aragora.workflow.queue.executor import TaskExecutor
+    from aragora.workflow.queue.executor import TaskExecutor, ExecutorPool
 
 from aragora.workflow.queue.task import (
     TaskStatus,
@@ -445,7 +445,7 @@ class TaskQueue:
             avg_execution_time_ms=avg_exec,
         )
 
-    def set_executor(self, executor: "TaskExecutor") -> None:
+    def set_executor(self, executor: Union["TaskExecutor", "ExecutorPool"]) -> None:
         """Set the task executor."""
         self._executor = executor
 

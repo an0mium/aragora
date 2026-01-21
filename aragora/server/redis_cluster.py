@@ -654,6 +654,28 @@ class RedisClusterClient:
             logger.warning(f"Unexpected error during Redis ping: {type(e).__name__}: {e}")
             return False
 
+    def info(self, section: Optional[str] = None) -> Dict[str, Any]:
+        """Get server information."""
+
+        def _info() -> Dict[str, Any]:
+            client = self.get_client()
+            if client is None:
+                raise RuntimeError("Redis client not available")
+            return client.info(section) if section else client.info()
+
+        return self._execute_with_retry(_info)
+
+    def execute_command(self, *args: Any, **kwargs: Any) -> Any:
+        """Execute an arbitrary Redis command."""
+
+        def _execute() -> Any:
+            client = self.get_client()
+            if client is None:
+                raise RuntimeError("Redis client not available")
+            return client.execute_command(*args, **kwargs)
+
+        return self._execute_with_retry(_execute)
+
     def get_stats(self) -> Dict[str, Any]:
         """Get connection statistics."""
         client = self.get_client()

@@ -636,7 +636,7 @@ class CostAdapter:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about stored cost data."""
-        level_counts = {}
+        level_counts: Dict[str, int] = {}
         for alert in self._alerts.values():
             lvl = alert.get("level", "unknown")
             level_counts[lvl] = level_counts.get(lvl, 0) + 1

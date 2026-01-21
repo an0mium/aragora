@@ -42,7 +42,7 @@ try:
 except ImportError:
     SETTINGS_AVAILABLE = False
 
-    def get_settings():
+    def get_settings() -> None:  # type: ignore[misc]
         return None
 
 
@@ -91,7 +91,9 @@ try:
 except ImportError:
     SLO_METRICS_AVAILABLE = False
 
-    def check_and_record_slo(operation: str, latency_ms: float, percentile: str = "p99"):
+    def check_and_record_slo(  # type: ignore[misc]
+        operation: str, latency_ms: float, percentile: str = "p99"
+    ) -> tuple[bool, str]:
         return True, f"SLO metrics not available for {operation}"
 
 

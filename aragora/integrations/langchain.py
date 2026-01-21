@@ -50,26 +50,27 @@ try:
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     # LangChain not installed - create stub classes
+    # Type ignores needed because these names may be imported above
     LANGCHAIN_AVAILABLE = False
 
-    class BaseTool:
+    class BaseTool:  # type: ignore[no-redef]
         """Stub BaseTool for when LangChain is not installed."""
 
         name: str = ""
         description: str = ""
 
-        def _run(self, *args, **kwargs):
+        def _run(self, *args: Any, **kwargs: Any) -> Any:
             raise NotImplementedError
 
-        async def _arun(self, *args, **kwargs):
+        async def _arun(self, *args: Any, **kwargs: Any) -> Any:
             raise NotImplementedError
 
-    class BaseCallbackHandler:
+    class BaseCallbackHandler:  # type: ignore[no-redef]
         """Stub BaseCallbackHandler for when LangChain is not installed."""
 
         pass
 
-    class BaseRetriever:
+    class BaseRetriever:  # type: ignore[no-redef]
         """Stub BaseRetriever for when LangChain is not installed."""
 
         def get_relevant_documents(self, query: str) -> List[Any]:
@@ -78,28 +79,28 @@ except ImportError:
         async def aget_relevant_documents(self, query: str) -> List[Any]:
             raise NotImplementedError
 
-    class Document:
+    class Document:  # type: ignore[no-redef]
         """Stub Document for when LangChain is not installed."""
 
-        def __init__(self, page_content: str, metadata: Optional[Dict] = None):
+        def __init__(self, page_content: str, metadata: Optional[Dict[str, Any]] = None):
             self.page_content = page_content
             self.metadata = metadata or {}
 
-    class BaseModel:
+    class BaseModel:  # type: ignore[no-redef]
         """Stub BaseModel for when Pydantic is not available via LangChain."""
 
         pass
 
-    def Field(*args, **kwargs):
+    def Field(*args: Any, **kwargs: Any) -> Any:  # type: ignore[no-redef]
         """Stub Field for when Pydantic is not available via LangChain."""
         return None
 
-    class CallbackManagerForToolRun:
+    class CallbackManagerForToolRun:  # type: ignore[no-redef]
         """Stub callback manager."""
 
         pass
 
-    class AsyncCallbackManagerForToolRun:
+    class AsyncCallbackManagerForToolRun:  # type: ignore[no-redef]
         """Stub async callback manager."""
 
         pass

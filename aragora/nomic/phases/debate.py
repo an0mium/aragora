@@ -189,26 +189,28 @@ class DebatePhase:
         Returns:
             Debate result dictionary
         """
-        # Generate proposals
-        proposals = await self._generate_proposals(context)
+        # Generate proposals (use public method for mockability)
+        proposals = await self.generate_proposals(context)
         if not proposals:
             return {
                 "consensus": False,
                 "error": "No proposals generated",
+                "proposals": [],
             }
         self._proposals = proposals
 
-        # Vote on proposals
-        votes = await self._vote_on_proposals(proposals)
+        # Vote on proposals (use public method for mockability)
+        votes = await self.collect_votes(proposals)
         self._votes = votes
 
         # Determine consensus
-        consensus_result = self._determine_consensus(proposals, votes)
+        consensus_result = self.check_consensus(votes, total_agents=len(self.agents))
 
         return {
-            "consensus": consensus_result.get("has_consensus", False),
+            "consensus": consensus_result.get("consensus", False),
             "confidence": consensus_result.get("confidence", 0.0),
             "winner": consensus_result.get("winner"),
+            "winning_proposal": consensus_result.get("winning_proposal"),
             "proposals": proposals,
             "votes": votes,
             **consensus_result,
@@ -252,6 +254,99 @@ class DebatePhase:
                 self._log(f"Agent {agent} failed to generate proposal: {e}")
 
         return proposals
+
+    async def collect_votes(self, proposals: List[Dict[str, Any]]) -> Dict[str, str]:
+        """
+        Legacy API: Public method to collect votes from agents.
+
+        Args:
+            proposals: List of proposals to vote on
+
+        Returns:
+            Dict mapping agent name to chosen proposal/id
+        """
+        return await self._collect_votes(proposals)
+
+    async def _collect_votes(self, proposals: List[Dict[str, Any]]) -> Dict[str, str]:
+        """
+        Internal method to collect votes.
+
+        Args:
+            proposals: List of proposals to vote on
+
+        Returns:
+            Dict mapping agent name to chosen proposal/id
+        """
+        votes = {}
+        for agent in self.agents:
+            try:
+                agent_name = getattr(agent, "name", str(agent))
+                if hasattr(agent, "vote"):
+                    vote_result = await agent.vote(proposals)
+                    choice_idx = getattr(vote_result, "choice", 0)
+                    if 0 <= choice_idx < len(proposals):
+                        # Return proposal id if available, else proposal text
+                        prop = proposals[choice_idx]
+                        votes[agent_name] = prop.get("id", prop.get("proposal", ""))
+                else:
+                    if proposals:
+                        prop = proposals[0]
+                        votes[agent_name] = prop.get("id", prop.get("proposal", ""))
+            except Exception as e:
+                self._log(f"Agent {agent} failed to vote: {e}")
+        return votes
+
+    def count_votes(self, votes: Dict[str, str]) -> Dict[str, int]:
+        """
+        Legacy API: Count votes per proposal.
+
+        Args:
+            votes: Dict mapping agent name to vote choice
+
+        Returns:
+            Dict mapping choice to vote count
+        """
+        vote_counts: Dict[str, int] = {}
+        for vote in votes.values():
+            vote_counts[vote] = vote_counts.get(vote, 0) + 1
+        return vote_counts
+
+    def check_consensus(
+        self,
+        votes: Dict[str, str],
+        threshold: Optional[float] = None,
+        total_agents: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Legacy API: Check if consensus was reached.
+
+        Args:
+            votes: Dict of votes
+            threshold: Optional consensus threshold (uses self.consensus_threshold if None)
+            total_agents: Optional total number of agents (uses len(votes) if None)
+
+        Returns:
+            Consensus check result
+        """
+        threshold = threshold if threshold is not None else self.consensus_threshold
+        vote_counts = self.count_votes(votes)
+
+        if not votes:
+            return {"consensus": False, "reason": "No votes cast"}
+
+        total = total_agents if total_agents is not None else len(votes)
+        winner = max(vote_counts.keys(), key=lambda k: vote_counts[k])
+        winner_votes = vote_counts[winner]
+        confidence = winner_votes / total if total > 0 else 0
+
+        return {
+            "consensus": confidence >= threshold,
+            "winning_proposal": winner,
+            "winner": winner,  # Also include for compatibility
+            "confidence": confidence,
+            "vote_counts": vote_counts,
+            "threshold": threshold,
+        }
 
     async def _vote_on_proposals(self, proposals: List[Dict[str, Any]]) -> Dict[str, str]:
         """

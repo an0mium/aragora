@@ -73,16 +73,21 @@ export function DashboardHeader({
               <button
                 onClick={onToggleSidebar}
                 className="px-2 py-1 border border-acid-green/30 text-xs font-mono text-acid-green hover:bg-acid-green/10 transition-colors"
-                aria-label="Toggle sidebar"
+                aria-label={showSidebar ? 'Hide sidebar panels' : 'Show sidebar panels'}
+                aria-expanded={showSidebar}
+                aria-controls="sidebar-panels"
               >
                 {showSidebar ? '[HIDE PANELS]' : '[PANELS]'}
               </button>
             )}
 
             {/* View Mode Toggle - Hidden on mobile */}
-            <div className="hidden sm:flex items-center gap-0.5 bg-bg border border-acid-green/30 p-0.5 font-mono text-xs">
+            <div className="hidden sm:flex items-center gap-0.5 bg-bg border border-acid-green/30 p-0.5 font-mono text-xs" role="tablist" aria-label="View mode selection">
               <button
                 onClick={() => onViewModeChange('tabs')}
+                role="tab"
+                aria-selected={viewMode === 'tabs'}
+                aria-label="Switch to tabbed view"
                 className={`px-2 py-1 transition-colors ${
                   viewMode === 'tabs'
                     ? 'bg-acid-green text-bg'
@@ -93,6 +98,9 @@ export function DashboardHeader({
               </button>
               <button
                 onClick={() => onViewModeChange('stream')}
+                role="tab"
+                aria-selected={viewMode === 'stream'}
+                aria-label="Switch to stream view"
                 className={`px-2 py-1 transition-colors ${
                   viewMode === 'stream'
                     ? 'bg-acid-green text-bg'
@@ -144,10 +152,12 @@ export function DashboardHeader({
             {/* Loop Selector - Only show if multiple loops */}
             {activeLoops.length > 1 && (
               <div className="hidden md:flex items-center gap-2">
-                <span className="text-text-muted text-xs font-mono">{activeLoops.length} LOOPS</span>
+                <label htmlFor="loop-selector" className="text-text-muted text-xs font-mono">{activeLoops.length} LOOPS</label>
                 <select
+                  id="loop-selector"
                   value={selectedLoopId || ''}
                   onChange={(e) => onSelectLoop(e.target.value)}
+                  aria-label="Select active loop"
                   className="bg-bg border border-acid-green/30 px-2 py-1 text-xs font-mono text-acid-green"
                 >
                   {activeLoops.map((loop) => (

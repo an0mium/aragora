@@ -96,10 +96,10 @@ class DesignPhase:
     def __init__(
         self,
         aragora_path: Path,
-        agents: List[Any],
-        arena_factory: Callable[..., Any],
-        environment_factory: Callable[..., Any],
-        protocol_factory: Callable[..., Any],
+        agents: Optional[List[Any]] = None,
+        arena_factory: Optional[Callable[..., Any]] = None,
+        environment_factory: Optional[Callable[..., Any]] = None,
+        protocol_factory: Optional[Callable[..., Any]] = None,
         config: Optional[DesignConfig] = None,
         nomic_integration: Optional[Any] = None,
         deep_audit_fn: Optional[Callable[..., Any]] = None,
@@ -109,6 +109,10 @@ class DesignPhase:
         log_fn: Optional[Callable[[str], None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
         record_replay_fn: Optional[Callable[..., None]] = None,
+        # Legacy API compatibility
+        claude_agent: Optional[Any] = None,
+        protected_files: Optional[List[str]] = None,
+        auto_approve_threshold: float = 0.5,
     ):
         """
         Initialize the design phase.
@@ -130,7 +134,15 @@ class DesignPhase:
             record_replay_fn: Function to record replay events
         """
         self.aragora_path = aragora_path
-        self.agents = agents
+
+        # Handle legacy API: individual agent -> agents list
+        if agents is not None:
+            self.agents = agents
+        elif claude_agent:
+            self.agents = [claude_agent]
+        else:
+            self.agents = []
+
         self._arena_factory = arena_factory
         self._environment_factory = environment_factory
         self._protocol_factory = protocol_factory
@@ -143,6 +155,257 @@ class DesignPhase:
         self._log = log_fn or print
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._record_replay = record_replay_fn or (lambda *args: None)
+
+        # Legacy API attributes
+        self.claude = claude_agent
+        self.protected_files = protected_files or DEFAULT_PROTECTED_FILES
+        self.auto_approve_threshold = auto_approve_threshold
+
+    # =========================================================================
+    # Legacy API methods (for backward compatibility with tests)
+    # =========================================================================
+
+    async def run(
+        self,
+        proposal: Optional[Dict[str, Any]] = None,
+        winning_proposal: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Legacy API: Run the design phase.
+
+        Args:
+            proposal: Proposal from debate phase
+            winning_proposal: Alternative name for proposal (for compatibility)
+
+        Returns:
+            Design result dictionary
+        """
+        # Support both parameter names
+        prop = proposal or winning_proposal or {}
+
+        # Generate design
+        design = await self.generate_design(prop)
+
+        # Identify affected files
+        affected_files = await self.identify_affected_files(design)
+
+        # Review safety
+        safety_result = await self.safety_review(design)
+
+        if not safety_result.get("safe", True):
+            return {
+                "approved": False,
+                "design": design,
+                "safety_review": safety_result,
+                "affected_files": affected_files,
+                "error": safety_result.get("reason", "Safety review failed"),
+            }
+
+        # Run approval flow
+        approval_result = await self.approve_design(design)
+
+        return {
+            "approved": approval_result.get("approved", False),
+            "design": design,
+            "affected_files": affected_files,
+            "safety_review": safety_result,
+            "requires_human_approval": approval_result.get("requires_human_review", False),
+            "auto_approved": approval_result.get("auto_approved", False),
+        }
+
+    async def generate_design(self, proposal: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Legacy API: Generate design from proposal.
+
+        Args:
+            proposal: Proposal to design for
+
+        Returns:
+            Design specification dictionary
+        """
+        return await self._generate_design(proposal)
+
+    async def _generate_design(self, proposal: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Internal method for design generation.
+
+        Args:
+            proposal: Proposal to design for
+
+        Returns:
+            Design specification dictionary
+        """
+        # Default implementation using agent if available
+        if self.claude:
+            prompt = f"Design an implementation for: {proposal.get('proposal', str(proposal))}"
+            response = await self.claude.generate(prompt)
+            return {
+                "description": response,
+                "components": [],
+                "files_to_modify": [],
+                "files_to_create": [],
+            }
+
+        # Default empty design
+        return {
+            "description": proposal.get("proposal", ""),
+            "components": [],
+            "files_to_modify": [],
+            "files_to_create": [],
+        }
+
+    async def identify_affected_files(self, design: Dict[str, Any]) -> List[str]:
+        """
+        Legacy API: Identify files affected by the design.
+
+        Args:
+            design: Design specification
+
+        Returns:
+            List of affected file paths
+        """
+        return await self._identify_files(design)
+
+    async def _identify_files(self, design: Dict[str, Any]) -> List[str]:
+        """
+        Internal method for file identification.
+
+        Args:
+            design: Design specification
+
+        Returns:
+            List of affected file paths
+        """
+        files = []
+        files.extend(design.get("files_to_modify", []))
+        files.extend(design.get("files_to_create", []))
+        return files
+
+    async def safety_review(self, design: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Legacy API: Review safety of the design.
+
+        Args:
+            design: Design specification
+
+        Returns:
+            Safety review result
+        """
+        affected_files = await self.identify_affected_files(design)
+        issues = []
+        risk_patterns = []
+
+        # Check for protected file modifications
+        for file_path in affected_files:
+            for protected in self.protected_files:
+                if protected in file_path:
+                    issues.append(f"Protected file would be modified: {file_path}")
+
+        # Check for high-risk patterns in description
+        description = design.get("description", "")
+        pattern_result = self._check_risk_patterns(description)
+        if pattern_result.get("high_risk"):
+            risk_patterns.extend(pattern_result.get("patterns_found", []))
+
+        # Also check with basic keywords as fallback
+        high_risk_keywords = ["delete", "remove", "drop", "truncate", "destroy"]
+        for keyword in high_risk_keywords:
+            if keyword in description.lower():
+                pattern_str = f"High-risk keyword detected: {keyword}"
+                if pattern_str not in risk_patterns:
+                    risk_patterns.append(pattern_str)
+
+        is_safe = len(issues) == 0
+        risk_level = "high" if risk_patterns else "medium" if len(affected_files) > 5 else "low"
+        risk_score = 0.8 if risk_level == "high" else 0.5 if risk_level == "medium" else 0.2
+
+        return {
+            "safe": is_safe,
+            "issues": issues,
+            "risk_patterns": risk_patterns,
+            "risk_level": risk_level,
+            "risk_score": risk_score,
+            "requires_review": len(risk_patterns) > 0,
+            "reason": "; ".join(issues) if issues else "Design is safe",
+        }
+
+    def _check_risk_patterns(self, description: str) -> Dict[str, Any]:
+        """
+        Check for high-risk patterns in design description.
+
+        Args:
+            description: Design description text
+
+        Returns:
+            Risk pattern analysis result
+        """
+        dangerous_patterns = [
+            "eval",
+            "exec",
+            "subprocess",
+            "os.system",
+            "shell=True",
+            "__import__",
+            "compile(",
+        ]
+        patterns_found = []
+
+        desc_lower = description.lower()
+        for pattern in dangerous_patterns:
+            if pattern.lower() in desc_lower:
+                patterns_found.append(pattern)
+
+        return {
+            "high_risk": len(patterns_found) > 0,
+            "patterns_found": patterns_found,
+        }
+
+    async def approve_design(self, design: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Approve or flag design for review.
+
+        Args:
+            design: Design specification
+
+        Returns:
+            Approval result with approved, auto_approved, requires_human_review flags
+        """
+        # Get safety review
+        safety_result = await self.safety_review(design)
+
+        # If not safe, reject
+        if not safety_result.get("safe", True):
+            return {
+                "approved": False,
+                "auto_approved": False,
+                "requires_human_review": True,
+                "reason": safety_result.get("reason", "Safety check failed"),
+            }
+
+        # Get risk score
+        risk_score = safety_result.get("risk_score", design.get("risk_score", 0.5))
+
+        # Auto-approve if risk is below threshold
+        if risk_score < self.auto_approve_threshold:
+            return {
+                "approved": True,
+                "auto_approved": True,
+                "requires_human_review": False,
+                "risk_score": risk_score,
+            }
+
+        # High risk - requires human review
+        return {
+            "approved": False,
+            "auto_approved": False,
+            "requires_human_review": True,
+            "risk_score": risk_score,
+            "reason": f"Risk score {risk_score} exceeds threshold {self.auto_approve_threshold}",
+        }
+
+    # =========================================================================
+    # Original execute method
+    # =========================================================================
 
     async def execute(
         self,

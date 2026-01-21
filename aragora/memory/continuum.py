@@ -411,6 +411,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
         # Generate cache key from content hash + params
         import hashlib
+
         content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
         cache_key = f"{content_hash}:{limit}:{min_similarity}"
 
@@ -992,7 +993,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             try:
                 from aragora.server.stream.events import StreamEvent, StreamEventType
 
-                tier_counts = {}
+                tier_counts: Dict[str, int] = {}
                 for e in entries:
                     tier_counts[e.tier.value] = tier_counts.get(e.tier.value, 0) + 1
 
@@ -1114,7 +1115,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
                 for row in rows:
                     entry_id = row[0]
-                    metadata = safe_json_loads(row[1], {})
+                    metadata: Dict[str, Any] = safe_json_loads(row[1], {})
 
                     # Remove km_node_id reference if present
                     if metadata.get("km_node_id") == node_id:
