@@ -427,34 +427,42 @@ class DecisionResultStore:
         Returns:
             List of result summaries
         """
-        conn = self._get_connection()
-        cursor = conn.execute(
-            """
+        query = """
             SELECT request_id, status, completed_at
             FROM decision_results
             WHERE expires_at > ?
             ORDER BY created_at DESC
             LIMIT ?
-            """,
-            (time.time(), limit),
-        )
+        """
+        params = (time.time(), limit)
+
+        if self._backend is not None:
+            rows = self._backend.fetch_all(query, params)
+        else:
+            conn = self._get_connection()
+            cursor = conn.execute(query, params)
+            rows = cursor.fetchall()
 
         return [
             {
-                "request_id": row["request_id"],
-                "status": row["status"],
-                "completed_at": row["completed_at"],
+                "request_id": row[0],
+                "status": row[1],
+                "completed_at": row[2],
             }
-            for row in cursor.fetchall()
+            for row in rows
         ]
 
     def count(self) -> int:
         """Get total count of non-expired entries."""
+        query = "SELECT COUNT(*) FROM decision_results WHERE expires_at > ?"
+        params = (time.time(),)
+
+        if self._backend is not None:
+            result = self._backend.fetch_one(query, params)
+            return result[0] if result else 0
+
         conn = self._get_connection()
-        cursor = conn.execute(
-            "SELECT COUNT(*) FROM decision_results WHERE expires_at > ?",
-            (time.time(),),
-        )
+        cursor = conn.execute(query, params)
         return cursor.fetchone()[0]
 
     def delete(self, request_id: str) -> bool:
@@ -472,6 +480,20 @@ class DecisionResultStore:
             self._cache.pop(request_id, None)
 
         # Remove from database
+        if self._backend is not None:
+            # Check if exists first for return value
+            result = self._backend.fetch_one(
+                "SELECT 1 FROM decision_results WHERE request_id = ?",
+                (request_id,),
+            )
+            if result:
+                self._backend.execute_write(
+                    "DELETE FROM decision_results WHERE request_id = ?",
+                    (request_id,),
+                )
+                return True
+            return False
+
         conn = self._get_connection()
         cursor = conn.execute(
             "DELETE FROM decision_results WHERE request_id = ?",
@@ -490,6 +512,21 @@ class DecisionResultStore:
     def _cleanup_expired(self) -> None:
         """Remove expired entries from database."""
         try:
+            if self._backend is not None:
+                # Count first for logging
+                result = self._backend.fetch_one(
+                    "SELECT COUNT(*) FROM decision_results WHERE expires_at <= ?",
+                    (time.time(),),
+                )
+                deleted = result[0] if result else 0
+                if deleted > 0:
+                    self._backend.execute_write(
+                        "DELETE FROM decision_results WHERE expires_at <= ?",
+                        (time.time(),),
+                    )
+                    logger.debug(f"Cleaned up {deleted} expired decision results")
+                return
+
             conn = self._get_connection()
             cursor = conn.execute(
                 "DELETE FROM decision_results WHERE expires_at <= ?",
@@ -505,6 +542,30 @@ class DecisionResultStore:
     def _enforce_max_entries(self) -> None:
         """Enforce maximum entries using LRU eviction."""
         try:
+            if self._backend is not None:
+                result = self._backend.fetch_one(
+                    "SELECT COUNT(*) FROM decision_results WHERE expires_at > ?",
+                    (time.time(),),
+                )
+                count = result[0] if result else 0
+
+                if count > self._max_entries:
+                    excess = count - self._max_entries
+                    self._backend.execute_write(
+                        """
+                        DELETE FROM decision_results
+                        WHERE request_id IN (
+                            SELECT request_id FROM decision_results
+                            WHERE expires_at > ?
+                            ORDER BY created_at ASC
+                            LIMIT ?
+                        )
+                        """,
+                        (time.time(), excess),
+                    )
+                    logger.info(f"LRU evicted {excess} decision results (max: {self._max_entries})")
+                return
+
             conn = self._get_connection()
             cursor = conn.execute(
                 "SELECT COUNT(*) FROM decision_results WHERE expires_at > ?",
