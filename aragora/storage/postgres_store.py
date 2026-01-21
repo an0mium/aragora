@@ -57,6 +57,9 @@ async def get_postgres_pool(
     dsn: Optional[str] = None,
     min_size: int = 5,
     max_size: int = 20,
+    command_timeout: float = 60.0,
+    statement_timeout: int = 60,
+    pool_recycle: int = 1800,
 ) -> "Pool":
     """
     Get or create the global PostgreSQL connection pool.
@@ -66,6 +69,9 @@ async def get_postgres_pool(
              ARAGORA_POSTGRES_DSN or DATABASE_URL env vars.
         min_size: Minimum pool connections (default 5)
         max_size: Maximum pool connections (default 20)
+        command_timeout: Max time (seconds) for any single command (default 60)
+        statement_timeout: PostgreSQL statement_timeout in seconds (default 60)
+        pool_recycle: Recycle connections older than this (seconds, default 1800)
 
     Returns:
         Connection pool instance
@@ -103,12 +109,24 @@ async def get_postgres_pool(
             "in environment, AWS Secrets Manager, or pass dsn parameter."
         )
 
-    logger.info(f"Creating PostgreSQL pool (min={min_size}, max={max_size})")
+    # Connection initialization callback to set session parameters
+    async def init_connection(conn):
+        # Set statement_timeout to prevent runaway queries
+        await conn.execute(f"SET statement_timeout = '{statement_timeout}s'")
+        # Set idle_in_transaction_session_timeout to prevent abandoned transactions
+        await conn.execute("SET idle_in_transaction_session_timeout = '300s'")
+
+    logger.info(
+        f"Creating PostgreSQL pool (min={min_size}, max={max_size}, "
+        f"command_timeout={command_timeout}s, statement_timeout={statement_timeout}s)"
+    )
     _pool = await asyncpg.create_pool(
         dsn,
         min_size=min_size,
         max_size=max_size,
-        command_timeout=60,
+        command_timeout=command_timeout,
+        max_inactive_connection_lifetime=pool_recycle,
+        init=init_connection,
     )
     return _pool
 

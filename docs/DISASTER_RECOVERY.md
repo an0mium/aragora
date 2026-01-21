@@ -630,9 +630,374 @@ Last updated: [Timestamp]
 
 ---
 
+## Component-Specific Recovery
+
+### Knowledge Mound Recovery
+
+**Scenario:** Knowledge Mound data loss or corruption
+
+**Backup Procedures:**
+
+```bash
+# Knowledge Mound stores data in SQLite
+# Location: .nomic/knowledge_mound.db
+
+# Manual backup
+sqlite3 .nomic/knowledge_mound.db ".backup '/backup/km_$(date +%Y%m%d_%H%M%S).db'"
+
+# Verify backup integrity
+sqlite3 /backup/km_*.db "PRAGMA integrity_check"
+sqlite3 /backup/km_*.db "SELECT COUNT(*) FROM knowledge_nodes"
+```
+
+**Recovery Steps:**
+
+1. **Stop KM operations**
+   ```bash
+   # Disable KM endpoints temporarily
+   curl -X POST http://localhost:8080/api/admin/features/knowledge-mound/disable
+   ```
+
+2. **Restore from backup**
+   ```bash
+   mv .nomic/knowledge_mound.db .nomic/knowledge_mound.db.corrupted
+   cp /backup/km_YYYYMMDD_HHMMSS.db .nomic/knowledge_mound.db
+   ```
+
+3. **Rebuild vector indices** (if needed)
+   ```bash
+   python -c "
+   from aragora.knowledge.mound import get_knowledge_mound
+   km = get_knowledge_mound()
+   km.rebuild_indices()
+   "
+   ```
+
+4. **Re-enable KM**
+   ```bash
+   curl -X POST http://localhost:8080/api/admin/features/knowledge-mound/enable
+   ```
+
+### Job Queue Recovery
+
+**Scenario:** Interrupted jobs (transcription, routing, gauntlet)
+
+The job queue system (`aragora/queue/`) automatically recovers interrupted jobs on startup. However, manual recovery may be needed after certain failures.
+
+**Recovery Commands:**
+
+```bash
+# Check pending/interrupted jobs
+python -c "
+from aragora.queue.job_queue import JobQueueStore
+store = JobQueueStore('.nomic/job_queue.db')
+import asyncio
+
+async def check():
+    pending = await store.list_jobs(status='pending')
+    processing = await store.list_jobs(status='processing')
+    failed = await store.list_jobs(status='failed')
+    print(f'Pending: {len(pending)}, Processing: {len(processing)}, Failed: {len(failed)}')
+
+asyncio.run(check())
+"
+
+# Recover specific job types
+python -c "
+from aragora.queue.workers import (
+    recover_interrupted_transcriptions,
+    recover_interrupted_gauntlets,
+    recover_interrupted_routing,
+)
+import asyncio
+
+async def recover():
+    t = await recover_interrupted_transcriptions()
+    g = await recover_interrupted_gauntlets()
+    r = await recover_interrupted_routing()
+    print(f'Recovered: {t} transcriptions, {g} gauntlets, {r} routing jobs')
+
+asyncio.run(recover())
+"
+
+# Manually retry failed jobs
+python -c "
+from aragora.queue.job_queue import JobQueueStore
+store = JobQueueStore('.nomic/job_queue.db')
+import asyncio
+
+async def retry_failed():
+    failed = await store.list_jobs(status='failed')
+    for job in failed:
+        if job.retry_count < 3:
+            await store.update_job_status(job.job_id, 'pending')
+            print(f'Retried job {job.job_id}')
+
+asyncio.run(retry_failed())
+"
+```
+
+### Encrypted Secrets Recovery
+
+**Scenario:** Encryption key loss or secrets corruption
+
+**CRITICAL:** The encryption key (`ARAGORA_ENCRYPTION_KEY`) must be backed up securely. Without it, encrypted secrets cannot be recovered.
+
+**Key Backup:**
+
+```bash
+# NEVER store encryption key in plain text alongside backups
+# Use a secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.)
+
+# Example: Store in AWS Secrets Manager
+aws secretsmanager create-secret \
+  --name aragora/encryption-key \
+  --secret-string "$ARAGORA_ENCRYPTION_KEY"
+
+# Example: Store in HashiCorp Vault
+vault kv put secret/aragora/encryption-key value="$ARAGORA_ENCRYPTION_KEY"
+```
+
+**Recovery Steps:**
+
+1. **Retrieve encryption key from backup**
+   ```bash
+   # From AWS Secrets Manager
+   export ARAGORA_ENCRYPTION_KEY=$(aws secretsmanager get-secret-value \
+     --secret-id aragora/encryption-key \
+     --query SecretString --output text)
+
+   # From HashiCorp Vault
+   export ARAGORA_ENCRYPTION_KEY=$(vault kv get -field=value secret/aragora/encryption-key)
+   ```
+
+2. **Verify key matches encrypted data**
+   ```bash
+   python -c "
+   from aragora.security.encryption import get_encryption_service
+   svc = get_encryption_service()
+   # Will fail if key is wrong
+   print('Encryption service initialized successfully')
+   "
+   ```
+
+3. **If key is lost and secrets cannot be recovered:**
+   - Generate new encryption key: `openssl rand -hex 32`
+   - Users must re-enter sensitive credentials (API keys, tokens)
+   - Update integration store entries with new encrypted values
+
+### Debate Origin Recovery
+
+**Scenario:** Lost debate origin mapping (debates not routed back to source)
+
+Origin data (`aragora/server/debate_origin.py`) maps debates to their source (Slack, Discord, email, etc.).
+
+**Recovery Steps:**
+
+1. **Check origin store**
+   ```bash
+   python -c "
+   from aragora.server.debate_origin import get_origin_store
+   import asyncio
+
+   async def check():
+       store = get_origin_store()
+       # SQLite-backed store
+       count = await store.count()
+       print(f'Stored origins: {count}')
+
+   asyncio.run(check())
+   "
+   ```
+
+2. **Rebuild from debate metadata** (partial recovery)
+   ```bash
+   python -c "
+   from aragora.storage.debate_store import get_debate_store
+   from aragora.server.debate_origin import get_origin_store, DebateOrigin
+   import asyncio
+
+   async def rebuild():
+       debate_store = get_debate_store()
+       origin_store = get_origin_store()
+
+       debates = await debate_store.list_all()
+       recovered = 0
+       for d in debates:
+           if d.metadata and 'source' in d.metadata:
+               origin = DebateOrigin(
+                   debate_id=d.debate_id,
+                   platform=d.metadata['source'],
+                   channel_id=d.metadata.get('channel_id'),
+                   user_id=d.metadata.get('user_id'),
+               )
+               await origin_store.save(origin)
+               recovered += 1
+       print(f'Recovered {recovered} origins from debate metadata')
+
+   asyncio.run(rebuild())
+   "
+   ```
+
+### Consensus Healing Recovery
+
+**Scenario:** Multiple stale or failed consensus states
+
+The consensus healing worker (`aragora/queue/workers/consensus_healing_worker.py`) automatically identifies and heals problematic consensus states.
+
+**Manual Healing:**
+
+```bash
+# Start consensus healing with custom config
+python -c "
+from aragora.queue.workers import (
+    ConsensusHealingWorker,
+    HealingConfig,
+    HealingAction,
+)
+import asyncio
+
+async def heal():
+    config = HealingConfig(
+        enabled=True,
+        scan_interval_seconds=60,
+        stale_threshold_hours=24,
+        max_auto_actions_per_scan=10,
+        allowed_actions=[
+            HealingAction.RE_DEBATE,
+            HealingAction.EXTEND_ROUNDS,
+            HealingAction.ARCHIVE,
+        ],
+    )
+
+    worker = ConsensusHealingWorker(config=config)
+
+    # Single scan
+    candidates = await worker._scan_for_candidates()
+    print(f'Found {len(candidates)} healing candidates')
+
+    for c in candidates:
+        print(f'  - {c.debate_id}: {c.reason.value}')
+
+asyncio.run(heal())
+"
+
+# Force archive old stale debates
+python -c "
+from aragora.queue.workers import get_consensus_healing_worker
+import asyncio
+
+async def archive_stale():
+    worker = get_consensus_healing_worker()
+    results = await worker.force_archive_stale(older_than_days=30)
+    print(f'Archived {len(results)} stale debates')
+
+asyncio.run(archive_stale())
+"
+```
+
+### Human Checkpoint Recovery
+
+**Scenario:** Lost pending approvals after restart
+
+Human checkpoints (`aragora/workflow/nodes/human_checkpoint.py`) now persist to GovernanceStore.
+
+**Recovery Steps:**
+
+```bash
+# List all pending approvals
+python -c "
+from aragora.storage.governance_store import get_governance_store
+import asyncio
+
+async def list_pending():
+    store = get_governance_store()
+    pending = await store.list_approvals(status='pending')
+    print(f'Pending approvals: {len(pending)}')
+    for p in pending:
+        print(f'  - {p.approval_id}: {p.title} (requested: {p.requested_at})')
+
+asyncio.run(list_pending())
+"
+
+# Recover pending approvals on startup
+python -c "
+from aragora.workflow.nodes.human_checkpoint import HumanCheckpointNode
+import asyncio
+
+async def recover():
+    node = HumanCheckpointNode()
+    recovered = await node.recover_pending_approvals()
+    print(f'Recovered {recovered} pending approvals')
+
+asyncio.run(recover())
+"
+```
+
+---
+
+## Automated Recovery Integration
+
+### Startup Recovery Hooks
+
+Add to your application startup sequence:
+
+```python
+# aragora/server/startup.py
+
+async def run_recovery_hooks():
+    """Run automated recovery on startup."""
+    from aragora.queue.workers import (
+        recover_interrupted_transcriptions,
+        recover_interrupted_gauntlets,
+        recover_interrupted_routing,
+    )
+    from aragora.workflow.nodes.human_checkpoint import HumanCheckpointNode
+
+    # Recover interrupted jobs
+    await recover_interrupted_transcriptions()
+    await recover_interrupted_gauntlets()
+    await recover_interrupted_routing()
+
+    # Recover pending approvals
+    checkpoint = HumanCheckpointNode()
+    await checkpoint.recover_pending_approvals()
+
+    # Start consensus healing (background)
+    from aragora.queue.workers import start_consensus_healing
+    await start_consensus_healing()
+```
+
+### Deployment Validation
+
+Before accepting traffic after recovery, run deployment validation:
+
+```bash
+python -c "
+from aragora.deploy.validator import validate_deployment, ValidationLevel
+import asyncio
+
+async def validate():
+    result = await validate_deployment(level=ValidationLevel.FULL)
+    if not result.passed:
+        print('Deployment validation FAILED:')
+        for check in result.checks:
+            if not check.passed:
+                print(f'  - {check.name}: {check.message}')
+        exit(1)
+    print('Deployment validation PASSED')
+
+asyncio.run(validate())
+"
+```
+
+---
+
 ## Related Documentation
 
 - [SECURITY.md](../SECURITY.md) - Security policies and incident response
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues and solutions
 - [RUNBOOK.md](RUNBOOK.md) - Operational procedures
 - [DATABASE.md](DATABASE.md) - Database operations and encryption
+- [SECRETS_MANAGEMENT.md](SECRETS_MANAGEMENT.md) - Encryption key management
+- [QUEUE.md](QUEUE.md) - Job queue operations
