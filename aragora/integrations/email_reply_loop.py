@@ -369,7 +369,7 @@ def register_email_origin(
 async def get_origin_by_reply(in_reply_to: str) -> Optional[EmailReplyOrigin]:
     """Get the origin for an email reply.
 
-    Checks in-memory cache first, then falls back to Redis.
+    Checks in-memory cache first, then falls back to Redis, then SQLite.
     """
     async with _reply_origins_lock:
         # Check in-memory first
@@ -385,6 +385,15 @@ async def get_origin_by_reply(in_reply_to: str) -> Optional[EmailReplyOrigin]:
                 return origin
         except Exception as e:
             logger.debug(f"Redis email origin lookup not available: {e}")
+
+        # Fall back to SQLite
+        try:
+            origin = _get_sqlite_email_store().get(in_reply_to)
+            if origin:
+                _reply_origins[in_reply_to] = origin  # Cache locally
+                return origin
+        except Exception as e:
+            logger.debug(f"SQLite email origin lookup failed: {e}")
 
         return None
 

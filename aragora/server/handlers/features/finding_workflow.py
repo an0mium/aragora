@@ -766,6 +766,10 @@ class FindingWorkflowHandler(BaseHandler):
             "comment": "Same issue as parent"
         }
         """
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.update", finding_id):
+            return error
+
         try:
             body = await self._parse_json_body(request)
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -829,6 +833,10 @@ class FindingWorkflowHandler(BaseHandler):
             "comment": "Bulk update reason"
         }
         """
+        # Check RBAC permission for bulk operations
+        if error := self._check_permission(request, "findings.bulk"):
+            return error
+
         try:
             body = await self._parse_json_body(request)
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -908,6 +916,10 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_my_assignments(self, request: Any) -> dict[str, Any]:
         """Get findings assigned to the current user."""
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.read"):
+            return error
+
         user_id, _ = self._get_user_from_request(request)
 
         store = get_finding_workflow_store()
@@ -932,6 +944,10 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_overdue(self, request: Any) -> dict[str, Any]:
         """Get all overdue findings."""
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.read"):
+            return error
+
         store = get_finding_workflow_store()
         overdue = await store.list_overdue()
 
