@@ -228,4 +228,16 @@ __all__ = [
     "track_decision",
     "get_decision_metrics",
     "get_decision_summary",
+    # Memory Profiling
+    "MemoryProfiler",
+    "MemoryProfileResult",
+    "MemorySnapshot",
+    "MemoryGrowthTracker",
+    "MemoryCategory",
+    "KMMemoryProfiler",
+    "ConsensusMemoryProfiler",
+    "profile_memory",
+    "track_memory",
+    "km_profiler",
+    "consensus_profiler",
 ]
