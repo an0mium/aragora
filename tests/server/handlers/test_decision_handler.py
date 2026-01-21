@@ -52,90 +52,96 @@ class TestDecisionHandlerGet:
 
     def test_list_decisions_empty(self):
         """Test listing decisions when none exist."""
-        from aragora.server.handlers.decision import DecisionHandler, _decision_results
+        from aragora.server.handlers.decision import DecisionHandler, _decision_results_fallback
 
         # Clear any existing results
-        _decision_results.clear()
+        _decision_results_fallback.clear()
 
-        handler = DecisionHandler({})
-        result = handler.handle("/api/decisions", {})
+        # Patch the result store to use fallback
+        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+            handler = DecisionHandler({})
+            result = handler.handle("/api/decisions", {})
 
-        assert result is not None
-        assert result.status_code == 200
+            assert result is not None
+            assert result.status_code == 200
 
-        body = json.loads(result.body)
-        assert body["total"] == 0
-        assert body["decisions"] == []
+            body = json.loads(result.body)
+            assert body["total"] == 0
+            assert body["decisions"] == []
 
     def test_get_decision_not_found(self):
         """Test getting a non-existent decision."""
-        from aragora.server.handlers.decision import DecisionHandler, _decision_results
+        from aragora.server.handlers.decision import DecisionHandler, _decision_results_fallback
 
-        _decision_results.clear()
+        _decision_results_fallback.clear()
 
-        handler = DecisionHandler({})
-        result = handler.handle("/api/decisions/nonexistent-123", {})
+        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+            handler = DecisionHandler({})
+            result = handler.handle("/api/decisions/nonexistent-123", {})
 
-        assert result is not None
-        assert result.status_code == 404
+            assert result is not None
+            assert result.status_code == 404
 
     def test_get_decision_found(self):
         """Test getting an existing decision."""
-        from aragora.server.handlers.decision import DecisionHandler, _decision_results
+        from aragora.server.handlers.decision import DecisionHandler, _decision_results_fallback
 
-        _decision_results.clear()
-        _decision_results["test-req-456"] = {
+        _decision_results_fallback.clear()
+        _decision_results_fallback["test-req-456"] = {
             "request_id": "test-req-456",
             "status": "completed",
             "completed_at": "2026-01-21T00:00:00",
             "result": {"answer": "Test answer"},
         }
 
-        handler = DecisionHandler({})
-        result = handler.handle("/api/decisions/test-req-456", {})
+        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+            handler = DecisionHandler({})
+            result = handler.handle("/api/decisions/test-req-456", {})
 
-        assert result is not None
-        assert result.status_code == 200
+            assert result is not None
+            assert result.status_code == 200
 
-        body = json.loads(result.body)
-        assert body["request_id"] == "test-req-456"
-        assert body["status"] == "completed"
+            body = json.loads(result.body)
+            assert body["request_id"] == "test-req-456"
+            assert body["status"] == "completed"
 
     def test_get_decision_status(self):
         """Test getting decision status for polling."""
-        from aragora.server.handlers.decision import DecisionHandler, _decision_results
+        from aragora.server.handlers.decision import DecisionHandler, _decision_results_fallback
 
-        _decision_results.clear()
-        _decision_results["poll-req-789"] = {
+        _decision_results_fallback.clear()
+        _decision_results_fallback["poll-req-789"] = {
             "request_id": "poll-req-789",
             "status": "completed",
             "completed_at": "2026-01-21T01:00:00",
         }
 
-        handler = DecisionHandler({})
-        result = handler.handle("/api/decisions/poll-req-789/status", {})
+        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+            handler = DecisionHandler({})
+            result = handler.handle("/api/decisions/poll-req-789/status", {})
 
-        assert result is not None
-        assert result.status_code == 200
+            assert result is not None
+            assert result.status_code == 200
 
-        body = json.loads(result.body)
-        assert body["request_id"] == "poll-req-789"
-        assert body["status"] == "completed"
+            body = json.loads(result.body)
+            assert body["request_id"] == "poll-req-789"
+            assert body["status"] == "completed"
 
     def test_get_decision_status_not_found(self):
         """Test getting status for non-existent decision."""
-        from aragora.server.handlers.decision import DecisionHandler, _decision_results
+        from aragora.server.handlers.decision import DecisionHandler, _decision_results_fallback
 
-        _decision_results.clear()
+        _decision_results_fallback.clear()
 
-        handler = DecisionHandler({})
-        result = handler.handle("/api/decisions/missing/status", {})
+        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+            handler = DecisionHandler({})
+            result = handler.handle("/api/decisions/missing/status", {})
 
-        assert result is not None
-        assert result.status_code == 200  # Returns status, not 404
+            assert result is not None
+            assert result.status_code == 200  # Returns status, not 404
 
-        body = json.loads(result.body)
-        assert body["status"] == "not_found"
+            body = json.loads(result.body)
+            assert body["status"] == "not_found"
 
 
 class TestDecisionHandlerPost:
@@ -148,7 +154,7 @@ class TestDecisionHandlerPost:
         handler = DecisionHandler({})
 
         # Create mock request handler with empty body (no "content" field)
-        body_bytes = b'{}'
+        body_bytes = b"{}"
         mock_handler = MagicMock()
         mock_handler.headers = {
             "Content-Type": "application/json",
@@ -190,10 +196,10 @@ class TestDecisionHandlerPost:
     @patch("aragora.billing.auth.extract_user_from_request")
     def test_create_decision_success(self, mock_auth, mock_get_router):
         """Test successful decision creation."""
-        from aragora.server.handlers.decision import DecisionHandler, _decision_results
+        from aragora.server.handlers.decision import DecisionHandler, _decision_results_fallback
         from aragora.core.decision import DecisionResult, DecisionType
 
-        _decision_results.clear()
+        _decision_results_fallback.clear()
 
         # Mock the router
         mock_router = MagicMock()
@@ -221,10 +227,12 @@ class TestDecisionHandlerPost:
 
         handler = DecisionHandler({})
 
-        body_bytes = json.dumps({
-            "content": "What is the capital of France?",
-            "decision_type": "quick",
-        }).encode()
+        body_bytes = json.dumps(
+            {
+                "content": "What is the capital of France?",
+                "decision_type": "quick",
+            }
+        ).encode()
         mock_handler = MagicMock()
         mock_handler.headers = {
             "Content-Type": "application/json",
@@ -248,24 +256,25 @@ class TestDecisionResultCache:
 
     def test_list_with_limit(self):
         """Test listing decisions with limit."""
-        from aragora.server.handlers.decision import DecisionHandler, _decision_results
+        from aragora.server.handlers.decision import DecisionHandler, _decision_results_fallback
 
-        _decision_results.clear()
+        _decision_results_fallback.clear()
 
         # Add multiple results
         for i in range(10):
-            _decision_results[f"req-{i}"] = {
+            _decision_results_fallback[f"req-{i}"] = {
                 "request_id": f"req-{i}",
                 "status": "completed",
             }
 
-        handler = DecisionHandler({})
-        result = handler.handle("/api/decisions", {"limit": "3"})
+        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+            handler = DecisionHandler({})
+            result = handler.handle("/api/decisions", {"limit": "3"})
 
-        assert result is not None
-        body = json.loads(result.body)
-        assert len(body["decisions"]) == 3
-        assert body["total"] == 10
+            assert result is not None
+            body = json.loads(result.body)
+            assert len(body["decisions"]) == 3
+            assert body["total"] == 10
 
 
 if __name__ == "__main__":

@@ -133,59 +133,36 @@ class FindingWorkflowHandler(BaseHandler):
                 display_name = display_name.split("@")[0]
             return auth_context.user_id, display_name
 
-        # Fall back to headers for internal/service calls only if no JWT
-        # This allows service-to-service calls but logs a warning
-        user_id = request.headers.get("X-User-ID", "")
-        if user_id and user_id != "anonymous":
-            logger.warning(
-                f"finding_workflow: Using header-based auth for user {user_id}. "
-                "Consider using JWT for production security."
-            )
-            user_name = request.headers.get("X-User-Name", "Anonymous User")
-            return user_id, user_name
-
+        # JWT authentication required - no header fallback for user identity
+        # This prevents identity spoofing via X-User-ID header
+        logger.warning(
+            "finding_workflow: No authenticated user found. "
+            "JWT token required for user identification."
+        )
         return "anonymous", "Anonymous User"
 
-    def _get_auth_context(self, request: Any) -> AuthorizationContext:
+    def _get_auth_context(self, request: Any) -> AuthorizationContext | None:
         """Build AuthorizationContext from validated JWT token.
 
-        Prioritizes JWT claims over headers for secure authentication.
-        Headers are only used as fallback for internal service calls.
+        SECURITY: Only accepts JWT-based authentication. Header-based auth
+        has been removed to prevent identity spoofing and privilege escalation.
+
+        Returns:
+            AuthorizationContext if JWT is valid, None if authentication failed
         """
         from aragora.rbac import get_role_permissions
 
-        # Try JWT authentication first (secure)
+        # JWT authentication required (secure)
         jwt_context = extract_user_from_request(request)
-        if jwt_context.authenticated and jwt_context.user_id:
-            # Build roles set from JWT role claim
-            roles = {jwt_context.role} if jwt_context.role else {"member"}
-
-            # Get resolved permissions for the roles
-            permissions: set[str] = set()
-            for role in roles:
-                permissions |= get_role_permissions(role, include_inherited=True)
-
-            return AuthorizationContext(
-                user_id=jwt_context.user_id,
-                org_id=jwt_context.org_id,
-                roles=roles,
-                permissions=permissions,
-                ip_address=jwt_context.client_ip,
-            )
-
-        # Fall back to headers for internal/service calls
-        # Log warning when using header-based auth
-        user_id = request.headers.get("X-User-ID", "anonymous")
-        if user_id and user_id != "anonymous":
+        if not jwt_context.authenticated or not jwt_context.user_id:
             logger.warning(
-                f"finding_workflow: Header-based auth for user {user_id}. "
-                "JWT auth recommended for security."
+                "finding_workflow: JWT authentication required. "
+                "Request rejected - no valid token."
             )
+            return None
 
-        org_id = request.headers.get("X-Org-ID")
-        # Roles from header (comma-separated) or default to member
-        roles_header = request.headers.get("X-User-Roles", "member")
-        roles = set(r.strip() for r in roles_header.split(",") if r.strip())
+        # Build roles set from JWT role claim
+        roles = {jwt_context.role} if jwt_context.role else {"member"}
 
         # Get resolved permissions for the roles
         permissions: set[str] = set()
@@ -193,11 +170,11 @@ class FindingWorkflowHandler(BaseHandler):
             permissions |= get_role_permissions(role, include_inherited=True)
 
         return AuthorizationContext(
-            user_id=user_id,
-            org_id=org_id,
+            user_id=jwt_context.user_id,
+            org_id=jwt_context.org_id,
             roles=roles,
             permissions=permissions,
-            ip_address=request.headers.get("X-Forwarded-For"),
+            ip_address=jwt_context.client_ip,
         )
 
     def _check_permission(
@@ -209,6 +186,13 @@ class FindingWorkflowHandler(BaseHandler):
         Returns None if allowed, or an error response dict if denied.
         """
         context = self._get_auth_context(request)
+
+        # Authentication required
+        if context is None:
+            return self._error_response(
+                401, "Authentication required. Please provide a valid JWT token."
+            )
+
         try:
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
@@ -952,9 +936,7 @@ class FindingWorkflowHandler(BaseHandler):
 
                 results["success"].append(fid)
 
-            except (
-                Exception
-            ) as e:  # noqa: BLE001 - Bulk operations should continue despite individual failures
+            except Exception as e:  # noqa: BLE001 - Bulk operations should continue despite individual failures
                 results["failed"].append({"finding_id": fid, "error": str(e)})
 
         return self._json_response(

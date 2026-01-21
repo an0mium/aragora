@@ -100,7 +100,10 @@ class TestExportCache:
         _cache_export("debate", "json", "hash", "content")
 
         # Mock time to be past TTL
-        with patch("aragora.visualization.exporter.time.time", return_value=time.time() + _EXPORT_CACHE_TTL + 1):
+        with patch(
+            "aragora.visualization.exporter.time.time",
+            return_value=time.time() + _EXPORT_CACHE_TTL + 1,
+        ):
             result = _get_cached_export("debate", "json", "hash")
 
         assert result is None
@@ -125,15 +128,15 @@ class TestSaveDebateVisualization:
     def test_creates_output_directory(self, tmp_path, cartographer):
         """Should create output directory if it doesn't exist."""
         output_dir = tmp_path / "new_dir" / "nested"
-        
+
         save_debate_visualization(cartographer, output_dir, "test")
-        
+
         assert output_dir.exists()
 
     def test_saves_mermaid_by_default(self, tmp_path, cartographer):
         """Should save Mermaid format by default."""
         results = save_debate_visualization(cartographer, tmp_path, "test")
-        
+
         assert "mermaid" in results
         mermaid_path = Path(results["mermaid"])
         assert mermaid_path.exists()
@@ -142,7 +145,7 @@ class TestSaveDebateVisualization:
     def test_saves_json_by_default(self, tmp_path, cartographer):
         """Should save JSON format by default."""
         results = save_debate_visualization(cartographer, tmp_path, "test")
-        
+
         assert "json" in results
         json_path = Path(results["json"])
         assert json_path.exists()
@@ -151,10 +154,8 @@ class TestSaveDebateVisualization:
 
     def test_saves_html_when_requested(self, tmp_path, cartographer):
         """Should save HTML when specified."""
-        results = save_debate_visualization(
-            cartographer, tmp_path, "test", formats=["html"]
-        )
-        
+        results = save_debate_visualization(cartographer, tmp_path, "test", formats=["html"])
+
         assert "html" in results
         html_path = Path(results["html"])
         assert html_path.exists()
@@ -165,14 +166,14 @@ class TestSaveDebateVisualization:
         results = save_debate_visualization(
             cartographer, tmp_path, "test", formats=["mermaid", "json", "html"]
         )
-        
+
         assert len(results) == 3
         assert all(Path(p).exists() for p in results.values())
 
     def test_uses_debate_id_in_filename(self, tmp_path, cartographer):
         """Should use debate_id in filenames."""
         results = save_debate_visualization(cartographer, tmp_path, "my-debate-123")
-        
+
         assert "my-debate-123" in results["mermaid"]
         assert "my-debate-123" in results["json"]
 
@@ -180,20 +181,18 @@ class TestSaveDebateVisualization:
         """Should use cache by default."""
         # First save populates cache
         save_debate_visualization(cartographer, tmp_path, "test")
-        
+
         # Second save should use cache
         results2 = save_debate_visualization(cartographer, tmp_path / "second", "test")
-        
+
         # Both should have same content (from cache)
         assert Path(results2["json"]).exists()
 
     def test_can_disable_cache(self, tmp_path, cartographer):
         """Should respect use_cache=False."""
         # This should work even with empty cache
-        results = save_debate_visualization(
-            cartographer, tmp_path, "test", use_cache=False
-        )
-        
+        results = save_debate_visualization(cartographer, tmp_path, "test", use_cache=False)
+
         assert len(results) >= 2
 
 
@@ -211,7 +210,7 @@ class TestGenerateStandaloneHtml:
     def test_generates_valid_html(self, cartographer):
         """Should generate valid HTML document."""
         html = generate_standalone_html(cartographer)
-        
+
         assert "<!DOCTYPE html>" in html
         assert "</html>" in html
         assert "<head>" in html
@@ -225,14 +224,14 @@ class TestGenerateStandaloneHtml:
     def test_includes_mermaid_code(self, cartographer):
         """Should include Mermaid diagram code."""
         html = generate_standalone_html(cartographer)
-        
+
         assert "mermaid" in html.lower()
         assert "graph" in html
 
     def test_includes_statistics(self, cartographer):
         """Should include statistics display."""
         html = generate_standalone_html(cartographer)
-        
+
         assert "Arguments" in html
         assert "Connections" in html
         assert "Rounds" in html
@@ -240,7 +239,7 @@ class TestGenerateStandaloneHtml:
     def test_includes_legend(self, cartographer):
         """Should include node type legend."""
         html = generate_standalone_html(cartographer)
-        
+
         assert "Proposal" in html
         assert "Critique" in html
         assert "legend" in html.lower()
@@ -248,7 +247,7 @@ class TestGenerateStandaloneHtml:
     def test_includes_mermaid_script(self, cartographer):
         """Should include Mermaid.js script."""
         html = generate_standalone_html(cartographer)
-        
+
         assert "mermaid" in html
         assert "<script" in html
 
@@ -323,21 +322,26 @@ class TestExportCacheCleanup:
 
     def test_cleanup_expired_exports_partial_cleanup(self):
         """Should only remove expired entries, not all."""
+        import aragora.visualization.exporter as exp
+
         _cache_export("old1", "json", "hash1", "content1")
         _cache_export("old2", "json", "hash2", "content2")
 
-        # Mock time: first two entries expired, add fresh one
+        # Mock time to future where old entries are expired
         future_time = time.time() + _EXPORT_CACHE_TTL + 100
         with patch("aragora.visualization.exporter.time.time") as mock_time:
             mock_time.return_value = future_time
-            # Add fresh entry while time is mocked
+            # Prevent _maybe_cleanup from running when we add the new entry
+            exp._last_cleanup_time = future_time
+            # Add fresh entry while time is mocked (will have future timestamp)
             _cache_export("new", "json", "hash3", "content3")
+            # Now run cleanup - should only remove old entries
             removed = cleanup_expired_exports()
 
         # Should have removed 2 old entries
         assert removed == 2
 
-        # Fresh entry should still exist
+        # Fresh entry should still exist (check without mock)
         assert _get_cached_export("new", "json", "hash3") == "content3"
 
     def test_cleanup_returns_zero_on_empty_cache(self):
@@ -415,6 +419,7 @@ class TestPeriodicCleanup:
         """Clear cache and reset cleanup time."""
         clear_export_cache()
         import aragora.visualization.exporter as exp
+
         exp._last_cleanup_time = 0.0
 
     def test_cache_triggers_cleanup_after_interval(self):

@@ -24,7 +24,16 @@ from typing import Any, Optional, TYPE_CHECKING
 from aragora.config import BELIEF_CONVERGENCE_THRESHOLD, BELIEF_MAX_ITERATIONS
 from aragora.reasoning.claims import ClaimsKernel, ClaimType, RelationType, TypedClaim
 
+
 # Re-export crux detection classes for backward compatibility
+# Import at module level to avoid circular imports
+def __getattr__(name: str):
+    if name == "BeliefPropagationAnalyzer":
+        from aragora.reasoning.crux_detector import BeliefPropagationAnalyzer
+
+        return BeliefPropagationAnalyzer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
@@ -992,4 +1001,4 @@ class BeliefNetwork:
 
 # BeliefPropagationAnalyzer, CruxClaim, CruxAnalysisResult, and CruxDetector
 # have been extracted to aragora.reasoning.crux_detector for better modularity.
-# They are re-exported above for backward compatibility.
+# Re-export for backward compatibility.

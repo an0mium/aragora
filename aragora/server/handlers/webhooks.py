@@ -49,12 +49,21 @@ from aragora.storage.webhook_config_store import (
     get_webhook_config_store,
 )
 
+# Unified audit logging
+try:
+    from aragora.audit.unified import audit_data
+
+    AUDIT_AVAILABLE = True
+except ImportError:
+    AUDIT_AVAILABLE = False
+    audit_data = None
+
 logger = logging.getLogger(__name__)
 
 # Rate limits for webhook operations
 WEBHOOK_REGISTER_RPM = 10  # Max 10 webhook registrations per minute
-WEBHOOK_TEST_RPM = 5       # Max 5 test deliveries per minute
-WEBHOOK_LIST_RPM = 60      # Max 60 list operations per minute
+WEBHOOK_TEST_RPM = 5  # Max 5 test deliveries per minute
+WEBHOOK_LIST_RPM = 60  # Max 60 list operations per minute
 
 
 # Backward compatibility alias - the old WebhookStore interface is now provided
@@ -177,9 +186,7 @@ class WebhookHandler(BaseHandler):
             org_id=getattr(user, "org_id", None),
         )
 
-    def _check_rbac_permission(
-        self, handler, permission_key: str
-    ) -> Optional[HandlerResult]:
+    def _check_rbac_permission(self, handler, permission_key: str) -> Optional[HandlerResult]:
         """
         Check RBAC permission.
 
@@ -404,6 +411,16 @@ class WebhookHandler(BaseHandler):
             user_id=user_id,
         )
 
+        # Audit log: webhook created
+        if AUDIT_AVAILABLE and audit_data:
+            audit_data(
+                user_id=user_id or "anonymous",
+                resource_type="webhook",
+                resource_id=webhook.id,
+                action="create",
+                events=events,
+            )
+
         # Return with secret (only on creation)
         return json_response(
             {
@@ -432,6 +449,16 @@ class WebhookHandler(BaseHandler):
             return error_response("Access denied", 403)
 
         store.delete(webhook_id)
+
+        # Audit log: webhook deleted
+        if AUDIT_AVAILABLE and audit_data:
+            audit_data(
+                user_id=user.user_id if user else "anonymous",
+                resource_type="webhook",
+                resource_id=webhook_id,
+                action="delete",
+            )
+
         return json_response(
             {
                 "deleted": True,
@@ -479,6 +506,15 @@ class WebhookHandler(BaseHandler):
             name=body.get("name"),
             description=body.get("description"),
         )
+
+        # Audit log: webhook updated
+        if AUDIT_AVAILABLE and audit_data:
+            audit_data(
+                user_id=user.user_id if user else "anonymous",
+                resource_type="webhook",
+                resource_id=webhook_id,
+                action="update",
+            )
 
         return json_response({"webhook": updated.to_dict(include_secret=False)})
 

@@ -38,8 +38,8 @@ from ..base import (
     handle_errors,
     json_response,
     log_request,
-    require_permission,
 )
+from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)

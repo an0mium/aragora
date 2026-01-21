@@ -474,3 +474,122 @@ class TestHealthHandlerImport:
         assert "/healthz" in HealthHandler.ROUTES
         assert "/readyz" in HealthHandler.ROUTES
         assert "/api/health" in HealthHandler.ROUTES
+
+
+# ============================================================================
+# GET /api/health/stores Tests (Database Stores Health)
+# ============================================================================
+
+
+class TestDatabaseStoresHealth:
+    """Tests for GET /api/health/stores endpoint."""
+
+    def test_stores_health_returns_response(self, health_handler):
+        """Stores health endpoint returns a valid response."""
+        result = health_handler.handle("/api/health/stores", {}, None)
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+
+        assert "status" in data
+        assert "stores" in data
+        assert "summary" in data
+        assert "elapsed_ms" in data
+
+    def test_stores_health_includes_core_stores(self, health_handler_with_deps):
+        """Stores health includes core database stores."""
+        result = health_handler_with_deps.handle("/api/health/stores", {}, None)
+
+        assert result is not None
+        data = json.loads(result.body)
+        stores = data["stores"]
+
+        # Core stores that should always be checked
+        assert "debate_storage" in stores
+        assert "elo_system" in stores
+
+    def test_stores_health_includes_new_stores(self, health_handler):
+        """Stores health includes new stores (integration, gmail, sync, decision)."""
+        result = health_handler.handle("/api/health/stores", {}, None)
+
+        assert result is not None
+        data = json.loads(result.body)
+        stores = data["stores"]
+
+        # New stores added for commercial viability
+        assert "integration_store" in stores
+        assert "gmail_token_store" in stores
+        assert "sync_store" in stores
+        assert "decision_result_store" in stores
+
+    def test_stores_health_shows_module_not_available(self, health_handler):
+        """Stores health gracefully handles missing modules."""
+        # Patch imports to simulate missing modules
+        with patch.dict("sys.modules", {"aragora.storage.integration_store": None}):
+            result = health_handler.handle("/api/health/stores", {}, None)
+
+        assert result is not None
+        data = json.loads(result.body)
+        # Even with missing modules, endpoint should return valid response
+        assert "stores" in data
+
+    def test_stores_health_summary_counts(self, health_handler):
+        """Stores health summary has correct count fields."""
+        result = health_handler.handle("/api/health/stores", {}, None)
+
+        assert result is not None
+        data = json.loads(result.body)
+        summary = data["summary"]
+
+        assert "total" in summary
+        assert "healthy" in summary
+        assert "connected" in summary
+        assert "not_initialized" in summary
+
+        # Total should equal healthy count (all should be healthy even if not initialized)
+        assert summary["total"] == summary["healthy"]
+
+    def test_stores_health_decision_store_has_metrics(self, health_handler, tmp_path):
+        """Decision result store health check includes metrics."""
+        import os
+
+        os.environ["ARAGORA_DECISION_RESULTS_DB"] = str(tmp_path / "test_decisions.db")
+
+        try:
+            # Reset the singleton
+            from aragora.storage import decision_result_store
+
+            decision_result_store._decision_result_store = None
+
+            result = health_handler.handle("/api/health/stores", {}, None)
+
+            assert result is not None
+            data = json.loads(result.body)
+
+            if "decision_result_store" in data["stores"]:
+                store_info = data["stores"]["decision_result_store"]
+                if store_info.get("status") == "connected":
+                    # Should have metrics
+                    assert "total_entries" in store_info or "type" in store_info
+        finally:
+            if "ARAGORA_DECISION_RESULTS_DB" in os.environ:
+                del os.environ["ARAGORA_DECISION_RESULTS_DB"]
+            decision_result_store._decision_result_store = None
+
+
+class TestStoresHealthRouting:
+    """Tests for /api/health/stores route handling."""
+
+    def test_can_handle_stores_route(self, health_handler):
+        """Handler can handle /api/health/stores."""
+        assert health_handler.can_handle("/api/health/stores") is True
+
+    def test_handle_routes_to_stores_health(self, health_handler):
+        """handle() correctly routes /api/health/stores."""
+        result = health_handler.handle("/api/health/stores", {}, None)
+
+        assert result is not None
+        data = json.loads(result.body)
+        assert "stores" in data
+        assert "summary" in data

@@ -497,9 +497,190 @@ WARN  rate_limit_exceeded for 1.2.3.4 on debate_create
 
 ---
 
+## Encryption at Rest
+
+Aragora encrypts sensitive data at rest using AES-256-GCM with Authenticated Associated Data (AAD) binding.
+
+### Overview
+
+Sensitive data is encrypted before storage and decrypted on retrieval:
+
+| Store | Encrypted Fields |
+|-------|------------------|
+| `IntegrationStore` | API keys, secrets, tokens, credentials |
+| `GmailTokenStore` | OAuth access/refresh tokens |
+| `SyncStore` | Connector credentials, auth tokens |
+
+### Configuration
+
+Enable encryption with environment variables:
+
+```bash
+# Required for encryption
+export ARAGORA_ENCRYPTION_KEY=$(openssl rand -base64 32)
+
+# Optional: Enable encryption for stores
+export ARAGORA_ENCRYPTION_ENABLED=true
+
+# Optional: Key rotation overlap period (days)
+export ARAGORA_KEY_ROTATION_OVERLAP_DAYS=7
+```
+
+### How It Works
+
+```python
+from aragora.security.encryption import get_encryption_service
+
+service = get_encryption_service()
+
+# Encrypt sensitive fields
+encrypted_record = service.encrypt_fields(
+    record={"api_key": "sk-secret-key", "name": "My Integration"},
+    sensitive_fields=["api_key"],
+    associated_data="integration_123",  # AAD binding
+)
+
+# Decrypt on retrieval
+decrypted_record = service.decrypt_fields(
+    record=encrypted_record,
+    sensitive_fields=["api_key"],
+    associated_data="integration_123",
+)
+```
+
+### Key Rotation
+
+Rotate encryption keys without downtime:
+
+```python
+from aragora.security.migration import rotate_encryption_key
+
+# Rotate key and re-encrypt all stores
+result = rotate_encryption_key(
+    stores=["integration", "gmail", "sync"],
+    dry_run=False,
+)
+
+print(f"Rotated: {result.records_reencrypted} records")
+print(f"Failures: {result.failed_records}")
+```
+
+The old key remains valid during the overlap period (default: 7 days), allowing gradual transition.
+
+### Migration from Plaintext
+
+Migrate existing plaintext data to encrypted format:
+
+```bash
+# Run migration on startup
+export ARAGORA_MIGRATE_ON_STARTUP=true
+export ARAGORA_MIGRATION_DRY_RUN=false
+```
+
+Or programmatically:
+
+```python
+from aragora.security.migration import run_startup_migration, StartupMigrationConfig
+
+results = run_startup_migration(
+    config=StartupMigrationConfig(
+        enabled=True,
+        dry_run=True,  # Preview first
+        stores=["integration", "gmail", "sync"],
+    )
+)
+
+for r in results:
+    print(f"{r.store_name}: {r.migrated_records} migrated")
+```
+
+---
+
+## Unified Audit Logging
+
+Security-critical operations are logged to the unified audit system.
+
+### Audited Events
+
+| Category | Events |
+|----------|--------|
+| Authentication | Login, logout, MFA enable/disable, API key generation |
+| Authorization | Permission granted/denied, role changes |
+| Data Access | Resource read/create/update/delete |
+| Admin Actions | Config changes, user management |
+| Security | Anomalies, key rotation, account lockout |
+
+### Usage
+
+```python
+from aragora.audit.unified import (
+    audit_login,
+    audit_logout,
+    audit_data,
+    audit_admin,
+    audit_security,
+)
+
+# Log successful login
+audit_login(user_id="user_123", success=True, ip_address="192.168.1.1")
+
+# Log data access
+audit_data(
+    user_id="user_123",
+    resource_type="document",
+    resource_id="doc_456",
+    action="read",
+)
+
+# Log admin action
+audit_admin(
+    admin_id="admin_123",
+    action="delete_user",
+    target_type="user",
+    target_id="user_456",
+)
+
+# Log security event
+audit_security(
+    event_type="anomaly",
+    actor_id="unknown",
+    reason="multiple_failed_logins",
+)
+```
+
+### Configuration
+
+```python
+from aragora.audit.unified import configure_unified_audit_logger
+
+logger = configure_unified_audit_logger(
+    enable_compliance=True,   # Log to compliance backend
+    enable_privacy=True,      # Privacy-aware logging
+    enable_rbac=True,         # RBAC event logging
+    enable_immutable=False,   # Immutable audit trail (requires setup)
+    enable_middleware=True,   # Auto-log from middleware
+)
+```
+
+### Audit Export
+
+Export audit logs for compliance:
+
+```bash
+# Export to JSON
+GET /api/audit/export?format=json&start_date=2026-01-01&end_date=2026-01-31
+
+# Export to CSV
+GET /api/audit/export?format=csv&category=auth
+```
+
+---
+
 ## See Also
 
 - [Rate Limiting](./RATE_LIMITING.md) - Detailed rate limiting docs
 - [Formal Verification](./FORMAL_VERIFICATION.md) - Sandbox security details
 - [Environment](./ENVIRONMENT.md) - All environment variables
 - [API Reference](./API_REFERENCE.md) - Authentication headers
+- [Secrets Management](./SECRETS_MANAGEMENT.md) - External secrets configuration
+- [Secrets Migration](./SECRETS_MIGRATION.md) - Migration from plaintext

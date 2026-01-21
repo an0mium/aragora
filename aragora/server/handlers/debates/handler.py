@@ -407,7 +407,8 @@ class DebatesHandler(
         debates = storage.list_recent(limit=limit, org_id=org_id)
         # Convert DebateMetadata objects to dicts and normalize for SDK compatibility
         debates_list = [
-            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else d) for d in debates  # type: ignore[arg-type]
+            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else d)
+            for d in debates  # type: ignore[arg-type]
         ]
         return json_response({"debates": debates_list, "count": len(debates_list)})
 
@@ -867,6 +868,9 @@ class DebatesHandler(
             auto_select: Whether to auto-select agents (optional, default: False)
             use_trending: Whether to use trending topic (optional, default: False)
 
+        Routes through DecisionRouter for unified routing, deduplication,
+        and caching. Falls back to direct controller if router unavailable.
+
         Rate limited and quota enforced via decorators.
         Returns 402 Payment Required if monthly debate quota exceeded.
         """
@@ -918,6 +922,99 @@ class DebatesHandler(
         if not validation_result.is_valid:
             return error_response(validation_result.error, 400)
 
+        # Extract headers for correlation ID
+        headers = {}
+        if hasattr(handler, "headers"):
+            headers = dict(handler.headers)
+
+        # Try to route through DecisionRouter for unified handling
+        try:
+            return self._route_through_decision_router(handler, body, headers)
+        except ImportError:
+            logger.debug("DecisionRouter not available, falling back to direct controller")
+        except Exception as e:
+            logger.warning(f"DecisionRouter failed: {e}, falling back to direct controller")
+
+        # Fallback: use direct controller approach
+        return self._create_debate_direct(handler, body)
+
+    def _route_through_decision_router(self, handler, body: dict, headers: dict) -> HandlerResult:
+        """Route debate creation through DecisionRouter.
+
+        This provides unified handling including:
+        - Deduplication of concurrent identical requests
+        - Result caching
+        - Origin registration for bidirectional routing
+        - Unified metrics and tracing
+        """
+        import asyncio
+        from aragora.core.decision import (
+            DecisionRequest,
+            DecisionType,
+            InputSource,
+            get_decision_router,
+        )
+
+        # Create unified decision request from HTTP body
+        request = DecisionRequest.from_http(body, headers)
+
+        # Force debate type for this endpoint
+        request.decision_type = DecisionType.DEBATE
+        request.source = InputSource.HTTP_API
+
+        # Get authenticated user context
+        user = self.get_current_user(handler)
+        if user:
+            if not request.context.user_id:
+                request.context.user_id = user.user_id
+            if not request.context.workspace_id:
+                request.context.workspace_id = getattr(user, "org_id", None)
+
+        # Route through DecisionRouter
+        router = get_decision_router()
+
+        # Run async routing
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Create new event loop for sync context
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    result = new_loop.run_until_complete(router.route(request))
+                finally:
+                    new_loop.close()
+            else:
+                result = asyncio.run(router.route(request))
+        except RuntimeError:
+            # No event loop - create one
+            result = asyncio.run(router.route(request))
+
+        logger.info(
+            f"DecisionRouter completed debate {request.request_id} "
+            f"(success={result.success}, debate_id={getattr(result, 'debate_id', 'N/A')})"
+        )
+
+        # Build response
+        status_code = 200 if result.success else 500
+        response_data = {
+            "request_id": request.request_id,
+            "debate_id": getattr(result, "debate_id", request.request_id),
+            "status": "completed" if result.success else "failed",
+            "decision_type": result.decision_type.value,
+            "answer": result.answer,
+            "confidence": result.confidence,
+            "consensus_reached": result.consensus_reached,
+            "reasoning": result.reasoning,
+            "evidence_used": result.evidence_used,
+            "duration_seconds": result.duration_seconds,
+            "error": result.error,
+        }
+
+        return json_response(response_data, status=status_code)
+
+    def _create_debate_direct(self, handler, body: dict) -> HandlerResult:
+        """Direct debate creation via controller (fallback path)."""
         # Parse and validate request using DebateRequest
         try:
             from aragora.server.debate_controller import DebateRequest

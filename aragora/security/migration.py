@@ -156,9 +156,7 @@ class EncryptionMigrator:
             records = list_fn()
             result.total_records = len(records)
 
-            logger.info(
-                f"Starting migration for {store_name}: {result.total_records} records"
-            )
+            logger.info(f"Starting migration for {store_name}: {result.total_records} records")
 
             for record in records:
                 record_id = record.get(id_field, "unknown")
@@ -192,9 +190,7 @@ class EncryptionMigrator:
                     logger.warning(f"Failed to migrate record {record_id}: {e}")
 
             result.completed_at = datetime.utcnow()
-            result.duration_seconds = (
-                result.completed_at - result.started_at
-            ).total_seconds()
+            result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
 
             logger.info(
                 f"Migration complete for {store_name}: "
@@ -336,20 +332,21 @@ class StartupMigrationConfig:
 def get_startup_migration_config() -> StartupMigrationConfig:
     """Get startup migration config from environment."""
     return StartupMigrationConfig(
-        enabled=os.environ.get("ARAGORA_MIGRATE_ON_STARTUP", "").lower() in (
+        enabled=os.environ.get("ARAGORA_MIGRATE_ON_STARTUP", "").lower()
+        in (
             "true",
             "1",
             "yes",
         ),
-        dry_run=os.environ.get("ARAGORA_MIGRATION_DRY_RUN", "").lower() in (
+        dry_run=os.environ.get("ARAGORA_MIGRATION_DRY_RUN", "").lower()
+        in (
             "true",
             "1",
             "yes",
         ),
-        stores=os.environ.get("ARAGORA_MIGRATION_STORES", "integration,gmail,sync").split(
-            ","
-        ),
-        fail_on_error=os.environ.get("ARAGORA_MIGRATION_FAIL_ON_ERROR", "").lower() in (
+        stores=os.environ.get("ARAGORA_MIGRATION_STORES", "integration,gmail,sync").split(","),
+        fail_on_error=os.environ.get("ARAGORA_MIGRATION_FAIL_ON_ERROR", "").lower()
+        in (
             "true",
             "1",
             "yes",
@@ -385,9 +382,7 @@ def run_startup_migration(
         logger.debug("Startup migration disabled")
         return []
 
-    logger.info(
-        f"Running startup migration (dry_run={config.dry_run}, stores={config.stores})"
-    )
+    logger.info(f"Running startup migration (dry_run={config.dry_run}, stores={config.stores})")
 
     results = []
 
@@ -410,9 +405,7 @@ def run_startup_migration(
             results.append(result)
 
             if not result.success and config.fail_on_error:
-                raise RuntimeError(
-                    f"Migration failed for {store_name}: {result.errors}"
-                )
+                raise RuntimeError(f"Migration failed for {store_name}: {result.errors}")
 
         except Exception as e:
             logger.error(f"Migration error for {store_name}: {e}")
@@ -423,9 +416,347 @@ def run_startup_migration(
     return results
 
 
+# =============================================================================
+# Key Rotation Workflow
+# =============================================================================
+
+
+@dataclass
+class KeyRotationResult:
+    """Result of a key rotation operation."""
+
+    old_key_id: str
+    new_key_id: str
+    old_key_version: int
+    new_key_version: int
+    stores_processed: int = 0
+    records_reencrypted: int = 0
+    failed_records: int = 0
+    errors: List[str] = field(default_factory=list)
+    started_at: datetime = field(default_factory=datetime.utcnow)
+    completed_at: Optional[datetime] = None
+    duration_seconds: float = 0.0
+
+    @property
+    def success(self) -> bool:
+        """Check if rotation was successful."""
+        return self.failed_records == 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "old_key_id": self.old_key_id,
+            "new_key_id": self.new_key_id,
+            "old_key_version": self.old_key_version,
+            "new_key_version": self.new_key_version,
+            "stores_processed": self.stores_processed,
+            "records_reencrypted": self.records_reencrypted,
+            "failed_records": self.failed_records,
+            "errors": self.errors[:10],
+            "started_at": self.started_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "duration_seconds": self.duration_seconds,
+            "success": self.success,
+        }
+
+
+def rotate_and_reencrypt_store(
+    store_name: str,
+    list_fn: Callable[[], List[Dict[str, Any]]],
+    save_fn: Callable[[str, Dict[str, Any]], bool],
+    sensitive_fields: List[str],
+    id_field: str = "id",
+    encryption_service: Optional[Any] = None,
+) -> MigrationResult:
+    """
+    Re-encrypt all records in a store with the current active key.
+
+    Use this after rotating the encryption key to update all records
+    to use the new key.
+
+    Args:
+        store_name: Name of the store
+        list_fn: Function that returns all records
+        save_fn: Function that saves a record (id, record) -> success
+        sensitive_fields: Fields that are encrypted
+        id_field: Name of the ID field in records
+        encryption_service: Encryption service (uses global if not provided)
+
+    Returns:
+        MigrationResult with statistics
+    """
+    from aragora.security.encryption import get_encryption_service
+
+    service = encryption_service or get_encryption_service()
+    result = MigrationResult(store_name=store_name)
+
+    try:
+        records = list_fn()
+        result.total_records = len(records)
+
+        logger.info(
+            f"Starting key rotation re-encryption for {store_name}: "
+            f"{result.total_records} records"
+        )
+
+        for record in records:
+            record_id = record.get(id_field, "unknown")
+
+            try:
+                # Check if record has encrypted fields
+                has_encrypted = any(is_field_encrypted(record.get(f)) for f in sensitive_fields)
+
+                if not has_encrypted:
+                    # Record has no encrypted fields, skip
+                    result.already_encrypted += 1
+                    continue
+
+                # Re-encrypt: decrypt with any valid key, encrypt with active key
+                reencrypted = {}
+                for key, value in record.items():
+                    if key in sensitive_fields and is_field_encrypted(value):
+                        # Decrypt and re-encrypt
+                        try:
+                            plaintext = service.decrypt(value, associated_data=str(record_id))
+                            encrypted = service.encrypt(
+                                plaintext,
+                                associated_data=str(record_id),
+                            )
+                            reencrypted[key] = encrypted.to_dict()
+                        except Exception as e:
+                            logger.warning(f"Failed to re-encrypt field {key}: {e}")
+                            reencrypted[key] = value  # Keep original
+                    else:
+                        reencrypted[key] = value
+
+                # Save back
+                if save_fn(record_id, reencrypted):
+                    result.migrated_records += 1
+                    logger.debug(f"Re-encrypted record: {record_id}")
+                else:
+                    result.failed_records += 1
+                    result.errors.append(f"Failed to save record: {record_id}")
+
+            except Exception as e:
+                result.failed_records += 1
+                result.errors.append(f"Error re-encrypting {record_id}: {str(e)}")
+                logger.warning(f"Failed to re-encrypt record {record_id}: {e}")
+
+        result.completed_at = datetime.utcnow()
+        result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
+
+        logger.info(
+            f"Key rotation re-encryption complete for {store_name}: "
+            f"{result.migrated_records} re-encrypted, "
+            f"{result.already_encrypted} skipped, "
+            f"{result.failed_records} failed"
+        )
+
+    except Exception as e:
+        result.errors.append(f"Re-encryption failed: {str(e)}")
+        result.failed_records = result.total_records
+        logger.error(f"Key rotation re-encryption failed for {store_name}: {e}")
+
+    return result
+
+
+def rotate_encryption_key(
+    stores: Optional[List[str]] = None,
+    dry_run: bool = False,
+) -> KeyRotationResult:
+    """
+    Rotate the encryption key and re-encrypt all data.
+
+    This function:
+    1. Rotates the active encryption key (old key remains valid during overlap)
+    2. Re-encrypts all records in specified stores with the new key
+    3. Returns a summary of the rotation operation
+
+    Args:
+        stores: List of stores to re-encrypt (default: all)
+        dry_run: If True, only show what would be done
+
+    Returns:
+        KeyRotationResult with statistics
+
+    Environment Variables:
+        ARAGORA_KEY_ROTATION_OVERLAP_DAYS: Days to keep old key valid (default: 7)
+    """
+    from aragora.security.encryption import get_encryption_service
+
+    service = get_encryption_service()
+
+    # Get current key info
+    old_key = service._keys.get(service._active_key_id)
+    old_key_id = service._active_key_id or "default"
+    old_version = old_key.version if old_key else 0
+
+    result = KeyRotationResult(
+        old_key_id=old_key_id,
+        new_key_id=old_key_id,  # Will be same ID, different version
+        old_key_version=old_version,
+        new_key_version=old_version + 1,
+    )
+
+    if dry_run:
+        logger.info(
+            f"[DRY RUN] Would rotate key {old_key_id} from v{old_version} to v{old_version + 1}"
+        )
+        # Audit log would go here
+        from aragora.audit.unified import audit_security
+
+        audit_security(
+            event_type="key_rotation",
+            actor_id="system",
+            reason="dry_run_key_rotation",
+        )
+        return result
+
+    try:
+        # Rotate the key
+        new_key = service.rotate_key(old_key_id)
+        result.new_key_id = new_key.key_id
+        result.new_key_version = new_key.version
+
+        logger.info(f"Rotated encryption key: {old_key_id} v{old_version} -> v{new_key.version}")
+
+        # Audit log key rotation
+        try:
+            from aragora.audit.unified import audit_security
+
+            audit_security(
+                event_type="key_rotation",
+                actor_id="system",
+                old_version=old_version,
+                new_version=new_key.version,
+            )
+        except ImportError:
+            pass
+
+        # Re-encrypt stores
+        stores_to_process = stores or ["integration", "gmail", "sync"]
+        store_configs = {
+            "integration": _get_integration_store_config,
+            "gmail": _get_gmail_store_config,
+            "sync": _get_sync_store_config,
+        }
+
+        for store_name in stores_to_process:
+            config_fn = store_configs.get(store_name)
+            if not config_fn:
+                logger.warning(f"Unknown store for key rotation: {store_name}")
+                continue
+
+            try:
+                config = config_fn()
+                if config is None:
+                    continue
+
+                store_result = rotate_and_reencrypt_store(
+                    store_name=store_name,
+                    list_fn=config["list_fn"],
+                    save_fn=config["save_fn"],
+                    sensitive_fields=config["sensitive_fields"],
+                    id_field=config["id_field"],
+                    encryption_service=service,
+                )
+
+                result.stores_processed += 1
+                result.records_reencrypted += store_result.migrated_records
+                result.failed_records += store_result.failed_records
+                result.errors.extend(store_result.errors)
+
+            except Exception as e:
+                result.errors.append(f"Store {store_name} failed: {str(e)}")
+                logger.error(f"Key rotation failed for store {store_name}: {e}")
+
+        result.completed_at = datetime.utcnow()
+        result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
+
+        logger.info(
+            f"Key rotation complete: {result.stores_processed} stores, "
+            f"{result.records_reencrypted} records re-encrypted, "
+            f"{result.failed_records} failures"
+        )
+
+    except Exception as e:
+        result.errors.append(f"Key rotation failed: {str(e)}")
+        logger.error(f"Key rotation failed: {e}")
+
+    return result
+
+
+def _get_integration_store_config() -> Optional[Dict[str, Any]]:
+    """Get configuration for integration store re-encryption."""
+    try:
+        from aragora.storage.integration_store import get_integration_store
+
+        store = get_integration_store()
+
+        return {
+            "list_fn": lambda: list(store.list_all()),
+            "save_fn": lambda id, record: store.save(record),
+            "sensitive_fields": [
+                "api_key",
+                "api_secret",
+                "access_token",
+                "refresh_token",
+                "password",
+                "secret",
+                "credentials",
+                "token",
+            ],
+            "id_field": "integration_id",
+        }
+    except ImportError:
+        return None
+
+
+def _get_gmail_store_config() -> Optional[Dict[str, Any]]:
+    """Get configuration for Gmail store re-encryption."""
+    try:
+        from aragora.storage.gmail_token_store import get_gmail_token_store
+
+        store = get_gmail_token_store()
+
+        return {
+            "list_fn": lambda: list(store.list_all()) if hasattr(store, "list_all") else [],
+            "save_fn": lambda id, record: store.save_state(id, record),
+            "sensitive_fields": ["access_token", "refresh_token"],
+            "id_field": "user_id",
+        }
+    except ImportError:
+        return None
+
+
+def _get_sync_store_config() -> Optional[Dict[str, Any]]:
+    """Get configuration for sync store re-encryption."""
+    try:
+        from aragora.connectors.enterprise.sync_store import get_sync_store
+
+        store = get_sync_store()
+
+        return {
+            "list_fn": lambda: list(store.list_all()) if hasattr(store, "list_all") else [],
+            "save_fn": lambda id, record: store.save(record) if hasattr(store, "save") else False,
+            "sensitive_fields": [
+                "api_key",
+                "api_secret",
+                "token",
+                "password",
+                "auth_token",
+                "secret",
+            ],
+            "id_field": "job_id",
+        }
+    except ImportError:
+        return None
+
+
 __all__ = [
     "EncryptionMigrator",
     "MigrationResult",
+    "KeyRotationResult",
     "StartupMigrationConfig",
     "is_field_encrypted",
     "needs_migration",
@@ -434,4 +765,6 @@ __all__ = [
     "migrate_sync_store",
     "run_startup_migration",
     "get_startup_migration_config",
+    "rotate_encryption_key",
+    "rotate_and_reencrypt_store",
 ]

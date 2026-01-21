@@ -40,6 +40,23 @@ from ..base import (
 from ..utils.rate_limit import get_client_ip, rate_limit
 from .validation import validate_email, validate_password
 
+# Unified audit logging
+try:
+    from aragora.audit.unified import (
+        audit_login,
+        audit_logout,
+        audit_admin,
+        audit_security,
+    )
+
+    AUDIT_AVAILABLE = True
+except ImportError:
+    AUDIT_AVAILABLE = False
+    audit_login = None
+    audit_logout = None
+    audit_admin = None
+    audit_security = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -218,6 +235,15 @@ class AuthHandler(BaseHandler):
 
         logger.info(f"User registered: {user.email} (id={user.id})")
 
+        # Audit log: user registration
+        if AUDIT_AVAILABLE and audit_admin:
+            audit_admin(
+                admin_id=user.id,
+                action="user_registered",
+                target_type="user",
+                target_id=user.id,
+            )
+
         return json_response(
             {
                 "user": user.to_dict(),
@@ -298,10 +324,21 @@ class AuthHandler(BaseHandler):
 
             if lockout_seconds:
                 remaining_minutes = max(1, lockout_seconds // 60)
+                # Audit log: account lockout
+                if AUDIT_AVAILABLE and audit_security:
+                    audit_security(
+                        event_type="anomaly",
+                        actor_id=email,
+                        ip_address=client_ip,
+                        reason="account_locked_due_to_failed_attempts",
+                    )
                 return error_response(
                     f"Too many failed attempts. Account locked for {remaining_minutes} minute(s).",
                     429,
                 )
+            # Audit log: failed login
+            if AUDIT_AVAILABLE and audit_login:
+                audit_login(email, success=False, ip_address=client_ip, method="password")
             return error_response("Invalid email or password", 401)
 
         # Successful login - reset failed attempts in both trackers
@@ -333,6 +370,10 @@ class AuthHandler(BaseHandler):
         )
 
         logger.info(f"User logged in: {user.email}")
+
+        # Audit log: successful login
+        if AUDIT_AVAILABLE and audit_login:
+            audit_login(user.id, success=True, ip_address=client_ip, method="password")
 
         return json_response(
             {
@@ -446,6 +487,10 @@ class AuthHandler(BaseHandler):
         else:
             logger.info(f"User logged out (no token to revoke): {auth_ctx.user_id}")
 
+        # Audit log: logout
+        if AUDIT_AVAILABLE and audit_logout:
+            audit_logout(auth_ctx.user_id)
+
         return json_response({"message": "Logged out successfully"})
 
     @rate_limit(rpm=3, limiter_name="auth_logout_all")
@@ -487,6 +532,14 @@ class AuthHandler(BaseHandler):
             revoke_token_persistent(token)
 
         logger.info(f"logout_all user_id={auth_ctx.user_id} new_token_version={new_version}")
+
+        # Audit log: logout all sessions
+        if AUDIT_AVAILABLE and audit_security:
+            audit_security(
+                event_type="anomaly",
+                actor_id=auth_ctx.user_id,
+                reason="all_sessions_terminated",
+            )
 
         return json_response(
             {
@@ -718,6 +771,15 @@ class AuthHandler(BaseHandler):
 
         logger.info(f"API key generated for user: {user.email} (prefix: {user.api_key_prefix})")
 
+        # Audit log: API key generated
+        if AUDIT_AVAILABLE and audit_admin:
+            audit_admin(
+                admin_id=user.id,
+                action="api_key_generated",
+                target_type="api_key",
+                target_id=user.api_key_prefix,
+            )
+
         # Return the key (only shown once - plaintext is never stored)
         return json_response(
             {
@@ -759,6 +821,15 @@ class AuthHandler(BaseHandler):
         )
 
         logger.info(f"API key revoked for user: {user.email}")
+
+        # Audit log: API key revoked
+        if AUDIT_AVAILABLE and audit_admin:
+            audit_admin(
+                admin_id=user.id,
+                action="api_key_revoked",
+                target_type="api_key",
+                target_id=user.id,
+            )
 
         return json_response({"message": "API key revoked"})
 
@@ -864,6 +935,14 @@ class AuthHandler(BaseHandler):
 
         logger.info(f"MFA enabled for user: {user.email}")
 
+        # Audit log: MFA enabled
+        if AUDIT_AVAILABLE and audit_security:
+            audit_security(
+                event_type="encryption",
+                actor_id=user.id,
+                reason="mfa_enabled",
+            )
+
         return json_response(
             {
                 "message": "MFA enabled successfully",
@@ -924,6 +1003,14 @@ class AuthHandler(BaseHandler):
         )
 
         logger.info(f"MFA disabled for user: {user.email}")
+
+        # Audit log: MFA disabled
+        if AUDIT_AVAILABLE and audit_security:
+            audit_security(
+                event_type="encryption",
+                actor_id=user.id,
+                reason="mfa_disabled",
+            )
 
         return json_response({"message": "MFA disabled successfully"})
 

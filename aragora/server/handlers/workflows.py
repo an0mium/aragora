@@ -38,6 +38,7 @@ try:
         get_role_permissions,
     )
     from aragora.billing.auth import extract_user_from_request
+
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
@@ -45,12 +46,14 @@ except ImportError:
 # Metrics imports
 try:
     from aragora.observability.metrics import record_rbac_check
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
 
     def record_rbac_check(*args, **kwargs):
         pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -886,48 +889,36 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         )
 
     def _get_auth_context(self, handler: Any) -> Optional["AuthorizationContext"]:
-        """Build AuthorizationContext from JWT token or headers.
+        """Build AuthorizationContext from validated JWT token.
 
-        Returns None if RBAC is not available.
+        SECURITY: Only accepts JWT-based authentication. Header-based auth
+        has been removed to prevent identity spoofing and privilege escalation.
+
+        Returns:
+            AuthorizationContext if JWT is valid and RBAC available,
+            None if RBAC not available (allows request in dev mode),
+            "unauthenticated" sentinel if JWT is missing/invalid
         """
         if not RBAC_AVAILABLE:
             return None
 
-        # Try JWT authentication first (secure)
+        # JWT authentication required (secure)
         jwt_context = extract_user_from_request(handler)
-        if jwt_context.authenticated and jwt_context.user_id:
-            roles = {jwt_context.role} if jwt_context.role else {"member"}
-            permissions: set[str] = set()
-            for role in roles:
-                permissions |= get_role_permissions(role, include_inherited=True)
-
-            return AuthorizationContext(
-                user_id=jwt_context.user_id,
-                org_id=jwt_context.org_id,
-                roles=roles,
-                permissions=permissions,
-            )
-
-        # Fall back to headers for internal/service calls
-        headers = getattr(handler, "headers", {})
-        user_id = headers.get("X-User-ID", "anonymous")
-        if user_id and user_id != "anonymous":
+        if not jwt_context.authenticated or not jwt_context.user_id:
             logger.warning(
-                f"workflows: Header-based auth for user {user_id}. "
-                "JWT auth recommended for security."
+                "workflows: JWT authentication required. " "Request rejected - no valid token."
             )
+            # Return special sentinel to distinguish from RBAC-not-available
+            return "unauthenticated"  # type: ignore
 
-        org_id = headers.get("X-Org-ID")
-        roles_header = headers.get("X-User-Roles", "member")
-        roles = set(r.strip() for r in roles_header.split(",") if r.strip())
-
-        permissions = set()
+        roles = {jwt_context.role} if jwt_context.role else {"member"}
+        permissions: set[str] = set()
         for role in roles:
             permissions |= get_role_permissions(role, include_inherited=True)
 
         return AuthorizationContext(
-            user_id=user_id,
-            org_id=org_id,
+            user_id=jwt_context.user_id,
+            org_id=jwt_context.org_id,
             roles=roles,
             permissions=permissions,
         )
@@ -948,6 +939,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if context is None:
             return None  # RBAC not configured
 
+        # Handle unauthenticated sentinel
+        if context == "unauthenticated":
+            return error_response("Authentication required. Please provide a valid JWT token.", 401)
+
         try:
             decision = check_permission(context, permission_key, resource_id)
             if not decision.allowed:
@@ -967,7 +962,13 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         """Extract tenant_id from auth context or query params."""
         if RBAC_AVAILABLE:
             context = self._get_auth_context(handler)
-            if context and context.org_id:
+            # Only use org_id from valid AuthorizationContext (not "unauthenticated" sentinel)
+            if (
+                context
+                and context != "unauthenticated"
+                and hasattr(context, "org_id")
+                and context.org_id
+            ):
                 return context.org_id
         return get_string_param(query_params, "tenant_id", "default")
 
@@ -1127,7 +1128,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to list workflows: {e}")
             return error_response(safe_error_message(e, "list workflows"), 500)
 
-    def _handle_get_workflow(self, workflow_id: str, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_get_workflow(
+        self, workflow_id: str, query_params: dict, handler: Any
+    ) -> HandlerResult:
         """Handle GET /api/workflows/{id}."""
         # RBAC check
         if error := self._check_permission(handler, "workflows.read", workflow_id):
@@ -1148,7 +1151,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to get workflow: {e}")
             return error_response(safe_error_message(e, "get workflow"), 500)
 
-    def _handle_create_workflow(self, body: dict, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_create_workflow(
+        self, body: dict, query_params: dict, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/workflows."""
         # RBAC check
         if error := self._check_permission(handler, "workflows.create"):
@@ -1158,7 +1163,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             tenant_id = self._get_tenant_id(handler, query_params)
             # Get user_id from auth context if available
             auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
-            created_by = auth_context.user_id if auth_context else get_string_param(query_params, "user_id", "")
+            created_by = (
+                auth_context.user_id
+                if auth_context
+                else get_string_param(query_params, "user_id", "")
+            )
 
             result = _run_async(
                 create_workflow(
@@ -1200,7 +1209,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to update workflow: {e}")
             return error_response(safe_error_message(e, "update workflow"), 500)
 
-    def _handle_delete_workflow(self, workflow_id: str, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_delete_workflow(
+        self, workflow_id: str, query_params: dict, handler: Any
+    ) -> HandlerResult:
         """Handle DELETE /api/workflows/{id}."""
         # RBAC check
         if error := self._check_permission(handler, "workflows.delete", workflow_id):
@@ -1221,7 +1232,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to delete workflow: {e}")
             return error_response(safe_error_message(e, "delete workflow"), 500)
 
-    def _handle_execute(self, workflow_id: str, body: dict, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_execute(
+        self, workflow_id: str, body: dict, query_params: dict, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/workflows/{id}/execute."""
         # RBAC check - execute requires specific permission
         if error := self._check_permission(handler, "workflows.execute", workflow_id):
@@ -1243,7 +1256,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to execute workflow: {e}")
             return error_response(safe_error_message(e, "execute workflow"), 500)
 
-    def _handle_simulate(self, workflow_id: str, body: dict, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_simulate(
+        self, workflow_id: str, body: dict, query_params: dict, handler: Any
+    ) -> HandlerResult:
         """Handle POST /api/workflows/{id}/simulate (dry-run)."""
         # RBAC check - simulate only needs read permission
         if error := self._check_permission(handler, "workflows.read", workflow_id):
@@ -1299,7 +1314,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to simulate workflow: {e}")
             return error_response(safe_error_message(e, "simulate workflow"), 500)
 
-    def _handle_get_status(self, workflow_id: str, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_get_status(
+        self, workflow_id: str, query_params: dict, handler: Any
+    ) -> HandlerResult:
         """Handle GET /api/workflows/{id}/status."""
         # RBAC check
         if error := self._check_permission(handler, "workflows.read", workflow_id):
@@ -1320,7 +1337,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to get workflow status: {e}")
             return error_response(safe_error_message(e, "get workflow status"), 500)
 
-    def _handle_get_versions(self, workflow_id: str, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_get_versions(
+        self, workflow_id: str, query_params: dict, handler: Any
+    ) -> HandlerResult:
         """Handle GET /api/workflows/{id}/versions."""
         # RBAC check
         if error := self._check_permission(handler, "workflows.read", workflow_id):
@@ -1425,7 +1444,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         try:
             # Get responder from auth context if available
             auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
-            responder_id = auth_context.user_id if auth_context else get_string_param(query_params, "user_id", "")
+            responder_id = (
+                auth_context.user_id
+                if auth_context
+                else get_string_param(query_params, "user_id", "")
+            )
 
             resolved = _run_async(
                 resolve_approval(
