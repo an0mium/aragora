@@ -293,10 +293,22 @@ def main() -> int:
 
     dsn = args.dsn or os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
 
+    # Try AWS Secrets Manager as fallback
+    if not dsn:
+        try:
+            from aragora.config.secrets import get_secret
+            dsn = get_secret("ARAGORA_POSTGRES_DSN") or get_secret("DATABASE_URL")
+            if dsn:
+                logger.info("Loaded PostgreSQL DSN from AWS Secrets Manager")
+        except ImportError:
+            pass  # secrets module not available
+        except Exception as e:
+            logger.debug(f"Could not load DSN from secrets manager: {e}")
+
     if not dsn:
         logger.error(
             "No PostgreSQL DSN provided. Set ARAGORA_POSTGRES_DSN or DATABASE_URL, "
-            "or use --dsn argument."
+            "use --dsn argument, or configure AWS Secrets Manager."
         )
         return 1
 
