@@ -1068,6 +1068,14 @@ Simple fallback query when full RLM is not available
 
 GET /api/rlm/contexts
 
+### `GET` `/api/rlm/stream`
+
+GET /api/rlm/stream
+
+### `GET` `/api/rlm/stream/modes`
+
+GET /api/rlm/stream/modes
+
 ---
 
 ## Selection
