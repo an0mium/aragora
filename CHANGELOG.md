@@ -5,6 +5,50 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.4] - 2026-01-21
+
+### Added
+
+- **Unified Audit Module** - Centralized audit logging:
+  - Consistent audit trail format across all operations
+  - Structured event types with metadata
+  - Integration with immutable log for compliance
+  - 678 lines of audit infrastructure
+
+- **Security Migration Utilities** - Credential rotation support:
+  - API key rotation workflows
+  - Secret migration between providers
+  - Rollback capabilities for failed migrations
+  - Audit trail for all credential changes
+
+- **Checkpoint Edge Case Tests** - Enhanced checkpoint reliability:
+  - Compression roundtrip verification
+  - Concurrent checkpoint creation handling
+  - Large message content handling
+  - Expiration detection tests
+
+- **Handler Integration Tests** - Comprehensive handler coverage:
+  - Secure handler with RBAC tests (811 lines)
+  - External integrations handler tests (389 lines)
+  - Connector tests (Google Chat, Voice Bridge, HackerNews)
+
+- **Encryption Performance Benchmarks** - Security performance validation:
+  - Field encryption throughput tests
+  - Key derivation benchmarks
+  - Envelope encryption performance
+
+### Changed
+
+- **AdminHandler** - Enhanced with RBAC permission checks
+- **Shutdown Sequence** - Improved graceful cleanup
+- **Startup** - Enhanced initialization with validation
+
+### Fixed
+
+- **Circuit Breaker Tests** - Fixed flaky test with UUID-based service names
+- **Checkpoint Resume Tests** - Fixed SQLite fallback issue
+- **Import Errors** - Fixed BaseHandler import in admin module
+
 ## [2.1.3] - 2026-01-21
 
 ### Added
