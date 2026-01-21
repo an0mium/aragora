@@ -164,12 +164,16 @@ async def migrate_sync_store(
                         await store.save_connector(connector_id, connector)
                         logger.info(f"Migrated connector: {connector_id}")
                     result.migrated += 1
+                    record_migration_record("sync_store", "migrated")
                 else:
                     result.already_encrypted += 1
+                    record_migration_record("sync_store", "skipped")
             except Exception as e:
                 result.failed += 1
                 result.errors.append(f"Connector {connector_id}: {str(e)}")
                 logger.error(f"Failed to migrate connector {connector_id}: {e}")
+                record_migration_record("sync_store", "failed")
+                record_migration_error("sync_store", type(e).__name__)
 
     except Exception as e:
         result.errors.append(f"Store initialization failed: {str(e)}")
@@ -231,12 +235,16 @@ async def migrate_integration_store(
                         store.save(integration)
                         logger.info(f"Migrated integration: {integration_name}")
                     result.migrated += 1
+                    record_migration_record("integration_store", "migrated")
                 else:
                     result.already_encrypted += 1
+                    record_migration_record("integration_store", "skipped")
             except Exception as e:
                 result.failed += 1
                 result.errors.append(f"Integration {integration_name}: {str(e)}")
                 logger.error(f"Failed to migrate integration {integration_name}: {e}")
+                record_migration_record("integration_store", "failed")
+                record_migration_error("integration_store", type(e).__name__)
 
     except Exception as e:
         result.errors.append(f"Store initialization failed: {str(e)}")
@@ -305,12 +313,16 @@ async def migrate_gmail_tokens(
                         await store.save_user_state(user_id, state)
                         logger.info(f"Migrated Gmail tokens for: {user_id}")
                     result.migrated += 1
+                    record_migration_record("gmail_token_store", "migrated")
                 else:
                     result.already_encrypted += 1
+                    record_migration_record("gmail_token_store", "skipped")
             except Exception as e:
                 result.failed += 1
                 result.errors.append(f"User {user_id}: {str(e)}")
                 logger.error(f"Failed to migrate Gmail tokens for {user_id}: {e}")
+                record_migration_record("gmail_token_store", "failed")
+                record_migration_error("gmail_token_store", type(e).__name__)
 
     except ImportError:
         result.errors.append("GmailTokenStore not available")
