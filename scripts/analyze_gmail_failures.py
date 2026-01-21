@@ -193,9 +193,25 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
         pass
 
 
+def find_available_port(start_port: int = 8766, max_attempts: int = 20) -> int:
+    """Find an available port starting from start_port."""
+    import socket
+
+    for i in range(max_attempts):
+        port = start_port + i
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("localhost", port))
+                return port
+        except OSError:
+            continue
+    raise OSError(f"No available ports found in range {start_port}-{start_port + max_attempts}")
+
+
 async def get_oauth_token(connector: Any, account_name: str) -> bool:
     """Get OAuth token via browser flow."""
-    port = 8765
+    port = find_available_port()
+    print(f"Using port {port} for OAuth callback...")
     redirect_uri = f"http://localhost:{port}/callback"
 
     # Get authorization URL
