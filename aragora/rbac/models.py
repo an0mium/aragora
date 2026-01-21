@@ -38,6 +38,7 @@ class ResourceType(str, Enum):
     MARKETPLACE = "marketplace"  # Template marketplace
     EXPLAINABILITY = "explainability"  # Decision explanations
     FINDINGS = "findings"  # Audit findings management
+    DECISION = "decisions"  # Unified decision routing
 
 
 class Action(str, Enum):

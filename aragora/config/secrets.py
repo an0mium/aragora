@@ -43,6 +43,9 @@ MANAGED_SECRETS = frozenset(
         "GOOGLE_OAUTH_CLIENT_SECRET",
         "GITHUB_OAUTH_CLIENT_ID",
         "GITHUB_OAUTH_CLIENT_SECRET",
+        # Gmail OAuth (for inbox integration)
+        "GMAIL_CLIENT_ID",
+        "GMAIL_CLIENT_SECRET",
         # Stripe billing
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",

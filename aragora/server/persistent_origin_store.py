@@ -183,7 +183,7 @@ class PersistentOriginStore:
             )
 
             # Create schema
-            async with self._pool.acquire() as conn:
+            async with self._pool.acquire() as conn:  # type: ignore[union-attr]
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS routing_origins (
                         origin_id TEXT PRIMARY KEY,
@@ -441,9 +441,7 @@ class PersistentOriginStore:
             await self.initialize()
 
         # Clean cache
-        expired_cache = [
-            k for k, v in self._cache.items() if v.is_expired()
-        ]
+        expired_cache = [k for k, v in self._cache.items() if v.is_expired()]
         for k in expired_cache:
             self._cache_remove(k)
 
@@ -462,7 +460,7 @@ class PersistentOriginStore:
 
     async def _save_postgres(self, origin: OriginRecord) -> None:
         """Save origin to PostgreSQL."""
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
             await conn.execute(
                 """
                 INSERT INTO routing_origins
@@ -493,7 +491,7 @@ class PersistentOriginStore:
 
     async def _load_postgres(self, origin_id: str) -> Optional[OriginRecord]:
         """Load origin from PostgreSQL."""
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
             row = await conn.fetchrow(
                 """
                 SELECT origin_id, origin_type, platform, channel_id, user_id,
@@ -529,7 +527,7 @@ class PersistentOriginStore:
     ) -> List[OriginRecord]:
         """List pending origins from PostgreSQL."""
         conditions = ["result_sent = FALSE", "expires_at > NOW()"]
-        params = []
+        params: list[str | int] = []
 
         if origin_type:
             params.append(origin_type)
@@ -552,7 +550,7 @@ class PersistentOriginStore:
         """
 
         results = []
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
             rows = await conn.fetch(query, *params)
             for row in rows:
                 results.append(
@@ -576,10 +574,8 @@ class PersistentOriginStore:
 
     async def _cleanup_postgres(self) -> int:
         """Remove expired records from PostgreSQL."""
-        async with self._pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM routing_origins WHERE expires_at < NOW()"
-            )
+        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
+            result = await conn.execute("DELETE FROM routing_origins WHERE expires_at < NOW()")
             # Parse "DELETE N" result
             count = int(result.split()[-1]) if result else 0
             return count
@@ -628,9 +624,7 @@ class PersistentOriginStore:
     def _load_sqlite_sync(self, origin_id: str) -> Optional[OriginRecord]:
         """Synchronous SQLite load."""
         conn = sqlite3.connect(self._sqlite_path)
-        cursor = conn.execute(
-            "SELECT * FROM routing_origins WHERE origin_id = ?", (origin_id,)
-        )
+        cursor = conn.execute("SELECT * FROM routing_origins WHERE origin_id = ?", (origin_id,))
         row = cursor.fetchone()
         conn.close()
 
@@ -719,9 +713,7 @@ class PersistentOriginStore:
     def _cleanup_sqlite_sync(self) -> int:
         """Synchronous SQLite cleanup."""
         conn = sqlite3.connect(self._sqlite_path)
-        cursor = conn.execute(
-            "DELETE FROM routing_origins WHERE expires_at < ?", (time.time(),)
-        )
+        cursor = conn.execute("DELETE FROM routing_origins WHERE expires_at < ?", (time.time(),))
         count = cursor.rowcount
         conn.commit()
         conn.close()

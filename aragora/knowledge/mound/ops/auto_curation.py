@@ -33,10 +33,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
-
-if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMoundCore
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +237,7 @@ class AutoCurationMixin:
     _curation_history: List[CurationHistory] = []
 
     async def set_curation_policy(
-        self: "KnowledgeMoundCore",
+        self,
         policy: CurationPolicy,
     ) -> None:
         """Set the curation policy for a workspace.
@@ -255,14 +252,14 @@ class AutoCurationMixin:
         logger.info(f"Set curation policy '{policy.name}' for workspace {policy.workspace_id}")
 
     async def get_curation_policy(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
     ) -> Optional[CurationPolicy]:
         """Get the curation policy for a workspace."""
         return self._curation_policies.get(workspace_id)
 
     async def calculate_quality_score(
-        self: "KnowledgeMoundCore",
+        self,
         node_id: str,
         workspace_id: str,
         policy: Optional[CurationPolicy] = None,
@@ -351,7 +348,7 @@ class AutoCurationMixin:
         )
 
     async def get_curation_candidates(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         limit: int = 100,
     ) -> List[CurationCandidate]:
@@ -438,7 +435,7 @@ class AutoCurationMixin:
         return None
 
     async def run_curation(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         dry_run: bool = False,
     ) -> CurationResult:
@@ -609,7 +606,7 @@ class AutoCurationMixin:
         return result
 
     async def get_curation_history(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         limit: int = 20,
     ) -> List[CurationHistory]:
@@ -627,7 +624,7 @@ class AutoCurationMixin:
         return history[:limit]
 
     async def get_workspace_quality_summary(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
     ) -> Dict[str, Any]:
         """Get quality summary for a workspace.

@@ -186,7 +186,7 @@ except ImportError:
             """Set a credential."""
             ...
 
-    def get_credential_provider(**kwargs) -> "EnvCredentialProvider":
+    def get_credential_provider(**kwargs) -> "EnvCredentialProvider":  # type: ignore[misc,no-redef]
         return EnvCredentialProvider()
 
 

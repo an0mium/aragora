@@ -228,7 +228,10 @@ PERM_GAUNTLET_RUN = _permission(
     ResourceType.GAUNTLET, Action.RUN, "Run Gauntlet", "Execute adversarial stress-tests"
 )
 PERM_GAUNTLET_READ = _permission(
-    ResourceType.GAUNTLET, Action.READ, "View Gauntlet Results", "View gauntlet results and receipts"
+    ResourceType.GAUNTLET,
+    Action.READ,
+    "View Gauntlet Results",
+    "View gauntlet results and receipts",
 )
 PERM_GAUNTLET_DELETE = _permission(
     ResourceType.GAUNTLET, Action.DELETE, "Delete Gauntlet Results", "Delete gauntlet runs"
@@ -245,10 +248,16 @@ PERM_GAUNTLET_EXPORT = _permission(
 
 # Marketplace permissions
 PERM_MARKETPLACE_READ = _permission(
-    ResourceType.MARKETPLACE, Action.READ, "Browse Marketplace", "Browse and search marketplace templates"
+    ResourceType.MARKETPLACE,
+    Action.READ,
+    "Browse Marketplace",
+    "Browse and search marketplace templates",
 )
 PERM_MARKETPLACE_PUBLISH = _permission(
-    ResourceType.MARKETPLACE, Action.PUBLISH, "Publish Templates", "Publish templates to marketplace"
+    ResourceType.MARKETPLACE,
+    Action.PUBLISH,
+    "Publish Templates",
+    "Publish templates to marketplace",
 )
 PERM_MARKETPLACE_IMPORT = _permission(
     ResourceType.MARKETPLACE, Action.IMPORT, "Import Templates", "Import templates from marketplace"
@@ -268,7 +277,10 @@ PERM_EXPLAINABILITY_READ = _permission(
     ResourceType.EXPLAINABILITY, Action.READ, "View Explanations", "View decision explanations"
 )
 PERM_EXPLAINABILITY_BATCH = _permission(
-    ResourceType.EXPLAINABILITY, Action.BATCH, "Batch Explanations", "Process batch explanation jobs"
+    ResourceType.EXPLAINABILITY,
+    Action.BATCH,
+    "Batch Explanations",
+    "Process batch explanation jobs",
 )
 
 # Findings permissions (audit findings management)
@@ -282,7 +294,18 @@ PERM_FINDINGS_ASSIGN = _permission(
     ResourceType.FINDINGS, Action.ASSIGN, "Assign Findings", "Assign findings to users"
 )
 PERM_FINDINGS_BULK = _permission(
-    ResourceType.FINDINGS, Action.BULK, "Bulk Finding Operations", "Perform bulk actions on findings"
+    ResourceType.FINDINGS,
+    Action.BULK,
+    "Bulk Finding Operations",
+    "Perform bulk actions on findings",
+)
+
+# Decision permissions (unified decision routing)
+PERM_DECISION_CREATE = _permission(
+    ResourceType.DECISION, Action.CREATE, "Create Decisions", "Submit decisions via unified router"
+)
+PERM_DECISION_READ = _permission(
+    ResourceType.DECISION, Action.READ, "View Decisions", "View decision results and status"
 )
 
 
@@ -376,6 +399,9 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_FINDINGS_UPDATE,
         PERM_FINDINGS_ASSIGN,
         PERM_FINDINGS_BULK,
+        # Decisions
+        PERM_DECISION_CREATE,
+        PERM_DECISION_READ,
     ]
 }
 
@@ -483,6 +509,9 @@ ROLE_ADMIN = Role(
         PERM_FINDINGS_BULK.key,
         # Admin (limited)
         PERM_ADMIN_METRICS.key,
+        # Decisions (all)
+        PERM_DECISION_CREATE.key,
+        PERM_DECISION_READ.key,
     },
     parent_roles=[],
     priority=80,
@@ -544,6 +573,9 @@ ROLE_DEBATE_CREATOR = Role(
         PERM_ORG_READ.key,
         # API keys for self
         PERM_API_GENERATE_KEY.key,
+        # Decisions
+        PERM_DECISION_CREATE.key,
+        PERM_DECISION_READ.key,
     },
     priority=50,
     is_system=True,
@@ -652,6 +684,9 @@ ROLE_MEMBER = Role(
         PERM_ORG_READ.key,
         # API key for self
         PERM_API_GENERATE_KEY.key,
+        # Decisions
+        PERM_DECISION_CREATE.key,
+        PERM_DECISION_READ.key,
     },
     parent_roles=[],
     priority=40,

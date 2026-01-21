@@ -203,7 +203,7 @@ class RLMHandler(BaseHandler):
     async def _get_debate_result(self, debate_id: str) -> Optional[Any]:
         """Fetch debate result from storage."""
         try:
-            from aragora.storage.factory import get_store
+            from aragora.storage.factory import get_store  # type: ignore[attr-defined]
 
             store = get_store()
             return await store.get_debate(debate_id)
@@ -517,7 +517,7 @@ class RLMHandler(BaseHandler):
 
             # Check streaming support
             try:
-                from aragora.rlm.streaming import StreamingRLMQuery
+                from aragora.rlm.streaming import StreamingRLMQuery  # noqa: F401
 
                 features.append("streaming")
             except ImportError:
@@ -525,7 +525,7 @@ class RLMHandler(BaseHandler):
 
             # Check training support
             try:
-                from aragora.rlm.training.trainer import RLMTrainer
+                from aragora.rlm.training.trainer import RLMTrainer  # noqa: F401
 
                 features.append("training")
             except ImportError:
@@ -566,16 +566,13 @@ class RLMHandler(BaseHandler):
         """
         try:
             # Try to get metrics from Prometheus registry
-            from aragora.rlm.metrics import (
+            from aragora.rlm.metrics import (  # type: ignore[attr-defined]
                 RLM_COMPRESSIONS_TOTAL,
-                RLM_COMPRESSION_RATIO,
                 RLM_TOKENS_SAVED_TOTAL,
                 RLM_QUERIES_TOTAL,
-                RLM_QUERY_DURATION,
                 RLM_CACHE_HITS_TOTAL,
                 RLM_CACHE_MISSES_TOTAL,
                 RLM_MEMORY_BYTES,
-                RLM_REFINEMENT_ITERATIONS,
                 RLM_REFINEMENT_SUCCESS_TOTAL,
                 RLM_READY_FALSE_TOTAL,
             )

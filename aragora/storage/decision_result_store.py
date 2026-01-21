@@ -39,10 +39,18 @@ from aragora.storage.backends import (
 logger = logging.getLogger(__name__)
 
 # Default configuration
-DEFAULT_TTL_SECONDS = 86400  # 24 hours
-DEFAULT_MAX_ENTRIES = 10000  # Maximum entries before LRU eviction
+# TTL can be configured via ARAGORA_DECISION_RETENTION_DAYS (default: 1 day = 86400s)
+# For audit/compliance, set to 90 (days) or 365 for longer retention
+DEFAULT_TTL_SECONDS = (
+    int(os.environ.get("ARAGORA_DECISION_RETENTION_DAYS", "1")) * 86400
+)  # Convert days to seconds
+DEFAULT_MAX_ENTRIES = int(
+    os.environ.get("ARAGORA_DECISION_MAX_ENTRIES", "10000")
+)  # Maximum entries before LRU eviction
 DEFAULT_CACHE_SIZE = 1000  # In-memory cache size
-DEFAULT_DB_PATH = Path.home() / ".aragora" / "decision_results.db"
+DEFAULT_DB_PATH = (
+    Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "decision_results.db"
+)
 DEFAULT_CLEANUP_INTERVAL = 300  # 5 minutes
 
 

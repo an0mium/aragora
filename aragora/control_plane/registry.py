@@ -16,13 +16,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
-logger = logging.getLogger(__name__)
+# Observability
+from aragora.observability import (
+    get_logger,
+)
+
+logger = get_logger(__name__)
 
 
 class AgentStatus(Enum):

@@ -57,7 +57,7 @@ class EncryptionMigration:
         self.backup_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Statistics
-        self.stats = {
+        self.stats: dict[str, Any] = {
             "integrations_migrated": 0,
             "webhooks_migrated": 0,
             "tokens_migrated": 0,
@@ -75,6 +75,7 @@ class EncryptionMigration:
         # Check if encryption is available
         try:
             from aragora.storage.encrypted_fields import is_encryption_available
+
             if not is_encryption_available():
                 logger.error("Encryption not available - install cryptography package")
                 return False
@@ -288,9 +289,7 @@ class EncryptionMigration:
             service = get_encryption_service()
 
             # Get all tokens
-            cursor.execute(
-                "SELECT user_id, access_token, refresh_token FROM gmail_tokens"
-            )
+            cursor.execute("SELECT user_id, access_token, refresh_token FROM gmail_tokens")
             rows = cursor.fetchall()
 
             for row in rows:
@@ -369,9 +368,7 @@ class EncryptionMigration:
 
         try:
             # Get all sync configs
-            cursor.execute(
-                "SELECT id, config_json FROM sync_configs WHERE config_json IS NOT NULL"
-            )
+            cursor.execute("SELECT id, config_json FROM sync_configs WHERE config_json IS NOT NULL")
             rows = cursor.fetchall()
 
             for row in rows:
@@ -429,9 +426,7 @@ class EncryptionMigration:
         Returns:
             Migration statistics
         """
-        logger.info(
-            f"Starting encryption migration {'(dry run)' if self.dry_run else ''}"
-        )
+        logger.info(f"Starting encryption migration {'(dry run)' if self.dry_run else ''}")
 
         if not self.check_prerequisites():
             logger.error("Prerequisites not met, aborting migration")
@@ -526,9 +521,7 @@ class EncryptionMigration:
 
 def main():
     """Main entry point for CLI."""
-    parser = argparse.ArgumentParser(
-        description="Migrate unencrypted data to encrypted format"
-    )
+    parser = argparse.ArgumentParser(description="Migrate unencrypted data to encrypted format")
     parser.add_argument(
         "--dry-run",
         action="store_true",

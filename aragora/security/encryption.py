@@ -86,9 +86,15 @@ def is_encryption_required() -> bool:
 
     When True, stores must raise EncryptionError instead of falling back
     to plaintext storage.
+
+    Encryption is automatically required in:
+    - Production environment (ARAGORA_ENV=production)
+    - Staging environment (ARAGORA_ENV=staging)
+    - When explicitly set (ARAGORA_ENCRYPTION_REQUIRED=true)
     """
-    # SECURITY: Auto-require encryption in production mode
-    if ENCRYPTION_REQUIRED or os.environ.get("ARAGORA_ENV") == "production":
+    # SECURITY: Auto-require encryption in production and staging modes
+    env = os.environ.get("ARAGORA_ENV", "").lower()
+    if ENCRYPTION_REQUIRED or env in ("production", "prod", "staging", "stage"):
         return True
     return False
 

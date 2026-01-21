@@ -1,0 +1,359 @@
+name: Lighthouse CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/live/**'
+      - '.github/workflows/lighthouse.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/live/**'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  lighthouse:
+    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: aragora/live
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_WS_URL: ws://localhost:8766
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.13.x
+
+      - name: Start frontend server
+        working-directory: aragora/live
+        run: |
+          npm run start -- -p 3000 &
+          FRONTEND_PID=$!
+          echo "FRONTEND_PID=$FRONTEND_PID" >> $GITHUB_ENV
+
+          # Wait for frontend to be ready
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3000 >/dev/null 2>&1; then
+              echo "Frontend is ready"
+              break
+            fi
+            echo "Waiting for frontend... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run Lighthouse CI
+        working-directory: aragora/live
+        run: |
+          lhci autorun || echo "Lighthouse CI completed with warnings"
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Upload Lighthouse report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-report
+          path: aragora/live/.lighthouseci/
+          retention-days: 14
+
+      - name: Comment PR with Lighthouse scores
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Find the latest Lighthouse report
+            const reportsDir = 'aragora/live/.lighthouseci';
+            if (!fs.existsSync(reportsDir)) {
+              console.log('No Lighthouse reports found');
+              return;
+            }
+
+            const files = fs.readdirSync(reportsDir)
+              .filter(f => f.endsWith('.json') && f.startsWith('lhr-'))
+              .sort()
+              .reverse();
+
+            if (files.length === 0) {
+              console.log('No Lighthouse JSON reports found');
+              return;
+            }
+
+            const report = JSON.parse(fs.readFileSync(path.join(reportsDir, files[0]), 'utf8'));
+
+            const scores = {
+              performance: Math.round(report.categories.performance.score * 100),
+              accessibility: Math.round(report.categories.accessibility.score * 100),
+              bestPractices: Math.round(report.categories['best-practices'].score * 100),
+              seo: Math.round(report.categories.seo.score * 100),
+            };
+
+            const getEmoji = (score) => {
+              if (score >= 90) return '🟢';
+              if (score >= 50) return '🟡';
+              return '🔴';
+            };
+
+            const body = `## Lighthouse Report
+
+            | Category | Score |
+            |----------|-------|
+            | ${getEmoji(scores.performance)} Performance | ${scores.performance} |
+            | ${getEmoji(scores.accessibility)} Accessibility | ${scores.accessibility} |
+            | ${getEmoji(scores.bestPractices)} Best Practices | ${scores.bestPractices} |
+            | ${getEmoji(scores.seo)} SEO | ${scores.seo} |
+
+            ${scores.accessibility < 90 ? '⚠️ **Accessibility score below 90.** Please review the Lighthouse report for issues.' : ''}
+            ${scores.performance < 50 ? '⚠️ **Performance score below 50.** Consider optimizing bundle size and assets.' : ''}
+
+            [View full report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.find(c =>
+              c.user.login === 'github-actions[bot]' &&
+              c.body.includes('## Lighthouse Report')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Check Lighthouse thresholds
+        run: |
+          # Read scores from manifest if available
+          MANIFEST_FILE="aragora/live/.lighthouseci/manifest.json"
+          if [ -f "$MANIFEST_FILE" ]; then
+            echo "Lighthouse CI manifest found"
+
+            # Extract scores using jq or grep
+            PERF=$(cat "$MANIFEST_FILE" | grep -o '"performance":[0-9.]*' | head -1 | cut -d: -f2)
+            A11Y=$(cat "$MANIFEST_FILE" | grep -o '"accessibility":[0-9.]*' | head -1 | cut -d: -f2)
+
+            # Convert to percentage
+            PERF_PCT=$(echo "$PERF * 100" | bc -l | cut -d. -f1)
+            A11Y_PCT=$(echo "$A11Y * 100" | bc -l | cut -d. -f1)
+
+            echo "Performance: ${PERF_PCT:-unknown}%"
+            echo "Accessibility: ${A11Y_PCT:-unknown}%"
+
+            # Fail if accessibility is below 80
+            if [ -n "$A11Y_PCT" ] && [ "$A11Y_PCT" -lt 80 ]; then
+              echo "::error::Accessibility score ($A11Y_PCT%) is below 80%"
+              exit 1
+            fi
+
+            # Warn if performance is below 50
+            if [ -n "$PERF_PCT" ] && [ "$PERF_PCT" -lt 50 ]; then
+              echo "::warning::Performance score ($PERF_PCT%) is below 50%"
+            fi
+          fi
+
+      - name: Stop frontend server
+        if: always()
+        run: |
+          [ -n "$FRONTEND_PID" ] && kill $FRONTEND_PID || true
+
+  accessibility-audit:
+    name: Accessibility Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: aragora/live
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: aragora/live
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_WS_URL: ws://localhost:8766
+
+      - name: Start frontend server
+        working-directory: aragora/live
+        run: |
+          npm run start -- -p 3000 &
+          sleep 10
+
+      - name: Run accessibility tests
+        working-directory: aragora/live
+        run: |
+          # Run Playwright accessibility tests
+          if [ -f "e2e/accessibility.spec.ts" ]; then
+            npx playwright test e2e/accessibility.spec.ts --reporter=html
+          else
+            echo "Creating basic accessibility test..."
+            mkdir -p e2e
+            cat > e2e/a11y-check.spec.ts << 'EOF'
+          import { test, expect } from '@playwright/test';
+          import AxeBuilder from '@axe-core/playwright';
+
+          test.describe('Accessibility', () => {
+            test('homepage should have no critical accessibility violations', async ({ page }) => {
+              await page.goto('/');
+              const results = await new AxeBuilder({ page })
+                .withTags(['wcag2a', 'wcag2aa'])
+                .analyze();
+
+              const violations = results.violations.filter(v =>
+                v.impact === 'critical' || v.impact === 'serious'
+              );
+
+              expect(violations).toHaveLength(0);
+            });
+          });
+          EOF
+            npx playwright test e2e/a11y-check.spec.ts --reporter=html
+          fi
+        continue-on-error: true
+
+      - name: Upload accessibility report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accessibility-report
+          path: aragora/live/playwright-report/
+          retention-days: 14
+
+  mobile-responsiveness:
+    name: Mobile Responsiveness Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: aragora/live
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: aragora/live
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_WS_URL: ws://localhost:8766
+
+      - name: Start frontend server
+        working-directory: aragora/live
+        run: |
+          npm run start -- -p 3000 &
+          sleep 10
+
+      - name: Run mobile viewport tests
+        working-directory: aragora/live
+        run: |
+          # Test on mobile viewport using Playwright
+          cat > e2e/mobile-check.spec.ts << 'EOF'
+          import { test, expect } from '@playwright/test';
+
+          const mobileViewports = [
+            { name: 'iPhone SE', width: 375, height: 667 },
+            { name: 'iPhone 12', width: 390, height: 844 },
+            { name: 'Pixel 5', width: 393, height: 851 },
+            { name: 'iPad Mini', width: 768, height: 1024 },
+          ];
+
+          for (const viewport of mobileViewports) {
+            test(`homepage renders correctly on ${viewport.name}`, async ({ page }) => {
+              await page.setViewportSize({ width: viewport.width, height: viewport.height });
+              await page.goto('/');
+
+              // Check no horizontal overflow
+              const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+              expect(bodyWidth).toBeLessThanOrEqual(viewport.width + 5);
+
+              // Check navigation is accessible
+              const nav = page.locator('nav, [role="navigation"]').first();
+              await expect(nav).toBeVisible();
+
+              // Take screenshot for visual review
+              await page.screenshot({
+                path: `test-results/mobile-${viewport.name.replace(' ', '-')}.png`,
+                fullPage: true,
+              });
+            });
+          }
+          EOF
+
+          mkdir -p test-results
+          npx playwright test e2e/mobile-check.spec.ts --reporter=html
+        continue-on-error: true
+
+      - name: Upload mobile screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-screenshots
+          path: aragora/live/test-results/
+          retention-days: 14

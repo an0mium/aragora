@@ -177,7 +177,7 @@ class BatchExplainabilityWorker:
 
     async def _process_loop(self) -> None:
         """Main processing loop."""
-        poll_interval = self._config.poll_interval_seconds
+        poll_interval = self._config.poll_interval_seconds  # type: ignore[attr-defined]
 
         while self._running:
             try:
@@ -187,7 +187,7 @@ class BatchExplainabilityWorker:
                     continue
 
                 # Try to get a job from the queue
-                job = await self._queue.dequeue(
+                job = await self._queue.dequeue(  # type: ignore[call-arg]
                     queue_name=self.QUEUE_NAME,
                     worker_id=self._worker_id,
                 )
@@ -251,10 +251,12 @@ class BatchExplainabilityWorker:
             final_status = (
                 JobStatus.COMPLETED
                 if progress.failed == 0
-                else JobStatus.FAILED if progress.succeeded == 0 else JobStatus.COMPLETED
+                else JobStatus.FAILED
+                if progress.succeeded == 0
+                else JobStatus.COMPLETED
             )
 
-            await self._queue.complete(
+            await self._queue.complete(  # type: ignore[attr-defined]
                 job_id=job_id,
                 result={
                     "total": progress.total,
@@ -274,7 +276,7 @@ class BatchExplainabilityWorker:
 
         except Exception as e:
             logger.error(f"Batch job {job_id} failed: {e}", exc_info=True)
-            await self._queue.fail(job_id=job_id, error=str(e))
+            await self._queue.fail(job_id=job_id, error=str(e))  # type: ignore[attr-defined]
         finally:
             del self._active_batches[job_id]
 
@@ -292,22 +294,26 @@ class BatchExplainabilityWorker:
             try:
                 result = await self._explain_generator(debate_id, options)
 
-                progress.results.append({
-                    "debate_id": debate_id,
-                    "status": "success",
-                    "explanation": result,
-                    "processing_time_ms": (time.time() - start_time) * 1000,
-                })
+                progress.results.append(
+                    {
+                        "debate_id": debate_id,
+                        "status": "success",
+                        "explanation": result,
+                        "processing_time_ms": (time.time() - start_time) * 1000,
+                    }
+                )
                 progress.succeeded += 1
                 self._debates_processed += 1
 
             except Exception as e:
-                progress.errors.append({
-                    "debate_id": debate_id,
-                    "status": "error",
-                    "error": str(e),
-                    "processing_time_ms": (time.time() - start_time) * 1000,
-                })
+                progress.errors.append(
+                    {
+                        "debate_id": debate_id,
+                        "status": "error",
+                        "error": str(e),
+                        "processing_time_ms": (time.time() - start_time) * 1000,
+                    }
+                )
                 progress.failed += 1
                 self._debates_failed += 1
                 logger.warning(f"Failed to explain debate {debate_id}: {e}")
@@ -348,7 +354,7 @@ async def create_batch_job(
         },
     )
 
-    await queue.enqueue(
+    await queue.enqueue(  # type: ignore[call-arg]
         job=job,
         queue_name=BatchExplainabilityWorker.QUEUE_NAME,
     )

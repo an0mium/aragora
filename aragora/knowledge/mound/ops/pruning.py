@@ -14,7 +14,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMoundCore
+    pass
 
 
 class PruningAction(str, Enum):
@@ -113,7 +113,7 @@ class PruningOperationsMixin:
     # Uses adapter methods from KnowledgeMoundCore
 
     async def get_prunable_items(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         staleness_threshold: float = 0.9,
         min_age_days: int = 30,
@@ -189,7 +189,7 @@ class PruningOperationsMixin:
         return prunable
 
     async def prune_items(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         item_ids: list[str],
         action: PruningAction = PruningAction.ARCHIVE,
@@ -281,7 +281,7 @@ class PruningOperationsMixin:
         )
 
     async def auto_prune(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         policy: PruningPolicy,
         dry_run: bool = True,
@@ -348,7 +348,7 @@ class PruningOperationsMixin:
         )
 
     async def get_prune_history(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         limit: int = 50,
         since: Optional[datetime] = None,
@@ -370,7 +370,7 @@ class PruningOperationsMixin:
         )
 
     async def restore_pruned_item(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         node_id: str,
     ) -> bool:
@@ -389,7 +389,7 @@ class PruningOperationsMixin:
         )
 
     async def apply_confidence_decay(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         decay_rate: float = 0.01,
         min_confidence: float = 0.1,
@@ -437,7 +437,7 @@ class PruningOperationsMixin:
         return updated
 
     async def _record_prune_history(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         action: PruningAction,
         item_ids: list[str],

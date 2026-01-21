@@ -14,7 +14,6 @@ to the most suitable available agents.
 from __future__ import annotations
 
 import json
-import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -31,7 +30,14 @@ from aragora.control_plane.leader import (
     DistributedStateError,
 )
 
-logger = logging.getLogger(__name__)
+# Observability
+from aragora.observability import (
+    get_logger,
+    create_span,
+    add_span_attributes,
+)
+
+logger = get_logger(__name__)
 
 
 class TaskStatus(Enum):
@@ -286,53 +292,73 @@ class TaskScheduler:
 
     async def connect(self) -> None:
         """Connect to Redis."""
-        try:
-            import redis.asyncio as aioredis
+        with create_span("scheduler.connect"):
+            add_span_attributes(redis_url=self._redis_url)
+            start = time.time()
 
-            self._redis = aioredis.from_url(
-                self._redis_url,
-                encoding="utf-8",
-                decode_responses=True,
-            )
-            await self._redis.ping()
+            try:
+                import redis.asyncio as aioredis
 
-            # Create consumer groups for each priority stream
-            for priority in TaskPriority:
-                stream_key = f"{self._stream_prefix}{priority.name.lower()}"
-                try:
-                    await self._redis.xgroup_create(
-                        stream_key,
-                        self._consumer_group,
-                        id="0",
-                        mkstream=True,
-                    )
-                except Exception as e:
-                    # Group may already exist (BUSYGROUP error) - this is expected
-                    if "BUSYGROUP" not in str(e):
-                        logger.debug(f"Consumer group creation note for {stream_key}: {e}")
-
-            logger.info(f"TaskScheduler connected to Redis: {self._redis_url}")
-
-        except ImportError:
-            if is_distributed_state_required():
-                raise DistributedStateError(
-                    "task_scheduler",
-                    "redis package not installed. Install with: pip install redis",
+                self._redis = aioredis.from_url(
+                    self._redis_url,
+                    encoding="utf-8",
+                    decode_responses=True,
                 )
-            logger.warning(
-                "redis package not installed, using in-memory fallback. "
-                "This is NOT suitable for multi-instance deployments! "
-                "Set ARAGORA_SINGLE_INSTANCE=true to suppress this warning."
-            )
-            self._redis = None
-        except Exception as e:
-            if is_distributed_state_required():
-                raise DistributedStateError(
-                    "task_scheduler",
-                    f"Failed to connect to Redis: {e}",
-                ) from e
-            logger.error(f"Failed to connect to Redis: {e}, using in-memory fallback")
-            self._redis = None
+                await self._redis.ping()
+
+                # Create consumer groups for each priority stream
+                for priority in TaskPriority:
+                    stream_key = f"{self._stream_prefix}{priority.name.lower()}"
+                    try:
+                        await self._redis.xgroup_create(
+                            stream_key,
+                            self._consumer_group,
+                            id="0",
+                            mkstream=True,
+                        )
+                    except Exception as e:
+                        # Group may already exist (BUSYGROUP error) - this is expected
+                        if "BUSYGROUP" not in str(e):
+                            logger.debug(
+                                "consumer_group_note",
+                                stream_key=stream_key,
+                                error=str(e),
+                            )
+
+                latency_ms = (time.time() - start) * 1000
+                add_span_attributes(latency_ms=latency_ms, backend="redis")
+                logger.info(
+                    "scheduler_connected",
+                    redis_url=self._redis_url,
+                    latency_ms=latency_ms,
+                )
+
+            except ImportError:
+                if is_distributed_state_required():
+                    raise DistributedStateError(
+                        "task_scheduler",
+                        "redis package not installed. Install with: pip install redis",
+                    )
+                add_span_attributes(backend="memory", fallback=True)
+                logger.warning(
+                    "scheduler_fallback",
+                    reason="redis package not installed",
+                    message="Using in-memory fallback - NOT suitable for multi-instance deployments",
+                )
+                self._redis = None
+            except Exception as e:
+                if is_distributed_state_required():
+                    raise DistributedStateError(
+                        "task_scheduler",
+                        f"Failed to connect to Redis: {e}",
+                    ) from e
+                add_span_attributes(backend="memory", fallback=True, error=str(e))
+                logger.error(
+                    "scheduler_redis_error",
+                    error=str(e),
+                    message="Using in-memory fallback",
+                )
+                self._redis = None
 
     async def close(self) -> None:
         """Close Redis connection."""

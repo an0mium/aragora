@@ -168,6 +168,11 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/auth/register", "POST", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/auth/callback", "*", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/auth/refresh", "POST", "", allow_unauthenticated=True),
+    # Decisions (unified decision routing)
+    RoutePermission(r"^/api/decisions?$", "POST", "decisions.create"),
+    RoutePermission(r"^/api/decisions?$", "GET", "decisions.read"),
+    RoutePermission(r"^/api/decisions?/([^/]+)$", "GET", "decisions.read", 1),
+    RoutePermission(r"^/api/decisions?/([^/]+)/status$", "GET", "decisions.read", 1),
     # Audit findings workflow
     RoutePermission(r"^/api/audit/findings/bulk-action$", "POST", "findings.bulk"),
     RoutePermission(r"^/api/audit/findings/my-assignments$", "GET", "findings.read"),

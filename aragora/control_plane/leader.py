@@ -14,14 +14,16 @@ split-brain scenarios. Set ARAGORA_SINGLE_INSTANCE=true for single-node deployme
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Optional
 
-logger = logging.getLogger(__name__)
+# Observability
+from aragora.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 def is_distributed_state_required() -> bool:

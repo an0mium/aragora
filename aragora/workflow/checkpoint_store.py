@@ -274,10 +274,7 @@ class RedisCheckpointStore:
             index_key = self._workflow_index_key(workflow_id)
 
             results = redis.zrevrange(index_key, 0, -1)
-            return [
-                r.decode("utf-8") if isinstance(r, bytes) else r
-                for r in results
-            ]
+            return [r.decode("utf-8") if isinstance(r, bytes) else r for r in results]
 
         except Exception as e:
             logger.error(f"Failed to list checkpoints for {workflow_id}: {e}")
@@ -448,9 +445,7 @@ class PostgresCheckpointStore:
 
             if current_version == 0:
                 # New database - run initial schema
-                logger.info(
-                    f"[{self.SCHEMA_NAME}] Creating initial schema v{self.SCHEMA_VERSION}"
-                )
+                logger.info(f"[{self.SCHEMA_NAME}] Creating initial schema v{self.SCHEMA_VERSION}")
                 await conn.execute(self.INITIAL_SCHEMA)
                 await conn.execute(
                     """
@@ -1175,6 +1170,21 @@ def get_checkpoint_store(
             logger.debug(f"Postgres checkpoint store not available: {e}")
 
     # Fall back to file-based storage
+    # SECURITY: Check production guards before allowing file fallback
+    try:
+        from aragora.storage.production_guards import (
+            require_distributed_store,
+            StorageMode,
+        )
+
+        require_distributed_store(
+            "checkpoint_store",
+            StorageMode.FILE,
+            "No Redis or PostgreSQL available for checkpoint storage",
+        )
+    except ImportError:
+        pass  # Guards not available, allow fallback
+
     logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
     return FileCheckpointStore(fallback_dir)
 
@@ -1244,5 +1254,20 @@ async def get_checkpoint_store_async(
             logger.debug(f"Postgres checkpoint store not available: {e}")
 
     # Fall back to file-based storage
+    # SECURITY: Check production guards before allowing file fallback
+    try:
+        from aragora.storage.production_guards import (
+            require_distributed_store,
+            StorageMode,
+        )
+
+        require_distributed_store(
+            "checkpoint_store",
+            StorageMode.FILE,
+            "No Redis or PostgreSQL available for checkpoint storage (async)",
+        )
+    except ImportError:
+        pass  # Guards not available, allow fallback
+
     logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
     return FileCheckpointStore(fallback_dir)

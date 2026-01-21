@@ -106,7 +106,7 @@ class KnowledgeFederationMixin:
     _federated_regions: dict[str, FederatedRegion] = {}
 
     async def register_federated_region(
-        self: FederationProtocol,
+        self,
         region_id: str,
         endpoint_url: str,
         api_key: str,
@@ -168,7 +168,7 @@ class KnowledgeFederationMixin:
         return region
 
     async def unregister_federated_region(
-        self: FederationProtocol,
+        self,
         region_id: str,
     ) -> bool:
         """
@@ -208,7 +208,7 @@ class KnowledgeFederationMixin:
             return was_in_cache
 
     async def sync_to_region(
-        self: FederationProtocol,
+        self,
         region_id: str,
         workspace_id: Optional[str] = None,
         since: Optional[datetime] = None,
@@ -330,7 +330,7 @@ class KnowledgeFederationMixin:
             )
 
     async def pull_from_region(
-        self: FederationProtocol,
+        self,
         region_id: str,
         workspace_id: Optional[str] = None,
         since: Optional[datetime] = None,
@@ -434,7 +434,7 @@ class KnowledgeFederationMixin:
             )
 
     async def sync_all_regions(
-        self: FederationProtocol,
+        self,
         workspace_id: Optional[str] = None,
         since: Optional[datetime] = None,
     ) -> List[SyncResult]:
@@ -465,7 +465,7 @@ class KnowledgeFederationMixin:
         return results
 
     async def get_federation_status(
-        self: FederationProtocol,
+        self,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Get sync status for all registered regions.
@@ -482,7 +482,9 @@ class KnowledgeFederationMixin:
             status[region.region_id] = {
                 "endpoint_url": region.endpoint_url,
                 "mode": region.mode.value if hasattr(region.mode, "value") else region.mode,
-                "sync_scope": region.sync_scope.value if hasattr(region.sync_scope, "value") else region.sync_scope,
+                "sync_scope": region.sync_scope.value
+                if hasattr(region.sync_scope, "value")
+                else region.sync_scope,
                 "enabled": region.enabled,
                 "last_sync_at": region.last_sync_at,
                 "last_sync_error": region.last_sync_error,
@@ -491,7 +493,7 @@ class KnowledgeFederationMixin:
         return status
 
     async def _get_region_from_store(
-        self: FederationProtocol,
+        self,
         region_id: str,
     ) -> Optional[FederatedRegion]:
         """Get a federated region from persistent storage or cache."""
@@ -508,7 +510,9 @@ class KnowledgeFederationMixin:
                     mode=FederationMode(config.mode),
                     sync_scope=SyncScope(config.sync_scope),
                     enabled=config.enabled,
-                    last_sync_at=datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None,
+                    last_sync_at=datetime.fromisoformat(config.last_sync_at)
+                    if config.last_sync_at
+                    else None,
                     last_sync_error=config.last_sync_error,
                 )
             # Fall through to cache check
@@ -521,7 +525,7 @@ class KnowledgeFederationMixin:
         return KnowledgeFederationMixin._federated_regions.get(region_id)
 
     async def _list_enabled_regions(
-        self: FederationProtocol,
+        self,
     ) -> List[FederatedRegion]:
         """List all enabled federated regions from persistent storage or cache."""
         try:
@@ -537,7 +541,9 @@ class KnowledgeFederationMixin:
                     mode=FederationMode(config.mode),
                     sync_scope=SyncScope(config.sync_scope),
                     enabled=config.enabled,
-                    last_sync_at=datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None,
+                    last_sync_at=datetime.fromisoformat(config.last_sync_at)
+                    if config.last_sync_at
+                    else None,
                     last_sync_error=config.last_sync_error,
                 )
                 for config in configs
@@ -549,12 +555,13 @@ class KnowledgeFederationMixin:
 
         # Fall back to class-level cache - return only enabled regions
         return [
-            region for region in KnowledgeFederationMixin._federated_regions.values()
+            region
+            for region in KnowledgeFederationMixin._federated_regions.values()
             if region.enabled
         ]
 
     async def _list_all_regions(
-        self: FederationProtocol,
+        self,
     ) -> List[FederatedRegion]:
         """List all federated regions from persistent storage or cache."""
         try:
@@ -570,7 +577,9 @@ class KnowledgeFederationMixin:
                     mode=FederationMode(config.mode),
                     sync_scope=SyncScope(config.sync_scope),
                     enabled=config.enabled,
-                    last_sync_at=datetime.fromisoformat(config.last_sync_at) if config.last_sync_at else None,
+                    last_sync_at=datetime.fromisoformat(config.last_sync_at)
+                    if config.last_sync_at
+                    else None,
                     last_sync_error=config.last_sync_error,
                 )
                 for config in configs
@@ -584,7 +593,7 @@ class KnowledgeFederationMixin:
         return list(KnowledgeFederationMixin._federated_regions.values())
 
     async def _update_region_sync_status(
-        self: FederationProtocol,
+        self,
         region_id: str,
         direction: str,
         nodes_synced: int = 0,
@@ -615,7 +624,7 @@ class KnowledgeFederationMixin:
             logger.warning(f"Failed to update region sync status: {e}")
 
     def _apply_sync_scope(
-        self: FederationProtocol,
+        self,
         item: "KnowledgeItem",
         scope: SyncScope,
     ) -> Optional[Dict[str, Any]]:
@@ -649,7 +658,7 @@ class KnowledgeFederationMixin:
         return None
 
     async def _register_with_coordinator(
-        self: FederationProtocol,
+        self,
         region: FederatedRegion,
     ) -> None:
         """Register region with CrossWorkspaceCoordinator."""
@@ -675,7 +684,7 @@ class KnowledgeFederationMixin:
             logger.warning(f"Failed to register with coordinator: {e}")
 
     async def _push_to_region(
-        self: FederationProtocol,
+        self,
         region: FederatedRegion,
         items: List[Dict[str, Any]],
     ) -> int:
@@ -704,7 +713,7 @@ class KnowledgeFederationMixin:
             raise
 
     async def _fetch_from_region(
-        self: FederationProtocol,
+        self,
         region: FederatedRegion,
         since: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:

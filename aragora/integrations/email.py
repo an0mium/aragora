@@ -46,6 +46,27 @@ from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
+# Circuit breaker for email providers (lazy import to avoid circular deps)
+_circuit_breakers: dict[str, Any] = {}
+
+
+def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: float = 60.0) -> Any:
+    """Get or create circuit breaker for email provider."""
+    if provider not in _circuit_breakers:
+        try:
+            from aragora.resilience import get_circuit_breaker
+
+            _circuit_breakers[provider] = get_circuit_breaker(
+                name=f"email_{provider}",
+                failure_threshold=threshold,
+                cooldown_seconds=cooldown,
+            )
+            logger.debug(f"Circuit breaker initialized for email provider: {provider}")
+        except ImportError:
+            logger.debug("Circuit breaker module not available for email")
+            _circuit_breakers[provider] = None
+    return _circuit_breakers.get(provider)
+
 
 class EmailProvider(Enum):
     """Email service provider."""
@@ -101,6 +122,14 @@ class EmailConfig:
     # Retry settings
     max_retries: int = 3
     retry_delay: float = 2.0
+
+    # Circuit breaker settings
+    enable_circuit_breaker: bool = True
+    circuit_breaker_threshold: int = 5  # Failures before opening
+    circuit_breaker_cooldown: float = 60.0  # Seconds before retry
+
+    # SMTP timeout (for synchronous operations)
+    smtp_timeout: float = 30.0
 
     # Tracking
     enable_click_tracking: bool = False
@@ -248,6 +277,68 @@ class EmailIntegration:
             self._email_count += 1
             return True
 
+    def _get_circuit_breaker(self) -> Any:
+        """Get circuit breaker for current provider."""
+        if not self.config.enable_circuit_breaker:
+            return None
+        return _get_email_circuit_breaker(
+            self.config.provider,
+            threshold=self.config.circuit_breaker_threshold,
+            cooldown=self.config.circuit_breaker_cooldown,
+        )
+
+    def _check_circuit_breaker(self) -> tuple[bool, Optional[str]]:
+        """Check if circuit breaker allows the request."""
+        cb = self._get_circuit_breaker()
+        if cb is None:
+            return True, None
+        if not cb.can_proceed():
+            remaining = cb.cooldown_remaining()
+            error = (
+                f"Email circuit breaker open for {self.config.provider}. Retry in {remaining:.1f}s"
+            )
+            logger.warning(error)
+            return False, error
+        return True, None
+
+    def _record_success(self) -> None:
+        """Record successful email send."""
+        cb = self._get_circuit_breaker()
+        if cb:
+            cb.record_success()
+
+    def _record_failure(self, error: Optional[Exception] = None) -> None:
+        """Record failed email send."""
+        cb = self._get_circuit_breaker()
+        if cb:
+            cb.record_failure()
+            status = cb.get_status()
+            if status == "open":
+                logger.warning(
+                    f"Email circuit breaker OPENED for {self.config.provider} after repeated failures"
+                )
+
+    def get_health_status(self) -> dict[str, Any]:
+        """Get health status of email integration."""
+        cb = self._get_circuit_breaker()
+        cb_status = "unknown"
+        if cb:
+            cb_status = cb.get_status()
+
+        return {
+            "provider": self.config.provider,
+            "configured": bool(
+                self.config.smtp_host
+                or self.config.sendgrid_api_key
+                or self.config.ses_access_key_id
+            ),
+            "circuit_breaker_enabled": self.config.enable_circuit_breaker,
+            "circuit_breaker_status": cb_status,
+            "emails_sent_this_hour": self._email_count,
+            "rate_limit": self.config.max_emails_per_hour,
+            "recipients_count": len(self.recipients),
+        }
+
     async def _send_email(
         self,
         recipient: EmailRecipient,
@@ -255,10 +346,17 @@ class EmailIntegration:
         html_body: str,
         text_body: Optional[str] = None,
     ) -> bool:
-        """Send an email with retry logic.
+        """Send an email with retry logic and circuit breaker.
 
         Dispatches to the appropriate provider based on configuration.
+        Includes circuit breaker protection to prevent cascading failures.
         """
+        # Check circuit breaker first
+        can_proceed, error_msg = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.warning(f"Email send blocked: {error_msg}")
+            return False
+
         if not await self._check_rate_limit():
             return False
 
@@ -277,10 +375,12 @@ class EmailIntegration:
                     success = await self._send_via_smtp(recipient, subject, html_body, text_body)
 
                 if success:
+                    self._record_success()
                     logger.debug(f"Email sent to {recipient.email} via {provider.value}")
                     return True
 
-                # If not successful but no exception, still retry
+                # If not successful but no exception, record failure and retry
+                self._record_failure()
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
@@ -288,18 +388,21 @@ class EmailIntegration:
 
             except aiohttp.ClientError as e:
                 logger.error(f"Email network error via {provider.value}: {e}")
+                self._record_failure(e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutError as e:
                 logger.error(f"Email request timed out via {provider.value}")
+                self._record_failure(e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
             except smtplib.SMTPException as e:
                 logger.error(f"SMTP error via {provider.value}: {e}")
+                self._record_failure(e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
@@ -307,6 +410,7 @@ class EmailIntegration:
             except OSError as e:
                 # Network/socket errors
                 logger.error(f"Email connection error via {provider.value}: {e}")
+                self._record_failure(e)
                 if attempt < self.config.max_retries - 1:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
@@ -493,17 +597,29 @@ class EmailIntegration:
             return False
 
     def _smtp_send(self, msg: MIMEMultipart, to_email: str) -> None:
-        """Send email via SMTP (synchronous, called from executor)."""
+        """Send email via SMTP (synchronous, called from executor).
+
+        Includes timeout protection to prevent indefinite hangs.
+        """
+        timeout = self.config.smtp_timeout
+
         if self.config.use_ssl:
             context = ssl.create_default_context()
             with smtplib.SMTP_SSL(
-                self.config.smtp_host, self.config.smtp_port, context=context
+                self.config.smtp_host,
+                self.config.smtp_port,
+                context=context,
+                timeout=timeout,
             ) as server:
                 if self.config.smtp_username:
                     server.login(self.config.smtp_username, self.config.smtp_password)
                 server.sendmail(self.config.from_email, to_email, msg.as_string())
         else:
-            with smtplib.SMTP(self.config.smtp_host, self.config.smtp_port) as server:
+            with smtplib.SMTP(
+                self.config.smtp_host,
+                self.config.smtp_port,
+                timeout=timeout,
+            ) as server:
                 if self.config.use_tls:
                     server.starttls()
                 if self.config.smtp_username:

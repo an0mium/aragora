@@ -47,7 +47,7 @@ from aragora.observability.logging import (
     get_logger,
     set_correlation_id,
 )
-from aragora.observability.metrics import (
+from aragora.observability.metrics import (  # type: ignore[attr-defined]
     measure_async_latency,
     measure_latency,
     record_agent_call,

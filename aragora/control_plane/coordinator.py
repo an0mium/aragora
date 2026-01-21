@@ -10,8 +10,8 @@ This is the main entry point for control plane operations.
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
@@ -24,19 +24,27 @@ from aragora.control_plane.registry import (
 )
 from aragora.control_plane.scheduler import Task, TaskPriority, TaskScheduler, TaskStatus
 
+# Observability
+from aragora.observability import (
+    get_logger,
+    create_span,
+    add_span_attributes,
+)
+
 # Optional KM integration
 try:
     from aragora.knowledge.mound.adapters.control_plane_adapter import (
         ControlPlaneAdapter,
         TaskOutcome,
     )
+
     HAS_KM_ADAPTER = True
 except ImportError:
     HAS_KM_ADAPTER = False
     ControlPlaneAdapter = None  # type: ignore
     TaskOutcome = None  # type: ignore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -188,24 +196,39 @@ class ControlPlaneCoordinator:
         if self._connected:
             return
 
-        await self._registry.connect()
-        await self._scheduler.connect()
-        await self._health_monitor.start()
+        with create_span("control_plane.connect"):
+            add_span_attributes(redis_url=self._config.redis_url)
+            start = time.monotonic()
 
-        self._connected = True
-        logger.info("ControlPlaneCoordinator connected")
+            await self._registry.connect()
+            await self._scheduler.connect()
+            await self._health_monitor.start()
+
+            self._connected = True
+            latency_ms = (time.monotonic() - start) * 1000
+            add_span_attributes(latency_ms=latency_ms, success=True)
+            logger.info(
+                "control_plane_connected",
+                latency_ms=latency_ms,
+                redis_url=self._config.redis_url,
+            )
 
     async def shutdown(self) -> None:
         """Shutdown the coordinator and all services."""
         if not self._connected:
             return
 
-        await self._health_monitor.stop()
-        await self._scheduler.close()
-        await self._registry.close()
+        with create_span("control_plane.shutdown"):
+            start = time.monotonic()
 
-        self._connected = False
-        logger.info("ControlPlaneCoordinator shutdown complete")
+            await self._health_monitor.stop()
+            await self._scheduler.close()
+            await self._registry.close()
+
+            self._connected = False
+            latency_ms = (time.monotonic() - start) * 1000
+            add_span_attributes(latency_ms=latency_ms)
+            logger.info("control_plane_shutdown", latency_ms=latency_ms)
 
     # =========================================================================
     # Agent Operations
@@ -234,19 +257,34 @@ class ControlPlaneCoordinator:
         Returns:
             AgentInfo for the registered agent
         """
-        agent = await self._registry.register(
-            agent_id=agent_id,
-            capabilities=capabilities,
-            model=model,
-            provider=provider,
-            metadata=metadata,
-        )
+        with create_span("control_plane.register_agent"):
+            add_span_attributes(
+                agent_id=agent_id,
+                model=model,
+                provider=provider,
+                capability_count=len(capabilities),
+            )
 
-        # Register health probe if provided
-        if health_probe:
-            self._health_monitor.register_probe(agent_id, health_probe)
+            agent = await self._registry.register(
+                agent_id=agent_id,
+                capabilities=capabilities,
+                model=model,
+                provider=provider,
+                metadata=metadata,
+            )
 
-        return agent
+            # Register health probe if provided
+            if health_probe:
+                self._health_monitor.register_probe(agent_id, health_probe)
+
+            logger.info(
+                "agent_registered",
+                agent_id=agent_id,
+                model=model,
+                provider=provider,
+                capabilities=[str(c) for c in capabilities],
+            )
+            return agent
 
     async def unregister_agent(self, agent_id: str) -> bool:
         """
@@ -368,15 +406,34 @@ class ControlPlaneCoordinator:
         Returns:
             Task ID
         """
-        return await self._scheduler.submit(
-            task_type=task_type,
-            payload=payload,
-            required_capabilities=required_capabilities,
-            priority=priority,
-            timeout_seconds=timeout_seconds or self._config.task_timeout,
-            max_retries=self._config.max_task_retries,
-            metadata=metadata,
-        )
+        with create_span("control_plane.submit_task"):
+            add_span_attributes(
+                task_type=task_type,
+                priority=priority.value,
+                required_capabilities=required_capabilities or [],
+            )
+            start = time.monotonic()
+
+            task_id = await self._scheduler.submit(
+                task_type=task_type,
+                payload=payload,
+                required_capabilities=required_capabilities,
+                priority=priority,
+                timeout_seconds=timeout_seconds or self._config.task_timeout,
+                max_retries=self._config.max_task_retries,
+                metadata=metadata,
+            )
+
+            latency_ms = (time.monotonic() - start) * 1000
+            add_span_attributes(task_id=task_id, latency_ms=latency_ms)
+            logger.info(
+                "task_submitted",
+                task_id=task_id,
+                task_type=task_type,
+                priority=priority.value,
+                latency_ms=latency_ms,
+            )
+            return task_id
 
     async def claim_task(
         self,
@@ -430,40 +487,58 @@ class ControlPlaneCoordinator:
         Returns:
             True if completed, False if not found
         """
-        # Get task details before completing (for KM storage)
-        task = await self._scheduler.get(task_id)
-
-        success = await self._scheduler.complete(task_id, result)
-
-        if success and agent_id:
-            # Update agent metrics
-            await self._registry.record_task_completion(
-                agent_id,
-                success=True,
-                latency_ms=latency_ms or 0.0,
+        with create_span("control_plane.complete_task"):
+            add_span_attributes(
+                task_id=task_id,
+                agent_id=agent_id or "unknown",
+                execution_latency_ms=latency_ms or 0.0,
             )
 
-            # Store outcome in Knowledge Mound
-            if self._km_adapter and task and HAS_KM_ADAPTER:
-                try:
-                    outcome = TaskOutcome(
-                        task_id=task_id,
-                        task_type=task.task_type,
-                        agent_id=agent_id,
-                        success=True,
-                        duration_seconds=(latency_ms or 0.0) / 1000.0,
-                        workspace_id=self._config.km_workspace_id,
-                        metadata=task.metadata or {},
-                    )
-                    await self._km_adapter.store_task_outcome(outcome)
-                except Exception as e:
-                    logger.debug(f"Failed to store task outcome in KM: {e}")
+            # Get task details before completing (for KM storage)
+            task = await self._scheduler.get(task_id)
+            if task:
+                add_span_attributes(task_type=task.task_type)
 
-            # Notify waiters
-            if task_id in self._result_waiters:
-                self._result_waiters[task_id].set()
+            success = await self._scheduler.complete(task_id, result)
+            add_span_attributes(success=success)
 
-        return success
+            if success and agent_id:
+                # Update agent metrics
+                await self._registry.record_task_completion(
+                    agent_id,
+                    success=True,
+                    latency_ms=latency_ms or 0.0,
+                )
+
+                # Store outcome in Knowledge Mound
+                if self._km_adapter and task and HAS_KM_ADAPTER:
+                    try:
+                        outcome = TaskOutcome(
+                            task_id=task_id,
+                            task_type=task.task_type,
+                            agent_id=agent_id,
+                            success=True,
+                            duration_seconds=(latency_ms or 0.0) / 1000.0,
+                            workspace_id=self._config.km_workspace_id,
+                            metadata=task.metadata or {},
+                        )
+                        await self._km_adapter.store_task_outcome(outcome)
+                    except Exception as e:
+                        logger.debug("km_store_failed", error=str(e), task_id=task_id)
+
+                # Notify waiters
+                if task_id in self._result_waiters:
+                    self._result_waiters[task_id].set()
+
+                logger.info(
+                    "task_completed",
+                    task_id=task_id,
+                    agent_id=agent_id,
+                    task_type=task.task_type if task else "unknown",
+                    latency_ms=latency_ms or 0.0,
+                )
+
+            return success
 
     async def fail_task(
         self,
@@ -486,42 +561,62 @@ class ControlPlaneCoordinator:
         Returns:
             True if processed, False if not found
         """
-        # Get task details before failing (for KM storage)
-        task = await self._scheduler.get(task_id)
-
-        success = await self._scheduler.fail(task_id, error, requeue)
-
-        if success and agent_id:
-            await self._registry.record_task_completion(
-                agent_id,
-                success=False,
-                latency_ms=latency_ms or 0.0,
+        with create_span("control_plane.fail_task"):
+            add_span_attributes(
+                task_id=task_id,
+                agent_id=agent_id or "unknown",
+                requeue=requeue,
+                error_message=error[:200],  # Truncate long errors
             )
 
-            # Store failure outcome in Knowledge Mound (only if not requeuing)
-            if self._km_adapter and task and not requeue and HAS_KM_ADAPTER:
-                try:
-                    outcome = TaskOutcome(
-                        task_id=task_id,
-                        task_type=task.task_type,
-                        agent_id=agent_id,
-                        success=False,
-                        duration_seconds=(latency_ms or 0.0) / 1000.0,
-                        workspace_id=self._config.km_workspace_id,
-                        error_message=error,
-                        metadata=task.metadata or {},
-                    )
-                    await self._km_adapter.store_task_outcome(outcome)
-                except Exception as e:
-                    logger.debug(f"Failed to store task failure in KM: {e}")
+            # Get task details before failing (for KM storage)
+            task = await self._scheduler.get(task_id)
+            if task:
+                add_span_attributes(task_type=task.task_type)
 
-        # Notify waiters if not requeued
-        task = await self._scheduler.get(task_id)
-        if task and task.status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
-            if task_id in self._result_waiters:
-                self._result_waiters[task_id].set()
+            success = await self._scheduler.fail(task_id, error, requeue)
+            add_span_attributes(success=success)
 
-        return success
+            if success and agent_id:
+                await self._registry.record_task_completion(
+                    agent_id,
+                    success=False,
+                    latency_ms=latency_ms or 0.0,
+                )
+
+                # Store failure outcome in Knowledge Mound (only if not requeuing)
+                if self._km_adapter and task and not requeue and HAS_KM_ADAPTER:
+                    try:
+                        outcome = TaskOutcome(
+                            task_id=task_id,
+                            task_type=task.task_type,
+                            agent_id=agent_id,
+                            success=False,
+                            duration_seconds=(latency_ms or 0.0) / 1000.0,
+                            workspace_id=self._config.km_workspace_id,
+                            error_message=error,
+                            metadata=task.metadata or {},
+                        )
+                        await self._km_adapter.store_task_outcome(outcome)
+                    except Exception as e:
+                        logger.debug("km_store_failed", error=str(e), task_id=task_id)
+
+            # Notify waiters if not requeued
+            task = await self._scheduler.get(task_id)
+            if task and task.status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
+                if task_id in self._result_waiters:
+                    self._result_waiters[task_id].set()
+
+            logger.warning(
+                "task_failed",
+                task_id=task_id,
+                agent_id=agent_id,
+                task_type=task.task_type if task else "unknown",
+                error=error[:200],
+                requeued=requeue,
+            )
+
+            return success
 
     async def cancel_task(self, task_id: str) -> bool:
         """
@@ -694,9 +789,7 @@ class ControlPlaneCoordinator:
             return []
 
         try:
-            records = await self._km_adapter.get_capability_recommendations(
-                capability, limit=limit
-            )
+            records = await self._km_adapter.get_capability_recommendations(capability, limit=limit)
             return [
                 {
                     "agent_id": r.agent_id,

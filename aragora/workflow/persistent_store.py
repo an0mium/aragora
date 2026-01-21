@@ -115,7 +115,25 @@ class PersistentWorkflowStore:
 
         Args:
             db_path: Path to SQLite database file. If None, uses default.
+
+        Raises:
+            DistributedStateError: In production if PostgreSQL is not available
         """
+        # SECURITY: Check production guards for SQLite usage
+        try:
+            from aragora.storage.production_guards import (
+                require_distributed_store,
+                StorageMode,
+            )
+
+            require_distributed_store(
+                "workflow_store",
+                StorageMode.SQLITE,
+                "Workflow store using SQLite - use PostgreSQL for multi-instance deployments",
+            )
+        except ImportError:
+            pass  # Guards not available, allow SQLite
+
         self._db_path = db_path or DEFAULT_DB_PATH
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -15,7 +15,6 @@ the active pool.
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -27,7 +26,10 @@ from aragora.server.prometheus_control_plane import (
     record_control_plane_agent_latency,
 )
 
-logger = logging.getLogger(__name__)
+# Observability
+from aragora.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class HealthStatus(Enum):

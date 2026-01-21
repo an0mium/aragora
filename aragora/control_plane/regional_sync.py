@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import time
 from dataclasses import dataclass, field
@@ -41,7 +40,10 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+# Observability
+from aragora.observability import get_logger
+
+logger = get_logger(__name__)
 
 
 class RegionalEventType(Enum):

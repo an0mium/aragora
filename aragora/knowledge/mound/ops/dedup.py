@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMoundCore
+    pass
 
 
 @dataclass
@@ -67,7 +67,7 @@ class DedupOperationsMixin:
     # Uses adapter methods from KnowledgeMoundCore
 
     async def find_duplicates(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         similarity_threshold: float = 0.9,
         limit: int = 100,
@@ -162,7 +162,7 @@ class DedupOperationsMixin:
         return clusters[:limit]
 
     async def generate_dedup_report(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         similarity_threshold: float = 0.9,
     ) -> DedupReport:
@@ -198,7 +198,7 @@ class DedupOperationsMixin:
         )
 
     async def merge_duplicates(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         cluster_id: str,
         primary_node_id: Optional[str] = None,
@@ -287,7 +287,7 @@ class DedupOperationsMixin:
         )
 
     async def auto_merge_exact_duplicates(
-        self: "KnowledgeMoundCore",
+        self,
         workspace_id: str,
         dry_run: bool = True,
     ) -> dict:

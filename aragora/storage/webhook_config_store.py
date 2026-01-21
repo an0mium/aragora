@@ -49,10 +49,10 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
-    def get_encryption_service():
+    def get_encryption_service():  # type: ignore[misc,no-redef]
         return None
 
-    def is_encryption_required() -> bool:
+    def is_encryption_required() -> bool:  # type: ignore[misc,no-redef]
         """Fallback when security module unavailable - still check env vars."""
         if os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in ("true", "1", "yes"):
             return True
@@ -60,7 +60,7 @@ except ImportError:
             return True
         return False
 
-    class EncryptionError(Exception):
+    class EncryptionError(Exception):  # type: ignore[no-redef]
         """Fallback exception when security module unavailable."""
 
         def __init__(self, operation: str, reason: str, store: str = ""):
