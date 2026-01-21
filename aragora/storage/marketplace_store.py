@@ -853,8 +853,8 @@ class PostgresMarketplaceStore:
 
         CREATE INDEX IF NOT EXISTS idx_templates_category ON templates(category);
         CREATE INDEX IF NOT EXISTS idx_templates_author ON templates(author_id);
-        CREATE INDEX IF NOT EXISTS idx_templates_rating ON templates(rating_sum / NULLIF(rating_count, 0) DESC);
-        CREATE INDEX IF NOT EXISTS idx_templates_downloads ON templates(download_count DESC);
+        CREATE INDEX IF NOT EXISTS idx_templates_rating ON templates((rating_sum / NULLIF(rating_count, 0)));
+        CREATE INDEX IF NOT EXISTS idx_templates_downloads ON templates(download_count);
         CREATE INDEX IF NOT EXISTS idx_templates_featured ON templates(is_featured);
         CREATE INDEX IF NOT EXISTS idx_templates_trending ON templates(is_trending);
 

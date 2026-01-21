@@ -351,15 +351,25 @@ class TestListUsers:
 # ============================================================================
 
 
+def _mock_allowed_decision():
+    """Create a mock decision that allows access."""
+    decision = MagicMock()
+    decision.allowed = True
+    decision.reason = "Test mock: allowed"
+    return decision
+
+
 class TestDeactivateUser:
     """Tests for POST /api/admin/users/:user_id/deactivate endpoint."""
 
+    @patch("aragora.server.handlers.admin.admin.check_permission")
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_deactivate_user_success(
         self,
         mock_extract,
         mock_mfa,
+        mock_check_permission,
         admin_handler,
         mock_handler,
         mock_auth_context,
@@ -368,6 +378,7 @@ class TestDeactivateUser:
         """Successfully deactivates a user."""
         mock_extract.return_value = mock_auth_context
         mock_mfa.return_value = None
+        mock_check_permission.return_value = _mock_allowed_decision()
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
@@ -382,14 +393,16 @@ class TestDeactivateUser:
         assert data["is_active"] is False
         mock_user_store.update_user.assert_called_with("target-user-456", is_active=False)
 
+    @patch("aragora.server.handlers.admin.admin.check_permission")
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_cannot_deactivate_self(
-        self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context
+        self, mock_extract, mock_mfa, mock_check_permission, admin_handler, mock_handler, mock_auth_context
     ):
         """Cannot deactivate yourself."""
         mock_extract.return_value = mock_auth_context
         mock_mfa.return_value = None
+        mock_check_permission.return_value = _mock_allowed_decision()
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
@@ -401,14 +414,16 @@ class TestDeactivateUser:
         data = json.loads(result.body)
         assert "yourself" in data["error"].lower()
 
+    @patch("aragora.server.handlers.admin.admin.check_permission")
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_deactivate_user_not_found(
-        self, mock_extract, mock_mfa, admin_handler, mock_handler, mock_auth_context
+        self, mock_extract, mock_mfa, mock_check_permission, admin_handler, mock_handler, mock_auth_context
     ):
         """Returns 404 when user does not exist."""
         mock_extract.return_value = mock_auth_context
         mock_mfa.return_value = None
+        mock_check_permission.return_value = _mock_allowed_decision()
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
@@ -429,12 +444,14 @@ class TestDeactivateUser:
 class TestActivateUser:
     """Tests for POST /api/admin/users/:user_id/activate endpoint."""
 
+    @patch("aragora.server.handlers.admin.admin.check_permission")
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_activate_user_success(
         self,
         mock_extract,
         mock_mfa,
+        mock_check_permission,
         admin_handler,
         mock_handler,
         mock_auth_context,
@@ -443,6 +460,7 @@ class TestActivateUser:
         """Successfully activates a user."""
         mock_extract.return_value = mock_auth_context
         mock_mfa.return_value = None
+        mock_check_permission.return_value = _mock_allowed_decision()
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
