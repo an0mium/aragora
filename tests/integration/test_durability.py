@@ -477,6 +477,7 @@ class TestProductionRequirements:
     def test_connector_sync_store_requires_db_in_production(self):
         """Test connector sync store requires database in production."""
         from aragora.connectors.enterprise.sync_store import SyncStore
+        from aragora.control_plane.leader import DistributedStateError
 
         original_env = os.environ.get("ARAGORA_ENV")
 
@@ -487,8 +488,8 @@ class TestProductionRequirements:
             with patch.dict("sys.modules", {"aiosqlite": None}):
                 store = SyncStore(database_url="sqlite:///nonexistent.db")
 
-                # Initialization should raise in production
-                with pytest.raises(RuntimeError, match="aiosqlite required in production"):
+                # Initialization should raise DistributedStateError in production
+                with pytest.raises(DistributedStateError, match="aiosqlite not installed"):
                     asyncio.get_event_loop().run_until_complete(store.initialize())
 
         finally:
