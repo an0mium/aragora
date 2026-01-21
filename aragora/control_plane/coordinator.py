@@ -24,6 +24,18 @@ from aragora.control_plane.registry import (
 )
 from aragora.control_plane.scheduler import Task, TaskPriority, TaskScheduler, TaskStatus
 
+# Optional KM integration
+try:
+    from aragora.knowledge.mound.adapters.control_plane_adapter import (
+        ControlPlaneAdapter,
+        TaskOutcome,
+    )
+    HAS_KM_ADAPTER = True
+except ImportError:
+    HAS_KM_ADAPTER = False
+    ControlPlaneAdapter = None  # type: ignore
+    TaskOutcome = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,6 +53,10 @@ class ControlPlaneConfig:
     max_task_retries: int = 3
     cleanup_interval: float = 60.0
 
+    # Knowledge Mound integration
+    enable_km_integration: bool = True
+    km_workspace_id: str = "default"
+
     @classmethod
     def from_env(cls) -> "ControlPlaneConfig":
         """Create config from environment variables."""
@@ -54,6 +70,8 @@ class ControlPlaneConfig:
             task_timeout=float(os.environ.get("TASK_TIMEOUT", "300")),
             max_task_retries=int(os.environ.get("MAX_TASK_RETRIES", "3")),
             cleanup_interval=float(os.environ.get("CLEANUP_INTERVAL", "60")),
+            enable_km_integration=os.environ.get("CP_ENABLE_KM", "true").lower() == "true",
+            km_workspace_id=os.environ.get("CP_KM_WORKSPACE", "default"),
         )
 
 
@@ -97,6 +115,8 @@ class ControlPlaneCoordinator:
         registry: Optional[AgentRegistry] = None,
         scheduler: Optional[TaskScheduler] = None,
         health_monitor: Optional[HealthMonitor] = None,
+        km_adapter: Optional["ControlPlaneAdapter"] = None,
+        knowledge_mound: Optional[Any] = None,
     ):
         """
         Initialize the coordinator.
@@ -106,6 +126,8 @@ class ControlPlaneCoordinator:
             registry: Optional pre-configured AgentRegistry
             scheduler: Optional pre-configured TaskScheduler
             health_monitor: Optional pre-configured HealthMonitor
+            km_adapter: Optional pre-configured ControlPlaneAdapter
+            knowledge_mound: Optional KnowledgeMound for auto-creating adapter
         """
         self._config = config or ControlPlaneConfig.from_env()
 
@@ -127,6 +149,18 @@ class ControlPlaneCoordinator:
             probe_interval=self._config.probe_interval,
             probe_timeout=self._config.probe_timeout,
         )
+
+        # Knowledge Mound integration
+        self._km_adapter: Optional["ControlPlaneAdapter"] = None
+        if self._config.enable_km_integration and HAS_KM_ADAPTER:
+            if km_adapter:
+                self._km_adapter = km_adapter
+            elif knowledge_mound:
+                self._km_adapter = ControlPlaneAdapter(
+                    coordinator=self,
+                    knowledge_mound=knowledge_mound,
+                    workspace_id=self._config.km_workspace_id,
+                )
 
         self._connected = False
         self._result_waiters: Dict[str, asyncio.Event] = {}

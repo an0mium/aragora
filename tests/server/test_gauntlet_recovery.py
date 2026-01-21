@@ -26,19 +26,21 @@ class TestGauntletRecovery:
         # Create an inflight run that simulates being interrupted
         gauntlet_id = "test-run-001"
         storage.save_inflight(
-            GauntletInflightRun(
-                gauntlet_id=gauntlet_id,
-                status="running",
-                input_type="text",
-                input_summary="Test input",
-                persona="default",
-                agents=["claude", "gpt4"],
-                profile="default",
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                progress_percent=50.0,
-                current_phase="evaluation",
-            )
+            gauntlet_id=gauntlet_id,
+            status="running",
+            input_type="text",
+            input_summary="Test input",
+            input_hash="abc123",
+            persona="default",
+            agents=["claude", "gpt4"],
+            profile="default",
+        )
+        # Update progress to simulate mid-run state
+        storage.update_inflight_status(
+            gauntlet_id=gauntlet_id,
+            status="running",
+            progress_percent=50.0,
+            current_phase="evaluation",
         )
 
         # Verify inflight run exists
@@ -83,19 +85,21 @@ class TestGauntletRecovery:
         # Create a completed inflight run
         gauntlet_id = "test-completed-001"
         storage.save_inflight(
-            GauntletInflightRun(
-                gauntlet_id=gauntlet_id,
-                status="completed",
-                input_type="text",
-                input_summary="Test input",
-                persona="default",
-                agents=["claude"],
-                profile="default",
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                progress_percent=100.0,
-                current_phase="done",
-            )
+            gauntlet_id=gauntlet_id,
+            status="completed",
+            input_type="text",
+            input_summary="Test input",
+            input_hash="xyz789",
+            persona="default",
+            agents=["claude"],
+            profile="default",
+        )
+        # Mark as completed
+        storage.update_inflight_status(
+            gauntlet_id=gauntlet_id,
+            status="completed",
+            progress_percent=100.0,
+            current_phase="done",
         )
 
         from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
@@ -114,20 +118,22 @@ class TestGauntletRecovery:
 
         # Create multiple inflight runs
         for i in range(3):
+            status = "running" if i % 2 == 0 else "pending"
             storage.save_inflight(
-                GauntletInflightRun(
-                    gauntlet_id=f"test-run-{i:03d}",
-                    status="running" if i % 2 == 0 else "pending",
-                    input_type="text",
-                    input_summary=f"Test input {i}",
-                    persona="default",
-                    agents=["claude"],
-                    profile="default",
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
-                    progress_percent=float(i * 30),
-                    current_phase="evaluation",
-                )
+                gauntlet_id=f"test-run-{i:03d}",
+                status=status,
+                input_type="text",
+                input_summary=f"Test input {i}",
+                input_hash=f"hash{i:03d}",
+                persona="default",
+                agents=["claude"],
+                profile="default",
+            )
+            storage.update_inflight_status(
+                gauntlet_id=f"test-run-{i:03d}",
+                status=status,
+                progress_percent=float(i * 30),
+                current_phase="evaluation",
             )
 
         from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
@@ -154,24 +160,33 @@ class TestGauntletRecoveryStartup:
         from aragora.server.startup import init_gauntlet_run_recovery
 
         with patch(
-            "aragora.server.startup.recover_stale_gauntlet_runs", return_value=5
+            "aragora.server.handlers.gauntlet.recover_stale_gauntlet_runs", return_value=5
         ) as mock_recover:
             result = init_gauntlet_run_recovery()
 
         assert result == 5
         mock_recover.assert_called_once_with(max_age_seconds=7200)
 
-    def test_init_gauntlet_run_recovery_handles_import_error(self):
-        """Should return 0 if recovery module not available."""
+    def test_init_gauntlet_run_recovery_handles_exception(self):
+        """Should return 0 if recovery function raises exception."""
         from aragora.server.startup import init_gauntlet_run_recovery
 
         with patch(
-            "aragora.server.startup.recover_stale_gauntlet_runs",
-            side_effect=ImportError("Module not found"),
+            "aragora.server.handlers.gauntlet.recover_stale_gauntlet_runs",
+            side_effect=RuntimeError("Something went wrong"),
         ):
-            # The function catches ImportError inside, so we need to patch differently
-            pass
+            result = init_gauntlet_run_recovery()
 
-        # Just verify it doesn't crash with valid import
-        result = init_gauntlet_run_recovery()
-        assert isinstance(result, int)
+        # Should return 0 on error without crashing
+        assert result == 0
+
+    def test_init_gauntlet_run_recovery_returns_zero_on_no_stale_runs(self):
+        """Should return 0 when there are no stale runs."""
+        from aragora.server.startup import init_gauntlet_run_recovery
+
+        with patch(
+            "aragora.server.handlers.gauntlet.recover_stale_gauntlet_runs", return_value=0
+        ):
+            result = init_gauntlet_run_recovery()
+
+        assert result == 0

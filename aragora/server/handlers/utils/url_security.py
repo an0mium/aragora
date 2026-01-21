@@ -3,13 +3,25 @@ URL security utilities for webhook and external request validation.
 
 Provides SSRF (Server-Side Request Forgery) protection by validating URLs
 before allowing outbound requests.
+
+Security measures:
+- Blocks private IP ranges (10.x, 172.16-31.x, 192.168.x)
+- Blocks loopback addresses (127.x, ::1)
+- Blocks link-local addresses (169.254.x, fe80::)
+- Blocks cloud metadata endpoints (AWS, GCP, Azure)
+- Blocks internal hostnames (.internal, .local, .localhost)
+- Blocks IPv6-mapped IPv4 addresses (::ffff:127.0.0.1)
+- Adds timeout on DNS resolution to prevent slow lookups
 """
 
 import ipaddress
 import socket
-from typing import Tuple
+from typing import Optional, Tuple
 from urllib.parse import urlparse
 
+
+# DNS resolution timeout (seconds)
+DNS_RESOLUTION_TIMEOUT = 5.0
 
 # Cloud metadata endpoints that should never be accessible
 BLOCKED_METADATA_IPS = frozenset([
@@ -84,36 +96,27 @@ def validate_webhook_url(url: str, allow_localhost: bool = False) -> Tuple[bool,
 
     # Try to resolve hostname and check all returned IPs
     try:
-        addr_info = socket.getaddrinfo(
-            parsed.hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
-        )
+        # Set DNS resolution timeout to prevent slow lookups
+        original_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(DNS_RESOLUTION_TIMEOUT)
+        try:
+            addr_info = socket.getaddrinfo(
+                parsed.hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
+            )
+        finally:
+            socket.setdefaulttimeout(original_timeout)
+
         for family, _, _, _, sockaddr in addr_info:
             ip_str = sockaddr[0]
-            try:
-                ip_obj = ipaddress.ip_address(ip_str)
-            except ValueError:
-                continue
-
-            if ip_obj.is_private:
-                return False, f"Private IP not allowed: {ip_str}"
-            if ip_obj.is_loopback:
-                return False, f"Loopback IP not allowed: {ip_str}"
-            if ip_obj.is_link_local:
-                return False, f"Link-local IP not allowed: {ip_str}"
-            if ip_obj.is_reserved:
-                return False, f"Reserved IP not allowed: {ip_str}"
-            if ip_obj.is_multicast:
-                return False, f"Multicast IP not allowed: {ip_str}"
-            if ip_obj.is_unspecified:
-                return False, f"Unspecified IP not allowed: {ip_str}"
-
-            # Block cloud metadata endpoints
-            if ip_str in BLOCKED_METADATA_IPS:
-                return False, f"Cloud metadata endpoint not allowed: {ip_str}"
+            valid, error = _validate_ip_address(ip_str)
+            if not valid:
+                return False, error
 
     except socket.gaierror:
         # DNS resolution failed - this is actually okay, the request will fail naturally
         pass
+    except socket.timeout:
+        return False, "DNS resolution timed out"
     except OSError:
         # Other socket errors - allow and let request handle it
         pass
@@ -121,4 +124,46 @@ def validate_webhook_url(url: str, allow_localhost: bool = False) -> Tuple[bool,
     return True, ""
 
 
-__all__ = ["validate_webhook_url"]
+def _validate_ip_address(ip_str: str) -> Tuple[bool, str]:
+    """
+    Validate a single IP address for SSRF vulnerabilities.
+
+    Args:
+        ip_str: IP address string to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    try:
+        ip_obj = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return True, ""  # Not a valid IP, let request handle it
+
+    # Check for IPv6-mapped IPv4 addresses (::ffff:127.0.0.1)
+    if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped:
+        mapped_ipv4 = ip_obj.ipv4_mapped
+        valid, error = _validate_ip_address(str(mapped_ipv4))
+        if not valid:
+            return False, f"IPv6-mapped {error}"
+
+    if ip_obj.is_private:
+        return False, f"Private IP not allowed: {ip_str}"
+    if ip_obj.is_loopback:
+        return False, f"Loopback IP not allowed: {ip_str}"
+    if ip_obj.is_link_local:
+        return False, f"Link-local IP not allowed: {ip_str}"
+    if ip_obj.is_reserved:
+        return False, f"Reserved IP not allowed: {ip_str}"
+    if ip_obj.is_multicast:
+        return False, f"Multicast IP not allowed: {ip_str}"
+    if ip_obj.is_unspecified:
+        return False, f"Unspecified IP not allowed: {ip_str}"
+
+    # Block cloud metadata endpoints
+    if ip_str in BLOCKED_METADATA_IPS:
+        return False, f"Cloud metadata endpoint not allowed: {ip_str}"
+
+    return True, ""
+
+
+__all__ = ["validate_webhook_url", "_validate_ip_address", "DNS_RESOLUTION_TIMEOUT"]

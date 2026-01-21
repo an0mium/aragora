@@ -1528,6 +1528,11 @@ class CrossSubscriberManager:
                 logger.debug("Knowledge Mound not available for culture retrieval")
                 return
 
+            # Check if mound is initialized
+            if not mound.is_initialized:
+                logger.debug("Knowledge Mound not initialized, skipping culture retrieval")
+                return
+
             # Retrieve culture profile from mound
             import asyncio
 
@@ -1815,6 +1820,11 @@ class CrossSubscriberManager:
             mound = get_knowledge_mound()
             if not mound:
                 logger.debug("Knowledge Mound not available for consensus ingestion")
+                return
+
+            # Check if mound is initialized
+            if not mound.is_initialized:
+                logger.debug("Knowledge Mound not initialized, skipping consensus ingestion")
                 return
 
             # Build content from topic and conclusion
@@ -2115,6 +2125,11 @@ class CrossSubscriberManager:
             mound = get_knowledge_mound()
             if not mound:
                 logger.debug("Knowledge Mound not available for validation feedback")
+                return
+
+            # Check if mound is initialized
+            if not mound.is_initialized:
+                logger.debug("Knowledge Mound not initialized, skipping validation feedback")
                 return
 
             async def process_validation_feedback():

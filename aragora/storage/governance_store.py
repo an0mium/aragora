@@ -1664,41 +1664,46 @@ class PostgresGovernanceStore:
         verifications_days: int = 7,
         decisions_days: int = 90,
     ) -> dict:
-        """Clean up old records asynchronously."""
+        """Clean up old records asynchronously.
+
+        Uses explicit transaction for atomic cleanup across multiple tables.
+        """
         counts = {}
 
         async with self._pool.acquire() as conn:
-            # Count approvals to clean
-            result = await conn.fetchrow(
-                """SELECT COUNT(*) as count FROM governance_approvals
-                   WHERE status IN ('approved', 'rejected', 'expired', 'cancelled')
-                   AND requested_at < NOW() - INTERVAL '1 day' * $1""",
-                approvals_days,
-            )
-            counts["approvals"] = result["count"] if result else 0
-
-            if counts["approvals"] > 0:
-                await conn.execute(
-                    """DELETE FROM governance_approvals
+            # Use explicit transaction for atomic multi-table cleanup
+            async with conn.transaction():
+                # Count and delete approvals
+                result = await conn.fetchrow(
+                    """SELECT COUNT(*) as count FROM governance_approvals
                        WHERE status IN ('approved', 'rejected', 'expired', 'cancelled')
                        AND requested_at < NOW() - INTERVAL '1 day' * $1""",
                     approvals_days,
                 )
+                counts["approvals"] = result["count"] if result else 0
 
-            # Count verifications to clean
-            result = await conn.fetchrow(
-                """SELECT COUNT(*) as count FROM governance_verifications
-                   WHERE timestamp < NOW() - INTERVAL '1 day' * $1""",
-                verifications_days,
-            )
-            counts["verifications"] = result["count"] if result else 0
+                if counts["approvals"] > 0:
+                    await conn.execute(
+                        """DELETE FROM governance_approvals
+                           WHERE status IN ('approved', 'rejected', 'expired', 'cancelled')
+                           AND requested_at < NOW() - INTERVAL '1 day' * $1""",
+                        approvals_days,
+                    )
 
-            if counts["verifications"] > 0:
-                await conn.execute(
-                    """DELETE FROM governance_verifications
+                # Count and delete verifications
+                result = await conn.fetchrow(
+                    """SELECT COUNT(*) as count FROM governance_verifications
                        WHERE timestamp < NOW() - INTERVAL '1 day' * $1""",
                     verifications_days,
                 )
+                counts["verifications"] = result["count"] if result else 0
+
+                if counts["verifications"] > 0:
+                    await conn.execute(
+                        """DELETE FROM governance_verifications
+                           WHERE timestamp < NOW() - INTERVAL '1 day' * $1""",
+                        verifications_days,
+                    )
 
         logger.info(f"Cleaned up governance records: {counts}")
         return counts

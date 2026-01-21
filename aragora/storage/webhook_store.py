@@ -11,6 +11,7 @@ Backends:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sqlite3
@@ -18,7 +19,10 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 

@@ -102,6 +102,11 @@ class KnowledgeMoundCore:
         # State
         self._initialized = False
 
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the mound is initialized."""
+        return self._initialized
+
     # =========================================================================
     # Initialization
     # =========================================================================

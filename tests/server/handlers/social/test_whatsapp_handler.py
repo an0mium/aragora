@@ -661,3 +661,413 @@ class TestIntegration:
         })
         assert verify_result["status"] == 200
         assert verify_result["body"] == "test_challenge"
+
+
+# ===========================================================================
+# Voice Message Tests
+# ===========================================================================
+
+
+class TestVoiceMessages:
+    """Tests for voice message functionality."""
+
+    @pytest.mark.asyncio
+    async def test_send_voice_async_success(self, handler):
+        """Test successful voice message sending."""
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.json = AsyncMock(return_value={"messages": [{"id": "wamid123"}]})
+
+            mock_session = AsyncMock()
+            mock_session.post = AsyncMock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_ACCESS_TOKEN", "test_token"):
+                with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_PHONE_NUMBER_ID", "123456"):
+                    await handler._send_voice_async("15551234567", b"audio_data")
+
+            assert mock_session.post.call_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_send_voice_async_api_error(self, handler):
+        """Test voice message sending handles API errors."""
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            mock_response = AsyncMock()
+            mock_response.status = 400
+            mock_response.json = AsyncMock(return_value={"error": {"message": "Bad Request"}})
+
+            mock_session = AsyncMock()
+            mock_session.post = AsyncMock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_ACCESS_TOKEN", "test_token"):
+                with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_PHONE_NUMBER_ID", "123456"):
+                    # Should not raise, just log error
+                    await handler._send_voice_async("15551234567", b"audio_data")
+
+    @pytest.mark.asyncio
+    async def test_send_voice_async_network_error(self, handler):
+        """Test voice message sending handles network errors."""
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            mock_session = AsyncMock()
+            mock_session.post = AsyncMock(side_effect=Exception("Network error"))
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_ACCESS_TOKEN", "test_token"):
+                with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_PHONE_NUMBER_ID", "123456"):
+                    # Should not raise, just log error
+                    await handler._send_voice_async("15551234567", b"audio_data")
+
+    @pytest.mark.asyncio
+    async def test_send_voice_summary_with_tts(self, handler):
+        """Test voice summary sends audio when TTS available."""
+        mock_tts = MagicMock()
+        mock_tts.is_available = True
+        mock_result = MagicMock()
+        mock_result.audio_bytes = b"synthesized_audio"
+        mock_tts.synthesize_debate_result = AsyncMock(return_value=mock_result)
+
+        with patch("aragora.server.handlers.social.whatsapp.get_tts_helper", return_value=mock_tts):
+            with patch.object(handler, "_send_voice_async", new_callable=AsyncMock) as mock_send:
+                await handler._send_voice_summary(
+                    phone_number="15551234567",
+                    task="Test debate",
+                    final_answer="The answer",
+                    consensus_reached=True,
+                    confidence=0.85,
+                    rounds_used=3,
+                )
+
+                mock_tts.synthesize_debate_result.assert_called_once()
+                mock_send.assert_called_once_with("15551234567", b"synthesized_audio")
+
+    @pytest.mark.asyncio
+    async def test_send_voice_summary_tts_unavailable(self, handler):
+        """Test voice summary skips when TTS unavailable."""
+        mock_tts = MagicMock()
+        mock_tts.is_available = False
+
+        with patch("aragora.server.handlers.social.whatsapp.get_tts_helper", return_value=mock_tts):
+            with patch.object(handler, "_send_voice_async", new_callable=AsyncMock) as mock_send:
+                await handler._send_voice_summary(
+                    phone_number="15551234567",
+                    task="Test debate",
+                    final_answer="The answer",
+                    consensus_reached=True,
+                    confidence=0.85,
+                    rounds_used=3,
+                )
+
+                mock_send.assert_not_called()
+
+
+# ===========================================================================
+# Debate Async Tests
+# ===========================================================================
+
+
+class TestDebateAsync:
+    """Tests for async debate execution."""
+
+    @pytest.mark.asyncio
+    async def test_run_debate_async_emits_start_event(self, handler):
+        """Test debate emits start event."""
+        with patch("aragora.server.handlers.social.whatsapp.Arena") as mock_arena_class:
+            mock_arena = MagicMock()
+            mock_arena.run = AsyncMock(return_value=MagicMock(
+                final_answer="Test answer",
+                consensus_reached=True,
+                confidence=0.9,
+                rounds_used=2,
+            ))
+            mock_arena_class.return_value = mock_arena
+
+            with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+                with patch("aragora.server.handlers.social.chat_events.emit_debate_started") as mock_emit:
+                    with patch.object(handler, "_send_text_message_async", new_callable=AsyncMock):
+                        with patch.object(handler, "_send_interactive_buttons_async", new_callable=AsyncMock):
+                            with patch.object(handler, "_send_voice_summary", new_callable=AsyncMock):
+                                await handler._run_debate_async(
+                                    phone_number="15551234567",
+                                    username="Test User",
+                                    topic="Test topic",
+                                )
+
+                                mock_emit.assert_called_once()
+                                call_kwargs = mock_emit.call_args[1]
+                                assert call_kwargs["platform"] == "whatsapp"
+                                assert call_kwargs["topic"] == "Test topic"
+
+    @pytest.mark.asyncio
+    async def test_run_debate_async_emits_complete_event(self, handler):
+        """Test debate emits completion event."""
+        with patch("aragora.server.handlers.social.whatsapp.Arena") as mock_arena_class:
+            mock_arena = MagicMock()
+            mock_arena.run = AsyncMock(return_value=MagicMock(
+                final_answer="Test answer",
+                consensus_reached=True,
+                confidence=0.9,
+                rounds_used=2,
+            ))
+            mock_arena_class.return_value = mock_arena
+
+            with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+                with patch("aragora.server.handlers.social.chat_events.emit_debate_completed") as mock_emit:
+                    with patch.object(handler, "_send_text_message_async", new_callable=AsyncMock):
+                        with patch.object(handler, "_send_interactive_buttons_async", new_callable=AsyncMock):
+                            with patch.object(handler, "_send_voice_summary", new_callable=AsyncMock):
+                                await handler._run_debate_async(
+                                    phone_number="15551234567",
+                                    username="Test User",
+                                    topic="Test topic",
+                                )
+
+                                mock_emit.assert_called_once()
+                                call_kwargs = mock_emit.call_args[1]
+                                assert call_kwargs["consensus_reached"] is True
+
+    @pytest.mark.asyncio
+    async def test_run_debate_async_handles_arena_error(self, handler):
+        """Test debate handles Arena errors gracefully."""
+        with patch("aragora.server.handlers.social.whatsapp.Arena") as mock_arena_class:
+            mock_arena = MagicMock()
+            mock_arena.run = AsyncMock(side_effect=Exception("Arena error"))
+            mock_arena_class.return_value = mock_arena
+
+            with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+                with patch.object(handler, "_send_text_message_async", new_callable=AsyncMock) as mock_send:
+                    await handler._run_debate_async(
+                        phone_number="15551234567",
+                        username="Test User",
+                        topic="Test topic",
+                    )
+
+                    # Should send error message
+                    assert mock_send.call_count >= 1
+
+
+# ===========================================================================
+# Gauntlet Async Tests
+# ===========================================================================
+
+
+class TestGauntletAsync:
+    """Tests for async gauntlet execution."""
+
+    @pytest.mark.asyncio
+    async def test_run_gauntlet_async_emits_start_event(self, handler):
+        """Test gauntlet emits start event."""
+        with patch("aragora.server.handlers.social.whatsapp.Gauntlet") as mock_gauntlet_class:
+            mock_gauntlet = MagicMock()
+            mock_gauntlet.run = AsyncMock(return_value=MagicMock(
+                passed=True,
+                score=0.85,
+                vulnerabilities=[],
+            ))
+            mock_gauntlet_class.return_value = mock_gauntlet
+
+            with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+                with patch("aragora.server.handlers.social.chat_events.emit_gauntlet_started") as mock_emit:
+                    with patch.object(handler, "_send_text_message_async", new_callable=AsyncMock):
+                        await handler._run_gauntlet_async(
+                            phone_number="15551234567",
+                            username="Test User",
+                            statement="Test statement",
+                        )
+
+                        mock_emit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_gauntlet_async_emits_complete_event(self, handler):
+        """Test gauntlet emits completion event."""
+        with patch("aragora.server.handlers.social.whatsapp.Gauntlet") as mock_gauntlet_class:
+            mock_gauntlet = MagicMock()
+            mock_gauntlet.run = AsyncMock(return_value=MagicMock(
+                passed=False,
+                score=0.45,
+                vulnerabilities=["v1", "v2"],
+            ))
+            mock_gauntlet_class.return_value = mock_gauntlet
+
+            with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+                with patch("aragora.server.handlers.social.chat_events.emit_gauntlet_completed") as mock_emit:
+                    with patch.object(handler, "_send_text_message_async", new_callable=AsyncMock):
+                        await handler._run_gauntlet_async(
+                            phone_number="15551234567",
+                            username="Test User",
+                            statement="Test statement",
+                        )
+
+                        mock_emit.assert_called_once()
+                        call_kwargs = mock_emit.call_args[1]
+                        assert call_kwargs["passed"] is False
+                        assert call_kwargs["vulnerability_count"] == 2
+
+
+# ===========================================================================
+# Error Handling Tests
+# ===========================================================================
+
+
+class TestErrorHandling:
+    """Tests for error handling scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_send_message_async_timeout(self, handler):
+        """Test message sending handles timeout."""
+        import asyncio
+
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            mock_session = AsyncMock()
+            mock_session.post = AsyncMock(side_effect=asyncio.TimeoutError())
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_ACCESS_TOKEN", "test_token"):
+                with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_PHONE_NUMBER_ID", "123456"):
+                    # Should not raise
+                    await handler._send_text_message_async("15551234567", "Test message")
+
+    @pytest.mark.asyncio
+    async def test_send_message_async_rate_limit(self, handler):
+        """Test message sending handles rate limiting."""
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            mock_response = AsyncMock()
+            mock_response.status = 429
+            mock_response.json = AsyncMock(return_value={
+                "error": {
+                    "message": "Rate limit exceeded",
+                    "type": "OAuthException",
+                    "code": 4,
+                },
+            })
+
+            mock_session = AsyncMock()
+            mock_session.post = AsyncMock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_ACCESS_TOKEN", "test_token"):
+                with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_PHONE_NUMBER_ID", "123456"):
+                    # Should not raise
+                    await handler._send_text_message_async("15551234567", "Test message")
+
+    def test_handle_message_missing_text(self, handler):
+        """Test message handling with missing text field."""
+        # Should not raise when text is missing
+        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+            handler._handle_text_message("15551234567", "User", "")
+
+    def test_handle_interactive_missing_reply(self, handler):
+        """Test interactive handling with missing reply data."""
+        message = {
+            "interactive": {
+                "type": "button_reply",
+                # Missing button_reply
+            },
+        }
+
+        # Should not raise
+        with patch.object(handler, "_process_button_click"):
+            handler._handle_interactive_reply("15551234567", "User", message)
+
+
+# ===========================================================================
+# Interactive Buttons Extended Tests
+# ===========================================================================
+
+
+class TestInteractiveButtonsExtended:
+    """Extended tests for interactive button handling."""
+
+    @pytest.mark.asyncio
+    async def test_send_interactive_buttons_async_success(self, handler):
+        """Test sending interactive buttons."""
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.json = AsyncMock(return_value={"messages": [{"id": "wamid123"}]})
+
+            mock_session = AsyncMock()
+            mock_session.post = AsyncMock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_ACCESS_TOKEN", "test_token"):
+                with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_PHONE_NUMBER_ID", "123456"):
+                    await handler._send_interactive_buttons_async(
+                        phone_number="15551234567",
+                        body_text="Choose an option:",
+                        buttons=[
+                            {"id": "btn1", "title": "Option 1"},
+                            {"id": "btn2", "title": "Option 2"},
+                        ],
+                    )
+
+            mock_session.post.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_send_interactive_buttons_async_error(self, handler):
+        """Test interactive buttons handles API error."""
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            mock_response = AsyncMock()
+            mock_response.status = 400
+            mock_response.json = AsyncMock(return_value={"error": {"message": "Invalid buttons"}})
+
+            mock_session = AsyncMock()
+            mock_session.post = AsyncMock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_session_class.return_value = mock_session
+
+            with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_ACCESS_TOKEN", "test_token"):
+                with patch("aragora.server.handlers.social.whatsapp.WHATSAPP_PHONE_NUMBER_ID", "123456"):
+                    # Should not raise
+                    await handler._send_interactive_buttons_async(
+                        phone_number="15551234567",
+                        body_text="Choose:",
+                        buttons=[{"id": "btn1", "title": "Option"}],
+                    )
+
+
+# ===========================================================================
+# Chat Event Integration Tests
+# ===========================================================================
+
+
+class TestChatEvents:
+    """Tests for chat event emissions."""
+
+    def test_handle_text_message_emits_event(self, handler):
+        """Test text message handling emits event."""
+        with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+            with patch("aragora.server.handlers.social.chat_events.emit_message_received") as mock_emit:
+                handler._handle_text_message("15551234567", "Test User", "Hello there!")
+
+                mock_emit.assert_called_once()
+                call_kwargs = mock_emit.call_args[1]
+                assert call_kwargs["platform"] == "whatsapp"
+                assert call_kwargs["text"] == "Hello there!"
+
+    def test_record_vote_emits_event(self, handler):
+        """Test vote recording emits event."""
+        with patch("aragora.server.storage.get_debates_db") as mock_db:
+            mock_db.return_value = MagicMock()
+            with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
+                with patch("aragora.server.handlers.social.chat_events.emit_vote_received") as mock_emit:
+                    handler._record_vote("15551234567", "User", "debate123", "agree")
+
+                    mock_emit.assert_called_once()
+                    call_kwargs = mock_emit.call_args[1]
+                    assert call_kwargs["debate_id"] == "debate123"
+                    assert call_kwargs["vote"] == "agree"

@@ -934,7 +934,7 @@ class TestChatEvents:
         }
 
         with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-            with patch("aragora.server.handlers.social.chat_events.emit_message_received") as mock_emit:
+            with patch("aragora.server.handlers.social.telegram.emit_message_received") as mock_emit:
                 handler._handle_message(message)
 
                 mock_emit.assert_called_once()
@@ -945,7 +945,7 @@ class TestChatEvents:
     def test_handle_command_emits_event(self, handler):
         """Test command handling emits event."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-            with patch("aragora.server.handlers.social.chat_events.emit_command_received") as mock_emit:
+            with patch("aragora.server.handlers.social.telegram.emit_command_received") as mock_emit:
                 handler._handle_command(123, 456, "testuser", "/help")
 
                 mock_emit.assert_called_once()
@@ -957,7 +957,7 @@ class TestChatEvents:
         with patch("aragora.server.storage.get_debates_db") as mock_db:
             mock_db.return_value = MagicMock()
             with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-                with patch("aragora.server.handlers.social.chat_events.emit_vote_received") as mock_emit:
+                with patch("aragora.server.handlers.social.telegram.emit_vote_received") as mock_emit:
                     handler._handle_vote(123, 456, "testuser", "debate123", "agree")
 
                     mock_emit.assert_called_once()
