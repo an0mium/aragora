@@ -176,6 +176,21 @@ class DecisionResultStore:
             self._backend = PostgreSQLBackend(actual_url)
             logger.info("DecisionResultStore using PostgreSQL backend")
         else:
+            # SECURITY: Check production guards for SQLite usage
+            try:
+                from aragora.storage.production_guards import (
+                    require_distributed_store,
+                    StorageMode,
+                )
+
+                require_distributed_store(
+                    "decision_result_store",
+                    StorageMode.SQLITE,
+                    "Decision result store using SQLite - use PostgreSQL for multi-instance deployments",
+                )
+            except ImportError:
+                pass  # Guards not available, allow SQLite
+
             self._backend = SQLiteBackend(str(db_path))
             logger.info(f"DecisionResultStore using SQLite backend: {db_path}")
 

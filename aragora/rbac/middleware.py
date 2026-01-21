@@ -173,6 +173,13 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/decisions?$", "GET", "decisions.read"),
     RoutePermission(r"^/api/decisions?/([^/]+)$", "GET", "decisions.read", 1),
     RoutePermission(r"^/api/decisions?/([^/]+)/status$", "GET", "decisions.read", 1),
+    RoutePermission(r"^/api/decisions?/([^/]+)/explain$", "GET", "decisions.read", 1),
+    # Versioned decision endpoints (v1)
+    RoutePermission(r"^/api/v1/decisions?$", "POST", "decisions.create"),
+    RoutePermission(r"^/api/v1/decisions?$", "GET", "decisions.read"),
+    RoutePermission(r"^/api/v1/decisions?/([^/]+)$", "GET", "decisions.read", 1),
+    RoutePermission(r"^/api/v1/decisions?/([^/]+)/status$", "GET", "decisions.read", 1),
+    RoutePermission(r"^/api/v1/decisions?/([^/]+)/explain$", "GET", "decisions.read", 1),
     # Audit findings workflow
     RoutePermission(r"^/api/audit/findings/bulk-action$", "POST", "findings.bulk"),
     RoutePermission(r"^/api/audit/findings/my-assignments$", "GET", "findings.read"),

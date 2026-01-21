@@ -27,6 +27,9 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from aragora.nomic.cycle_record import NomicCycleRecord
+from aragora.nomic.cycle_store import CycleLearningStore, get_cycle_store
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,6 +87,11 @@ class NomicLoop:
         self._current_cycle_id: Optional[str] = None
         self._cycle_context: Dict[str, Any] = {}
         self._checkpoints: List[Dict[str, Any]] = []
+
+        # Cross-cycle learning
+        self._cycle_store: Optional[CycleLearningStore] = None
+        self._current_record: Optional[NomicCycleRecord] = None
+        self._enable_cycle_learning = True
 
     def _log(self, message: str) -> None:
         """Log a message using the configured log function."""
@@ -144,6 +152,17 @@ class NomicLoop:
         self._current_cycle_id = str(uuid.uuid4())[:8]
         self._cycle_context = {}
 
+        # Initialize cycle record for cross-cycle learning
+        self._current_record = NomicCycleRecord(
+            cycle_id=self._current_cycle_id,
+            started_at=time.time(),
+        )
+
+        # Inject cross-cycle learning context
+        learning_context = self._get_cross_cycle_context()
+        if learning_context:
+            self._cycle_context["learning_context"] = learning_context
+
         self._log(f"Cycle {self._current_cycle_id} started")
 
         try:
@@ -175,6 +194,23 @@ class NomicLoop:
             verify_result = await self.run_verify_phase(impl_result)
             self._cycle_context["verification"] = verify_result
 
+            # Record test results
+            if self._current_record:
+                test_results = verify_result.get("test_results", {})
+                self._current_record.tests_passed = test_results.get("passed", 0)
+                self._current_record.tests_failed = test_results.get("failed", 0)
+                self._current_record.tests_skipped = test_results.get("skipped", 0)
+                self._current_record.phases_completed = [
+                    "context",
+                    "debate",
+                    "design",
+                    "implement",
+                    "verify",
+                ]
+
+            # Mark cycle successful and save
+            self._finalize_cycle_record(success=True)
+
             return {
                 "success": True,
                 "cycle_id": self._current_cycle_id,
@@ -188,6 +224,10 @@ class NomicLoop:
         except Exception as e:
             logger.exception(f"Cycle {self._current_cycle_id} failed with exception")
             self.create_checkpoint()
+
+            # Record failure with error
+            self._finalize_cycle_record(success=False, error=str(e))
+
             return {
                 "success": False,
                 "cycle_id": self._current_cycle_id,
@@ -202,12 +242,17 @@ class NomicLoop:
         reason: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a failed cycle result."""
+        error_msg = reason or result.get("error", "Phase failed")
+
+        # Record failure with phase info
+        self._finalize_cycle_record(success=False, error=f"{phase}: {error_msg}")
+
         return {
             "success": False,
             "completed": False,
             "cycle_id": self._current_cycle_id,
             "failed_phase": phase,
-            "reason": reason or result.get("error", "Phase failed"),
+            "reason": error_msg,
             "partial_context": self._cycle_context,
         }
 
@@ -456,3 +501,212 @@ class NomicLoop:
         self._cycle_count = checkpoint.get("cycle_count", 0)
         self._cycle_context = checkpoint.get("context", {})
         self._log(f"Restored from checkpoint: {self._current_cycle_id}")
+
+    # =========================================================================
+    # Cross-Cycle Learning Methods
+    # =========================================================================
+
+    def _get_cycle_store(self) -> CycleLearningStore:
+        """Get or create the cycle learning store."""
+        if self._cycle_store is None:
+            self._cycle_store = get_cycle_store()
+        return self._cycle_store
+
+    def _finalize_cycle_record(
+        self,
+        success: bool,
+        error: Optional[str] = None,
+    ) -> None:
+        """
+        Finalize and save the cycle record.
+
+        Args:
+            success: Whether the cycle succeeded
+            error: Optional error message if failed
+        """
+        if not self._enable_cycle_learning or not self._current_record:
+            return
+
+        try:
+            # Populate file changes from context
+            impl = self._cycle_context.get("implementation", {})
+            self._current_record.files_modified = impl.get("files_modified", [])
+            self._current_record.files_created = impl.get("files_created", [])
+            self._current_record.lines_added = impl.get("lines_added", 0)
+            self._current_record.lines_removed = impl.get("lines_removed", 0)
+
+            # Populate debate topics from context
+            debate = self._cycle_context.get("debate", {})
+            proposals = debate.get("proposals", [])
+            if proposals:
+                self._current_record.topics_debated = [
+                    p.get("proposal", str(p))[:200] for p in proposals[:5]
+                ]
+            if debate.get("consensus", False):
+                self._current_record.consensus_reached = self._current_record.topics_debated
+
+            # Mark complete and save
+            self._current_record.mark_complete(success=success, error=error)
+            self._get_cycle_store().save_cycle(self._current_record)
+
+            logger.debug(
+                f"cycle_record_saved cycle_id={self._current_record.cycle_id} " f"success={success}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save cycle record: {e}")
+
+    def _get_cross_cycle_context(self) -> Dict[str, Any]:
+        """
+        Get learning context from previous cycles.
+
+        Returns context including:
+        - Recent successful patterns
+        - Agent trajectories
+        - Similar past topics
+
+        Returns:
+            Dictionary with cross-cycle learning context
+        """
+        if not self._enable_cycle_learning:
+            return {}
+
+        try:
+            store = self._get_cycle_store()
+            context: Dict[str, Any] = {}
+
+            # Get recent successful cycles
+            successful = store.get_successful_cycles(5)
+            if successful:
+                context["recent_successes"] = [
+                    {
+                        "cycle_id": c.cycle_id,
+                        "topics": c.topics_debated[:3] if c.topics_debated else [],
+                        "files_modified": len(c.files_modified),
+                        "duration": c.duration_seconds,
+                    }
+                    for c in successful[:3]
+                ]
+
+            # Get pattern statistics
+            patterns = store.get_pattern_statistics()
+            if patterns:
+                # Include patterns with good success rates
+                good_patterns = {
+                    k: v
+                    for k, v in patterns.items()
+                    if v.get("success_rate", 0) > 0.6 and v.get("success_count", 0) >= 2
+                }
+                if good_patterns:
+                    context["successful_patterns"] = list(good_patterns.keys())
+
+            # Get recent surprises to avoid
+            surprises = store.get_surprise_summary(20)
+            high_impact = []
+            for phase, events in surprises.items():
+                for event in events:
+                    if event.get("impact") == "high":
+                        high_impact.append(
+                            {
+                                "phase": phase,
+                                "description": event["description"][:100],
+                            }
+                        )
+            if high_impact:
+                context["surprises_to_avoid"] = high_impact[:3]
+
+            return context
+
+        except Exception as e:
+            logger.debug(f"Failed to get cross-cycle context: {e}")
+            return {}
+
+    def record_agent_contribution(
+        self,
+        agent_name: str,
+        proposals_made: int = 0,
+        proposals_accepted: int = 0,
+        critiques_given: int = 0,
+        critiques_valuable: int = 0,
+    ) -> None:
+        """
+        Record an agent's contribution to the current cycle.
+
+        Args:
+            agent_name: Name of the agent
+            proposals_made: Number of proposals made
+            proposals_accepted: Number of proposals accepted
+            critiques_given: Number of critiques given
+            critiques_valuable: Number of valuable critiques
+        """
+        if self._current_record:
+            self._current_record.add_agent_contribution(
+                agent_name=agent_name,
+                proposals_made=proposals_made,
+                proposals_accepted=proposals_accepted,
+                critiques_given=critiques_given,
+                critiques_valuable=critiques_valuable,
+            )
+
+    def record_surprise(
+        self,
+        phase: str,
+        description: str,
+        expected: str,
+        actual: str,
+        impact: str = "low",
+    ) -> None:
+        """
+        Record a surprise event in the current cycle.
+
+        Args:
+            phase: Phase where surprise occurred
+            description: Description of the surprise
+            expected: What was expected
+            actual: What actually happened
+            impact: Impact level (low, medium, high)
+        """
+        if self._current_record:
+            self._current_record.add_surprise(
+                phase=phase,
+                description=description,
+                expected=expected,
+                actual=actual,
+                impact=impact,
+            )
+
+    def record_pattern_reinforcement(
+        self,
+        pattern_type: str,
+        description: str,
+        success: bool,
+        confidence: float = 0.5,
+    ) -> None:
+        """
+        Record a pattern that was confirmed or refuted.
+
+        Args:
+            pattern_type: Type of pattern (e.g., "bugfix", "refactor")
+            description: Description of the pattern
+            success: Whether the pattern succeeded
+            confidence: Confidence in the reinforcement (0.0-1.0)
+        """
+        if self._current_record:
+            self._current_record.add_pattern_reinforcement(
+                pattern_type=pattern_type,
+                description=description,
+                success=success,
+                confidence=confidence,
+            )
+
+    def get_agent_trajectory(self, agent_name: str, n: int = 20) -> List[Dict[str, Any]]:
+        """
+        Get performance trajectory for an agent.
+
+        Args:
+            agent_name: Name of the agent
+            n: Number of recent cycles to analyze
+
+        Returns:
+            List of performance snapshots
+        """
+        return self._get_cycle_store().get_agent_trajectory(agent_name, n)

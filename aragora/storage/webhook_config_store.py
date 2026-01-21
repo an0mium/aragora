@@ -429,9 +429,27 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
 
     Persisted to disk, survives restarts. Suitable for single-instance
     production deployments.
+
+    Raises:
+        DistributedStateError: In production if PostgreSQL is not available
     """
 
     def __init__(self, db_path: Path | str):
+        # SECURITY: Check production guards for SQLite usage
+        try:
+            from aragora.storage.production_guards import (
+                require_distributed_store,
+                StorageMode,
+            )
+
+            require_distributed_store(
+                "webhook_config_store",
+                StorageMode.SQLITE,
+                "Webhook config store using SQLite - use PostgreSQL for multi-instance deployments",
+            )
+        except ImportError:
+            pass  # Guards not available, allow SQLite
+
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._local = threading.local()
