@@ -18,6 +18,7 @@ import { BroadcastPanel } from '@/components/broadcast/BroadcastPanel';
 import { EvidencePanel } from '@/components/EvidencePanel';
 import { ForkVisualizer } from '@/components/fork-visualizer';
 import { ExplainabilityPanel } from '@/components/ExplainabilityPanel';
+import { BatchExplainabilityPanel } from '@/components/BatchExplainabilityPanel';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -219,6 +220,15 @@ export function DebateViewerWrapper() {
               </PanelErrorBoundary>
               <PanelErrorBoundary panelName="Metrics">
                 <MetricsPanel apiBase={config.api} />
+              </PanelErrorBoundary>
+            </div>
+          )}
+
+          {/* Batch Explainability - Full Width */}
+          {showDeepAnalysis && (
+            <div className="mt-4">
+              <PanelErrorBoundary panelName="Batch Explainability">
+                <BatchExplainabilityPanel apiBase={config.api} />
               </PanelErrorBoundary>
             </div>
           )}
