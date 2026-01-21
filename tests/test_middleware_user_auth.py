@@ -1,5 +1,5 @@
 """
-Tests for aragora.server.middleware.auth_v2 module.
+Tests for aragora.server.middleware.user_auth module.
 
 Tests JWT validation, API key validation, and authentication decorators.
 """
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 
-from aragora.server.middleware.auth_v2 import (
+from aragora.server.middleware.user_auth import (
     User,
     Workspace,
     APIKey,
@@ -427,7 +427,7 @@ class TestAuthenticateRequest:
 
         mock_user = User(id="user-1", email="test@example.com")
 
-        with patch("aragora.server.middleware.auth_v2.get_jwt_validator") as mock_get:
+        with patch("aragora.server.middleware.user_auth.get_jwt_validator") as mock_get:
             mock_validator = MagicMock()
             mock_validator.validate_jwt.return_value = mock_user
             mock_get.return_value = mock_validator
@@ -445,10 +445,10 @@ class TestAuthenticateRequest:
 
         mock_user = User(id="user-1", email="test@example.com")
 
-        with patch("aragora.server.middleware.auth_v2.get_jwt_validator") as mock_jwt:
+        with patch("aragora.server.middleware.user_auth.get_jwt_validator") as mock_jwt:
             mock_jwt.return_value.validate_jwt.return_value = None
 
-            with patch("aragora.server.middleware.auth_v2.get_api_key_validator") as mock_api:
+            with patch("aragora.server.middleware.user_auth.get_api_key_validator") as mock_api:
                 mock_api.return_value.validate_key = AsyncMock(return_value=mock_user)
 
                 result = await authenticate_request(handler)
@@ -466,7 +466,7 @@ class TestGetCurrentUser:
 
         mock_user = User(id="user-1", email="test@example.com")
 
-        with patch("aragora.server.middleware.auth_v2.get_jwt_validator") as mock_get:
+        with patch("aragora.server.middleware.user_auth.get_jwt_validator") as mock_get:
             mock_validator = MagicMock()
             mock_validator.validate_jwt.return_value = mock_user
             mock_get.return_value = mock_validator
@@ -499,7 +499,7 @@ class TestRequireUserDecorator:
         handler = MagicMock()
         handler.headers = {"Authorization": "Bearer token"}
 
-        with patch("aragora.server.middleware.auth_v2.get_current_user", return_value=mock_user):
+        with patch("aragora.server.middleware.user_auth.get_current_user", return_value=mock_user):
             result = endpoint(handler)
 
             assert result == {"user_id": "user-1"}
@@ -514,7 +514,7 @@ class TestRequireUserDecorator:
         handler = MagicMock()
         handler.headers = {}
 
-        with patch("aragora.server.middleware.auth_v2.get_current_user", return_value=None):
+        with patch("aragora.server.middleware.user_auth.get_current_user", return_value=None):
             result = endpoint(handler)
 
             assert result.status_code == 401
@@ -546,7 +546,7 @@ class TestRequireAdminDecorator:
         handler = MagicMock()
         handler.headers = {"Authorization": "Bearer token"}
 
-        with patch("aragora.server.middleware.auth_v2.get_current_user", return_value=admin_user):
+        with patch("aragora.server.middleware.user_auth.get_current_user", return_value=admin_user):
             result = endpoint(handler)
 
             assert result == {"admin": True}
@@ -562,7 +562,9 @@ class TestRequireAdminDecorator:
         handler = MagicMock()
         handler.headers = {"Authorization": "Bearer token"}
 
-        with patch("aragora.server.middleware.auth_v2.get_current_user", return_value=regular_user):
+        with patch(
+            "aragora.server.middleware.user_auth.get_current_user", return_value=regular_user
+        ):
             result = endpoint(handler)
 
             assert result.status_code == 403
@@ -583,7 +585,7 @@ class TestRequirePlanDecorator:
         handler = MagicMock()
         handler.headers = {"Authorization": "Bearer token"}
 
-        with patch("aragora.server.middleware.auth_v2.get_current_user", return_value=pro_user):
+        with patch("aragora.server.middleware.user_auth.get_current_user", return_value=pro_user):
             result = endpoint(handler)
 
             assert result == {"plan": "pro"}
@@ -599,7 +601,7 @@ class TestRequirePlanDecorator:
         handler = MagicMock()
         handler.headers = {"Authorization": "Bearer token"}
 
-        with patch("aragora.server.middleware.auth_v2.get_current_user", return_value=free_user):
+        with patch("aragora.server.middleware.user_auth.get_current_user", return_value=free_user):
             result = endpoint(handler)
 
             assert result.status_code == 403
@@ -618,7 +620,7 @@ class TestRequirePlanDecorator:
         handler.headers = {"Authorization": "Bearer token"}
 
         with patch(
-            "aragora.server.middleware.auth_v2.get_current_user", return_value=enterprise_user
+            "aragora.server.middleware.user_auth.get_current_user", return_value=enterprise_user
         ):
             result = endpoint(handler)
 
@@ -631,7 +633,7 @@ class TestGlobalValidators:
     def test_get_jwt_validator_singleton(self):
         """get_jwt_validator returns same instance."""
         # Reset global
-        import aragora.server.middleware.auth_v2 as auth_module
+        import aragora.server.middleware.user_auth as auth_module
 
         auth_module._jwt_validator = None
 
@@ -644,7 +646,7 @@ class TestGlobalValidators:
     def test_get_api_key_validator_singleton(self):
         """get_api_key_validator returns same instance."""
         # Reset global
-        import aragora.server.middleware.auth_v2 as auth_module
+        import aragora.server.middleware.user_auth as auth_module
 
         auth_module._api_key_validator = None
 

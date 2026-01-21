@@ -50,7 +50,7 @@ from .auth import (
     require_auth_or_localhost,
     validate_token,
 )
-from .auth_v2 import (
+from .user_auth import (
     APIKey,
     SupabaseAuthValidator,
     User,

@@ -9,7 +9,7 @@ module provides simplified decorator wrappers (@require_auth, @optional_auth)
 for basic token validation. Both modules are exported through __init__.py.
 
 Module Structure:
-- auth_v2.py (this file): Full implementation (User, Workspace, JWT, Supabase)
+- user_auth.py (this file): Full implementation (User, Workspace, JWT, Supabase)
 - auth.py: Simple decorators for basic auth flows
 
 Key exports:

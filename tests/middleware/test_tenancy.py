@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.server.middleware.auth_v2 import User, Workspace
+from aragora.server.middleware.user_auth import User, Workspace
 from aragora.server.middleware.tenancy import (
     PLAN_LIMITS,
     WorkspaceManager,

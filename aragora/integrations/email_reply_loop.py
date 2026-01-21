@@ -43,6 +43,11 @@ from email.parser import BytesParser
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from aragora.control_plane.leader import (
+    is_distributed_state_required,
+    DistributedStateError,
+)
+
 logger = logging.getLogger(__name__)
 
 # Configuration from environment
@@ -167,7 +172,9 @@ class EmailReplyOrigin:
             "recipient_name": self.recipient_name,
             "sent_at": self.sent_at.isoformat() if self.sent_at else None,
             "reply_received": self.reply_received,
-            "reply_received_at": self.reply_received_at.isoformat() if self.reply_received_at else None,
+            "reply_received_at": self.reply_received_at.isoformat()
+            if self.reply_received_at
+            else None,
             "metadata": self.metadata,
         }
 
@@ -183,7 +190,9 @@ class EmailReplyOrigin:
             recipient_name=data.get("recipient_name", ""),
             sent_at=datetime.fromisoformat(sent_at) if sent_at else datetime.utcnow(),
             reply_received=data.get("reply_received", False),
-            reply_received_at=datetime.fromisoformat(reply_received_at) if reply_received_at else None,
+            reply_received_at=datetime.fromisoformat(reply_received_at)
+            if reply_received_at
+            else None,
             metadata=data.get("metadata", {}),
         )
 
@@ -339,6 +348,9 @@ def register_email_origin(
 
     Returns:
         EmailReplyOrigin tracking object
+
+    Raises:
+        DistributedStateError: If distributed state is required but Redis unavailable
     """
     origin = EmailReplyOrigin(
         debate_id=debate_id,
@@ -355,13 +367,29 @@ def register_email_origin(
     except Exception as e:
         logger.warning(f"SQLite email origin storage failed: {e}")
 
-    # Also persist to Redis for durability across restarts
+    # Persist to Redis for distributed deployments
+    redis_success = False
     try:
         _store_email_origin_redis(origin)
+        redis_success = True
+    except ImportError:
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "email_reply_loop",
+                "Redis library not installed (pip install redis)",
+            )
+        logger.debug("Redis not available, using SQLite only")
     except Exception as e:
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "email_reply_loop",
+                f"Redis connection failed: {e}",
+            )
         logger.debug(f"Redis email origin storage not available: {e}")
 
-    logger.debug(f"Registered email origin for debate {debate_id}: {message_id}")
+    logger.debug(
+        f"Registered email origin for debate {debate_id}: {message_id} " f"(redis={redis_success})"
+    )
     return origin
 
 
@@ -425,11 +453,13 @@ def parse_raw_email(raw_data: bytes) -> InboundEmail:
             content_disposition = str(part.get("Content-Disposition", ""))
 
             if "attachment" in content_disposition:
-                attachments.append({
-                    "filename": part.get_filename(),
-                    "content_type": content_type,
-                    "size": len(part.get_payload(decode=True) or b""),
-                })
+                attachments.append(
+                    {
+                        "filename": part.get_filename(),
+                        "content_type": content_type,
+                        "size": len(part.get_payload(decode=True) or b""),
+                    }
+                )
             elif content_type == "text/plain":
                 payload = part.get_payload(decode=True)
                 if payload:
@@ -590,7 +620,7 @@ def _parse_email_address(address: str) -> tuple[str, str]:
         return match.group(2).strip(), match.group(1).strip()
 
     # Plain email
-    email_match = re.search(r'[\w\.-]+@[\w\.-]+', address)
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+", address)
     if email_match:
         return email_match.group(0), ""
 
@@ -598,10 +628,7 @@ def _parse_email_address(address: str) -> tuple[str, str]:
 
 
 # Pattern for detecting debate requests in email subject
-NEW_DEBATE_PATTERN = re.compile(
-    r'^(?:DEBATE|DISCUSS|ASK|QUESTION)[:\s]+(.+)$',
-    re.IGNORECASE
-)
+NEW_DEBATE_PATTERN = re.compile(r"^(?:DEBATE|DISCUSS|ASK|QUESTION)[:\s]+(.+)$", re.IGNORECASE)
 
 
 async def _try_start_new_debate(email_data: InboundEmail) -> bool:
@@ -694,9 +721,7 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
 
             return True
         else:
-            logger.warning(
-                f"Email debate failed: {result.get('error', 'unknown error')}"
-            )
+            logger.warning(f"Email debate failed: {result.get('error', 'unknown error')}")
             return False
 
     except ImportError as e:
@@ -807,6 +832,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         # Fire and forget
         async def enqueue():
             from aragora.queue import create_redis_queue
+
             q = await create_redis_queue()
             await q.enqueue(job)
 
@@ -839,11 +865,7 @@ def verify_sendgrid_signature(payload: bytes, timestamp: str, signature: str) ->
 
     # SendGrid signature = SHA256(timestamp + payload + secret)
     to_sign = timestamp.encode() + payload
-    expected = hmac.new(
-        SENDGRID_INBOUND_SECRET.encode(),
-        to_sign,
-        hashlib.sha256
-    ).hexdigest()
+    expected = hmac.new(SENDGRID_INBOUND_SECRET.encode(), to_sign, hashlib.sha256).hexdigest()
 
     return hmac.compare_digest(signature, expected)
 

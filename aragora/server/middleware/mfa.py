@@ -19,7 +19,7 @@ import logging
 from functools import wraps
 from typing import Any, Callable, Optional
 
-from aragora.server.middleware.auth_v2 import User, get_current_user
+from aragora.server.middleware.user_auth import User, get_current_user
 
 logger = logging.getLogger(__name__)
 

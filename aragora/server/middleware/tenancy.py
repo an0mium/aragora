@@ -21,7 +21,7 @@ import logging
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-from .auth_v2 import User, Workspace, get_current_user
+from .user_auth import User, Workspace, get_current_user
 
 if TYPE_CHECKING:
     pass
