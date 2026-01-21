@@ -1027,17 +1027,16 @@ class WhatsAppConnector(ChatPlatformConnector):
         blocks: Optional[list[dict]] = None,
         replace_original: bool = False,
         **kwargs: Any,
-    ) -> bool:
+    ) -> SendMessageResponse:
         """Respond to a user interaction (button click or list selection)."""
         if interaction.channel:
-            result = await self.send_message(
+            return await self.send_message(
                 channel_id=interaction.channel.id,
                 text=text,
                 blocks=blocks,
                 **kwargs,
             )
-            return result.success
-        return False
+        return SendMessageResponse(success=False, error="No channel for interaction response")
 
 
 __all__ = ["WhatsAppConnector"]
