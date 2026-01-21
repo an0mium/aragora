@@ -140,6 +140,29 @@ USER_MAPPING_CACHE_HITS_TOTAL: Any = None
 USER_MAPPING_CACHE_MISSES_TOTAL: Any = None
 USER_MAPPINGS_ACTIVE: Any = None
 
+# Marketplace metrics
+MARKETPLACE_TEMPLATES_TOTAL: Any = None
+MARKETPLACE_DOWNLOADS_TOTAL: Any = None
+MARKETPLACE_RATINGS_TOTAL: Any = None
+MARKETPLACE_RATINGS_DISTRIBUTION: Any = None
+MARKETPLACE_REVIEWS_TOTAL: Any = None
+MARKETPLACE_OPERATION_LATENCY: Any = None
+
+# Batch Explainability metrics
+BATCH_EXPLAINABILITY_JOBS_ACTIVE: Any = None
+BATCH_EXPLAINABILITY_JOBS_TOTAL: Any = None
+BATCH_EXPLAINABILITY_DEBATES_PROCESSED: Any = None
+BATCH_EXPLAINABILITY_PROCESSING_LATENCY: Any = None
+BATCH_EXPLAINABILITY_ERRORS_TOTAL: Any = None
+
+# Webhook Delivery metrics
+WEBHOOK_DELIVERIES_TOTAL: Any = None
+WEBHOOK_DELIVERY_LATENCY: Any = None
+WEBHOOK_FAILURES_BY_ENDPOINT: Any = None
+WEBHOOK_RETRIES_TOTAL: Any = None
+WEBHOOK_CIRCUIT_BREAKER_STATES: Any = None
+WEBHOOK_QUEUE_SIZE: Any = None
+
 
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
@@ -679,6 +702,124 @@ def _init_metrics() -> bool:
             ["platform"],
         )
 
+        # Marketplace metrics
+        global MARKETPLACE_TEMPLATES_TOTAL, MARKETPLACE_DOWNLOADS_TOTAL
+        global MARKETPLACE_RATINGS_TOTAL, MARKETPLACE_RATINGS_DISTRIBUTION
+        global MARKETPLACE_REVIEWS_TOTAL, MARKETPLACE_OPERATION_LATENCY
+
+        MARKETPLACE_TEMPLATES_TOTAL = Gauge(
+            "aragora_marketplace_templates_total",
+            "Total number of templates in the marketplace",
+            ["category", "visibility"],
+        )
+
+        MARKETPLACE_DOWNLOADS_TOTAL = Counter(
+            "aragora_marketplace_downloads_total",
+            "Total template downloads",
+            ["template_id", "category"],
+        )
+
+        MARKETPLACE_RATINGS_TOTAL = Counter(
+            "aragora_marketplace_ratings_total",
+            "Total template ratings submitted",
+            ["template_id"],
+        )
+
+        MARKETPLACE_RATINGS_DISTRIBUTION = Histogram(
+            "aragora_marketplace_ratings_distribution",
+            "Distribution of template ratings",
+            ["category"],
+            buckets=[1, 2, 3, 4, 5],
+        )
+
+        MARKETPLACE_REVIEWS_TOTAL = Counter(
+            "aragora_marketplace_reviews_total",
+            "Total template reviews submitted",
+            ["template_id", "status"],
+        )
+
+        MARKETPLACE_OPERATION_LATENCY = Histogram(
+            "aragora_marketplace_operation_latency_seconds",
+            "Marketplace operation latency in seconds",
+            ["operation"],
+            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+        )
+
+        # Batch Explainability metrics
+        global BATCH_EXPLAINABILITY_JOBS_ACTIVE, BATCH_EXPLAINABILITY_JOBS_TOTAL
+        global BATCH_EXPLAINABILITY_DEBATES_PROCESSED, BATCH_EXPLAINABILITY_PROCESSING_LATENCY
+        global BATCH_EXPLAINABILITY_ERRORS_TOTAL
+
+        BATCH_EXPLAINABILITY_JOBS_ACTIVE = Gauge(
+            "aragora_explainability_batch_jobs_active",
+            "Number of active batch explainability jobs",
+        )
+
+        BATCH_EXPLAINABILITY_JOBS_TOTAL = Counter(
+            "aragora_explainability_batch_jobs_total",
+            "Total batch explainability jobs",
+            ["status"],
+        )
+
+        BATCH_EXPLAINABILITY_DEBATES_PROCESSED = Counter(
+            "aragora_explainability_batch_debates_processed_total",
+            "Total debates processed in batch jobs",
+            ["status"],
+        )
+
+        BATCH_EXPLAINABILITY_PROCESSING_LATENCY = Histogram(
+            "aragora_explainability_batch_processing_latency_seconds",
+            "Batch explainability processing latency per debate",
+            buckets=[0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
+        )
+
+        BATCH_EXPLAINABILITY_ERRORS_TOTAL = Counter(
+            "aragora_explainability_batch_errors_total",
+            "Total errors in batch explainability processing",
+            ["error_type"],
+        )
+
+        # Webhook Delivery metrics
+        global WEBHOOK_DELIVERIES_TOTAL, WEBHOOK_DELIVERY_LATENCY
+        global WEBHOOK_FAILURES_BY_ENDPOINT, WEBHOOK_RETRIES_TOTAL
+        global WEBHOOK_CIRCUIT_BREAKER_STATES, WEBHOOK_QUEUE_SIZE
+
+        WEBHOOK_DELIVERIES_TOTAL = Counter(
+            "aragora_webhook_deliveries_total",
+            "Total webhook delivery attempts",
+            ["endpoint", "status"],
+        )
+
+        WEBHOOK_DELIVERY_LATENCY = Histogram(
+            "aragora_webhook_delivery_latency_seconds",
+            "Webhook delivery latency in seconds",
+            ["endpoint"],
+            buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
+        )
+
+        WEBHOOK_FAILURES_BY_ENDPOINT = Counter(
+            "aragora_webhook_failures_by_endpoint_total",
+            "Webhook failures by endpoint and error type",
+            ["endpoint", "error_type"],
+        )
+
+        WEBHOOK_RETRIES_TOTAL = Counter(
+            "aragora_webhook_retries_total",
+            "Total webhook delivery retries",
+            ["endpoint", "attempt"],
+        )
+
+        WEBHOOK_CIRCUIT_BREAKER_STATES = Gauge(
+            "aragora_webhook_circuit_breaker_state",
+            "Circuit breaker state per endpoint (0=closed, 1=half-open, 2=open)",
+            ["endpoint"],
+        )
+
+        WEBHOOK_QUEUE_SIZE = Gauge(
+            "aragora_webhook_queue_size",
+            "Current size of the webhook delivery queue",
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -831,6 +972,38 @@ def _init_noop_metrics() -> None:
     USER_MAPPING_CACHE_HITS_TOTAL = NoOpMetric()
     USER_MAPPING_CACHE_MISSES_TOTAL = NoOpMetric()
     USER_MAPPINGS_ACTIVE = NoOpMetric()
+
+    # Marketplace
+    global MARKETPLACE_TEMPLATES_TOTAL, MARKETPLACE_DOWNLOADS_TOTAL
+    global MARKETPLACE_RATINGS_TOTAL, MARKETPLACE_RATINGS_DISTRIBUTION
+    global MARKETPLACE_REVIEWS_TOTAL, MARKETPLACE_OPERATION_LATENCY
+    MARKETPLACE_TEMPLATES_TOTAL = NoOpMetric()
+    MARKETPLACE_DOWNLOADS_TOTAL = NoOpMetric()
+    MARKETPLACE_RATINGS_TOTAL = NoOpMetric()
+    MARKETPLACE_RATINGS_DISTRIBUTION = NoOpMetric()
+    MARKETPLACE_REVIEWS_TOTAL = NoOpMetric()
+    MARKETPLACE_OPERATION_LATENCY = NoOpMetric()
+
+    # Batch Explainability
+    global BATCH_EXPLAINABILITY_JOBS_ACTIVE, BATCH_EXPLAINABILITY_JOBS_TOTAL
+    global BATCH_EXPLAINABILITY_DEBATES_PROCESSED, BATCH_EXPLAINABILITY_PROCESSING_LATENCY
+    global BATCH_EXPLAINABILITY_ERRORS_TOTAL
+    BATCH_EXPLAINABILITY_JOBS_ACTIVE = NoOpMetric()
+    BATCH_EXPLAINABILITY_JOBS_TOTAL = NoOpMetric()
+    BATCH_EXPLAINABILITY_DEBATES_PROCESSED = NoOpMetric()
+    BATCH_EXPLAINABILITY_PROCESSING_LATENCY = NoOpMetric()
+    BATCH_EXPLAINABILITY_ERRORS_TOTAL = NoOpMetric()
+
+    # Webhook Delivery
+    global WEBHOOK_DELIVERIES_TOTAL, WEBHOOK_DELIVERY_LATENCY
+    global WEBHOOK_FAILURES_BY_ENDPOINT, WEBHOOK_RETRIES_TOTAL
+    global WEBHOOK_CIRCUIT_BREAKER_STATES, WEBHOOK_QUEUE_SIZE
+    WEBHOOK_DELIVERIES_TOTAL = NoOpMetric()
+    WEBHOOK_DELIVERY_LATENCY = NoOpMetric()
+    WEBHOOK_FAILURES_BY_ENDPOINT = NoOpMetric()
+    WEBHOOK_RETRIES_TOTAL = NoOpMetric()
+    WEBHOOK_CIRCUIT_BREAKER_STATES = NoOpMetric()
+    WEBHOOK_QUEUE_SIZE = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -2621,3 +2794,275 @@ def record_km_inbound_event(
     # Uses existing KM metrics
     record_km_operation("ingest", success, 0.0)
     record_km_event_emitted(f"inbound_{event_type}")
+
+
+# =============================================================================
+# Marketplace Metrics
+# =============================================================================
+
+
+def set_marketplace_templates_count(
+    category: str,
+    visibility: str,
+    count: int,
+) -> None:
+    """Set the total number of templates in marketplace.
+
+    Args:
+        category: Template category (workflow, debate, analysis)
+        visibility: Visibility level (public, private, team)
+        count: Number of templates
+    """
+    _init_metrics()
+    MARKETPLACE_TEMPLATES_TOTAL.labels(category=category, visibility=visibility).set(count)
+
+
+def record_marketplace_download(
+    template_id: str,
+    category: str,
+) -> None:
+    """Record a template download.
+
+    Args:
+        template_id: ID of the downloaded template
+        category: Template category
+    """
+    _init_metrics()
+    MARKETPLACE_DOWNLOADS_TOTAL.labels(template_id=template_id, category=category).inc()
+
+
+def record_marketplace_rating(
+    template_id: str,
+    category: str,
+    rating: int,
+) -> None:
+    """Record a template rating.
+
+    Args:
+        template_id: ID of the rated template
+        category: Template category
+        rating: Rating value (1-5)
+    """
+    _init_metrics()
+    MARKETPLACE_RATINGS_TOTAL.labels(template_id=template_id).inc()
+    MARKETPLACE_RATINGS_DISTRIBUTION.labels(category=category).observe(rating)
+
+
+def record_marketplace_review(
+    template_id: str,
+    status: str,
+) -> None:
+    """Record a template review.
+
+    Args:
+        template_id: ID of the reviewed template
+        status: Review status (submitted, approved, rejected)
+    """
+    _init_metrics()
+    MARKETPLACE_REVIEWS_TOTAL.labels(template_id=template_id, status=status).inc()
+
+
+def record_marketplace_operation_latency(
+    operation: str,
+    latency_seconds: float,
+) -> None:
+    """Record marketplace operation latency.
+
+    Args:
+        operation: Operation type (list, search, publish, download, rate)
+        latency_seconds: Operation latency in seconds
+    """
+    _init_metrics()
+    MARKETPLACE_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
+
+
+@contextmanager
+def track_marketplace_operation(operation: str) -> Generator[None, None, None]:
+    """Context manager to track marketplace operations.
+
+    Args:
+        operation: Operation type (list, search, publish, download, rate)
+
+    Example:
+        with track_marketplace_operation("search"):
+            results = await search_templates(query)
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        latency = time.perf_counter() - start
+        record_marketplace_operation_latency(operation, latency)
+
+
+# =============================================================================
+# Batch Explainability Metrics
+# =============================================================================
+
+
+def set_batch_explainability_jobs_active(count: int) -> None:
+    """Set the number of active batch explainability jobs.
+
+    Args:
+        count: Number of active jobs
+    """
+    _init_metrics()
+    BATCH_EXPLAINABILITY_JOBS_ACTIVE.set(count)
+
+
+def record_batch_explainability_job(status: str) -> None:
+    """Record a batch explainability job.
+
+    Args:
+        status: Job status (started, completed, failed, cancelled)
+    """
+    _init_metrics()
+    BATCH_EXPLAINABILITY_JOBS_TOTAL.labels(status=status).inc()
+
+
+def record_batch_explainability_debate(
+    status: str,
+    latency_seconds: float,
+) -> None:
+    """Record a debate processed in a batch job.
+
+    Args:
+        status: Processing status (success, error)
+        latency_seconds: Processing latency in seconds
+    """
+    _init_metrics()
+    BATCH_EXPLAINABILITY_DEBATES_PROCESSED.labels(status=status).inc()
+    BATCH_EXPLAINABILITY_PROCESSING_LATENCY.observe(latency_seconds)
+
+
+def record_batch_explainability_error(error_type: str) -> None:
+    """Record a batch explainability error.
+
+    Args:
+        error_type: Type of error (timeout, invalid_debate, generation_failed)
+    """
+    _init_metrics()
+    BATCH_EXPLAINABILITY_ERRORS_TOTAL.labels(error_type=error_type).inc()
+
+
+@contextmanager
+def track_batch_explainability_debate() -> Generator[None, None, None]:
+    """Context manager to track debate processing in batch jobs.
+
+    Example:
+        with track_batch_explainability_debate():
+            explanation = await generate_explanation(debate_id)
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    success = True
+    try:
+        yield
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        status = "success" if success else "error"
+        record_batch_explainability_debate(status, latency)
+
+
+# =============================================================================
+# Webhook Delivery Metrics
+# =============================================================================
+
+
+def record_webhook_delivery(
+    endpoint: str,
+    success: bool,
+    latency_seconds: float,
+) -> None:
+    """Record a webhook delivery attempt.
+
+    Args:
+        endpoint: Webhook endpoint URL (normalized)
+        success: Whether delivery succeeded
+        latency_seconds: Delivery latency in seconds
+    """
+    _init_metrics()
+    status = "success" if success else "failed"
+    WEBHOOK_DELIVERIES_TOTAL.labels(endpoint=endpoint, status=status).inc()
+    WEBHOOK_DELIVERY_LATENCY.labels(endpoint=endpoint).observe(latency_seconds)
+
+
+def record_webhook_failure(
+    endpoint: str,
+    error_type: str,
+) -> None:
+    """Record a webhook delivery failure.
+
+    Args:
+        endpoint: Webhook endpoint URL (normalized)
+        error_type: Type of error (timeout, connection_error, http_4xx, http_5xx, circuit_open)
+    """
+    _init_metrics()
+    WEBHOOK_FAILURES_BY_ENDPOINT.labels(endpoint=endpoint, error_type=error_type).inc()
+
+
+def record_webhook_retry(
+    endpoint: str,
+    attempt: int,
+) -> None:
+    """Record a webhook delivery retry.
+
+    Args:
+        endpoint: Webhook endpoint URL (normalized)
+        attempt: Retry attempt number (2, 3, 4, etc.)
+    """
+    _init_metrics()
+    WEBHOOK_RETRIES_TOTAL.labels(endpoint=endpoint, attempt=str(attempt)).inc()
+
+
+def set_webhook_circuit_breaker_state(
+    endpoint: str,
+    state: str,
+) -> None:
+    """Set the circuit breaker state for a webhook endpoint.
+
+    Args:
+        endpoint: Webhook endpoint URL (normalized)
+        state: Circuit breaker state (closed, half_open, open)
+    """
+    _init_metrics()
+    state_map = {"closed": 0, "half_open": 1, "open": 2}
+    WEBHOOK_CIRCUIT_BREAKER_STATES.labels(endpoint=endpoint).set(state_map.get(state, 0))
+
+
+def set_webhook_queue_size(size: int) -> None:
+    """Set the current webhook delivery queue size.
+
+    Args:
+        size: Current queue size
+    """
+    _init_metrics()
+    WEBHOOK_QUEUE_SIZE.set(size)
+
+
+@contextmanager
+def track_webhook_delivery(endpoint: str) -> Generator[None, None, None]:
+    """Context manager to track webhook delivery.
+
+    Args:
+        endpoint: Webhook endpoint URL (normalized)
+
+    Example:
+        with track_webhook_delivery("https://example.com/webhook"):
+            response = await deliver_webhook(payload)
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    success = True
+    try:
+        yield
+    except Exception:
+        success = False
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        record_webhook_delivery(endpoint, success, latency)

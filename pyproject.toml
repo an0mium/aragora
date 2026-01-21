@@ -548,7 +548,11 @@ module = [
     "aragora.billing.jwt_auth",
     "aragora.spectate.events",
     "aragora.mcp.tools_module.gauntlet",
+    # Added strict - Phase 27 continuum extractions (Jan 2026)
+    "aragora.memory.continuum_glacial",
+    "aragora.memory.continuum_snapshot",
     # Added strict - Phase 27 workflow templates (Jan 2026)
+    "aragora.workflow.templates.__init__",
     "aragora.workflow.templates.package",
     "aragora.workflow.templates.patterns",
     "aragora.workflow.templates.legal",
