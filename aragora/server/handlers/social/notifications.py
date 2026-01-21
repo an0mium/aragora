@@ -15,11 +15,11 @@ from typing import Any, Optional
 from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.schema import (
     EMAIL_CONFIG_SCHEMA,
@@ -123,8 +123,14 @@ def configure_telegram_integration(config: TelegramConfig) -> TelegramIntegratio
     return _telegram_integration
 
 
-class NotificationsHandler(BaseHandler):
+class NotificationsHandler(SecureHandler):
     """Handler for notification-related endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+
+    SECURITY: All endpoints require authentication. Recipients and status
+    are scoped to the authenticated user/organization.
 
     Endpoints:
         GET  /api/notifications/status - Get integration status
@@ -136,6 +142,8 @@ class NotificationsHandler(BaseHandler):
         POST /api/notifications/send - Send a notification
     """
 
+    RESOURCE_TYPE = "notification"
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return path.startswith("/api/notifications")
@@ -143,17 +151,35 @@ class NotificationsHandler(BaseHandler):
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Handle GET requests."""
+        """Handle GET requests.
+
+        SECURITY: All GET endpoints require authentication and RBAC permissions.
+        Access is logged for audit trails.
+        """
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _notifications_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for notifications endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # SECURITY: Use SecureHandler's auth method for consistent RBAC
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        # SECURITY: Require 'notifications.read' permission for all GET endpoints
+        perm_err = self.require_permission_or_error(handler, "read")
+        if perm_err:
+            return perm_err
+
         if path == "/api/notifications/status":
+            # SECURITY: Log access for audit trail
+            logger.info(f"Notifications status accessed by user {user.user_id}")
             return self._get_status()
 
         if path == "/api/notifications/email/recipients":
+            # SECURITY: Log recipient list access for audit trail
+            logger.info(f"Email recipients accessed by user {user.user_id}")
             return self._get_email_recipients()
 
         return None
@@ -161,7 +187,11 @@ class NotificationsHandler(BaseHandler):
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Handle POST requests."""
+        """Handle POST requests.
+
+        SECURITY: All POST endpoints require authentication and RBAC permissions.
+        Configuration changes require 'write' permission.
+        """
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _notifications_limiter.is_allowed(client_ip):
@@ -173,19 +203,29 @@ class NotificationsHandler(BaseHandler):
         if err:
             return err
 
+        # SECURITY: Require 'notifications.write' permission for configuration changes
+        perm_err = self.require_permission_or_error(handler, "write")
+        if perm_err:
+            return perm_err
+
         if path == "/api/notifications/email/config":
+            logger.info(f"Email config modified by user {user.user_id}")
             return self._configure_email(handler)
 
         if path == "/api/notifications/telegram/config":
+            logger.info(f"Telegram config modified by user {user.user_id}")
             return self._configure_telegram(handler)
 
         if path == "/api/notifications/email/recipient":
+            logger.info(f"Email recipient added by user {user.user_id}")
             return self._add_email_recipient(handler)
 
         if path == "/api/notifications/test":
+            logger.info(f"Test notification sent by user {user.user_id}")
             return self._send_test_notification(handler)
 
         if path == "/api/notifications/send":
+            logger.info(f"Notification sent by user {user.user_id}")
             return self._send_notification(handler)
 
         return None
@@ -193,12 +233,21 @@ class NotificationsHandler(BaseHandler):
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Handle DELETE requests."""
+        """Handle DELETE requests.
+
+        SECURITY: All DELETE endpoints require authentication and RBAC permissions.
+        """
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
 
+        # SECURITY: Require 'notifications.delete' permission
+        perm_err = self.require_permission_or_error(handler, "delete")
+        if perm_err:
+            return perm_err
+
         if path == "/api/notifications/email/recipient":
+            logger.info(f"Email recipient removed by user {user.user_id}")
             return self._remove_email_recipient(handler, query_params)
 
         return None
