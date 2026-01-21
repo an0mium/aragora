@@ -206,14 +206,24 @@ def cmd_ask(args: argparse.Namespace) -> None:
     rounds = args.rounds
     learn = args.learn
     enable_audience = True
-    protocol_overrides: dict[str, Any] | None = None
+    protocol_overrides: dict[str, Any] = {}
+
+    # Apply cross-pollination feature flags
+    if not getattr(args, "calibration", True):
+        protocol_overrides["enable_calibration"] = False
+    if not getattr(args, "evidence_weighting", True):
+        protocol_overrides["enable_evidence_weighting"] = False
+    if not getattr(args, "trending", True):
+        protocol_overrides["enable_trending_injection"] = False
+    # Note: ELO weighting is controlled via WeightCalculatorConfig, passed via protocol
+
     if getattr(args, "demo", False):
         print("Demo mode enabled - using built-in demo agents.")
         agents = "demo,demo,demo"
         rounds = min(args.rounds, 2)
         learn = False
         enable_audience = False
-        protocol_overrides = {
+        protocol_overrides.update({
             "convergence_detection": False,
             "vote_grouping": False,
             "enable_trickster": False,
@@ -221,7 +231,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
             "enable_rhetorical_observer": False,
             "role_rotation": False,
             "role_matching": False,
-        }
+        })
 
     result = asyncio.run(
         run_debate(
@@ -1094,6 +1104,35 @@ Examples:
         "-m",
         choices=["architect", "coder", "reviewer", "debugger", "orchestrator"],
         help="Operational mode for agents (architect, coder, reviewer, debugger, orchestrator)",
+    )
+    # Cross-pollination feature flags
+    ask_parser.add_argument(
+        "--no-elo-weighting",
+        dest="elo_weighting",
+        action="store_false",
+        default=True,
+        help="Disable ELO skill-based vote weighting",
+    )
+    ask_parser.add_argument(
+        "--no-calibration",
+        dest="calibration",
+        action="store_false",
+        default=True,
+        help="Disable calibration tracking and confidence adjustment",
+    )
+    ask_parser.add_argument(
+        "--no-evidence-weighting",
+        dest="evidence_weighting",
+        action="store_false",
+        default=True,
+        help="Disable evidence quality-based consensus weighting",
+    )
+    ask_parser.add_argument(
+        "--no-trending",
+        dest="trending",
+        action="store_false",
+        default=True,
+        help="Disable trending topic injection from Pulse",
     )
     ask_parser.set_defaults(func=cmd_ask)
 

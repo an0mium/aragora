@@ -29,6 +29,7 @@ from aragora.server.handlers.utils.rate_limit import (
 from aragora.observability.metrics import (
     record_checkpoint_operation,
     track_checkpoint_operation,
+    check_and_record_slo,
 )
 
 logger = logging.getLogger(__name__)
@@ -188,7 +189,10 @@ class KMCheckpointHandler(BaseHandler):
             return error_response("Failed to create checkpoint", status=500)
         finally:
             latency = time.perf_counter() - start_time
+            latency_ms = latency * 1000
             record_checkpoint_operation("create", success, latency)
+            # Check SLO compliance
+            check_and_record_slo("km_checkpoint", latency_ms)
 
     @rate_limit(rpm=30)
     def _get_checkpoint(self, handler, name: str) -> HandlerResult:
@@ -314,7 +318,10 @@ class KMCheckpointHandler(BaseHandler):
             return error_response("Failed to restore checkpoint", status=500)
         finally:
             latency = time.perf_counter() - start_time
+            latency_ms = latency * 1000
             record_checkpoint_operation("restore", success, latency)
+            # Check SLO compliance
+            check_and_record_slo("km_checkpoint", latency_ms)
 
     @rate_limit(rpm=30)
     def _compare_checkpoint(self, handler, name: str) -> HandlerResult:

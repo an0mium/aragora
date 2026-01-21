@@ -49,7 +49,7 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
       if (runId) params.set('run_id', runId);
       if (verdictFilter) params.set('verdict', verdictFilter);
 
-      const data = await apiFetch(`/api/gauntlet/receipts?${params.toString()}`);
+      const data = await apiFetch<{ receipts: Receipt[] }>(`/api/gauntlet/receipts?${params.toString()}`);
       setReceipts(data.receipts || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch receipts');
@@ -67,7 +67,7 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
     setVerifyResult(null);
 
     try {
-      const result = await apiFetch(`/api/gauntlet/receipts/${receiptId}/verify`, {
+      const result = await apiFetch<{ valid: boolean; message: string }>(`/api/gauntlet/receipts/${receiptId}/verify`, {
         method: 'POST',
       });
       setVerifyResult({ valid: result.valid, message: result.message });
@@ -80,11 +80,11 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
 
   const handleExport = async (receiptId: string, format: 'json' | 'html') => {
     try {
-      const data = await apiFetch(`/api/gauntlet/receipts/${receiptId}/export?format=${format}`);
+      const data = await apiFetch<{ html?: string }>(`/api/gauntlet/receipts/${receiptId}/export?format=${format}`);
 
       // Create blob and download
       const blob = new Blob(
-        [format === 'json' ? JSON.stringify(data, null, 2) : data.html],
+        [format === 'json' ? JSON.stringify(data, null, 2) : data.html || ''],
         { type: format === 'json' ? 'application/json' : 'text/html' }
       );
       const url = URL.createObjectURL(blob);

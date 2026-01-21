@@ -646,7 +646,7 @@ h3 {{ color: #666; }}
             "total_debates": len(debate_ids),
             "status_url": f"/api/v1/explainability/batch/{batch_id}/status",
             "results_url": f"/api/v1/explainability/batch/{batch_id}/results",
-        }, status_code=202)
+        }, status=202)
 
     def _start_batch_processing(self, job: BatchJob) -> None:
         """Start processing batch job asynchronously."""

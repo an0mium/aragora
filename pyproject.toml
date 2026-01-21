@@ -535,6 +535,19 @@ module = [
     "aragora.client.resources.graph_debates",
     "aragora.client.resources.matrix_debates",
     "aragora.client.resources.replay",
+    # Added strict - Phase 26 additional modules (Jan 2026)
+    "aragora.client.resources.agents",
+    "aragora.client.resources.memory",
+    "aragora.client.resources.verification",
+    "aragora.modes.tool_groups",
+    "aragora.modes.builtin.architect",
+    "aragora.modes.builtin.coder",
+    "aragora.modes.builtin.debugger",
+    "aragora.modes.builtin.reviewer",
+    "aragora.ranking.verification",
+    "aragora.billing.jwt_auth",
+    "aragora.spectate.events",
+    "aragora.mcp.tools_module.gauntlet",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

@@ -34,7 +34,7 @@ class MockKnowledgeMound:
     """
 
     def __init__(self, workspace_id: str = "test-workspace"):
-        self._workspace_id = workspace_id
+        self.workspace_id = workspace_id
         self.nodes: Dict[str, Any] = {}
         self._node_counter = 0
 
