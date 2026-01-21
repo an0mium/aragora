@@ -28,7 +28,7 @@
     "check:types": "npm run generate:types && git diff --exit-code src/types/api.generated.ts || (echo 'API types are out of sync. Run npm run generate:types' && exit 1)"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.89.0",
+    "@supabase/supabase-js": "^2.91.0",
     "@types/d3-drag": "^3.0.7",
     "@types/d3-force": "^3.0.10",
     "@types/d3-selection": "^3.0.11",
