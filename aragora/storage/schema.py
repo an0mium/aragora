@@ -801,8 +801,17 @@ class DatabaseManager:
                 logger.debug(f"Closed {pool_size} pooled connections to {self.db_path}")
 
     def __del__(self) -> None:
-        """Ensure connection is closed on garbage collection."""
-        self.close()
+        """Ensure connection is closed on garbage collection.
+
+        Note: During interpreter shutdown, logging handlers may already be closed,
+        so we wrap in try-except to avoid errors when the logging system is torn down.
+        """
+        try:
+            self.close()
+        except Exception:
+            # Silently ignore errors during shutdown - logging may be unavailable
+            # and we just want to close connections without raising
+            pass
 
     def __repr__(self) -> str:
         return f"DatabaseManager({self.db_path!r})"
