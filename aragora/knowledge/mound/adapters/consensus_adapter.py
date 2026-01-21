@@ -98,13 +98,15 @@ class ConsensusAdapter:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
     def _record_metric(self, operation: str, success: bool, latency: float) -> None:
-        """Record Prometheus metric for adapter operation.
+        """Record Prometheus metric for adapter operation and check SLOs.
 
         Args:
-            operation: Operation name (search, store, sync)
+            operation: Operation name (search, store, sync, semantic_search)
             success: Whether operation succeeded
             latency: Operation latency in seconds
         """
+        latency_ms = latency * 1000  # Convert to milliseconds
+
         try:
             from aragora.observability.metrics.km import (
                 record_km_operation,
@@ -117,6 +119,35 @@ class ConsensusAdapter:
             pass  # Metrics not available
         except Exception as e:
             logger.debug(f"Failed to record metric: {e}")
+
+        # Check SLOs and alert on violations
+        try:
+            from aragora.observability.metrics.slo import check_and_record_slo_with_recovery
+
+            # Map operation to SLO name
+            slo_mapping = {
+                "search": "adapter_reverse",
+                "store": "adapter_forward_sync",
+                "sync": "adapter_sync",
+                "semantic_search": "adapter_semantic_search",
+            }
+            slo_name = slo_mapping.get(operation, "adapter_sync")
+
+            passed, message = check_and_record_slo_with_recovery(
+                operation=slo_name,
+                latency_ms=latency_ms,
+                context={
+                    "adapter": "consensus",
+                    "operation": operation,
+                    "success": success,
+                },
+            )
+            if not passed:
+                logger.debug(f"Consensus adapter SLO violation: {message}")
+        except ImportError:
+            pass  # SLO metrics not available
+        except Exception as e:
+            logger.debug(f"Failed to check SLO: {e}")
 
     @property
     def consensus(self) -> "ConsensusMemory":

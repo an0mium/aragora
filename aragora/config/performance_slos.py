@@ -116,6 +116,42 @@ class AdapterSyncSLO(LatencySLO):
     timeout_ms: float = 15000.0
 
 
+@dataclass
+class AdapterForwardSyncSLO(LatencySLO):
+    """SLO for adapter forward sync (source → KM) operations."""
+    p50_ms: float = 100.0
+    p90_ms: float = 300.0
+    p99_ms: float = 800.0
+    timeout_ms: float = 5000.0
+
+
+@dataclass
+class AdapterReverseSLO(LatencySLO):
+    """SLO for adapter reverse query (KM → source) operations."""
+    p50_ms: float = 50.0
+    p90_ms: float = 150.0
+    p99_ms: float = 500.0
+    timeout_ms: float = 3000.0
+
+
+@dataclass
+class AdapterSemanticSearchSLO(LatencySLO):
+    """SLO for adapter semantic search operations."""
+    p50_ms: float = 100.0
+    p90_ms: float = 300.0
+    p99_ms: float = 1000.0
+    timeout_ms: float = 5000.0
+
+
+@dataclass
+class AdapterValidationSLO(LatencySLO):
+    """SLO for adapter validation feedback operations."""
+    p50_ms: float = 200.0
+    p90_ms: float = 500.0
+    p99_ms: float = 1500.0
+    timeout_ms: float = 10000.0
+
+
 # ============================================================================
 # Cross-Subscriber SLOs
 # ============================================================================
@@ -214,6 +250,10 @@ class SLOConfig:
 
     # Adapters
     adapter_sync: AdapterSyncSLO = field(default_factory=AdapterSyncSLO)
+    adapter_forward_sync: AdapterForwardSyncSLO = field(default_factory=AdapterForwardSyncSLO)
+    adapter_reverse: AdapterReverseSLO = field(default_factory=AdapterReverseSLO)
+    adapter_semantic_search: AdapterSemanticSearchSLO = field(default_factory=AdapterSemanticSearchSLO)
+    adapter_validation: AdapterValidationSLO = field(default_factory=AdapterValidationSLO)
 
     # Events
     event_dispatch: EventDispatchSLO = field(default_factory=EventDispatchSLO)
