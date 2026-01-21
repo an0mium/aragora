@@ -48,25 +48,23 @@ class TestRunAsync:
         with pytest.raises(ValueError, match="test error"):
             run_async(failing())
 
-    def test_respects_timeout(self):
-        """Times out on slow coroutines."""
+    @pytest.mark.asyncio
+    async def test_respects_timeout_in_async_context(self):
+        """Times out on slow coroutines when called from async context.
+
+        Note: timeout only applies when called from an async context (running loop exists),
+        where run_async uses ThreadPoolExecutor with timeout. In sync context,
+        asyncio.run() is used which doesn't have an external timeout mechanism.
+        """
+        import concurrent.futures
+
         async def slow():
             await asyncio.sleep(10)
             return "never"
 
-        # run_async may raise concurrent.futures.TimeoutError or not complete
-        # depending on whether there's a running loop
-        import concurrent.futures
-        try:
-            result = run_async(slow(), timeout=0.1)
-            # If it returns, the coroutine was cancelled (unexpected)
-            pytest.fail("Expected timeout but got result")
-        except (concurrent.futures.TimeoutError, TimeoutError, asyncio.TimeoutError):
-            pass  # Expected
-        except Exception as e:
-            # Some other timeout-related exception is also acceptable
-            if "timeout" not in str(e).lower() and "timed out" not in str(e).lower():
-                raise
+        # Called from async context, timeout should work via ThreadPoolExecutor
+        with pytest.raises(concurrent.futures.TimeoutError):
+            run_async(slow(), timeout=0.1)
 
     def test_works_from_sync_context(self):
         """Works when called from sync context (no running loop)."""

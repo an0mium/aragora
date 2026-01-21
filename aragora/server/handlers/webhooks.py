@@ -310,6 +310,8 @@ class WebhookHandler(BaseHandler):
         "POST /api/webhooks",
         "GET /api/webhooks",
         "GET /api/webhooks/events",
+        "GET /api/webhooks/slo/status",
+        "POST /api/webhooks/slo/test",
         "GET /api/webhooks/:id",
         "DELETE /api/webhooks/:id",
         "PATCH /api/webhooks/:id",
@@ -319,6 +321,7 @@ class WebhookHandler(BaseHandler):
     ROUTES = [
         "/api/webhooks",
         "/api/webhooks/events",
+        "/api/webhooks/slo/status",
     ]
 
     @staticmethod

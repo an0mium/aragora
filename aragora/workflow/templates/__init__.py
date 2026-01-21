@@ -16,6 +16,8 @@ Pattern-based workflow templates:
 - ReviewCycle: Iterative refinement with convergence check
 """
 
+from typing import Any, Optional
+
 from aragora.workflow.templates.legal import (
     CONTRACT_REVIEW_TEMPLATE,
     DUE_DILIGENCE_TEMPLATE,
@@ -99,12 +101,12 @@ WORKFLOW_TEMPLATES = {
 }
 
 
-def get_template(template_id: str) -> dict:
+def get_template(template_id: str) -> Optional[dict[str, Any]]:
     """Get a workflow template by ID."""
     return WORKFLOW_TEMPLATES.get(template_id)
 
 
-def list_templates(category: str = None) -> list:
+def list_templates(category: Optional[str] = None) -> list[dict[str, Any]]:
     """List available templates, optionally filtered by category."""
     templates = []
     for template_id, template in WORKFLOW_TEMPLATES.items():
