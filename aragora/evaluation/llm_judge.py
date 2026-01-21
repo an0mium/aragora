@@ -650,7 +650,7 @@ Provide your comparison:"""
     async def _call_judge(self, prompt: str) -> str:
         """Call the LLM judge."""
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAgent  # type: ignore[attr-defined]
 
             agent = AnthropicAgent(
                 name="llm_judge",

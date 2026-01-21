@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound
+    from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
     from aragora.control_plane.coordinator import ControlPlaneCoordinator
 
 logger = logging.getLogger(__name__)
@@ -177,9 +177,7 @@ class ControlPlaneAdapter:
             confidence_val = 0.8 if outcome.success else 0.5
 
             if confidence_val < self._min_task_confidence:
-                logger.debug(
-                    f"Task outcome below confidence threshold: {confidence_val:.2f}"
-                )
+                logger.debug(f"Task outcome below confidence threshold: {confidence_val:.2f}")
                 return None
 
             # Map confidence value to enum
@@ -215,11 +213,14 @@ class ControlPlaneAdapter:
             item_id = await self._knowledge_mound.ingest(item)
 
             self._stats["task_outcomes_stored"] += 1
-            self._emit_event("cp_task_outcome_stored", {
-                "task_id": outcome.task_id,
-                "agent_id": outcome.agent_id,
-                "success": outcome.success,
-            })
+            self._emit_event(
+                "cp_task_outcome_stored",
+                {
+                    "task_id": outcome.task_id,
+                    "agent_id": outcome.agent_id,
+                    "success": outcome.success,
+                },
+            )
 
             logger.debug(
                 f"Stored task outcome: task={outcome.task_id} "
@@ -257,9 +258,7 @@ class ControlPlaneAdapter:
 
             total_tasks = record.success_count + record.failure_count
             if total_tasks < self._min_capability_sample_size:
-                logger.debug(
-                    f"Capability record below sample threshold: {total_tasks}"
-                )
+                logger.debug(f"Capability record below sample threshold: {total_tasks}")
                 return None
 
             success_rate = record.success_count / total_tasks if total_tasks > 0 else 0
@@ -499,11 +498,14 @@ class ControlPlaneAdapter:
             await self._knowledge_mound.ingest(item)
 
             self._stats["cross_workspace_shares"] += 1
-            self._emit_event("cp_insight_shared", {
-                "insight_id": insight.insight_id,
-                "source_workspace": insight.source_workspace,
-                "target_count": len(insight.target_workspaces),
-            })
+            self._emit_event(
+                "cp_insight_shared",
+                {
+                    "insight_id": insight.insight_id,
+                    "source_workspace": insight.source_workspace,
+                    "target_count": len(insight.target_workspaces),
+                },
+            )
 
             return True
 

@@ -228,7 +228,7 @@ class DeploymentValidator:
         else:
             # SQLite - just verify we can create/access the file
             try:
-                from aragora.storage.schema import get_database_manager
+                from aragora.storage.schema import get_database_manager  # type: ignore[attr-defined]
 
                 db = get_database_manager()
                 # Quick query to verify connectivity
