@@ -204,6 +204,17 @@ class DebateContext:
     """Flag set when debate should terminate early due to convergence."""
 
     # =========================================================================
+    # Belief Network (optional reasoning subsystem)
+    # =========================================================================
+
+    belief_network: Any = None
+    """BeliefNetwork for tracking claim confidence and crux detection.
+
+    When enabled via ArenaConfig.enable_km_belief_sync, this is initialized
+    at debate start and seeded with prior beliefs from Knowledge Mound.
+    """
+
+    # =========================================================================
     # Novelty State
     # =========================================================================
 

@@ -1016,6 +1016,59 @@ class Arena:
         except Exception as e:
             logger.debug(f"[arena] Failed to apply culture hints: {e}")
 
+    def _setup_belief_network(
+        self,
+        debate_id: str,
+        topic: str,
+        seed_from_km: bool = True,
+    ) -> Any:
+        """Initialize BeliefNetwork and seed with prior beliefs from KM.
+
+        This implements the KM → BeliefNetwork reverse flow for cross-session
+        learning. When a new debate starts, we seed the belief network with
+        historical cruxes and beliefs related to the topic.
+
+        Args:
+            debate_id: Unique ID for this debate
+            topic: The debate topic/question
+            seed_from_km: Whether to seed from Knowledge Mound
+
+        Returns:
+            BeliefNetwork instance or None if initialization fails
+        """
+        try:
+            from aragora.reasoning.belief import BeliefNetwork
+
+            # Create network with optional KM adapter
+            km_adapter = None
+            try:
+                from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
+                km_adapter = BeliefAdapter()
+            except ImportError:
+                logger.debug("[arena] BeliefAdapter not available")
+
+            network = BeliefNetwork(
+                debate_id=debate_id,
+                km_adapter=km_adapter,
+            )
+
+            # Seed from KM if enabled
+            if seed_from_km and km_adapter and topic:
+                seeded = network.seed_from_km(topic, min_confidence=0.7)
+                if seeded > 0:
+                    logger.info(
+                        f"[arena] Seeded belief network with {seeded} prior beliefs from KM"
+                    )
+
+            return network
+
+        except ImportError:
+            logger.debug("[arena] BeliefNetwork not available")
+            return None
+        except Exception as e:
+            logger.debug(f"[arena] Failed to setup belief network: {e}")
+            return None
+
     def _init_rlm_limiter(
         self,
         use_rlm_limiter: bool,
@@ -1567,6 +1620,14 @@ class Arena:
             domain=domain,
             hook_manager=self.hook_manager,
         )
+
+        # Initialize BeliefNetwork with KM seeding if enabled
+        if getattr(self.config, "enable_km_belief_sync", False):
+            ctx.belief_network = self._setup_belief_network(
+                debate_id=debate_id,
+                topic=self.env.task,
+                seed_from_km=True,
+            )
 
         # Classify task complexity and configure adaptive timeouts
         task_complexity = classify_task_complexity(self.env.task)
