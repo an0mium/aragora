@@ -393,6 +393,136 @@ Error budget calculation:
 
 ---
 
+## SLO Webhooks
+
+The SLO system can send webhook notifications when operations violate or recover from SLO thresholds.
+
+### Configuration
+
+SLO webhooks are initialized at server startup. Configure via environment variables:
+
+```bash
+# Enable SLO webhooks
+SLO_WEBHOOKS_ENABLED=true
+
+# Minimum severity level for notifications (minor, moderate, major, critical)
+SLO_WEBHOOKS_MIN_SEVERITY=minor
+
+# Cooldown between notifications for same operation (seconds)
+SLO_WEBHOOKS_COOLDOWN=60
+```
+
+### Programmatic Initialization
+
+```python
+from aragora.observability.metrics.slo import SLOWebhookConfig, init_slo_webhooks
+
+config = SLOWebhookConfig(
+    enabled=True,
+    min_severity="moderate",  # Only notify on moderate+ violations
+    cooldown_seconds=60.0,    # Prevent notification spam
+)
+
+if init_slo_webhooks(config):
+    print("SLO webhooks initialized")
+```
+
+### Webhook Event Types
+
+| Event Type | Description | Payload Fields |
+|------------|-------------|----------------|
+| `slo_violation` | Operation exceeded SLO threshold | `operation`, `percentile`, `severity`, `latency_ms`, `threshold_ms`, `margin_ms`, `margin_percent`, `context` |
+| `slo_recovery` | Operation returned to compliance | `operation`, `percentile`, `latency_ms`, `threshold_ms`, `violation_duration_seconds`, `context` |
+
+### Severity Levels
+
+Based on how much the latency exceeds the threshold:
+
+| Severity | Condition | Description |
+|----------|-----------|-------------|
+| `minor` | 1-1.5x threshold | Slightly over SLO |
+| `moderate` | 1.5-2x threshold | Noticeably degraded |
+| `major` | 2-3x threshold | Significant degradation |
+| `critical` | 3x+ threshold | Severe performance issue |
+
+### API Endpoints
+
+Check SLO webhook status:
+```bash
+GET /api/webhooks/slo/status
+```
+
+Response:
+```json
+{
+  "slo_webhooks": {
+    "enabled": true,
+    "initialized": true,
+    "notifications_sent": 42,
+    "recoveries_sent": 38
+  },
+  "violation_state": {
+    "km_query": {
+      "in_violation": true,
+      "last_severity": "moderate"
+    }
+  },
+  "active_violations": 1
+}
+```
+
+Send a test notification:
+```bash
+POST /api/webhooks/slo/test
+```
+
+### Integration with Alertmanager
+
+SLO webhooks can route through Alertmanager for consistent alerting:
+
+```yaml
+# alertmanager.yml
+receivers:
+  - name: 'slo-webhook-relay'
+    webhook_configs:
+      - url: 'http://aragora:8080/api/webhooks/receive'
+        send_resolved: true
+
+route:
+  routes:
+    - match:
+        alertname: SLOViolation
+      receiver: 'slo-webhook-relay'
+```
+
+### Grafana Alert Rules
+
+See `grafana-alerts.yaml` for provisioned Grafana alerts including:
+- `slo-violation-rate-high` - Overall violation rate exceeds 1%
+- `slo-critical-violation` - Any critical severity violation
+- `slo-km-query-latency` - Knowledge Mound query SLO breach
+- `slo-consensus-ingestion-latency` - Consensus ingestion SLO breach
+- `slo-error-budget-burn` - Rapid error budget consumption
+
+### PromQL Queries for SLO Webhooks
+
+```promql
+# Violation rate by severity
+sum(rate(aragora_slo_violations_total[5m])) by (severity)
+
+# Operations currently in violation
+aragora_slo_violation_state{in_violation="true"}
+
+# Webhook notification success rate
+sum(rate(aragora_webhook_delivery_success_total{event_type=~"slo_.*"}[5m]))
+/ sum(rate(aragora_webhook_delivery_total{event_type=~"slo_.*"}[5m]))
+
+# Average recovery time
+avg(aragora_slo_recovery_duration_seconds) by (operation)
+```
+
+---
+
 ## Maintenance
 
 ### Rotating Prometheus Data

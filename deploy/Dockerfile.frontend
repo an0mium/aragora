@@ -15,31 +15,30 @@ RUN npm ci --legacy-peer-deps
 # Copy source code
 COPY aragora/live/ ./
 
-# Build application
+# Build application with standalone output
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+ENV NEXT_OUTPUT=standalone
+RUN npm run build:local
 
 # Production stage
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install production dependencies only
-COPY aragora/live/package*.json ./
-RUN npm ci --only=production --legacy-peer-deps
-
-# Copy built application
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./
-
 # Set environment variables
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+
+# Copy standalone build
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+    && adduser --system --uid 1001 nextjs \
+    && chown -R nextjs:nodejs /app
 USER nextjs
 
 # Expose port
@@ -50,4 +49,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Start application
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

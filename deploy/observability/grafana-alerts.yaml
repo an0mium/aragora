@@ -1,0 +1,413 @@
+# Grafana Alert Rules for SLO Monitoring
+# This file is used for Grafana provisioning of alert rules.
+#
+# To use these alerts, add to Grafana provisioning:
+# 1. Copy to grafana/provisioning/alerting/
+# 2. Restart Grafana
+#
+# See: https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: slo_alerts
+    folder: SLO Monitoring
+    interval: 1m
+    rules:
+      # =========================================================================
+      # SLO Violation Alerts
+      # =========================================================================
+
+      - uid: slo-violation-rate-high
+        title: SLO Violation Rate High
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(aragora_slo_violations_total[5m])) / sum(rate(aragora_slo_checks_total[5m])) > 0.01
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              refId: C
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "High rate of SLO violations detected"
+          description: "More than 1% of SLO checks are failing. Current violation rate: {{ $value | printf \"%.2f\" }}%"
+        labels:
+          severity: warning
+          team: platform
+        isPaused: false
+
+      - uid: slo-critical-violation
+        title: Critical SLO Violation
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(increase(aragora_slo_violations_total{severity="critical"}[1m])) > 0
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              refId: C
+              type: classic_conditions
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "Critical SLO violation detected"
+          description: "An operation has exceeded its SLO threshold by 300% or more, indicating severe performance degradation."
+        labels:
+          severity: critical
+          team: platform
+        isPaused: false
+
+      # =========================================================================
+      # Operation-Specific Latency Alerts
+      # =========================================================================
+
+      - uid: slo-km-query-latency
+        title: Knowledge Mound Query Latency Breach
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.99, rate(aragora_operation_latency_bucket{operation="km_query"}[5m])) > 500
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              refId: C
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "KM query latency exceeds SLO"
+          description: "P99 latency for Knowledge Mound queries is {{ $value | printf \"%.0f\" }}ms (SLO: 500ms)"
+        labels:
+          severity: warning
+          operation: km_query
+          team: platform
+        isPaused: false
+
+      - uid: slo-consensus-ingestion-latency
+        title: Consensus Ingestion Latency Breach
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.99, rate(aragora_operation_latency_bucket{operation="consensus_ingestion"}[5m])) > 1500
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              refId: C
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Consensus ingestion latency exceeds SLO"
+          description: "P99 latency for consensus ingestion is {{ $value | printf \"%.0f\" }}ms (SLO: 1500ms)"
+        labels:
+          severity: warning
+          operation: consensus_ingestion
+          team: platform
+        isPaused: false
+
+      - uid: slo-handler-execution-latency
+        title: Handler Execution Latency Breach
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.99, rate(aragora_operation_latency_bucket{operation="handler_execution"}[5m])) > 200
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              refId: C
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Handler execution latency exceeds SLO"
+          description: "P99 latency for handler execution is {{ $value | printf \"%.0f\" }}ms (SLO: 200ms)"
+        labels:
+          severity: warning
+          operation: handler_execution
+          team: platform
+        isPaused: false
+
+      - uid: slo-debate-round-latency
+        title: Debate Round Latency Breach
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: histogram_quantile(0.99, rate(aragora_operation_latency_bucket{operation="debate_round"}[5m])) > 30000
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              refId: C
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Debate round latency exceeds SLO"
+          description: "P99 latency for debate rounds is {{ $value | printf \"%.0f\" }}ms (SLO: 30000ms)"
+        labels:
+          severity: warning
+          operation: debate_round
+          team: platform
+        isPaused: false
+
+      # =========================================================================
+      # Webhook Notification Alerts
+      # =========================================================================
+
+      - uid: slo-webhook-failure-rate
+        title: SLO Webhook Delivery Failures
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(aragora_webhook_delivery_failures_total{event_type=~"slo_.*"}[5m])) > 0.1
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              refId: C
+              type: classic_conditions
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "SLO webhook deliveries are failing"
+          description: "SLO violation/recovery webhooks are failing to deliver at rate {{ $value | printf \"%.2f\" }}/s"
+        labels:
+          severity: warning
+          team: platform
+        isPaused: false
+
+      # =========================================================================
+      # Error Budget Alerts
+      # =========================================================================
+
+      - uid: slo-error-budget-burn
+        title: Error Budget Burning Fast
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: |
+                (
+                  1 - (
+                    sum(rate(aragora_slo_checks_total{passed="true"}[1h]))
+                    /
+                    sum(rate(aragora_slo_checks_total[1h]))
+                  )
+                ) > 0.001
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    type: last
+              refId: C
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 30m
+        annotations:
+          summary: "Error budget is being consumed rapidly"
+          description: "SLO error rate ({{ $value | printf \"%.4f\" }}) exceeds 0.1% threshold, indicating rapid error budget consumption"
+        labels:
+          severity: warning
+          team: platform
+        isPaused: false
+
+  # =============================================================================
+  # Contact Points (for routing alerts)
+  # =============================================================================
+
+contactPoints:
+  - orgId: 1
+    name: slo-alerts-pagerduty
+    receivers:
+      - uid: slo-pd-receiver
+        type: pagerduty
+        settings:
+          integrationKey: "${PAGERDUTY_SLO_KEY}"
+          severity: "{{ .Labels.severity }}"
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: slo-alerts-slack
+    receivers:
+      - uid: slo-slack-receiver
+        type: slack
+        settings:
+          url: "${SLACK_SLO_WEBHOOK_URL}"
+          recipient: "#slo-alerts"
+          title: "{{ .Annotations.summary }}"
+          text: "{{ .Annotations.description }}"
+        disableResolveMessage: false
+
+# =============================================================================
+# Notification Policies
+# =============================================================================
+
+policies:
+  - orgId: 1
+    receiver: slo-alerts-slack
+    group_by:
+      - alertname
+      - operation
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      - receiver: slo-alerts-pagerduty
+        matchers:
+          - severity = critical
+        continue: true
+        group_wait: 0s

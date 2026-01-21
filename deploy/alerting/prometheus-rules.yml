@@ -1,0 +1,170 @@
+# Prometheus Alert Rules for Aragora
+
+groups:
+  - name: aragora-availability
+    rules:
+      # Instance down
+      - alert: InstanceDown
+        expr: up{job="aragora-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Aragora backend instance is down"
+          description: "Instance {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://docs.aragora.ai/runbook#instance-down"
+
+      # Health check failing
+      - alert: HealthCheckFailing
+        expr: probe_success{job="aragora-health"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Aragora health check is failing"
+          description: "Health check for {{ $labels.instance }} has been failing for 2 minutes."
+          runbook_url: "https://docs.aragora.ai/runbook#health-check-failing"
+
+  - name: aragora-performance
+    rules:
+      # High API latency
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, sum(rate(aragora_http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "API latency is high"
+          description: "95th percentile API latency is above 2 seconds (current: {{ $value | humanizeDuration }})."
+          runbook_url: "https://docs.aragora.ai/runbook#high-latency"
+
+      # High error rate
+      - alert: APIErrorRate
+        expr: sum(rate(aragora_http_requests_total{status=~"5.."}[5m])) / sum(rate(aragora_http_requests_total[5m])) * 100 > 5
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "API error rate is high"
+          description: "Error rate is above 5% (current: {{ $value | printf \"%.2f\" }}%)."
+          runbook_url: "https://docs.aragora.ai/runbook#high-error-rate"
+
+      # Debate completion rate low
+      - alert: LowDebateCompletionRate
+        expr: rate(aragora_debates_completed_total[1h]) / rate(aragora_debates_started_total[1h]) < 0.9
+        for: 30m
+        labels:
+          severity: high
+        annotations:
+          summary: "Debate completion rate is low"
+          description: "Less than 90% of debates are completing successfully."
+          runbook_url: "https://docs.aragora.ai/runbook#debate-issues"
+
+  - name: aragora-resources
+    rules:
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job="aragora-backend"} / 1024 / 1024 / 1024 > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory usage is high"
+          description: "Backend memory usage is above 1.5GB (current: {{ $value | printf \"%.2f\" }}GB)."
+          runbook_url: "https://docs.aragora.ai/runbook#high-memory"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="aragora-backend"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage is high"
+          description: "Backend CPU usage is above 80% (current: {{ $value | printf \"%.2f\" }}%)."
+          runbook_url: "https://docs.aragora.ai/runbook#high-cpu"
+
+  - name: aragora-agents
+    rules:
+      # Agent timeout rate high
+      - alert: AgentTimeoutRateHigh
+        expr: rate(aragora_agent_timeouts_total[15m]) / rate(aragora_agent_requests_total[15m]) * 100 > 10
+        for: 10m
+        labels:
+          severity: high
+        annotations:
+          summary: "Agent timeout rate is high"
+          description: "More than 10% of agent requests are timing out."
+          runbook_url: "https://docs.aragora.ai/runbook#agent-timeouts"
+
+      # External API quota warning
+      - alert: ExternalAPIQuotaLow
+        expr: aragora_external_api_remaining{provider=~"anthropic|openai"} < 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "External API quota is low"
+          description: "{{ $labels.provider }} API has less than 1000 requests remaining."
+          runbook_url: "https://docs.aragora.ai/runbook#api-quota"
+
+  - name: aragora-database
+    rules:
+      # Redis connection issues
+      - alert: RedisConnectionIssues
+        expr: aragora_redis_connection_errors_total > 0
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Redis connection issues detected"
+          description: "There are Redis connection errors occurring."
+          runbook_url: "https://docs.aragora.ai/runbook#redis-issues"
+
+      # Database connection pool exhausted
+      - alert: DatabasePoolExhausted
+        expr: aragora_db_pool_available == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool exhausted"
+          description: "No database connections available in the pool."
+          runbook_url: "https://docs.aragora.ai/runbook#db-pool-exhausted"
+
+  - name: aragora-rate-limiting
+    rules:
+      # Rate limiting too many requests
+      - alert: RateLimitingExcessive
+        expr: sum(rate(aragora_ratelimit_rejected_total[5m])) / sum(rate(aragora_http_requests_total[5m])) * 100 > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiting is rejecting many requests"
+          description: "More than 10% of requests are being rate limited."
+          runbook_url: "https://docs.aragora.ai/runbook#rate-limiting"
+
+  - name: aragora-websocket
+    rules:
+      # WebSocket connection issues
+      - alert: WebSocketErrorRate
+        expr: rate(aragora_websocket_errors_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket errors occurring"
+          description: "WebSocket errors are happening at rate > 1/minute."
+          runbook_url: "https://docs.aragora.ai/runbook#websocket-issues"
+
+      # Too many concurrent WebSocket connections
+      - alert: HighWebSocketConnections
+        expr: aragora_websocket_connections_active > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of WebSocket connections"
+          description: "There are more than 500 active WebSocket connections."
+          runbook_url: "https://docs.aragora.ai/runbook#high-ws-connections"

@@ -1,0 +1,139 @@
+# Alertmanager Configuration for Aragora
+# Handles alert routing, grouping, and notifications
+
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@aragora.ai'
+  smtp_auth_username: '${SMTP_USERNAME}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+
+# Templates for notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Alert routing tree
+route:
+  # Default receiver
+  receiver: 'slack-notifications'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'service']
+
+  # Wait before sending initial notification
+  group_wait: 30s
+
+  # Wait before sending updated notification
+  group_interval: 5m
+
+  # Wait before re-sending notification
+  repeat_interval: 4h
+
+  # Child routes for specific alerts
+  routes:
+    # Critical alerts go to PagerDuty
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      repeat_interval: 1h
+
+    # High severity to Slack + Email
+    - match:
+        severity: high
+      receiver: 'slack-high'
+      repeat_interval: 2h
+
+    # API errors to dedicated channel
+    - match:
+        alertname: APIErrorRate
+      receiver: 'slack-api'
+
+    # Database alerts
+    - match_re:
+        alertname: (PostgreSQL|Redis).*
+      receiver: 'slack-infrastructure'
+
+# Receivers configuration
+receivers:
+  # Default Slack notifications
+  - name: 'slack-notifications'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#aragora-alerts'
+        username: 'Aragora Alerts'
+        icon_emoji: ':warning:'
+        title: '{{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        send_resolved: true
+
+  # High severity Slack
+  - name: 'slack-high'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#aragora-alerts-high'
+        username: 'Aragora Alerts'
+        icon_emoji: ':rotating_light:'
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+        send_resolved: true
+    email_configs:
+      - to: 'oncall@aragora.ai'
+        send_resolved: true
+
+  # API-specific Slack
+  - name: 'slack-api'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#aragora-api'
+        username: 'API Monitor'
+        icon_emoji: ':api:'
+        send_resolved: true
+
+  # Infrastructure Slack
+  - name: 'slack-infrastructure'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#aragora-infrastructure'
+        username: 'Infra Monitor'
+        icon_emoji: ':database:'
+        send_resolved: true
+
+  # PagerDuty for critical
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        severity: critical
+        description: '{{ .GroupLabels.alertname }}: {{ .Annotations.summary }}'
+        details:
+          alertname: '{{ .GroupLabels.alertname }}'
+          severity: '{{ .CommonLabels.severity }}'
+          description: '{{ .Annotations.description }}'
+          runbook: '{{ .Annotations.runbook_url }}'
+
+# Inhibition rules - suppress notifications
+inhibit_rules:
+  # Don't notify about service issues if entire instance is down
+  - source_match:
+      alertname: InstanceDown
+    target_match_re:
+      alertname: (APIErrorRate|HighLatency|.*Memory.*)
+    equal: ['instance']
+
+  # Don't notify about high severity if critical is already firing
+  - source_match:
+      severity: critical
+    target_match:
+      severity: high
+    equal: ['alertname', 'service']

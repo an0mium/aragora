@@ -1,0 +1,14 @@
+{{ define "slack.aragora.title" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.alertname }}
+{{ end }}
+
+{{ define "slack.aragora.text" }}
+{{ range .Alerts }}
+{{ if eq .Status "firing" }}:fire:{{ else }}:white_check_mark:{{ end }} *{{ .Labels.alertname }}*
+*Severity:* `{{ .Labels.severity }}`
+*Summary:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+{{ if .Annotations.runbook_url }}*Runbook:* <{{ .Annotations.runbook_url }}|View Runbook>{{ end }}
+---
+{{ end }}
+{{ end }}
