@@ -2,6 +2,58 @@
 
 Aragora's cross-pollination system enables different subsystems to communicate and share data through a unified event-driven architecture. This creates powerful synergies where improvements in one area automatically benefit others.
 
+## Quick Start
+
+Cross-pollination features are **enabled by default**. No configuration required.
+
+### CLI Usage
+
+```bash
+# Run a debate with all cross-pollination features (default)
+aragora ask "What is the best programming language?"
+
+# Disable specific features if needed
+aragora ask "..." --no-elo-weighting       # Disable ELO-based vote weights
+aragora ask "..." --no-calibration         # Disable calibration tracking
+aragora ask "..." --no-evidence-weighting  # Disable evidence quality scoring
+aragora ask "..." --no-trending            # Disable Pulse trending topics
+```
+
+### Verify Feature Health
+
+Check the cross-pollination health endpoint:
+
+```bash
+curl http://localhost:8080/api/health/cross-pollination
+```
+
+Response shows status of each feature:
+```json
+{
+  "status": "healthy",
+  "active_features": 6,
+  "features": {
+    "elo_weighting": {"healthy": true, "status": "active"},
+    "calibration": {"healthy": true, "status": "active"},
+    "evidence_quality": {"healthy": true, "status": "active"},
+    "rlm_caching": {"healthy": true, "status": "active", "hit_rate": 0.72},
+    "knowledge_mound": {"healthy": true, "status": "active"},
+    "trending_topics": {"healthy": true, "status": "active"}
+  }
+}
+```
+
+### Monitoring
+
+Import the Grafana dashboard from `deploy/grafana/dashboards/cross-pollination.json` to visualize:
+- RLM cache hit rates
+- Calibration error (ECE)
+- Voting accuracy
+- ELO adjustments
+- Evidence quality bonuses
+
+See [OBSERVABILITY.md](./OBSERVABILITY.md#cross-pollination-metrics) for Prometheus metrics.
+
 ## Overview
 
 ```
