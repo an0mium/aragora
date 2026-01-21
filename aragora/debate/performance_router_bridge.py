@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 def _record_routing_metrics(task_type: str, selected_agent: str, latency: float) -> None:
     """Record routing decision metrics to Prometheus."""
     try:
-        from aragora.observability.metrics import (
+        from aragora.observability.metrics import (  # type: ignore[attr-defined]
             record_performance_routing_decision,
             record_performance_routing_latency,
         )

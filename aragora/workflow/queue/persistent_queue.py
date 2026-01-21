@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 def _record_metrics(operation: str, success: bool, latency: float) -> None:
     """Record task queue metrics if available."""
     try:
-        from aragora.observability.metrics import record_task_queue_operation
+        from aragora.observability.metrics import record_task_queue_operation  # type: ignore[attr-defined]
 
         record_task_queue_operation(operation, success, latency)
     except ImportError:
@@ -59,7 +59,7 @@ def _record_metrics(operation: str, success: bool, latency: float) -> None:
 def _record_recovery(original_status: str, count: int = 1) -> None:
     """Record recovery metrics if available."""
     try:
-        from aragora.observability.metrics import record_task_queue_recovery
+        from aragora.observability.metrics import record_task_queue_recovery  # type: ignore[attr-defined]
 
         record_task_queue_recovery(original_status, count)
     except ImportError:
@@ -69,7 +69,7 @@ def _record_recovery(original_status: str, count: int = 1) -> None:
 def _record_cleanup(count: int) -> None:
     """Record cleanup metrics if available."""
     try:
-        from aragora.observability.metrics import record_task_queue_cleanup
+        from aragora.observability.metrics import record_task_queue_cleanup  # type: ignore[attr-defined]
 
         record_task_queue_cleanup(count)
     except ImportError:

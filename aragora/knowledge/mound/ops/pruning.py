@@ -135,7 +135,7 @@ class PruningOperationsMixin:
         prunable = []
 
         # Get stale nodes
-        stale_nodes = await self._staleness_detector.get_stale_nodes(
+        stale_nodes = await self._staleness_detector.get_stale_nodes(  # type: ignore[attr-defined]
             workspace_id=workspace_id,
             threshold=staleness_threshold,
             limit=limit * 2,  # Get extra to filter

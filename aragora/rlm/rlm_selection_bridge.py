@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.selection_feedback import SelectionFeedbackLoop
-    from aragora.rlm.bridge import RLMBridge
+    from aragora.rlm.bridge import RLMBridge  # type: ignore[attr-defined]
     from aragora.rlm.types import CompressionResult, RLMResult
 
 logger = logging.getLogger(__name__)

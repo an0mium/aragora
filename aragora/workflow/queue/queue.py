@@ -107,7 +107,7 @@ class TaskQueue:
         self._on_task_error: Optional[Callable[[WorkflowTask, Exception], None]] = None
 
         # Executor reference (set by scheduler)
-        self._executor: Optional["TaskExecutor"] = None
+        self._executor: Optional[Union["TaskExecutor", "ExecutorPool"]] = None
 
     async def start(self) -> None:
         """Start the queue processor."""

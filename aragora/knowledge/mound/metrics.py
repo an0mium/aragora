@@ -105,7 +105,9 @@ class OperationStats:
             "success_count": self.success_count,
             "error_count": self.error_count,
             "avg_latency_ms": round(self.avg_latency_ms, 2),
-            "min_latency_ms": round(self.min_latency_ms, 2) if self.min_latency_ms != float("inf") else 0,
+            "min_latency_ms": round(self.min_latency_ms, 2)
+            if self.min_latency_ms != float("inf")
+            else 0,
             "max_latency_ms": round(self.max_latency_ms, 2),
             "success_rate": round(self.success_rate, 2),
             "last_error": self.last_error,
@@ -254,7 +256,7 @@ class KMMetrics:
     ) -> None:
         """Export operation to Prometheus metrics."""
         try:
-            from aragora.observability.metrics import record_km_operation, record_km_cache_access
+            from aragora.observability.metrics import record_km_operation, record_km_cache_access  # type: ignore[attr-defined]
 
             # Convert ms to seconds for Prometheus
             latency_seconds = latency_ms / 1000.0
@@ -353,10 +355,7 @@ class KMMetrics:
         cutoff = time.time() - window_seconds
 
         with self._lock:
-            samples = [
-                s for s in self._samples[operation]
-                if s.timestamp >= cutoff
-            ]
+            samples = [s for s in self._samples[operation] if s.timestamp >= cutoff]
 
         if not samples:
             return {
@@ -393,13 +392,9 @@ class KMMetrics:
         cutoff = time.time() - window_seconds
 
         with self._lock:
-            hits = sum(
-                1 for s in self._samples[OperationType.CACHE_HIT]
-                if s.timestamp >= cutoff
-            )
+            hits = sum(1 for s in self._samples[OperationType.CACHE_HIT] if s.timestamp >= cutoff)
             misses = sum(
-                1 for s in self._samples[OperationType.CACHE_MISS]
-                if s.timestamp >= cutoff
+                1 for s in self._samples[OperationType.CACHE_MISS] if s.timestamp >= cutoff
             )
 
         total = hits + misses
@@ -476,11 +471,13 @@ class KMMetrics:
         with self._lock:
             for op, stats in self._stats.items():
                 if stats.last_error_at and stats.last_error_at > cutoff:
-                    recent_errors.append({
-                        "operation": op.value,
-                        "error": stats.last_error,
-                        "at": stats.last_error_at,
-                    })
+                    recent_errors.append(
+                        {
+                            "operation": op.value,
+                            "error": stats.last_error,
+                            "at": stats.last_error_at,
+                        }
+                    )
 
         if recent_errors:
             details["recent_errors"] = recent_errors

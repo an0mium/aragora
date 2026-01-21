@@ -170,7 +170,7 @@ class EmbeddingRelevanceScorer:
             return True
 
         try:
-            from aragora.core.embeddings import get_default_provider
+            from aragora.core.embeddings import get_default_provider  # type: ignore[attr-defined]
 
             self._provider = get_default_provider()
             self._initialized = True
@@ -194,6 +194,7 @@ class EmbeddingRelevanceScorer:
     def _cache_key(self, text: str) -> str:
         """Generate cache key for text (not for security)."""
         import hashlib
+
         return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()[:16]
 
     async def _get_embedding(self, text: str) -> Optional[List[float]]:
@@ -255,6 +256,7 @@ class EmbeddingRelevanceScorer:
             if content_key in self._cache:
                 try:
                     from aragora.core.embeddings.service import cosine_similarity
+
                     sim = cosine_similarity(self._query_embedding, self._cache[content_key])
                     # Normalize from [-1, 1] to [0, 1]
                     return (sim + 1) / 2
@@ -307,6 +309,7 @@ class EmbeddingRelevanceScorer:
 
         try:
             from aragora.core.embeddings.service import cosine_similarity
+
             sim = cosine_similarity(self._query_embedding, content_embedding)
             # Normalize from [-1, 1] to [0, 1]
             return (sim + 1) / 2
@@ -380,9 +383,7 @@ class FederatedQueryAggregator:
             source = QuerySource(source)
 
         if not hasattr(adapter, search_method):
-            logger.warning(
-                f"Adapter for {source.value} missing search method: {search_method}"
-            )
+            logger.warning(f"Adapter for {source.value} missing search method: {search_method}")
             # Try common alternatives
             for alt in ["search", "search_similar", "search_by_keyword", "query"]:
                 if hasattr(adapter, alt):
@@ -460,9 +461,7 @@ class FederatedQueryAggregator:
 
         # Determine sources to query
         if sources is None or QuerySource.ALL in sources:
-            query_sources = [
-                s for s, r in self._adapters.items() if r.enabled
-            ]
+            query_sources = [s for s, r in self._adapters.items() if r.enabled]
         else:
             query_sources = [
                 QuerySource(s) if isinstance(s, str) else s
@@ -498,12 +497,14 @@ class FederatedQueryAggregator:
                 for item in items:
                     relevance = self._relevance_scorer(item, query) * weight
                     if relevance >= min_relevance:
-                        all_results.append(FederatedResult(
-                            source=source,
-                            item=item,
-                            relevance_score=relevance,
-                            adapter_metadata={"weight": weight},
-                        ))
+                        all_results.append(
+                            FederatedResult(
+                                source=source,
+                                item=item,
+                                relevance_score=relevance,
+                                adapter_metadata={"weight": weight},
+                            )
+                        )
 
         # Deduplicate if enabled
         if self._deduplicate:
@@ -527,7 +528,7 @@ class FederatedQueryAggregator:
     def _record_prometheus_metrics(self, result: FederatedQueryResult) -> None:
         """Record federated query metrics to Prometheus."""
         try:
-            from aragora.observability.metrics import (
+            from aragora.observability.metrics import (  # type: ignore[attr-defined]
                 record_km_federated_query,
                 set_km_active_adapters,
             )
@@ -550,9 +551,7 @@ class FederatedQueryAggregator:
         """Query adapters in parallel."""
         tasks = {}
         for source in sources:
-            tasks[source] = asyncio.create_task(
-                self._query_single(source, query, limit, **kwargs)
-            )
+            tasks[source] = asyncio.create_task(self._query_single(source, query, limit, **kwargs))
 
         results = {}
         for source, task in tasks.items():
@@ -587,7 +586,9 @@ class FederatedQueryAggregator:
                 logger.debug(f"Sequential query to {source.value} failed with expected error: {e}")
                 results[source] = ([], str(e))
             except Exception as e:
-                logger.warning(f"Sequential query to {source.value} failed with unexpected error: {e}")
+                logger.warning(
+                    f"Sequential query to {source.value} failed with unexpected error: {e}"
+                )
                 results[source] = ([], str(e))
 
         return results
@@ -665,6 +666,7 @@ class FederatedQueryAggregator:
     def _hash_content(self, content: str) -> str:
         """Hash content for deduplication (not for security)."""
         import hashlib
+
         # Normalize and hash
         normalized = " ".join(content.lower().split())
         return hashlib.md5(normalized.encode(), usedforsecurity=False).hexdigest()[:16]
@@ -674,9 +676,7 @@ class FederatedQueryAggregator:
         return {
             "total_queries": self._total_queries,
             "successful_queries": self._successful_queries,
-            "success_rate": (
-                self._successful_queries / max(self._total_queries, 1) * 100
-            ),
+            "success_rate": (self._successful_queries / max(self._total_queries, 1) * 100),
             "registered_adapters": len(self._adapters),
             "enabled_adapters": sum(1 for r in self._adapters.values() if r.enabled),
             "adapters": {

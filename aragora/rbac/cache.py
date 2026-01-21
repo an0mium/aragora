@@ -624,7 +624,7 @@ class RBACDistributedCache:
         if not self.config.enable_metrics:
             return
         try:
-            from aragora.observability.metrics.security import record_rbac_cache_hit
+            from aragora.observability.metrics.security import record_rbac_cache_hit  # type: ignore[attr-defined]
 
             record_rbac_cache_hit(cache_type, "l1" if l1 else "l2")
         except ImportError:
@@ -635,7 +635,7 @@ class RBACDistributedCache:
         if not self.config.enable_metrics:
             return
         try:
-            from aragora.observability.metrics.security import record_rbac_cache_miss
+            from aragora.observability.metrics.security import record_rbac_cache_miss  # type: ignore[attr-defined]
 
             record_rbac_cache_miss(cache_type)
         except ImportError:

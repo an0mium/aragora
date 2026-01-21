@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # Import metrics for cache tracking (lazy to avoid circular imports)
 def _record_rlm_cache_hit() -> None:
     try:
-        from aragora.observability.metrics import record_rlm_cache_hit
+        from aragora.observability.metrics import record_rlm_cache_hit  # type: ignore[attr-defined]
 
         record_rlm_cache_hit()
     except ImportError:
@@ -28,7 +28,7 @@ def _record_rlm_cache_hit() -> None:
 
 def _record_rlm_cache_miss() -> None:
     try:
-        from aragora.observability.metrics import record_rlm_cache_miss
+        from aragora.observability.metrics import record_rlm_cache_miss  # type: ignore[attr-defined]
 
         record_rlm_cache_miss()
     except ImportError:

@@ -78,7 +78,7 @@ except ImportError:
 
 # Import metrics (optional - graceful degradation if not available)
 try:
-    from aragora.observability.metrics import (
+    from aragora.observability.metrics import (  # type: ignore[attr-defined]
         record_encryption_operation,
         record_encryption_error,
     )
