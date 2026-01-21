@@ -229,7 +229,11 @@ class TestBackupRestorationDrill:
         self._verify_data_integrity(restore_path)
 
         # Calculate RPO (simulated - based on backup timestamp)
-        rpo_seconds = (disaster_time - backup.created_at).total_seconds()
+        # Ensure both datetimes are timezone-aware for comparison
+        backup_created = backup.created_at
+        if backup_created.tzinfo is None:
+            backup_created = backup_created.replace(tzinfo=timezone.utc)
+        rpo_seconds = (disaster_time - backup_created).total_seconds()
         print(f"RPO: {rpo_seconds:.1f}s")
 
         # Calculate RTO
