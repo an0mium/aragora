@@ -685,6 +685,9 @@ def get_similarity_backend(
         logger.debug(f"sentence-transformers failed: {e}")
     except OSError as e:
         logger.debug(f"sentence-transformers model error: {e}")
+    except Exception as e:
+        # Catch-all for model loading failures (network, auth, etc.)
+        logger.debug(f"sentence-transformers initialization error: {e}")
 
     try:
         return TFIDFBackend()
