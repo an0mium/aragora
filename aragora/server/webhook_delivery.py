@@ -445,7 +445,22 @@ class WebhookDeliveryManager:
                 await self._retry_task
             except asyncio.CancelledError:
                 pass
+        if self._persistence:
+            self._persistence.close()
         logger.info("Webhook delivery manager stopped")
+
+    async def cleanup_old_records(self, days: int = 7) -> int:
+        """Remove delivered records older than N days.
+
+        Args:
+            days: Number of days to retain delivered records
+
+        Returns:
+            Number of records cleaned up
+        """
+        if self._persistence:
+            return self._persistence.cleanup_old_delivered(days)
+        return 0
 
     def set_sender(self, sender: Callable) -> None:
         """
@@ -670,6 +685,12 @@ class WebhookDeliveryManager:
             if delivery.delivery_id in queue:
                 del queue[delivery.delivery_id]
 
+        # Persist dead-letter status
+        if self._persistence:
+            url = self._delivery_urls.get(delivery.delivery_id, "")
+            secret = self._delivery_secrets.get(delivery.delivery_id)
+            self._persistence.save_delivery(delivery, url, secret)
+
         self._metrics.dead_lettered += 1
         logger.warning(
             f"Moved delivery {delivery.delivery_id} to dead-letter queue "
@@ -689,15 +710,17 @@ class WebhookDeliveryManager:
                 ]
 
                 for delivery in ready:
-                    url = delivery.metadata.get("retry_url", "")
-                    secret = delivery.metadata.get("retry_secret")
+                    # Get URL/secret from our maps or metadata
+                    url = self._delivery_urls.get(delivery.delivery_id) or delivery.metadata.get("retry_url", "")
+                    secret = self._delivery_secrets.get(delivery.delivery_id) or delivery.metadata.get("retry_secret")
 
                     if not url:
                         self._move_to_dead_letter(delivery)
                         continue
 
                     # Remove from retry queue before attempting
-                    del self._retry_queue[delivery.delivery_id]
+                    if delivery.delivery_id in self._retry_queue:
+                        del self._retry_queue[delivery.delivery_id]
 
                     # Check circuit breaker
                     if self._is_circuit_open(url):
@@ -713,6 +736,12 @@ class WebhookDeliveryManager:
                         self._delivered[delivery.delivery_id] = delivery
                         self._metrics.successful_deliveries += 1
                         self._reset_circuit(url)
+                        # Remove from persistent storage on success
+                        if self._persistence:
+                            self._persistence.delete_delivery(delivery.delivery_id)
+                        # Clean up URL/secret maps
+                        self._delivery_urls.pop(delivery.delivery_id, None)
+                        self._delivery_secrets.pop(delivery.delivery_id, None)
                     else:
                         self._record_circuit_failure(url)
                         if delivery.attempts >= self._max_retries:
@@ -764,6 +793,16 @@ class WebhookDeliveryManager:
 
     async def get_dead_letter_queue(self, limit: int = 100) -> List[WebhookDelivery]:
         """Get deliveries in dead-letter queue."""
+        # Merge in-memory with persisted (persisted is source of truth)
+        if self._persistence:
+            rows = self._persistence.load_dead_letter_queue(limit)
+            result = []
+            for row in rows:
+                delivery, _, _ = self._persistence._row_to_delivery(row)
+                result.append(delivery)
+                # Update in-memory cache
+                self._dead_letter_queue[delivery.delivery_id] = delivery
+            return result
         return list(self._dead_letter_queue.values())[:limit]
 
     async def retry_dead_letter(self, delivery_id: str) -> bool:
@@ -784,9 +823,16 @@ class WebhookDeliveryManager:
         delivery.attempts = 0  # Reset attempts
         delivery.dead_lettered_at = None
         delivery.next_retry_at = datetime.utcnow()
+        delivery.updated_at = datetime.utcnow()
 
         self._retry_queue[delivery_id] = delivery
         del self._dead_letter_queue[delivery_id]
+
+        # Persist status change
+        if self._persistence:
+            url = self._delivery_urls.get(delivery_id, delivery.metadata.get("retry_url", ""))
+            secret = self._delivery_secrets.get(delivery_id, delivery.metadata.get("retry_secret"))
+            self._persistence.save_delivery(delivery, url, secret)
 
         self._metrics.dead_lettered -= 1
         logger.info(f"Retrying dead-lettered delivery {delivery_id}")
