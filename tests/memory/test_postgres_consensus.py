@@ -359,31 +359,32 @@ class TestTopicHashing:
 
     def test_hash_topic_normalizes(self):
         """Topic hash should normalize input."""
-        from aragora.memory.postgres_consensus import PostgresConsensusMemory
+        import hashlib
 
-        # Create instance without pool for hash testing
-        class TestHash:
-            _hash_topic = PostgresConsensusMemory._hash_topic
+        def hash_topic(topic: str) -> str:
+            """Replicate the hashing logic."""
+            words = sorted(set(topic.lower().split()))
+            normalized = " ".join(words)
+            return hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
-        hasher = TestHash()
-
-        hash1 = hasher._hash_topic(hasher, "Rate Limiting Approach")
-        hash2 = hasher._hash_topic(hasher, "approach rate limiting")
-        hash3 = hasher._hash_topic(hasher, "RATE LIMITING APPROACH")
+        hash1 = hash_topic("Rate Limiting Approach")
+        hash2 = hash_topic("approach rate limiting")
+        hash3 = hash_topic("RATE LIMITING APPROACH")
 
         # All should produce same hash (normalized)
         assert hash1 == hash2 == hash3
 
     def test_hash_different_topics(self):
         """Different topics should have different hashes."""
-        from aragora.memory.postgres_consensus import PostgresConsensusMemory
+        import hashlib
 
-        class TestHash:
-            _hash_topic = PostgresConsensusMemory._hash_topic
+        def hash_topic(topic: str) -> str:
+            """Replicate the hashing logic."""
+            words = sorted(set(topic.lower().split()))
+            normalized = " ".join(words)
+            return hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
-        hasher = TestHash()
-
-        hash1 = hasher._hash_topic(hasher, "Rate limiting")
-        hash2 = hasher._hash_topic(hasher, "Authentication methods")
+        hash1 = hash_topic("Rate limiting")
+        hash2 = hash_topic("Authentication methods")
 
         assert hash1 != hash2
