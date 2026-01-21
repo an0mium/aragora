@@ -464,6 +464,92 @@ class MarketplaceStore(SQLiteStore):
                 (template_id,),
             )
 
+    def list_templates_with_rank(
+        self,
+        category: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_by: str = "rating",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List templates with ranking using window functions.
+
+        Returns templates with their global rank and category rank in a single query,
+        avoiding the N+1 pattern of separate COUNT queries.
+
+        Args:
+            category: Filter by category
+            search: Search in name, description, and tags
+            sort_by: Sort field (rating, downloads, newest, updated)
+            limit: Maximum results
+            offset: Pagination offset
+
+        Returns:
+            Tuple of (templates with rank info, total_count)
+        """
+        conditions = []
+        params: list[Any] = []
+
+        if category:
+            conditions.append("category = ?")
+            params.append(category)
+
+        if search:
+            conditions.append(
+                "(name LIKE ? OR description LIKE ? OR tags LIKE ?)"
+            )
+            search_pattern = f"%{search}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+
+        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+
+        # Build ORDER BY expression for window function
+        order_expr = {
+            "rating": "rating_sum * 1.0 / NULLIF(rating_count, 0) DESC",
+            "downloads": "download_count DESC",
+            "newest": "created_at DESC",
+            "updated": "updated_at DESC",
+        }.get(sort_by, "rating_sum * 1.0 / NULLIF(rating_count, 0) DESC")
+
+        with self.connection() as conn:
+            # Single query with window functions for count and ranking
+            rows = conn.execute(
+                f"""
+                SELECT
+                    *,
+                    ROW_NUMBER() OVER (ORDER BY {order_expr}) as global_rank,
+                    ROW_NUMBER() OVER (PARTITION BY category ORDER BY {order_expr}) as category_rank,
+                    COUNT(*) OVER () as total_count
+                FROM templates
+                {where_clause}
+                ORDER BY {order_expr}
+                LIMIT ? OFFSET ?
+                """,
+                params + [limit, offset],
+            ).fetchall()
+
+            if not rows:
+                return [], 0
+
+            # Get column names from cursor description
+            col_names = [desc[0] for desc in conn.execute(
+                "SELECT * FROM templates LIMIT 0"
+            ).description]
+
+            # Total count is the same for all rows (from window function)
+            total = rows[0][-1] if rows else 0
+
+            # Build results with rank info
+            results = []
+            for row in rows:
+                template = self._row_to_template(row)
+                result = template.to_dict()
+                result["global_rank"] = row[-3]  # global_rank
+                result["category_rank"] = row[-2]  # category_rank
+                results.append(result)
+
+            return results, total
+
     def set_featured(self, template_id: str, featured: bool) -> None:
         """Set template featured status.
 

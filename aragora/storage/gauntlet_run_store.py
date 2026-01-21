@@ -448,6 +448,75 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
             finally:
                 conn.close()
 
+    async def get_queue_analytics(self) -> dict[str, Any]:
+        """Get queue analytics using window functions.
+
+        Returns comprehensive queue statistics in a single query, including:
+        - Position of each pending/running job in queue
+        - Counts by status
+        - Running totals
+
+        Returns:
+            Dictionary with queue analytics
+        """
+        with self._lock:
+            conn = sqlite3.connect(str(self._db_path))
+            try:
+                cursor = conn.cursor()
+                # Use window functions for comprehensive analytics
+                cursor.execute(
+                    """
+                    SELECT
+                        run_id,
+                        template_id,
+                        status,
+                        created_at,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY status
+                            ORDER BY created_at ASC
+                        ) as position_in_status,
+                        COUNT(*) OVER (PARTITION BY status) as status_count,
+                        COUNT(*) OVER () as total_count
+                    FROM gauntlet_runs
+                    WHERE status IN ('pending', 'running')
+                    ORDER BY
+                        CASE status WHEN 'running' THEN 0 ELSE 1 END,
+                        created_at ASC
+                    """
+                )
+                rows = cursor.fetchall()
+
+                if not rows:
+                    return {
+                        "total_active": 0,
+                        "pending_count": 0,
+                        "running_count": 0,
+                        "queue": [],
+                    }
+
+                # Process results
+                queue = []
+                status_counts = {}
+                for row in rows:
+                    run_id, template_id, status, created_at, position, status_count, total = row
+                    queue.append({
+                        "run_id": run_id,
+                        "template_id": template_id,
+                        "status": status,
+                        "created_at": created_at,
+                        "position_in_status": position,
+                    })
+                    status_counts[status] = status_count
+
+                return {
+                    "total_active": rows[0][6] if rows else 0,
+                    "pending_count": status_counts.get("pending", 0),
+                    "running_count": status_counts.get("running", 0),
+                    "queue": queue,
+                }
+            finally:
+                conn.close()
+
     async def update_status(
         self, run_id: str, status: str, result_data: Optional[dict[str, Any]] = None
     ) -> bool:
