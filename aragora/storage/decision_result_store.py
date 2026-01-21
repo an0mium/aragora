@@ -268,25 +268,54 @@ class DecisionResultStore:
             ttl_seconds=self._ttl_seconds,
         )
 
-        # Save to database
-        conn = self._get_connection()
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO decision_results
-            (request_id, status, result_json, created_at, completed_at, error, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                request_id,
-                entry.status,
-                json.dumps(entry.result),
-                entry.created_at,
-                entry.completed_at,
-                entry.error,
-                expires_at,
-            ),
+        params = (
+            request_id,
+            entry.status,
+            json.dumps(entry.result),
+            entry.created_at,
+            entry.completed_at,
+            entry.error,
+            expires_at,
         )
-        conn.commit()
+
+        # Save to database
+        if self._backend is not None:
+            # Use ON CONFLICT for PostgreSQL compatibility
+            if self.backend_type == "postgresql":
+                self._backend.execute_write(
+                    """
+                    INSERT INTO decision_results
+                    (request_id, status, result_json, created_at, completed_at, error, expires_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT (request_id) DO UPDATE SET
+                        status = EXCLUDED.status,
+                        result_json = EXCLUDED.result_json,
+                        completed_at = EXCLUDED.completed_at,
+                        error = EXCLUDED.error,
+                        expires_at = EXCLUDED.expires_at
+                    """,
+                    params,
+                )
+            else:
+                self._backend.execute_write(
+                    """
+                    INSERT OR REPLACE INTO decision_results
+                    (request_id, status, result_json, created_at, completed_at, error, expires_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    params,
+                )
+        else:
+            conn = self._get_connection()
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO decision_results
+                (request_id, status, result_json, created_at, completed_at, error, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                params,
+            )
+            conn.commit()
 
         # Update cache
         with self._cache_lock:
@@ -328,25 +357,28 @@ class DecisionResultStore:
                     del self._cache[request_id]
 
         # Fall back to database
-        conn = self._get_connection()
-        cursor = conn.execute(
-            """
+        query = """
             SELECT request_id, status, result_json, created_at, completed_at, error, expires_at
             FROM decision_results
             WHERE request_id = ? AND expires_at > ?
-            """,
-            (request_id, time.time()),
-        )
-        row = cursor.fetchone()
+        """
+        params = (request_id, time.time())
+
+        if self._backend is not None:
+            row = self._backend.fetch_one(query, params)
+        else:
+            conn = self._get_connection()
+            cursor = conn.execute(query, params)
+            row = cursor.fetchone()
 
         if row:
             entry = DecisionResultEntry(
-                request_id=row["request_id"],
-                status=row["status"],
-                result=json.loads(row["result_json"] or "{}"),
-                created_at=row["created_at"],
-                completed_at=row["completed_at"],
-                error=row["error"],
+                request_id=row[0],
+                status=row[1],
+                result=json.loads(row[2] or "{}"),
+                created_at=row[3],
+                completed_at=row[4],
+                error=row[5],
                 ttl_seconds=self._ttl_seconds,
             )
 
