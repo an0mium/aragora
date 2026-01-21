@@ -1489,6 +1489,146 @@ class CrossSubscriberManager:
         # Culture patterns are used passively during debate initialization
         # by querying the CultureAccumulator
 
+    def _handle_mound_to_culture(self, event: StreamEvent) -> None:
+        """
+        Debate start → Load culture patterns from KM.
+
+        Retrieve relevant culture patterns when a debate starts to inform
+        protocol selection and agent behavior. Patterns include:
+        - Decision style preferences (consensus vs majority)
+        - Risk tolerance (conservative vs aggressive)
+        - Domain expertise distribution
+        - Debate dynamics (rounds to consensus, critique patterns)
+        """
+        if not self._is_km_handler_enabled("mound_to_culture"):
+            return
+
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        domain = data.get("domain", "")
+        protocol = data.get("protocol", {})
+
+        logger.debug(f"Loading culture patterns for debate {debate_id}, domain={domain}")
+
+        # Record KM outbound metric
+        record_km_outbound_event("culture", event.type.value)
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if not mound:
+                logger.debug("Knowledge Mound not available for culture retrieval")
+                return
+
+            # Retrieve culture profile from mound
+            import asyncio
+
+            async def retrieve_culture():
+                if hasattr(mound, "get_culture_profile"):
+                    profile = await mound.get_culture_profile()
+                    return profile
+                return None
+
+            # Run async retrieval
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Create a task for later execution
+                    asyncio.create_task(retrieve_culture())
+                else:
+                    profile = loop.run_until_complete(retrieve_culture())
+                    if profile:
+                        self._store_debate_culture(debate_id, profile, domain)
+            except RuntimeError:
+                profile = asyncio.run(retrieve_culture())
+                if profile:
+                    self._store_debate_culture(debate_id, profile, domain)
+
+        except ImportError as e:
+            logger.debug(f"Culture retrieval import failed: {e}")
+        except Exception as e:
+            logger.debug(f"Culture→Debate retrieval failed: {e}")
+
+    def _store_debate_culture(
+        self,
+        debate_id: str,
+        profile: Any,
+        domain: str,
+    ) -> None:
+        """Store culture profile for a debate to inform protocol behavior.
+
+        Args:
+            debate_id: Debate identifier
+            profile: CultureProfile from Knowledge Mound
+            domain: Detected debate domain
+        """
+        try:
+            # Store culture context for this debate
+            # This can be accessed by the orchestrator during debate execution
+            if not hasattr(self, "_debate_cultures"):
+                self._debate_cultures: dict = {}
+
+            # Extract relevant protocol hints from culture
+            protocol_hints = {}
+
+            if hasattr(profile, "dominant_pattern"):
+                dominant = profile.dominant_pattern
+                if dominant:
+                    # Map decision style to protocol recommendations
+                    if hasattr(dominant, "pattern_type"):
+                        if str(dominant.pattern_type) == "decision_style":
+                            protocol_hints["recommended_consensus"] = dominant.value
+
+                    # Map risk tolerance to critique depth
+                    if hasattr(dominant, "pattern_type"):
+                        if str(dominant.pattern_type) == "risk_tolerance":
+                            if dominant.value == "conservative":
+                                protocol_hints["extra_critique_rounds"] = 1
+                            elif dominant.value == "aggressive":
+                                protocol_hints["early_consensus_threshold"] = 0.7
+
+            # Extract domain-specific patterns
+            if hasattr(profile, "patterns"):
+                domain_patterns = [
+                    p for p in profile.patterns
+                    if hasattr(p, "domain") and p.domain == domain
+                ]
+                if domain_patterns:
+                    protocol_hints["domain_patterns"] = [
+                        {"type": str(p.pattern_type), "value": p.value, "confidence": p.confidence}
+                        for p in domain_patterns
+                    ]
+
+            self._debate_cultures[debate_id] = {
+                "profile": profile,
+                "protocol_hints": protocol_hints,
+                "domain": domain,
+            }
+
+            logger.info(
+                f"Stored culture context for debate {debate_id}: "
+                f"{len(protocol_hints)} hints"
+            )
+
+        except Exception as e:
+            logger.debug(f"Failed to store debate culture: {e}")
+
+    def get_debate_culture_hints(self, debate_id: str) -> dict:
+        """Get protocol hints from culture for a debate.
+
+        Args:
+            debate_id: Debate identifier
+
+        Returns:
+            Dict of protocol hints derived from organizational culture
+        """
+        if not hasattr(self, "_debate_cultures"):
+            return {}
+
+        culture_ctx = self._debate_cultures.get(debate_id, {})
+        return culture_ctx.get("protocol_hints", {})
+
     def _handle_staleness_to_debate(self, event: StreamEvent) -> None:
         """
         Knowledge stale → Debate warning.

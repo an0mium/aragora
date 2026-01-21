@@ -328,7 +328,7 @@ class TestKMCheckpointStore:
         assert result.success is True
         assert result.checkpoint_id == checkpoint_id
         assert result.nodes_restored >= 0
-        assert result.duration_ms > 0
+        assert result.duration_ms >= 0  # Can be 0 for fast operations
 
     @pytest.mark.asyncio
     async def test_restore_nonexistent_checkpoint(self, checkpoint_store):

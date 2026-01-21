@@ -332,18 +332,34 @@ class KMCheckpointStore:
         # Load content
         if metadata.compressed:
             content_file = checkpoint_path / "content.json.gz"
-            content_json = gzip.decompress(content_file.read_bytes()).decode("utf-8")
         else:
             content_file = checkpoint_path / "content.json"
-            content_json = content_file.read_text()
 
-        # Verify checksum
+        # Verify checksum first (before decompression)
         content_bytes = content_file.read_bytes()
         actual_checksum = hashlib.sha256(content_bytes).hexdigest()
         if actual_checksum != metadata.checksum:
             errors.append(f"Checksum mismatch: expected {metadata.checksum}, got {actual_checksum}")
 
-        content_dict = json.loads(content_json)
+        # Decompress and parse content
+        try:
+            if metadata.compressed:
+                content_json = gzip.decompress(content_bytes).decode("utf-8")
+            else:
+                content_json = content_bytes.decode("utf-8")
+            content_dict = json.loads(content_json)
+        except (gzip.BadGzipFile, OSError) as e:
+            return RestoreResult(
+                success=False,
+                checkpoint_id=checkpoint_id,
+                errors=errors + [f"Failed to decompress checkpoint: {e}"],
+            )
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            return RestoreResult(
+                success=False,
+                checkpoint_id=checkpoint_id,
+                errors=errors + [f"Failed to parse checkpoint content: {e}"],
+            )
 
         # Clear existing data if requested
         if clear_existing:
