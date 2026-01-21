@@ -5,6 +5,49 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.3] - 2026-01-21
+
+### Added
+
+- **Approval Gate Middleware** - Human-in-the-loop approval for sensitive operations:
+  - Risk level classification (low, medium, high, critical)
+  - Customizable approval checklists
+  - Integration with GovernanceStore for persistence
+  - Decorator and middleware usage patterns
+
+- **Secure Handler Base** - Security-enhanced HTTP handler:
+  - Automatic JWT verification
+  - Built-in RBAC permission enforcement
+  - Audit trail logging for security events
+  - Security metrics emission
+
+- **Webhook Delivery Manager** - Reliable webhook delivery:
+  - Delivery status tracking (pending, delivered, failed, dead-lettered)
+  - Retry queue with exponential backoff
+  - Dead-letter queue for consistently failing webhooks
+  - Delivery SLA metrics
+
+- **DecisionHandler Tests** - Comprehensive test coverage for `/api/decisions`:
+  - Route matching tests
+  - GET/POST operation tests
+  - Result caching tests
+
+- **Cache Invalidation** - Enhanced decision routing middleware:
+  - Tagged entries for selective invalidation
+  - Workspace-scoped invalidation
+  - Policy version tracking
+  - Cache statistics and monitoring
+
+### Changed
+
+- **Redis now optional** for initial production deployment (with warning)
+- **RBAC enforcement** added to connectors handler
+
+### Fixed
+
+- **Migration script metrics** - Added tracking for migration outcomes
+- **ENCRYPTED_FIELDS export** - Now properly exported from gmail_token_store
+
 ## [2.1.2] - 2026-01-21
 
 ### Added
