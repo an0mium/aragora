@@ -9,11 +9,11 @@ from aragora.reasoning.belief import (
     BeliefDistribution,
     BeliefNetwork,
     BeliefNode,
-    BeliefPropagationAnalyzer,
     BeliefStatus,
     Factor,
     PropagationResult,
 )
+from aragora.reasoning.crux_detector import BeliefPropagationAnalyzer
 
 # Scholarly Citation Grounding (Heavy3-inspired evidence-backed verdicts)
 from aragora.reasoning.citations import (

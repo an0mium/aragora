@@ -1,6 +1,6 @@
 # Security
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-21
 
 
 This document covers security features implemented in Aragora, including authentication, authorization, sandboxing, and rate limiting.
@@ -34,6 +34,10 @@ This document covers security features implemented in Aragora, including authent
 - [Security Headers](#security-headers)
 - [Environment Variables](#environment-variables)
 - [Best Practices](#best-practices)
+- [Encryption at Rest](#encryption-at-rest)
+  - [Key Rotation](#key-rotation)
+  - [Migration from Plaintext](#migration-from-plaintext)
+- [Unified Audit Logging](#unified-audit-logging)
 
 ---
 

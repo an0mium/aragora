@@ -31,7 +31,6 @@ from aragora.billing.stripe_client import (
 from aragora.server.validation.schema import CHECKOUT_SESSION_SCHEMA, validate_against_schema
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_string_param,
@@ -40,6 +39,7 @@ from ..base import (
     log_request,
 )
 from ..utils.decorators import require_permission
+from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -67,8 +67,15 @@ def _mark_webhook_processed(event_id: str, result: str = "success") -> None:
     store.mark_processed(event_id, result)
 
 
-class BillingHandler(BaseHandler):
-    """Handler for billing and subscription endpoints."""
+class BillingHandler(SecureHandler):
+    """Handler for billing and subscription endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+    """
+
+    # Resource type for audit logging
+    RESOURCE_TYPE = "billing"
 
     ROUTES = [
         "/api/billing/plans",
