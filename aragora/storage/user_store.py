@@ -2271,7 +2271,7 @@ class PostgresUserStore:
         active_only: bool = False,
     ) -> tuple[list[User], int]:
         """List all users asynchronously."""
-        query = "SELECT * FROM users WHERE 1=1"
+        query = f"SELECT {self._USER_COLUMNS} FROM users WHERE 1=1"
         count_query = "SELECT COUNT(*) FROM users WHERE 1=1"
         params: list[Any] = []
         param_idx = 1

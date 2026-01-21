@@ -1579,6 +1579,19 @@ class NomicLoop:
         except Exception as e:
             print(f"[outcomes] Failed to initialize: {e}")
 
+        # Initialize CycleLearningStore for cross-cycle learning
+        self.cycle_store = None
+        self._current_cycle_record = None
+        try:
+            from aragora.nomic.cycle_store import CycleLearningStore
+
+            cycles_db = str(self.nomic_dir / "cycles.db")
+            self.cycle_store = CycleLearningStore(db_path=cycles_db)
+            cycle_count = self.cycle_store.get_cycle_count()
+            print(f"[cross-cycle] Learning store initialized ({cycle_count} historical cycles)")
+        except Exception as e:
+            print(f"[cross-cycle] Failed to initialize: {e}")
+
         # Supabase persistence for history tracking
         self.persistence = None
         if enable_persistence and PERSISTENCE_AVAILABLE:
