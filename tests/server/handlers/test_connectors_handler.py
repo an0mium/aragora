@@ -333,10 +333,18 @@ class MockAuthorizationContext:
     user_id: str = "user-123"
     roles: list = None
     org_id: str = None
+    permissions: set = None
+    api_key_scope: str = None
+    ip_address: str = None
+    user_agent: str = None
+    request_id: str = None
+    timestamp: str = None
 
     def __post_init__(self):
         if self.roles is None:
             self.roles = ["admin"]
+        if self.permissions is None:
+            self.permissions = set()
 
 
 @dataclass

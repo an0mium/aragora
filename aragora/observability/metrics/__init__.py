@@ -71,3 +71,11 @@ from aragora.observability.metrics.webhook import (  # noqa: F401, E402
     set_active_endpoints as set_webhook_active_endpoints,
     WebhookDeliveryTimer,
 )
+
+# Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
+from _aragora_metrics_impl import (  # noqa: F401, E402
+    start_metrics_server,
+    record_rbac_check,
+    record_tts_synthesis,
+    record_tts_latency,
+)

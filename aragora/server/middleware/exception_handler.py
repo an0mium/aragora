@@ -92,6 +92,9 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "TokenExpiredError": 401,
     "APIKeyError": 401,
     "AuthorizationError": 403,
+    # === Aragora approval gate (202/403) ===
+    "ApprovalPendingError": 202,  # Accepted, pending approval
+    "ApprovalDeniedError": 403,  # Approval denied
     # === Aragora rate limiting (429 Too Many Requests) ===
     "RateLimitExceededError": 429,
     # === Aragora storage/database errors (500/503) ===

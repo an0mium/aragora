@@ -224,6 +224,19 @@ from .decision_routing import (
     reset_decision_middleware,
     route_decision,
 )
+from .approval_gate import (
+    ApprovalChecklistItem,
+    ApprovalDeniedError,
+    ApprovalPendingError,
+    ApprovalState,
+    OperationApprovalRequest,
+    OperationRiskLevel,
+    create_approval_request,
+    get_approval_request,
+    get_pending_approvals,
+    require_approval,
+    resolve_approval,
+)
 
 __all__ = [
     # Auth
@@ -409,4 +422,16 @@ __all__ = [
     "invalidate_cache_for_workspace",
     "reset_decision_middleware",
     "route_decision",
+    # Approval gate
+    "ApprovalChecklistItem",
+    "ApprovalDeniedError",
+    "ApprovalPendingError",
+    "ApprovalState",
+    "OperationApprovalRequest",
+    "OperationRiskLevel",
+    "create_approval_request",
+    "get_approval_request",
+    "get_pending_approvals",
+    "require_approval",
+    "resolve_approval",
 ]

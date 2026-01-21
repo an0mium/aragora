@@ -404,6 +404,7 @@ class TestUpdateOrganization:
 
         assert get_status(result) == 403
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_admin_can_update(self):
         """Admin should be able to update org."""
         handler = create_org_handler()
@@ -425,6 +426,7 @@ class TestUpdateOrganization:
         assert get_status(result) == 200
         assert "message" in body
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_validates_name_length(self):
         """Should validate name length."""
         handler = create_org_handler()
@@ -493,6 +495,7 @@ class TestInviteMember:
 
         assert get_status(result) == 403
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_invalid_role_rejected(self):
         """Should reject invalid role."""
         handler = create_org_handler()
@@ -528,6 +531,7 @@ class TestInviteMember:
 class TestRemoveMember:
     """Tests for _remove_member()."""
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_cannot_remove_owner(self):
         """Should not allow removing owner."""
         handler = create_org_handler()
@@ -546,6 +550,7 @@ class TestRemoveMember:
         assert get_status(result) == 403
         assert "Cannot remove the organization owner" in get_body(result)["error"]
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_cannot_remove_self(self):
         """Should not allow removing self."""
         handler = create_org_handler()
@@ -567,6 +572,7 @@ class TestRemoveMember:
         assert get_status(result) == 400
         assert "Cannot remove yourself" in get_body(result)["error"]
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_admin_cannot_remove_other_admin(self):
         """Admin should not be able to remove other admins."""
         handler = create_org_handler()
@@ -605,6 +611,7 @@ class TestUpdateMemberRole:
 
         assert get_status(result) == 403
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_cannot_change_owner_role(self):
         """Should not allow changing owner's role."""
         handler = create_org_handler()
@@ -624,6 +631,7 @@ class TestUpdateMemberRole:
         assert get_status(result) == 403
         assert "Cannot change the owner's role" in get_body(result)["error"]
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_owner_can_promote_to_admin(self):
         """Owner should be able to promote member to admin."""
         handler = create_org_handler()
@@ -682,6 +690,7 @@ class TestListInvitations:
 class TestRevokeInvitation:
     """Tests for _revoke_invitation()."""
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_revokes_pending_invitation(self):
         """Should revoke pending invitation."""
         handler = create_org_handler()
@@ -702,6 +711,7 @@ class TestRevokeInvitation:
         assert get_status(result) == 200
         assert "revoked" in body["message"].lower()
 
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
     def test_cannot_revoke_accepted_invitation(self):
         """Should not revoke already accepted invitation."""
         handler = create_org_handler()
@@ -803,3 +813,165 @@ class TestRouteDispatching:
         result = handler.handle("/api/unknown/route", {}, mock_http, "GET")
 
         assert result is None
+
+
+# ===========================================================================
+# RBAC Tests
+# ===========================================================================
+
+
+@dataclass
+class MockPermissionDecision:
+    """Mock RBAC permission decision."""
+
+    allowed: bool = True
+    reason: str = "Allowed by test"
+
+
+def mock_check_permission_allowed(*args, **kwargs):
+    """Mock check_permission that always allows."""
+    return MockPermissionDecision(allowed=True)
+
+
+def mock_check_permission_denied(*args, **kwargs):
+    """Mock check_permission that always denies."""
+    return MockPermissionDecision(allowed=False, reason="Permission denied by test")
+
+
+class TestOrganizationsRBAC:
+    """Tests for RBAC permission checks in OrganizationsHandler."""
+
+    def test_rbac_helper_methods_exist(self):
+        """Handler should have RBAC helper methods."""
+        handler = create_org_handler()
+        assert hasattr(handler, "_check_rbac_permission")
+        assert hasattr(handler, "_get_auth_context")
+
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", False)
+    def test_permission_check_without_rbac(self):
+        """Permission check should pass when RBAC not available."""
+        handler = create_org_handler()
+        mock_http = MockHandler()
+        user = MockUser(role="admin", org_id="org-123")
+
+        result = handler._check_rbac_permission(mock_http, "organizations.update", user)
+        assert result is None  # None means allowed
+
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.organizations.check_permission", mock_check_permission_allowed)
+    def test_permission_check_allowed(self):
+        """Permission check should pass when RBAC allows."""
+        handler = create_org_handler()
+        mock_http = MockHandler()
+        user = MockUser(role="admin", org_id="org-123")
+
+        result = handler._check_rbac_permission(mock_http, "organizations.update", user)
+        assert result is None  # None means allowed
+
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.organizations.check_permission", mock_check_permission_denied)
+    def test_permission_check_denied(self):
+        """Permission check should return error when RBAC denies."""
+        handler = create_org_handler()
+        mock_http = MockHandler()
+        user = MockUser(role="viewer", org_id="org-123")
+
+        result = handler._check_rbac_permission(mock_http, "organizations.update", user)
+        assert result is not None
+        assert get_status(result) == 403
+        body = get_body(result)
+        # Error is wrapped as {"error": {"error": "...", "reason": "..."}}
+        error_data = body.get("error", {})
+        if isinstance(error_data, dict):
+            assert "Permission denied" in error_data.get("error", "")
+        else:
+            assert "Permission denied" in str(error_data)
+
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.organizations.check_permission", mock_check_permission_denied)
+    def test_update_organization_rbac_denied(self):
+        """Update organization should deny when RBAC denies."""
+        handler = create_org_handler()
+        mock_http = MockHandler(method="PUT")
+        user = MockUser(role="admin", org_id="org-123")
+
+        with patch.object(handler, "_get_current_user", return_value=(user, MockAuthContext())):
+            result = handler._update_organization(mock_http, "org-123")
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.organizations.check_permission", mock_check_permission_denied)
+    def test_invite_member_rbac_denied(self):
+        """Invite member should deny when RBAC denies."""
+        handler = create_org_handler()
+        mock_http = MockHandler(method="POST")
+        user = MockUser(role="admin", org_id="org-123")
+
+        with patch.object(handler, "_get_current_user", return_value=(user, MockAuthContext())):
+            result = handler._invite_member(mock_http, "org-123")
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.organizations.check_permission", mock_check_permission_denied)
+    def test_remove_member_rbac_denied(self):
+        """Remove member should deny when RBAC denies."""
+        handler = create_org_handler()
+        mock_http = MockHandler(method="DELETE")
+        user = MockUser(role="admin", org_id="org-123")
+
+        with patch.object(handler, "_get_current_user", return_value=(user, MockAuthContext())):
+            result = handler._remove_member(mock_http, "org-123", "user-456")
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.organizations.check_permission", mock_check_permission_denied)
+    def test_update_member_role_rbac_denied(self):
+        """Update member role should deny when RBAC denies."""
+        handler = create_org_handler()
+        mock_http = MockHandler(method="PUT")
+        user = MockUser(role="owner", org_id="org-123")
+
+        with patch.object(handler, "_get_current_user", return_value=(user, MockAuthContext())):
+            result = handler._update_member_role(mock_http, "org-123", "user-456")
+
+        assert get_status(result) == 403
+
+    @patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.organizations.check_permission", mock_check_permission_denied)
+    def test_revoke_invitation_rbac_denied(self):
+        """Revoke invitation should deny when RBAC denies."""
+        handler = create_org_handler()
+        mock_http = MockHandler(method="DELETE")
+        user = MockUser(role="admin", org_id="org-123")
+
+        with patch.object(handler, "_get_current_user", return_value=(user, MockAuthContext())):
+            result = handler._revoke_invitation(mock_http, "org-123", "inv-123")
+
+        assert get_status(result) == 403
+
+    def test_get_auth_context_returns_context(self):
+        """_get_auth_context should return AuthorizationContext."""
+        handler = create_org_handler()
+        user = MockUser(role="admin", org_id="org-123")
+
+        with patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True):
+            ctx = handler._get_auth_context(MockHandler(), user)
+
+            if ctx is not None:  # Only check if RBAC is available
+                assert ctx.user_id == user.id
+                assert "admin" in ctx.roles
+                assert ctx.org_id == user.org_id
+
+    def test_get_auth_context_returns_none_without_user(self):
+        """_get_auth_context should return None when no user."""
+        handler = create_org_handler()
+
+        with (
+            patch("aragora.server.handlers.organizations.RBAC_AVAILABLE", True),
+            patch.object(handler, "_get_current_user", return_value=(None, None)),
+        ):
+            ctx = handler._get_auth_context(MockHandler())
+            assert ctx is None

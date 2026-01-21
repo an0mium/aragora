@@ -401,14 +401,23 @@ def get_state_manager() -> StateManager:
 
 
 def _shutdown_state_manager() -> None:
-    """Atexit handler to cleanup StateManager resources."""
+    """Atexit handler to cleanup StateManager resources.
+
+    Note: During interpreter shutdown, logging handlers may already be closed,
+    so we disable logging for this module to avoid "I/O operation on closed file" errors.
+    """
+    # Disable logging for this module during shutdown to avoid I/O errors
+    # when the logging system's file handlers are already closed
+    logging.getLogger(__name__).disabled = True
+
     try:
         registry = ServiceRegistry.get()
         if registry.has(StateManager):
             state_manager = registry.resolve(StateManager)
             state_manager.shutdown()
-    except Exception as e:
-        logger.warning(f"Error during StateManager cleanup: {e}")
+    except Exception:
+        # Silently ignore errors during shutdown - logging is disabled anyway
+        pass
 
 
 def reset_state_manager() -> None:

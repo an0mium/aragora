@@ -24,6 +24,16 @@ from typing import Optional
 from aragora.billing.models import OrganizationInvitation
 from aragora.server.validation.schema import ORG_INVITE_SCHEMA, validate_against_schema
 
+# RBAC imports - graceful fallback if not available
+try:
+    from aragora.rbac import AuthorizationContext, check_permission
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+    AuthorizationContext = None
+    check_permission = None
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -208,6 +218,52 @@ class OrganizationsHandler(BaseHandler):
 
         return True, ""
 
+    def _get_auth_context(self, handler, user=None) -> Optional[AuthorizationContext]:
+        """Build RBAC authorization context from request."""
+        if not RBAC_AVAILABLE or AuthorizationContext is None:
+            return None
+
+        if user is None:
+            user, _ = self._get_current_user(handler)
+
+        if not user:
+            return None
+
+        return AuthorizationContext(
+            user_id=user.id,
+            roles=set([user.role]) if user.role else set(),
+            org_id=user.org_id,
+        )
+
+    def _check_rbac_permission(
+        self, handler, permission_key: str, user=None
+    ) -> Optional[HandlerResult]:
+        """
+        Check RBAC permission.
+
+        Returns None if allowed, or an error response if denied.
+        """
+        if not RBAC_AVAILABLE:
+            return None
+
+        auth_ctx = self._get_auth_context(handler, user)
+        if not auth_ctx:
+            # No auth context - rely on existing auth checks
+            return None
+
+        decision = check_permission(auth_ctx, permission_key)
+        if not decision.allowed:
+            logger.warning(
+                f"RBAC denied: user={auth_ctx.user_id} permission={permission_key} "
+                f"reason={decision.reason}"
+            )
+            return error_response(
+                {"error": "Permission denied", "reason": decision.reason},
+                403,
+            )
+
+        return None
+
     @handle_errors("get organization")
     @log_request("get organization")
     def _get_organization(self, handler, org_id: str) -> HandlerResult:
@@ -250,6 +306,11 @@ class OrganizationsHandler(BaseHandler):
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
         if not has_access:
             return error_response(err, 403 if user else 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "organizations.update", user)
+        if rbac_error:
+            return rbac_error
 
         body = self.read_json_body(handler)
         if body is None:
@@ -336,6 +397,11 @@ class OrganizationsHandler(BaseHandler):
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
         if not has_access:
             return error_response(err, 403 if user else 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "organizations.invite", user)
+        if rbac_error:
+            return rbac_error
 
         body = self.read_json_body(handler)
         if body is None:
@@ -444,6 +510,11 @@ class OrganizationsHandler(BaseHandler):
         if not has_access:
             return error_response(err, 403 if user else 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "organizations.members.remove", user)
+        if rbac_error:
+            return rbac_error
+
         user_store = self._get_user_store()
 
         # Get target user
@@ -492,6 +563,11 @@ class OrganizationsHandler(BaseHandler):
         has_access, err = self._check_org_access(user, org_id, min_role="owner")
         if not has_access:
             return error_response(err, 403 if user else 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "organizations.members.update_role", user)
+        if rbac_error:
+            return rbac_error
 
         body = self.read_json_body(handler)
         if body is None:
@@ -604,6 +680,11 @@ class OrganizationsHandler(BaseHandler):
         has_access, err = self._check_org_access(user, org_id, min_role="admin")
         if not has_access:
             return error_response(err, 403 if user else 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "organizations.invitations.revoke", user)
+        if rbac_error:
+            return rbac_error
 
         user_store = self._get_user_store()
         if not user_store:

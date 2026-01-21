@@ -292,7 +292,9 @@ class AuthorizationContext:
 
     Attributes:
         user_id: ID of the user making the request
+        user_email: Email of the user (optional, for display/audit)
         org_id: Organization context
+        workspace_id: Workspace context for multi-tenant workspaces
         roles: User's active roles
         permissions: Resolved permissions from roles
         api_key_scope: Scope if using API key (None for session auth)
@@ -303,7 +305,9 @@ class AuthorizationContext:
     """
 
     user_id: str
+    user_email: str | None = None
     org_id: str | None = None
+    workspace_id: str | None = None
     roles: set[str] = field(default_factory=set)
     permissions: set[str] = field(default_factory=set)
     api_key_scope: APIKeyScope | None = None

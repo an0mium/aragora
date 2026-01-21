@@ -363,11 +363,84 @@ class TelegramHandler(BaseHandler):
         return json_response({"ok": True, "debate_started": True, "debate_id": debate_id})
 
     def _start_debate_async(self, chat_id: int, user_id: int, topic: str) -> str:
-        """Start a debate asynchronously via the queue system."""
+        """Start a debate asynchronously via the DecisionRouter.
+
+        Uses the unified DecisionRouter for:
+        - Deduplication (prevents duplicate debates for same topic/user)
+        - Caching (returns cached results if available)
+        - Metrics and logging
+        - Origin registration for result routing
+        """
+        import asyncio
         import uuid
 
         debate_id = str(uuid.uuid4())
 
+        async def route_debate():
+            try:
+                from aragora.core import (
+                    DecisionRequest,
+                    DecisionType,
+                    InputSource,
+                    RequestContext,
+                    ResponseChannel,
+                    get_decision_router,
+                )
+
+                # Create response channel for result routing
+                response_channel = ResponseChannel(
+                    platform="telegram",
+                    channel_id=str(chat_id),
+                    user_id=str(user_id),
+                )
+
+                # Create request context
+                context = RequestContext(
+                    user_id=str(user_id),
+                    session_id=f"telegram:{chat_id}",
+                )
+
+                # Create decision request
+                request = DecisionRequest(
+                    content=topic,
+                    decision_type=DecisionType.DEBATE,
+                    source=InputSource.TELEGRAM,
+                    response_channels=[response_channel],
+                    context=context,
+                )
+
+                # Route through DecisionRouter (handles origin registration, deduplication, caching)
+                router = get_decision_router()
+                result = await router.route(request)
+
+                if result.debate_id:
+                    logger.info(f"DecisionRouter started debate {result.debate_id} from Telegram")
+                    return result.debate_id
+                return debate_id
+
+            except ImportError:
+                logger.debug("DecisionRouter not available, falling back to queue system")
+                return await self._fallback_queue_debate(chat_id, user_id, topic, debate_id)
+            except Exception as e:
+                logger.error(f"DecisionRouter failed: {e}, falling back to queue system")
+                return await self._fallback_queue_debate(chat_id, user_id, topic, debate_id)
+
+        # Run async routing
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Schedule as task and return preliminary ID
+                asyncio.create_task(route_debate())
+                return debate_id
+            else:
+                return asyncio.run(route_debate())
+        except RuntimeError:
+            return asyncio.run(route_debate())
+
+    async def _fallback_queue_debate(
+        self, chat_id: int, user_id: int, topic: str, debate_id: str
+    ) -> str:
+        """Fallback to direct queue enqueue if DecisionRouter unavailable."""
         # Register origin for result routing
         try:
             from aragora.server.debate_origin import register_debate_origin
@@ -383,52 +456,28 @@ class TelegramHandler(BaseHandler):
             logger.warning(f"Failed to register debate origin: {e}")
 
         try:
-            from aragora.queue import create_debate_job
-            import asyncio
+            from aragora.queue import create_debate_job, create_redis_queue
 
             job = create_debate_job(
                 question=topic,
-                agents=None,  # Use default agents
+                agents=None,
                 rounds=3,
                 consensus="majority",
                 protocol="standard",
                 user_id=f"telegram:{user_id}",
-                webhook_url=None,  # Results routed via debate_origin system
+                webhook_url=None,
             )
 
-            # Fire and forget - enqueue the job
-            async def enqueue_job():
-                try:
-                    from aragora.queue import create_redis_queue
-                    queue = await create_redis_queue()
-                    await queue.enqueue(job)
-                    logger.info(f"Debate job enqueued: {job.job_id}")
-                except Exception as e:
-                    logger.error(f"Failed to enqueue debate job: {e}")
-                    self._send_message(
-                        chat_id,
-                        "Sorry, I couldn't start the debate. Please try again later."
-                    )
-
-            # Run async enqueue in background
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(enqueue_job())
-                else:
-                    asyncio.run(enqueue_job())
-            except RuntimeError:
-                # No event loop, create one
-                asyncio.run(enqueue_job())
-
+            queue = await create_redis_queue()
+            await queue.enqueue(job)
+            logger.info(f"Debate job enqueued via fallback: {job.job_id}")
             return job.job_id
 
         except ImportError:
             logger.warning("Queue system not available, using direct execution")
-            # Fallback: run debate directly (blocking)
             return self._run_debate_direct(chat_id, user_id, topic, debate_id)
         except Exception as e:
-            logger.error(f"Failed to start debate: {e}")
+            logger.error(f"Failed to enqueue debate: {e}")
             return debate_id
 
     def _run_debate_direct(self, chat_id: int, user_id: int, topic: str, debate_id: str) -> str:
