@@ -474,8 +474,8 @@ class Organization:
     slug: str = ""  # URL-friendly name
     tier: SubscriptionTier = SubscriptionTier.FREE
     owner_id: Optional[str] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Billing
     stripe_customer_id: Optional[str] = None
@@ -483,7 +483,7 @@ class Organization:
 
     # Usage tracking (reset monthly)
     debates_used_this_month: int = 0
-    billing_cycle_start: datetime = field(default_factory=datetime.utcnow)
+    billing_cycle_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Settings
     settings: dict[str, Any] = field(default_factory=dict)
