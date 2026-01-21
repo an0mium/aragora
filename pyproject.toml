@@ -573,6 +573,11 @@ module = [
     "aragora.modes.builtin.orchestrator",
     "aragora.server.handlers.knowledge",
     "aragora.broadcast.mixer",
+    # Added strict - Phase 28 RBAC and billing (Jan 2026)
+    "aragora.rbac.types",
+    "aragora.rbac.models",
+    "aragora.rbac.defaults",
+    "aragora.billing.jwt_auth",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
