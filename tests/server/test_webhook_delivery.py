@@ -71,6 +71,7 @@ class TestWebhookDeliveryManager:
     @pytest.mark.asyncio
     async def test_successful_delivery(self, manager):
         """Should deliver successfully on 2xx response."""
+
         # Mock successful sender
         async def mock_sender(url, payload, headers):
             return 200, {"ok": True}
@@ -92,6 +93,7 @@ class TestWebhookDeliveryManager:
     @pytest.mark.asyncio
     async def test_failed_delivery_enters_retry(self, manager):
         """Should schedule retry on failure."""
+
         # Mock failing sender
         async def mock_sender(url, payload, headers):
             return 500, {"error": "Internal server error"}
@@ -113,6 +115,7 @@ class TestWebhookDeliveryManager:
     @pytest.mark.asyncio
     async def test_max_retries_moves_to_dead_letter(self, manager):
         """Should move to dead-letter queue after max retries."""
+
         # Mock always-failing sender
         async def mock_sender(url, payload, headers):
             return 500, {"error": "Always fails"}
@@ -184,6 +187,7 @@ class TestWebhookDeliveryManager:
     @pytest.mark.asyncio
     async def test_get_delivery(self, manager):
         """Should retrieve delivery by ID."""
+
         async def mock_sender(url, payload, headers):
             return 200, {"ok": True}
 
@@ -226,6 +230,7 @@ class TestWebhookDeliveryManager:
     @pytest.mark.asyncio
     async def test_metrics_tracking(self, manager):
         """Should track metrics correctly."""
+
         async def mock_sender(url, payload, headers):
             await asyncio.sleep(0.01)  # Simulate latency
             return 200, {"ok": True}
@@ -251,6 +256,7 @@ class TestWebhookDeliveryManager:
     @pytest.mark.asyncio
     async def test_timeout_handling(self, manager):
         """Should handle timeout errors."""
+
         async def mock_sender(url, payload, headers):
             raise asyncio.TimeoutError()
 
@@ -430,10 +436,11 @@ class TestDeliveryPersistence:
 
         # Check database has the record
         import sqlite3
+
         conn = sqlite3.connect(temp_db_path)
         cursor = conn.execute(
             "SELECT status, webhook_id FROM webhook_deliveries WHERE delivery_id = ?",
-            (delivery.delivery_id,)
+            (delivery.delivery_id,),
         )
         row = cursor.fetchone()
         conn.close()
@@ -466,10 +473,10 @@ class TestDeliveryPersistence:
 
         # Check database has NO record (removed on success)
         import sqlite3
+
         conn = sqlite3.connect(temp_db_path)
         cursor = conn.execute(
-            "SELECT COUNT(*) FROM webhook_deliveries WHERE delivery_id = ?",
-            (delivery.delivery_id,)
+            "SELECT COUNT(*) FROM webhook_deliveries WHERE delivery_id = ?", (delivery.delivery_id,)
         )
         count = cursor.fetchone()[0]
         conn.close()
@@ -501,10 +508,10 @@ class TestDeliveryPersistence:
 
         # Check database has dead-lettered record
         import sqlite3
+
         conn = sqlite3.connect(temp_db_path)
         cursor = conn.execute(
-            "SELECT status FROM webhook_deliveries WHERE delivery_id = ?",
-            (delivery.delivery_id,)
+            "SELECT status FROM webhook_deliveries WHERE delivery_id = ?", (delivery.delivery_id,)
         )
         row = cursor.fetchone()
         conn.close()
@@ -579,3 +586,147 @@ class TestDeliveryPersistence:
         # Should still work, just not persist
         assert delivery.status == DeliveryStatus.RETRYING
         assert manager._persistence is None
+
+
+class TestTracePropagation:
+    """Tests for distributed tracing header propagation."""
+
+    @pytest.mark.asyncio
+    async def test_trace_headers_included_with_context(self):
+        """Should include trace headers when trace context is set."""
+        from aragora.server.middleware.tracing import set_trace_id, set_span_id
+
+        captured_headers = {}
+
+        async def capture_sender(url, payload, headers):
+            captured_headers.update(headers)
+            return 200, {"ok": True}
+
+        manager = WebhookDeliveryManager(enable_persistence=False)
+        manager.set_sender(capture_sender)
+
+        # Set trace context
+        set_trace_id("abc123def456789012345678901234ab")
+        set_span_id("span12345678abcd")
+
+        try:
+            await manager.deliver(
+                webhook_id="wh-trace-1",
+                event_type="test",
+                payload={"data": "test"},
+                url="https://example.com/webhook",
+            )
+        finally:
+            # Reset context
+            set_trace_id(None)
+            set_span_id(None)
+
+        # Check custom trace headers
+        assert "X-Trace-ID" in captured_headers
+        assert captured_headers["X-Trace-ID"] == "abc123def456789012345678901234ab"
+        assert "X-Span-ID" in captured_headers
+        assert captured_headers["X-Span-ID"] == "span12345678abcd"
+
+        # Check W3C traceparent header
+        assert "traceparent" in captured_headers
+        traceparent = captured_headers["traceparent"]
+        assert traceparent.startswith("00-")  # Version 00
+        assert "-01" in traceparent  # Sampled flag
+
+    @pytest.mark.asyncio
+    async def test_no_trace_headers_without_context(self):
+        """Should not include trace headers when no context is set."""
+        from aragora.server.middleware.tracing import set_trace_id, set_span_id
+
+        captured_headers = {}
+
+        async def capture_sender(url, payload, headers):
+            captured_headers.update(headers)
+            return 200, {"ok": True}
+
+        manager = WebhookDeliveryManager(enable_persistence=False)
+        manager.set_sender(capture_sender)
+
+        # Ensure no trace context
+        set_trace_id(None)
+        set_span_id(None)
+
+        await manager.deliver(
+            webhook_id="wh-no-trace",
+            event_type="test",
+            payload={"data": "test"},
+            url="https://example.com/webhook",
+        )
+
+        # Trace headers should not be present
+        assert "X-Trace-ID" not in captured_headers
+        assert "traceparent" not in captured_headers
+
+    @pytest.mark.asyncio
+    async def test_trace_id_stored_in_metadata(self):
+        """Should store trace ID in delivery metadata."""
+        from aragora.server.middleware.tracing import set_trace_id, set_span_id
+
+        async def mock_sender(url, payload, headers):
+            return 200, {"ok": True}
+
+        manager = WebhookDeliveryManager(enable_persistence=False)
+        manager.set_sender(mock_sender)
+
+        # Set trace context
+        set_trace_id("trace-for-metadata-test-12345678")
+        set_span_id("span-metadata-12")
+
+        try:
+            delivery = await manager.deliver(
+                webhook_id="wh-metadata-1",
+                event_type="test",
+                payload={"data": "test"},
+                url="https://example.com/webhook",
+            )
+        finally:
+            set_trace_id(None)
+            set_span_id(None)
+
+        # Check metadata contains trace info
+        assert delivery.metadata.get("trace_id") == "trace-for-metadata-test-12345678"
+        assert delivery.metadata.get("span_id") == "span-metadata-12"
+
+    @pytest.mark.asyncio
+    async def test_traceparent_format(self):
+        """Should generate valid W3C traceparent header."""
+        from aragora.server.middleware.tracing import set_trace_id, set_span_id
+
+        captured_headers = {}
+
+        async def capture_sender(url, payload, headers):
+            captured_headers.update(headers)
+            return 200, {"ok": True}
+
+        manager = WebhookDeliveryManager(enable_persistence=False)
+        manager.set_sender(capture_sender)
+
+        # Set trace context
+        set_trace_id("a" * 32)  # 32-char trace ID
+        set_span_id("b" * 16)  # 16-char span ID
+
+        try:
+            await manager.deliver(
+                webhook_id="wh-format-1",
+                event_type="test",
+                payload={},
+                url="https://example.com/webhook",
+            )
+        finally:
+            set_trace_id(None)
+            set_span_id(None)
+
+        traceparent = captured_headers.get("traceparent", "")
+        parts = traceparent.split("-")
+
+        # W3C format: version-trace_id-parent_id-flags
+        assert len(parts) == 4
+        assert parts[0] == "00"  # Version
+        assert len(parts[1]) == 32  # Trace ID (32 hex chars)
+        assert len(parts[2]) == 16  # Parent ID (16 hex chars)
+        assert parts[3] == "01"  # Sampled flag

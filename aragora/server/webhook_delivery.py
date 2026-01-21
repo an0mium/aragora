@@ -38,6 +38,63 @@ from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# Trace context imports for distributed tracing
+try:
+    from aragora.server.middleware.tracing import (
+        get_trace_id,
+        get_span_id,
+        TRACE_ID_HEADER as CUSTOM_TRACE_ID_HEADER,
+        SPAN_ID_HEADER,
+        TRACEPARENT_HEADER,
+    )
+
+    _TRACING_AVAILABLE = True
+except ImportError:
+    _TRACING_AVAILABLE = False
+
+    def get_trace_id():
+        return None
+
+    def get_span_id():
+        return None
+
+    CUSTOM_TRACE_ID_HEADER = "X-Trace-ID"
+    SPAN_ID_HEADER = "X-Span-ID"
+    TRACEPARENT_HEADER = "traceparent"
+
+
+def _build_trace_headers() -> dict[str, str]:
+    """Build trace context headers for outgoing webhook requests.
+
+    Returns W3C Trace Context (traceparent) and custom headers for
+    distributed tracing across services.
+
+    Returns:
+        Dictionary of trace headers to include in HTTP requests
+    """
+    headers = {}
+
+    trace_id = get_trace_id()
+    span_id = get_span_id()
+
+    if trace_id:
+        # Custom headers (simple)
+        headers[CUSTOM_TRACE_ID_HEADER] = trace_id
+        if span_id:
+            headers[SPAN_ID_HEADER] = span_id
+
+        # W3C Trace Context (traceparent)
+        # Format: version-trace_id-parent_id-flags
+        # Version 00 is current, flags 01 means sampled
+        parent_id = span_id or "0000000000000000"
+        # Ensure trace_id is 32 chars and parent_id is 16 chars
+        trace_id_padded = trace_id.ljust(32, "0")[:32]
+        parent_id_padded = parent_id.ljust(16, "0")[:16]
+        headers[TRACEPARENT_HEADER] = f"00-{trace_id_padded}-{parent_id_padded}-01"
+
+    return headers
+
+
 # Default database path
 _DEFAULT_DB_PATH = os.environ.get(
     "ARAGORA_WEBHOOK_DB",
@@ -65,8 +122,8 @@ class WebhookDelivery:
     event_type: str
     payload: Dict[str, Any]
     status: DeliveryStatus = DeliveryStatus.PENDING
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     attempts: int = 0
     max_attempts: int = 5
     next_retry_at: Optional[datetime] = None
@@ -520,12 +577,21 @@ class WebhookDeliveryManager:
         Returns:
             WebhookDelivery with status
         """
+        # Capture trace context at creation time
+        delivery_metadata = metadata.copy() if metadata else {}
+        trace_id = get_trace_id()
+        if trace_id:
+            delivery_metadata["trace_id"] = trace_id
+            span_id = get_span_id()
+            if span_id:
+                delivery_metadata["span_id"] = span_id
+
         delivery = WebhookDelivery(
             delivery_id=str(uuid.uuid4()),
             webhook_id=webhook_id,
             event_type=event_type,
             payload=payload,
-            metadata=metadata or {},
+            metadata=delivery_metadata,
         )
 
         self._pending[delivery.delivery_id] = delivery
@@ -590,6 +656,10 @@ class WebhookDeliveryManager:
             "X-Webhook-Event-Type": delivery.event_type,
             "X-Webhook-Timestamp": str(int(time.time())),
         }
+
+        # Add distributed tracing headers (W3C Trace Context + custom)
+        trace_headers = _build_trace_headers()
+        headers.update(trace_headers)
 
         # Add HMAC signature if secret provided
         if secret:

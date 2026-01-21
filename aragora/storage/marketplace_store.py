@@ -121,6 +121,16 @@ class MarketplaceStore(SQLiteStore):
     SCHEMA_NAME = "marketplace_store"
     SCHEMA_VERSION = 1
 
+    # Explicit columns for SELECT queries - prevents SELECT * data exposure
+    _TEMPLATE_COLUMNS = (
+        "id, name, description, author_id, author_name, category, pattern, "
+        "tags, workflow_definition, download_count, rating_sum, rating_count, "
+        "is_featured, is_trending, created_at, updated_at"
+    )
+    _REVIEW_COLUMNS = (
+        "id, template_id, user_id, user_name, rating, title, content, " "helpful_count, created_at"
+    )
+
     INITIAL_SCHEMA = """
         -- Templates table
         CREATE TABLE IF NOT EXISTS templates (
@@ -332,7 +342,10 @@ class MarketplaceStore(SQLiteStore):
             Template if found, None otherwise
         """
         with self.connection() as conn:
-            row = conn.execute("SELECT * FROM templates WHERE id = ?", (template_id,)).fetchone()
+            row = conn.execute(
+                f"SELECT {self._TEMPLATE_COLUMNS} FROM templates WHERE id = ?",
+                (template_id,),
+            ).fetchone()
 
             if row is None:
                 return None
@@ -391,7 +404,7 @@ class MarketplaceStore(SQLiteStore):
             # Get templates
             rows = conn.execute(
                 f"""
-                SELECT * FROM templates
+                SELECT {self._TEMPLATE_COLUMNS} FROM templates
                 {where_clause}
                 ORDER BY {order_clause}
                 LIMIT ? OFFSET ?
@@ -414,8 +427,8 @@ class MarketplaceStore(SQLiteStore):
         """
         with self.connection() as conn:
             rows = conn.execute(
-                """
-                SELECT * FROM templates
+                f"""
+                SELECT {self._TEMPLATE_COLUMNS} FROM templates
                 WHERE is_featured = 1
                 ORDER BY rating_sum / NULLIF(rating_count, 0) DESC
                 LIMIT ?
@@ -436,8 +449,8 @@ class MarketplaceStore(SQLiteStore):
         """
         with self.connection() as conn:
             rows = conn.execute(
-                """
-                SELECT * FROM templates
+                f"""
+                SELECT {self._TEMPLATE_COLUMNS} FROM templates
                 WHERE is_trending = 1
                 ORDER BY download_count DESC
                 LIMIT ?
@@ -523,9 +536,6 @@ class MarketplaceStore(SQLiteStore):
 
             if not rows:
                 return [], 0
-
-            # Get column names from cursor description
-            [desc[0] for desc in conn.execute("SELECT * FROM templates LIMIT 0").description]
 
             # Total count is the same for all rows (from window function)
             total = rows[0][-1] if rows else 0
@@ -728,8 +738,8 @@ class MarketplaceStore(SQLiteStore):
         """
         with self.connection() as conn:
             rows = conn.execute(
-                """
-                SELECT * FROM reviews
+                f"""
+                SELECT {self._REVIEW_COLUMNS} FROM reviews
                 WHERE template_id = ?
                 ORDER BY helpful_count DESC, created_at DESC
                 LIMIT ? OFFSET ?

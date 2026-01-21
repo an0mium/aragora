@@ -851,7 +851,12 @@ def _init_metrics() -> bool:
         NOTIFICATION_SENT_TOTAL = Counter(
             "aragora_notification_sent_total",
             "Total notifications sent",
-            ["channel", "severity", "priority", "status"],  # slack/email/webhook, severity, priority, success/failed
+            [
+                "channel",
+                "severity",
+                "priority",
+                "status",
+            ],  # slack/email/webhook, severity, priority, success/failed
         )
 
         NOTIFICATION_LATENCY = Histogram(
@@ -950,7 +955,11 @@ def _init_metrics() -> bool:
         USER_MAPPING_OPERATIONS_TOTAL = Counter(
             "aragora_user_mapping_operations_total",
             "Total user ID mapping operations",
-            ["operation", "platform", "status"],  # save/get/delete, slack/discord/teams, success/not_found
+            [
+                "operation",
+                "platform",
+                "status",
+            ],  # save/get/delete, slack/discord/teams, success/not_found
         )
 
         USER_MAPPING_CACHE_HITS_TOTAL = Counter(
@@ -1097,7 +1106,10 @@ def _init_metrics() -> bool:
         ENCRYPTION_OPERATIONS_TOTAL = Counter(
             "aragora_encryption_operations_total",
             "Total encryption/decryption operations",
-            ["operation", "store"],  # operation: encrypt/decrypt, store: sync_store/integration_store/gmail_token
+            [
+                "operation",
+                "store",
+            ],  # operation: encrypt/decrypt, store: sync_store/integration_store/gmail_token
         )
         ENCRYPTION_OPERATION_LATENCY = Histogram(
             "aragora_encryption_operation_latency_seconds",
@@ -1190,6 +1202,8 @@ def _init_noop_metrics() -> None:
     global GOVERNANCE_ARTIFACTS_ACTIVE
     global USER_MAPPING_OPERATIONS_TOTAL, USER_MAPPING_CACHE_HITS_TOTAL
     global USER_MAPPING_CACHE_MISSES_TOTAL, USER_MAPPINGS_ACTIVE
+    # Slow debate detection
+    global SLOW_DEBATES_TOTAL, SLOW_ROUNDS_TOTAL, DEBATE_ROUND_LATENCY
 
     class NoOpMetric:
         def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
@@ -1218,6 +1232,9 @@ def _init_noop_metrics() -> None:
     DEBATE_DURATION = NoOpMetric()
     DEBATE_ROUNDS = NoOpMetric()
     DEBATE_PHASE_DURATION = NoOpMetric()
+    SLOW_DEBATES_TOTAL = NoOpMetric()
+    SLOW_ROUNDS_TOTAL = NoOpMetric()
+    DEBATE_ROUND_LATENCY = NoOpMetric()
     AGENT_PARTICIPATION = NoOpMetric()
     CACHE_HITS = NoOpMetric()
     CACHE_MISSES = NoOpMetric()
@@ -2345,9 +2362,7 @@ def record_governance_verification(verification_type: str, result: str) -> None:
         result: Verification result (valid, invalid)
     """
     _init_metrics()
-    GOVERNANCE_VERIFICATIONS_TOTAL.labels(
-        verification_type=verification_type, result=result
-    ).inc()
+    GOVERNANCE_VERIFICATIONS_TOTAL.labels(verification_type=verification_type, result=result).inc()
 
 
 def record_governance_approval(approval_type: str, status: str) -> None:
@@ -2372,9 +2387,7 @@ def record_governance_store_latency(operation: str, latency_seconds: float) -> N
     GOVERNANCE_STORE_LATENCY.labels(operation=operation).observe(latency_seconds)
 
 
-def set_governance_artifacts_active(
-    decisions: int, verifications: int, approvals: int
-) -> None:
+def set_governance_artifacts_active(decisions: int, verifications: int, approvals: int) -> None:
     """Set the current number of active governance artifacts.
 
     Args:
@@ -2415,9 +2428,7 @@ def track_governance_store_operation(operation: str) -> Generator[None, None, No
 # =============================================================================
 
 
-def record_user_mapping_operation(
-    operation: str, platform: str, found: bool
-) -> None:
+def record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
     """Record a user ID mapping operation.
 
     Args:
