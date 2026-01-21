@@ -343,9 +343,9 @@ class TaskScheduler:
                     )
                 add_span_attributes(span, {"backend": "memory", "fallback": True})
                 logger.warning(
-                    "scheduler_fallback",
+                    "Using in-memory scheduler fallback - NOT suitable for multi-instance deployments",
+                    event="scheduler_fallback",
                     reason="redis package not installed",
-                    message="Using in-memory fallback - NOT suitable for multi-instance deployments",
                 )
                 self._redis = None
             except Exception as e:
@@ -356,9 +356,9 @@ class TaskScheduler:
                     ) from e
                 add_span_attributes(span, {"backend": "memory", "fallback": True, "error": str(e)})
                 logger.error(
-                    "scheduler_redis_error",
+                    "Scheduler Redis error - using in-memory fallback",
+                    event="scheduler_redis_error",
                     error=str(e),
-                    message="Using in-memory fallback",
                 )
                 self._redis = None
 

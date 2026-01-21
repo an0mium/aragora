@@ -145,6 +145,7 @@ class ContinuumAdapter:
                 record_km_operation,
                 record_km_adapter_sync,
             )
+
             record_km_operation(operation, success, latency)
             if operation in ("store", "sync"):
                 record_km_adapter_sync("continuum", "forward", success)
@@ -441,6 +442,7 @@ class ContinuumAdapter:
             List of similar memory entries as dicts
         """
         import time
+
         start = time.time()
         success = False
 
@@ -470,12 +472,15 @@ class ContinuumAdapter:
             ]
 
             # Emit dashboard event for reverse flow query
-            self._emit_event("km_adapter_reverse_query", {
-                "source": "continuum",
-                "query_preview": query[:50] + "..." if len(query) > 50 else query,
-                "results_count": len(results),
-                "limit": limit,
-            })
+            self._emit_event(
+                "km_adapter_reverse_query",
+                {
+                    "source": "continuum",
+                    "query_preview": query[:50] + "..." if len(query) > 50 else query,
+                    "results_count": len(results),
+                    "limit": limit,
+                },
+            )
 
             success = True
             return results
@@ -505,6 +510,7 @@ class ContinuumAdapter:
             List of matching entries with similarity scores
         """
         import time
+
         start = time.time()
         success = False
 
@@ -513,14 +519,13 @@ class ContinuumAdapter:
             try:
                 from aragora.knowledge.mound.semantic_store import (
                     SemanticStore,
-                    SemanticSearchResult,
                 )
 
                 # Get or create semantic store
-                store = SemanticStore()
+                store = SemanticStore()  # type: ignore[call-arg]
 
                 # Search using embeddings
-                results = await store.search_similar(
+                results = await store.search_similar(  # type: ignore[call-arg]
                     query=query,
                     tenant_id=tenant_id or "default",
                     limit=limit,
@@ -538,37 +543,44 @@ class ContinuumAdapter:
 
                     entry = self._continuum.get(entry_id)
                     if entry:
-                        enriched.append({
-                            "id": entry.id,
-                            "content": entry.content,
-                            "tier": entry.tier.value,
-                            "importance": entry.importance,
-                            "similarity": r.similarity,
-                            "domain": r.domain,
-                            "created_at": entry.created_at,
-                            "updated_at": entry.updated_at,
-                            "metadata": entry.metadata,
-                        })
+                        enriched.append(
+                            {
+                                "id": entry.id,
+                                "content": entry.content,
+                                "tier": entry.tier.value,
+                                "importance": entry.importance,
+                                "similarity": r.similarity,
+                                "domain": r.domain,
+                                "created_at": entry.created_at,
+                                "updated_at": entry.updated_at,
+                                "metadata": entry.metadata,
+                            }
+                        )
                     else:
                         # Entry may have been evicted from memory
-                        enriched.append({
-                            "id": r.source_id,
-                            "similarity": r.similarity,
-                            "domain": r.domain,
-                            "importance": r.importance,
-                            "metadata": r.metadata,
-                        })
+                        enriched.append(
+                            {
+                                "id": r.source_id,
+                                "similarity": r.similarity,
+                                "domain": r.domain,
+                                "importance": r.importance,
+                                "metadata": r.metadata,
+                            }
+                        )
 
                 success = True
                 logger.debug(f"Semantic search returned {len(enriched)} results for '{query[:50]}'")
 
                 # Emit event
-                self._emit_event("km_adapter_semantic_search", {
-                    "source": "continuum",
-                    "query_preview": query[:50],
-                    "results_count": len(enriched),
-                    "search_type": "vector",
-                })
+                self._emit_event(
+                    "km_adapter_semantic_search",
+                    {
+                        "source": "continuum",
+                        "query_preview": query[:50],
+                        "results_count": len(enriched),
+                        "search_type": "vector",
+                    },
+                )
 
                 return enriched
 
@@ -613,13 +625,18 @@ class ContinuumAdapter:
             )
 
         # Emit dashboard event for forward sync
-        self._emit_event("km_adapter_forward_sync", {
-            "source": "continuum",
-            "memory_id": entry.id,
-            "tier": entry.tier.value,
-            "importance": entry.importance,
-            "content_preview": entry.content[:100] + "..." if len(entry.content) > 100 else entry.content,
-        })
+        self._emit_event(
+            "km_adapter_forward_sync",
+            {
+                "source": "continuum",
+                "memory_id": entry.id,
+                "tier": entry.tier.value,
+                "importance": entry.importance,
+                "content_preview": entry.content[:100] + "..."
+                if len(entry.content) > 100
+                else entry.content,
+            },
+        )
 
     # =========================================================================
     # Reverse Flow Methods (KM → ContinuumMemory)
@@ -875,7 +892,7 @@ class ContinuumAdapter:
             SourceType,
         )
 
-        result = {
+        result: dict[str, Any] = {
             "synced": 0,
             "skipped": 0,
             "already_synced": 0,
@@ -962,7 +979,7 @@ class ContinuumAdapter:
 
         Returns counts of KM-validated entries by tier and validation status.
         """
-        stats = {
+        stats: dict[str, Any] = {
             "total_km_validated": 0,
             "km_validated_by_tier": {},
             "km_supported": 0,

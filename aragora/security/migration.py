@@ -32,7 +32,7 @@ class MigrationResult:
     already_encrypted: int = 0
     failed_records: int = 0
     errors: List[str] = field(default_factory=list)
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
     duration_seconds: float = 0.0
 
@@ -433,7 +433,7 @@ class KeyRotationResult:
     records_reencrypted: int = 0
     failed_records: int = 0
     errors: List[str] = field(default_factory=list)
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
     duration_seconds: float = 0.0
 
