@@ -52,6 +52,12 @@ def create_mock_agent(name: str, response: str = "Default response") -> MagicMoc
     agent.total_output_tokens = 0
     agent.input_tokens = 0
     agent.output_tokens = 0
+    # Alternative token tracking attributes used by some agent types
+    agent.total_tokens_in = 0
+    agent.total_tokens_out = 0
+    # Ensure metrics attribute doesn't auto-create MagicMock
+    agent.metrics = None
+    agent.provider = None
 
     return agent
 

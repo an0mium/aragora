@@ -30,6 +30,9 @@ class UsageRepository:
     - Usage summary generation
     """
 
+    # Explicit columns for SELECT queries - prevents SELECT * data exposure
+    _USAGE_EVENT_COLUMNS = "id, org_id, event_type, count, metadata, created_at"
+
     def __init__(
         self,
         transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]],
@@ -213,7 +216,7 @@ class UsageRepository:
         Returns:
             List of usage event dicts
         """
-        query = "SELECT * FROM usage_events WHERE org_id = ?"
+        query = f"SELECT {self._USAGE_EVENT_COLUMNS} FROM usage_events WHERE org_id = ?"
         params: list[Any] = [org_id]
 
         if event_type:
