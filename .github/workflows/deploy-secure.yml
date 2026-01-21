@@ -155,10 +155,13 @@ jobs:
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
               "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
+              "echo \"Initializing PostgreSQL stores...\"",
+              "python scripts/init_postgres_db.py || echo \"PostgreSQL init skipped (may not be configured)\"",
               "sudo systemctl restart aragora",
               "sleep 5",
               "systemctl is-active --quiet aragora",
               "python scripts/seed_agents.py || echo \"Seed skipped (non-fatal)\"",
+              "python scripts/validate_production.py --quick || echo \"Validation warnings (non-fatal)\"",
               "echo \"Deploy complete\""
             ]' \
             --timeout-seconds 300 \
@@ -316,10 +319,13 @@ jobs:
               "source venv/bin/activate",
               "pip install -e . --quiet --no-cache-dir",
               "python -c \"from aragora.server.unified_server import UnifiedServer; print(\\\"Import OK\\\")\"",
+              "echo \"Initializing PostgreSQL stores...\"",
+              "python scripts/init_postgres_db.py || echo \"PostgreSQL init skipped (may not be configured)\"",
               "sudo systemctl restart aragora",
               "sleep 5",
               "systemctl is-active --quiet aragora",
               "python scripts/seed_agents.py || echo \"Seed skipped (non-fatal)\"",
+              "python scripts/validate_production.py --quick || echo \"Validation warnings (non-fatal)\"",
               "echo \"Production deploy complete\""
             ]' \
             --timeout-seconds 300 \

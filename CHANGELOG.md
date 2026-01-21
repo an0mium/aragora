@@ -23,15 +23,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Memory usage monitoring
   - Readiness and liveness probe support
 
-- **PostgreSQL Backends** - Horizontal scaling support:
-  - PostgreSQL storage backends for user store
-  - Migration infrastructure with Alembic
-  - Database initialization scripts
+- **PostgreSQL Backends** - Full horizontal scaling support for all 11 storage modules:
+  - `PostgresWebhookConfigStore` - Webhook configuration persistence
+  - `PostgresIntegrationStore` - Chat platform integrations
+  - `PostgresGmailTokenStore` - OAuth token storage
+  - `PostgresFindingWorkflowStore` - Audit workflow state
+  - `PostgresGauntletRunStore` - In-flight gauntlet runs
+  - `PostgresApprovalRequestStore` - Human approval requests
+  - `PostgresJobQueueStore` - Background job queue
+  - `PostgresMarketplaceStore` - Template marketplace
+  - `PostgresTokenBlacklistStore` - JWT revocation
+  - `PostgresFederationRegistryStore` - Multi-region federation
+  - `PostgresGovernanceStore` - Decision governance artifacts
+  - Unified schema in `migrations/sql/001_initial_schema.sql` (383 lines)
+  - Alembic migration framework with async asyncpg support
+  - Atomic transaction handling for multi-table operations
+  - Factory functions support `ARAGORA_DB_BACKEND=postgres` environment variable
 
 ### Changed
 
 - **Migrations Restructure** - Moved schema to `migrations/sql/001_initial_schema.sql`
 - **Operations Documentation** - Updated with monitoring and alerting guidance
+- **Transaction Safety** - Added explicit transactions to:
+  - `PostgresGovernanceStore.cleanup_old_records_async()` - Atomic multi-table cleanup
+  - `PostgresFederationRegistryStore.update_sync_status()` - Atomic counter increments
 
 ## [2.1.0] - 2026-01-20
 

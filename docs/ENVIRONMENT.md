@@ -240,8 +240,33 @@ DATABASE_URL=postgresql://user:password@host:5432/aragora
 # Or use Supabase PostgreSQL
 DATABASE_URL=postgresql://postgres:[password]@[project].supabase.co:5432/postgres
 
-# Initialize database tables
+# Initialize database tables (choose one method)
+
+# Method 1: Direct store initialization (development)
 python scripts/init_postgres_db.py
+
+# Method 2: Alembic migrations (production recommended)
+python scripts/init_postgres_db.py --alembic
+# Or run Alembic directly:
+alembic upgrade head
+
+# Verify tables exist
+python scripts/init_postgres_db.py --verify
+```
+
+**Migration Management with Alembic:**
+```bash
+# Check current migration status
+alembic current
+
+# Upgrade to latest schema
+alembic upgrade head
+
+# Downgrade one revision
+alembic downgrade -1
+
+# Generate new migration (after schema changes)
+alembic revision --autogenerate -m "description"
 ```
 
 Note: `ARAGORA_DB_MODE` defaults to `legacy` in the legacy config, while
