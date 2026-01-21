@@ -160,3 +160,4 @@ docs/investor/
 # Local config
 .python-version
 .claude/
+.checkpoints/
