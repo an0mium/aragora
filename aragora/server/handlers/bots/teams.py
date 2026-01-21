@@ -28,6 +28,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD", "")
 def _check_botframework_available() -> tuple[bool, Optional[str]]:
     """Check if Bot Framework SDK is available."""
     try:
-        from botbuilder.core import TurnContext
+        from botbuilder.core import TurnContext  # noqa: F401 - availability check
 
         return True, None
     except ImportError:
@@ -104,6 +105,7 @@ class TeamsHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @rate_limit(rpm=30, limiter_name="teams_status")
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
@@ -113,6 +115,7 @@ class TeamsHandler(BaseHandler):
 
         return None
 
+    @rate_limit(rpm=60, limiter_name="teams_messages")
     def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
