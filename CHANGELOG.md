@@ -55,6 +55,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Cross-Pollination Enabled by Default** - All features now enabled out of the box
 - **Quick Start Documentation** - Added to CROSS_POLLINATION.md
+- **Strict Type Checking Expansion** - Added 19 modules to strict mypy (Phase 27):
+  - Workflow templates: `__init__`, `package`, `patterns`, `legal`, `healthcare`, `accounting`, `ai_ml`, `code`, `devops`, `product`
+  - Misc modules: `server.stream.events`, `client.resources.leaderboard`, `debate.safety`, `replay.schema`, `modes.builtin.orchestrator`, `server.handlers.knowledge`, `broadcast.mixer`
+  - Continuum extractions: `continuum_glacial`, `continuum_snapshot`
+
+- **Continuum Memory Refactoring** - Reduced `continuum.py` (1,995 → 1,612 lines):
+  - Extracted `ContinuumGlacialMixin` to `continuum_glacial.py` (222 lines)
+  - Extracted `ContinuumSnapshotMixin` to `continuum_snapshot.py` (267 lines)
+  - `ContinuumMemory` now inherits from mixins for cleaner separation
 
 ## [2.0.7] - 2026-01-20
 
