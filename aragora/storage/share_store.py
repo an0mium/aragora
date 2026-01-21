@@ -1,5 +1,5 @@
 """
-SQLite-backed Share Link Storage.
+Database-backed Share Link Storage.
 
 Provides persistent storage for debate sharing settings with:
 - TTL-based expiration and cleanup
@@ -7,17 +7,24 @@ Provides persistent storage for debate sharing settings with:
 - View count tracking
 - Token-based lookups
 
+Supports SQLite (default) and PostgreSQL backends.
 Replaces the in-memory ShareStore for production use.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
+from aragora.storage.backends import (
+    POSTGRESQL_AVAILABLE,
+    DatabaseBackend,
+    PostgreSQLBackend,
+)
 from aragora.storage.base_store import SQLiteStore
 
 if TYPE_CHECKING:
@@ -28,8 +35,9 @@ logger = logging.getLogger(__name__)
 
 class ShareLinkStore(SQLiteStore):
     """
-    SQLite-backed store for debate sharing settings.
+    Database-backed store for debate sharing settings.
 
+    Supports SQLite (default) and PostgreSQL backends.
     Provides persistent storage with automatic TTL cleanup,
     replacing the in-memory ShareStore for production deployments.
 
@@ -79,21 +87,84 @@ class ShareLinkStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Union[str, Path],
+        db_path: Union[str, Path] = "share_links.db",
         cleanup_interval: int = 300,
+        backend: Optional[str] = None,
+        database_url: Optional[str] = None,
         **kwargs,
     ):
         """
         Initialize the share link store.
 
         Args:
-            db_path: Path to SQLite database file
+            db_path: Path to SQLite database file (used when backend="sqlite")
             cleanup_interval: Seconds between automatic TTL cleanups (default: 5 min)
+            backend: Database backend ("sqlite" or "postgresql")
+            database_url: PostgreSQL connection URL
         """
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.time()
-        super().__init__(db_path, **kwargs)
-        logger.info(f"ShareLinkStore initialized: {db_path}")
+
+        # Determine backend type
+        env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
+        actual_url = database_url or env_url
+
+        if backend is None:
+            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+            backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
+
+        self.backend_type = backend
+        self._backend: Optional[DatabaseBackend] = None
+
+        if backend == "postgresql":
+            if not actual_url:
+                raise ValueError("PostgreSQL backend requires DATABASE_URL")
+            if not POSTGRESQL_AVAILABLE:
+                raise ImportError("psycopg2 required for PostgreSQL")
+            self._backend = PostgreSQLBackend(actual_url)
+            self._init_postgresql_schema()
+            logger.info("ShareLinkStore using PostgreSQL backend")
+        else:
+            # Use SQLiteStore initialization for SQLite
+            super().__init__(db_path, **kwargs)
+            logger.info(f"ShareLinkStore initialized: {db_path}")
+
+    def _init_postgresql_schema(self) -> None:
+        """Initialize PostgreSQL schema."""
+        if self._backend is None:
+            return
+
+        # Create table
+        self._backend.execute_write("""
+            CREATE TABLE IF NOT EXISTS share_links (
+                token TEXT PRIMARY KEY,
+                debate_id TEXT NOT NULL UNIQUE,
+                visibility TEXT NOT NULL DEFAULT 'private',
+                owner_id TEXT,
+                org_id TEXT,
+                created_at REAL NOT NULL,
+                expires_at REAL,
+                allow_comments INTEGER DEFAULT 0,
+                allow_forking INTEGER DEFAULT 0,
+                view_count INTEGER DEFAULT 0,
+                last_viewed_at REAL
+            )
+        """)
+
+        # Create indexes
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_share_links_debate ON share_links(debate_id)",
+            "CREATE INDEX IF NOT EXISTS idx_share_links_owner ON share_links(owner_id)",
+            "CREATE INDEX IF NOT EXISTS idx_share_links_org ON share_links(org_id, visibility)",
+        ]
+        for idx_sql in indexes:
+            try:
+                self._backend.execute_write(idx_sql)
+            except Exception as e:
+                logger.debug(f"Index creation skipped: {e}")
+
+        # Run post-init cleanup
+        self._post_init()
 
     def _post_init(self) -> None:
         """Run cleanup on startup."""

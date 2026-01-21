@@ -28,6 +28,13 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from aragora.storage.backends import (
+    POSTGRESQL_AVAILABLE,
+    DatabaseBackend,
+    PostgreSQLBackend,
+    SQLiteBackend,
+)
+
 logger = logging.getLogger(__name__)
 
 # Import encryption (optional - graceful degradation if not available)
@@ -220,13 +227,19 @@ class StoredEmailRecipient:
 
 class NotificationConfigStore:
     """
-    SQLite-backed notification config store with per-org tenant isolation.
+    Database-backed notification config store with per-org tenant isolation.
 
+    Supports SQLite (default) and PostgreSQL backends.
     All configurations are scoped to org_id to ensure multi-tenant data isolation.
     Sensitive fields (passwords, tokens) are encrypted at rest.
     """
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(
+        self,
+        db_path: Optional[str] = None,
+        backend: Optional[str] = None,
+        database_url: Optional[str] = None,
+    ):
         """Initialize the store with optional database path."""
         if db_path is None:
             data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".aragora"))
@@ -235,10 +248,34 @@ class NotificationConfigStore:
 
         self._db_path = db_path
         self._local = threading.local()
+
+        # Determine backend type
+        env_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
+        actual_url = database_url or env_url
+
+        if backend is None:
+            env_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+            backend = "postgresql" if (actual_url and env_backend == "postgresql") else "sqlite"
+
+        self.backend_type = backend
+        self._backend: Optional[DatabaseBackend] = None
+
+        # Initialize backend
+        if backend == "postgresql":
+            if not actual_url:
+                raise ValueError("PostgreSQL backend requires DATABASE_URL")
+            if not POSTGRESQL_AVAILABLE:
+                raise ImportError("psycopg2 required for PostgreSQL")
+            self._backend = PostgreSQLBackend(actual_url)
+            logger.info("NotificationConfigStore using PostgreSQL backend")
+        else:
+            self._backend = SQLiteBackend(db_path)
+            logger.info(f"NotificationConfigStore using SQLite backend: {db_path}")
+
         self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
+        """Get thread-local database connection (legacy)."""
         if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(self._db_path, check_same_thread=False)
             self._local.conn.row_factory = sqlite3.Row
@@ -246,6 +283,65 @@ class NotificationConfigStore:
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
+        if self._backend is not None:
+            # Email configurations table
+            self._backend.execute_write("""
+                CREATE TABLE IF NOT EXISTS email_configs (
+                    org_id TEXT PRIMARY KEY,
+                    config_json TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+            """)
+
+            # Telegram configurations table
+            self._backend.execute_write("""
+                CREATE TABLE IF NOT EXISTS telegram_configs (
+                    org_id TEXT PRIMARY KEY,
+                    config_json TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+            """)
+
+            # Email recipients table - use SERIAL for PostgreSQL
+            if self.backend_type == "postgresql":
+                self._backend.execute_write("""
+                    CREATE TABLE IF NOT EXISTS email_recipients (
+                        id SERIAL PRIMARY KEY,
+                        org_id TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        name TEXT,
+                        preferences_json TEXT,
+                        created_at REAL NOT NULL,
+                        UNIQUE(org_id, email)
+                    )
+                """)
+            else:
+                self._backend.execute_write("""
+                    CREATE TABLE IF NOT EXISTS email_recipients (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        org_id TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        name TEXT,
+                        preferences_json TEXT,
+                        created_at REAL NOT NULL,
+                        UNIQUE(org_id, email)
+                    )
+                """)
+
+            # Create indexes
+            try:
+                self._backend.execute_write(
+                    "CREATE INDEX IF NOT EXISTS idx_recipients_org ON email_recipients(org_id)"
+                )
+            except Exception as e:
+                logger.debug(f"Index creation skipped: {e}")
+
+            logger.info(f"NotificationConfigStore initialized with {self.backend_type} backend")
+            return
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
 
@@ -300,6 +396,23 @@ class NotificationConfigStore:
         # Encrypt sensitive fields
         encrypted = _encrypt_config(config_dict, config.org_id, "email")
 
+        params = (config.org_id, json.dumps(encrypted), config.created_at, encrypted["updated_at"])
+
+        if self._backend is not None:
+            self._backend.execute_write(
+                """
+                INSERT INTO email_configs (org_id, config_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(org_id) DO UPDATE SET
+                    config_json = EXCLUDED.config_json,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                params,
+            )
+            logger.debug(f"Saved email config for org {config.org_id}")
+            return
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute(
@@ -310,13 +423,25 @@ class NotificationConfigStore:
                 config_json = excluded.config_json,
                 updated_at = excluded.updated_at
             """,
-            (config.org_id, json.dumps(encrypted), config.created_at, encrypted["updated_at"]),
+            params,
         )
         conn.commit()
         logger.debug(f"Saved email config for org {config.org_id}")
 
     async def get_email_config(self, org_id: str) -> Optional[StoredEmailConfig]:
         """Get email configuration for an organization."""
+        if self._backend is not None:
+            row = self._backend.fetch_one(
+                "SELECT config_json FROM email_configs WHERE org_id = ?",
+                (org_id,),
+            )
+            if not row:
+                return None
+            config_dict = json.loads(row[0])
+            decrypted = _decrypt_config(config_dict, org_id, "email")
+            return StoredEmailConfig.from_dict(decrypted)
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute("SELECT config_json FROM email_configs WHERE org_id = ?", (org_id,))
@@ -332,6 +457,21 @@ class NotificationConfigStore:
 
     async def delete_email_config(self, org_id: str) -> bool:
         """Delete email configuration for an organization."""
+        if self._backend is not None:
+            # Count before delete to determine if anything was deleted
+            row = self._backend.fetch_one(
+                "SELECT COUNT(*) FROM email_configs WHERE org_id = ?",
+                (org_id,),
+            )
+            count_before = row[0] if row else 0
+            if count_before > 0:
+                self._backend.execute_write(
+                    "DELETE FROM email_configs WHERE org_id = ?",
+                    (org_id,),
+                )
+            return count_before > 0
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM email_configs WHERE org_id = ?", (org_id,))
@@ -350,6 +490,23 @@ class NotificationConfigStore:
         # Encrypt sensitive fields
         encrypted = _encrypt_config(config_dict, config.org_id, "telegram")
 
+        params = (config.org_id, json.dumps(encrypted), config.created_at, encrypted["updated_at"])
+
+        if self._backend is not None:
+            self._backend.execute_write(
+                """
+                INSERT INTO telegram_configs (org_id, config_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(org_id) DO UPDATE SET
+                    config_json = EXCLUDED.config_json,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                params,
+            )
+            logger.debug(f"Saved telegram config for org {config.org_id}")
+            return
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute(
@@ -360,13 +517,25 @@ class NotificationConfigStore:
                 config_json = excluded.config_json,
                 updated_at = excluded.updated_at
             """,
-            (config.org_id, json.dumps(encrypted), config.created_at, encrypted["updated_at"]),
+            params,
         )
         conn.commit()
         logger.debug(f"Saved telegram config for org {config.org_id}")
 
     async def get_telegram_config(self, org_id: str) -> Optional[StoredTelegramConfig]:
         """Get telegram configuration for an organization."""
+        if self._backend is not None:
+            row = self._backend.fetch_one(
+                "SELECT config_json FROM telegram_configs WHERE org_id = ?",
+                (org_id,),
+            )
+            if not row:
+                return None
+            config_dict = json.loads(row[0])
+            decrypted = _decrypt_config(config_dict, org_id, "telegram")
+            return StoredTelegramConfig.from_dict(decrypted)
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute("SELECT config_json FROM telegram_configs WHERE org_id = ?", (org_id,))
@@ -382,6 +551,21 @@ class NotificationConfigStore:
 
     async def delete_telegram_config(self, org_id: str) -> bool:
         """Delete telegram configuration for an organization."""
+        if self._backend is not None:
+            # Count before delete to determine if anything was deleted
+            row = self._backend.fetch_one(
+                "SELECT COUNT(*) FROM telegram_configs WHERE org_id = ?",
+                (org_id,),
+            )
+            count_before = row[0] if row else 0
+            if count_before > 0:
+                self._backend.execute_write(
+                    "DELETE FROM telegram_configs WHERE org_id = ?",
+                    (org_id,),
+                )
+            return count_before > 0
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM telegram_configs WHERE org_id = ?", (org_id,))
@@ -394,6 +578,29 @@ class NotificationConfigStore:
 
     async def add_recipient(self, recipient: StoredEmailRecipient) -> None:
         """Add an email recipient for an organization."""
+        params = (
+            recipient.org_id,
+            recipient.email,
+            recipient.name,
+            json.dumps(recipient.preferences),
+            recipient.created_at,
+        )
+
+        if self._backend is not None:
+            self._backend.execute_write(
+                """
+                INSERT INTO email_recipients (org_id, email, name, preferences_json, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(org_id, email) DO UPDATE SET
+                    name = EXCLUDED.name,
+                    preferences_json = EXCLUDED.preferences_json
+                """,
+                params,
+            )
+            logger.debug(f"Added recipient {recipient.email} for org {recipient.org_id}")
+            return
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute(
@@ -404,19 +611,32 @@ class NotificationConfigStore:
                 name = excluded.name,
                 preferences_json = excluded.preferences_json
             """,
-            (
-                recipient.org_id,
-                recipient.email,
-                recipient.name,
-                json.dumps(recipient.preferences),
-                recipient.created_at,
-            ),
+            params,
         )
         conn.commit()
         logger.debug(f"Added recipient {recipient.email} for org {recipient.org_id}")
 
     async def get_recipients(self, org_id: str) -> List[StoredEmailRecipient]:
         """Get all email recipients for an organization."""
+        if self._backend is not None:
+            rows = self._backend.fetch_all(
+                "SELECT org_id, email, name, preferences_json, created_at FROM email_recipients WHERE org_id = ?",
+                (org_id,),
+            )
+            recipients = []
+            for row in rows:
+                recipients.append(
+                    StoredEmailRecipient(
+                        org_id=row[0],
+                        email=row[1],
+                        name=row[2],
+                        preferences=json.loads(row[3]) if row[3] else {},
+                        created_at=row[4],
+                    )
+                )
+            return recipients
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute(
@@ -442,6 +662,21 @@ class NotificationConfigStore:
 
     async def remove_recipient(self, org_id: str, email: str) -> bool:
         """Remove an email recipient for an organization."""
+        if self._backend is not None:
+            # Count before delete to determine if anything was deleted
+            row = self._backend.fetch_one(
+                "SELECT COUNT(*) FROM email_recipients WHERE org_id = ? AND email = ?",
+                (org_id, email),
+            )
+            count_before = row[0] if row else 0
+            if count_before > 0:
+                self._backend.execute_write(
+                    "DELETE FROM email_recipients WHERE org_id = ? AND email = ?",
+                    (org_id, email),
+                )
+            return count_before > 0
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute(
@@ -453,11 +688,35 @@ class NotificationConfigStore:
 
     async def clear_recipients(self, org_id: str) -> int:
         """Clear all recipients for an organization."""
+        if self._backend is not None:
+            # Count before delete to return the count
+            row = self._backend.fetch_one(
+                "SELECT COUNT(*) FROM email_recipients WHERE org_id = ?",
+                (org_id,),
+            )
+            count = row[0] if row else 0
+            if count > 0:
+                self._backend.execute_write(
+                    "DELETE FROM email_recipients WHERE org_id = ?",
+                    (org_id,),
+                )
+            return count
+
+        # Legacy SQLite path
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM email_recipients WHERE org_id = ?", (org_id,))
         conn.commit()
         return cursor.rowcount
+
+    def close(self) -> None:
+        """Close database connection."""
+        if self._backend is not None:
+            self._backend.close()
+            self._backend = None
+        elif hasattr(self._local, "conn") and self._local.conn is not None:
+            self._local.conn.close()
+            self._local.conn = None
 
 
 # =============================================================================
@@ -468,13 +727,30 @@ _notification_config_store: Optional[NotificationConfigStore] = None
 _store_lock = threading.Lock()
 
 
-def get_notification_config_store() -> NotificationConfigStore:
-    """Get the singleton notification config store instance."""
+def get_notification_config_store(
+    db_path: Optional[str] = None,
+    backend: Optional[str] = None,
+    database_url: Optional[str] = None,
+) -> NotificationConfigStore:
+    """Get the singleton notification config store instance.
+
+    Args:
+        db_path: Path to SQLite database file (used when backend="sqlite")
+        backend: Database backend ("sqlite" or "postgresql")
+        database_url: PostgreSQL connection URL
+
+    Returns:
+        Configured NotificationConfigStore instance
+    """
     global _notification_config_store
     if _notification_config_store is None:
         with _store_lock:
             if _notification_config_store is None:
-                _notification_config_store = NotificationConfigStore()
+                _notification_config_store = NotificationConfigStore(
+                    db_path=db_path,
+                    backend=backend,
+                    database_url=database_url,
+                )
     return _notification_config_store
 
 
@@ -482,7 +758,9 @@ def reset_notification_config_store() -> None:
     """Reset the singleton store (for testing)."""
     global _notification_config_store
     with _store_lock:
-        _notification_config_store = None
+        if _notification_config_store is not None:
+            _notification_config_store.close()
+            _notification_config_store = None
 
 
 __all__ = [
