@@ -563,7 +563,7 @@ class RouteIndex:
             "_health_handler": ["/healthz", "/readyz", "/api/health"],
             "_nomic_handler": ["/api/nomic/", "/api/modes"],
             "_docs_handler": ["/api/openapi", "/api/docs", "/api/redoc", "/api/postman"],
-            "_debates_handler": ["/api/debates/", "/api/search"],
+            "_debates_handler": ["/api/debate", "/api/debates", "/api/debates/", "/api/search"],
             "_agents_handler": [
                 "/api/agent/",
                 "/api/agents",
