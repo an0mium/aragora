@@ -242,6 +242,24 @@ jobs:
           echo "health_ok=false" >> $GITHUB_OUTPUT
           echo "::warning::Health check failed"
 
+      - name: Verify external access via Cloudflare
+        id: external_health
+        if: steps.health.outputs.health_ok == 'true'
+        run: |
+          echo "Checking external access via Cloudflare..."
+          for i in {1..6}; do
+            RESPONSE=$(curl -sf "https://api.aragora.ai/api/health" 2>/dev/null || echo "")
+            if echo "$RESPONSE" | jq -e '.status == "healthy"' > /dev/null 2>&1; then
+              echo "External health check passed via Cloudflare"
+              echo "external_ok=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            echo "Waiting for Cloudflare... attempt $i/6"
+            sleep 10
+          done
+          echo "::warning::External health check via Cloudflare failed"
+          echo "external_ok=false" >> $GITHUB_OUTPUT
+
       - name: Rollback on failure
         if: steps.deploy.outputs.deploy_success != 'true' || steps.health.outputs.health_ok == 'false'
         run: |
