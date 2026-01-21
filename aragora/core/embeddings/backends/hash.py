@@ -24,13 +24,14 @@ class HashBackend(EmbeddingBackend):
     - Testing without external dependencies
     """
 
-    def __init__(self, config: EmbeddingConfig):
+    def __init__(self, config: EmbeddingConfig, use_circuit_breaker: bool = False):
         """Initialize hash backend.
 
         Args:
             config: Embedding configuration
+            use_circuit_breaker: Ignored - hash backend doesn't need circuit breaker
         """
-        super().__init__(config)
+        super().__init__(config, use_circuit_breaker=False)  # Hash never needs CB
         self.dimension = config.dimension or 256
 
     @property

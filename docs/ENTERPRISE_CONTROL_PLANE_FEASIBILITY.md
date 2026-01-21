@@ -11,10 +11,10 @@ This report assesses the current state of building an enterprise-grade multi-age
 
 ### Key Findings
 
-- **Aragora now provides ~95% of required capabilities** (up from 80% in original assessment)
+- **Aragora now provides ~90% of required capabilities** (up from 80% in original assessment)
 - Most identified "gaps" have been implemented: Knowledge Mound, Workflow Engine, Repository Crawler, Enterprise Connectors, Control Plane UI
 - **Roadmap shift**: From "build core layers" to "production hardening and polish"
-- Security posture is enterprise-ready with fail-closed defaults
+- Security controls are in place but require proper configuration; some in-memory fallbacks remain
 
 ---
 
@@ -120,12 +120,24 @@ The system draws inspiration from termite colonies, where specialized individual
 
 ### Remaining Gaps (Actual)
 
+#### Feature Gaps
+
 | Gap | Priority | Effort | Notes |
 |-----|----------|--------|-------|
 | Visual Workflow Builder Polish | Medium | 2 weeks | Drag-drop improvements, template library |
 | Enterprise Onboarding Flows | Medium | 1 week | Guided setup wizards |
 | Specialist Fine-tuning Pipeline | Low | 3 weeks | Tinker integration complete, needs training data workflow |
 | Advanced Heatmap Visualizations | Low | 1 week | Enhanced Gauntlet reporting |
+
+#### Production Hardening Gaps
+
+| Component | Issue | Risk | File Reference |
+|-----------|-------|------|----------------|
+| Explainability Batch Jobs | Falls back to in-memory if Redis unavailable | Data loss on restart | `aragora/server/handlers/explainability.py:187` |
+| Template Marketplace | Falls back to in-memory storage | Template loss on restart | `aragora/server/handlers/template_marketplace.py:155` |
+| Session Store | Falls back to in-memory if Redis unavailable | Session loss on restart | `aragora/server/session_store.py:570` |
+
+**Note**: These fallbacks are acceptable for single-instance deployments but pose risks in multi-instance production environments. Set `ARAGORA_MULTI_INSTANCE=true` to enforce distributed state requirements.
 
 ---
 
@@ -165,15 +177,17 @@ The system draws inspiration from termite colonies, where specialized individual
 
 ## Production Hardening Status
 
-### Security Controls
+### Security Controls (Conditional on Configuration)
 
-| Control | Status | Configuration |
-|---------|--------|---------------|
-| Encryption Required | Auto-enabled | `ARAGORA_ENV=production` |
-| Webhook Verification | Fail-closed | `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` to override |
-| Distributed State | Enforced | `ARAGORA_MULTI_INSTANCE=true` or production |
-| JWT Authentication | Required | All sensitive endpoints |
-| Rate Limiting | Enabled | Per-endpoint and per-user limits |
+| Control | Status | Condition | File Reference |
+|---------|--------|-----------|----------------|
+| Encryption Required | Conditional | Enabled when `ARAGORA_ENV=production` | `aragora/security/encryption.py:84` |
+| Webhook Verification | Fail-closed | Unless `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=1` | `aragora/connectors/chat/slack.py:985` |
+| Distributed State | Conditional | Enforced when `ARAGORA_MULTI_INSTANCE=true` or production | `aragora/control_plane/leader.py:27` |
+| JWT Authentication | Required | All Gmail/sensitive endpoints | `aragora/server/handlers/features/gmail_ingest.py:112` |
+| Rate Limiting | Enabled | Per-endpoint and per-user limits | Various handlers |
+
+**Important**: Security controls are implemented but depend on proper environment configuration. Single-instance deployments may silently fall back to in-memory storage for some components.
 
 ### Environment Variables for Production
 
@@ -197,10 +211,11 @@ ARAGORA_SINGLE_INSTANCE=false             # default
 ## Updated Roadmap
 
 ### Phase 1: Production Hardening (Months 1-2)
-- [x] Encryption at rest for all stores
-- [x] Fail-closed webhook verification
-- [x] Multi-instance state enforcement
-- [x] PostgreSQL persistence for routing
+- [x] Encryption at rest for all stores (conditional on `ARAGORA_ENV=production`)
+- [x] Fail-closed webhook verification (conditional on secrets configured)
+- [x] Multi-instance state enforcement (conditional on `ARAGORA_MULTI_INSTANCE=true`)
+- [x] PostgreSQL persistence for routing origins
+- [ ] Eliminate in-memory fallbacks in explainability, template marketplace, session store
 - [ ] Load testing at 10K concurrent users
 - [ ] Penetration testing
 
@@ -283,7 +298,7 @@ Aragora now provides ~95% of required capabilities. The recommendation is to:
 
 ## Conclusion
 
-The enterprise multi-agent control plane vision is now largely realized in Aragora. The "termite mound" architecture - where specialized AI agents coordinate to build shared organizational knowledge - is implemented and production-ready.
+The enterprise multi-agent control plane vision is now largely realized in Aragora. The "termite mound" architecture - where specialized AI agents coordinate to build shared organizational knowledge - is implemented and approaching production-readiness.
 
 **What Changed Since Original Assessment:**
 - Knowledge Mound: Gap -> Implemented
@@ -291,15 +306,20 @@ The enterprise multi-agent control plane vision is now largely realized in Arago
 - Repository Crawler: Gap -> Implemented
 - Enterprise Connectors: Partial -> Complete
 - Control Plane UI: Gap -> Extensive Next.js dashboard
-- Security Hardening: Partial -> Enterprise-grade
+- Security Hardening: Partial -> Conditional (requires proper configuration)
 
 **Remaining Work:**
+- Eliminate in-memory fallbacks for multi-instance deployments
 - UI/UX polish (not core functionality)
 - Specialist model training automation
 - Enterprise onboarding flows
 - Compliance certifications
+- Load testing and penetration testing
 
-For enterprises dealing with complex data - law firms, auditors, software teams, healthcare organizations, regulatory agencies - Aragora is ready for production deployment with appropriate configuration and monitoring.
+For enterprises dealing with complex data - law firms, auditors, software teams, healthcare organizations, regulatory agencies - Aragora is ready for **staged production deployment** with:
+1. Proper environment configuration (`ARAGORA_ENV=production`, `ARAGORA_MULTI_INSTANCE=true`)
+2. Redis/PostgreSQL backends configured (not relying on in-memory fallbacks)
+3. Monitoring and alerting in place
 
 ---
 

@@ -5,6 +5,149 @@ from enum import Enum
 from typing import Optional
 
 
+# =============================================================================
+# Embedding Exception Hierarchy
+# =============================================================================
+
+
+class EmbeddingError(Exception):
+    """Base exception for embedding operations.
+
+    Attributes:
+        provider: The provider that raised the error
+        retryable: Whether the operation can be retried
+        status_code: HTTP status code if applicable
+        original_error: The underlying exception if any
+    """
+
+    retryable: bool = False
+
+    def __init__(
+        self,
+        message: str,
+        provider: Optional[str] = None,
+        status_code: Optional[int] = None,
+        original_error: Optional[Exception] = None,
+    ):
+        super().__init__(message)
+        self.provider = provider
+        self.status_code = status_code
+        self.original_error = original_error
+
+
+class EmbeddingRateLimitError(EmbeddingError):
+    """Rate limit exceeded - retryable after backoff."""
+
+    retryable = True
+
+    def __init__(
+        self,
+        message: str = "Rate limit exceeded",
+        provider: Optional[str] = None,
+        retry_after: Optional[float] = None,
+        **kwargs,
+    ):
+        super().__init__(message, provider=provider, status_code=429, **kwargs)
+        self.retry_after = retry_after
+
+
+class EmbeddingAuthError(EmbeddingError):
+    """Authentication/authorization error - not retryable."""
+
+    retryable = False
+
+    def __init__(
+        self,
+        message: str = "Authentication failed",
+        provider: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(message, provider=provider, status_code=401, **kwargs)
+
+
+class EmbeddingTimeoutError(EmbeddingError):
+    """Request timeout - retryable."""
+
+    retryable = True
+
+    def __init__(
+        self,
+        message: str = "Request timed out",
+        provider: Optional[str] = None,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        super().__init__(message, provider=provider, **kwargs)
+        self.timeout = timeout
+
+
+class EmbeddingConnectionError(EmbeddingError):
+    """Connection error - retryable."""
+
+    retryable = True
+
+    def __init__(
+        self,
+        message: str = "Connection failed",
+        provider: Optional[str] = None,
+        host: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(message, provider=provider, **kwargs)
+        self.host = host
+
+
+class EmbeddingQuotaError(EmbeddingError):
+    """Quota exceeded - not immediately retryable."""
+
+    retryable = False
+
+    def __init__(
+        self,
+        message: str = "Quota exceeded",
+        provider: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(message, provider=provider, status_code=402, **kwargs)
+
+
+class EmbeddingModelError(EmbeddingError):
+    """Invalid model or model unavailable - not retryable."""
+
+    retryable = False
+
+    def __init__(
+        self,
+        message: str = "Model not available",
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(message, provider=provider, **kwargs)
+        self.model = model
+
+
+class EmbeddingCircuitOpenError(EmbeddingError):
+    """Circuit breaker is open - retryable after cooldown."""
+
+    retryable = True
+
+    def __init__(
+        self,
+        message: str = "Circuit breaker open",
+        provider: Optional[str] = None,
+        cooldown_remaining: Optional[float] = None,
+        **kwargs,
+    ):
+        super().__init__(message, provider=provider, **kwargs)
+        self.cooldown_remaining = cooldown_remaining
+
+
+# =============================================================================
+# Enums and Configuration
+# =============================================================================
+
+
 class EmbeddingProvider(str, Enum):
     """Available embedding providers."""
 

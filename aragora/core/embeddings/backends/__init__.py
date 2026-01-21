@@ -5,25 +5,67 @@ text embeddings using different services (OpenAI, Gemini, Ollama, etc.).
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
-from aragora.core.embeddings.types import EmbeddingConfig
+from aragora.core.embeddings.types import EmbeddingCircuitOpenError, EmbeddingConfig
+
+# Circuit breaker configuration
+CIRCUIT_BREAKER_THRESHOLD = 5
+CIRCUIT_BREAKER_COOLDOWN = 60.0
 
 
 class EmbeddingBackend(ABC):
     """Abstract base class for embedding backends.
 
     All embedding providers must implement this interface.
+
+    Supports optional circuit breaker integration for resilience.
     """
 
-    def __init__(self, config: EmbeddingConfig):
+    def __init__(self, config: EmbeddingConfig, use_circuit_breaker: bool = True):
         """Initialize backend with configuration.
 
         Args:
             config: Embedding configuration
+            use_circuit_breaker: Whether to use circuit breaker for resilience
         """
         self.config = config
         self.dimension = config.dimension
+        self._use_circuit_breaker = use_circuit_breaker
+        self._circuit_breaker = None
+
+        if use_circuit_breaker:
+            try:
+                from aragora.resilience import get_circuit_breaker
+
+                self._circuit_breaker = get_circuit_breaker(
+                    f"embedding_{self.__class__.__name__.lower()}",
+                    failure_threshold=CIRCUIT_BREAKER_THRESHOLD,
+                    cooldown_seconds=CIRCUIT_BREAKER_COOLDOWN,
+                )
+            except ImportError:
+                pass  # Resilience module not available
+
+    def _check_circuit_breaker(self) -> None:
+        """Check if circuit breaker allows requests.
+
+        Raises:
+            EmbeddingCircuitOpenError: If circuit breaker is open
+        """
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            raise EmbeddingCircuitOpenError(
+                f"Circuit breaker open for {self.provider_name}",
+                provider=self.provider_name,
+            )
+
+    def _record_success(self) -> None:
+        """Record successful request to circuit breaker."""
+        if self._circuit_breaker:
+            self._circuit_breaker.record_success()
+
+    def _record_failure(self) -> None:
+        """Record failed request to circuit breaker."""
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
 
     @property
     @abstractmethod

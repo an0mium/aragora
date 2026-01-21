@@ -121,6 +121,22 @@ class EmbeddingCache:
                 ttl_seconds=self._ttl,
             )
 
+    def stats(self) -> dict:
+        """Get cache statistics as dict (backward compatibility).
+
+        Returns:
+            Dict with cache statistics
+        """
+        cs = self.get_stats()
+        return {
+            "size": cs.size,
+            "valid": cs.valid,
+            "hits": cs.hits,
+            "misses": cs.misses,
+            "hit_rate": cs.hit_rate,
+            "ttl_seconds": cs.ttl_seconds,
+        }
+
     def clear(self) -> None:
         """Clear all cached entries and reset stats."""
         with self._lock:
