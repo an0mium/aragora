@@ -214,9 +214,21 @@ class DebatePhase:
             **consensus_result,
         }
 
+    async def generate_proposals(self, context: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Legacy API: Public method to generate proposals from agents.
+
+        Args:
+            context: Optional context for proposals
+
+        Returns:
+            List of proposal dictionaries
+        """
+        return await self._generate_proposals(context)
+
     async def _generate_proposals(self, context: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Legacy API: Generate proposals from agents.
+        Internal method for proposal generation.
 
         Args:
             context: Optional context for proposals

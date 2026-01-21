@@ -165,7 +165,10 @@ async def get_postgres_pool_from_settings() -> "Pool":
     return await get_postgres_pool(
         dsn=db_settings.url,
         min_size=max(1, db_settings.pool_size // 4),  # min is ~25% of max
-        max_size=db_settings.pool_size,
+        max_size=db_settings.pool_size + db_settings.pool_max_overflow,
+        command_timeout=db_settings.command_timeout,
+        statement_timeout=db_settings.statement_timeout,
+        pool_recycle=db_settings.pool_recycle,
     )
 
 

@@ -349,6 +349,10 @@ class TaskScheduler:
         timeout_seconds: float = 300.0,
         max_retries: int = 3,
         metadata: Optional[Dict[str, Any]] = None,
+        target_region: Optional[str] = None,
+        fallback_regions: Optional[List[str]] = None,
+        region_routing_mode: RegionRoutingMode = RegionRoutingMode.ANY,
+        origin_region: str = "default",
     ) -> str:
         """
         Submit a task for execution.
@@ -361,6 +365,10 @@ class TaskScheduler:
             timeout_seconds: Task timeout
             max_retries: Maximum retries
             metadata: Additional metadata
+            target_region: Preferred region for execution
+            fallback_regions: Fallback regions if target unavailable
+            region_routing_mode: How to handle regional routing
+            origin_region: Region where task was submitted
 
         Returns:
             Task ID
@@ -373,6 +381,10 @@ class TaskScheduler:
             timeout_seconds=timeout_seconds,
             max_retries=max_retries,
             metadata=metadata or {},
+            target_region=target_region,
+            fallback_regions=fallback_regions or [],
+            region_routing_mode=region_routing_mode,
+            origin_region=origin_region,
         )
 
         await self._save_task(task)
@@ -381,7 +393,10 @@ class TaskScheduler:
         # Record metrics
         record_control_plane_task_submitted(task_type, priority.name.lower())
 
-        logger.info(f"Task submitted: {task.id} (type={task_type}, priority={priority.name})")
+        region_info = f", region={target_region}" if target_region else ""
+        logger.info(
+            f"Task submitted: {task.id} (type={task_type}, priority={priority.name}{region_info})"
+        )
 
         return task.id
 
