@@ -1,44 +1,90 @@
 # Aragora API Documentation
 
-> **Redirect Notice:** This document is a simplified endpoint listing. For comprehensive documentation including request/response schemas, examples, and usage notes, see **[API_REFERENCE.md](./API_REFERENCE.md)**.
->
-> This file is auto-generated and may be removed in a future release.
-
 This document describes the HTTP API endpoints provided by the Aragora server.
 
 ## Table of Contents
 
+- [A2A](#a2a)
 - [Analytics](#analytics)
 - [AnalyticsDashboard](#analyticsdashboard)
 - [Auditing](#auditing)
 - [Belief](#belief)
 - [Breakpoints](#breakpoints)
 - [Checkpoints](#checkpoints)
+- [Composite](#composite)
 - [Consensus](#consensus)
 - [Critique](#critique)
+- [Cross Pollination](#cross-pollination)
+- [Decision](#decision)
 - [Docs](#docs)
+- [Email](#email)
+- [Evaluation](#evaluation)
+- [Explainability](#explainability)
+- [ExternalIntegrations](#externalintegrations)
 - [Gallery](#gallery)
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
 - [Introspection](#introspection)
-- [Knowledge](#knowledge)
 - [Laboratory](#laboratory)
 - [Metrics](#metrics)
+- [Ml](#ml)
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth](#oauth)
 - [Organizations](#organizations)
 - [Persona](#persona)
+- [Policy](#policy)
 - [Privacy](#privacy)
+- [Queue](#queue)
 - [Replays](#replays)
+- [Repository](#repository)
 - [Reviews](#reviews)
+- [RLMContext](#rlmcontext)
 - [Selection](#selection)
+- [TemplateMarketplace](#templatemarketplace)
 - [Tournament](#tournament)
 - [Training](#training)
-- [Webhook](#webhook)
-- [Workspace](#workspace)
 - [Transcription](#transcription)
-- [Bot Integrations](#bot-integrations)
+- [Uncertainty](#uncertainty)
+- [Verticals](#verticals)
+- [Webhook](#webhook)
+- [Workflow Templates](#workflow-templates)
+- [Workflow](#workflow)
+- [Workspace](#workspace)
+
+---
+
+## A2A
+
+A2A Protocol HTTP Handler.
+
+### `GET` `/api/a2a/agents`
+
+List all available agents
+
+### `GET` `/api/a2a/agents/:name`
+
+Get agent card by name
+
+### `POST` `/api/a2a/tasks`
+
+Submit a task
+
+### `GET` `/api/a2a/tasks/:id`
+
+Get task status
+
+### `DELETE` `/api/a2a/tasks/:id`
+
+Cancel task
+
+### `POST` `/api/a2a/tasks/:id/stream`
+
+Stream task (WebSocket upgrade)
+
+### `GET` `/api/a2a/.well-known/agent.json`
+
+Discovery endpoint
 
 ---
 
@@ -198,6 +244,24 @@ Pause debate and create checkpoint
 
 ---
 
+## Composite
+
+Handler for composite API endpoints that aggregate multiple data sources.
+
+### `GET` `/api/debates/*/full-context`
+
+GET /api/debates/*/full-context
+
+### `GET` `/api/agents/*/reliability`
+
+Calculate overall reliability score (0-1)
+
+### `GET` `/api/debates/*/compression-analysis`
+
+GET /api/debates/*/compression-analysis
+
+---
+
 ## Consensus
 
 Consensus Memory endpoint handlers.
@@ -254,6 +318,42 @@ Get specific agent reputation
 
 ---
 
+## Cross Pollination
+
+Cross-Pollination observability endpoint handlers.
+
+### `GET` `/api/cross-pollination/stats`
+
+Get cross-subscriber statistics
+
+### `GET` `/api/cross-pollination/subscribers`
+
+List all subscribers
+
+### `GET` `/api/cross-pollination/bridge`
+
+Arena event bridge status
+
+### `POST` `/api/cross-pollination/reset`
+
+Reset subscriber statistics
+
+---
+
+## Decision
+
+Handler for unified decision-making API endpoints.
+
+### `GET` `/api/decisions`
+
+List recent decisions
+
+### `GET` `/api/decisions/*`
+
+GET /api/decisions/*
+
+---
+
 ## Docs
 
 API documentation endpoint handlers.
@@ -281,6 +381,162 @@ Swagger UI interactive documentation
 ### `GET` `/api/redoc`
 
 ReDoc API documentation viewer
+
+---
+
+## Email
+
+HTTP API Handlers for Email Prioritization.
+
+### `POST` `/api/email/prioritize`
+
+Score a single email
+
+### `POST` `/api/email/rank-inbox`
+
+Rank multiple emails
+
+### `POST` `/api/email/feedback`
+
+Record user action for learning
+
+### `GET` `/api/email/context/:email_address`
+
+Get cross-channel context
+
+### `POST` `/api/email/gmail/oauth/url`
+
+Get Gmail OAuth URL
+
+### `POST` `/api/email/gmail/oauth/callback`
+
+Handle OAuth callback
+
+### `GET` `/api/email/inbox`
+
+Fetch and rank inbox
+
+### `GET` `/api/email/config`
+
+Get prioritization config
+
+### `PUT` `/api/email/config`
+
+Update prioritization config
+
+---
+
+## Evaluation
+
+Handler for LLM-as-Judge evaluation endpoints.
+
+### `GET` `/api/evaluate` 🔒
+
+Compare two responses using pairwise evaluation
+
+### `GET` `/api/evaluate/compare` 🔒
+
+Compare two responses using pairwise evaluation
+
+### `GET` `/api/evaluate/dimensions` 🔒
+
+List available evaluation dimensions
+
+### `GET` `/api/evaluate/profiles` 🔒
+
+List available evaluation weight profiles
+
+---
+
+## Explainability
+
+Handler for debate explainability endpoints.
+
+### `GET` `/api/v1/debates/*/explanation`
+
+Build explanation dictionary based on options
+
+### `GET` `/api/v1/debates/*/evidence`
+
+Handle evidence chain request
+
+### `GET` `/api/v1/debates/*/votes/pivots`
+
+Handle vote pivot analysis request
+
+### `GET` `/api/v1/debates/*/counterfactuals`
+
+Handle counterfactual analysis request
+
+### `GET` `/api/v1/debates/*/summary`
+
+Handle human-readable summary request
+
+### `GET` `/api/v1/explain/*`
+
+GET /api/v1/explain/*
+
+### `GET` `/api/v1/explainability/batch` 🔒
+
+Create a new batch explainability job
+
+### `GET` `/api/v1/explainability/batch/*/status`
+
+Get status of a batch job
+
+### `GET` `/api/v1/explainability/batch/*/results`
+
+Get results of a completed batch job
+
+### `GET` `/api/v1/explainability/compare` 🔒
+
+Compare explanations between multiple debates
+
+### `GET` `/api/debates/*/explanation`
+
+Build explanation dictionary based on options
+
+### `GET` `/api/explain/*`
+
+GET /api/explain/*
+
+---
+
+## ExternalIntegrations
+
+Handler for external integration management.
+
+### `GET` `/api/integrations/zapier/apps`
+
+Handle POST /api/integrations/zapier/apps - create Zapier app
+
+### `GET` `/api/integrations/zapier/triggers`
+
+Handle GET /api/integrations/zapier/triggers - list trigger types
+
+### `GET` `/api/integrations/make/connections`
+
+Handle POST /api/integrations/make/connections - create connection
+
+### `GET` `/api/integrations/make/webhooks`
+
+Handle POST /api/integrations/make/webhooks - register webhook
+
+### `GET` `/api/integrations/make/modules`
+
+Handle GET /api/integrations/make/modules - list available modules
+
+### `GET` `/api/integrations/n8n/credentials`
+
+Handle POST /api/integrations/n8n/credentials - create credential
+
+### `GET` `/api/integrations/n8n/webhooks`
+
+Handle POST /api/integrations/n8n/webhooks - register webhook
+
+### `GET` `/api/integrations/n8n/nodes`
+
+Handle GET /api/integrations/n8n/nodes - get node definitions
 
 ---
 
@@ -392,28 +648,6 @@ Get introspection for specific agent
 
 ---
 
-## Knowledge
-
-Handler for knowledge base API endpoints.
-
-### `GET` `/api/knowledge/query`
-
-Get or create query engine
-
-### `GET` `/api/knowledge/facts` 🔒
-
-Handle POST /api/knowledge/facts/:id/relations - Add relation from fact
-
-### `GET` `/api/knowledge/search` 🔒
-
-Handle GET /api/knowledge/search - Search chunks
-
-### `GET` `/api/knowledge/stats` 🔒
-
-Handle GET /api/knowledge/stats - Get statistics
-
----
-
 ## Laboratory
 
 Persona laboratory endpoint handlers.
@@ -455,6 +689,40 @@ System information
 ### `GET` `/metrics`
 
 Prometheus-format metrics (OpenMetrics)
+
+---
+
+## Ml
+
+ML (Machine Learning) endpoint handlers.
+
+### `POST` `/api/ml/route`
+
+Get ML-based agent routing for a task
+
+### `POST` `/api/ml/score`
+
+Score response quality
+
+### `POST` `/api/ml/score-batch`
+
+Score multiple responses
+
+### `POST` `/api/ml/consensus`
+
+Predict consensus likelihood
+
+### `POST` `/api/ml/export-training`
+
+Export debate data for training
+
+### `GET` `/api/ml/models`
+
+List available ML models/capabilities
+
+### `GET` `/api/ml/stats`
+
+Get ML module statistics
 
 ---
 
@@ -507,6 +775,10 @@ Get risk register entries
 ### `GET` `/api/modes`
 
 Get available operational modes
+
+### `WS` `/api/nomic/stream`
+
+Real-time WebSocket event stream
 
 ---
 
@@ -612,6 +884,44 @@ Get position accuracy stats
 
 ---
 
+## Policy
+
+Handler for policy and compliance endpoints.
+
+### `GET` `/api/policies`
+
+List policies with optional filters
+
+### `GET` `/api/policies/*`
+
+GET /api/policies/*
+
+### `GET` `/api/policies/*/toggle`
+
+Toggle a policy's enabled status
+
+### `GET` `/api/policies/*/violations`
+
+Get violations for a specific policy
+
+### `GET` `/api/compliance/violations`
+
+Get violations for a specific policy
+
+### `GET` `/api/compliance/violations/*`
+
+GET /api/compliance/violations/*
+
+### `GET` `/api/compliance/check`
+
+Run compliance check on content
+
+### `GET` `/api/compliance/stats`
+
+Get compliance statistics
+
+---
+
 ## Privacy
 
 Privacy Handler - GDPR/CCPA Compliant Data Export and Account Deletion.
@@ -631,6 +941,40 @@ Delete user account (GDPR Article 17, CCPA Right to Delete)
 ### `POST` `/api/privacy/preferences`
 
 Update privacy preferences (CCPA Do Not Sell)
+
+---
+
+## Queue
+
+Queue management endpoint handlers.
+
+### `POST` `/api/queue/jobs`
+
+Submit new job
+
+### `GET` `/api/queue/jobs`
+
+List jobs with filters
+
+### `GET` `/api/queue/jobs/:id`
+
+Get job status
+
+### `POST` `/api/queue/jobs/:id/retry`
+
+Retry failed job
+
+### `DELETE` `/api/queue/jobs/:id`
+
+Cancel job
+
+### `GET` `/api/queue/stats`
+
+Queue statistics
+
+### `GET` `/api/queue/workers`
+
+Worker status
 
 ---
 
@@ -656,6 +1000,36 @@ Get meta-learning hyperparameters and efficiency stats
 
 ---
 
+## Repository
+
+Repository indexing endpoint handlers.
+
+### `POST` `/api/repository/index`
+
+Start full repository index
+
+### `POST` `/api/repository/incremental`
+
+Incremental update
+
+### `GET` `/api/repository/:id/status`
+
+Get indexing status
+
+### `GET` `/api/repository/:id/entities`
+
+List entities with filters
+
+### `GET` `/api/repository/:id/graph`
+
+Get relationship graph
+
+### `DELETE` `/api/repository/:id`
+
+Remove indexed repository
+
+---
+
 ## Reviews
 
 Reviews Handler - Serve shareable code reviews.
@@ -667,6 +1041,32 @@ Get a specific review by ID
 ### `GET` `/api/reviews`
 
 List recent reviews
+
+---
+
+## RLMContext
+
+Handler for RLM context compression and query endpoints.
+
+### `GET` `/api/rlm/stats`
+
+GET /api/rlm/stats
+
+### `GET` `/api/rlm/strategies`
+
+GET /api/rlm/strategies
+
+### `GET` `/api/rlm/compress`
+
+Get or create the hierarchical compressor using factory
+
+### `GET` `/api/rlm/query`
+
+Simple fallback query when full RLM is not available
+
+### `GET` `/api/rlm/contexts`
+
+GET /api/rlm/contexts
 
 ---
 
@@ -689,6 +1089,32 @@ Get information about a specific scorer
 ### `GET` `/api/selection/team` 🔒
 
 Get information about a specific team selector
+
+---
+
+## TemplateMarketplace
+
+Handler for template marketplace API endpoints.
+
+### `GET` `/api/marketplace/templates` 🔒
+
+List marketplace templates with search and filters
+
+### `GET` `/api/marketplace/templates/*`
+
+GET /api/marketplace/templates/*
+
+### `GET` `/api/marketplace/featured` 🔒
+
+Get featured marketplace templates
+
+### `GET` `/api/marketplace/trending` 🔒
+
+Get trending marketplace templates
+
+### `GET` `/api/marketplace/categories` 🔒
+
+Get marketplace categories with counts
 
 ---
 
@@ -750,6 +1176,84 @@ GET /api/training/stats
 
 GET /api/training/formats
 
+### `GET` `/api/training/jobs`
+
+GET /api/training/jobs
+
+---
+
+## Transcription
+
+Transcription endpoint handlers for speech-to-text and media processing.
+
+### `POST` `/api/transcription/audio`
+
+Transcribe audio file
+
+### `POST` `/api/transcription/video`
+
+Extract and transcribe audio from video
+
+### `POST` `/api/transcription/youtube`
+
+Transcribe YouTube video
+
+---
+
+## Uncertainty
+
+Uncertainty estimation endpoint handlers.
+
+### `POST` `/api/uncertainty/estimate`
+
+Estimate uncertainty for a debate/response
+
+### `GET` `/api/uncertainty/debate/:id`
+
+Get debate uncertainty metrics
+
+### `GET` `/api/uncertainty/agent/:id`
+
+Get agent calibration profile
+
+### `POST` `/api/uncertainty/followups`
+
+Generate follow-up suggestions from cruxes
+
+---
+
+## Verticals
+
+Vertical specialist endpoint handlers.
+
+### `GET` `/api/verticals`
+
+List available verticals
+
+### `GET` `/api/verticals/:id`
+
+Get vertical config
+
+### `GET` `/api/verticals/:id/tools`
+
+Get vertical tools
+
+### `GET` `/api/verticals/:id/compliance`
+
+Get compliance frameworks
+
+### `POST` `/api/verticals/:id/debate`
+
+Create vertical-specific debate
+
+### `POST` `/api/verticals/:id/agent`
+
+Create specialist agent instance
+
+### `GET` `/api/verticals/suggest`
+
+Suggest vertical for a task
+
 ---
 
 ## Webhook
@@ -763,6 +1267,62 @@ Handle DELETE /api/webhooks/:id - delete webhook
 ### `GET` `/api/webhooks/events`
 
 Handle GET /api/webhooks/events - list available event types
+
+### `GET` `/api/webhooks/slo/status`
+
+Handle GET /api/webhooks/slo/status - get SLO webhook status
+
+---
+
+## Workflow Templates
+
+Workflow Templates API Handler.
+
+### `GET` `/api/workflow/templates`
+
+List available templates
+
+### `GET` `/api/workflow/templates/:id`
+
+Get template details
+
+### `GET` `/api/workflow/templates/:id/package`
+
+Get full package
+
+### `POST` `/api/workflow/templates/run`
+
+Execute a template
+
+---
+
+## Workflow
+
+HTTP request handler for workflow API endpoints.
+
+### `GET` `/api/workflows`
+
+Handle POST /api/workflows
+
+### `GET` `/api/workflows/*`
+
+GET /api/workflows/*
+
+### `GET` `/api/workflow-templates`
+
+Handle GET /api/workflow-templates
+
+### `GET` `/api/workflow-approvals`
+
+Handle GET /api/workflow-approvals
+
+### `GET` `/api/workflow-approvals/*`
+
+GET /api/workflow-approvals/*
+
+### `GET` `/api/workflow-executions`
+
+Handle GET /api/workflow-executions
 
 ---
 
@@ -837,108 +1397,6 @@ Generate compliance report
 ### `GET` `/api/audit/verify`
 
 Verify audit log integrity
-
----
-
-## Transcription
-
-Speech-to-text transcription endpoints for audio, video, and YouTube content.
-
-### `GET` `/api/transcription/config`
-
-Get supported formats and limits
-
-### `POST` `/api/transcription/audio`
-
-Transcribe an audio file
-
-**Request:** Multipart form with `file` field
-
-**Response:**
-```json
-{
-  "text": "Transcribed text content...",
-  "language": "en",
-  "duration": 123.45,
-  "segments": [
-    {"start": 0.0, "end": 2.0, "text": "First segment"}
-  ]
-}
-```
-
-### `POST` `/api/transcription/video`
-
-Extract audio from video and transcribe
-
-### `POST` `/api/transcription/youtube`
-
-Transcribe a YouTube video
-
-**Request:**
-```json
-{
-  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-}
-```
-
-### `POST` `/api/transcription/youtube/info`
-
-Get YouTube video metadata without transcribing
-
-**Response:**
-```json
-{
-  "video_id": "dQw4w9WgXcQ",
-  "title": "Video Title",
-  "duration": 180,
-  "channel": "Channel Name",
-  "thumbnail_url": "https://..."
-}
-```
-
----
-
-## Bot Integrations
-
-Endpoints for chat platform bot webhooks.
-
-### Discord
-
-#### `GET` `/api/bots/discord/status`
-
-Get Discord bot configuration status
-
-#### `POST` `/api/bots/discord/interactions`
-
-Handle Discord Interactions API webhooks
-
-**Headers Required:**
-- `X-Signature-Ed25519` - Request signature
-- `X-Signature-Timestamp` - Request timestamp
-
-### Microsoft Teams
-
-#### `GET` `/api/bots/teams/status`
-
-Get Teams bot configuration status
-
-#### `POST` `/api/bots/teams/messages`
-
-Handle Bot Framework messages
-
-### Zoom
-
-#### `GET` `/api/bots/zoom/status`
-
-Get Zoom bot configuration status
-
-#### `POST` `/api/bots/zoom/events`
-
-Handle Zoom webhook events
-
-**Headers:**
-- `x-zm-request-timestamp` - Request timestamp
-- `x-zm-signature` - HMAC signature
 
 ---
 

@@ -140,8 +140,11 @@ def _export_receipt_json(receipt: "DecisionReceipt", opts: ExportOptions) -> str
         data.pop("provenance_chain", None)
     if not opts.include_config:
         data.pop("config_used", None)
-    if opts.max_vulnerabilities and len(data.get("vulnerability_details", [])) > opts.max_vulnerabilities:
-        data["vulnerability_details"] = data["vulnerability_details"][:opts.max_vulnerabilities]
+    if (
+        opts.max_vulnerabilities
+        and len(data.get("vulnerability_details", [])) > opts.max_vulnerabilities
+    ):
+        data["vulnerability_details"] = data["vulnerability_details"][: opts.max_vulnerabilities]
         data["_truncated_vulnerabilities"] = True
 
     # Add export metadata
@@ -155,6 +158,7 @@ def _export_receipt_json(receipt: "DecisionReceipt", opts: ExportOptions) -> str
     # Validate if requested
     if opts.validate_schema:
         from .schema import validate_receipt
+
         is_valid, errors = validate_receipt(data)
         if not is_valid:
             data["_validation_errors"] = errors
@@ -168,27 +172,31 @@ def _export_receipt_csv(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
     writer = csv.writer(output)
 
     # Header
-    writer.writerow([
-        "Finding ID",
-        "Severity",
-        "Category",
-        "Title",
-        "Description",
-        "Mitigation",
-        "Verified",
-    ])
+    writer.writerow(
+        [
+            "Finding ID",
+            "Severity",
+            "Category",
+            "Title",
+            "Description",
+            "Mitigation",
+            "Verified",
+        ]
+    )
 
     # Vulnerability rows
-    for vuln in receipt.vulnerability_details[:opts.max_vulnerabilities]:
-        writer.writerow([
-            vuln.get("id", ""),
-            vuln.get("severity", vuln.get("severity_level", "")),
-            vuln.get("category", ""),
-            vuln.get("title", ""),
-            vuln.get("description", "")[:500],
-            vuln.get("mitigation", ""),
-            vuln.get("verified", ""),
-        ])
+    for vuln in receipt.vulnerability_details[: opts.max_vulnerabilities]:
+        writer.writerow(
+            [
+                vuln.get("id", ""),
+                vuln.get("severity", vuln.get("severity_level", "")),
+                vuln.get("category", ""),
+                vuln.get("title", ""),
+                vuln.get("description", "")[:500],
+                vuln.get("mitigation", ""),
+                vuln.get("verified", ""),
+            ]
+        )
 
     # Summary row
     writer.writerow([])
@@ -248,18 +256,22 @@ def _generate_sarif_rules(receipt: "DecisionReceipt") -> List[Dict[str, Any]]:
 
     rules = []
     for i, cat in enumerate(sorted(categories)):
-        rules.append({
-            "id": f"GAUNTLET-{i+1:03d}",
-            "name": cat.replace("_", " ").title(),
-            "shortDescription": {"text": f"Gauntlet finding: {cat}"},
-            "fullDescription": {"text": f"Vulnerability detected in category: {cat}"},
-            "defaultConfiguration": {"level": "warning"},
-        })
+        rules.append(
+            {
+                "id": f"GAUNTLET-{i+1:03d}",
+                "name": cat.replace("_", " ").title(),
+                "shortDescription": {"text": f"Gauntlet finding: {cat}"},
+                "fullDescription": {"text": f"Vulnerability detected in category: {cat}"},
+                "defaultConfiguration": {"level": "warning"},
+            }
+        )
 
     return rules
 
 
-def _generate_sarif_results(receipt: "DecisionReceipt", opts: ExportOptions) -> List[Dict[str, Any]]:
+def _generate_sarif_results(
+    receipt: "DecisionReceipt", opts: ExportOptions
+) -> List[Dict[str, Any]]:
     """Generate SARIF results from vulnerabilities."""
     results = []
 
@@ -271,26 +283,27 @@ def _generate_sarif_results(receipt: "DecisionReceipt", opts: ExportOptions) -> 
         "low": "note",
     }
 
-    for i, vuln in enumerate(receipt.vulnerability_details[:opts.max_vulnerabilities]):
+    for i, vuln in enumerate(receipt.vulnerability_details[: opts.max_vulnerabilities]):
         severity = str(vuln.get("severity", vuln.get("severity_level", "medium"))).lower()
         level = severity_map.get(severity, "warning")
 
-        result = {
+        message: Dict[str, Any] = {
+            "text": vuln.get("title", "Unknown vulnerability"),
+        }
+        # Add description if available
+        if vuln.get("description"):
+            message["markdown"] = vuln["description"][:1000]
+
+        result: Dict[str, Any] = {
             "ruleId": f"GAUNTLET-{i+1:03d}",
             "level": level,
-            "message": {
-                "text": vuln.get("title", "Unknown vulnerability"),
-            },
+            "message": message,
             "properties": {
                 "category": vuln.get("category", ""),
                 "severity": severity,
                 "verified": vuln.get("verified", False),
             },
         }
-
-        # Add description if available
-        if vuln.get("description"):
-            result["message"]["markdown"] = vuln["description"][:1000]
 
         # Add mitigation as fix
         if vuln.get("mitigation"):
@@ -328,7 +341,7 @@ def _export_heatmap_csv(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
 
     # Category rows
     for category in heatmap.categories:
-        row = [category]
+        row: List[Any] = [category]
         for severity in heatmap.severities:
             cell = heatmap.get_cell(category, severity)
             row.append(cell.count if cell else 0)
@@ -453,35 +466,37 @@ def export_receipts_bundle(
         output = io.StringIO()
         writer = csv.writer(output)
 
-        writer.writerow([
-            "Receipt ID",
-            "Gauntlet ID",
-            "Verdict",
-            "Finding ID",
-            "Severity",
-            "Category",
-            "Title",
-        ])
+        writer.writerow(
+            [
+                "Receipt ID",
+                "Gauntlet ID",
+                "Verdict",
+                "Finding ID",
+                "Severity",
+                "Category",
+                "Title",
+            ]
+        )
 
         for receipt in receipts:
             for vuln in receipt.vulnerability_details:
-                writer.writerow([
-                    receipt.receipt_id,
-                    receipt.gauntlet_id,
-                    receipt.verdict,
-                    vuln.get("id", ""),
-                    vuln.get("severity", ""),
-                    vuln.get("category", ""),
-                    vuln.get("title", ""),
-                ])
+                writer.writerow(
+                    [
+                        receipt.receipt_id,
+                        receipt.gauntlet_id,
+                        receipt.verdict,
+                        vuln.get("id", ""),
+                        vuln.get("severity", ""),
+                        vuln.get("category", ""),
+                        vuln.get("title", ""),
+                    ]
+                )
 
         return output.getvalue()
 
     else:
         # Concatenate individual exports
-        return "\n\n---\n\n".join(
-            export_receipt(receipt, format, opts) for receipt in receipts
-        )
+        return "\n\n---\n\n".join(export_receipt(receipt, format, opts) for receipt in receipts)
 
 
 # =============================================================================
@@ -507,7 +522,7 @@ def stream_receipt_json(
     """
     full_json = receipt.to_json()
     for i in range(0, len(full_json), chunk_size):
-        yield full_json[i:i + chunk_size]
+        yield full_json[i : i + chunk_size]
 
 
 __all__ = [

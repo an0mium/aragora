@@ -5,6 +5,10 @@ Provides Redis-based leader election for multi-node Aragora deployments.
 Uses a distributed lock with TTL for leader election.
 
 Based on the Redlock algorithm for distributed locking.
+
+SECURITY: In multi-instance mode (ARAGORA_MULTI_INSTANCE=true or production),
+Redis is REQUIRED. Without it, each instance becomes its own leader, causing
+split-brain scenarios. Set ARAGORA_SINGLE_INSTANCE=true for single-node deployments.
 """
 
 from __future__ import annotations
@@ -18,6 +22,37 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def is_distributed_state_required() -> bool:
+    """Check if distributed state backend (Redis) is required.
+
+    Returns True if:
+    - ARAGORA_REQUIRE_DISTRIBUTED_STATE=true
+    - ARAGORA_MULTI_INSTANCE=true
+    - ARAGORA_ENV=production (unless ARAGORA_SINGLE_INSTANCE=true)
+    """
+    if os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED_STATE", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.environ.get("ARAGORA_ENV") == "production":
+        if os.environ.get("ARAGORA_SINGLE_INSTANCE", "").lower() in ("true", "1", "yes"):
+            return False
+        return True
+    return False
+
+
+class DistributedStateError(Exception):
+    """Raised when distributed state is required but not available."""
+
+    def __init__(self, component: str, reason: str):
+        self.component = component
+        self.reason = reason
+        super().__init__(
+            f"Distributed state required for {component} but not available: {reason}. "
+            f"Install aioredis and configure REDIS_URL, or set ARAGORA_SINGLE_INSTANCE=true."
+        )
 
 
 class LeaderState(Enum):
@@ -158,7 +193,11 @@ class LeaderElection:
         self._on_leader_change.append(callback)
 
     async def start(self) -> None:
-        """Start the leader election process."""
+        """Start the leader election process.
+
+        Raises:
+            DistributedStateError: If Redis is required but not available.
+        """
         if self._running:
             return
 
@@ -174,8 +213,26 @@ class LeaderElection:
                     encoding="utf-8",
                     decode_responses=True,
                 )
+                logger.info("[leader] Connected to Redis for distributed leader election")
             except ImportError:
-                logger.warning("[leader] aioredis not available, using in-memory fallback")
+                if is_distributed_state_required():
+                    raise DistributedStateError(
+                        "leader_election",
+                        "aioredis not installed. Install with: pip install aioredis",
+                    )
+                logger.warning(
+                    "[leader] aioredis not available, using in-memory fallback. "
+                    "This is NOT suitable for multi-instance deployments! "
+                    "Set ARAGORA_SINGLE_INSTANCE=true to suppress this warning."
+                )
+                self._redis = _InMemoryRedis()
+            except Exception as e:
+                if is_distributed_state_required():
+                    raise DistributedStateError(
+                        "leader_election",
+                        f"Failed to connect to Redis: {e}",
+                    ) from e
+                logger.warning(f"[leader] Redis connection failed, using in-memory fallback: {e}")
                 self._redis = _InMemoryRedis()
 
         self._running = True

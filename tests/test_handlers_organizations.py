@@ -308,15 +308,25 @@ class TestUpdateOrganization:
 
         assert result.status_code == 403
 
+    @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_update_org_admin_success(
-        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, sample_org
+        self,
+        mock_extract,
+        mock_check_perm,
+        org_handler,
+        mock_http_handler,
+        mock_user_store,
+        admin_user,
+        sample_org,
     ):
         """Test admin can update organization."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
         mock_user_store.get_user_by_id.return_value = admin_user
         mock_user_store.update_organization.return_value = True
         mock_user_store.get_organization_by_id.return_value = sample_org
+        # Mock RBAC to allow the permission
+        mock_check_perm.return_value = MagicMock(allowed=True, reason="test")
 
         org_handler.ctx = {"user_store": mock_user_store}
         org_handler.read_json_body = MagicMock(return_value={"name": "New Name"})

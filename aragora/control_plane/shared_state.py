@@ -42,6 +42,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
+from aragora.control_plane.leader import (
+    is_distributed_state_required,
+    DistributedStateError,
+)
+
 logger = logging.getLogger(__name__)
 
 # Module-level shared state singleton
@@ -350,12 +355,26 @@ class SharedControlPlaneState:
             return True
 
         except ImportError:
-            logger.warning("redis package not installed, using SQLite fallback")
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "shared_state",
+                    "redis package not installed. Install with: pip install redis",
+                )
+            logger.warning(
+                "redis package not installed, using SQLite fallback. "
+                "This is NOT suitable for multi-instance deployments! "
+                "Set ARAGORA_SINGLE_INSTANCE=true to suppress this warning."
+            )
             self._redis = None
             self._connected = False
             self._init_sqlite()
             return False
         except Exception as e:
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "shared_state",
+                    f"Failed to connect to Redis: {e}",
+                ) from e
             logger.warning(f"Failed to connect to Redis, using SQLite fallback: {e}")
             self._redis = None
             self._connected = False
@@ -409,11 +428,13 @@ class SharedControlPlaneState:
         agent.last_active = datetime.utcnow().isoformat()
 
         await self._save_agent(agent)
-        await self._broadcast_event({
-            "type": "agent_registered",
-            "agent_id": agent.id,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        await self._broadcast_event(
+            {
+                "type": "agent_registered",
+                "agent_id": agent.id,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
         return agent
 
     async def update_agent_status(
@@ -447,13 +468,17 @@ class SharedControlPlaneState:
         agent.last_active = datetime.utcnow().isoformat()
         await self._save_agent(agent)
 
-        await self._broadcast_event({
-            "type": f"agent_{status}" if status in ("paused", "resumed") else "agent_status_changed",
-            "agent_id": agent_id,
-            "old_status": old_status,
-            "new_status": status,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        await self._broadcast_event(
+            {
+                "type": f"agent_{status}"
+                if status in ("paused", "resumed")
+                else "agent_status_changed",
+                "agent_id": agent_id,
+                "old_status": old_status,
+                "new_status": status,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
         return agent.to_dict()
 
@@ -479,8 +504,8 @@ class SharedControlPlaneState:
             total = agent.tasks_completed
             if total > 0:
                 agent.avg_response_time = (
-                    (agent.avg_response_time * (total - 1) + response_time_ms) / total
-                )
+                    agent.avg_response_time * (total - 1) + response_time_ms
+                ) / total
 
         if error:
             # Simple error rate calculation
@@ -504,11 +529,13 @@ class SharedControlPlaneState:
             task.created_at = datetime.utcnow().isoformat()
 
         await self._save_task(task)
-        await self._broadcast_event({
-            "type": "task_added",
-            "task_id": task.id,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        await self._broadcast_event(
+            {
+                "type": "task_added",
+                "task_id": task.id,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
         return task
 
     async def update_task_priority(
@@ -525,11 +552,13 @@ class SharedControlPlaneState:
         task.priority = priority
         await self._save_task(task, position=position)
 
-        await self._broadcast_event({
-            "type": "queue_updated",
-            "task_id": task_id,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        await self._broadcast_event(
+            {
+                "type": "queue_updated",
+                "task_id": task_id,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
         return task.to_dict()
 
@@ -741,11 +770,19 @@ class SharedControlPlaneState:
             if self._sqlite_initialized:
                 try:
                     conn = sqlite3.connect(self._sqlite_path)
-                    task_position = position if position is not None else self._local_tasks.index(task)
+                    task_position = (
+                        position if position is not None else self._local_tasks.index(task)
+                    )
                     conn.execute(
                         """INSERT OR REPLACE INTO control_plane_tasks
                            (id, data_json, priority, position, updated_at) VALUES (?, ?, ?, ?, ?)""",
-                        (task.id, json.dumps(task.to_dict()), task.priority, task_position, time.time()),
+                        (
+                            task.id,
+                            json.dumps(task.to_dict()),
+                            task.priority,
+                            task_position,
+                            time.time(),
+                        ),
                     )
                     conn.commit()
                     conn.close()
@@ -814,7 +851,9 @@ async def get_shared_state(
         _shared_state = SharedControlPlaneState(redis_url=redis_url)
         if auto_connect:
             await _shared_state.connect()
-        logger.info(f"Created shared control plane state (persistent={_shared_state.is_persistent})")
+        logger.info(
+            f"Created shared control plane state (persistent={_shared_state.is_persistent})"
+        )
 
     return _shared_state
 

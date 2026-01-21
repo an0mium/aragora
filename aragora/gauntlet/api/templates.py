@@ -238,7 +238,16 @@ class AuditTemplate:
         """Render as JSON."""
         import json
 
-        data = {
+        sections_data: Dict[str, Any] = {}
+        for section in self.sections:
+            content = self._get_section_content(receipt, section)
+            sections_data[section.id] = {
+                "title": section.title,
+                "description": section.description,
+                "content": content,
+            }
+
+        data: Dict[str, Any] = {
             "template": {
                 "id": self.id,
                 "name": self.name,
@@ -247,17 +256,9 @@ class AuditTemplate:
             },
             "generated_at": datetime.now().isoformat(),
             "regulations": self.regulations,
-            "sections": {},
+            "sections": sections_data,
             "receipt": receipt.to_dict(),
         }
-
-        for section in self.sections:
-            content = self._get_section_content(receipt, section)
-            data["sections"][section.id] = {
-                "title": section.title,
-                "description": section.description,
-                "content": content,
-            }
 
         if self.disclaimer:
             data["disclaimer"] = self.disclaimer

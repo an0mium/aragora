@@ -95,15 +95,35 @@ def check_connector_dependencies() -> list[str]:
 def check_production_requirements() -> list[str]:
     """Check if production requirements are met.
 
+    SECURITY: This function performs fail-fast validation of production
+    configuration to prevent runtime failures and security misconfigurations.
+
+    Environment Variables:
+        ARAGORA_ENV: Set to "production" to enable production checks
+        ARAGORA_MULTI_INSTANCE: Set to "true" to require Redis for HA
+        ARAGORA_REQUIRE_DATABASE: Set to "true" to require PostgreSQL
+
     Returns:
         List of missing requirements (empty if all met)
     """
     import os
 
     missing = []
+    warnings = []
     env = os.environ.get("ARAGORA_ENV", "development")
+    is_production = env == "production"
+    is_multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in ("true", "1", "yes")
+    require_database = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
 
-    if env == "production":
+    if is_production:
+        # =====================================================================
+        # HARD REQUIREMENTS (fail startup)
+        # =====================================================================
+
         # Encryption key is required for production
         if not _get_config_value("ARAGORA_ENCRYPTION_KEY"):
             missing.append(
@@ -111,24 +131,73 @@ def check_production_requirements() -> list[str]:
                 "(32-byte hex string for AES-256 encryption)"
             )
 
-        # Redis is recommended for durable state (optional for initial deployment)
-        if not os.environ.get("REDIS_URL"):
-            logger.warning(
-                "REDIS_URL not set in production - using in-memory state. "
-                "Redis recommended for debate origins and control plane state."
+        # Multi-instance mode requires Redis for distributed state
+        if is_multi_instance:
+            if not os.environ.get("REDIS_URL"):
+                missing.append(
+                    "REDIS_URL required when ARAGORA_MULTI_INSTANCE=true. "
+                    "Redis is needed for: session store, control-plane leader election, "
+                    "debate origins, and distributed caching."
+                )
+
+        # Database requirement (optional flag for strict deployments)
+        if require_database:
+            if not os.environ.get("DATABASE_URL"):
+                missing.append(
+                    "DATABASE_URL required when ARAGORA_REQUIRE_DATABASE=true. "
+                    "PostgreSQL is needed for: governance store, audit logs, "
+                    "and enterprise connector sync."
+                )
+
+        # =====================================================================
+        # SOFT REQUIREMENTS (warnings)
+        # =====================================================================
+
+        # Redis recommended for durable state
+        if not is_multi_instance and not os.environ.get("REDIS_URL"):
+            warnings.append(
+                "REDIS_URL not set - using in-memory state for sessions, "
+                "debate origins, and control plane. Data will be lost on restart. "
+                "Set ARAGORA_MULTI_INSTANCE=true to make Redis mandatory."
             )
 
-        # PostgreSQL is recommended for governance store
-        if not os.environ.get("DATABASE_URL"):
-            logger.warning(
-                "DATABASE_URL not set in production - using SQLite. "
-                "PostgreSQL recommended for governance store."
+        # PostgreSQL recommended for governance store
+        if not require_database and not os.environ.get("DATABASE_URL"):
+            warnings.append(
+                "DATABASE_URL not set - using SQLite for governance store. "
+                "PostgreSQL recommended for production. "
+                "Set ARAGORA_REQUIRE_DATABASE=true to make it mandatory."
+            )
+
+        # JWT secret should be set for auth
+        if not _get_config_value("JWT_SECRET") and not _get_config_value("ARAGORA_JWT_SECRET"):
+            warnings.append(
+                "JWT_SECRET not set - using derived key from encryption key. "
+                "Consider setting JWT_SECRET for independent key rotation."
             )
 
     # Check connector dependencies (warnings, not errors)
     connector_warnings = check_connector_dependencies()
-    for warning in connector_warnings:
-        logger.warning(warning)
+    warnings.extend(connector_warnings)
+
+    # Log all warnings
+    for warning in warnings:
+        logger.warning(f"[PRODUCTION CONFIG] {warning}")
+
+    # Log summary
+    if is_production:
+        if missing:
+            logger.error(
+                f"[PRODUCTION CONFIG] {len(missing)} critical requirement(s) missing. "
+                "Server startup will fail."
+            )
+        elif warnings:
+            logger.warning(
+                f"[PRODUCTION CONFIG] {len(warnings)} recommendation(s) not met. "
+                "Server will start but may have reduced durability."
+            )
+        else:
+            logger.info("[PRODUCTION CONFIG] All production requirements met.")
 
     return missing
 

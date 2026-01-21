@@ -274,8 +274,8 @@ class ExplanationBuilder:
         if not votes:
             return pivots
 
-        # Count votes by choice to find consensus
-        choice_counts: Counter[str] = Counter()
+        # Count votes by choice to find consensus (use defaultdict for float weights)
+        choice_counts: dict[str, float] = {}
         total_weight = 0.0
         vote_data: List[Tuple[Any, float]] = []
 
@@ -286,12 +286,12 @@ class ExplanationBuilder:
 
             # Get weight
             weight = self._get_vote_weight(agent)
-            choice_counts[choice] += weight
+            choice_counts[choice] = choice_counts.get(choice, 0.0) + weight
             total_weight += weight
             vote_data.append((vote, weight))
 
-        # Calculate influence scores
-        winner = choice_counts.most_common(1)[0][0] if choice_counts else ""
+        # Calculate influence scores - find choice with highest weight
+        winner = max(choice_counts, key=choice_counts.get) if choice_counts else ""
 
         for vote, weight in vote_data:
             choice = getattr(vote, "choice", "")

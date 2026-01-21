@@ -36,6 +36,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+
 logger = logging.getLogger(__name__)
 
 # Configurable session store limits via environment variables
@@ -603,9 +604,28 @@ def get_session_store(force_memory: bool = False) -> SessionStore:
         except Exception as e:
             logger.debug(f"Redis session store unavailable: {e}")
 
-        # Fall back to in-memory
+        # Check if multi-instance mode requires Redis
+        import os
+
+        is_multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        if is_multi_instance:
+            raise RuntimeError(
+                "ARAGORA_MULTI_INSTANCE=true requires Redis for session store. "
+                "Sessions will not be shared across instances without Redis. "
+                "Configure REDIS_URL or set ARAGORA_SINGLE_INSTANCE=true."
+            )
+
+        # Fall back to in-memory (single instance only)
+        logger.warning(
+            "Using in-memory session store - sessions will be lost on restart "
+            "and not shared across instances. Set ARAGORA_MULTI_INSTANCE=true "
+            "and configure REDIS_URL for production deployments."
+        )
         _session_store = InMemorySessionStore()
-        logger.info("Using in-memory session store")
         return _session_store
 
 

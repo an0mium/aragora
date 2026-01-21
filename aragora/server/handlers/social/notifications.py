@@ -6,11 +6,16 @@ Provides endpoints for configuring and managing notification channels:
 - Telegram bot notifications
 - Test notification delivery
 - Status and configuration management
+
+Multi-Tenancy:
+- All configurations are scoped to org_id for tenant isolation
+- Per-org email/telegram configs stored in NotificationConfigStore
+- Backward compatible with env var configuration (used as system default)
 """
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
@@ -26,6 +31,12 @@ from aragora.server.validation.schema import (
     NOTIFICATION_SEND_SCHEMA,
     TELEGRAM_CONFIG_SCHEMA,
     validate_against_schema,
+)
+from aragora.storage.notification_config_store import (
+    StoredEmailConfig,
+    StoredTelegramConfig,
+    StoredEmailRecipient,
+    get_notification_config_store,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,18 +61,83 @@ def _run_async_in_thread(coro):
         loop.close()
 
 
-# Module-level integration instances (singletons)
-_email_integration: Optional[EmailIntegration] = None
-_telegram_integration: Optional[TelegramIntegration] = None
+# =============================================================================
+# Per-Organization Integration Factory
+# =============================================================================
+
+# Cache of active integrations per org (cleared on config change)
+_org_email_integrations: Dict[str, EmailIntegration] = {}
+_org_telegram_integrations: Dict[str, TelegramIntegration] = {}
+
+# System-wide fallback from environment (for backward compatibility)
+_system_email_integration: Optional[EmailIntegration] = None
+_system_telegram_integration: Optional[TelegramIntegration] = None
 
 
-def get_email_integration() -> Optional[EmailIntegration]:
-    """Get or create the email integration singleton."""
-    global _email_integration
-    if _email_integration is not None:
-        return _email_integration
+async def get_email_integration_for_org(org_id: Optional[str] = None) -> Optional[EmailIntegration]:
+    """Get email integration for an organization.
 
-    # Try to initialize from environment
+    Priority:
+    1. Per-org config from NotificationConfigStore
+    2. System-wide config from environment variables (fallback)
+    """
+    # Check org-specific cache first
+    if org_id and org_id in _org_email_integrations:
+        return _org_email_integrations[org_id]
+
+    # Try to load from store
+    if org_id:
+        store = get_notification_config_store()
+        stored_config = await store.get_email_config(org_id)
+        if stored_config and stored_config.smtp_host:
+            try:
+                config = EmailConfig(
+                    provider=stored_config.provider,
+                    smtp_host=stored_config.smtp_host,
+                    smtp_port=stored_config.smtp_port,
+                    smtp_username=stored_config.smtp_username,
+                    smtp_password=stored_config.smtp_password,
+                    use_tls=stored_config.use_tls,
+                    use_ssl=stored_config.use_ssl,
+                    sendgrid_api_key=stored_config.sendgrid_api_key,
+                    ses_region=stored_config.ses_region,
+                    ses_access_key_id=stored_config.ses_access_key_id,
+                    ses_secret_access_key=stored_config.ses_secret_access_key,
+                    from_email=stored_config.from_email,
+                    from_name=stored_config.from_name,
+                    notify_on_consensus=stored_config.notify_on_consensus,
+                    notify_on_debate_end=stored_config.notify_on_debate_end,
+                    notify_on_error=stored_config.notify_on_error,
+                    enable_digest=stored_config.enable_digest,
+                    digest_frequency=stored_config.digest_frequency,
+                    min_consensus_confidence=stored_config.min_consensus_confidence,
+                    max_emails_per_hour=stored_config.max_emails_per_hour,
+                )
+                integration = EmailIntegration(config)
+
+                # Load recipients for this org
+                recipients = await store.get_recipients(org_id)
+                for r in recipients:
+                    integration.add_recipient(
+                        EmailRecipient(email=r.email, name=r.name, preferences=r.preferences)
+                    )
+
+                _org_email_integrations[org_id] = integration
+                logger.info(f"Email integration loaded for org {org_id}")
+                return integration
+            except Exception as e:
+                logger.warning(f"Failed to create email integration for org {org_id}: {e}")
+
+    # Fall back to system-wide config from environment
+    return _get_system_email_integration()
+
+
+def _get_system_email_integration() -> Optional[EmailIntegration]:
+    """Get system-wide email integration from environment (backward compatibility)."""
+    global _system_email_integration
+    if _system_email_integration is not None:
+        return _system_email_integration
+
     smtp_host = os.getenv("SMTP_HOST")
     if smtp_host:
         try:
@@ -75,52 +151,109 @@ def get_email_integration() -> Optional[EmailIntegration]:
                 from_email=os.getenv("SMTP_FROM_EMAIL", "debates@aragora.ai"),
                 from_name=os.getenv("SMTP_FROM_NAME", "Aragora Debates"),
             )
-            _email_integration = EmailIntegration(config)
-            logger.info(f"Email integration initialized with host: {smtp_host}")
+            _system_email_integration = EmailIntegration(config)
+            logger.info(f"System email integration initialized with host: {smtp_host}")
         except Exception as e:
-            logger.warning(f"Failed to initialize email integration: {e}")
+            logger.warning(f"Failed to initialize system email integration: {e}")
 
-    return _email_integration
+    return _system_email_integration
 
 
-def get_telegram_integration() -> Optional[TelegramIntegration]:
-    """Get or create the telegram integration singleton."""
-    global _telegram_integration
-    if _telegram_integration is not None:
-        return _telegram_integration
+async def get_telegram_integration_for_org(
+    org_id: Optional[str] = None,
+) -> Optional[TelegramIntegration]:
+    """Get telegram integration for an organization.
 
-    # Try to initialize from environment
+    Priority:
+    1. Per-org config from NotificationConfigStore
+    2. System-wide config from environment variables (fallback)
+    """
+    # Check org-specific cache first
+    if org_id and org_id in _org_telegram_integrations:
+        return _org_telegram_integrations[org_id]
+
+    # Try to load from store
+    if org_id:
+        store = get_notification_config_store()
+        stored_config = await store.get_telegram_config(org_id)
+        if stored_config and stored_config.bot_token and stored_config.chat_id:
+            try:
+                config = TelegramConfig(
+                    bot_token=stored_config.bot_token,
+                    chat_id=stored_config.chat_id,
+                    notify_on_consensus=stored_config.notify_on_consensus,
+                    notify_on_debate_end=stored_config.notify_on_debate_end,
+                    notify_on_error=stored_config.notify_on_error,
+                    min_consensus_confidence=stored_config.min_consensus_confidence,
+                    max_messages_per_minute=stored_config.max_messages_per_minute,
+                )
+                integration = TelegramIntegration(config)
+                _org_telegram_integrations[org_id] = integration
+                logger.info(f"Telegram integration loaded for org {org_id}")
+                return integration
+            except Exception as e:
+                logger.warning(f"Failed to create telegram integration for org {org_id}: {e}")
+
+    # Fall back to system-wide config from environment
+    return _get_system_telegram_integration()
+
+
+def _get_system_telegram_integration() -> Optional[TelegramIntegration]:
+    """Get system-wide telegram integration from environment (backward compatibility)."""
+    global _system_telegram_integration
+    if _system_telegram_integration is not None:
+        return _system_telegram_integration
+
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
     if bot_token and chat_id:
         try:
-            config = TelegramConfig(
-                bot_token=bot_token,
-                chat_id=chat_id,
-            )
-            _telegram_integration = TelegramIntegration(config)
-            logger.info("Telegram integration initialized")
+            config = TelegramConfig(bot_token=bot_token, chat_id=chat_id)
+            _system_telegram_integration = TelegramIntegration(config)
+            logger.info("System telegram integration initialized")
         except Exception as e:
-            logger.warning(f"Failed to initialize telegram integration: {e}")
+            logger.warning(f"Failed to initialize system telegram integration: {e}")
 
-    return _telegram_integration
+    return _system_telegram_integration
+
+
+def invalidate_org_integration_cache(org_id: str) -> None:
+    """Invalidate cached integrations when config changes."""
+    _org_email_integrations.pop(org_id, None)
+    _org_telegram_integrations.pop(org_id, None)
+    logger.debug(f"Invalidated integration cache for org {org_id}")
+
+
+# =============================================================================
+# Backward Compatibility Functions (for utility functions and other modules)
+# =============================================================================
+
+
+def get_email_integration() -> Optional[EmailIntegration]:
+    """Get system-wide email integration (backward compatibility)."""
+    return _get_system_email_integration()
+
+
+def get_telegram_integration() -> Optional[TelegramIntegration]:
+    """Get system-wide telegram integration (backward compatibility)."""
+    return _get_system_telegram_integration()
 
 
 def configure_email_integration(config: EmailConfig) -> EmailIntegration:
-    """Configure and set the email integration."""
-    global _email_integration
-    _email_integration = EmailIntegration(config)
-    logger.info(f"Email integration configured with host: {config.smtp_host}")
-    return _email_integration
+    """Configure system-wide email integration (backward compatibility)."""
+    global _system_email_integration
+    _system_email_integration = EmailIntegration(config)
+    logger.info(f"System email integration configured with host: {config.smtp_host}")
+    return _system_email_integration
 
 
 def configure_telegram_integration(config: TelegramConfig) -> TelegramIntegration:
-    """Configure and set the telegram integration."""
-    global _telegram_integration
-    _telegram_integration = TelegramIntegration(config)
-    logger.info("Telegram integration configured")
-    return _telegram_integration
+    """Configure system-wide telegram integration (backward compatibility)."""
+    global _system_telegram_integration
+    _system_telegram_integration = TelegramIntegration(config)
+    logger.info("System telegram integration configured")
+    return _system_telegram_integration
 
 
 class NotificationsHandler(SecureHandler):
@@ -211,16 +344,16 @@ class NotificationsHandler(SecureHandler):
             return perm_err
 
         if path == "/api/notifications/email/config":
-            logger.info(f"Email config modified by user {user.user_id}")
-            return self._configure_email(handler)
+            logger.info(f"Email config modified by user {user.user_id} in org {user.org_id}")
+            return self._configure_email(handler, user.org_id)
 
         if path == "/api/notifications/telegram/config":
-            logger.info(f"Telegram config modified by user {user.user_id}")
-            return self._configure_telegram(handler)
+            logger.info(f"Telegram config modified by user {user.user_id} in org {user.org_id}")
+            return self._configure_telegram(handler, user.org_id)
 
         if path == "/api/notifications/email/recipient":
-            logger.info(f"Email recipient added by user {user.user_id}")
-            return self._add_email_recipient(handler)
+            logger.info(f"Email recipient added by user {user.user_id} in org {user.org_id}")
+            return self._add_email_recipient(handler, user.org_id)
 
         if path == "/api/notifications/test":
             logger.info(f"Test notification sent by user {user.user_id}")
@@ -249,8 +382,8 @@ class NotificationsHandler(SecureHandler):
             return perm_err
 
         if path == "/api/notifications/email/recipient":
-            logger.info(f"Email recipient removed by user {user.user_id}")
-            return self._remove_email_recipient(handler, query_params)
+            logger.info(f"Email recipient removed by user {user.user_id} in org {user.org_id}")
+            return self._remove_email_recipient(handler, query_params, user.org_id)
 
         return None
 
@@ -259,13 +392,28 @@ class NotificationsHandler(SecureHandler):
 
         SECURITY: org_id is used for tenant scoping. Only configuration
         and recipients belonging to the authenticated user's organization
-        should be returned.
-
-        TODO: Current implementation uses global singletons. For full
-        multi-tenancy, integrations should be stored per-organization.
+        are returned.
         """
-        email = get_email_integration()
-        telegram = get_telegram_integration()
+        import asyncio
+
+        # Get org-specific integrations (async)
+        async def get_integrations():
+            email = await get_email_integration_for_org(org_id)
+            telegram = await get_telegram_integration_for_org(org_id)
+            return email, telegram
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    email, telegram = pool.submit(_run_async_in_thread, get_integrations()).result()
+            else:
+                email, telegram = loop.run_until_complete(get_integrations())
+        except Exception as e:
+            logger.warning(f"Failed to get integrations for org {org_id}: {e}")
+            email, telegram = None, None
 
         # Log org context for debugging tenant isolation issues
         if org_id:
@@ -320,30 +468,53 @@ class NotificationsHandler(SecureHandler):
 
         SECURITY: org_id is used for tenant scoping. Only recipients
         belonging to the authenticated user's organization are returned.
-
-        TODO: Current implementation uses global singletons. For full
-        multi-tenancy, recipients should be stored per-organization.
         """
-        email = get_email_integration()
-        if not email:
-            return json_response({"recipients": [], "error": "Email not configured"})
+        import asyncio
 
-        # Log org context for debugging tenant isolation issues
-        if org_id:
-            logger.debug(f"Getting email recipients for org: {org_id}")
+        if not org_id:
+            # No org context - use system integration
+            email = get_email_integration()
+            if not email:
+                return json_response({"recipients": [], "error": "Email not configured"})
+            return json_response(
+                {
+                    "recipients": [{"email": r.email, "name": r.name} for r in email.recipients],
+                    "count": len(email.recipients),
+                }
+            )
 
-        # TODO: Filter recipients by org_id when per-org storage is implemented
-        # For now, return all recipients but log the org context for auditing
+        # Get org-specific recipients from store
+        async def get_org_recipients():
+            store = get_notification_config_store()
+            return await store.get_recipients(org_id)
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    recipients = pool.submit(_run_async_in_thread, get_org_recipients()).result()
+            else:
+                recipients = loop.run_until_complete(get_org_recipients())
+        except Exception as e:
+            logger.warning(f"Failed to get recipients for org {org_id}: {e}")
+            return json_response({"recipients": [], "error": str(e)})
+
+        logger.debug(f"Getting email recipients for org: {org_id}")
+
         return json_response(
             {
-                "recipients": [{"email": r.email, "name": r.name} for r in email.recipients],
-                "count": len(email.recipients),
-                "org_id": org_id,  # Include org context in response for traceability
+                "recipients": [{"email": r.email, "name": r.name} for r in recipients],
+                "count": len(recipients),
+                "org_id": org_id,
             }
         )
 
-    def _configure_email(self, handler: Any) -> HandlerResult:
-        """Configure email integration settings."""
+    def _configure_email(self, handler: Any, org_id: Optional[str] = None) -> HandlerResult:
+        """Configure email integration settings for an organization."""
+        import asyncio
+
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
@@ -354,6 +525,59 @@ class NotificationsHandler(SecureHandler):
             return error_response(validation_result.error, 400)
 
         try:
+            # Save to per-org store if org_id provided
+            if org_id:
+                stored_config = StoredEmailConfig(
+                    org_id=org_id,
+                    provider=body.get("provider", "smtp"),
+                    smtp_host=body.get("smtp_host", ""),
+                    smtp_port=body.get("smtp_port", 587),
+                    smtp_username=body.get("smtp_username", ""),
+                    smtp_password=body.get("smtp_password", ""),
+                    use_tls=body.get("use_tls", True),
+                    use_ssl=body.get("use_ssl", False),
+                    sendgrid_api_key=body.get("sendgrid_api_key", ""),
+                    ses_region=body.get("ses_region", "us-east-1"),
+                    ses_access_key_id=body.get("ses_access_key_id", ""),
+                    ses_secret_access_key=body.get("ses_secret_access_key", ""),
+                    from_email=body.get("from_email", "debates@aragora.ai"),
+                    from_name=body.get("from_name", "Aragora Debates"),
+                    notify_on_consensus=body.get("notify_on_consensus", True),
+                    notify_on_debate_end=body.get("notify_on_debate_end", True),
+                    notify_on_error=body.get("notify_on_error", True),
+                    enable_digest=body.get("enable_digest", True),
+                    digest_frequency=body.get("digest_frequency", "daily"),
+                    min_consensus_confidence=body.get("min_consensus_confidence", 0.7),
+                    max_emails_per_hour=body.get("max_emails_per_hour", 50),
+                )
+
+                async def save_config():
+                    store = get_notification_config_store()
+                    await store.save_email_config(stored_config)
+                    invalidate_org_integration_cache(org_id)
+
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        import concurrent.futures
+
+                        with concurrent.futures.ThreadPoolExecutor() as pool:
+                            pool.submit(_run_async_in_thread, save_config()).result()
+                    else:
+                        loop.run_until_complete(save_config())
+                except Exception as e:
+                    logger.error(f"Failed to save email config for org {org_id}: {e}")
+                    return error_response(f"Failed to save configuration: {e}", 500)
+
+                return json_response(
+                    {
+                        "success": True,
+                        "message": f"Email configured for org {org_id} with host: {stored_config.smtp_host}",
+                        "org_id": org_id,
+                    }
+                )
+
+            # No org_id - configure system-wide (backward compatibility)
             config = EmailConfig(
                 smtp_host=body.get("smtp_host", ""),
                 smtp_port=body.get("smtp_port", 587),
@@ -384,8 +608,10 @@ class NotificationsHandler(SecureHandler):
             logger.error(f"Failed to configure email: {e}")
             return error_response("Failed to configure email", 500)
 
-    def _configure_telegram(self, handler: Any) -> HandlerResult:
-        """Configure Telegram integration settings."""
+    def _configure_telegram(self, handler: Any, org_id: Optional[str] = None) -> HandlerResult:
+        """Configure Telegram integration settings for an organization."""
+        import asyncio
+
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
@@ -399,6 +625,46 @@ class NotificationsHandler(SecureHandler):
         chat_id = body.get("chat_id", "")
 
         try:
+            # Save to per-org store if org_id provided
+            if org_id:
+                stored_config = StoredTelegramConfig(
+                    org_id=org_id,
+                    bot_token=bot_token,
+                    chat_id=chat_id,
+                    notify_on_consensus=body.get("notify_on_consensus", True),
+                    notify_on_debate_end=body.get("notify_on_debate_end", True),
+                    notify_on_error=body.get("notify_on_error", True),
+                    min_consensus_confidence=body.get("min_consensus_confidence", 0.7),
+                    max_messages_per_minute=body.get("max_messages_per_minute", 20),
+                )
+
+                async def save_config():
+                    store = get_notification_config_store()
+                    await store.save_telegram_config(stored_config)
+                    invalidate_org_integration_cache(org_id)
+
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        import concurrent.futures
+
+                        with concurrent.futures.ThreadPoolExecutor() as pool:
+                            pool.submit(_run_async_in_thread, save_config()).result()
+                    else:
+                        loop.run_until_complete(save_config())
+                except Exception as e:
+                    logger.error(f"Failed to save telegram config for org {org_id}: {e}")
+                    return error_response(f"Failed to save configuration: {e}", 500)
+
+                return json_response(
+                    {
+                        "success": True,
+                        "message": f"Telegram configured for org {org_id}",
+                        "org_id": org_id,
+                    }
+                )
+
+            # No org_id - configure system-wide (backward compatibility)
             config = TelegramConfig(
                 bot_token=bot_token,
                 chat_id=chat_id,
@@ -421,11 +687,9 @@ class NotificationsHandler(SecureHandler):
             logger.error(f"Failed to configure telegram: {e}")
             return error_response("Failed to configure telegram", 500)
 
-    def _add_email_recipient(self, handler: Any) -> HandlerResult:
-        """Add an email recipient."""
-        email = get_email_integration()
-        if not email:
-            return error_response("Email integration not configured", 503)
+    def _add_email_recipient(self, handler: Any, org_id: Optional[str] = None) -> HandlerResult:
+        """Add an email recipient for an organization."""
+        import asyncio
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -434,6 +698,56 @@ class NotificationsHandler(SecureHandler):
         recipient_email = body.get("email", "")
         if not recipient_email or "@" not in recipient_email:
             return error_response("Valid email address required", 400)
+
+        # Save to per-org store if org_id provided
+        if org_id:
+            stored_recipient = StoredEmailRecipient(
+                org_id=org_id,
+                email=recipient_email,
+                name=body.get("name"),
+                preferences=body.get("preferences", {}),
+            )
+
+            async def save_recipient():
+                store = get_notification_config_store()
+                await store.add_recipient(stored_recipient)
+                # Also add to cached integration if it exists
+                if org_id in _org_email_integrations:
+                    _org_email_integrations[org_id].add_recipient(
+                        EmailRecipient(
+                            email=recipient_email,
+                            name=body.get("name"),
+                            preferences=body.get("preferences", {}),
+                        )
+                    )
+                return await store.get_recipients(org_id)
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        recipients = pool.submit(_run_async_in_thread, save_recipient()).result()
+                else:
+                    recipients = loop.run_until_complete(save_recipient())
+            except Exception as e:
+                logger.error(f"Failed to add recipient for org {org_id}: {e}")
+                return error_response(f"Failed to add recipient: {e}", 500)
+
+            return json_response(
+                {
+                    "success": True,
+                    "message": f"Recipient added: {recipient_email}",
+                    "recipients_count": len(recipients),
+                    "org_id": org_id,
+                }
+            )
+
+        # No org_id - use system integration (backward compatibility)
+        email = get_email_integration()
+        if not email:
+            return error_response("Email integration not configured", 503)
 
         recipient = EmailRecipient(
             email=recipient_email,
@@ -450,15 +764,58 @@ class NotificationsHandler(SecureHandler):
             }
         )
 
-    def _remove_email_recipient(self, handler: Any, query_params: dict) -> HandlerResult:
-        """Remove an email recipient."""
-        email = get_email_integration()
-        if not email:
-            return error_response("Email integration not configured", 503)
+    def _remove_email_recipient(
+        self, handler: Any, query_params: dict, org_id: Optional[str] = None
+    ) -> HandlerResult:
+        """Remove an email recipient for an organization."""
+        import asyncio
 
         recipient_email = query_params.get("email", "")
         if not recipient_email:
             return error_response("email parameter required", 400)
+
+        # Remove from per-org store if org_id provided
+        if org_id:
+
+            async def remove_recipient():
+                store = get_notification_config_store()
+                removed = await store.remove_recipient(org_id, recipient_email)
+                # Also remove from cached integration if it exists
+                if org_id in _org_email_integrations:
+                    _org_email_integrations[org_id].remove_recipient(recipient_email)
+                return removed, await store.get_recipients(org_id)
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        removed, recipients = pool.submit(
+                            _run_async_in_thread, remove_recipient()
+                        ).result()
+                else:
+                    removed, recipients = loop.run_until_complete(remove_recipient())
+            except Exception as e:
+                logger.error(f"Failed to remove recipient for org {org_id}: {e}")
+                return error_response(f"Failed to remove recipient: {e}", 500)
+
+            if removed:
+                return json_response(
+                    {
+                        "success": True,
+                        "message": f"Recipient removed: {recipient_email}",
+                        "recipients_count": len(recipients),
+                        "org_id": org_id,
+                    }
+                )
+            else:
+                return error_response(f"Recipient not found: {recipient_email}", 404)
+
+        # No org_id - use system integration (backward compatibility)
+        email = get_email_integration()
+        if not email:
+            return error_response("Email integration not configured", 503)
 
         removed = email.remove_recipient(recipient_email)
         if removed:

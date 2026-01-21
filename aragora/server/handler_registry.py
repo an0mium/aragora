@@ -106,6 +106,7 @@ FolderUploadHandler: HandlerType = None
 WebhookHandler: HandlerType = None
 WorkflowHandler: HandlerType = None
 AdminHandler: HandlerType = None
+SecurityHandler: HandlerType = None
 ControlPlaneHandler: HandlerType = None
 KnowledgeHandler: HandlerType = None
 KnowledgeMoundHandler: HandlerType = None
@@ -127,6 +128,9 @@ HandlerResult: HandlerType = None
 try:
     from aragora.server.handlers import (
         AdminHandler as _AdminHandler,
+    )
+    from aragora.server.handlers.admin import (
+        SecurityHandler as _SecurityHandler,
     )
     from aragora.server.handlers import (
         ControlPlaneHandler as _ControlPlaneHandler,
@@ -419,6 +423,7 @@ try:
     WebhookHandler = _WebhookHandler
     WorkflowHandler = _WorkflowHandler
     AdminHandler = _AdminHandler
+    SecurityHandler = _SecurityHandler
     ControlPlaneHandler = _ControlPlaneHandler
     KnowledgeHandler = _KnowledgeHandler
     KnowledgeMoundHandler = _KnowledgeMoundHandler
@@ -512,6 +517,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_webhook_handler", WebhookHandler),
     ("_workflow_handler", WorkflowHandler),
     ("_admin_handler", AdminHandler),
+    ("_security_handler", SecurityHandler),
     ("_control_plane_handler", ControlPlaneHandler),
     ("_knowledge_handler", KnowledgeHandler),
     ("_knowledge_mound_handler", KnowledgeMoundHandler),

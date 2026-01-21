@@ -134,8 +134,7 @@ class AWSSecretsManagerProvider:
                 import boto3
             except ImportError:
                 raise ImportError(
-                    "boto3 is required for AWS Secrets Manager. "
-                    "Install with: pip install boto3"
+                    "boto3 is required for AWS Secrets Manager. " "Install with: pip install boto3"
                 )
 
             session_kwargs = {}
@@ -154,10 +153,7 @@ class AWSSecretsManagerProvider:
         """Fetch secret from AWS Secrets Manager."""
         # Check cache first
         now = time.time()
-        if (
-            self._secret_cache is not None
-            and now - self._secret_cached_at < self.cache_ttl_seconds
-        ):
+        if self._secret_cache is not None and now - self._secret_cached_at < self.cache_ttl_seconds:
             return self._secret_cache
 
         # Fetch from AWS (run in thread pool for async compatibility)
@@ -245,17 +241,17 @@ class AWSSecretsManagerProvider:
             else:
                 return None
 
-        if not isinstance(value, str):
-            value = str(value)
+        # Convert to string if needed
+        str_value = value if isinstance(value, str) else str(value)
 
         # Cache the result
         self._cache[key] = CachedCredential(
-            value=value,
+            value=str_value,
             cached_at=time.time(),
             ttl_seconds=self.cache_ttl_seconds,
         )
 
-        return value
+        return str_value
 
     async def set_credential(self, key: str, value: str) -> None:
         """

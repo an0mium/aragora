@@ -285,6 +285,13 @@ class SyncStore:
         try:
             import aiosqlite
         except ImportError:
+            is_production = os.environ.get("ARAGORA_ENV") == "production"
+            if is_production:
+                raise RuntimeError(
+                    "CONNECTOR SYNC STORE: aiosqlite required in production. "
+                    "Connector sync state will be lost without it. "
+                    "Install with: pip install aiosqlite"
+                )
             logger.warning(
                 "CONNECTOR SYNC STORE: aiosqlite not installed - using in-memory fallback. "
                 "DATA WILL BE LOST ON RESTART! Install with: pip install aiosqlite"
@@ -367,6 +374,13 @@ class SyncStore:
         try:
             import asyncpg
         except ImportError:
+            is_production = os.environ.get("ARAGORA_ENV") == "production"
+            if is_production:
+                raise RuntimeError(
+                    "CONNECTOR SYNC STORE: asyncpg required in production for PostgreSQL. "
+                    "Connector sync state will be lost without it. "
+                    "Install with: pip install asyncpg"
+                )
             logger.warning(
                 "CONNECTOR SYNC STORE: asyncpg not installed - using in-memory fallback. "
                 "DATA WILL BE LOST ON RESTART! Install with: pip install asyncpg"

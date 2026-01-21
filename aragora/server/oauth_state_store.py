@@ -518,8 +518,27 @@ class FallbackOAuthStateStore(OAuthStateStore):
             return self._sqlite_store
 
         # Last resort: in-memory
+        # SECURITY: In multi-instance mode, in-memory OAuth state will cause
+        # OAuth flow failures when requests hit different instances
+        import os
+
+        is_multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        if is_multi_instance:
+            raise RuntimeError(
+                "ARAGORA_MULTI_INSTANCE=true requires Redis or SQLite for OAuth state store. "
+                "In-memory state will cause OAuth flow failures across instances. "
+                "Configure REDIS_URL or ensure SQLite is available."
+            )
+
         if not self._redis_failed or not self._use_sqlite:
-            logger.debug("OAuth state store: Using in-memory storage (volatile)")
+            logger.warning(
+                "OAuth state store: Using in-memory storage (volatile). "
+                "OAuth state will be lost on restart and not shared across instances."
+            )
         return self._memory_store
 
     @property

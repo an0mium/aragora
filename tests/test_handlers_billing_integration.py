@@ -575,7 +575,10 @@ class TestRoleBasedAccess:
 
         assert result.status_code == 403
         body = json.loads(result.body)
-        assert "owners" in body["error"].lower() or "Only organization" in body["error"]
+        error_msg = (
+            body["error"].lower() if isinstance(body["error"], str) else str(body["error"]).lower()
+        )
+        assert any(x in error_msg for x in ["owners", "only organization", "permission denied"])
 
     def test_resume_requires_owner_or_admin(self, billing_handler, user_store, test_user, test_org):
         """Test resume subscription requires owner or admin role."""
@@ -589,7 +592,10 @@ class TestRoleBasedAccess:
 
         assert result.status_code == 403
         body = json.loads(result.body)
-        assert "owners" in body["error"].lower() or "Only organization" in body["error"]
+        error_msg = (
+            body["error"].lower() if isinstance(body["error"], str) else str(body["error"]).lower()
+        )
+        assert any(x in error_msg for x in ["owners", "only organization", "permission denied"])
 
     def test_audit_log_requires_owner_or_admin(
         self, billing_handler, user_store, test_user, enterprise_org
@@ -604,7 +610,10 @@ class TestRoleBasedAccess:
 
         assert result.status_code == 403
         body = json.loads(result.body)
-        assert "Insufficient permissions" in body["error"]
+        error_msg = (
+            body["error"].lower() if isinstance(body["error"], str) else str(body["error"]).lower()
+        )
+        assert any(x in error_msg for x in ["insufficient permissions", "permission denied"])
 
 
 # =============================================================================

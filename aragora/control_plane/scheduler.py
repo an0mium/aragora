@@ -26,6 +26,10 @@ from aragora.server.prometheus_control_plane import (
     record_control_plane_task_completed,
     record_control_plane_task_retry,
 )
+from aragora.control_plane.leader import (
+    is_distributed_state_required,
+    DistributedStateError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -242,10 +246,24 @@ class TaskScheduler:
             logger.info(f"TaskScheduler connected to Redis: {self._redis_url}")
 
         except ImportError:
-            logger.warning("redis package not installed, using in-memory fallback")
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "task_scheduler",
+                    "redis package not installed. Install with: pip install redis",
+                )
+            logger.warning(
+                "redis package not installed, using in-memory fallback. "
+                "This is NOT suitable for multi-instance deployments! "
+                "Set ARAGORA_SINGLE_INSTANCE=true to suppress this warning."
+            )
             self._redis = None
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            if is_distributed_state_required():
+                raise DistributedStateError(
+                    "task_scheduler",
+                    f"Failed to connect to Redis: {e}",
+                ) from e
+            logger.error(f"Failed to connect to Redis: {e}, using in-memory fallback")
             self._redis = None
 
     async def close(self) -> None:

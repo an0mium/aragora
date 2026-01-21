@@ -613,17 +613,25 @@ def validate_workflow(workflow: Union[Dict[str, Any], str]) -> ValidationResult:
         ValidationResult with errors and warnings
     """
     # Parse if string
+    workflow_dict: Dict[str, Any]
     if isinstance(workflow, str):
         try:
             # Try YAML first (superset of JSON)
-            workflow = yaml.safe_load(workflow)
+            parsed = yaml.safe_load(workflow)
+            if not isinstance(parsed, dict):
+                result = ValidationResult(valid=False)
+                result.add_error("Workflow must be a YAML/JSON object", "", "PARSE_ERROR")
+                return result
+            workflow_dict = parsed
         except yaml.YAMLError as e:
             result = ValidationResult(valid=False)
             result.add_error(f"Invalid YAML/JSON: {e}", "", "PARSE_ERROR")
             return result
+    else:
+        workflow_dict = workflow
 
     validator = WorkflowValidator()
-    return validator.validate(workflow)
+    return validator.validate(workflow_dict)
 
 
 def validate_workflow_file(path: str) -> ValidationResult:
