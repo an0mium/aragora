@@ -24,17 +24,21 @@ from urllib.parse import urlparse
 DNS_RESOLUTION_TIMEOUT = 5.0
 
 # Cloud metadata endpoints that should never be accessible
-BLOCKED_METADATA_IPS = frozenset([
-    "169.254.169.254",  # AWS, Azure, DigitalOcean
-    "fd00:ec2::254",    # AWS IPv6
-])
+BLOCKED_METADATA_IPS = frozenset(
+    [
+        "169.254.169.254",  # AWS, Azure, DigitalOcean
+        "fd00:ec2::254",  # AWS IPv6
+    ]
+)
 
-BLOCKED_METADATA_HOSTNAMES = frozenset([
-    "metadata.google.internal",
-    "metadata.goog",
-    "169.254.169.254",
-    "instance-data",
-])
+BLOCKED_METADATA_HOSTNAMES = frozenset(
+    [
+        "metadata.google.internal",
+        "metadata.goog",
+        "169.254.169.254",
+        "instance-data",
+    ]
+)
 
 # Internal hostname suffixes to block
 BLOCKED_HOSTNAME_SUFFIXES = (
@@ -107,7 +111,7 @@ def validate_webhook_url(url: str, allow_localhost: bool = False) -> Tuple[bool,
             socket.setdefaulttimeout(original_timeout)
 
         for family, _, _, _, sockaddr in addr_info:
-            ip_str = sockaddr[0]
+            ip_str = str(sockaddr[0])
             valid, error = _validate_ip_address(ip_str)
             if not valid:
                 return False, error

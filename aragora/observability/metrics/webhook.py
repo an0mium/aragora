@@ -208,7 +208,7 @@ class WebhookDeliveryTimer:
     def __init__(self, event_type: str):
         self.event_type = event_type
         self.success = True
-        self.status_code = None
+        self.status_code: int | None = None
         self._start_time = None
 
     def __enter__(self):

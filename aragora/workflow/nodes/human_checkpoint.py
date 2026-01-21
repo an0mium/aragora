@@ -33,6 +33,7 @@ def _get_governance_store():
     if _governance_store is None:
         try:
             from aragora.storage.governance_store import get_governance_store
+
             _governance_store = get_governance_store()
         except Exception as e:
             logger.debug(f"Governance store not available: {e}")
@@ -106,8 +107,100 @@ class ApprovalRequest:
         }
 
 
-# In-memory store for approval requests (will be persisted in production)
+# In-memory store for approval requests (backed by GovernanceStore for persistence)
 _pending_approvals: Dict[str, ApprovalRequest] = {}
+_approvals_recovered: bool = False
+
+
+def recover_pending_approvals() -> int:
+    """
+    Recover pending approvals from GovernanceStore into memory.
+
+    Call this on server startup to ensure workflows can resume
+    after a restart. Returns the number of approvals recovered.
+
+    This function is idempotent - calling it multiple times is safe.
+    """
+    global _pending_approvals, _approvals_recovered
+    import json
+
+    if _approvals_recovered:
+        logger.debug("Approvals already recovered, skipping")
+        return 0
+
+    store = _get_governance_store()
+    if not store:
+        logger.debug("GovernanceStore not available, cannot recover approvals")
+        return 0
+
+    recovered = 0
+    try:
+        # Query all pending approvals from persistent store
+        pending_records = store.list_approvals(status="pending")
+
+        for record in pending_records:
+            if record.approval_id in _pending_approvals:
+                continue  # Already in memory
+
+            # Reconstruct ApprovalRequest from stored record
+            metadata = {}
+            if record.metadata_json:
+                try:
+                    metadata = json.loads(record.metadata_json)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            # Reconstruct checklist from stored metadata
+            checklist = []
+            for item in metadata.get("checklist", []):
+                checklist.append(
+                    ChecklistItem(
+                        id=item.get("id", ""),
+                        label=item.get("label", ""),
+                        required=item.get("required", True),
+                        checked=item.get("checked", False),
+                        notes=item.get("notes", ""),
+                    )
+                )
+
+            request = ApprovalRequest(
+                id=record.approval_id,
+                workflow_id=metadata.get("workflow_id", "unknown"),
+                step_id=metadata.get("step_id", "unknown"),
+                title=record.title,
+                description=record.description,
+                checklist=checklist,
+                status=ApprovalStatus(record.status),
+                created_at=record.requested_at,
+                timeout_seconds=float(record.timeout_seconds),
+                escalation_emails=metadata.get("escalation_emails", []),
+                responder_id=record.approved_by,
+                responded_at=record.approved_at,
+            )
+            _pending_approvals[record.approval_id] = request
+            recovered += 1
+
+        _approvals_recovered = True
+        if recovered > 0:
+            logger.info(f"Recovered {recovered} pending approvals from GovernanceStore")
+
+    except Exception as e:
+        logger.warning(f"Failed to recover approvals from GovernanceStore: {e}")
+
+    return recovered
+
+
+def reset_approval_recovery() -> None:
+    """Reset recovery state (for testing)."""
+    global _approvals_recovered
+    _approvals_recovered = False
+
+
+def clear_pending_approvals() -> int:
+    """Clear all pending approvals from memory (for testing). Returns count cleared."""
+    count = len(_pending_approvals)
+    _pending_approvals.clear()
+    return count
 
 
 class HumanCheckpointStep(BaseStep):
@@ -531,56 +624,15 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
 def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalRequest]:
     """Get all pending approval requests, optionally filtered by workflow.
 
-    Merges in-memory approvals with persisted approvals from GovernanceStore
-    to ensure approvals that survived a restart are still accessible.
+    Automatically recovers approvals from GovernanceStore on first call
+    after server restart to ensure approvals are not lost.
     """
-    # Get in-memory approvals
+    # Ensure approvals are recovered from persistent store
+    if not _approvals_recovered:
+        recover_pending_approvals()
+
+    # Get in-memory approvals (now includes recovered ones)
     approvals = [a for a in _pending_approvals.values() if a.status == ApprovalStatus.PENDING]
-    in_memory_ids = {a.id for a in approvals}
-
-    # Merge persisted approvals (those that survived restart)
-    store = _get_governance_store()
-    if store:
-        try:
-            import json
-
-            persisted = store.list_approvals(status="pending")
-            for record in persisted:
-                if record.approval_id not in in_memory_ids:
-                    # Convert ApprovalRecord to ApprovalRequest
-                    metadata = {}
-                    if record.metadata_json:
-                        metadata = json.loads(record.metadata_json)
-
-                    # Reconstruct checklist from stored metadata
-                    checklist = []
-                    for item in metadata.get("checklist", []):
-                        checklist.append(
-                            ChecklistItem(
-                                id=item.get("id", ""),
-                                label=item.get("label", ""),
-                                required=item.get("required", True),
-                                checked=item.get("checked", False),
-                                notes=item.get("notes", ""),
-                            )
-                        )
-
-                    request = ApprovalRequest(
-                        id=record.approval_id,
-                        workflow_id=metadata.get("workflow_id", "unknown"),
-                        step_id=metadata.get("step_id", "unknown"),
-                        title=record.title,
-                        description=record.description,
-                        checklist=checklist,
-                        status=ApprovalStatus(record.status),
-                        timeout_seconds=float(record.timeout_seconds),
-                        escalation_emails=metadata.get("escalation_emails", []),
-                    )
-                    approvals.append(request)
-                    # Also add to in-memory cache for future lookups
-                    _pending_approvals[record.approval_id] = request
-        except Exception as e:
-            logger.debug(f"Could not query persistent approvals: {e}")
 
     if workflow_id:
         approvals = [a for a in approvals if a.workflow_id == workflow_id]
@@ -590,14 +642,19 @@ def get_pending_approvals(workflow_id: Optional[str] = None) -> List[ApprovalReq
 def get_approval_request(request_id: str) -> Optional[ApprovalRequest]:
     """Get an approval request by ID.
 
-    First checks in-memory cache, then falls back to GovernanceStore
-    to recover approvals that survived a server restart.
+    Automatically recovers approvals from GovernanceStore on first call
+    after server restart to ensure approvals are not lost.
     """
-    # Check in-memory cache first
+    # Ensure approvals are recovered from persistent store
+    if not _approvals_recovered:
+        recover_pending_approvals()
+
+    # Check in-memory cache (now includes recovered approvals)
     if request_id in _pending_approvals:
         return _pending_approvals[request_id]
 
-    # Try to recover from persistent store
+    # Try to recover this specific approval from persistent store
+    # (in case it was created after the last recovery)
     store = _get_governance_store()
     if store:
         try:

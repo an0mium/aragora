@@ -35,7 +35,6 @@ except ImportError:
     check_permission = None
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
@@ -43,6 +42,7 @@ from .base import (
     log_request,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
+from .secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +61,15 @@ MAX_SETTINGS_KEYS = 50  # Maximum number of settings keys
 MAX_SETTINGS_VALUE_SIZE = 10000  # 10KB per value
 
 
-class OrganizationsHandler(BaseHandler):
-    """Handler for organization management endpoints."""
+class OrganizationsHandler(SecureHandler):
+    """Handler for organization management endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+    """
+
+    # Resource type for audit logging
+    RESOURCE_TYPE = "organization"
 
     # Route patterns
     ORG_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)$")

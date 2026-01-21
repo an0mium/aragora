@@ -267,12 +267,14 @@ class PatternExtractor:
             agents: Agents involved
             topics: Topics involved
         """
-        self._observations[observation_type].append({
-            "data": data,
-            "agents": agents,
-            "topics": topics or [],
-            "timestamp": datetime.now(),
-        })
+        self._observations[observation_type].append(
+            {
+                "data": data,
+                "agents": agents,
+                "topics": topics or [],
+                "timestamp": datetime.now(),
+            }
+        )
 
     def extract_patterns(self) -> List[ExtractedPattern]:
         """
@@ -303,7 +305,7 @@ class PatternExtractor:
 
     def _extract_consensus_patterns(self) -> List[ExtractedPattern]:
         """Extract patterns from consensus observations."""
-        patterns = []
+        patterns: List[ExtractedPattern] = []
         consensus_obs = self._observations.get("consensus_reached", [])
 
         if len(consensus_obs) < self.min_evidence_count:
@@ -318,9 +320,9 @@ class PatternExtractor:
         for strategy, obs_list in strategies.items():
             if len(obs_list) >= self.min_evidence_count:
                 # Calculate success rate as confidence
-                success_rate = sum(
-                    1 for o in obs_list if o["data"].get("success", False)
-                ) / len(obs_list)
+                success_rate = sum(1 for o in obs_list if o["data"].get("success", False)) / len(
+                    obs_list
+                )
 
                 if success_rate >= self.min_confidence:
                     pattern = ExtractedPattern(
@@ -340,7 +342,7 @@ class PatternExtractor:
 
     def _extract_expertise_patterns(self) -> List[ExtractedPattern]:
         """Extract topic expertise patterns."""
-        patterns = []
+        patterns: List[ExtractedPattern] = []
         performance_obs = self._observations.get("agent_performance", [])
 
         if len(performance_obs) < self.min_evidence_count:
@@ -379,7 +381,7 @@ class PatternExtractor:
 
     def _extract_failure_patterns(self) -> List[ExtractedPattern]:
         """Extract failure mode patterns."""
-        patterns = []
+        patterns: List[ExtractedPattern] = []
         failure_obs = self._observations.get("debate_failed", [])
 
         if len(failure_obs) < self.min_evidence_count:

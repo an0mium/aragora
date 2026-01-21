@@ -26,12 +26,20 @@ from aragora.reasoning.claims import ClaimsKernel, ClaimType, RelationType, Type
 
 
 # Re-export crux detection classes for backward compatibility
-# Import at module level to avoid circular imports
-def __getattr__(name: str):
-    if name == "BeliefPropagationAnalyzer":
-        from aragora.reasoning.crux_detector import BeliefPropagationAnalyzer
+# Uses lazy import via __getattr__ to avoid circular imports
+_CRUX_EXPORTS = {
+    "BeliefPropagationAnalyzer",
+    "CruxAnalysisResult",
+    "CruxClaim",
+    "CruxDetector",
+}
 
-        return BeliefPropagationAnalyzer
+
+def __getattr__(name: str):
+    if name in _CRUX_EXPORTS:
+        from aragora.reasoning import crux_detector
+
+        return getattr(crux_detector, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -999,6 +1007,24 @@ class BeliefNetwork:
         return network
 
 
-# BeliefPropagationAnalyzer, CruxClaim, CruxAnalysisResult, and CruxDetector
-# have been extracted to aragora.reasoning.crux_detector for better modularity.
-# Re-export for backward compatibility.
+# Re-export crux detection classes for backward compatibility
+# (extracted to aragora.reasoning.crux_detector for better modularity)
+from aragora.reasoning.crux_detector import (  # noqa: E402
+    BeliefPropagationAnalyzer,
+    CruxAnalysisResult,
+    CruxClaim,
+    CruxDetector,
+)
+
+__all__ = [
+    "BeliefDistribution",
+    "BeliefNetwork",
+    "BeliefNode",
+    "BeliefPropagationAnalyzer",
+    "BeliefStatus",
+    "CruxAnalysisResult",
+    "CruxClaim",
+    "CruxDetector",
+    "Factor",
+    "PropagationResult",
+]

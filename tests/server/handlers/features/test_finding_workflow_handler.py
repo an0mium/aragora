@@ -36,6 +36,23 @@ class MockServerContext:
         self.state = {}
 
 
+class MockJWTContext:
+    """Mock JWT context for authentication testing."""
+
+    def __init__(
+        self,
+        user_id: str = "",
+        role: str = "member",
+        org_id: str = "",
+        authenticated: bool = True,
+    ):
+        self.user_id = user_id
+        self.role = role
+        self.org_id = org_id
+        self.authenticated = authenticated
+        self.client_ip = "127.0.0.1"
+
+
 class TestFindingWorkflowRBAC:
     """Test RBAC enforcement on finding workflow endpoints."""
 
@@ -49,104 +66,159 @@ class TestFindingWorkflowRBAC:
         return FindingWorkflowHandler(server_context=MockServerContext())
 
     @pytest.fixture
+    def admin_jwt_context(self):
+        """JWT context for admin user."""
+        return MockJWTContext(
+            user_id="admin-123",
+            role="admin",
+            org_id="org-1",
+            authenticated=True,
+        )
+
+    @pytest.fixture
+    def member_jwt_context(self):
+        """JWT context for member user."""
+        return MockJWTContext(
+            user_id="user-456",
+            role="member",
+            org_id="org-1",
+            authenticated=True,
+        )
+
+    @pytest.fixture
+    def viewer_jwt_context(self):
+        """JWT context for viewer user."""
+        return MockJWTContext(
+            user_id="viewer-789",
+            role="viewer",
+            org_id="org-1",
+            authenticated=True,
+        )
+
+    @pytest.fixture
+    def anonymous_jwt_context(self):
+        """JWT context for unauthenticated request."""
+        return MockJWTContext(authenticated=False)
+
+    @pytest.fixture
     def admin_request(self):
         """Request with admin role."""
-        return MockRequest(
-            headers={
-                "X-User-ID": "admin-123",
-                "X-User-Roles": "admin",
-                "X-Org-ID": "org-1",
-            }
-        )
+        return MockRequest(headers={})
 
     @pytest.fixture
     def member_request(self):
         """Request with member role."""
-        return MockRequest(
-            headers={
-                "X-User-ID": "user-456",
-                "X-User-Roles": "member",
-                "X-Org-ID": "org-1",
-            }
-        )
+        return MockRequest(headers={})
 
     @pytest.fixture
     def viewer_request(self):
         """Request with viewer role (read-only)."""
-        return MockRequest(
-            headers={
-                "X-User-ID": "viewer-789",
-                "X-User-Roles": "viewer",
-                "X-Org-ID": "org-1",
-            }
-        )
+        return MockRequest(headers={})
 
     @pytest.fixture
     def anonymous_request(self):
         """Request with no authentication."""
         return MockRequest(headers={})
 
-    def test_check_permission_returns_none_for_admin(self, handler, admin_request):
+    def test_check_permission_returns_none_for_admin(
+        self, handler, admin_request, admin_jwt_context
+    ):
         """Admin should have all findings permissions."""
-        # Admin has all permissions
-        result = handler._check_permission(admin_request, "findings.read")
-        assert result is None  # None means allowed
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=admin_jwt_context,
+        ):
+            result = handler._check_permission(admin_request, "findings.read")
+            assert result is None  # None means allowed
 
-        result = handler._check_permission(admin_request, "findings.update")
-        assert result is None
+            result = handler._check_permission(admin_request, "findings.update")
+            assert result is None
 
-        result = handler._check_permission(admin_request, "findings.assign")
-        assert result is None
+            result = handler._check_permission(admin_request, "findings.assign")
+            assert result is None
 
-        result = handler._check_permission(admin_request, "findings.bulk")
-        assert result is None
+            result = handler._check_permission(admin_request, "findings.bulk")
+            assert result is None
 
     def test_check_permission_returns_none_for_member_read(
-        self, handler, member_request
+        self, handler, member_request, member_jwt_context
     ):
         """Member should have read and update permissions."""
-        result = handler._check_permission(member_request, "findings.read")
-        assert result is None
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=member_jwt_context,
+        ):
+            result = handler._check_permission(member_request, "findings.read")
+            assert result is None
 
-        result = handler._check_permission(member_request, "findings.update")
-        assert result is None
+            result = handler._check_permission(member_request, "findings.update")
+            assert result is None
 
-    def test_check_permission_denies_bulk_for_member(self, handler, member_request):
+    def test_check_permission_denies_bulk_for_member(
+        self, handler, member_request, member_jwt_context
+    ):
         """Member should not have bulk permission."""
-        result = handler._check_permission(member_request, "findings.bulk")
-        # Should return error response dict
-        assert result is not None
-        assert result.get("status") == 403 or "Permission denied" in str(
-            result.get("error", "")
-        )
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=member_jwt_context,
+        ):
+            result = handler._check_permission(member_request, "findings.bulk")
+            # Should return error response dict
+            assert result is not None
+            assert result.get("status") == 403 or "Permission denied" in str(
+                result.get("error", "")
+            )
 
-    def test_check_permission_allows_read_for_viewer(self, handler, viewer_request):
+    def test_check_permission_allows_read_for_viewer(
+        self, handler, viewer_request, viewer_jwt_context
+    ):
         """Viewer should have read permission."""
-        result = handler._check_permission(viewer_request, "findings.read")
-        assert result is None
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=viewer_jwt_context,
+        ):
+            result = handler._check_permission(viewer_request, "findings.read")
+            assert result is None
 
-    def test_check_permission_denies_update_for_viewer(self, handler, viewer_request):
+    def test_check_permission_denies_update_for_viewer(
+        self, handler, viewer_request, viewer_jwt_context
+    ):
         """Viewer should not have update permission."""
-        result = handler._check_permission(viewer_request, "findings.update")
-        assert result is not None
-        assert result.get("status") == 403 or "Permission denied" in str(
-            result.get("error", "")
-        )
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=viewer_jwt_context,
+        ):
+            result = handler._check_permission(viewer_request, "findings.update")
+            assert result is not None
+            assert result.get("status") == 403 or "Permission denied" in str(
+                result.get("error", "")
+            )
 
-    def test_get_auth_context_extracts_user_info(self, handler, admin_request):
-        """Auth context should extract user info from headers."""
-        ctx = handler._get_auth_context(admin_request)
+    def test_get_auth_context_extracts_user_info(self, handler, admin_request, admin_jwt_context):
+        """Auth context should extract user info from JWT."""
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=admin_jwt_context,
+        ):
+            ctx = handler._get_auth_context(admin_request)
 
-        assert ctx.user_id == "admin-123"
-        assert ctx.org_id == "org-1"
-        assert "admin" in ctx.roles
+            assert ctx is not None
+            assert ctx.user_id == "admin-123"
+            assert ctx.org_id == "org-1"
+            assert "admin" in ctx.roles
 
-    def test_get_auth_context_defaults_for_anonymous(self, handler, anonymous_request):
-        """Anonymous requests should get anonymous user_id."""
-        ctx = handler._get_auth_context(anonymous_request)
+    def test_get_auth_context_returns_none_for_anonymous(
+        self, handler, anonymous_request, anonymous_jwt_context
+    ):
+        """Anonymous requests should return None for auth context."""
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=anonymous_jwt_context,
+        ):
+            ctx = handler._get_auth_context(anonymous_request)
 
-        assert ctx.user_id == "anonymous"
-        assert "member" in ctx.roles  # Default role
+            # Handler now returns None for unauthenticated requests
+            assert ctx is None
 
 
 class TestFindingWorkflowEndpointPermissions:
@@ -177,68 +249,107 @@ class TestFindingWorkflowEndpointPermissions:
         store.get_overdue.return_value = []
         return store
 
+    @pytest.fixture
+    def viewer_jwt_context(self):
+        """JWT context for viewer user (limited permissions)."""
+        return MockJWTContext(
+            user_id="viewer-1",
+            role="viewer",
+            org_id="org-1",
+            authenticated=True,
+        )
+
+    @pytest.fixture
+    def member_jwt_context(self):
+        """JWT context for member user."""
+        return MockJWTContext(
+            user_id="member-1",
+            role="member",
+            org_id="org-1",
+            authenticated=True,
+        )
+
+    @pytest.fixture
+    def anonymous_jwt_context(self):
+        """JWT context for unauthenticated user."""
+        return MockJWTContext(authenticated=False)
+
     @pytest.mark.asyncio
-    async def test_update_status_requires_update_permission(self, handler):
+    async def test_update_status_requires_update_permission(self, handler, viewer_jwt_context):
         """_update_status should check findings.update permission."""
         request = MockRequest(
-            headers={"X-User-ID": "viewer-1", "X-User-Roles": "viewer"},
             body=json.dumps({"status": "triaging"}).encode(),
         )
 
-        result = await handler._update_status(request, "finding-1")
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=viewer_jwt_context,
+        ):
+            result = await handler._update_status(request, "finding-1")
 
         # Viewer doesn't have update permission
         assert result.get("status") == 403 or "Permission denied" in str(result)
 
     @pytest.mark.asyncio
-    async def test_assign_requires_assign_permission(self, handler):
+    async def test_assign_requires_assign_permission(self, handler, viewer_jwt_context):
         """_assign should check findings.assign permission."""
         request = MockRequest(
-            headers={"X-User-ID": "viewer-1", "X-User-Roles": "viewer"},
             body=json.dumps({"user_id": "user-2"}).encode(),
         )
 
-        result = await handler._assign(request, "finding-1")
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=viewer_jwt_context,
+        ):
+            result = await handler._assign(request, "finding-1")
 
         # Viewer doesn't have assign permission
         assert result.get("status") == 403 or "Permission denied" in str(result)
 
     @pytest.mark.asyncio
-    async def test_bulk_action_requires_bulk_permission(self, handler):
+    async def test_bulk_action_requires_bulk_permission(self, handler, member_jwt_context):
         """_bulk_action should check findings.bulk permission."""
         request = MockRequest(
-            headers={"X-User-ID": "member-1", "X-User-Roles": "member"},
-            body=json.dumps({
-                "finding_ids": ["f1", "f2"],
-                "action": "update_status",
-                "params": {"status": "resolved"},
-            }).encode(),
+            body=json.dumps(
+                {
+                    "finding_ids": ["f1", "f2"],
+                    "action": "update_status",
+                    "params": {"status": "resolved"},
+                }
+            ).encode(),
         )
 
-        result = await handler._bulk_action(request)
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+            return_value=member_jwt_context,
+        ):
+            result = await handler._bulk_action(request)
 
         # Member doesn't have bulk permission
         assert result.get("status") == 403 or "Permission denied" in str(result)
 
     @pytest.mark.asyncio
-    async def test_get_comments_requires_read_permission(self, handler):
+    async def test_get_comments_requires_read_permission(self, handler, anonymous_jwt_context):
         """_get_comments should check findings.read permission."""
-        # Create request with no roles (minimal permissions)
-        request = MockRequest(
-            headers={"X-User-ID": "anon", "X-User-Roles": ""},
-        )
+        request = MockRequest()
 
-        with patch(
-            "aragora.server.handlers.features.finding_workflow.get_finding_workflow_store"
-        ) as mock_get_store:
+        with (
+            patch(
+                "aragora.server.handlers.features.finding_workflow.extract_user_from_request",
+                return_value=anonymous_jwt_context,
+            ),
+            patch(
+                "aragora.server.handlers.features.finding_workflow.get_finding_workflow_store"
+            ) as mock_get_store,
+        ):
             mock_store = MagicMock()
             mock_store.get_workflow.return_value = None
             mock_get_store.return_value = mock_store
 
             result = await handler._get_comments(request, "finding-1")
 
-        # Empty roles should deny access
-        assert result.get("status") == 403 or "Permission denied" in str(result)
+        # Unauthenticated should get 401
+        assert result.get("status") == 401 or "Authentication required" in str(result)
 
 
 class TestFindingsPermissionsInDefaults:
@@ -375,8 +486,10 @@ class TestRoutePermissionsForFindings:
         assign_routes = [
             rp
             for rp in DEFAULT_ROUTE_PERMISSIONS
-            if (self._get_pattern_str(rp).endswith("/assign$") or
-                self._get_pattern_str(rp).endswith("/unassign$"))
+            if (
+                self._get_pattern_str(rp).endswith("/assign$")
+                or self._get_pattern_str(rp).endswith("/unassign$")
+            )
             and "findings" in self._get_pattern_str(rp)
         ]
 

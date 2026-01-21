@@ -11,9 +11,8 @@ from aragora.reasoning.belief import (
     CruxAnalysisResult,
     CruxClaim,
     CruxDetector,
-    RelationType,
 )
-from aragora.reasoning.claims import ClaimType
+from aragora.reasoning.claims import ClaimType, RelationType
 
 
 class TestCruxClaim:

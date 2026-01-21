@@ -30,7 +30,6 @@ from aragora.auth.lockout import get_lockout_tracker
 from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh_token
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
@@ -38,6 +37,7 @@ from ..base import (
     log_request,
 )
 from ..utils.rate_limit import get_client_ip, rate_limit
+from ..secure import SecureHandler
 from .validation import validate_email, validate_password
 
 # Unified audit logging
@@ -60,8 +60,15 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class AuthHandler(BaseHandler):
-    """Handler for user authentication endpoints."""
+class AuthHandler(SecureHandler):
+    """Handler for user authentication endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+    """
+
+    # Resource type for audit logging
+    RESOURCE_TYPE = "auth"
 
     ROUTES = [
         "/api/auth/register",

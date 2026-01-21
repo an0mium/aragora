@@ -8,7 +8,7 @@ knowledge modules within the Knowledge Mound.
 from __future__ import annotations
 
 import logging
-from typing import Type
+from typing import Any, Type
 
 from aragora.knowledge.mound.verticals.base import BaseVerticalKnowledge
 
@@ -162,7 +162,7 @@ class VerticalRegistry:
         return vertical_id in cls._registry
 
     @classmethod
-    def get_capabilities(cls, vertical_id: str) -> dict[str, any] | None:
+    def get_capabilities(cls, vertical_id: str) -> dict[str, Any] | None:
         """Get capabilities for a vertical."""
         instance = cls.get(vertical_id)
         if instance:
