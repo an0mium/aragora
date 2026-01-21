@@ -1576,18 +1576,18 @@ class TestRLMCompression:
     def agents(self):
         return [MockAgent(name="a1"), MockAgent(name="a2")]
 
-    def test_rlm_limiter_disabled_by_default(self, environment, agents):
-        """RLM limiter is disabled by default."""
+    def test_rlm_limiter_enabled_by_default(self, environment, agents):
+        """RLM limiter is enabled by default."""
         arena = Arena(environment, agents)
+
+        assert arena.use_rlm_limiter is True
+
+    def test_rlm_limiter_can_be_disabled(self, environment, agents):
+        """RLM limiter can be disabled."""
+        arena = Arena(environment, agents, use_rlm_limiter=False)
 
         assert arena.use_rlm_limiter is False
         assert arena.rlm_limiter is None
-
-    def test_rlm_limiter_can_be_enabled(self, environment, agents):
-        """RLM limiter can be enabled."""
-        arena = Arena(environment, agents, use_rlm_limiter=True)
-
-        assert arena.use_rlm_limiter is True
 
     def test_rlm_compression_threshold_configurable(self, environment, agents):
         """RLM compression threshold is configurable."""
