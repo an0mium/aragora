@@ -1,4 +1,13 @@
-"""Tests for implement module type definitions."""
+"""
+Tests for implement module type definitions.
+
+Tests cover:
+- ImplementTask dataclass
+- ImplementPlan dataclass
+- TaskResult dataclass
+- ImplementProgress dataclass
+- Serialization/deserialization (to_dict/from_dict)
+"""
 
 import pytest
 from datetime import datetime
@@ -14,299 +23,377 @@ from aragora.implement.types import (
 class TestImplementTask:
     """Tests for ImplementTask dataclass."""
 
-    def test_create_task(self):
-        """Basic task creation."""
+    def test_create_basic_task(self):
+        """Creates task with required fields."""
         task = ImplementTask(
             id="task-1",
-            description="Add error handling",
-            files=["src/main.py", "src/utils.py"],
-            complexity="moderate",
+            description="Add a new function",
+            files=["src/utils.py"],
+            complexity="simple",
         )
+
         assert task.id == "task-1"
-        assert task.description == "Add error handling"
-        assert len(task.files) == 2
-        assert task.complexity == "moderate"
+        assert task.description == "Add a new function"
+        assert task.files == ["src/utils.py"]
+        assert task.complexity == "simple"
         assert task.dependencies == []
 
-    def test_task_with_dependencies(self):
-        """Task with dependencies."""
+    def test_create_task_with_dependencies(self):
+        """Creates task with dependencies."""
         task = ImplementTask(
             id="task-2",
             description="Add tests",
-            files=["tests/test_main.py"],
-            complexity="simple",
+            files=["tests/test_utils.py"],
+            complexity="moderate",
             dependencies=["task-1"],
         )
+
         assert task.dependencies == ["task-1"]
 
-    def test_task_to_dict(self):
-        """Serialization to dictionary."""
+    def test_to_dict(self):
+        """to_dict serializes all fields."""
         task = ImplementTask(
             id="task-1",
-            description="Test",
-            files=["file.py"],
-            complexity="simple",
-            dependencies=["dep-1"],
+            description="Implement feature",
+            files=["src/feature.py", "tests/test_feature.py"],
+            complexity="moderate",
+            dependencies=["task-0"],
         )
+
         data = task.to_dict()
+
         assert data["id"] == "task-1"
-        assert data["description"] == "Test"
-        assert data["files"] == ["file.py"]
-        assert data["complexity"] == "simple"
-        assert data["dependencies"] == ["dep-1"]
+        assert data["description"] == "Implement feature"
+        assert data["files"] == ["src/feature.py", "tests/test_feature.py"]
+        assert data["complexity"] == "moderate"
+        assert data["dependencies"] == ["task-0"]
 
-    def test_task_from_dict(self):
-        """Deserialization from dictionary."""
+    def test_from_dict(self):
+        """from_dict deserializes all fields."""
         data = {
-            "id": "task-1",
-            "description": "Test task",
-            "files": ["a.py", "b.py"],
+            "id": "task-3",
+            "description": "Refactor module",
+            "files": ["src/module.py"],
             "complexity": "complex",
-            "dependencies": ["task-0"],
+            "dependencies": ["task-1", "task-2"],
         }
-        task = ImplementTask.from_dict(data)
-        assert task.id == "task-1"
-        assert task.description == "Test task"
-        assert task.files == ["a.py", "b.py"]
-        assert task.complexity == "complex"
-        assert task.dependencies == ["task-0"]
 
-    def test_task_from_dict_defaults(self):
-        """Deserialization with missing optional fields."""
+        task = ImplementTask.from_dict(data)
+
+        assert task.id == "task-3"
+        assert task.description == "Refactor module"
+        assert task.files == ["src/module.py"]
+        assert task.complexity == "complex"
+        assert task.dependencies == ["task-1", "task-2"]
+
+    def test_from_dict_with_defaults(self):
+        """from_dict uses defaults for missing optional fields."""
         data = {
             "id": "task-1",
-            "description": "Minimal task",
+            "description": "Simple task",
         }
+
         task = ImplementTask.from_dict(data)
+
         assert task.files == []
         assert task.complexity == "moderate"
         assert task.dependencies == []
+
+    def test_roundtrip_serialization(self):
+        """to_dict and from_dict are inverse operations."""
+        original = ImplementTask(
+            id="roundtrip-task",
+            description="Test roundtrip",
+            files=["a.py", "b.py"],
+            complexity="complex",
+            dependencies=["dep-1"],
+        )
+
+        restored = ImplementTask.from_dict(original.to_dict())
+
+        assert restored.id == original.id
+        assert restored.description == original.description
+        assert restored.files == original.files
+        assert restored.complexity == original.complexity
+        assert restored.dependencies == original.dependencies
 
 
 class TestImplementPlan:
     """Tests for ImplementPlan dataclass."""
 
     def test_create_plan(self):
-        """Basic plan creation."""
+        """Creates plan with tasks."""
         tasks = [
             ImplementTask(
                 id="task-1",
                 description="First task",
-                files=["a.py"],
+                files=["file1.py"],
                 complexity="simple",
-            )
+            ),
+            ImplementTask(
+                id="task-2",
+                description="Second task",
+                files=["file2.py"],
+                complexity="moderate",
+                dependencies=["task-1"],
+            ),
         ]
-        plan = ImplementPlan(
-            design_hash="abc123",
-            tasks=tasks,
-        )
+
+        plan = ImplementPlan(design_hash="abc123", tasks=tasks)
+
         assert plan.design_hash == "abc123"
-        assert len(plan.tasks) == 1
+        assert len(plan.tasks) == 2
         assert isinstance(plan.created_at, datetime)
 
-    def test_plan_to_dict(self):
-        """Serialization to dictionary."""
-        task = ImplementTask(
-            id="t1",
-            description="Test",
-            files=[],
-            complexity="simple",
-        )
-        plan = ImplementPlan(
-            design_hash="hash123",
-            tasks=[task],
-        )
+    def test_to_dict(self):
+        """to_dict serializes plan with tasks."""
+        tasks = [
+            ImplementTask(
+                id="task-1",
+                description="Task",
+                files=["f.py"],
+                complexity="simple",
+            ),
+        ]
+        plan = ImplementPlan(design_hash="hash123", tasks=tasks)
+
         data = plan.to_dict()
+
         assert data["design_hash"] == "hash123"
         assert len(data["tasks"]) == 1
+        assert data["tasks"][0]["id"] == "task-1"
         assert "created_at" in data
 
-    def test_plan_from_dict(self):
-        """Deserialization from dictionary."""
+    def test_from_dict(self):
+        """from_dict deserializes plan with tasks."""
         data = {
             "design_hash": "hash456",
             "tasks": [
                 {
-                    "id": "t1",
-                    "description": "Task 1",
-                    "files": ["f.py"],
-                    "complexity": "moderate",
+                    "id": "task-1",
+                    "description": "Test task",
+                    "files": ["test.py"],
+                    "complexity": "simple",
+                    "dependencies": [],
                 }
             ],
-            "created_at": "2024-01-01T12:00:00",
+            "created_at": "2025-01-15T10:30:00",
         }
+
         plan = ImplementPlan.from_dict(data)
+
         assert plan.design_hash == "hash456"
         assert len(plan.tasks) == 1
-        assert plan.tasks[0].id == "t1"
+        assert plan.tasks[0].id == "task-1"
+        assert plan.created_at.year == 2025
 
-    def test_plan_roundtrip(self):
-        """Serialization roundtrip preserves data."""
-        task = ImplementTask(
-            id="t1",
-            description="Test",
-            files=["a.py", "b.py"],
-            complexity="complex",
-            dependencies=["t0"],
-        )
-        original = ImplementPlan(
-            design_hash="original_hash",
-            tasks=[task],
-        )
-        data = original.to_dict()
-        restored = ImplementPlan.from_dict(data)
-        
+    def test_roundtrip_serialization(self):
+        """to_dict and from_dict preserve plan data."""
+        tasks = [
+            ImplementTask(
+                id="t1",
+                description="Desc 1",
+                files=["a.py"],
+                complexity="simple",
+            ),
+            ImplementTask(
+                id="t2",
+                description="Desc 2",
+                files=["b.py"],
+                complexity="complex",
+                dependencies=["t1"],
+            ),
+        ]
+        original = ImplementPlan(design_hash="original_hash", tasks=tasks)
+
+        restored = ImplementPlan.from_dict(original.to_dict())
+
         assert restored.design_hash == original.design_hash
         assert len(restored.tasks) == len(original.tasks)
         assert restored.tasks[0].id == original.tasks[0].id
+        assert restored.tasks[1].dependencies == original.tasks[1].dependencies
 
 
 class TestTaskResult:
     """Tests for TaskResult dataclass."""
 
     def test_create_success_result(self):
-        """Successful task result."""
+        """Creates successful result."""
         result = TaskResult(
             task_id="task-1",
             success=True,
-            diff="2 files changed",
+            diff="+ added line",
             model_used="claude",
-            duration_seconds=45.5,
+            duration_seconds=45.2,
         )
+
         assert result.task_id == "task-1"
-        assert result.success
+        assert result.success is True
+        assert result.diff == "+ added line"
         assert result.error is None
+        assert result.model_used == "claude"
+        assert result.duration_seconds == 45.2
 
     def test_create_failure_result(self):
-        """Failed task result."""
+        """Creates failure result with error."""
+        result = TaskResult(
+            task_id="task-2",
+            success=False,
+            error="Timeout after 600s",
+            model_used="codex",
+            duration_seconds=600.0,
+        )
+
+        assert result.success is False
+        assert result.error == "Timeout after 600s"
+        assert result.diff == ""
+
+    def test_to_dict(self):
+        """to_dict serializes all fields."""
         result = TaskResult(
             task_id="task-1",
-            success=False,
-            error="Timeout occurred",
-            model_used="claude",
-            duration_seconds=120.0,
-        )
-        assert not result.success
-        assert result.error == "Timeout occurred"
-
-    def test_result_to_dict(self):
-        """Serialization to dictionary."""
-        result = TaskResult(
-            task_id="t1",
             success=True,
-            diff="changed",
-            model_used="codex",
-            duration_seconds=30.0,
+            diff="changes",
+            error=None,
+            model_used="claude",
+            duration_seconds=30.5,
         )
+
         data = result.to_dict()
-        assert data["task_id"] == "t1"
+
+        assert data["task_id"] == "task-1"
         assert data["success"] is True
-        assert data["diff"] == "changed"
-        assert data["model_used"] == "codex"
-        assert data["duration_seconds"] == 30.0
+        assert data["diff"] == "changes"
+        assert data["error"] is None
+        assert data["model_used"] == "claude"
+        assert data["duration_seconds"] == 30.5
+
+    def test_default_values(self):
+        """TaskResult has sensible defaults."""
+        result = TaskResult(task_id="minimal", success=True)
+
+        assert result.diff == ""
+        assert result.error is None
+        assert result.model_used is None
+        assert result.duration_seconds == 0.0
 
 
 class TestImplementProgress:
     """Tests for ImplementProgress dataclass."""
 
-    def test_create_progress(self):
-        """Basic progress creation."""
-        task = ImplementTask(
-            id="t1",
-            description="Test",
-            files=[],
-            complexity="simple",
-        )
-        plan = ImplementPlan(design_hash="hash", tasks=[task])
-        progress = ImplementProgress(plan=plan)
-        
-        assert progress.plan == plan
+    @pytest.fixture
+    def sample_plan(self):
+        """Sample plan for tests."""
+        tasks = [
+            ImplementTask(
+                id="task-1",
+                description="First",
+                files=["a.py"],
+                complexity="simple",
+            ),
+            ImplementTask(
+                id="task-2",
+                description="Second",
+                files=["b.py"],
+                complexity="moderate",
+                dependencies=["task-1"],
+            ),
+        ]
+        return ImplementPlan(design_hash="test_hash", tasks=tasks)
+
+    def test_create_progress(self, sample_plan):
+        """Creates progress with plan."""
+        progress = ImplementProgress(plan=sample_plan)
+
+        assert progress.plan == sample_plan
         assert progress.completed_tasks == []
         assert progress.current_task is None
         assert progress.git_stash_ref is None
         assert progress.results == []
 
-    def test_progress_with_state(self):
-        """Progress with partial completion."""
-        task1 = ImplementTask(id="t1", description="First", files=[], complexity="simple")
-        task2 = ImplementTask(id="t2", description="Second", files=[], complexity="simple")
-        plan = ImplementPlan(design_hash="hash", tasks=[task1, task2])
-        
-        result = TaskResult(task_id="t1", success=True, diff="done")
-        
+    def test_create_progress_with_state(self, sample_plan):
+        """Creates progress with completed tasks."""
+        result = TaskResult(task_id="task-1", success=True, diff="changes")
+
         progress = ImplementProgress(
-            plan=plan,
-            completed_tasks=["t1"],
-            current_task="t2",
+            plan=sample_plan,
+            completed_tasks=["task-1"],
+            current_task="task-2",
             git_stash_ref="stash@{0}",
             results=[result],
         )
-        
-        assert "t1" in progress.completed_tasks
-        assert progress.current_task == "t2"
+
+        assert progress.completed_tasks == ["task-1"]
+        assert progress.current_task == "task-2"
         assert progress.git_stash_ref == "stash@{0}"
         assert len(progress.results) == 1
 
-    def test_progress_to_dict(self):
-        """Serialization to dictionary."""
-        task = ImplementTask(id="t1", description="Test", files=[], complexity="simple")
-        plan = ImplementPlan(design_hash="hash", tasks=[task])
-        result = TaskResult(task_id="t1", success=True)
-        
+    def test_to_dict(self, sample_plan):
+        """to_dict serializes progress."""
+        result = TaskResult(task_id="task-1", success=True)
         progress = ImplementProgress(
-            plan=plan,
-            completed_tasks=["t1"],
-            current_task=None,
+            plan=sample_plan,
+            completed_tasks=["task-1"],
+            current_task="task-2",
             results=[result],
         )
-        
+
         data = progress.to_dict()
+
         assert "plan" in data
-        assert data["completed_tasks"] == ["t1"]
+        assert data["completed_tasks"] == ["task-1"]
+        assert data["current_task"] == "task-2"
         assert len(data["results"]) == 1
 
-    def test_progress_from_dict(self):
-        """Deserialization from dictionary."""
+    def test_from_dict(self, sample_plan):
+        """from_dict deserializes progress."""
         data = {
-            "plan": {
-                "design_hash": "hash123",
-                "tasks": [
-                    {"id": "t1", "description": "Task", "files": [], "complexity": "simple"}
-                ],
-                "created_at": "2024-01-01T12:00:00",
-            },
-            "completed_tasks": ["t1"],
-            "current_task": None,
-            "git_stash_ref": "ref123",
+            "plan": sample_plan.to_dict(),
+            "completed_tasks": ["task-1"],
+            "current_task": "task-2",
+            "git_stash_ref": "stash@{1}",
             "results": [
-                {"task_id": "t1", "success": True, "diff": "changed", "error": None}
+                {
+                    "task_id": "task-1",
+                    "success": True,
+                    "diff": "changes",
+                    "error": None,
+                    "model_used": "claude",
+                    "duration_seconds": 25.0,
+                }
             ],
         }
-        
-        progress = ImplementProgress.from_dict(data)
-        assert progress.plan.design_hash == "hash123"
-        assert progress.completed_tasks == ["t1"]
-        assert progress.git_stash_ref == "ref123"
-        assert len(progress.results) == 1
 
-    def test_progress_roundtrip(self):
-        """Serialization roundtrip preserves data."""
-        task = ImplementTask(id="t1", description="Test", files=["f.py"], complexity="moderate")
-        plan = ImplementPlan(design_hash="test_hash", tasks=[task])
-        result = TaskResult(task_id="t1", success=True, diff="2 files", duration_seconds=30.0)
-        
+        progress = ImplementProgress.from_dict(data)
+
+        assert progress.plan.design_hash == sample_plan.design_hash
+        assert progress.completed_tasks == ["task-1"]
+        assert progress.current_task == "task-2"
+        assert progress.git_stash_ref == "stash@{1}"
+        assert len(progress.results) == 1
+        assert progress.results[0].success is True
+
+    def test_roundtrip_serialization(self, sample_plan):
+        """to_dict and from_dict preserve progress."""
+        result = TaskResult(
+            task_id="task-1",
+            success=True,
+            diff="diff",
+            model_used="claude",
+            duration_seconds=10.0,
+        )
         original = ImplementProgress(
-            plan=plan,
-            completed_tasks=["t1"],
-            current_task=None,
-            git_stash_ref="stash@{0}",
+            plan=sample_plan,
+            completed_tasks=["task-1"],
+            current_task="task-2",
+            git_stash_ref="ref",
             results=[result],
         )
-        
-        data = original.to_dict()
-        restored = ImplementProgress.from_dict(data)
-        
+
+        restored = ImplementProgress.from_dict(original.to_dict())
+
         assert restored.plan.design_hash == original.plan.design_hash
         assert restored.completed_tasks == original.completed_tasks
+        assert restored.current_task == original.current_task
         assert restored.git_stash_ref == original.git_stash_ref
         assert len(restored.results) == len(original.results)

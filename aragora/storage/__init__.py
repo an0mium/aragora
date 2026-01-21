@@ -74,6 +74,26 @@ from .redis_utils import (
     reset_redis_client,
     is_cluster_mode,
 )
+from .gauntlet_run_store import (
+    GauntletRunItem,
+    GauntletRunStoreBackend,
+    InMemoryGauntletRunStore,
+    SQLiteGauntletRunStore,
+    RedisGauntletRunStore,
+    get_gauntlet_run_store,
+    set_gauntlet_run_store,
+    reset_gauntlet_run_store,
+)
+from .approval_request_store import (
+    ApprovalRequestItem,
+    ApprovalRequestStoreBackend,
+    InMemoryApprovalRequestStore,
+    SQLiteApprovalRequestStore,
+    RedisApprovalRequestStore,
+    get_approval_request_store,
+    set_approval_request_store,
+    reset_approval_request_store,
+)
 
 __all__ = [
     # Legacy base classes
@@ -140,4 +160,22 @@ __all__ = [
     "get_redis_client",
     "reset_redis_client",
     "is_cluster_mode",
+    # Gauntlet run storage
+    "GauntletRunItem",
+    "GauntletRunStoreBackend",
+    "InMemoryGauntletRunStore",
+    "SQLiteGauntletRunStore",
+    "RedisGauntletRunStore",
+    "get_gauntlet_run_store",
+    "set_gauntlet_run_store",
+    "reset_gauntlet_run_store",
+    # Approval request storage
+    "ApprovalRequestItem",
+    "ApprovalRequestStoreBackend",
+    "InMemoryApprovalRequestStore",
+    "SQLiteApprovalRequestStore",
+    "RedisApprovalRequestStore",
+    "get_approval_request_store",
+    "set_approval_request_store",
+    "reset_approval_request_store",
 ]
