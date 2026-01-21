@@ -37,7 +37,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from aragora.workflow.patterns import (
     HiveMindPattern,
@@ -97,7 +97,7 @@ def create_hive_mind_workflow(
     consensus_threshold: float = 0.7,
     include_dissent: bool = True,
     **kwargs: Any,
-):
+) -> dict[str, Any]:
     """
     Create a hive-mind workflow definition.
 
@@ -122,7 +122,7 @@ def create_hive_mind_workflow(
         include_dissent=include_dissent,
         **kwargs,
     )
-    return pattern.create_workflow()
+    return cast(dict[str, Any], pattern.create_workflow())
 
 
 # ============================================================================
@@ -170,7 +170,7 @@ def create_map_reduce_workflow(
     reduce_prompt: str = "",
     parallel_limit: int = 5,
     **kwargs: Any,
-):
+) -> dict[str, Any]:
     """
     Create a map-reduce workflow definition.
 
@@ -199,7 +199,7 @@ def create_map_reduce_workflow(
         parallel_limit=parallel_limit,
         **kwargs,
     )
-    return pattern.create_workflow()
+    return cast(dict[str, Any], pattern.create_workflow())
 
 
 # ============================================================================
@@ -247,7 +247,7 @@ def create_review_cycle_workflow(
     convergence_threshold: float = 0.85,
     review_criteria: Optional[List[str]] = None,
     **kwargs: Any,
-):
+) -> dict[str, Any]:
     """
     Create a review cycle workflow definition.
 
@@ -274,7 +274,7 @@ def create_review_cycle_workflow(
         review_criteria=review_criteria or ["quality", "completeness", "accuracy"],
         **kwargs,
     )
-    return pattern.create_workflow()
+    return cast(dict[str, Any], pattern.create_workflow())
 
 
 # ============================================================================

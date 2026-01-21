@@ -46,12 +46,15 @@ __all__ = [
     "record_slo_violation",
     "record_operation_latency",
     "check_and_record_slo",
+    "check_and_record_slo_with_recovery",
     "track_operation_slo",
     "get_slo_metrics_summary",
     # Webhook integration
     "init_slo_webhooks",
     "notify_slo_violation",
+    "notify_slo_recovery",
     "get_slo_webhook_status",
+    "get_violation_state",
     "SLOWebhookConfig",
     "SEVERITY_ORDER",
 ]
@@ -78,6 +81,9 @@ SEVERITY_ORDER = {"minor": 0, "moderate": 1, "major": 2, "critical": 3}
 
 # Cooldown tracking
 _last_notification: Dict[str, float] = {}
+
+# Track violation state for recovery detection
+_violation_state: Dict[str, Dict[str, Any]] = {}  # operation -> {in_violation, last_severity, ...}
 
 # Prometheus metrics - initialized lazily
 _initialized = False
@@ -514,4 +520,184 @@ def get_slo_webhook_status() -> Dict[str, Any]:
             for op, ts in _last_notification.items()
         },
         "buffer_size": len(_violation_buffer),
+        "operations_in_violation": [
+            op for op, state in _violation_state.items()
+            if state.get("in_violation", False)
+        ],
     }
+
+
+def notify_slo_recovery(
+    operation: str,
+    percentile: str,
+    latency_ms: float,
+    threshold_ms: float,
+    violation_duration_seconds: float,
+    context: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Send SLO recovery notification via webhook.
+
+    Called when an operation returns to SLO compliance after being in violation.
+
+    Args:
+        operation: Operation name that recovered
+        percentile: SLO percentile that was violated
+        latency_ms: Current latency (now within SLO)
+        threshold_ms: SLO threshold in milliseconds
+        violation_duration_seconds: How long the violation lasted
+        context: Optional additional context
+
+    Returns:
+        True if notification was sent successfully
+    """
+    if _webhook_callback is None:
+        return False
+
+    recovery_data = {
+        "operation": operation,
+        "percentile": percentile,
+        "latency_ms": latency_ms,
+        "threshold_ms": threshold_ms,
+        "margin_ms": threshold_ms - latency_ms,  # How much under threshold
+        "violation_duration_seconds": violation_duration_seconds,
+        "context": context or {},
+    }
+
+    try:
+        # Import here to avoid circular imports
+        from aragora.integrations.webhooks import get_dispatcher
+        from datetime import datetime
+
+        dispatcher = get_dispatcher()
+        if not dispatcher:
+            return False
+
+        event = {
+            "type": "slo_recovery",
+            "timestamp": datetime.now().isoformat(),
+            "operation": operation,
+            "percentile": percentile,
+            "latency_ms": latency_ms,
+            "threshold_ms": threshold_ms,
+            "margin_ms": threshold_ms - latency_ms,
+            "violation_duration_seconds": violation_duration_seconds,
+            "context": context or {},
+        }
+
+        return dispatcher.enqueue(event)
+
+    except Exception as e:
+        logger.debug(f"Failed to send SLO recovery webhook: {e}")
+        return False
+
+
+def check_and_record_slo_with_recovery(
+    operation: str,
+    latency_ms: float,
+    percentile: str = "p99",
+    context: Optional[Dict[str, Any]] = None,
+) -> tuple[bool, str]:
+    """Check SLO, record metrics, and handle violation/recovery state.
+
+    This is an enhanced version of check_and_record_slo that also:
+    - Tracks violation state for each operation
+    - Sends recovery notifications when an operation returns to compliance
+
+    Args:
+        operation: Operation name (must match SLOConfig attributes)
+        latency_ms: Measured latency in milliseconds
+        percentile: SLO percentile to check (p50, p90, p99)
+        context: Optional context to include in webhook notifications
+
+    Returns:
+        Tuple of (is_within_slo, message)
+    """
+    from aragora.config.performance_slos import check_latency_slo, get_slo_config
+
+    if not _initialized:
+        init_slo_metrics()
+
+    # Record latency in histogram
+    record_operation_latency(operation, latency_ms)
+
+    # Check against SLO
+    passed, message = check_latency_slo(operation, latency_ms, percentile)
+
+    # Record the check result
+    record_slo_check(operation, passed, percentile)
+
+    # Get current violation state for this operation
+    current_state = _violation_state.get(operation, {"in_violation": False})
+
+    if not passed:
+        # SLO violated
+        config = get_slo_config()
+        slo = getattr(config, operation, None)
+        if slo:
+            threshold_ms = getattr(slo, f"{percentile}_ms", slo.p99_ms)
+            severity = record_slo_violation(
+                operation, percentile, latency_ms, threshold_ms,
+                context=context, notify_webhook=True
+            )
+
+            # Update violation state
+            if not current_state.get("in_violation"):
+                # Entering violation state
+                _violation_state[operation] = {
+                    "in_violation": True,
+                    "violation_start": time.time(),
+                    "last_severity": severity,
+                    "percentile": percentile,
+                    "threshold_ms": threshold_ms,
+                }
+            else:
+                # Already in violation, update severity if worse
+                if SEVERITY_ORDER.get(severity, 0) > SEVERITY_ORDER.get(
+                    current_state.get("last_severity", "minor"), 0
+                ):
+                    _violation_state[operation]["last_severity"] = severity
+
+            logger.warning(message)
+
+    else:
+        # SLO passed
+        if current_state.get("in_violation"):
+            # Recovering from violation!
+            violation_start = current_state.get("violation_start", time.time())
+            violation_duration = time.time() - violation_start
+            threshold_ms = current_state.get("threshold_ms", 0)
+
+            # Send recovery notification
+            notify_slo_recovery(
+                operation=operation,
+                percentile=current_state.get("percentile", percentile),
+                latency_ms=latency_ms,
+                threshold_ms=threshold_ms,
+                violation_duration_seconds=violation_duration,
+                context=context,
+            )
+
+            logger.info(
+                f"SLO recovered for {operation}: latency={latency_ms:.1f}ms "
+                f"(threshold={threshold_ms:.1f}ms), "
+                f"violation lasted {violation_duration:.1f}s"
+            )
+
+            # Clear violation state
+            _violation_state[operation] = {"in_violation": False}
+
+    return passed, message
+
+
+def get_violation_state(operation: Optional[str] = None) -> Dict[str, Any]:
+    """Get current violation state for operation(s).
+
+    Args:
+        operation: Specific operation to check, or None for all
+
+    Returns:
+        Dict with violation state information
+    """
+    if operation:
+        return _violation_state.get(operation, {"in_violation": False})
+    return dict(_violation_state)

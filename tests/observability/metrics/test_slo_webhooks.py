@@ -7,8 +7,11 @@ from datetime import datetime
 from aragora.observability.metrics.slo import (
     init_slo_webhooks,
     notify_slo_violation,
+    notify_slo_recovery,
     get_slo_webhook_status,
+    get_violation_state,
     record_slo_violation,
+    check_and_record_slo_with_recovery,
     SLOWebhookConfig,
     SEVERITY_ORDER,
 )
@@ -354,3 +357,182 @@ class TestSeverityFiltering:
             # Only major severity should have been enqueued
             major_events = [e for e in enqueue_calls if e.get("severity") == "major"]
             assert len(major_events) >= 1
+
+
+class TestSLORecovery:
+    """Tests for SLO recovery notifications."""
+
+    def test_notify_slo_recovery_returns_false_when_not_initialized(self):
+        """Test returns False when webhooks not initialized."""
+        import aragora.observability.metrics.slo as slo_module
+        slo_module._webhook_callback = None
+
+        result = notify_slo_recovery(
+            operation="test_op",
+            percentile="p99",
+            latency_ms=400.0,
+            threshold_ms=500.0,
+            violation_duration_seconds=120.0,
+        )
+        assert result is False
+
+    def test_notify_slo_recovery_sends_correct_event(self):
+        """Test recovery notification sends correct event type."""
+        import aragora.observability.metrics.slo as slo_module
+
+        mock_dispatcher = MagicMock()
+        captured_events = []
+
+        def capture_enqueue(event):
+            captured_events.append(event)
+            return True
+
+        mock_dispatcher.enqueue = capture_enqueue
+
+        # Set a webhook callback so the check passes
+        slo_module._webhook_callback = lambda x: True
+
+        with patch(
+            "aragora.integrations.webhooks.get_dispatcher",
+            return_value=mock_dispatcher,
+        ):
+            result = notify_slo_recovery(
+                operation="recovery_test",
+                percentile="p99",
+                latency_ms=400.0,
+                threshold_ms=500.0,
+                violation_duration_seconds=120.0,
+                context={"request_id": "req_456"},
+            )
+
+            assert result is True
+            assert len(captured_events) == 1
+            event = captured_events[0]
+            assert event["type"] == "slo_recovery"
+            assert event["operation"] == "recovery_test"
+            assert event["latency_ms"] == 400.0
+            assert event["threshold_ms"] == 500.0
+            assert event["margin_ms"] == 100.0  # 500 - 400
+            assert event["violation_duration_seconds"] == 120.0
+            assert event["context"]["request_id"] == "req_456"
+
+
+class TestViolationState:
+    """Tests for violation state tracking."""
+
+    def test_get_violation_state_empty(self):
+        """Test get_violation_state returns empty when no violations."""
+        import aragora.observability.metrics.slo as slo_module
+        slo_module._violation_state = {}
+
+        state = get_violation_state("unknown_op")
+        assert state == {"in_violation": False}
+
+    def test_get_violation_state_all(self):
+        """Test get_violation_state returns all states."""
+        import aragora.observability.metrics.slo as slo_module
+        slo_module._violation_state = {
+            "op1": {"in_violation": True, "last_severity": "major"},
+            "op2": {"in_violation": False},
+        }
+
+        all_states = get_violation_state()
+        assert "op1" in all_states
+        assert "op2" in all_states
+        assert all_states["op1"]["in_violation"] is True
+
+    def test_get_slo_webhook_status_includes_violations(self):
+        """Test status includes list of operations in violation."""
+        import aragora.observability.metrics.slo as slo_module
+        slo_module._violation_state = {
+            "violating_op": {"in_violation": True},
+            "healthy_op": {"in_violation": False},
+        }
+
+        status = get_slo_webhook_status()
+        assert "operations_in_violation" in status
+        assert "violating_op" in status["operations_in_violation"]
+        assert "healthy_op" not in status["operations_in_violation"]
+
+
+class TestCheckAndRecordWithRecovery:
+    """Tests for check_and_record_slo_with_recovery."""
+
+    def test_tracks_violation_state(self):
+        """Test violation state is tracked correctly."""
+        import aragora.observability.metrics.slo as slo_module
+
+        # Mock required components
+        slo_module._initialized = True
+        slo_module.SLO_CHECKS_TOTAL = MagicMock()
+        slo_module.SLO_VIOLATIONS_TOTAL = MagicMock()
+        slo_module.SLO_VIOLATION_MARGIN = MagicMock()
+        slo_module.SLO_LATENCY_HISTOGRAM = MagicMock()
+        slo_module._webhook_callback = None
+        slo_module._violation_state = {}
+
+        # Mock the SLO check to fail
+        with patch(
+            "aragora.config.performance_slos.check_latency_slo",
+            return_value=(False, "SLO violated"),
+        ), patch(
+            "aragora.config.performance_slos.get_slo_config",
+        ) as mock_config:
+            mock_slo = MagicMock()
+            mock_slo.p99_ms = 500.0
+            mock_config.return_value = MagicMock(track_violation_op=mock_slo)
+
+            passed, _ = check_and_record_slo_with_recovery(
+                "track_violation_op", 600.0, "p99"
+            )
+
+            assert passed is False
+            # Should be in violation state
+            state = get_violation_state("track_violation_op")
+            assert state.get("in_violation") is True
+
+    def test_detects_recovery(self):
+        """Test recovery is detected when SLO passes after violation."""
+        import aragora.observability.metrics.slo as slo_module
+        import time
+
+        # Setup: Already in violation state
+        slo_module._initialized = True
+        slo_module.SLO_CHECKS_TOTAL = MagicMock()
+        slo_module.SLO_VIOLATIONS_TOTAL = MagicMock()
+        slo_module.SLO_VIOLATION_MARGIN = MagicMock()
+        slo_module.SLO_LATENCY_HISTOGRAM = MagicMock()
+        slo_module._webhook_callback = None
+        slo_module._violation_state = {
+            "recovery_op": {
+                "in_violation": True,
+                "violation_start": time.time() - 60,  # Started 60s ago
+                "last_severity": "major",
+                "percentile": "p99",
+                "threshold_ms": 500.0,
+            }
+        }
+
+        recovery_called = []
+
+        # Mock notify_slo_recovery to track calls
+        with patch(
+            "aragora.config.performance_slos.check_latency_slo",
+            return_value=(True, "Within SLO"),
+        ), patch.object(
+            slo_module, "notify_slo_recovery",
+            side_effect=lambda **kwargs: recovery_called.append(kwargs) or True,
+        ):
+            passed, _ = check_and_record_slo_with_recovery(
+                "recovery_op", 400.0, "p99"
+            )
+
+            assert passed is True
+            # Recovery should have been called
+            assert len(recovery_called) == 1
+            assert recovery_called[0]["operation"] == "recovery_op"
+            assert recovery_called[0]["violation_duration_seconds"] >= 59.0
+
+            # Violation state should be cleared
+            state = get_violation_state("recovery_op")
+            assert state.get("in_violation") is False

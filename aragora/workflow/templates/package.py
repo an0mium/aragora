@@ -175,7 +175,7 @@ class TemplatePackage:
     # Package integrity
     checksum: Optional[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Compute checksum if not provided."""
         if self.checksum is None:
             self.checksum = self._compute_checksum()

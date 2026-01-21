@@ -28,9 +28,16 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.server.handlers.utils.url_security import validate_webhook_url
 
 logger = logging.getLogger(__name__)
+
+# Rate limits for webhook operations
+WEBHOOK_REGISTER_RPM = 10  # Max 10 webhook registrations per minute
+WEBHOOK_TEST_RPM = 5       # Max 5 test deliveries per minute
+WEBHOOK_LIST_RPM = 60      # Max 60 list operations per minute
 
 
 # =============================================================================
@@ -475,9 +482,10 @@ class WebhookHandler(BaseHandler):
         if not url:
             return error_response("URL is required", 400)
 
-        # Validate URL format
-        if not url.startswith(("http://", "https://")):
-            return error_response("URL must start with http:// or https://", 400)
+        # Validate URL format and check for SSRF
+        is_valid, error_msg = validate_webhook_url(url, allow_localhost=False)
+        if not is_valid:
+            return error_response(f"Invalid webhook URL: {error_msg}", 400)
 
         events = body.get("events", [])
         if not events:
@@ -547,6 +555,13 @@ class WebhookHandler(BaseHandler):
         user = self.get_current_user(handler)
         if user and webhook.user_id and webhook.user_id != user.user_id:
             return error_response("Access denied", 403)
+
+        # Validate URL if provided (SSRF check)
+        new_url = body.get("url")
+        if new_url:
+            is_valid, error_msg = validate_webhook_url(new_url, allow_localhost=False)
+            if not is_valid:
+                return error_response(f"Invalid webhook URL: {error_msg}", 400)
 
         # Validate events if provided
         events = body.get("events")

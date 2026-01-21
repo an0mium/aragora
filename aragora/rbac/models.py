@@ -35,6 +35,8 @@ class ResourceType(str, Enum):
     WEBHOOK = "webhooks"
     CHECKPOINT = "checkpoints"
     GAUNTLET = "gauntlet"  # Adversarial stress-testing
+    MARKETPLACE = "marketplace"  # Template marketplace
+    EXPLAINABILITY = "explainability"  # Decision explanations
 
 
 class Action(str, Enum):
@@ -80,6 +82,15 @@ class Action(str, Enum):
     # Gauntlet-specific
     SIGN = "sign"  # Sign receipts cryptographically
     COMPARE = "compare"  # Compare gauntlet runs
+
+    # Marketplace-specific
+    PUBLISH = "publish"  # Publish to marketplace
+    IMPORT = "import"  # Import from marketplace
+    RATE = "rate"  # Rate templates
+    REVIEW = "review"  # Write reviews
+
+    # Explainability-specific
+    BATCH = "batch"  # Run batch operations
 
     # Wildcard
     ALL = "*"

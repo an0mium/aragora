@@ -243,6 +243,34 @@ PERM_GAUNTLET_EXPORT = _permission(
     ResourceType.GAUNTLET, Action.EXPORT_DATA, "Export Gauntlet Data", "Export gauntlet reports"
 )
 
+# Marketplace permissions
+PERM_MARKETPLACE_READ = _permission(
+    ResourceType.MARKETPLACE, Action.READ, "Browse Marketplace", "Browse and search marketplace templates"
+)
+PERM_MARKETPLACE_PUBLISH = _permission(
+    ResourceType.MARKETPLACE, Action.PUBLISH, "Publish Templates", "Publish templates to marketplace"
+)
+PERM_MARKETPLACE_IMPORT = _permission(
+    ResourceType.MARKETPLACE, Action.IMPORT, "Import Templates", "Import templates from marketplace"
+)
+PERM_MARKETPLACE_RATE = _permission(
+    ResourceType.MARKETPLACE, Action.RATE, "Rate Templates", "Rate marketplace templates"
+)
+PERM_MARKETPLACE_REVIEW = _permission(
+    ResourceType.MARKETPLACE, Action.REVIEW, "Review Templates", "Write reviews for templates"
+)
+PERM_MARKETPLACE_DELETE = _permission(
+    ResourceType.MARKETPLACE, Action.DELETE, "Delete Templates", "Remove templates from marketplace"
+)
+
+# Explainability permissions
+PERM_EXPLAINABILITY_READ = _permission(
+    ResourceType.EXPLAINABILITY, Action.READ, "View Explanations", "View decision explanations"
+)
+PERM_EXPLAINABILITY_BATCH = _permission(
+    ResourceType.EXPLAINABILITY, Action.BATCH, "Batch Explanations", "Process batch explanation jobs"
+)
+
 
 # All permissions as a dictionary for easy lookup
 SYSTEM_PERMISSIONS: dict[str, Permission] = {
@@ -319,6 +347,16 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_GAUNTLET_SIGN,
         PERM_GAUNTLET_COMPARE,
         PERM_GAUNTLET_EXPORT,
+        # Marketplace
+        PERM_MARKETPLACE_READ,
+        PERM_MARKETPLACE_PUBLISH,
+        PERM_MARKETPLACE_IMPORT,
+        PERM_MARKETPLACE_RATE,
+        PERM_MARKETPLACE_REVIEW,
+        PERM_MARKETPLACE_DELETE,
+        # Explainability
+        PERM_EXPLAINABILITY_READ,
+        PERM_EXPLAINABILITY_BATCH,
     ]
 }
 
@@ -409,6 +447,16 @@ ROLE_ADMIN = Role(
         PERM_GAUNTLET_SIGN.key,
         PERM_GAUNTLET_COMPARE.key,
         PERM_GAUNTLET_EXPORT.key,
+        # Marketplace (all operations)
+        PERM_MARKETPLACE_READ.key,
+        PERM_MARKETPLACE_PUBLISH.key,
+        PERM_MARKETPLACE_IMPORT.key,
+        PERM_MARKETPLACE_RATE.key,
+        PERM_MARKETPLACE_REVIEW.key,
+        PERM_MARKETPLACE_DELETE.key,
+        # Explainability (all operations)
+        PERM_EXPLAINABILITY_READ.key,
+        PERM_EXPLAINABILITY_BATCH.key,
         # Admin (limited)
         PERM_ADMIN_METRICS.key,
     },
@@ -453,6 +501,15 @@ ROLE_DEBATE_CREATOR = Role(
         PERM_GAUNTLET_READ.key,
         PERM_GAUNTLET_COMPARE.key,
         PERM_GAUNTLET_EXPORT.key,
+        # Marketplace (create and read)
+        PERM_MARKETPLACE_READ.key,
+        PERM_MARKETPLACE_PUBLISH.key,
+        PERM_MARKETPLACE_IMPORT.key,
+        PERM_MARKETPLACE_RATE.key,
+        PERM_MARKETPLACE_REVIEW.key,
+        # Explainability (read and batch)
+        PERM_EXPLAINABILITY_READ.key,
+        PERM_EXPLAINABILITY_BATCH.key,
         # User (self only - enforced at resource level)
         PERM_USER_READ.key,
         # Org (read only)
@@ -490,6 +547,10 @@ ROLE_ANALYST = Role(
         PERM_CHECKPOINT_READ.key,
         # Gauntlet (read only)
         PERM_GAUNTLET_READ.key,
+        # Marketplace (read only)
+        PERM_MARKETPLACE_READ.key,
+        # Explainability (read only)
+        PERM_EXPLAINABILITY_READ.key,
         # User/Org read
         PERM_USER_READ.key,
         PERM_ORG_READ.key,
@@ -545,6 +606,13 @@ ROLE_MEMBER = Role(
         # Gauntlet (run and read)
         PERM_GAUNTLET_RUN.key,
         PERM_GAUNTLET_READ.key,
+        # Marketplace (read and interact)
+        PERM_MARKETPLACE_READ.key,
+        PERM_MARKETPLACE_IMPORT.key,
+        PERM_MARKETPLACE_RATE.key,
+        PERM_MARKETPLACE_REVIEW.key,
+        # Explainability (read only)
+        PERM_EXPLAINABILITY_READ.key,
         # Basic access
         PERM_USER_READ.key,
         PERM_ORG_READ.key,

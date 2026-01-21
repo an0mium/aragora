@@ -920,15 +920,38 @@ class ContextGatherer:
             Formatted culture patterns context, or None if unavailable.
         """
         try:
+            # Use the mound's culture context API if available
+            if self._knowledge_mound and hasattr(self._knowledge_mound, "get_culture_context"):
+                ws_id = workspace_id or self._knowledge_workspace_id or "default"
+                context = await self._knowledge_mound.get_culture_context(
+                    org_id=ws_id,
+                    task=task,
+                    max_documents=5,
+                )
+                if context:
+                    logger.info("[culture] Injected culture context from mound")
+                    return context
+                logger.debug("[culture] No relevant culture context from mound")
+                return None
+
+            # Fallback: use CultureAccumulator with mound reference
+            if not self._knowledge_mound:
+                logger.debug("[culture] Knowledge mound not available for culture patterns")
+                return None
+
             from aragora.knowledge.mound.culture.accumulator import CultureAccumulator
 
-            # Get or create accumulator
-            accumulator = CultureAccumulator(workspace_id=workspace_id or "default")
+            # Get or create accumulator from mound (or mound's internal accumulator)
+            if hasattr(self._knowledge_mound, "_culture_accumulator") and self._knowledge_mound._culture_accumulator:
+                accumulator = self._knowledge_mound._culture_accumulator
+            else:
+                accumulator = CultureAccumulator(mound=self._knowledge_mound)
 
-            # Query for patterns relevant to this task
+            # Query for patterns relevant to this workspace
+            ws_id = workspace_id or self._knowledge_workspace_id or "default"
             patterns = accumulator.get_patterns(
-                query=task,
-                limit=5,
+                workspace_id=ws_id,
+                min_confidence=0.3,
             )
 
             if not patterns:
@@ -941,26 +964,30 @@ class ContextGatherer:
                 "",
             ]
 
-            for pattern in patterns:
-                pattern_type = pattern.get("type", "general")
-                description = pattern.get("description", "")
-                confidence = pattern.get("confidence", 0.5)
-                applications = pattern.get("applications", 0)
+            for pattern in patterns[:5]:  # Limit to top 5
+                pattern_type = getattr(pattern, "pattern_type", None) or "general"
+                description = getattr(pattern, "description", "") or ""
+                confidence = getattr(pattern, "confidence", 0.5)
+                observations = getattr(pattern, "observations", 0)
 
                 if not description:
                     continue
+
+                # Convert enum to string if needed
+                if hasattr(pattern_type, "value"):
+                    pattern_type = pattern_type.value
 
                 conf_label = (
                     "Strong" if confidence > 0.7 else "Moderate" if confidence > 0.4 else "Emerging"
                 )
                 context_parts.append(
-                    f"- **{pattern_type.title()}** [{conf_label}, {applications} uses]: {description}"
+                    f"- **{str(pattern_type).title()}** [{conf_label}, {observations} uses]: {description}"
                 )
 
             if len(context_parts) <= 3:
                 return None
 
-            logger.info(f"[culture] Injected {len(patterns)} culture patterns")
+            logger.info(f"[culture] Injected {min(len(patterns), 5)} culture patterns")
             return "\n".join(context_parts)
 
         except ImportError:

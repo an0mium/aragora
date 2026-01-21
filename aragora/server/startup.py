@@ -590,6 +590,60 @@ async def init_km_adapters() -> bool:
     return False
 
 
+def init_slo_webhooks() -> bool:
+    """Initialize SLO violation webhook notifications.
+
+    Connects SLO metric violations to the webhook dispatcher so that
+    external alerting systems can be notified of performance degradation.
+
+    Returns:
+        True if SLO webhooks were initialized, False otherwise
+    """
+    try:
+        from aragora.observability.metrics.slo import init_slo_webhooks as _init_slo_webhooks
+
+        if _init_slo_webhooks():
+            logger.info("SLO webhook notifications enabled")
+            return True
+        else:
+            logger.debug("SLO webhooks not initialized (dispatcher not available)")
+            return False
+
+    except ImportError as e:
+        logger.debug(f"SLO webhooks not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize SLO webhooks: {e}")
+
+    return False
+
+
+def init_webhook_dispatcher() -> bool:
+    """Initialize the webhook dispatcher for outbound notifications.
+
+    Loads webhook configurations from environment and starts the dispatcher.
+
+    Returns:
+        True if dispatcher was started, False otherwise
+    """
+    try:
+        from aragora.integrations.webhooks import init_dispatcher
+
+        dispatcher = init_dispatcher()
+        if dispatcher:
+            logger.info(f"Webhook dispatcher started with {len(dispatcher.configs)} endpoint(s)")
+            return True
+        else:
+            logger.debug("No webhook configurations found, dispatcher not started")
+            return False
+
+    except ImportError as e:
+        logger.debug(f"Webhook dispatcher not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize webhook dispatcher: {e}")
+
+    return False
+
+
 def init_workflow_checkpoint_persistence() -> bool:
     """Wire Knowledge Mound to workflow checkpoint persistence.
 
@@ -650,6 +704,8 @@ async def run_startup_sequence(
         "shared_control_plane_state": False,
         "tts_integration": False,
         "persistent_task_queue": 0,
+        "webhook_dispatcher": False,
+        "slo_webhooks": False,
     }
 
     # Initialize in parallel where possible
@@ -670,6 +726,10 @@ async def run_startup_sequence(
     status["tts_integration"] = await init_tts_integration()
     status["persistent_task_queue"] = await init_persistent_task_queue()
 
+    # Initialize webhooks (dispatcher must be initialized before SLO webhooks)
+    status["webhook_dispatcher"] = init_webhook_dispatcher()
+    status["slo_webhooks"] = init_slo_webhooks()
+
     return status
 
 
@@ -688,5 +748,7 @@ __all__ = [
     "init_persistent_task_queue",
     "init_km_adapters",
     "init_workflow_checkpoint_persistence",
+    "init_webhook_dispatcher",
+    "init_slo_webhooks",
     "run_startup_sequence",
 ]
