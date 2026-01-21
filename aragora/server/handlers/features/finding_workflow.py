@@ -711,6 +711,10 @@ class FindingWorkflowHandler(BaseHandler):
             "comment": "Related issue"
         }
         """
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.update", finding_id):
+            return error
+
         try:
             body = await self._parse_json_body(request)
         except (json.JSONDecodeError, ValueError, TypeError):
