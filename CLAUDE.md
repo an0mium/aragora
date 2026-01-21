@@ -27,6 +27,7 @@ Context for Claude Code when working with the Aragora codebase.
 | KM Resilience | `aragora/knowledge/mound/` | `resilience.py` (retry, health, invalidation) |
 | RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
 | Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
+| Ops | `aragora/ops/` | `deployment_validator.py` (runtime validation) |
 
 ## Project Overview
 

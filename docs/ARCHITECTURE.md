@@ -203,6 +203,13 @@ aragora/
 │       ├── matrix_debates.py # MatrixDebatesAPI
 │       └── replay.py      # ReplayAPI
 │
+├── ops/                   # Operational tooling
+│   ├── __init__.py        # Module exports
+│   └── deployment_validator.py # Runtime validation checks
+│       ├── DeploymentValidator  # Environment, storage, DB, Redis checks
+│       ├── validate_deployment() # Async full validation
+│       └── quick_health_check() # Sync startup check
+│
 ├── core.py                # Core types (Message, Critique, Vote, etc.)
 └── __init__.py            # Package exports
 
