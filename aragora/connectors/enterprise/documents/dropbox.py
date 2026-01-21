@@ -178,11 +178,13 @@ class DropboxConnector(EnterpriseConnector):
         return bool(self.app_key and self.app_secret)
 
     async def _get_session(self):
-        """Get or create aiohttp session."""
+        """Get or create aiohttp session with timeout protection."""
         if self._session is None:
             import aiohttp
 
-            self._session = aiohttp.ClientSession()
+            from aragora.http_client import DEFAULT_TIMEOUT
+
+            self._session = aiohttp.ClientSession(timeout=DEFAULT_TIMEOUT)
         return self._session
 
     async def close(self):

@@ -381,11 +381,13 @@ class SlackProvider(NotificationProvider):
         """Send via webhook URL."""
         import aiohttp
 
+        from aragora.http_client import WEBHOOK_TIMEOUT
+
         # Add channel to message
         if channel.startswith("#") or channel.startswith("@"):
             message["channel"] = channel
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=WEBHOOK_TIMEOUT) as session:
             async with session.post(
                 self.config.webhook_url,
                 json=message,
@@ -401,9 +403,11 @@ class SlackProvider(NotificationProvider):
         """Send via Slack API."""
         import aiohttp
 
+        from aragora.http_client import DEFAULT_TIMEOUT
+
         message["channel"] = channel
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=DEFAULT_TIMEOUT) as session:
             async with session.post(
                 "https://slack.com/api/chat.postMessage",
                 json=message,
@@ -651,12 +655,11 @@ class WebhookProvider(NotificationProvider):
                 ).hexdigest()
                 headers["X-Aragora-Signature"] = f"sha256={signature}"
 
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
                 async with session.post(
                     endpoint.url,
                     data=body,
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status >= 400:
                         text = await response.text()

@@ -70,6 +70,10 @@ class AgentInfo:
         tasks_failed: Number of tasks failed
         avg_latency_ms: Average task completion time
         tags: Optional tags for filtering
+        region_id: Primary region where agent is deployed (e.g., "us-west-2")
+        available_regions: Regions where agent can accept tasks
+        region_latency_ms: Average latency per region for routing decisions
+        last_heartbeat_by_region: Per-region heartbeat timestamps
     """
 
     agent_id: str
@@ -85,6 +89,11 @@ class AgentInfo:
     tasks_failed: int = 0
     avg_latency_ms: float = 0.0
     tags: Set[str] = field(default_factory=set)
+    # Regional metadata for multi-region deployments
+    region_id: str = "default"
+    available_regions: Set[str] = field(default_factory=lambda: {"default"})
+    region_latency_ms: Dict[str, float] = field(default_factory=dict)
+    last_heartbeat_by_region: Dict[str, float] = field(default_factory=dict)
 
     def is_available(self) -> bool:
         """Check if agent is available for new tasks."""
@@ -103,6 +112,31 @@ class AgentInfo:
         """Check if agent has all specified capabilities."""
         return all(self.has_capability(c) for c in capabilities)
 
+    def is_available_in_region(self, region_id: str) -> bool:
+        """Check if agent is available in a specific region."""
+        return region_id in self.available_regions
+
+    def get_latency_for_region(self, region_id: str) -> float:
+        """Get estimated latency for a specific region.
+
+        Returns:
+            Latency in ms, or float('inf') if region not available
+        """
+        if region_id not in self.available_regions:
+            return float("inf")
+        return self.region_latency_ms.get(region_id, self.avg_latency_ms)
+
+    def is_alive_in_region(self, region_id: str, timeout_seconds: float = 30.0) -> bool:
+        """Check if agent has sent a heartbeat from specific region within timeout."""
+        last_hb = self.last_heartbeat_by_region.get(region_id, 0.0)
+        return (time.time() - last_hb) < timeout_seconds
+
+    def update_region_heartbeat(self, region_id: str) -> None:
+        """Update heartbeat timestamp for a specific region."""
+        now = time.time()
+        self.last_heartbeat = now
+        self.last_heartbeat_by_region[region_id] = now
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {
@@ -119,6 +153,11 @@ class AgentInfo:
             "tasks_failed": self.tasks_failed,
             "avg_latency_ms": self.avg_latency_ms,
             "tags": list(self.tags),
+            # Regional fields
+            "region_id": self.region_id,
+            "available_regions": list(self.available_regions),
+            "region_latency_ms": self.region_latency_ms,
+            "last_heartbeat_by_region": self.last_heartbeat_by_region,
         }
 
     @classmethod
@@ -138,6 +177,11 @@ class AgentInfo:
             tasks_failed=data.get("tasks_failed", 0),
             avg_latency_ms=data.get("avg_latency_ms", 0.0),
             tags=set(data.get("tags", [])),
+            # Regional fields
+            region_id=data.get("region_id", "default"),
+            available_regions=set(data.get("available_regions", ["default"])),
+            region_latency_ms=data.get("region_latency_ms", {}),
+            last_heartbeat_by_region=data.get("last_heartbeat_by_region", {}),
         )
 
 
@@ -422,6 +466,102 @@ class AgentRegistry:
             for a in agents
             if a.has_all_capabilities(capabilities) and (not only_available or a.is_available())
         ]
+
+    async def find_by_region(
+        self,
+        region_id: str,
+        only_available: bool = True,
+    ) -> List[AgentInfo]:
+        """
+        Find agents available in a specific region.
+
+        Args:
+            region_id: Region to search for agents
+            only_available: Only return agents in READY status
+
+        Returns:
+            List of agents available in the region
+        """
+        agents = await self.list_all()
+
+        return [
+            a
+            for a in agents
+            if a.is_available_in_region(region_id)
+            and (not only_available or a.is_available())
+        ]
+
+    async def find_by_capability_and_region(
+        self,
+        capability: str | AgentCapability,
+        region_id: str,
+        only_available: bool = True,
+    ) -> List[AgentInfo]:
+        """
+        Find agents with a capability available in a region.
+
+        Args:
+            capability: Required capability
+            region_id: Region to search
+            only_available: Only return agents in READY status
+
+        Returns:
+            List of matching agents in the region
+        """
+        cap_str = capability.value if isinstance(capability, AgentCapability) else capability
+        agents = await self.list_all()
+
+        return [
+            a
+            for a in agents
+            if a.has_capability(cap_str)
+            and a.is_available_in_region(region_id)
+            and (not only_available or a.is_available())
+        ]
+
+    async def find_by_capabilities_and_regions(
+        self,
+        capabilities: List[str | AgentCapability],
+        regions: List[str],
+        only_available: bool = True,
+    ) -> List[AgentInfo]:
+        """
+        Find agents with all capabilities available in any of the specified regions.
+
+        Args:
+            capabilities: Required capabilities
+            regions: Regions to search (in priority order)
+            only_available: Only return agents in READY status
+
+        Returns:
+            List of matching agents, sorted by region priority
+        """
+        agents = await self.list_all()
+
+        # Filter by capabilities first
+        candidates = [
+            a
+            for a in agents
+            if a.has_all_capabilities(capabilities)
+            and (not only_available or a.is_available())
+        ]
+
+        # Group by region priority
+        result = []
+        seen_ids = set()
+        for region in regions:
+            for agent in candidates:
+                if agent.agent_id not in seen_ids and agent.is_available_in_region(region):
+                    result.append(agent)
+                    seen_ids.add(agent.agent_id)
+
+        # Add remaining agents (available in other regions)
+        for agent in candidates:
+            if agent.agent_id not in seen_ids:
+                result.append(agent)
+                seen_ids.add(agent.agent_id)
+
+        return result
 
     async def select_agent(
         self,

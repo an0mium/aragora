@@ -55,6 +55,14 @@ class TaskPriority(Enum):
     URGENT = 100
 
 
+class RegionRoutingMode(Enum):
+    """How tasks should be routed to regions."""
+
+    ANY = "any"  # Execute in any available region
+    PREFERRED = "preferred"  # Prefer target region, fallback to others
+    STRICT = "strict"  # Only execute in target region, fail if unavailable
+
+
 @dataclass
 class Task:
     """
@@ -78,6 +86,11 @@ class Task:
         result: Task result (if completed)
         error: Error message (if failed)
         metadata: Additional task metadata
+        target_region: Preferred region for task execution
+        fallback_regions: Fallback regions if target unavailable
+        assigned_region: Region where task was actually assigned
+        region_routing_mode: How to handle regional routing
+        origin_region: Region where task was submitted
     """
 
     task_type: str
@@ -97,6 +110,12 @@ class Task:
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Regional routing fields
+    target_region: Optional[str] = None
+    fallback_regions: List[str] = field(default_factory=list)
+    assigned_region: Optional[str] = None
+    region_routing_mode: RegionRoutingMode = RegionRoutingMode.ANY
+    origin_region: str = "default"
 
     def is_timed_out(self) -> bool:
         """Check if task has timed out."""
@@ -107,6 +126,36 @@ class Task:
     def should_retry(self) -> bool:
         """Check if task should be retried."""
         return self.retries < self.max_retries
+
+    def get_eligible_regions(self) -> List[str]:
+        """Get list of regions eligible for task execution in priority order.
+
+        Returns:
+            List of region IDs, with target_region first if specified
+        """
+        regions = []
+        if self.target_region:
+            regions.append(self.target_region)
+        regions.extend([r for r in self.fallback_regions if r not in regions])
+        return regions
+
+    def can_execute_in_region(self, region_id: str) -> bool:
+        """Check if task can be executed in a specific region.
+
+        Args:
+            region_id: Region to check
+
+        Returns:
+            True if task can be executed in this region
+        """
+        if self.region_routing_mode == RegionRoutingMode.ANY:
+            return True
+        if self.region_routing_mode == RegionRoutingMode.STRICT:
+            return region_id == self.target_region
+        # PREFERRED mode
+        if self.target_region and region_id == self.target_region:
+            return True
+        return region_id in self.fallback_regions or not self.target_region
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
@@ -128,11 +177,24 @@ class Task:
             "result": self.result,
             "error": self.error,
             "metadata": self.metadata,
+            # Regional fields
+            "target_region": self.target_region,
+            "fallback_regions": self.fallback_regions,
+            "assigned_region": self.assigned_region,
+            "region_routing_mode": self.region_routing_mode.value,
+            "origin_region": self.origin_region,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Task":
         """Deserialize from dictionary."""
+        # Parse region routing mode
+        routing_mode_str = data.get("region_routing_mode", "any")
+        try:
+            routing_mode = RegionRoutingMode(routing_mode_str)
+        except ValueError:
+            routing_mode = RegionRoutingMode.ANY
+
         return cls(
             id=data["id"],
             task_type=data["task_type"],
@@ -151,6 +213,12 @@ class Task:
             result=data.get("result"),
             error=data.get("error"),
             metadata=data.get("metadata", {}),
+            # Regional fields
+            target_region=data.get("target_region"),
+            fallback_regions=data.get("fallback_regions", []),
+            assigned_region=data.get("assigned_region"),
+            region_routing_mode=routing_mode,
+            origin_region=data.get("origin_region", "default"),
         )
 
 

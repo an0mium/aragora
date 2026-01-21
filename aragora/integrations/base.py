@@ -313,14 +313,14 @@ class BaseIntegration(ABC):
             question_truncated=self.truncate_text(result.task, question_limit),
             answer=result.final_answer,
             answer_truncated=(
-                self.truncate_text(result.final_answer, answer_limit) if result.final_answer else None
+                self.truncate_text(result.final_answer, answer_limit)
+                if result.final_answer
+                else None
             ),
             total_rounds=result.rounds_used,
             confidence=result.confidence,
             confidence_percent=(
-                self.format_confidence(result.confidence)
-                if result.confidence
-                else None
+                self.format_confidence(result.confidence) if result.confidence else None
             ),
             agents=result.participants or [],
             agents_display=self.format_agents_list(result.participants or [], agents_limit),

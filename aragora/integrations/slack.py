@@ -97,9 +97,9 @@ class SlackIntegration:
         self._last_reset = datetime.now()
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
+        """Get or create aiohttp session with timeout protection."""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            self._session = aiohttp.ClientSession(timeout=DEFAULT_TIMEOUT)
         return self._session
 
     async def close(self) -> None:

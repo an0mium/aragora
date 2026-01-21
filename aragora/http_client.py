@@ -34,8 +34,8 @@ __all__ = [
 
 # Default timeout for most HTTP requests (30 seconds total)
 DEFAULT_TIMEOUT = ClientTimeout(
-    total=30,      # Total time for the entire request
-    connect=10,    # Time to establish connection
+    total=30,  # Total time for the entire request
+    connect=10,  # Time to establish connection
     sock_read=20,  # Time to read response
 )
 
