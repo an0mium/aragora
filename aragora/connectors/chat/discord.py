@@ -40,6 +40,14 @@ except ImportError:
     NACL_AVAILABLE = False
     logger.warning("PyNaCl not available - Discord webhook verification disabled")
 
+try:
+    from aragora.observability.tracing import build_trace_headers
+except ImportError:
+
+    def build_trace_headers() -> dict[str, str]:
+        return {}
+
+
 from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
@@ -108,11 +116,14 @@ class DiscordConnector(ChatPlatformConnector):
         return "Discord"
 
     def _get_headers(self) -> dict[str, str]:
-        """Get authorization headers for Discord API."""
-        return {
+        """Get authorization headers with trace context for distributed tracing."""
+        headers = {
             "Authorization": f"Bot {self.bot_token}",
             "Content-Type": "application/json",
         }
+        # Add trace context headers for distributed tracing
+        headers.update(build_trace_headers())
+        return headers
 
     async def send_message(
         self,

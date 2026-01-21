@@ -40,6 +40,14 @@ except ImportError:
 
 from aragora.resilience import get_circuit_breaker
 
+try:
+    from aragora.observability.tracing import build_trace_headers
+except ImportError:
+
+    def build_trace_headers() -> dict[str, str]:
+        return {}
+
+
 from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
@@ -160,11 +168,14 @@ class SlackConnector(ChatPlatformConnector):
         return "Slack"
 
     def _get_headers(self) -> dict[str, str]:
-        """Get authorization headers."""
-        return {
+        """Get authorization headers with trace context for distributed tracing."""
+        headers = {
             "Authorization": f"Bearer {self.bot_token}",
             "Content-Type": "application/json; charset=utf-8",
         }
+        # Add trace context headers for distributed tracing
+        headers.update(build_trace_headers())
+        return headers
 
     async def send_message(
         self,

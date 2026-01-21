@@ -25,6 +25,14 @@ import aiohttp
 
 from aragora.core import DebateResult
 
+try:
+    from aragora.observability.tracing import build_trace_headers
+except ImportError:
+
+    def build_trace_headers() -> dict[str, str]:
+        return {}
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -169,10 +177,13 @@ class TeamsIntegration:
         try:
             session = await self._get_session()
             payload = card.to_payload()
+            # Include trace headers for distributed tracing
+            headers = build_trace_headers()
 
             async with session.post(
                 self.config.webhook_url,
                 json=payload,
+                headers=headers if headers else None,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status == 200:

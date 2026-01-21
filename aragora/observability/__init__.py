@@ -66,6 +66,7 @@ from aragora.observability.metrics import (
 )
 from aragora.observability.tracing import (
     add_span_attributes,
+    build_trace_headers,
     create_span,
     get_tracer,
     record_exception,
@@ -138,6 +139,7 @@ __all__ = [
     # Tracing
     "get_tracer",
     "create_span",
+    "build_trace_headers",
     "trace_handler",
     "trace_async_handler",
     "trace_agent_call",

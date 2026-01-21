@@ -252,3 +252,76 @@ class TestSpanAttributes:
 
         # Should not raise
         record_exception(None, ValueError("test"))
+
+
+class TestBuildTraceHeaders:
+    """Tests for build_trace_headers utility function."""
+
+    def test_build_trace_headers_with_context(self):
+        """Test build_trace_headers returns headers when trace context is set."""
+        from aragora.observability.tracing import build_trace_headers
+        from aragora.server.middleware.tracing import set_trace_id, set_span_id
+
+        # Set trace context
+        set_trace_id("a" * 32)
+        set_span_id("b" * 16)
+
+        try:
+            headers = build_trace_headers()
+
+            # Check custom headers
+            assert "X-Trace-ID" in headers
+            assert headers["X-Trace-ID"] == "a" * 32
+            assert "X-Span-ID" in headers
+            assert headers["X-Span-ID"] == "b" * 16
+
+            # Check W3C traceparent header
+            assert "traceparent" in headers
+            traceparent = headers["traceparent"]
+            parts = traceparent.split("-")
+            assert len(parts) == 4
+            assert parts[0] == "00"  # Version
+            assert len(parts[1]) == 32  # Trace ID
+            assert len(parts[2]) == 16  # Parent ID
+            assert parts[3] == "01"  # Sampled flag
+        finally:
+            set_trace_id(None)
+            set_span_id(None)
+
+    def test_build_trace_headers_without_context(self):
+        """Test build_trace_headers returns empty dict when no context."""
+        from aragora.observability.tracing import build_trace_headers
+        from aragora.server.middleware.tracing import set_trace_id, set_span_id
+
+        # Ensure no trace context
+        set_trace_id(None)
+        set_span_id(None)
+
+        headers = build_trace_headers()
+
+        # Should be empty when no trace context
+        assert headers == {}
+
+    def test_build_trace_headers_with_short_ids(self):
+        """Test build_trace_headers pads short IDs correctly."""
+        from aragora.observability.tracing import build_trace_headers
+        from aragora.server.middleware.tracing import set_trace_id, set_span_id
+
+        # Set short IDs
+        set_trace_id("short")
+        set_span_id("tiny")
+
+        try:
+            headers = build_trace_headers()
+
+            # Headers should still be present
+            assert "traceparent" in headers
+
+            # Traceparent should have correct lengths
+            traceparent = headers["traceparent"]
+            parts = traceparent.split("-")
+            assert len(parts[1]) == 32  # Trace ID padded to 32
+            assert len(parts[2]) == 16  # Parent ID padded to 16
+        finally:
+            set_trace_id(None)
+            set_span_id(None)

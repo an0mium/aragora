@@ -668,7 +668,9 @@ def trace_decision(func: F) -> F:
         # Extract attributes from request
         request_id = getattr(request, "request_id", "unknown")
         decision_type = getattr(request, "decision_type", None)
-        decision_type_str = decision_type.value if hasattr(decision_type, "value") else str(decision_type)
+        decision_type_str = (
+            decision_type.value if hasattr(decision_type, "value") else str(decision_type)
+        )
         source = getattr(request, "source", None)
         source_str = source.value if hasattr(source, "value") else str(source)
         priority = getattr(request, "priority", None)
@@ -716,3 +718,62 @@ def trace_decision(func: F) -> F:
                 raise
 
     return cast(F, wrapper)
+
+
+# =============================================================================
+# HTTP Trace Header Propagation
+# =============================================================================
+
+
+def build_trace_headers() -> Dict[str, str]:
+    """Build trace context headers for outgoing HTTP requests.
+
+    Returns W3C Trace Context (traceparent) and custom headers for
+    distributed tracing across services. Use this function to add
+    trace context to any outgoing HTTP request.
+
+    Returns:
+        Dictionary of trace headers to include in HTTP requests.
+        Returns empty dict if no trace context is set.
+
+    Example:
+        import httpx
+
+        async with httpx.AsyncClient() as client:
+            headers = {"Authorization": "Bearer token"}
+            headers.update(build_trace_headers())
+            response = await client.post(url, json=data, headers=headers)
+    """
+    headers: Dict[str, str] = {}
+
+    try:
+        from aragora.server.middleware.tracing import (
+            get_trace_id,
+            get_span_id,
+            TRACE_ID_HEADER,
+            SPAN_ID_HEADER,
+        )
+
+        trace_id = get_trace_id()
+        span_id = get_span_id()
+
+        if trace_id:
+            # Custom headers (simple, easy to read in logs)
+            headers[TRACE_ID_HEADER] = trace_id
+            if span_id:
+                headers[SPAN_ID_HEADER] = span_id
+
+            # W3C Trace Context (traceparent)
+            # Format: version-trace_id-parent_id-flags
+            # Version 00 is current, flags 01 means sampled
+            parent_id = span_id or "0000000000000000"
+            # Ensure trace_id is 32 chars and parent_id is 16 chars
+            trace_id_padded = trace_id.ljust(32, "0")[:32]
+            parent_id_padded = parent_id.ljust(16, "0")[:16]
+            headers["traceparent"] = f"00-{trace_id_padded}-{parent_id_padded}-01"
+
+    except ImportError:
+        # Tracing middleware not available
+        pass
+
+    return headers

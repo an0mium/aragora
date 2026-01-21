@@ -28,7 +28,8 @@ class InvitationRepository:
 
     # Explicit columns for SELECT queries - prevents SELECT * data exposure
     _INVITATION_COLUMNS = (
-        "id, org_id, email, role, token, invited_by, status, " "created_at, expires_at, accepted_at"
+        "id, org_id, email, role, token, invited_by, status, "
+        "created_at, expires_at, accepted_by, accepted_at"
     )
 
     def __init__(self, transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]]) -> None:

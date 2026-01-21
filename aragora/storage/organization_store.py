@@ -45,7 +45,7 @@ class OrganizationStore:
     )
     _USER_COLUMNS = (
         "id, email, password_hash, password_salt, name, org_id, role, "
-        "is_active, email_verified, api_key_hash, api_key_prefix, "
+        "is_active, email_verified, api_key, api_key_hash, api_key_prefix, "
         "api_key_created_at, api_key_expires_at, created_at, updated_at, "
         "last_login_at, mfa_secret, mfa_enabled, mfa_backup_codes, token_version"
     )

@@ -212,7 +212,7 @@ class TaskDecomposer:
         file_score = min(file_count, 3)
 
         # Keyword complexity (0-4 points)
-        keyword_score = 0
+        keyword_score: float = 0.0
         for indicator in COMPLEXITY_INDICATORS["high"]:
             if indicator in task_lower:
                 keyword_score += 1.5
