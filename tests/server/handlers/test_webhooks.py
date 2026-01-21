@@ -44,9 +44,9 @@ class MockHandler:
 @pytest.fixture
 def webhook_store():
     """Create a fresh webhook store."""
-    from aragora.server.handlers.webhooks import WebhookStore
+    from aragora.storage.webhook_config_store import InMemoryWebhookConfigStore
 
-    return WebhookStore()
+    return InMemoryWebhookConfigStore()
 
 
 @pytest.fixture
@@ -64,9 +64,9 @@ def sample_webhook(webhook_store):
 @pytest.fixture
 def server_context():
     """Create mock server context."""
-    from aragora.server.handlers.webhooks import WebhookStore
+    from aragora.storage.webhook_config_store import InMemoryWebhookConfigStore
 
-    return {"webhook_store": WebhookStore()}
+    return {"webhook_store": InMemoryWebhookConfigStore()}
 
 
 @pytest.fixture

@@ -317,3 +317,122 @@ class TestConnectorImports:
         from aragora.connectors.enterprise import SyncSchedule
 
         assert SyncSchedule is not None
+
+
+# ===========================================================================
+# RBAC Tests
+# ===========================================================================
+
+
+from dataclasses import dataclass
+
+
+@dataclass
+class MockAuthorizationContext:
+    """Mock RBAC authorization context."""
+    user_id: str = "user-123"
+    roles: list = None
+    org_id: str = None
+
+    def __post_init__(self):
+        if self.roles is None:
+            self.roles = ["admin"]
+
+
+@dataclass
+class MockPermissionDecision:
+    """Mock RBAC permission decision."""
+    allowed: bool = True
+    reason: str = "Allowed by test"
+
+
+def mock_check_permission_allowed(*args, **kwargs):
+    """Mock check_permission that always allows."""
+    return MockPermissionDecision(allowed=True)
+
+
+def mock_check_permission_denied(*args, **kwargs):
+    """Mock check_permission that always denies."""
+    return MockPermissionDecision(allowed=False, reason="Permission denied by test")
+
+
+class TestConnectorsRBAC:
+    """Tests for RBAC permission checks in connector handlers."""
+
+    @pytest.mark.asyncio
+    async def test_list_connectors_with_auth_context(self):
+        """List connectors accepts auth_context parameter."""
+        auth_ctx = MockAuthorizationContext()
+        result = await handle_list_connectors(auth_context=auth_ctx)
+
+        assert isinstance(result, dict)
+        assert "connectors" in result
+
+    @pytest.mark.asyncio
+    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.check_permission", mock_check_permission_denied)
+    async def test_list_connectors_rbac_denied(self):
+        """List connectors returns error when RBAC denies."""
+        auth_ctx = MockAuthorizationContext(roles=["viewer"])
+        result = await handle_list_connectors(auth_context=auth_ctx)
+
+        assert isinstance(result, dict)
+        assert "error" in result
+        assert result.get("status") == 403
+
+    @pytest.mark.asyncio
+    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.check_permission", mock_check_permission_allowed)
+    async def test_list_connectors_rbac_allowed(self):
+        """List connectors succeeds when RBAC allows."""
+        auth_ctx = MockAuthorizationContext(roles=["admin"])
+        result = await handle_list_connectors(auth_context=auth_ctx)
+
+        assert isinstance(result, dict)
+        assert "connectors" in result or "error" not in result
+
+    @pytest.mark.asyncio
+    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.check_permission", mock_check_permission_denied)
+    async def test_create_connector_rbac_denied(self):
+        """Create connector returns error when RBAC denies."""
+        auth_ctx = MockAuthorizationContext(roles=["viewer"])
+        config = {"bucket": "test-bucket"}
+
+        result = await handle_create_connector(
+            connector_type="s3",
+            config=config,
+            auth_context=auth_ctx,
+        )
+
+        assert isinstance(result, dict)
+        assert "error" in result
+        assert result.get("status") == 403
+
+    @pytest.mark.asyncio
+    async def test_check_permission_function_exists(self):
+        """The _check_permission function exists in the module."""
+        from aragora.server.handlers.connectors import _check_permission
+
+        assert callable(_check_permission)
+
+    @pytest.mark.asyncio
+    async def test_check_permission_returns_none_when_no_rbac(self):
+        """_check_permission returns None when RBAC not available."""
+        from aragora.server.handlers.connectors import _check_permission
+
+        # When auth_context is None, should return None (allow)
+        result = _check_permission(None, "connectors.read")
+        assert result is None
+
+    @pytest.mark.asyncio
+    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", False)
+    async def test_check_permission_graceful_degradation(self):
+        """_check_permission allows when RBAC is disabled."""
+        from aragora.server.handlers.connectors import _check_permission
+
+        auth_ctx = MockAuthorizationContext()
+        result = _check_permission(auth_ctx, "connectors.read")
+
+        # Should return None (allow) when RBAC not available
+        assert result is None

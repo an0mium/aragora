@@ -145,7 +145,7 @@ class ExternalIntegrationsHandler(BaseHandler):
             return AuthorizationContext(
                 user_id=user_info.get("user_id", "anonymous"),
                 roles=user_info.get("roles", []),
-                tenant_id=user_info.get("tenant_id"),
+                org_id=user_info.get("org_id") or user_info.get("tenant_id"),
             )
         except Exception as e:
             logger.debug(f"Could not extract auth context: {e}")
