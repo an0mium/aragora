@@ -131,13 +131,18 @@ class ControlPlaneStreamServer:
             await self._server.wait_closed()
             logger.info("Control plane stream server stopped")
 
-    async def _handle_connection(self, websocket, path: str):
+    async def _handle_connection(self, websocket):
         """Handle a new WebSocket connection.
 
         Args:
             websocket: The WebSocket connection
-            path: The requested path
         """
+        # Get path from websocket (websockets v15+ API)
+        path = getattr(websocket, "path", getattr(websocket, "request", None))
+        if hasattr(path, "path"):
+            path = path.path
+        path = path or "/api/control-plane/stream"
+
         # Only accept connections to /api/control-plane/stream
         if path not in ("/api/control-plane/stream", "/ws/control-plane"):
             await websocket.close(1003, "Invalid path")
