@@ -169,13 +169,15 @@ class TestControlPlaneSQLiteFallback:
             await state.connect()
 
             # Register an agent
-            agent = await state.register_agent({
-                "id": "agent-123",
-                "name": "Test Agent",
-                "type": "anthropic-api",
-                "model": "claude-3",
-                "status": "active",
-            })
+            agent = await state.register_agent(
+                {
+                    "id": "agent-123",
+                    "name": "Test Agent",
+                    "type": "anthropic-api",
+                    "model": "claude-3",
+                    "status": "active",
+                }
+            )
 
             assert agent.id == "agent-123"
 
@@ -225,6 +227,7 @@ class TestHumanCheckpointDurability:
             assert record.status == "pending"
             # Check metadata from metadata_json
             import json
+
             metadata = json.loads(record.metadata_json) if record.metadata_json else {}
             assert metadata.get("workflow_id") == "wf-456"
 
@@ -359,6 +362,295 @@ class TestJobQueueDurability:
                 status=JobStatus.PENDING,
             )
             assert any(j.id == "route-debate-123" for j in pending)
+
+
+class TestMultiInstanceRequirements:
+    """Test that multi-instance mode properly requires Redis."""
+
+    def test_control_plane_leader_requires_redis_in_multi_instance(self):
+        """Test that leader election fails without Redis in multi-instance mode."""
+        # Save original env
+        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
+
+        try:
+            os.environ["ARAGORA_MULTI_INSTANCE"] = "true"
+
+            # Import and check the requirement function
+            from aragora.control_plane.leader import is_distributed_state_required
+
+            assert is_distributed_state_required() is True
+
+        finally:
+            # Restore env
+            if original_multi is not None:
+                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
+            else:
+                os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+
+    def test_control_plane_leader_not_required_single_instance(self):
+        """Test that leader election allows in-memory in single instance mode."""
+        # Save original env
+        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
+        original_single = os.environ.get("ARAGORA_SINGLE_INSTANCE")
+
+        try:
+            os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+            os.environ["ARAGORA_SINGLE_INSTANCE"] = "true"
+
+            from aragora.control_plane.leader import is_distributed_state_required
+
+            assert is_distributed_state_required() is False
+
+        finally:
+            if original_multi is not None:
+                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
+            if original_single is not None:
+                os.environ["ARAGORA_SINGLE_INSTANCE"] = original_single
+            else:
+                os.environ.pop("ARAGORA_SINGLE_INSTANCE", None)
+
+    def test_session_store_requires_redis_in_multi_instance(self):
+        """Test that session store fails without Redis in multi-instance mode."""
+        from aragora.control_plane.leader import DistributedStateError
+
+        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
+        original_redis = os.environ.get("REDIS_URL")
+
+        try:
+            os.environ["ARAGORA_MULTI_INSTANCE"] = "true"
+            os.environ.pop("REDIS_URL", None)
+
+            # Reset module state
+            import aragora.server.session_store as ss
+
+            ss._session_store = None
+
+            # Should raise DistributedStateError
+            with pytest.raises(DistributedStateError):
+                ss.get_session_store()
+
+        finally:
+            if original_multi is not None:
+                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
+            else:
+                os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+            if original_redis is not None:
+                os.environ["REDIS_URL"] = original_redis
+
+
+class TestProductionRequirements:
+    """Test that production mode properly requires durable backends."""
+
+    def test_startup_validator_checks_production(self):
+        """Test startup validator detects missing requirements."""
+        from aragora.server.startup import check_production_requirements
+
+        original_env = os.environ.get("ARAGORA_ENV")
+        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
+        original_redis = os.environ.get("REDIS_URL")
+
+        try:
+            # Set production mode without Redis
+            os.environ["ARAGORA_ENV"] = "production"
+            os.environ["ARAGORA_MULTI_INSTANCE"] = "true"
+            os.environ.pop("REDIS_URL", None)
+
+            missing = check_production_requirements()
+
+            # Should report missing REDIS_URL
+            assert any(
+                "REDIS_URL" in m for m in missing
+            ), f"Expected REDIS_URL warning, got: {missing}"
+
+        finally:
+            if original_env is not None:
+                os.environ["ARAGORA_ENV"] = original_env
+            else:
+                os.environ.pop("ARAGORA_ENV", None)
+            if original_multi is not None:
+                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
+            else:
+                os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+            if original_redis is not None:
+                os.environ["REDIS_URL"] = original_redis
+
+    def test_connector_sync_store_requires_db_in_production(self):
+        """Test connector sync store requires database in production."""
+        from aragora.connectors.enterprise.sync_store import SyncStore
+
+        original_env = os.environ.get("ARAGORA_ENV")
+
+        try:
+            os.environ["ARAGORA_ENV"] = "production"
+
+            # Test with SQLite URL but aiosqlite not available
+            with patch.dict("sys.modules", {"aiosqlite": None}):
+                store = SyncStore(database_url="sqlite:///nonexistent.db")
+
+                # Initialization should raise in production
+                with pytest.raises(RuntimeError, match="aiosqlite required in production"):
+                    asyncio.get_event_loop().run_until_complete(store.initialize())
+
+        finally:
+            if original_env is not None:
+                os.environ["ARAGORA_ENV"] = original_env
+            else:
+                os.environ.pop("ARAGORA_ENV", None)
+
+
+class TestExplainabilityBatchJobPersistence:
+    """Test explainability batch job storage."""
+
+    def test_batch_job_stored_in_memory_without_redis(self):
+        """Test batch jobs use in-memory storage without Redis."""
+        from aragora.server.handlers.explainability import (
+            BatchJob,
+            BatchStatus,
+            _save_batch_job,
+            _get_batch_job,
+            _batch_jobs_memory,
+        )
+
+        original_redis = os.environ.get("REDIS_URL")
+        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
+        original_env = os.environ.get("ARAGORA_ENV")
+
+        try:
+            # Clear Redis URL to force in-memory
+            os.environ.pop("REDIS_URL", None)
+            os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+            os.environ.pop("ARAGORA_ENV", None)
+
+            # Reset module state
+            import aragora.server.handlers.explainability as exp
+
+            exp._redis_client = None
+            exp._storage_warned = False
+            exp._batch_jobs_memory.clear()
+
+            # Create and save a batch job
+            job = BatchJob(
+                batch_id="test-batch-123",
+                debate_ids=["debate-1", "debate-2"],
+                status=BatchStatus.PROCESSING,
+                options={"format": "full"},
+            )
+            _save_batch_job(job)
+
+            # Should be in memory
+            assert "test-batch-123" in _batch_jobs_memory
+
+            # Should be retrievable
+            retrieved = _get_batch_job("test-batch-123")
+            assert retrieved is not None
+            assert retrieved.batch_id == "test-batch-123"
+            assert len(retrieved.debate_ids) == 2
+
+        finally:
+            if original_redis is not None:
+                os.environ["REDIS_URL"] = original_redis
+            if original_multi is not None:
+                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
+            if original_env is not None:
+                os.environ["ARAGORA_ENV"] = original_env
+
+    def test_batch_job_requires_redis_in_multi_instance(self):
+        """Test batch jobs require Redis in multi-instance mode."""
+        original_redis = os.environ.get("REDIS_URL")
+        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
+
+        try:
+            os.environ.pop("REDIS_URL", None)
+            os.environ["ARAGORA_MULTI_INSTANCE"] = "true"
+
+            # Reset module state
+            import aragora.server.handlers.explainability as exp
+
+            exp._redis_client = None
+            exp._storage_warned = False
+
+            from aragora.server.handlers.explainability import (
+                BatchJob,
+                BatchStatus,
+                _save_batch_job,
+            )
+            from aragora.control_plane.leader import DistributedStateError
+
+            job = BatchJob(
+                batch_id="test-multi-123",
+                debate_ids=["debate-1"],
+                status=BatchStatus.PENDING,
+            )
+
+            # Should raise error in multi-instance mode without Redis
+            with pytest.raises(DistributedStateError):
+                _save_batch_job(job)
+
+        finally:
+            if original_redis is not None:
+                os.environ["REDIS_URL"] = original_redis
+            else:
+                os.environ.pop("REDIS_URL", None)
+            if original_multi is not None:
+                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
+            else:
+                os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+
+
+class TestMarketplaceStorePersistence:
+    """Test marketplace store production requirements."""
+
+    def test_marketplace_requires_postgres_in_multi_instance(self):
+        """Test marketplace store requires PostgreSQL in multi-instance mode."""
+        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
+        original_backend = os.environ.get("ARAGORA_DB_BACKEND")
+
+        try:
+            os.environ["ARAGORA_MULTI_INSTANCE"] = "true"
+            os.environ["ARAGORA_DB_BACKEND"] = "sqlite"
+
+            # Reset module state
+            import aragora.storage.marketplace_store as ms
+
+            ms._marketplace_store = None
+
+            # Should raise RuntimeError
+            with pytest.raises(RuntimeError, match="ARAGORA_MULTI_INSTANCE"):
+                ms.get_marketplace_store()
+
+        finally:
+            if original_multi is not None:
+                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
+            else:
+                os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+            if original_backend is not None:
+                os.environ["ARAGORA_DB_BACKEND"] = original_backend
+            else:
+                os.environ.pop("ARAGORA_DB_BACKEND", None)
+
+    def test_marketplace_uses_sqlite_in_dev(self):
+        """Test marketplace store uses SQLite in development."""
+        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
+        original_env = os.environ.get("ARAGORA_ENV")
+
+        try:
+            os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+            os.environ.pop("ARAGORA_ENV", None)
+
+            # Reset module state
+            import aragora.storage.marketplace_store as ms
+
+            ms._marketplace_store = None
+
+            # Should use SQLite without errors
+            store = ms.get_marketplace_store()
+            assert isinstance(store, ms.MarketplaceStore)
+
+        finally:
+            if original_multi is not None:
+                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
+            if original_env is not None:
+                os.environ["ARAGORA_ENV"] = original_env
 
 
 if __name__ == "__main__":

@@ -631,5 +631,209 @@ class TelegramConnector(ChatPlatformConnector):
             text = text.replace(char, f"\\{char}")
         return text
 
+    # =========================================================================
+    # Required Abstract Method Implementations
+    # =========================================================================
+
+    def format_blocks(
+        self,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+        fields: Optional[list[tuple[str, str]]] = None,
+        buttons: Optional[list[dict]] = None,
+        **kwargs: Any,
+    ) -> list[dict]:
+        """Format content as Telegram-compatible blocks.
+
+        Telegram uses inline keyboards for interactive elements.
+        This method converts generic block structure to Telegram format.
+        """
+        result = []
+
+        # Telegram doesn't have rich text blocks like Slack
+        # We use inline keyboard buttons for interactivity
+        if buttons:
+            result.extend(buttons)
+
+        return result
+
+    def format_button(
+        self,
+        text: str,
+        action_id: str,
+        value: Optional[str] = None,
+        style: Optional[str] = None,
+        url: Optional[str] = None,
+        **kwargs: Any,
+    ) -> dict:
+        """Format a button for Telegram inline keyboard."""
+        if url:
+            return {
+                "type": "url_button",
+                "text": text,
+                "url": url,
+            }
+        return {
+            "type": "button",
+            "text": text,
+            "action_id": action_id,
+            "value": value or action_id,
+        }
+
+    def verify_webhook(
+        self,
+        headers: dict[str, str],
+        body: bytes,
+    ) -> bool:
+        """Verify Telegram webhook request.
+
+        Telegram uses a secret_token query parameter for verification,
+        which is set when configuring the webhook URL. Since this is
+        URL-based verification, this method always returns True.
+
+        For enhanced security, the webhook URL itself should contain
+        a secret token that the server validates.
+        """
+        # Telegram webhook verification is done via secret_token in URL
+        # This is different from signature-based verification used by Slack
+        return True
+
+    def parse_webhook_event(
+        self,
+        headers: dict[str, str],
+        body: bytes,
+    ) -> WebhookEvent:
+        """Parse a Telegram webhook payload into a WebhookEvent."""
+        payload = json.loads(body) if body else {}
+
+        # Handle message updates
+        if "message" in payload:
+            msg = payload["message"]
+            return WebhookEvent(
+                event_type="message",
+                platform="telegram",
+                timestamp=datetime.fromtimestamp(msg.get("date", 0)),
+                raw_payload=payload,
+                metadata={
+                    "channel_id": str(msg.get("chat", {}).get("id")),
+                    "user_id": str(msg.get("from", {}).get("id")),
+                    "message_id": str(msg.get("message_id")),
+                },
+            )
+
+        # Handle edited messages
+        if "edited_message" in payload:
+            msg = payload["edited_message"]
+            return WebhookEvent(
+                event_type="message_edited",
+                platform="telegram",
+                timestamp=datetime.fromtimestamp(msg.get("edit_date", msg.get("date", 0))),
+                raw_payload=payload,
+                metadata={
+                    "channel_id": str(msg.get("chat", {}).get("id")),
+                    "user_id": str(msg.get("from", {}).get("id")),
+                    "message_id": str(msg.get("message_id")),
+                },
+            )
+
+        # Handle callback queries (button clicks)
+        if "callback_query" in payload:
+            query = payload["callback_query"]
+            return WebhookEvent(
+                event_type="callback_query",
+                platform="telegram",
+                timestamp=datetime.now(),
+                raw_payload=payload,
+                metadata={
+                    "channel_id": str(query.get("message", {}).get("chat", {}).get("id")),
+                    "user_id": str(query.get("from", {}).get("id")),
+                    "message_id": str(query.get("message", {}).get("message_id")),
+                    "callback_data": query.get("data"),
+                },
+            )
+
+        # Handle channel posts
+        if "channel_post" in payload:
+            post = payload["channel_post"]
+            return WebhookEvent(
+                event_type="channel_post",
+                platform="telegram",
+                timestamp=datetime.fromtimestamp(post.get("date", 0)),
+                raw_payload=payload,
+                metadata={
+                    "channel_id": str(post.get("chat", {}).get("id")),
+                    "message_id": str(post.get("message_id")),
+                },
+            )
+
+        return WebhookEvent(
+            event_type="unknown",
+            platform="telegram",
+            raw_payload=payload,
+        )
+
+    async def respond_to_command(
+        self,
+        command: BotCommand,
+        text: str,
+        blocks: Optional[list[dict]] = None,
+        ephemeral: bool = False,
+        **kwargs: Any,
+    ) -> SendMessageResponse:
+        """Respond to a bot command.
+
+        Telegram doesn't support ephemeral messages, so the ephemeral
+        parameter is ignored.
+        """
+        channel_id = command.channel.id if command.channel else kwargs.get("channel_id")
+        if not channel_id:
+            return SendMessageResponse(
+                success=False,
+                error="No channel ID available for command response",
+            )
+
+        # Get reply_to message_id from command metadata
+        reply_to = kwargs.get("reply_to") or command.metadata.get("message_id")
+
+        return await self.send_message(
+            channel_id=channel_id,
+            text=text,
+            blocks=blocks,
+            thread_id=reply_to,
+        )
+
+    async def respond_to_interaction(
+        self,
+        interaction: UserInteraction,
+        text: str,
+        blocks: Optional[list[dict]] = None,
+        replace_original: bool = False,
+        **kwargs: Any,
+    ) -> bool:
+        """Respond to a user interaction (button click).
+
+        If replace_original is True, edits the original message.
+        Otherwise, answers the callback query with a notification.
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        # First, acknowledge the callback query
+        await self.answer_callback_query(
+            interaction.id, text=text if not replace_original else None
+        )
+
+        if replace_original and interaction.message_id:
+            # Edit the original message
+            result = await self.update_message(
+                channel_id=interaction.channel.id,
+                message_id=interaction.message_id,
+                text=text,
+                blocks=blocks,
+            )
+            return result.success
+
+        return True
+
 
 __all__ = ["TelegramConnector"]

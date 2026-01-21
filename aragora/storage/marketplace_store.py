@@ -1509,10 +1509,17 @@ def get_marketplace_store() -> Union[MarketplaceStore, PostgresMarketplaceStore]
 
     Returns:
         Configured marketplace store instance
+
+    Raises:
+        RuntimeError: If multi-instance mode requires PostgreSQL but it's unavailable
     """
     global _marketplace_store
     if _marketplace_store is not None:
         return _marketplace_store
+
+    # Check production/multi-instance requirements
+    is_production = os.environ.get("ARAGORA_ENV") == "production"
+    is_multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower() in ("true", "1", "yes")
 
     # Check store-specific backend first, then global database backend
     backend_type = os.environ.get("ARAGORA_MARKETPLACE_STORE_BACKEND")
@@ -1532,9 +1539,34 @@ def get_marketplace_store() -> Union[MarketplaceStore, PostgresMarketplaceStore]
             asyncio.get_event_loop().run_until_complete(store.initialize())
             _marketplace_store = store
         except Exception as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+            # Fail in multi-instance mode - SQLite won't work
+            if is_multi_instance:
+                raise RuntimeError(
+                    f"MARKETPLACE STORE: ARAGORA_MULTI_INSTANCE=true requires PostgreSQL. "
+                    f"SQLite fallback is not supported for multi-instance deployments. "
+                    f"PostgreSQL error: {e}"
+                ) from e
+            if is_production:
+                logger.warning(
+                    f"MARKETPLACE STORE: PostgreSQL not available in production, "
+                    f"falling back to SQLite. Error: {e}"
+                )
+            else:
+                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
             _marketplace_store = MarketplaceStore()
     else:  # Default: sqlite
+        # Check multi-instance requirements
+        if is_multi_instance:
+            raise RuntimeError(
+                "MARKETPLACE STORE: ARAGORA_MULTI_INSTANCE=true requires PostgreSQL. "
+                "SQLite is not supported for multi-instance deployments. "
+                "Set ARAGORA_DB_BACKEND=postgres or ARAGORA_MARKETPLACE_STORE_BACKEND=postgres."
+            )
+        if is_production:
+            logger.warning(
+                "MARKETPLACE STORE: Using SQLite in production. "
+                "Consider PostgreSQL for better performance and multi-instance support."
+            )
         logger.info("Using SQLite marketplace store")
         _marketplace_store = MarketplaceStore()
 
