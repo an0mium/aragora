@@ -781,7 +781,7 @@ class CrossSubscriberManager:
 
         # Update RLM compression hints based on access patterns
         try:
-            from aragora.rlm.compressor import get_compressor
+            from aragora.rlm.compressor import get_compressor  # type: ignore[attr-defined]
 
             compressor = get_compressor()
             if compressor and hasattr(compressor, "record_access_pattern"):
@@ -817,7 +817,7 @@ class CrossSubscriberManager:
 
         # Update agent pool weights for future team selection
         try:
-            from aragora.debate.agent_pool import get_agent_pool
+            from aragora.debate.agent_pool import get_agent_pool  # type: ignore[attr-defined]
 
             pool = get_agent_pool()
             if pool and hasattr(pool, "update_elo_weight"):
@@ -856,7 +856,7 @@ class CrossSubscriberManager:
                     "node_type": node_type,
                     "workspace_id": workspace_id,
                 }
-                memory.store(
+                memory.store(  # type: ignore[call-arg]
                     content=memory_content,
                     importance=0.6,  # Default importance for knowledge references
                     metadata=metadata,
@@ -887,7 +887,7 @@ class CrossSubscriberManager:
 
         # Update agent pool with calibration data
         try:
-            from aragora.debate.agent_pool import get_agent_pool
+            from aragora.debate.agent_pool import get_agent_pool  # type: ignore[attr-defined]
 
             pool = get_agent_pool()
             if pool and hasattr(pool, "update_calibration"):
@@ -1273,7 +1273,7 @@ class CrossSubscriberManager:
         record_km_outbound_event("rlm", event.type.value)
 
         try:
-            from aragora.rlm.compressor import get_compressor
+            from aragora.rlm.compressor import get_compressor  # type: ignore[attr-defined]
 
             compressor = get_compressor()
             if compressor and hasattr(compressor, "update_priority_hints"):
