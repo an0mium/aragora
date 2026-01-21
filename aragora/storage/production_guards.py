@@ -276,7 +276,7 @@ def check_multi_instance_readiness() -> dict[str, bool]:
     Returns:
         Dict mapping store names to readiness status
     """
-    from aragora.storage import (
+    from aragora.storage import (  # type: ignore[attr-defined]
         get_integration_store,
         get_webhook_config_store,
         get_gmail_token_store,

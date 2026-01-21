@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult, Environment
-    from aragora.knowledge.mound.types import KnowledgeMound
+    from aragora.knowledge.mound.types import KnowledgeMound  # type: ignore[attr-defined]
     from aragora.knowledge.mound.metrics import KMMetrics
 
 logger = logging.getLogger(__name__)

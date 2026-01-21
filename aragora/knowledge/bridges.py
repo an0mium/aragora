@@ -32,7 +32,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.evidence.collector import Evidence as CollectorEvidence
+    from aragora.evidence.collector import Evidence as CollectorEvidence  # type: ignore[attr-defined]
     from aragora.knowledge.mound import KnowledgeMound
     from aragora.learning.meta import HyperparameterState, LearningMetrics
 

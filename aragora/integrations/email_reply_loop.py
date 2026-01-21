@@ -978,7 +978,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
 
     # Alternative: Try queue-based submission
     try:
-        from aragora.queue import create_user_input_job
+        from aragora.queue import create_user_input_job  # type: ignore[attr-defined]
 
         job = create_user_input_job(
             debate_id=debate_id,

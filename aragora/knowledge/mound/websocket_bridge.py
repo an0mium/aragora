@@ -277,7 +277,8 @@ class KMWebSocketBridge:
             callback=self._emit_callback,
             batch_interval_ms=batch_interval_ms,
             max_batch_size=max_batch_size,
-            passthrough_event_types=passthrough_events or [
+            passthrough_event_types=passthrough_events
+            or [
                 "km_error",
                 "km_sync_failed",
             ],
@@ -402,14 +403,13 @@ class KMWebSocketBridge:
 
                 # Record Prometheus metric
                 try:
-                    from aragora.observability.metrics import record_km_event_emitted
+                    from aragora.observability.metrics import record_km_event_emitted  # type: ignore[attr-defined]
+
                     record_km_event_emitted(event_type)
                 except ImportError:
                     pass
             else:
-                logger.debug(
-                    "[km_websocket] No event loop available, event not broadcast"
-                )
+                logger.debug("[km_websocket] No event loop available, event not broadcast")
 
         except Exception as e:
             logger.warning(f"[km_websocket] Failed to emit event: {e}")
