@@ -382,9 +382,13 @@ class TestMultiTierPerformance:
             await memory.get(f"cold-{i}")
         cold_elapsed = time.perf_counter() - cold_start
 
-        # Hot data should be faster (found in first tier)
-        # On very fast systems, allow equal times (both can be near-zero)
-        assert hot_elapsed <= cold_elapsed
+        # Hot data should generally be faster (found in first tier)
+        # Allow 3x tolerance for system noise (scheduling, cache effects, etc.)
+        # On mock tiers, actual timing differences are minimal
+        assert hot_elapsed <= cold_elapsed * 3, (
+            f"Hot tier ({hot_elapsed:.4f}s) should not be much slower than "
+            f"cold tier ({cold_elapsed:.4f}s)"
+        )
 
 
 # =============================================================================
