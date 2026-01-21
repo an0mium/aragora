@@ -862,6 +862,245 @@ await mound.delete_document_knowledge(document_id="doc_456")
 
 ---
 
+## Write Ordering and Conflict Resolution
+
+The Knowledge Mound uses two coordination layers that work together to ensure data consistency:
+
+1. **MemoryCoordinator** (`aragora/memory/coordinator.py`) - Atomic writes across memory systems
+2. **BidirectionalCoordinator** (`aragora/knowledge/mound/bidirectional_coordinator.py`) - Sync between KM and adapters
+
+### Write Order
+
+When a debate completes, writes occur in this deterministic order:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Debate Completes                           │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│  1. MemoryCoordinator.commit_debate_outcome()                │
+│     (Atomic transaction across core memory systems)          │
+│                                                              │
+│     Order (sequential by default, parallel optional):        │
+│     ├── continuum  →  ContinuumMemory.store_pattern()       │
+│     ├── consensus  →  ConsensusMemory.store_consensus()     │
+│     ├── critique   →  CritiqueStore.store_result()          │
+│     └── mound      →  KnowledgeMound.ingest_debate_outcome()│
+│                       (only if confidence ≥ 0.7)            │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│  2. BidirectionalCoordinator.run_bidirectional_sync()        │
+│     (Adapter sync in priority order)                         │
+│                                                              │
+│     Forward Sync (Source → KM) by priority:                  │
+│     ├── priority=100: continuum_adapter                      │
+│     ├── priority=90:  consensus_adapter                      │
+│     ├── priority=80:  critique_adapter                       │
+│     ├── priority=70:  evidence_adapter                       │
+│     ├── priority=60:  belief_adapter                         │
+│     ├── priority=50:  insights_adapter                       │
+│     ├── priority=40:  elo_adapter                            │
+│     ├── priority=30:  pulse_adapter                          │
+│     └── priority=10:  cost_adapter (opt-in)                  │
+│                                                              │
+│     Reverse Sync (KM → Source) same priority order           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Transaction Semantics
+
+**MemoryCoordinator** provides transaction-like semantics:
+
+```python
+from aragora.memory.coordinator import MemoryCoordinator, CoordinatorOptions
+
+coordinator = MemoryCoordinator(
+    continuum_memory=continuum,
+    consensus_memory=consensus,
+    critique_store=critique,
+    knowledge_mound=mound,
+)
+
+# Sequential writes with rollback on failure (default, safest)
+tx = await coordinator.commit_debate_outcome(
+    ctx=debate_context,
+    options=CoordinatorOptions(
+        parallel_writes=False,       # Sequential execution
+        rollback_on_failure=True,    # Rollback successful writes if any fail
+        min_confidence_for_mound=0.7,  # Skip KM for low-confidence outcomes
+    ),
+)
+
+if tx.partial_failure:
+    # Transaction was rolled back
+    failed_ops = tx.get_failed_operations()
+    for op in failed_ops:
+        logger.error(f"{op.target} failed: {op.error}")
+```
+
+### Rollback Behavior
+
+When `rollback_on_failure=True` (default) and a write fails:
+
+1. Writes stop immediately (in sequential mode)
+2. All successful writes are rolled back **in reverse order**
+3. Rollback handlers call delete methods on each system:
+
+| System | Rollback Method | Behavior |
+|--------|-----------------|----------|
+| `continuum` | `delete(memory_id, archive=True)` | Archives the entry |
+| `consensus` | `delete_consensus(cascade_dissents=True)` | Cascades to dissents |
+| `critique` | `delete_debate(cascade_critiques=True)` | Cascades to critiques |
+| `mound` | `delete_entry(km_id, archive=True)` | Archives the node |
+
+### Conflict Resolution
+
+When adapters produce conflicting data, the following rules apply:
+
+#### 1. Source of Truth Hierarchy
+
+```
+┌─────────────────────────────────────────┐
+│  HIGHEST AUTHORITY                       │
+│  ───────────────────                     │
+│  1. User-provided knowledge (manual)     │
+│  2. Debate consensus (multi-agent)       │
+│  3. Verified facts (high confidence)     │
+│  4. Evidence (reliability-weighted)      │
+│  5. Individual agent claims (lowest)     │
+└─────────────────────────────────────────┘
+```
+
+#### 2. Confidence-Based Precedence
+
+When two items conflict, the higher-confidence item wins:
+
+```python
+# Example: Two adapters report conflicting values
+item_a = {"confidence": 0.85, "source": "debate"}
+item_b = {"confidence": 0.72, "source": "evidence"}
+
+# item_a wins due to higher confidence
+# item_b may be marked as "superseded" or linked as "contradicts"
+```
+
+#### 3. Timestamp Tiebreaker
+
+When confidence is equal, the most recent write wins:
+
+```python
+# Same confidence, different timestamps
+item_a = {"confidence": 0.8, "timestamp": "2026-01-21T10:00:00Z"}
+item_b = {"confidence": 0.8, "timestamp": "2026-01-21T10:05:00Z"}
+
+# item_b wins (more recent)
+```
+
+#### 4. Staleness Marking
+
+Superseded items are not deleted; they're marked as stale:
+
+```python
+# Original item becomes stale with reason
+stale_item = StalenessCheck(
+    node_id="original-123",
+    staleness_score=0.8,
+    reason=StalenessReason.CONTRADICTION,
+    superseded_by="new-456",
+)
+```
+
+### Concurrent Write Protection
+
+The BidirectionalCoordinator prevents concurrent sync operations:
+
+```python
+class BidirectionalCoordinator:
+    async def run_bidirectional_sync(self, ...):
+        async with self._sync_lock:
+            if self._sync_in_progress:
+                return BidirectionalSyncReport(
+                    metadata={"error": "Sync already in progress"}
+                )
+            self._sync_in_progress = True
+
+        # ... sync operations ...
+```
+
+For high-concurrency environments, configure appropriate timeouts:
+
+```python
+from aragora.knowledge.mound.bidirectional_coordinator import (
+    BidirectionalCoordinator,
+    CoordinatorConfig,
+)
+
+config = CoordinatorConfig(
+    sync_interval_seconds=300,    # 5 minutes between auto-syncs
+    timeout_seconds=60.0,         # Per-adapter timeout
+    parallel_sync=True,           # Sync adapters in parallel
+    max_retries=3,                # Retry failed operations
+    retry_delay_seconds=1.0,      # Delay between retries
+)
+
+coordinator = BidirectionalCoordinator(config=config)
+```
+
+### Adapter Registration Priority
+
+Adapters sync in priority order (highest first). This ensures critical data is processed first:
+
+| Priority | Adapter | Rationale |
+|----------|---------|-----------|
+| 100 | `continuum` | Core memory, needed for all downstream ops |
+| 90 | `consensus` | Authoritative debate outcomes |
+| 80 | `critique` | Patterns depend on consensus |
+| 70 | `evidence` | Supporting data for knowledge |
+| 60 | `belief` | Depends on evidence |
+| 50 | `insights` | Analytical layer |
+| 40 | `elo` | Agent rankings (operational) |
+| 30 | `pulse` | Trending topics (operational) |
+| 10 | `cost` | Cost tracking (opt-in) |
+
+### Error Handling Recommendations
+
+1. **Always check transaction success:**
+   ```python
+   tx = await coordinator.commit_debate_outcome(ctx)
+   if not tx.success:
+       if tx.rolled_back:
+           logger.warning("Transaction rolled back")
+       else:
+           # Partial failure without rollback
+           logger.error("Inconsistent state - manual intervention required")
+   ```
+
+2. **Monitor adapter errors:**
+   ```python
+   status = coordinator.get_status()
+   for name, adapter_status in status["adapters"].items():
+       if adapter_status["forward_errors"] > 5:
+           logger.warning(f"Adapter {name} has {adapter_status['forward_errors']} errors")
+   ```
+
+3. **Use sequential writes for critical data:**
+   ```python
+   # For financial/compliance data, use sequential writes
+   options = CoordinatorOptions(
+       parallel_writes=False,
+       rollback_on_failure=True,
+   )
+   ```
+
+4. **Implement idempotent handlers:**
+   All adapter write methods should be idempotent to handle retries safely.
+
+---
+
 ## Best Practices
 
 1. **Use Workspaces for Isolation** - Always specify `workspace_id` for multi-tenant deployments
