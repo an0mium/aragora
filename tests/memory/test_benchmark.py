@@ -47,6 +47,8 @@ def mock_continuum_memory():
     memory = MagicMock()
     memory.add = AsyncMock(return_value="entry-123")
     memory.add_with_metadata = AsyncMock(return_value="entry-123")
+    # MemoryCoordinator calls store_pattern, not add
+    memory.store_pattern = MagicMock(return_value="entry-123")
     return memory
 
 
@@ -56,6 +58,10 @@ def mock_consensus_memory():
     memory = MagicMock()
     memory.add_consensus = AsyncMock(return_value="consensus-123")
     memory.add = AsyncMock(return_value="consensus-123")
+    # MemoryCoordinator calls store_consensus and accesses .id on result
+    consensus_record = MagicMock()
+    consensus_record.id = "consensus-123"
+    memory.store_consensus = MagicMock(return_value=consensus_record)
     return memory
 
 
@@ -65,6 +71,8 @@ def mock_critique_store():
     store = MagicMock()
     store.add_critique = AsyncMock(return_value="critique-123")
     store.add = AsyncMock(return_value="critique-123")
+    # MemoryCoordinator calls store_result
+    store.store_result = MagicMock(return_value=None)
     return store
 
 
@@ -74,6 +82,8 @@ def mock_knowledge_mound():
     mound = MagicMock()
     mound.ingest = AsyncMock(return_value=None)
     mound.add = AsyncMock(return_value="node-123")
+    # MemoryCoordinator calls ingest_debate_outcome
+    mound.ingest_debate_outcome = AsyncMock(return_value="node-123")
     return mound
 
 
