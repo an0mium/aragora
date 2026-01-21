@@ -290,3 +290,212 @@ groups:
         annotations:
           summary: "Error budget critically low"
           description: "Only {{ $value }}% of error budget remains. Immediate action required."
+
+  - name: aragora.marketplace
+    interval: 30s
+    rules:
+      # Template download failures
+      - alert: AragoraMarketplaceDownloadFailures
+        expr: |
+          (
+            sum(rate(aragora_marketplace_downloads_total{status="failed"}[5m])) /
+            sum(rate(aragora_marketplace_downloads_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: marketplace
+        annotations:
+          summary: "High marketplace download failure rate"
+          description: "{{ $value | humanizePercentage }} of template downloads are failing."
+
+      # Low average rating (quality signal)
+      - alert: AragoraMarketplaceRatingDrop
+        expr: |
+          avg(aragora_marketplace_template_rating) < 3.0
+        for: 1h
+        labels:
+          severity: info
+          component: marketplace
+        annotations:
+          summary: "Marketplace average rating is low"
+          description: "Average template rating is {{ $value }}. This may indicate quality issues."
+
+      # No new templates published (stale marketplace)
+      - alert: AragoraMarketplaceNoPublishes
+        expr: |
+          sum(increase(aragora_marketplace_publishes_total[7d])) == 0
+        for: 1h
+        labels:
+          severity: info
+          component: marketplace
+        annotations:
+          summary: "No new templates published in 7 days"
+          description: "The marketplace hasn't received new templates in a week."
+
+      # Search returning no results frequently
+      - alert: AragoraMarketplaceSearchNoResults
+        expr: |
+          (
+            sum(rate(aragora_marketplace_searches_total{results="empty"}[1h])) /
+            sum(rate(aragora_marketplace_searches_total[1h]))
+          ) > 0.3
+        for: 30m
+        labels:
+          severity: warning
+          component: marketplace
+        annotations:
+          summary: "High rate of empty search results"
+          description: "{{ $value | humanizePercentage }} of marketplace searches return no results."
+
+  - name: aragora.batch_explainability
+    interval: 30s
+    rules:
+      # Batch job failures
+      - alert: AragoraBatchJobFailures
+        expr: |
+          (
+            sum(rate(aragora_explainability_batch_jobs_total{status="failed"}[15m])) /
+            sum(rate(aragora_explainability_batch_jobs_total[15m]))
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: batch_explainability
+        annotations:
+          summary: "High batch explainability job failure rate"
+          description: "{{ $value | humanizePercentage }} of batch jobs are failing."
+
+      - alert: AragoraBatchJobFailuresCritical
+        expr: |
+          (
+            sum(rate(aragora_explainability_batch_jobs_total{status="failed"}[5m])) /
+            sum(rate(aragora_explainability_batch_jobs_total[5m]))
+          ) > 0.25
+        for: 5m
+        labels:
+          severity: critical
+          component: batch_explainability
+        annotations:
+          summary: "Critical batch job failure rate"
+          description: "{{ $value | humanizePercentage }} of batch jobs are failing. Immediate investigation required."
+
+      # Long-running batch jobs
+      - alert: AragoraBatchJobStuck
+        expr: |
+          aragora_explainability_batch_job_duration_seconds > 1800
+        for: 5m
+        labels:
+          severity: warning
+          component: batch_explainability
+        annotations:
+          summary: "Batch job running for over 30 minutes"
+          description: "A batch explainability job has been running for {{ $value | humanizeDuration }}."
+
+      # Queue depth too high
+      - alert: AragoraBatchQueueBacklog
+        expr: |
+          aragora_explainability_batch_jobs_active > 20
+        for: 10m
+        labels:
+          severity: warning
+          component: batch_explainability
+        annotations:
+          summary: "Batch job queue backlog"
+          description: "{{ $value }} batch jobs are queued. Consider scaling workers."
+
+      # Comparison quality degradation
+      - alert: AragoraBatchComparisonQualityLow
+        expr: |
+          avg(aragora_explainability_comparison_score) < 0.5
+        for: 1h
+        labels:
+          severity: info
+          component: batch_explainability
+        annotations:
+          summary: "Low batch comparison quality scores"
+          description: "Average comparison quality is {{ $value }}. Explanations may need review."
+
+  - name: aragora.webhooks
+    interval: 30s
+    rules:
+      # Webhook delivery failures
+      - alert: AragoraWebhookDeliveryFailures
+        expr: |
+          (
+            sum(rate(aragora_webhook_deliveries_total{status="failed"}[5m])) /
+            sum(rate(aragora_webhook_deliveries_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: webhooks
+        annotations:
+          summary: "Webhook delivery failure rate elevated"
+          description: "{{ $value | humanizePercentage }} of webhook deliveries are failing."
+
+      - alert: AragoraWebhookDeliveryFailuresCritical
+        expr: |
+          (
+            sum(rate(aragora_webhook_deliveries_total{status="failed"}[5m])) /
+            sum(rate(aragora_webhook_deliveries_total[5m]))
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          component: webhooks
+        annotations:
+          summary: "Critical webhook delivery failure rate"
+          description: "{{ $value | humanizePercentage }} of webhooks failing. Receipt notifications may be delayed."
+          runbook_url: "https://docs.aragora.ai/runbook/webhook-failures"
+
+      # High delivery latency
+      - alert: AragoraWebhookLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(aragora_webhook_delivery_latency_bucket[5m])) by (le))
+          > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: webhooks
+        annotations:
+          summary: "Webhook delivery latency is high"
+          description: "p95 webhook delivery latency is {{ $value | humanizeDuration }}."
+
+      # Specific endpoint failing repeatedly
+      - alert: AragoraWebhookEndpointUnhealthy
+        expr: |
+          aragora_webhook_failures_by_endpoint > 5
+        for: 15m
+        labels:
+          severity: warning
+          component: webhooks
+        annotations:
+          summary: "Webhook endpoint repeatedly failing"
+          description: "Endpoint {{ $labels.webhook_url }} has failed {{ $value }} times. Consider disabling."
+
+      # No webhook deliveries (possible outage)
+      - alert: AragoraWebhookNoDeliveries
+        expr: |
+          sum(rate(aragora_webhook_deliveries_total[30m])) == 0
+          and aragora_webhooks_registered_total > 0
+        for: 30m
+        labels:
+          severity: warning
+          component: webhooks
+        annotations:
+          summary: "No webhook deliveries despite active webhooks"
+          description: "Webhooks are registered but no deliveries have occurred in 30 minutes."
+
+      # Receipt notification delays
+      - alert: AragoraReceiptNotificationDelay
+        expr: |
+          histogram_quantile(0.95, sum(rate(aragora_receipt_notification_latency_bucket[5m])) by (le))
+          > 10
+        for: 10m
+        labels:
+          severity: warning
+          component: webhooks
+        annotations:
+          summary: "Receipt notifications are delayed"
+          description: "p95 receipt notification latency is {{ $value | humanizeDuration }}."

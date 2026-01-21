@@ -1,32 +1,23 @@
 # Aragora Ingress
-# Requires an Ingress Controller (nginx-ingress, traefik, etc.)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: aragora
+  name: aragora-ingress
   namespace: aragora
-  labels:
-    app.kubernetes.io/name: aragora
   annotations:
-    # Nginx Ingress annotations
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     # WebSocket support
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
-    # SSL redirect
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    # Rate limiting (optional)
-    nginx.ingress.kubernetes.io/limit-rps: "50"
-    nginx.ingress.kubernetes.io/limit-connections: "10"
-    # cert-manager for TLS
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-set-headers: "aragora/custom-headers"
 spec:
-  ingressClassName: nginx
   tls:
     - hosts:
         - aragora.example.com
+        - api.aragora.example.com
       secretName: aragora-tls
   rules:
     - host: aragora.example.com
@@ -36,6 +27,26 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: aragora
+                name: aragora-frontend
                 port:
-                  name: http
+                  number: 3000
+    - host: api.aragora.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aragora-backend
+                port:
+                  number: 8080
+---
+# Custom headers ConfigMap for WebSocket upgrade
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: aragora
+data:
+  Upgrade: "$http_upgrade"
+  Connection: "upgrade"

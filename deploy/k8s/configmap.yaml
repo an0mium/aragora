@@ -1,71 +1,11 @@
-# Aragora ConfigMap - Non-sensitive configuration
+# Aragora ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: aragora-config
   namespace: aragora
-  labels:
-    app.kubernetes.io/name: aragora
-    app.kubernetes.io/component: config
 data:
-  # Server settings
-  ARAGORA_HOST: "0.0.0.0"
-  ARAGORA_PORT: "8080"
-
-  # CORS and security
-  ARAGORA_ALLOWED_ORIGINS: "https://aragora.example.com"
-  ARAGORA_TRUSTED_PROXIES: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
-
-  # Performance tuning
-  ARAGORA_MAX_CONCURRENT_DEBATES: "10"
-  ARAGORA_DEBATE_TIMEOUT: "300"
-
-  # Redis Configuration
-  # For single-node Redis:
-  REDIS_URL: "redis://aragora-redis:6379"
-  ARAGORA_REDIS_URL: "redis://aragora-redis:6379"
-
-  # For Redis Cluster (uncomment and configure):
-  # ARAGORA_REDIS_CLUSTER_MODE: "cluster"
-  # ARAGORA_REDIS_CLUSTER_NODES: "redis-cluster-0.redis-cluster:6379,redis-cluster-1.redis-cluster:6379,redis-cluster-2.redis-cluster:6379"
-
-  # Connection pool settings
-  ARAGORA_POOL_MIN_CONNECTIONS: "5"
-  ARAGORA_POOL_MAX_CONNECTIONS: "50"
-  ARAGORA_POOL_IDLE_TIMEOUT: "300"
-  ARAGORA_REDIS_SOCKET_TIMEOUT: "5.0"
-
-  # Rate limiting
-  ARAGORA_RATE_LIMIT: "100"
-  ARAGORA_IP_RATE_LIMIT: "200"
-
-  # Logging
   ARAGORA_LOG_LEVEL: "INFO"
-  ARAGORA_LOG_FORMAT: "json"
-
-  # JWT settings
-  JWT_ALGORITHM: "HS256"
-  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "30"
-  JWT_REFRESH_TOKEN_EXPIRE_DAYS: "7"
-
-  # Observability - Metrics and Tracing
-  METRICS_ENABLED: "true"
-  TRACING_ENABLED: "true"
-  DECISION_METRICS_ENABLED: "true"
-
-  # OpenTelemetry configuration
-  OTEL_SERVICE_NAME: "aragora"
-  OTEL_TRACES_EXPORTER: "otlp"
-  OTEL_METRICS_EXPORTER: "prometheus"
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability:4317"
-  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-  OTEL_RESOURCE_ATTRIBUTES: "service.namespace=aragora,deployment.environment=production"
-
-  # Decision Router Configuration
-  DECISION_CACHE_ENABLED: "true"
-  DECISION_CACHE_TTL: "3600"
-  DECISION_DEDUP_ENABLED: "true"
-  DECISION_DEDUP_TIMEOUT: "60"
-
-  # Prometheus metrics endpoint
-  PROMETHEUS_MULTIPROC_DIR: "/tmp/prometheus_multiproc"
+  ARAGORA_ALLOWED_ORIGINS: "https://aragora.example.com"
+  NEXT_PUBLIC_API_URL: "https://api.aragora.example.com"
+  NEXT_PUBLIC_WS_URL: "wss://api.aragora.example.com"

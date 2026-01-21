@@ -1,0 +1,61 @@
+# Aragora Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aragora-frontend
+  namespace: aragora
+  labels:
+    app: aragora-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aragora-frontend
+  template:
+    metadata:
+      labels:
+        app: aragora-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: aragora/frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aragora-config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aragora-frontend
+  namespace: aragora
+spec:
+  selector:
+    app: aragora-frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  type: ClusterIP

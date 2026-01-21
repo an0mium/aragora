@@ -1,2526 +1,402 @@
-# Aragora Operational Runbook
+# Aragora Operations Runbook
 
-This runbook provides procedures for common operational issues, debugging, and recovery.
+This runbook provides procedures for common operational tasks and incident response.
 
 ## Table of Contents
 
-- [Quick Reference](#quick-reference)
-- [Common Issues](#common-issues)
-- [Debugging Procedures](#debugging-procedures)
-- [Admin Console & Developer Portal](#admin-console--developer-portal)
-- [Multi-Factor Authentication (MFA)](#multi-factor-authentication-mfa)
-- [Recovery Procedures](#recovery-procedures)
-- [Health Checks](#health-checks)
-- [Alerts and Responses](#alerts-and-responses)
+1. [Health Checks](#health-checks)
+2. [Common Issues](#common-issues)
+3. [Incident Response](#incident-response)
+4. [Maintenance Procedures](#maintenance-procedures)
+5. [Scaling Operations](#scaling-operations)
+6. [Backup & Recovery](#backup--recovery)
 
 ---
 
-## Quick Reference
+## Health Checks
 
-### Service Ports
-| Service | Port | Protocol |
-|---------|------|----------|
-| API Server | 8080 | HTTP |
-| WebSocket Server | 8765 | WS |
-| Prometheus | 9090 | HTTP |
-| Grafana | 3000 | HTTP |
-| Redis | 6379 | TCP |
+### Service Health
 
-### Key Commands
 ```bash
-# Check service health
-curl http://localhost:8080/api/health
+# Check backend health
+curl -s http://localhost:8080/api/health | jq
 
-# View recent logs
-journalctl -u aragora -n 100 --no-pager
-
-# Check WebSocket connections
-curl http://localhost:8080/api/ws/stats
-
-# Check rate limit status
-curl http://localhost:8080/api/rate-limits/status
-
-# Restart service
-systemctl restart aragora
+# Expected response:
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "components": {
+    "database": "healthy",
+    "redis": "healthy",
+    "agents": "healthy"
+  }
+}
 ```
 
-### Environment Variables
+### Kubernetes Health
+
 ```bash
-# Core
-ARAGORA_API_TOKEN          # API authentication
-ARAGORA_JWT_SECRET         # JWT signing key (required in production)
+# Check pod status
+kubectl -n aragora get pods
 
-# Database
-SUPABASE_URL               # Supabase URL
-SUPABASE_KEY               # Supabase API key
+# Check resource usage
+kubectl -n aragora top pods
 
-# Redis (optional but recommended)
-ARAGORA_REDIS_URL          # redis://host:port/db
-REDIS_URL                  # legacy Redis URL used by queues/oauth
+# Check recent events
+kubectl -n aragora get events --sort-by=.metadata.creationTimestamp | tail -20
+```
 
-# Observability
-SENTRY_DSN                 # Sentry error tracking
-METRICS_ENABLED=true       # Enable Prometheus metrics
+### Database Health
+
+```bash
+# Check PostgreSQL connections
+psql -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';"
+
+# Check database size
+psql -c "SELECT pg_size_pretty(pg_database_size('aragora'));"
 ```
 
 ---
 
 ## Common Issues
 
-### 1. WebSocket Disconnections
+### Issue: High API Latency
 
 **Symptoms:**
-- Clients receiving `WebSocket closed unexpectedly`
-- Missing real-time debate updates
-- `ws_connection_errors` metric increasing
+- Response times >2s
+- Grafana alerts firing
+- User complaints
 
-**Causes:**
-1. Server restart
-2. Network timeout
-3. Rate limiting
-4. Memory pressure
-
-**Resolution:**
-
+**Diagnosis:**
 ```bash
-# Check WebSocket server status
-curl http://localhost:8080/api/health | jq '.checks.websocket'
+# Check current latency
+curl -w "Time: %{time_total}s\n" -o /dev/null -s http://localhost:8080/api/health
 
-# Check connection count
-curl http://localhost:8080/api/ws/stats
-
-# If connections are stuck, restart WebSocket handler
-# (This preserves API functionality)
-kill -USR1 $(pgrep -f aragora)  # Graceful reload if supported
-```
-
-**Prevention:**
-- Implement client-side reconnection with exponential backoff
-- Monitor `aragora_websocket_connections` metric
-- Set up alerts when connections exceed 80% of max
-
-#### nginx WebSocket Configuration (502 Errors)
-
-If using nginx as a reverse proxy, WebSocket connections require specific configuration to avoid 502 errors:
-
-**Symptoms:**
-- `wss://api.aragora.ai/ws` returns 502 Bad Gateway
-- WebSocket connections work locally but fail behind nginx
-- Connections drop immediately after upgrade
-
-**Required nginx Configuration:**
-
-```nginx
-# /etc/nginx/sites-available/aragora-api
-upstream aragora_api {
-    server 127.0.0.1:8080;
-}
-
-upstream aragora_ws {
-    server 127.0.0.1:8765;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name api.aragora.ai;
-
-    # SSL configuration (managed by certbot or similar)
-    ssl_certificate /etc/letsencrypt/live/api.aragora.ai/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.aragora.ai/privkey.pem;
-
-    # Regular API endpoints
-    location /api/ {
-        proxy_pass http://aragora_api;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # WebSocket endpoint - CRITICAL: requires upgrade headers
-    location /ws {
-        proxy_pass http://aragora_ws;
-        proxy_http_version 1.1;
-
-        # Required for WebSocket upgrade
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        # Forward client info
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-        # Timeouts for long-lived connections
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-
-        # Disable buffering for real-time
-        proxy_buffering off;
-    }
-}
-```
-
-**Key Configuration Points:**
-
-| Setting | Purpose |
-|---------|---------|
-| `proxy_http_version 1.1` | Required for WebSocket (HTTP/1.1 keep-alive) |
-| `Upgrade $http_upgrade` | Passes WebSocket upgrade header |
-| `Connection "upgrade"` | Signals connection upgrade |
-| `proxy_read_timeout 3600s` | Prevents timeout during long debates |
-| `proxy_buffering off` | Ensures real-time event delivery |
-
-**Testing WebSocket After Configuration:**
-
-```bash
-# Test nginx config
-sudo nginx -t
-
-# Reload nginx
-sudo systemctl reload nginx
-
-# Test WebSocket connection
-websocat wss://api.aragora.ai/ws -v
-
-# Or with curl (shows upgrade headers)
-curl -v -N \
-  -H "Connection: Upgrade" \
-  -H "Upgrade: websocket" \
-  -H "Sec-WebSocket-Version: 13" \
-  -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
-  https://api.aragora.ai/ws
-```
-
-**Cloudflare Considerations:**
-
-If using Cloudflare, ensure WebSocket support is enabled:
-1. Log into Cloudflare Dashboard
-2. Select domain → Network
-3. Enable "WebSockets" toggle
-4. Set SSL/TLS mode to "Full" or "Full (strict)"
-
----
-
-### 2. Rate Limit False Positives
-
-**Symptoms:**
-- Legitimate users receiving 429 responses
-- `rate_limit_hits` metric spiking
-- Complaints about API access
-
-**Causes:**
-1. Shared IP (corporate NAT, VPN)
-2. Rate limit configuration too strict
-3. Redis connectivity issues
-
-**Resolution:**
-
-```bash
-# Check current rate limit config
-curl http://localhost:8080/api/rate-limits/config
-
-# Check if Redis is connected
-redis-cli ping
-
-# View blocked IPs (if logged)
-grep "rate_limit" /var/log/aragora/api.log | tail -20
-
-# Temporarily increase limits (requires restart)
-export ARAGORA_RATE_LIMIT_DEBATE_RPM=20
-systemctl restart aragora
-```
-
-**Whitelist Specific IPs:**
-```python
-# In config or environment
-ARAGORA_RATE_LIMIT_WHITELIST=10.0.0.0/8,192.168.0.0/16
-```
-
----
-
-### 3. Agent Timeout Handling
-
-**Symptoms:**
-- Debates not completing
-- `aragora_debates_total{status="timeout"}` increasing
-- Individual agents timing out
-
-**Causes:**
-1. LLM provider latency spike
-2. Complex debate topics
-3. Network issues to AI providers
-
-**Resolution:**
-
-```bash
-# Check circuit breaker status
-curl http://localhost:8080/api/agents/circuit-breakers
+# Check active debates
+curl -s http://localhost:8080/api/admin/stats | jq '.active_debates'
 
 # Check agent response times
-curl http://localhost:8080/api/metrics | grep agent_response
-
-# Reset a stuck circuit breaker
-curl -X POST http://localhost:8080/api/agents/claude/reset-circuit
-
-# Increase timeouts temporarily
-export ARAGORA_AGENT_TIMEOUT_SECONDS=120
-systemctl restart aragora
+kubectl -n aragora logs deployment/aragora-backend --tail=100 | grep "agent_response_time"
 ```
-
-**Agent-Specific Checks:**
-```bash
-# Test individual agent
-curl -X POST http://localhost:8080/api/debug/agent-test \
-  -H "Content-Type: application/json" \
-  -d '{"agent": "claude", "prompt": "Say hello"}'
-```
-
-#### Agent Error Events (AGENT_ERROR)
-
-The system emits `agent_error` WebSocket events when an agent fails but the debate continues. These provide visibility into transient failures.
-
-**Event Format:**
-```json
-{
-  "type": "agent_error",
-  "timestamp": "2026-01-15T10:30:00Z",
-  "agent": "mistral_proposer",
-  "data": {
-    "error_type": "timeout",
-    "message": "Agent timed out after 180s",
-    "recoverable": true,
-    "phase": "proposal"
-  }
-}
-```
-
-**Error Types:**
-
-| Error Type | Description | Recoverable |
-|------------|-------------|-------------|
-| `timeout` | Agent exceeded response timeout | Yes |
-| `quota_exceeded` | Provider rate limit hit | Yes (with fallback) |
-| `empty_output` | Agent returned empty response | Yes |
-| `api_error` | Provider API returned error | Depends |
-| `circuit_open` | Circuit breaker tripped | Yes (after cooldown) |
-| `sanitization` | Output contained invalid chars | Yes |
-
-**Monitoring Agent Errors:**
-
-```bash
-# Watch for agent errors in real-time (via WebSocket client)
-websocat wss://api.aragora.ai/ws | jq 'select(.type == "agent_error")'
-
-# Check agent error metrics
-curl http://localhost:8080/api/metrics | grep agent_error
-
-# View recent agent errors via API
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/system/errors?type=agent_error&limit=20
-```
-
-**Interpreting Error Messages:**
-
-| Message | Cause | Action |
-|---------|-------|--------|
-| "tripped over an edge case and is recovering" | ChaosDirector theatrical message for timeout/error | Normal - agent will retry or fallback |
-| "(Agent produced empty output)" | OutputSanitizer detected empty response | Check agent provider status |
-| "Agent timed out after Xs" | Response exceeded timeout | Consider increasing timeout |
-| "Circuit breaker open" | Too many consecutive failures | Wait for cooldown or manual reset |
-
-**Fallback Chain Behavior:**
-
-When an API agent fails, the system automatically tries fallback models via OpenRouter:
-
-```
-Primary Model → OpenRouter Fallback Chain:
-  1. anthropic/claude-sonnet-4
-  2. openai/gpt-4o
-  3. google/gemini-2.0-flash-thinking-exp
-  4. meta-llama/llama-3.1-70b-instruct
-```
-
-The fallback is triggered on:
-- 429 (Rate limit exceeded)
-- 503 (Service unavailable)
-- Connection timeout
-- Empty response after retries
-
----
-
-### 4. Database Connection Exhaustion
-
-**Symptoms:**
-- `OperationalError: too many connections`
-- Slow API responses
-- Health check database failures
-
-**Causes:**
-1. Connection pool exhaustion
-2. Long-running transactions
-3. Connection leaks
-4. Sudden traffic spike
 
 **Resolution:**
-
-```bash
-# Check connection count (PostgreSQL)
-psql -c "SELECT count(*) FROM pg_stat_activity WHERE datname='aragora';"
-
-# Kill idle connections older than 10 minutes
-psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity
-         WHERE datname='aragora' AND state='idle'
-         AND state_change < now() - interval '10 minutes';"
-
-# Increase pool size (if resources allow)
-export ARAGORA_DB_POOL_SIZE=20
-export ARAGORA_DB_MAX_OVERFLOW=10
-systemctl restart aragora
-```
+1. Scale up backend replicas: `kubectl -n aragora scale deployment/aragora-backend --replicas=4`
+2. Check for slow database queries
+3. Verify external API quotas (Anthropic, OpenAI)
+4. Clear Redis cache if stale: `redis-cli FLUSHDB`
 
 ---
 
-### 5. Memory Pressure
+### Issue: WebSocket Disconnections
 
 **Symptoms:**
-- OOM killer terminating process
-- Slow response times
-- `process_resident_memory_bytes` climbing
+- Clients losing real-time updates
+- "Connection lost" errors in UI
+- High reconnection rate in metrics
 
-**Causes:**
-1. Memory leak
-2. Large debate results in memory
-3. Cache not evicting
-4. Too many concurrent debates
+**Diagnosis:**
+```bash
+# Check WebSocket connections
+kubectl -n aragora logs deployment/aragora-backend | grep "websocket"
+
+# Check nginx ingress logs
+kubectl -n ingress-nginx logs -l app.kubernetes.io/name=ingress-nginx | grep "websocket"
+```
 
 **Resolution:**
-
-```bash
-# Check memory usage
-ps aux | grep aragora
-cat /proc/$(pgrep -f aragora)/status | grep -E "VmRSS|VmSize"
-
-# Trigger cache cleanup
-curl -X POST http://localhost:8080/api/admin/cleanup-caches
-
-# Reduce concurrent debates
-export ARAGORA_MAX_CONCURRENT_DEBATES=5
-systemctl restart aragora
-
-# If OOM is imminent, graceful restart
-systemctl restart aragora
-```
+1. Verify ingress WebSocket configuration
+2. Check proxy timeout settings (should be >60s)
+3. Verify keep-alive settings
+4. Check for memory pressure causing pod restarts
 
 ---
 
-### 6. Consensus Failures
+### Issue: Agent API Errors
 
 **Symptoms:**
-- Low `aragora_consensus_reached` rate
-- Debates completing without resolution
-- Users reporting inconclusive results
+- Debates failing to complete
+- 429 errors in logs
+- Agent timeouts
 
-**Causes:**
-1. Topic too contentious
-2. Agent disagreement
-3. Voting threshold too high
-4. Insufficient debate rounds
+**Diagnosis:**
+```bash
+# Check error rates
+kubectl -n aragora logs deployment/aragora-backend | grep "rate_limit\|429\|timeout"
+
+# Check API key status
+curl -s https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2024-01-01" \
+  -d '{"model":"claude-3-opus-20240229","max_tokens":1,"messages":[{"role":"user","content":"test"}]}'
+```
 
 **Resolution:**
-
-```bash
-# Check consensus rates
-curl http://localhost:8080/api/metrics | grep consensus
-
-# Review recent failed debates
-curl http://localhost:8080/api/debates?status=no_consensus&limit=10
-
-# Adjust consensus threshold (requires restart)
-export ARAGORA_CONSENSUS_THRESHOLD=0.6
-systemctl restart aragora
-```
+1. Check API quotas with provider
+2. Enable OpenRouter fallback
+3. Reduce concurrent debate limit
+4. Implement request queuing
 
 ---
 
-## Debugging Procedures
-
-### Log Analysis
-
-**Log Locations:**
-```
-/var/log/aragora/api.log         # API server logs
-/var/log/aragora/websocket.log   # WebSocket logs
-/var/log/aragora/debate.log      # Debate execution logs
-/var/log/aragora/agent.log       # Agent communication logs
-```
-
-**Structured Log Format:**
-```json
-{
-  "timestamp": "2024-01-15T10:30:00Z",
-  "level": "INFO",
-  "logger": "aragora.debate.orchestrator",
-  "message": "debate_start",
-  "debate_id": "abc123",
-  "correlation_id": "corr-xyz789",
-  "agents": ["claude", "gpt-4"],
-  "domain": "security"
-}
-```
-
-**Common Log Queries:**
-```bash
-# Find all errors for a specific debate
-grep "debate_id=abc123" /var/log/aragora/*.log | grep -i error
-
-# Find rate limit events
-grep "rate_limit" /var/log/aragora/api.log
-
-# Find circuit breaker events
-grep "circuit_breaker" /var/log/aragora/agent.log
-
-# Find slow requests (>5s)
-grep -E "duration_ms=[5-9][0-9]{3}|duration_ms=[0-9]{5}" /var/log/aragora/api.log
-```
-
-### Correlation ID Tracing
-
-Every request generates a correlation ID for distributed tracing:
-
-```bash
-# Find all logs for a correlation ID
-grep "corr-xyz789" /var/log/aragora/*.log
-
-# In Sentry, search by correlation_id tag
-# In Grafana, use: {correlation_id="corr-xyz789"}
-```
-
-### Memory Profiling
-
-```bash
-# Enable memory profiling (development only)
-export ARAGORA_MEMORY_PROFILING=1
-systemctl restart aragora
-
-# Trigger memory dump
-curl -X POST http://localhost:8080/api/debug/memory-dump
-
-# View memory dump
-cat /tmp/aragora_memory_dump.json | jq '.top_allocations[:10]'
-
-# Check for leaks over time
-watch -n 30 'curl -s http://localhost:8080/api/metrics | grep process_resident'
-```
-
-### Network Debugging
-
-```bash
-# Check API connectivity
-curl -v http://localhost:8080/api/health
-
-# Check WebSocket connectivity
-websocat ws://localhost:8765/ws -v
-
-# Check Redis connectivity
-redis-cli -h localhost ping
-
-# Check DNS resolution for AI providers
-host api.anthropic.com
-host api.openai.com
-
-# Test agent connectivity
-curl -X POST http://localhost:8080/api/debug/connectivity-check
-```
-
----
-
-## Admin Console & Developer Portal
-
-### Admin Console Access Issues
+### Issue: Database Connection Exhaustion
 
 **Symptoms:**
-- `/admin` page loads but panels show “Unauthorized” or empty data
-- 401/403 responses from `/api/system/*` endpoints
+- "too many connections" errors
+- Slow queries
+- Backend pods failing health checks
 
-**Checks:**
+**Diagnosis:**
 ```bash
-# Validate API auth and role
-curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/auth/me
+# Check connection count
+psql -c "SELECT count(*) FROM pg_stat_activity;"
 
-# Health endpoint should always respond
-curl http://localhost:8080/api/health
-
-# Admin endpoints (require admin/owner role)
-curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/system/circuit-breakers
-curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/system/errors?limit=5
-curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/system/rate-limits
+# Check waiting queries
+psql -c "SELECT query, state, wait_event FROM pg_stat_activity WHERE state != 'idle' LIMIT 20;"
 ```
 
-**Common Fixes:**
-- Ensure `ARAGORA_JWT_SECRET` is set in production.
-- Verify the user role is `admin` or `owner`.
-- Confirm CORS allowlist includes the admin host.
-
-### Developer Portal Issues
-
-**Symptoms:**
-- API key missing or cannot be generated
-- Usage data shows zeros or errors
-
-**Checks:**
-```bash
-# Check authenticated user
-curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/auth/me
-
-# Generate/revoke API key
-curl -X POST -H "Authorization: Bearer <access_token>" http://localhost:8080/api/auth/api-key
-curl -X DELETE -H "Authorization: Bearer <access_token>" http://localhost:8080/api/auth/api-key
-
-# Usage stats
-curl -H "Authorization: Bearer <access_token>" http://localhost:8080/api/billing/usage
-```
-
-**Common Fixes:**
-- Check billing configuration if usage metrics are empty.
-- Ensure API key storage backend is available (database health).
+**Resolution:**
+1. Increase connection pool size
+2. Kill idle connections: `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle' AND query_start < now() - interval '10 minutes';`
+3. Scale database instance
+4. Add PgBouncer for connection pooling
 
 ---
 
-## Multi-Factor Authentication (MFA)
+## Incident Response
 
-**SOC 2 Control:** CC5-01 - Administrative access requires MFA
+### Severity Levels
 
-### Overview
+| Level | Description | Response Time | Examples |
+|-------|-------------|---------------|----------|
+| P1 | Service down | 15 min | Complete outage, data loss |
+| P2 | Major degradation | 1 hour | 50%+ errors, major feature broken |
+| P3 | Minor degradation | 4 hours | Single endpoint slow, minor bugs |
+| P4 | Low impact | Next business day | Cosmetic issues, minor UX |
 
-Admin and owner roles are required to have MFA enabled to access administrative endpoints.
-This is enforced at the middleware level in production.
+### P1 Incident Procedure
 
-### MFA Endpoints
+1. **Acknowledge** (within 5 min)
+   - Join incident channel
+   - Assign incident commander
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/mfa/setup` | GET | Get MFA setup QR code and secret |
-| `/api/auth/mfa/enable` | POST | Enable MFA with TOTP code verification |
-| `/api/auth/mfa/disable` | POST | Disable MFA (requires current TOTP code) |
-| `/api/auth/mfa/verify` | POST | Verify TOTP code for session |
-| `/api/auth/mfa/backup-codes` | POST | Generate new backup codes |
+2. **Assess** (within 15 min)
+   - Check all dashboards
+   - Identify affected systems
+   - Determine blast radius
 
-### Setting Up MFA for Admin Users
+3. **Mitigate** (ASAP)
+   - Rollback recent deployments
+   - Scale up resources
+   - Enable maintenance mode if needed
 
-```bash
-# 1. Get MFA setup information (returns QR code URL and secret)
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/auth/mfa/setup
+4. **Communicate**
+   - Update status page
+   - Notify affected customers
+   - Regular updates every 30 min
 
-# Response includes:
-# {
-#   "secret": "ABCD1234...",
-#   "qr_code_url": "otpauth://totp/Aragora:user@example.com?...",
-#   "backup_codes": ["code1", "code2", ...]
-# }
+5. **Resolve**
+   - Implement fix
+   - Verify fix in production
+   - Close incident
 
-# 2. User scans QR code with authenticator app (Google Authenticator, Authy, etc.)
+6. **Post-mortem** (within 48 hours)
+   - Document timeline
+   - Root cause analysis
+   - Action items
 
-# 3. Enable MFA by verifying a TOTP code from the app
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  http://localhost:8080/api/auth/mfa/enable \
-  -d '{"totp_code": "123456"}'
-
-# 4. Store backup codes securely (one-time display)
-```
-
-### Checking MFA Status
+### Rollback Procedure
 
 ```bash
-# Check current user's MFA status
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/auth/me | jq '.mfa_enabled'
+# Get previous deployment
+kubectl -n aragora rollout history deployment/aragora-backend
 
-# Admin: Check MFA status for all users (requires admin role with MFA)
-curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  http://localhost:8080/api/admin/users | jq '.users[] | {email, role, mfa_enabled}'
-```
-
-### MFA Enforcement for Admin Endpoints
-
-Admin endpoints (`/api/admin/*`) automatically enforce MFA for admin/owner roles:
-
-```bash
-# Without MFA enabled - returns 403
-curl -H "Authorization: Bearer $ADMIN_TOKEN_NO_MFA" \
-  http://localhost:8080/api/admin/users
-# Response: {"error": {"code": "ADMIN_MFA_REQUIRED", "message": "..."}}
-
-# With MFA enabled - succeeds
-curl -H "Authorization: Bearer $ADMIN_TOKEN_WITH_MFA" \
-  http://localhost:8080/api/admin/users
-# Response: {"users": [...]}
-```
-
-### Regenerating Backup Codes
-
-Users should regenerate backup codes if:
-- Backup codes remaining < 3 (system warns)
-- Backup codes were lost or compromised
-
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  http://localhost:8080/api/auth/mfa/backup-codes \
-  -d '{"totp_code": "123456"}'
-
-# Response contains new backup codes - store securely
-```
-
-### Disabling MFA (Requires Current Code)
-
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  http://localhost:8080/api/auth/mfa/disable \
-  -d '{"totp_code": "123456"}'
-```
-
-### MFA Recovery Procedures
-
-**User Lost Authenticator App:**
-1. User uses one of their backup codes to authenticate
-2. User goes through MFA setup again with new device
-3. Old backup codes are invalidated when new codes are generated
-
-**User Lost Backup Codes:**
-1. Support verifies user identity through alternative means
-2. Admin can disable MFA for the user (requires admin MFA):
-   ```bash
-   curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
-     http://localhost:8080/api/admin/users/{user_id}/mfa/disable
-   ```
-3. User re-enables MFA through normal flow
-
-**Admin Locked Out of MFA:**
-1. Contact another admin or owner with MFA access
-2. Use database access to disable MFA (emergency only):
-   ```sql
-   UPDATE users SET mfa_enabled = false, mfa_secret = NULL
-   WHERE id = 'admin-user-id';
-   ```
-3. Immediately re-enable MFA after access restored
-
-### Troubleshooting MFA Issues
-
-**TOTP Codes Not Working:**
-- Verify device time is synchronized (TOTP is time-based)
-- Ensure correct account selected in authenticator app
-- Try a backup code if TOTP consistently fails
-- Check for clock drift: `ntpdate -q pool.ntp.org`
-
-**Backup Codes Not Working:**
-- Verify code hasn't been used before (single-use)
-- Check for typos (codes are case-sensitive)
-- Ensure user has remaining backup codes
-
-**MFA Enforcement Blocking Legitimate Admin:**
-- Verify admin has MFA enabled: Check `mfa_enabled` field
-- Verify backup codes remaining >= 3 (policy warning threshold)
-- Check JWT token is fresh (not cached from before MFA setup)
-
----
-
-## Recovery Procedures
-
-### 1. Service Restart
-
-**Graceful Restart (preferred):**
-```bash
-# Send SIGTERM for graceful shutdown
-systemctl restart aragora
-
-# Or manually:
-kill -TERM $(pgrep -f "aragora serve")
-sleep 5
-aragora serve --api-port 8080 --ws-port 8765 &
-```
-
-**Force Restart (if hung):**
-```bash
-# Force kill and restart
-systemctl stop aragora
-sleep 2
-pkill -9 -f aragora
-systemctl start aragora
-```
-
-### 2. Rollback Deployment
-
-```bash
-# List available versions
-ls -la /opt/aragora/releases/
-
-# Rollback to previous version
-cd /opt/aragora
-rm current
-ln -s releases/v0.7.0 current
-systemctl restart aragora
+# Rollback to previous revision
+kubectl -n aragora rollout undo deployment/aragora-backend
 
 # Verify rollback
-curl http://localhost:8080/api/health | jq '.version'
-```
-
-### 3. Database Recovery
-
-**Point-in-Time Recovery (if using WAL):**
-```bash
-# Stop service
-systemctl stop aragora
-
-# Restore from backup
-pg_restore -d aragora /backups/aragora_daily_20240115.dump
-
-# Apply WAL to specific time
-recovery_target_time = '2024-01-15 10:30:00'
-
-# Start service
-systemctl start aragora
-```
-
-**Clear Corrupted Cache:**
-```bash
-# Clear Redis cache
-redis-cli FLUSHDB
-
-# Clear SQLite caches
-rm /var/lib/aragora/*.db
-systemctl restart aragora
-```
-
-### 4. Emergency Procedures
-
-**Complete Service Outage:**
-```bash
-#!/bin/bash
-# emergency_recovery.sh
-
-# 1. Stop everything
-systemctl stop aragora
-pkill -9 -f aragora
-
-# 2. Clear potentially corrupted state
-redis-cli FLUSHALL
-rm /tmp/aragora_*.lock
-
-# 3. Verify dependencies
-redis-cli ping || systemctl restart redis
-pg_isready || systemctl restart postgresql
-
-# 4. Start with safe defaults
-export ARAGORA_MAX_CONCURRENT_DEBATES=3
-export ARAGORA_RATE_LIMIT_DISABLED=1  # Temporarily
-systemctl start aragora
-
-# 5. Verify
-sleep 5
-curl http://localhost:8080/api/health
+kubectl -n aragora rollout status deployment/aragora-backend
 ```
 
 ---
 
-## Health Checks
+## Maintenance Procedures
 
-### Endpoint: `/api/health`
+### Planned Maintenance Window
 
-```bash
-curl http://localhost:8080/api/health | jq
-```
+1. **Schedule** (48 hours notice)
+   - Update status page
+   - Notify customers via email
+   - Set maintenance window in monitoring
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "version": "0.8.0",
-  "uptime_seconds": 3600,
-  "checks": {
-    "database": {"status": "ok", "latency_ms": 5},
-    "redis": {"status": "ok", "latency_ms": 2},
-    "circuit_breakers": {"open": 0, "half_open": 1},
-    "memory_mb": 512,
-    "active_debates": 3
-  }
-}
-```
+2. **Pre-maintenance**
+   - Complete running debates gracefully
+   - Disable new debate creation
+   - Backup databases
 
-### Health Check Script
+3. **During maintenance**
+   - Apply updates/changes
+   - Run migrations
+   - Test functionality
 
-```bash
-#!/bin/bash
-# health_check.sh
+4. **Post-maintenance**
+   - Enable services
+   - Verify health checks
+   - Monitor for issues
+   - Update status page
 
-HEALTH=$(curl -sf http://localhost:8080/api/health)
-if [ $? -ne 0 ]; then
-  echo "CRITICAL: Health endpoint unreachable"
-  exit 2
-fi
-
-STATUS=$(echo $HEALTH | jq -r '.status')
-if [ "$STATUS" != "healthy" ]; then
-  echo "WARNING: Service degraded - $STATUS"
-  exit 1
-fi
-
-# Check component health
-DB_STATUS=$(echo $HEALTH | jq -r '.checks.database.status')
-if [ "$DB_STATUS" != "ok" ]; then
-  echo "WARNING: Database check failed"
-  exit 1
-fi
-
-echo "OK: All checks passed"
-exit 0
-```
-
----
-
-## Alerts and Responses
-
-### Alert: `AragoraDown`
-**Severity:** Critical
-
-**Response:**
-1. Check server process: `systemctl status aragora`
-2. Check logs: `journalctl -u aragora -n 50`
-3. Attempt restart: `systemctl restart aragora`
-4. If restart fails, check dependencies (Redis, PostgreSQL)
-5. Escalate if not resolved in 10 minutes
-
-### Alert: `HighErrorRate`
-**Severity:** Critical
-
-**Response:**
-1. Check error logs: `grep ERROR /var/log/aragora/api.log | tail -50`
-2. Identify common error pattern
-3. Check dependent services (AI providers, database)
-4. Consider rate limiting if DDoS suspected
-5. Rollback if recent deployment
-
-### Alert: `CircuitBreakerOpen`
-**Severity:** Warning
-
-**Response:**
-1. Identify which agent: Check Grafana dashboard
-2. Test agent directly: `curl http://localhost:8080/api/debug/agent-test -d '{"agent":"claude"}'`
-3. Check AI provider status pages
-4. Wait for half-open state (auto-recovery)
-5. Manual reset if needed: `curl -X POST http://localhost:8080/api/agents/claude/reset-circuit`
-
-### Alert: `HighMemoryUsage`
-**Severity:** Warning
-
-**Response:**
-1. Check memory: `ps aux | grep aragora`
-2. Trigger cleanup: `curl -X POST http://localhost:8080/api/admin/cleanup-caches`
-3. Check for memory leaks in recent changes
-4. Reduce concurrent debates if needed
-5. Schedule restart during low traffic
-
-### Alert: `RedisDown`
-**Severity:** Critical
-
-**Response:**
-1. Check Redis: `redis-cli ping`
-2. Check Redis logs: `journalctl -u redis -n 50`
-3. Restart Redis: `systemctl restart redis`
-4. Verify Aragora fallback to in-memory (rate limiting)
-5. Monitor for rate limit issues
-
----
-
-## Kubernetes Deployment
-
-### Prerequisites
-
-- Kubernetes cluster (1.26+)
-- kubectl configured
-- Helm 3.x (optional, for Helm charts)
-- Container registry access
-
-### Deployment Files
-
-```
-k8s/
-├── namespace.yaml
-├── configmap.yaml
-├── secret.yaml
-├── deployment.yaml
-├── service.yaml
-├── ingress.yaml
-├── hpa.yaml
-└── pdb.yaml
-```
-
-### Basic Deployment
+### Database Migration
 
 ```bash
-# Create namespace
-kubectl create namespace aragora
+# Backup first
+pg_dump aragora > backup_$(date +%Y%m%d).sql
 
-# Create secrets (from environment)
-kubectl create secret generic aragora-secrets \
-  --from-literal=ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
-  --from-literal=OPENAI_API_KEY="${OPENAI_API_KEY}" \
-  --from-literal=ARAGORA_JWT_SECRET="${ARAGORA_JWT_SECRET}" \
-  --from-literal=SUPABASE_KEY="${SUPABASE_KEY}" \
-  -n aragora
+# Run migrations
+python -m aragora.migrations.runner migrate
 
-# Apply configuration
-kubectl apply -f k8s/configmap.yaml -n aragora
-kubectl apply -f k8s/deployment.yaml -n aragora
-kubectl apply -f k8s/service.yaml -n aragora
-kubectl apply -f k8s/ingress.yaml -n aragora
-
-# Verify deployment
-kubectl get pods -n aragora
-kubectl logs -f deployment/aragora -n aragora
+# Verify
+python -m aragora.migrations.runner status
 ```
 
-### Deployment Manifest Example
+### Certificate Renewal
 
-```yaml
-# k8s/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: aragora
-  namespace: aragora
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: aragora
-  template:
-    metadata:
-      labels:
-        app: aragora
-    spec:
-      containers:
-      - name: aragora
-        image: ghcr.io/aragora/aragora:latest
-        ports:
-        - containerPort: 8080
-          name: http
-        - containerPort: 8765
-          name: websocket
-        envFrom:
-        - configMapRef:
-            name: aragora-config
-        - secretRef:
-            name: aragora-secrets
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "2"
-        livenessProbe:
-          httpGet:
-            path: /api/health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /api/health
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-```
-
-### Horizontal Pod Autoscaler
-
-```yaml
-# k8s/hpa.yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: aragora-hpa
-  namespace: aragora
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: aragora
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-```
-
-### Rolling Update Strategy
-
-```bash
-# Update image with rolling deployment
-kubectl set image deployment/aragora aragora=ghcr.io/aragora/aragora:v0.9.0 -n aragora
-
-# Watch rollout status
-kubectl rollout status deployment/aragora -n aragora
-
-# Rollback if needed
-kubectl rollout undo deployment/aragora -n aragora
-
-# View rollout history
-kubectl rollout history deployment/aragora -n aragora
-```
-
-### Pod Disruption Budget
-
-```yaml
-# k8s/pdb.yaml
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: aragora-pdb
-  namespace: aragora
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: aragora
-```
-
-### Monitoring in Kubernetes
-
-```bash
-# Port-forward to access Prometheus metrics
-kubectl port-forward svc/aragora 8080:8080 -n aragora
-
-# Check metrics
-curl http://localhost:8080/metrics
-
-# View pod logs
-kubectl logs -f -l app=aragora -n aragora --all-containers
-
-# Check resource usage
-kubectl top pods -n aragora
-```
-
-### Troubleshooting Kubernetes
-
-```bash
-# Check pod status
-kubectl describe pod -l app=aragora -n aragora
-
-# Check events
-kubectl get events -n aragora --sort-by='.lastTimestamp'
-
-# Shell into pod for debugging
-kubectl exec -it deployment/aragora -n aragora -- /bin/sh
-
-# Check service endpoints
-kubectl get endpoints aragora -n aragora
-```
-
----
-
-## Helm Chart Deployment
-
-Aragora provides a Helm chart for simplified Kubernetes deployment.
-
-### Installation
-
-```bash
-# Add repository (if published)
-helm repo add aragora https://charts.aragora.ai
-helm repo update
-
-# Or install from local chart
-helm install aragora ./deploy/helm/aragora \
-  --namespace aragora \
-  --create-namespace \
-  -f values-production.yaml
-```
-
-### Configuration Values
-
-```yaml
-# values-production.yaml
-replicaCount: 3
-
-image:
-  repository: ghcr.io/aragora/aragora
-  tag: "v1.0.0"
-  pullPolicy: IfNotPresent
-
-# Enable autoscaling for production
-autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 70
-  targetMemoryUtilizationPercentage: 80
-
-# Pod Disruption Budget
-podDisruptionBudget:
-  enabled: true
-  minAvailable: 1
-
-# Prometheus Operator integration
-serviceMonitor:
-  enabled: true
-  interval: 15s
-  labels:
-    release: prometheus  # Match your Prometheus selector
-
-# Resource limits
-resources:
-  requests:
-    cpu: 500m
-    memory: 512Mi
-  limits:
-    cpu: 2000m
-    memory: 2Gi
-
-# External secrets (recommended for production)
-existingSecrets:
-  apiKeys: aragora-api-keys
-  database: aragora-db-credentials
-```
-
-### Upgrading
-
-```bash
-# Check current release
-helm list -n aragora
-
-# Upgrade with new values
-helm upgrade aragora ./deploy/helm/aragora \
-  --namespace aragora \
-  -f values-production.yaml
-
-# Rollback if needed
-helm rollback aragora 1 -n aragora
-```
-
----
-
-## Backup and Restore Procedures
-
-### Automated Backups
-
-**PostgreSQL Backups:**
-```bash
-# Daily backup script (add to cron)
-#!/bin/bash
-BACKUP_DIR=/backups/postgres
-DATE=$(date +%Y%m%d_%H%M%S)
-pg_dump -Fc aragora > ${BACKUP_DIR}/aragora_${DATE}.dump
-
-# Retain last 30 days
-find ${BACKUP_DIR} -name "*.dump" -mtime +30 -delete
-```
-
-**SQLite Backups (local mode):**
-```bash
-# Backup local databases
-cp /var/lib/aragora/agent_elo.db /backups/agent_elo_$(date +%Y%m%d).db
-cp /var/lib/aragora/continuum.db /backups/continuum_$(date +%Y%m%d).db
-```
-
-**Redis Backup:**
-```bash
-# Trigger RDB snapshot
-redis-cli BGSAVE
-
-# Copy snapshot
-cp /var/lib/redis/dump.rdb /backups/redis_$(date +%Y%m%d).rdb
-```
-
-### Restore Procedures
-
-**Full PostgreSQL Restore:**
-```bash
-# Stop service
-systemctl stop aragora
-
-# Drop and recreate database
-psql -c "DROP DATABASE IF EXISTS aragora;"
-psql -c "CREATE DATABASE aragora;"
-
-# Restore from backup
-pg_restore -d aragora /backups/aragora_20240115.dump
-
-# Restart service
-systemctl start aragora
-```
-
-**Selective Table Restore:**
-```bash
-# Restore specific table
-pg_restore -d aragora -t debates /backups/aragora_20240115.dump
-```
-
-**Kubernetes Backup with Velero:**
-```bash
-# Create backup
-velero backup create aragora-backup \
-  --include-namespaces aragora \
-  --include-cluster-resources=true
-
-# List backups
-velero backup get
-
-# Restore from backup
-velero restore create --from-backup aragora-backup
-```
-
----
-
-## Security Incident Response
-
-### Incident Classification
-
-| Severity | Response Time | Examples |
-|----------|--------------|----------|
-| P1 - Critical | Immediate | Data breach, service compromise |
-| P2 - High | 1 hour | Auth bypass, rate limit bypass |
-| P3 - Medium | 4 hours | API key leak, suspicious activity |
-| P4 - Low | 24 hours | Minor vulnerability, audit finding |
-
-### Immediate Response Checklist
-
-**1. Containment (first 15 minutes):**
-```bash
-# Rotate compromised API keys
-curl -X POST http://localhost:8080/api/admin/rotate-keys
-
-# Block suspicious IPs
-iptables -A INPUT -s SUSPICIOUS_IP -j DROP
-
-# Enable emergency rate limiting
-export ARAGORA_RATE_LIMIT_EMERGENCY=1
-systemctl restart aragora
-```
-
-**2. Preserve Evidence:**
-```bash
-# Capture logs before rotation
-tar -czf /evidence/logs_$(date +%Y%m%d_%H%M%S).tar.gz /var/log/aragora/
-
-# Export database audit log
-pg_dump -t audit_log aragora > /evidence/audit_$(date +%Y%m%d).sql
-
-# Capture current connections
-netstat -tupn > /evidence/connections_$(date +%Y%m%d).txt
-```
-
-**3. Revoke Access:**
-```bash
-# Revoke all active tokens
-curl -X POST http://localhost:8080/api/admin/revoke-all-tokens
-
-# Force password reset
-curl -X POST http://localhost:8080/api/admin/force-password-reset
-```
-
-### Token Revocation
-
-The audit logging and token revocation middleware track all sensitive operations:
-
-```bash
-# View recent audit events
-curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  http://localhost:8080/api/admin/audit-log?limit=100
-
-# Revoke specific token
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
-  http://localhost:8080/api/admin/revoke-token \
-  -d '{"token_id": "tok_xyz123"}'
-
-# Check revocation status
-curl http://localhost:8080/api/admin/revoked-tokens
-```
-
-### Post-Incident
-
-1. Document timeline and actions taken
-2. Notify affected users (if data breach)
-3. Update security controls
-4. Conduct post-mortem
-5. File CVE if applicable
-
----
-
-## Nomic Loop Operations
-
-### Overview
-
-The Nomic Loop is Aragora's autonomous self-improvement system. It runs debates to propose code improvements, designs solutions, implements changes, and verifies them.
-
-### Starting the Nomic Loop
-
-```bash
-# Run with human approval required (safer)
-python scripts/nomic_loop.py run --cycles 3 --path /path/to/aragora
-
-# Run autonomously (for trusted environments)
-python scripts/nomic_loop.py run --cycles 5 --auto
-
-# Run with streaming output
-python scripts/run_nomic_with_stream.py run --cycles 3
-```
-
-### Pre-Flight Checks
-
-```bash
-# Run health checks before starting
-python scripts/nomic_loop.py preflight
-
-# Expected output:
-# [PASS] Primary API Key
-# [PASS] Disk Space
-# [PASS] Protected Files
-# [PASS] Git Repository
-# [PASS] Backup Directory
-```
-
-### Phased Workflow
-
-Each nomic cycle follows this phased workflow:
-
-| Phase | Name | Description |
-|-------|------|-------------|
-| 0 | Context | Gather codebase understanding |
-| 1 | Debate | Agents propose improvements |
-| 2 | Design | Architecture planning |
-| 3 | Implement | Code generation |
-| 4 | Verify | Test validation (syntax, imports, pytest) |
-
-### Test Validation (Phase 4)
-
-The verify phase runs comprehensive checks before any commit:
-
-1. **Syntax Check**: Validates all Python files parse correctly
-2. **Import Check**: Verifies all imports resolve
-3. **Test Suite**: Runs `pytest tests/ -x --tb=short -q` (240s timeout)
-4. **Optional Codex Audit**: Code review by Codex agent
-
-If any check fails, the cycle rolls back automatically.
-
-### Safety Features
-
-The Nomic Loop includes multiple safety mechanisms:
-
-1. **Constitution Verification**: Cryptographically signed safety rules
-2. **Protected File Checksums**: Cannot modify critical files
-3. **Automatic Backups**: Created before each cycle
-4. **Pre-flight Checks**: Validates environment before running
-5. **Rollback on Failure**: Automatic rollback if tests fail
-6. **Human Approval Gate**: Interactive approval before commit (unless `--auto`)
-7. **Auto-commit Safety**: Requires `NOMIC_AUTO_COMMIT=1` for autonomous commits
-
-### Monitoring the Loop
-
-```bash
-# Watch loop status
-tail -f .nomic/sessions/*/transcript.md
-
-# Check backup status
-ls -la .nomic/backups/
-
-# View cycle outcomes
-cat .nomic/outcomes.db | sqlite3 -header -csv
-```
-
-### Rollback Procedures
-
-```bash
-# Manual rollback to backup
-python scripts/nomic_loop.py rollback --backup .nomic/backups/cycle_5_20240115/
-
-# Git-based rollback
-git checkout HEAD~1  # Revert last cycle
-
-# Full reset to clean state
-git stash
-git checkout main
-git pull
-```
-
-### Troubleshooting
-
-**Loop Stuck:**
-```bash
-# Check for hung processes
-ps aux | grep nomic_loop
-
-# Check for lock files
-ls -la .nomic/*.lock
-
-# Remove stale locks
-rm .nomic/*.lock
-```
-
-**Constitution Signature Invalid:**
-```bash
-# Re-sign constitution (requires private key)
-python scripts/sign_constitution.py sign
-
-# Verify signature
-python scripts/sign_constitution.py verify
-```
-
----
-
-## Production Readiness Checklist
-
-### Pre-Launch Checklist
-
-- [ ] **Secrets Management**
-  - [ ] API keys stored in secure secret manager (not env vars)
-  - [ ] JWT secret is strong and rotated periodically
-  - [ ] Database credentials use least-privilege accounts
-
-- [ ] **High Availability**
-  - [ ] Minimum 2 replicas running
-  - [ ] Pod Disruption Budget configured
-  - [ ] Horizontal Pod Autoscaler enabled
-  - [ ] Multi-AZ deployment (if cloud)
-
-- [ ] **Monitoring**
-  - [ ] ServiceMonitor created for Prometheus
-  - [ ] Grafana dashboards imported
-  - [ ] Alerts configured and tested
-  - [ ] On-call rotation established
-
-- [ ] **Security**
-  - [ ] Rate limiting enabled
-  - [ ] CORS configured correctly
-  - [ ] TLS termination enabled
-  - [ ] Network policies applied
-
-- [ ] **Backup**
-  - [ ] Automated database backups
-  - [ ] Backup retention policy defined
-  - [ ] Restore procedure tested
-
-- [ ] **Performance**
-  - [ ] Load testing completed
-  - [ ] Resource limits tuned
-  - [ ] Connection pooling configured
-
-### Go-Live Checklist
-
-```bash
-# Verify all services healthy
-kubectl get pods -n aragora
-curl https://aragora.example.com/api/health
-
-# Check metrics endpoint
-curl https://aragora.example.com/metrics | head
-
-# Test debate creation
-curl -X POST https://aragora.example.com/api/debates \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"topic": "test", "agents": ["claude", "gpt-4"]}'
-
-# Verify WebSocket connectivity
-websocat wss://aragora.example.com/ws
-```
-
----
-
-## Scaling Guidelines
-
-### When to Scale
-
-| Metric | Threshold | Action |
-|--------|-----------|--------|
-| CPU Utilization | >70% sustained | Add replicas |
-| Memory Usage | >80% | Add replicas or increase limits |
-| p95 Latency | >500ms | Investigate + scale |
-| Active Debates | >10 per pod | Add replicas |
-| WebSocket Connections | >100 per pod | Add replicas |
-| Error Rate | >1% | Investigate before scaling |
-
-### Manual Scaling
-
-```bash
-# Scale deployment
-kubectl scale deployment aragora --replicas=5 -n aragora
-
-# Or update HPA min
-kubectl patch hpa aragora -n aragora \
-  -p '{"spec":{"minReplicas":3}}'
-```
-
-### Horizontal Pod Autoscaler (HPA)
-
-Two HPA configurations are available:
-
-**Basic HPA** (`hpa.yaml`):
-- Scales on CPU (70%) and Memory (80%)
-- Min: 2, Max: 10 replicas
-- Conservative scale-down (5-minute window)
-
-**Custom Metrics HPA** (`hpa-custom-metrics.yaml`):
-- Requires Prometheus Adapter or KEDA
-- Scales on application metrics:
-  - `aragora_active_debates` - debates per pod
-  - `aragora_websocket_connections` - WS connections per pod
-  - `aragora_http_requests_per_second` - request throughput
-- More intelligent scaling for real workloads
-
-```bash
-# Install Prometheus Adapter (required for custom metrics)
-helm install prometheus-adapter prometheus-community/prometheus-adapter \
-  -n monitoring --set prometheus.url=http://prometheus:9090
-
-# Enable custom metrics HPA
-kubectl apply -f deploy/k8s/hpa-custom-metrics.yaml -n aragora
-
-# Verify custom metrics are available
-kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1 | jq .
-```
-
-### Connection Pool Tuning
-
-```bash
-# Configure connection pool (environment variables)
-ARAGORA_POOL_MIN_CONNECTIONS=5      # Minimum connections
-ARAGORA_POOL_MAX_CONNECTIONS=50     # Maximum connections
-ARAGORA_POOL_IDLE_TIMEOUT=300       # Idle connection timeout (seconds)
-ARAGORA_POOL_MAX_WAIT_TIME=5        # Max wait for connection (seconds)
-
-# Monitor pool metrics
-curl http://localhost:8080/api/system/pool-stats | jq
-```
-
-### Load Testing
-
-```bash
-# Run Locust load tests
-locust -f tests/load/locustfile.py --host=http://localhost:8080 \
-  --headless -u 100 -r 10 --run-time 5m
-
-# Run WebSocket load test
-pytest tests/load/websocket_load.py -v -k stress --asyncio-mode=auto
-
-# Run Gauntlet load test
-pytest tests/load/gauntlet_load.py -v -k stress --asyncio-mode=auto
-```
-
-### Vertical vs Horizontal
-
-- **Horizontal (add replicas)**: Preferred for most workloads
-- **Vertical (increase resources)**: For memory-bound operations or large debates
-
----
-
-## Additional Recovery Scenarios
-
-### Agent API Quota Exhaustion
-
-**Symptoms:**
-- `AgentQuotaExhausted` alert firing
-- 429 errors from specific AI provider
-- Debates failing with "quota exceeded" messages
-
-**Immediate Actions:**
-
-```bash
-# Check which agents are affected
-curl http://localhost:8080/api/agents/status | jq '.[] | select(.quota_remaining <= 0)'
-
-# Check circuit breaker states
-curl http://localhost:8080/api/agents/circuit-breakers
-
-# Enable fallback to OpenRouter (if not already)
-export OPENROUTER_API_KEY=sk-or-xxx
-systemctl restart aragora
-```
-
-**Provider-Specific Quotas:**
-
-| Provider | Quota Reset | Dashboard |
-|----------|-------------|-----------|
-| Anthropic | Monthly | console.anthropic.com |
-| OpenAI | Monthly | platform.openai.com/usage |
-| Gemini | Daily | cloud.google.com/apis/quotas |
-| Mistral | Monthly | console.mistral.ai |
-
-**Long-Term Resolution:**
-1. Upgrade API tier with provider
-2. Add OpenRouter as fallback (`OPENROUTER_API_KEY`)
-3. Configure per-agent rate limits to spread usage
-4. Review debate volume and optimize agent selection
-
----
-
-### Certificate Expiration
-
-**Symptoms:**
-- `TLSCertificateExpiringSoon` or `TLSCertificateExpired` alert
-- Browser showing certificate warnings
-- API clients failing with SSL errors
-
-**Check Certificate Status:**
-
-```bash
-# Check expiration via openssl
-echo | openssl s_client -connect aragora.yourdomain.com:443 2>/dev/null | \
-  openssl x509 -noout -dates
-
-# Check via Kubernetes (if using cert-manager)
-kubectl get certificate -n aragora
-kubectl describe certificate aragora-tls -n aragora
-```
-
-**Manual Certificate Renewal (Let's Encrypt):**
-
-```bash
-# Certbot renewal
-certbot renew --cert-name aragora.yourdomain.com
-
-# Or force renewal
-certbot renew --cert-name aragora.yourdomain.com --force-renewal
-
-# Restart to pick up new cert
-systemctl restart nginx  # or haproxy/traefik
-```
-
-**cert-manager Renewal (Kubernetes):**
+Certificates are auto-renewed by cert-manager. Manual process if needed:
 
 ```bash
 # Check certificate status
-kubectl describe certificate aragora-tls -n aragora | grep -A 10 "Status:"
+kubectl -n aragora get certificate
 
-# Force renewal by deleting the secret
-kubectl delete secret aragora-tls -n aragora
-
-# cert-manager will automatically request a new certificate
-# Watch the certificate status
-kubectl get certificate aragora-tls -n aragora -w
-```
-
-**Troubleshooting cert-manager:**
-
-```bash
-# Check cert-manager logs
-kubectl logs -n cert-manager deployment/cert-manager
-
-# Check challenge status (for HTTP-01 or DNS-01)
-kubectl get challenges -n aragora
-
-# Check certificate request
-kubectl get certificaterequest -n aragora
-kubectl describe certificaterequest <name> -n aragora
+# Force renewal
+kubectl -n aragora delete secret aragora-tls
+kubectl -n aragora annotate certificate aragora-cert cert-manager.io/issue-temporary-certificate="true"
 ```
 
 ---
 
-### Debate State Corruption
+## Scaling Operations
 
-**Symptoms:**
-- Debates stuck in "running" state indefinitely
-- Inconsistent debate results
-- `debate_start_timestamp` much older than expected
-
-**Diagnosis:**
+### Horizontal Scaling
 
 ```bash
-# Find stuck debates
-curl http://localhost:8080/api/debates?status=running | jq '[.[] | select(.duration_seconds > 600)]'
+# Scale backend
+kubectl -n aragora scale deployment/aragora-backend --replicas=5
 
-# Check debate in database
-psql -c "SELECT id, status, created_at, updated_at FROM debates WHERE status = 'running' AND updated_at < now() - interval '10 minutes';"
+# Scale frontend
+kubectl -n aragora scale deployment/aragora-frontend --replicas=3
+
+# Verify
+kubectl -n aragora get pods -w
 ```
 
-**Recovery:**
+### Vertical Scaling
 
 ```bash
-# Mark stuck debates as timed out
-curl -X POST http://localhost:8080/api/admin/cleanup-stale-debates
-
-# Or manually via database
-psql -c "UPDATE debates SET status = 'timeout', updated_at = now() WHERE status = 'running' AND updated_at < now() - interval '30 minutes';"
-
-# Restart to clear in-memory state
-systemctl restart aragora
+# Update resource limits
+kubectl -n aragora set resources deployment/aragora-backend \
+  --limits=memory=4Gi,cpu=2000m \
+  --requests=memory=1Gi,cpu=500m
 ```
+
+### Database Scaling
+
+For PostgreSQL on cloud:
+1. Create read replica
+2. Update connection string for read operations
+3. Monitor replication lag
 
 ---
 
-### Redis Cluster Operations
+## Backup & Recovery
 
-Aragora supports both standalone Redis and Redis Cluster for enterprise deployments.
+### Daily Backups
 
-#### Redis Cluster Setup (K8s)
+Automated via cron:
 
 ```bash
-# Deploy Redis Cluster (3-node minimum)
-kubectl apply -f deploy/k8s/redis/cluster.yaml -n aragora
+# Manual backup
+kubectl -n aragora exec -it postgres-0 -- pg_dump -U aragora aragora > backup.sql
 
-# Wait for cluster initialization
-kubectl wait --for=condition=complete job/redis-cluster-init -n aragora --timeout=120s
-
-# Verify cluster health
-kubectl exec -it redis-cluster-0 -n aragora -- redis-cli cluster info
+# Verify backup
+head -100 backup.sql
 ```
 
-#### Environment Configuration
+### Point-in-Time Recovery
 
 ```bash
-# For single-node Redis
-ARAGORA_REDIS_URL=redis://aragora-redis:6379
-
-# For Redis Cluster
-ARAGORA_REDIS_CLUSTER_MODE=cluster
-ARAGORA_REDIS_CLUSTER_NODES=redis-cluster-0.redis-cluster:6379,redis-cluster-1.redis-cluster:6379,redis-cluster-2.redis-cluster:6379
-ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS=true
-```
-
-#### Cluster Health Monitoring
-
-```bash
-# Check cluster node status
-kubectl exec -it redis-cluster-0 -n aragora -- redis-cli cluster nodes
-
-# Check cluster slots coverage
-kubectl exec -it redis-cluster-0 -n aragora -- redis-cli cluster slots | head -20
-
-# Get cluster metrics (if redis-exporter deployed)
-curl http://redis-cluster.aragora:9121/metrics | grep cluster
-```
-
-### Redis Cluster Failover
-
-**Symptoms:**
-- Rate limiting not working
-- Session tokens not validating
-- High latency on operations using Redis
-
-**Check Redis Status:**
-
-```bash
-# Check if Redis is responding
-redis-cli ping
-
-# Check cluster info (if using Sentinel/Cluster)
-redis-cli info replication
-
-# Check Sentinel status
-redis-cli -p 26379 sentinel masters
-```
-
-**Sentinel Failover:**
-
-```bash
-# Force failover
-redis-cli -p 26379 sentinel failover aragora-master
-
-# Check new master
-redis-cli -p 26379 sentinel get-master-addr-by-name aragora-master
-```
-
-**Recovery Without Redis:**
-
-If Redis is completely down, Aragora can fall back to in-memory rate limiting:
-
-```bash
-# Enable fail-open mode (allows requests when Redis down)
-export ARAGORA_RATE_LIMIT_FAIL_OPEN=true
-systemctl restart aragora
-
-# Note: Rate limits will not persist across requests
-# and blacklisted tokens may work again temporarily
-```
-
----
-
-### PostgreSQL Recovery
-
-**Symptoms:**
-- `DatabaseConnectionPoolExhausted` alert
-- `PostgreSQLDown` alert
-- API returning 500 errors with database messages
-
-**Check Database Status:**
-
-```bash
-# Check if PostgreSQL is running
-pg_isready -h localhost
-
-# Check connection count
-psql -c "SELECT count(*) FROM pg_stat_activity WHERE datname='aragora';"
-
-# Check for long-running queries
-psql -c "SELECT pid, now() - pg_stat_activity.query_start AS duration, query
-         FROM pg_stat_activity
-         WHERE state != 'idle' AND query NOT LIKE '%pg_stat%'
-         ORDER BY duration DESC LIMIT 10;"
-```
-
-**Kill Long-Running Queries:**
-
-```bash
-# Terminate specific query
-psql -c "SELECT pg_terminate_backend(PID);"
-
-# Terminate all idle connections older than 10 minutes
-psql -c "SELECT pg_terminate_backend(pid)
-         FROM pg_stat_activity
-         WHERE datname='aragora'
-         AND state='idle'
-         AND state_change < now() - interval '10 minutes';"
-```
-
-**Point-in-Time Recovery:**
-
-```bash
-# Stop Aragora
-systemctl stop aragora
-
 # Restore from backup
-pg_restore -d aragora_restore /backups/aragora_20240115.dump
+kubectl -n aragora exec -i postgres-0 -- psql -U aragora aragora < backup.sql
 
-# If needed, apply WAL logs
-# (requires WAL archiving to be enabled)
+# Or restore to specific time (if WAL archiving enabled)
+pg_restore --target-time="2026-01-20 12:00:00" ...
+```
 
-# Rename databases
-psql -c "ALTER DATABASE aragora RENAME TO aragora_old;"
-psql -c "ALTER DATABASE aragora_restore RENAME TO aragora;"
+### Knowledge Base Backup
 
-# Restart
-systemctl start aragora
+```bash
+# Export knowledge mound
+curl -X POST http://localhost:8080/api/knowledge/export \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -o knowledge_backup.json
+
+# Restore
+curl -X POST http://localhost:8080/api/knowledge/import \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d @knowledge_backup.json
 ```
 
 ---
 
-### Webhook Delivery Failures
+## Useful Commands
 
-**Symptoms:**
-- Webhook events not reaching external systems
-- Configured webhook endpoints returning errors
-- Event queue growing
-
-**Diagnosis:**
+### Quick Diagnostics
 
 ```bash
-# List configured webhooks
-curl http://localhost:8080/api/webhooks | jq .
+# All pods status
+kubectl -n aragora get pods -o wide
 
-# Test webhook endpoint
-curl -X POST http://localhost:8080/api/webhooks/<id>/test | jq .
+# Recent logs
+kubectl -n aragora logs deployment/aragora-backend --tail=100 -f
+
+# Resource usage
+kubectl -n aragora top pods
+
+# Events
+kubectl -n aragora get events --sort-by=.lastTimestamp | tail -20
 ```
 
-**Recovery:**
+### Debug Mode
 
 ```bash
-# Disable webhook temporarily
-curl -X DELETE http://localhost:8080/api/webhooks/<id>
+# Enable debug logging
+kubectl -n aragora set env deployment/aragora-backend ARAGORA_LOG_LEVEL=DEBUG
 
-# Or remove ARAGORA_WEBHOOKS/ARAGORA_WEBHOOKS_CONFIG and restart
-systemctl restart aragora
-
-# Or increase queue size
-export ARAGORA_WEBHOOK_QUEUE_SIZE=5000
-systemctl restart aragora
+# Disable when done
+kubectl -n aragora set env deployment/aragora-backend ARAGORA_LOG_LEVEL=INFO
 ```
+
+### Emergency Contacts
+
+| Role | Contact | Escalation |
+|------|---------|------------|
+| On-call Engineer | PagerDuty | - |
+| Engineering Lead | [email] | After 30 min |
+| Platform Team | Slack #platform | P1/P2 only |
 
 ---
 
-### Memory Leak Investigation
+## Appendix: Monitoring Queries
 
-**Symptoms:**
-- `HighMemoryUsage` alert persisting
-- Memory growing continuously over time
-- OOM kills in logs
+### Prometheus Queries
 
-**Diagnosis:**
+```promql
+# Error rate
+sum(rate(aragora_http_requests_total{status=~"5.."}[5m])) / sum(rate(aragora_http_requests_total[5m])) * 100
 
-```bash
-# Check current memory usage
-ps aux | grep aragora | awk '{print $6/1024 " MB", $11}'
+# P95 latency
+histogram_quantile(0.95, sum(rate(aragora_http_request_duration_seconds_bucket[5m])) by (le))
 
-# Check memory trend
-while true; do
-  ps aux | grep "[a]ragora" | awk '{print strftime("%H:%M:%S"), $6/1024 " MB"}'
-  sleep 60
-done
+# Active debates
+aragora_active_debates
 
-# Enable memory profiling (development only)
-export ARAGORA_MEMORY_PROFILING=1
-systemctl restart aragora
-
-# After some time, dump memory profile
-curl -X POST http://localhost:8080/api/debug/memory-dump
-cat /tmp/aragora_memory_dump.json | jq '.top_allocations[:20]'
+# Memory usage
+process_resident_memory_bytes{job="aragora-backend"} / 1024 / 1024 / 1024
 ```
-
-**Mitigation:**
-
-```bash
-# Reduce concurrent debates
-export ARAGORA_MAX_CONCURRENT_DEBATES=5
-
-# Clear caches
-curl -X POST http://localhost:8080/api/admin/cleanup-caches
-
-# Schedule regular restarts (if leak is known)
-# Add to crontab:
-# 0 4 * * * systemctl restart aragora
-
-# Increase memory limit to buy time
-# (Kubernetes)
-kubectl patch deployment aragora -n aragora --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory", "value": "4Gi"}]'
-```
-
----
-
-### Nomic Loop Recovery
-
-**Symptoms:**
-- Nomic loop appears stuck
-- Lock files preventing new cycles
-- Constitution signature validation failing
-
-**Diagnosis:**
-
-```bash
-# Check for lock files
-ls -la .nomic/*.lock
-
-# Check current cycle state
-cat .nomic/sessions/*/transcript.md | tail -50
-
-# Check constitution signature
-python scripts/sign_constitution.py verify
-
-# Check nomic metrics endpoint
-curl http://localhost:8080/api/nomic/metrics | jq
-```
-
-**Recovery:**
-
-```bash
-# Remove stale locks
-rm .nomic/*.lock
-
-# If constitution signature is invalid, re-sign
-# (requires private key and manual review)
-python scripts/sign_constitution.py sign
-
-# Reset to last known good state
-git stash
-git checkout main
-
-# Restore from backup if needed
-python scripts/nomic_loop.py rollback --backup .nomic/backups/cycle_5/
-```
-
-### Nomic Admin Endpoints (New)
-
-Admin endpoints for nomic loop management require `admin` or `owner` role.
-
-**Check Nomic Status:**
-```bash
-# Get detailed nomic status including state machine, metrics, circuit breakers
-curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  http://localhost:8080/api/admin/nomic/status | jq
-```
-
-**Pause Nomic Loop:**
-```bash
-# Pause for manual intervention
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  http://localhost:8080/api/admin/nomic/pause \
-  -d '{"reason": "Manual investigation"}'
-```
-
-**Resume Nomic Loop:**
-```bash
-# Resume from paused state
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  http://localhost:8080/api/admin/nomic/resume
-```
-
-**Reset Nomic Phase:**
-```bash
-# Reset to specific phase (context, debate, design, implement, verify, commit, idle)
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  http://localhost:8080/api/admin/nomic/reset \
-  -d '{"target_phase": "context", "clear_errors": true, "reason": "Manual recovery"}'
-```
-
-**Circuit Breaker Management:**
-```bash
-# View circuit breaker status
-curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  http://localhost:8080/api/admin/nomic/circuit-breakers
-
-# Reset all circuit breakers
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
-  http://localhost:8080/api/admin/nomic/circuit-breakers/reset
-```
-
-### Nomic Prometheus Metrics
-
-The nomic loop exposes metrics at `/metrics`:
-
-| Metric | Type | Description |
-|--------|------|-------------|
-| `aragora_nomic_phase_transitions_total` | Counter | Phase transition counts |
-| `aragora_nomic_current_phase` | Gauge | Current phase (encoded: 0=idle, 1=context, etc) |
-| `aragora_nomic_phase_duration_seconds` | Histogram | Duration per phase |
-| `aragora_nomic_cycles_total` | Counter | Cycle outcomes (success/failure/aborted) |
-| `aragora_nomic_cycles_in_progress` | Gauge | Currently running cycles |
-| `aragora_nomic_phase_last_transition_timestamp` | Gauge | Last transition time (for staleness) |
-| `aragora_nomic_circuit_breakers_open` | Gauge | Open circuit breakers |
-| `aragora_nomic_errors_total` | Counter | Errors by phase and type |
-| `aragora_nomic_recovery_decisions_total` | Counter | Recovery strategy usage |
-| `aragora_nomic_retries_total` | Counter | Retry attempts by phase |
-
-**Grafana Alert Examples:**
-
-```yaml
-# Alert for stuck nomic loop (no transition in 30 minutes)
-- alert: NomicLoopStuck
-  expr: (time() - aragora_nomic_phase_last_transition_timestamp) > 1800
-  for: 5m
-  labels:
-    severity: warning
-  annotations:
-    summary: "Nomic loop appears stuck"
-    description: "No phase transition in {{ $value | humanizeDuration }}"
-
-# Alert for high failure rate
-- alert: NomicHighFailureRate
-  expr: rate(aragora_nomic_cycles_total{outcome="failure"}[1h]) > 0.5
-  for: 10m
-  labels:
-    severity: warning
-  annotations:
-    summary: "High nomic cycle failure rate"
-```
-
----
-
-### Load Balancer Health Check Failures
-
-**Symptoms:**
-- Pods being removed from load balancer
-- Intermittent 502/503 errors
-- Health endpoint returning errors
-
-**Check Health Endpoint:**
-
-```bash
-# Check health endpoint directly
-curl -v http://localhost:8080/api/health
-
-# Check readiness
-curl -v http://localhost:8080/api/health/ready
-
-# Check from load balancer perspective
-kubectl exec -it deployment/nginx-ingress -n ingress-nginx -- curl http://aragora.aragora.svc:8080/api/health
-```
-
-**Common Causes:**
-
-1. **Database not ready**: Health check includes DB connectivity
-2. **High latency**: Health check times out
-3. **Resource exhaustion**: Pod can't process requests
-
-**Resolution:**
-
-```bash
-# Increase health check timeout (Kubernetes)
-kubectl patch deployment aragora -n aragora --type='json' -p='[
-  {"op": "replace", "path": "/spec/template/spec/containers/0/livenessProbe/timeoutSeconds", "value": 10},
-  {"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/timeoutSeconds", "value": 10}
-]'
-
-# Check pod events for OOM or other issues
-kubectl describe pod -l app=aragora -n aragora | grep -A 20 "Events:"
-
-# Scale up if under-resourced
-kubectl scale deployment aragora -n aragora --replicas=5
-```
-
----
-
-## Contact Information
-
-| Role | Contact | Escalation Time |
-|------|---------|-----------------|
-| On-Call Engineer | PagerDuty | Immediate |
-| Platform Team | #aragora-platform | 15 minutes |
-| Security Team | security@aragora.ai | Security issues |
-
----
-
-## Alert Response Decision Trees
-
-### Critical Alert Response Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     CRITICAL ALERT RECEIVED                      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │ Service Up?     │
-                    │ curl /api/health│
-                    └────────┬────────┘
-                     NO ─────┴───── YES
-                      │             │
-                      ▼             ▼
-             ┌────────────┐ ┌─────────────────┐
-             │Check logs  │ │Error rate high? │
-             │journalctl  │ │Check metrics    │
-             └─────┬──────┘ └────────┬────────┘
-                   │          YES ───┴─── NO
-                   ▼           │         │
-          ┌─────────────┐     │         │
-          │Dependencies?│     ▼         ▼
-          │Redis? DB?   │ ┌────────┐ ┌────────────┐
-          └─────┬───────┘ │Identify│ │Single user?│
-                │         │pattern │ │Rate limit? │
-          ┌─────┴─────┐   └───┬────┘ └─────┬──────┘
-          │Fix deps   │       │             │
-          │then       │       ▼             ▼
-          │restart    │   ┌────────┐   ┌──────────┐
-          └───────────┘   │Rollback│   │Continue  │
-                          │or fix  │   │monitoring│
-                          └────────┘   └──────────┘
-```
-
-### Agent Failure Decision Tree
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              AGENT ERROR RATE HIGH / CIRCUIT OPEN                │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │Single or Multi? │
-                    │Check CB status  │
-                    └────────┬────────┘
-                   SINGLE ───┴─── MULTIPLE
-                      │             │
-                      ▼             ▼
-             ┌────────────┐ ┌─────────────────┐
-             │Check agent │ │Network issue?   │
-             │provider    │ │DNS resolution?  │
-             │status page │ │Firewall?        │
-             └─────┬──────┘ └────────┬────────┘
-              DOWN ┴ UP              │
-               │    │         ┌──────┴──────┐
-               ▼    ▼         ▼             ▼
-          ┌────────┐ ┌───────────┐  ┌───────────┐
-          │Wait for│ │Test agent │  │Fix network│
-          │recovery│ │directly   │  │then test  │
-          │Monitor │ │curl test  │  └───────────┘
-          └────────┘ └─────┬─────┘
-                           │
-                    PASS ──┴── FAIL
-                      │        │
-                      ▼        ▼
-               ┌─────────┐ ┌─────────────┐
-               │Reset CB │ │Check API key│
-               │Monitor  │ │Check quota  │
-               └─────────┘ └─────────────┘
-```
-
-### Database Issue Decision Tree
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DATABASE ALERT RECEIVED                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │ Type of Issue?  │
-                    └────────┬────────┘
-              ┌──────────────┼──────────────┐
-              │              │              │
-              ▼              ▼              ▼
-      ┌───────────┐  ┌───────────┐  ┌───────────────┐
-      │Connection │  │Slow Query │  │DB Down        │
-      │Pool       │  │Alert      │  │Alert          │
-      └─────┬─────┘  └─────┬─────┘  └───────┬───────┘
-            │              │                │
-            ▼              ▼                ▼
-    ┌─────────────┐ ┌──────────────┐ ┌─────────────┐
-    │Kill idle    │ │Find slow    │ │Check disk   │
-    │connections  │ │queries      │ │Check memory │
-    │Increase pool│ │Add indexes  │ │Check logs   │
-    └─────────────┘ │Kill blockers│ │Restart DB   │
-                    └──────────────┘ └─────────────┘
-```
-
----
-
-## Operational Checklists
-
-### Daily Health Check (5 min)
-
-```bash
-#!/bin/bash
-# daily_health.sh - Run at start of shift
-
-echo "=== Aragora Daily Health Check ==="
-echo ""
-
-# 1. Service health
-echo "1. Service Health:"
-curl -sf http://localhost:8080/api/health | jq '{status, uptime_seconds, checks}' || echo "FAILED"
-echo ""
-
-# 2. Alert status
-echo "2. Active Alerts:"
-curl -sf http://prometheus:9090/api/v1/alerts | jq '.data.alerts | length' || echo "FAILED"
-echo ""
-
-# 3. Error rate (last hour)
-echo "3. Error Rate (1h):"
-curl -sf 'http://prometheus:9090/api/v1/query?query=sum(rate(http_requests_total{status=~"5.."}[1h]))/sum(rate(http_requests_total[1h]))' \
-  | jq '.data.result[0].value[1]' || echo "FAILED"
-echo ""
-
-# 4. Active debates
-echo "4. Active Debates:"
-curl -sf http://localhost:8080/api/debates?status=running | jq 'length' || echo "FAILED"
-echo ""
-
-# 5. Circuit breaker status
-echo "5. Circuit Breakers:"
-curl -sf http://localhost:8080/api/agents/circuit-breakers | jq '[.[] | select(.state == "open")] | length' || echo "FAILED"
-echo ""
-
-echo "=== Health Check Complete ==="
-```
-
-### Weekly Maintenance Checklist
-
-- [ ] Review error logs for new patterns
-- [ ] Check database connection pool usage trends
-- [ ] Verify backup integrity (test restore)
-- [ ] Review agent quota usage vs budget
-- [ ] Check certificate expiration dates
-- [ ] Review rate limit false positives
-- [ ] Archive old debate data (if needed)
-- [ ] Update dependencies (security patches)
-
-### Monthly Tasks
-
-- [ ] Rotate API keys and secrets
-- [ ] Review access logs for anomalies
-- [ ] Capacity planning review
-- [ ] Update runbook with new scenarios
-- [ ] Test disaster recovery procedure
-- [ ] Review and update alert thresholds
-- [ ] Clean up old backups
-
----
-
-## Environment-Specific Notes
-
-### Development
-
-```bash
-# Quick dev setup
-export ARAGORA_ENV=development
-export ARAGORA_LOG_LEVEL=DEBUG
-export ARAGORA_RATE_LIMIT_DISABLED=1
-
-# Start with hot reload
-python -m aragora.server.unified_server --reload
-```
-
-### Staging
-
-```bash
-# Staging mimics production but with:
-# - Lower rate limits
-# - Test AI provider accounts
-# - Separate database
-export ARAGORA_ENV=staging
-export ARAGORA_RATE_LIMIT_MULTIPLIER=0.5
-```
-
-### Production
-
-```bash
-# Production requires:
-# - All secrets in secret manager (not env vars)
-# - TLS enabled
-# - Rate limiting enabled
-# - Monitoring enabled
-export ARAGORA_ENV=production
-export ARAGORA_JWT_SECRET_FILE=/run/secrets/jwt_secret
-```
-
----
-
-## SLI/SLO Definitions
-
-### Service Level Indicators (SLIs)
-
-| SLI | Measurement | Target |
-|-----|-------------|--------|
-| Availability | Successful requests / Total requests | 99.9% |
-| Latency (P50) | Request duration at 50th percentile | <100ms |
-| Latency (P95) | Request duration at 95th percentile | <300ms |
-| Latency (P99) | Request duration at 99th percentile | <500ms |
-| Debate Success | Completed debates / Started debates | 95% |
-| Agent Availability | Agents with closed CB / Total agents | 80% |
-
-### Service Level Objectives (SLOs)
-
-| SLO | Objective | Error Budget (30 days) |
-|-----|-----------|------------------------|
-| Availability | 99.9% | 43.2 minutes downtime |
-| P99 Latency | <500ms | 1% of requests can exceed |
-| Debate Success | 95% | 5% debates can fail |
-
-### Error Budget Monitoring
-
-```bash
-# Calculate remaining error budget
-curl -sf 'http://prometheus:9090/api/v1/query?query=
-  (1 - sum(increase(http_requests_total{status=~"5.."}[30d]))
-    / sum(increase(http_requests_total[30d])))
-  - 0.999
-' | jq '.data.result[0].value[1]'
-```
-
----
-
-## Infrastructure Action Items
-
-### Outstanding Tasks (SOC 2)
-
-These items require external coordination or vendor selection:
-
-#### CC7-01: Penetration Test
-
-**Status:** Vendor selection required
-
-**Requirements:**
-- Annual penetration test for SOC 2 Type II
-- Scope: API endpoints, WebSocket connections, authentication flows
-- Deliverables: Executive summary, technical findings, remediation guidance
-
-**Recommended Vendors:**
-1. **NCC Group** - Enterprise-focused, comprehensive methodology
-2. **Cobalt** - Pentest-as-a-Service, continuous testing model
-3. **BreachLock** - AI-assisted pentesting with human verification
-4. **Synack** - Red team crowdsourced testing
-
-**Budget Range:** $15,000 - $40,000 depending on scope
-
-**Timeline:**
-- Vendor selection: 1 week
-- Scheduling: 2-3 weeks lead time
-- Testing: 1-2 weeks
-- Remediation: 2-4 weeks
-- Retest: 1 week
-
-**Action Required:**
-1. Obtain 3 quotes from vendors
-2. Review scope with security team
-3. Schedule test window (avoid production peaks)
-4. Prepare test credentials and documentation
-
-#### www DNS Configuration
-
-**Status:** Pending
-
-**Current State:**
-- `aragora.ai` - configured and working
-- `www.aragora.ai` - needs CNAME or redirect configuration
-
-**Resolution Options:**
-
-1. **Cloudflare Redirect Rule (Recommended)**
-   ```
-   Rule: If hostname equals "www.aragora.ai"
-   Action: Redirect to "https://aragora.ai" with status 301
-   ```
-
-2. **CNAME Record**
-   ```dns
-   www    CNAME   aragora.ai
-   ```
-   Note: Requires Cloudflare proxy to handle SSL
-
-3. **Page Rule (Legacy)**
-   ```
-   URL: www.aragora.ai/*
-   Setting: Forwarding URL (301 Permanent)
-   Destination: https://aragora.ai/$1
-   ```
-
-**Verification:**
-```bash
-# Test www redirect
-curl -sI https://www.aragora.ai | grep -E "^(HTTP|Location)"
-# Expected: HTTP/2 301 + Location: https://aragora.ai/
-
-# Test apex domain
-curl -sI https://aragora.ai | grep "^HTTP"
-# Expected: HTTP/2 200
-```
-
-### Agent Health Monitoring
-
-A new endpoint is available to monitor agent health:
-
-```bash
-# Check agent health status
-curl https://api.aragora.ai/api/agents/health | jq
-
-# Response includes:
-# - overall_status: healthy/degraded/unhealthy
-# - circuit_breakers: per-agent circuit breaker state
-# - fallback: OpenRouter and local LLM availability
-# - agents: per-agent type availability
-# - summary: aggregate availability metrics
-```
-
-**Key Metrics:**
-- `overall_status`: Overall system health
-- `summary.availability_rate`: Percentage of agents available
-- `circuit_breakers.*`: Individual agent circuit states
-
----
-
-## See Also
-
-- [INDEX.md](INDEX.md) - Complete documentation navigation
-- [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md) - Deployment checklist
-- [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) - Incident playbooks
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - General troubleshooting
-- [NOMIC_GOVERNANCE.md](NOMIC_GOVERNANCE.md) - Nomic loop safety
-
----
-
-*Last updated: 2026-01-15*

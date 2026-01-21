@@ -1,0 +1,86 @@
+# Aragora Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aragora-backend
+  namespace: aragora
+  labels:
+    app: aragora-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aragora-backend
+  template:
+    metadata:
+      labels:
+        app: aragora-backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: backend
+          image: aragora/backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aragora-config
+            - secretRef:
+                name: aragora-secrets
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://aragora:$(POSTGRES_PASSWORD)@postgres:5432/aragora"
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: knowledge
+              mountPath: /app/knowledge
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: aragora-data-pvc
+        - name: knowledge
+          persistentVolumeClaim:
+            claimName: aragora-knowledge-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aragora-backend
+  namespace: aragora
+spec:
+  selector:
+    app: aragora-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  type: ClusterIP
