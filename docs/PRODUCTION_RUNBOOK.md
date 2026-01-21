@@ -184,6 +184,18 @@ aws ssm send-command \
 
 ## Monitoring & Alerts
 
+### CloudWatch Dashboard
+
+**Dashboard URL**: https://us-east-2.console.aws.amazon.com/cloudwatch/home?region=us-east-2#dashboards:name=Aragora-Production
+
+Features:
+- CPU utilization for both servers
+- Network in/out metrics
+- Status check failures
+- Recent error logs
+- Request rate graph
+- HTTP error code distribution
+
 ### CloudWatch Alarms
 
 | Alarm Name | Metric | Threshold | Action |
@@ -192,6 +204,9 @@ aws ssm send-command \
 | `aragora-api-server-status-check` | StatusCheckFailed | 1 | Email alert |
 | `aragora-api-2-cpu-high` | CPUUtilization > 80% | 5 min | Email alert |
 | `aragora-api-2-status-check` | StatusCheckFailed | 1 | Email alert |
+| `aragora-high-error-rate` | ErrorCount > 50 | 10 min | Email alert |
+| `aragora-http-5xx-errors` | HTTP5xxErrors > 10 | 10 min | Email alert |
+| `aragora-http-4xx-errors` | HTTP4xxErrors > 100 | 15 min | Email alert |
 
 ### Check Alarm Status
 
@@ -201,6 +216,9 @@ aws cloudwatch describe-alarms --alarm-names \
   "aragora-api-server-status-check" \
   "aragora-api-2-cpu-high" \
   "aragora-api-2-status-check" \
+  "aragora-high-error-rate" \
+  "aragora-http-5xx-errors" \
+  "aragora-http-4xx-errors" \
   --query 'MetricAlarms[*].[AlarmName,StateValue]' \
   --output table
 ```
