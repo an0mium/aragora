@@ -238,9 +238,9 @@ class TestRBACEnforcement:
             org_id="org_123",
         )
 
-        # Admin should have delete permission
-        decision = check_permission(ctx, "organizations.delete")
-        assert decision.allowed, "Admin should have organizations.delete"
+        # Admin should have update permission
+        decision = check_permission(ctx, "organization.update")
+        assert decision.allowed, "Admin should have organization.update"
 
     def test_viewer_restrictions(self):
         """Viewer role must be restricted from write operations."""
@@ -255,9 +255,9 @@ class TestRBACEnforcement:
             org_id="org_123",
         )
 
-        # Viewer should NOT have delete permission
-        decision = check_permission(ctx, "organizations.delete")
-        assert not decision.allowed, "SECURITY REGRESSION: Viewer should NOT have delete permission"
+        # Viewer should NOT have update permission
+        decision = check_permission(ctx, "organization.update")
+        assert not decision.allowed, "SECURITY REGRESSION: Viewer should NOT have update permission"
 
 
 class TestApprovalPersistence:

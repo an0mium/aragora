@@ -325,7 +325,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
         if hasattr(self._local, "connection"):
             try:
                 self._local.connection.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 - Cleanup must not raise
                 pass
             delattr(self._local, "connection")
 
@@ -590,8 +590,8 @@ class FallbackOAuthStateStore(OAuthStateStore):
                 result = self._sqlite_store.validate_and_consume(state)
                 if result:
                     return result
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - Fallback to next store
+                logger.debug(f"SQLite OAuth store fallback: {e}")
 
         if store is not self._memory_store:
             result = self._memory_store.validate_and_consume(state)
@@ -637,7 +637,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
         if self._sqlite_store:
             try:
                 self._sqlite_store.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 - Cleanup must not raise
                 pass
 
 

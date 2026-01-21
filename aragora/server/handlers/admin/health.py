@@ -274,6 +274,15 @@ class HealthHandler(BaseHandler):
         except Exception as e:
             checks["rate_limiters"] = {"healthy": True, "error": str(e)[:80]}
 
+        # Check security services
+        checks["security_services"] = self._check_security_services()
+        # Security service unavailability in production is a warning
+        import os as _os
+
+        if _os.environ.get("ARAGORA_ENV") == "production":
+            if not checks["security_services"].get("encryption_configured"):
+                all_healthy = False
+
         # Calculate response time and uptime
         response_time_ms = round((time.time() - start_time) * 1000, 2)
         uptime_seconds = int(time.time() - _SERVER_START_TIME)
@@ -389,6 +398,73 @@ class HealthHandler(BaseHandler):
             "available_count": available_count,
             "providers": available,
         }
+
+    def _check_security_services(self) -> Dict[str, Any]:
+        """Check security services health.
+
+        Verifies:
+        - Encryption service is available and functional
+        - RBAC module is available
+        - Audit logger is configured
+        - Production encryption key is set (in production mode)
+        """
+        import os
+
+        result: Dict[str, Any] = {"healthy": True}
+        is_production = os.environ.get("ARAGORA_ENV") == "production"
+
+        # Check encryption service
+        try:
+            from aragora.security.encryption import get_encryption_service
+
+            service = get_encryption_service()
+            result["encryption_available"] = service is not None
+            result["encryption_configured"] = bool(os.environ.get("ARAGORA_ENCRYPTION_KEY"))
+
+            if is_production and not result["encryption_configured"]:
+                result["healthy"] = False
+                result["encryption_warning"] = (
+                    "ARAGORA_ENCRYPTION_KEY not set - secrets may be unencrypted"
+                )
+        except ImportError:
+            result["encryption_available"] = False
+            result["encryption_warning"] = "Encryption module not available"
+        except Exception as e:
+            result["encryption_available"] = False
+            result["encryption_error"] = f"{type(e).__name__}: {str(e)[:80]}"
+
+        # Check RBAC module
+        try:
+            from aragora.rbac import AuthorizationContext, check_permission  # noqa: F401
+
+            result["rbac_available"] = True
+        except ImportError:
+            result["rbac_available"] = False
+            result["rbac_warning"] = "RBAC module not available"
+
+        # Check audit logger
+        try:
+            from aragora.server.middleware.audit_logger import get_audit_logger
+
+            audit_logger = get_audit_logger()
+            result["audit_logger_configured"] = audit_logger is not None
+        except ImportError:
+            result["audit_logger_configured"] = False
+            result["audit_warning"] = "Audit logger module not available"
+        except Exception as e:
+            result["audit_logger_configured"] = False
+            result["audit_error"] = f"{type(e).__name__}: {str(e)[:80]}"
+
+        # Check JWT auth module
+        try:
+            from aragora.billing.jwt_auth import extract_user_from_request  # noqa: F401
+
+            result["jwt_auth_available"] = True
+        except ImportError:
+            result["jwt_auth_available"] = False
+            result["jwt_warning"] = "JWT auth module not available"
+
+        return result
 
     def _detailed_health_check(self) -> HandlerResult:
         """Return detailed health status with system observer metrics.
@@ -691,7 +767,7 @@ class HealthHandler(BaseHandler):
 
         # 6. Consensus Memory
         try:
-            from aragora.memory.consensus import ConsensusMemory
+            from aragora.memory.consensus import ConsensusMemory  # noqa: F401
 
             nomic_dir = self.get_nomic_dir()
             if nomic_dir is not None:
@@ -1235,9 +1311,7 @@ class HealthHandler(BaseHandler):
                 try:
                     if hasattr(calibration, "get_calibration_stats"):
                         stats = calibration.get_calibration_stats()
-                        features["calibration"]["tracked_agents"] = stats.get(
-                            "tracked_agents", 0
-                        )
+                        features["calibration"]["tracked_agents"] = stats.get("tracked_agents", 0)
                 except (AttributeError, KeyError):
                     pass
             else:
@@ -1354,9 +1428,7 @@ class HealthHandler(BaseHandler):
             }
 
         # Count active features
-        active_count = sum(
-            1 for f in features.values() if f.get("status") == "active"
-        )
+        active_count = sum(1 for f in features.values() if f.get("status") == "active")
         total_features = len(features)
 
         status = "healthy" if all_healthy else "degraded"
@@ -1400,8 +1472,8 @@ class HealthHandler(BaseHandler):
 
         # 1. Check if Knowledge Mound module is available
         try:
-            from aragora.knowledge.mound import KnowledgeMound
-            from aragora.knowledge.mound.types import MoundConfig
+            from aragora.knowledge.mound import KnowledgeMound  # noqa: F401
+            from aragora.knowledge.mound.types import MoundConfig  # noqa: F401
 
             components["module"] = {
                 "healthy": True,
@@ -1501,7 +1573,9 @@ class HealthHandler(BaseHandler):
                     try:
                         if hasattr(accumulator, "_patterns"):
                             workspace_count = len(accumulator._patterns)
-                            components["culture_accumulator"]["workspaces_tracked"] = workspace_count
+                            components["culture_accumulator"]["workspaces_tracked"] = (
+                                workspace_count
+                            )
                     except (AttributeError, TypeError):
                         pass
                 else:
@@ -1676,7 +1750,7 @@ class HealthHandler(BaseHandler):
 
         # 10. Check Control Plane adapter
         try:
-            from aragora.knowledge.mound.adapters.control_plane_adapter import (
+            from aragora.knowledge.mound.adapters.control_plane_adapter import (  # noqa: F401
                 ControlPlaneAdapter,
                 TaskOutcome,
                 AgentCapabilityRecord,
@@ -1708,7 +1782,7 @@ class HealthHandler(BaseHandler):
 
         # 11. Check KM metrics availability
         try:
-            from aragora.observability.metrics.km import (
+            from aragora.observability.metrics.km import (  # noqa: F401
                 init_km_metrics,
                 record_km_operation,
                 record_cp_task_outcome,

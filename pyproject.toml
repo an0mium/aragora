@@ -755,7 +755,10 @@ module = [
 ignore_errors = true
 
 [tool.mutmut]
-paths_to_mutate = "aragora/core.py,aragora/ranking/elo.py,aragora/ranking/elo_core.py"
+# Note: mutmut v3.4.0 has a bug parsing paths_to_mutate from pyproject.toml
+# For now, use: mutmut run aragora/ranking/elo_core.py (positional arg)
+# Or downgrade to mutmut v2.x which uses different config format
+paths_to_mutate = "aragora/"
 tests_dir = "tests/"
 runner = "python -m pytest -x --tb=no -q"
 dict_synonyms = "Struct,NamedTuple,Dict"

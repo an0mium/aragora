@@ -72,9 +72,7 @@ class SQLiteOriginStore:
                 result_sent_at REAL
             )
         """)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_origins_created ON debate_origins(created_at)"
-        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_origins_created ON debate_origins(created_at)")
         conn.commit()
         conn.close()
 
@@ -105,9 +103,7 @@ class SQLiteOriginStore:
     def get(self, debate_id: str) -> Optional["DebateOrigin"]:
         """Get a debate origin by ID."""
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.execute(
-            "SELECT * FROM debate_origins WHERE debate_id = ?", (debate_id,)
-        )
+        cursor = conn.execute("SELECT * FROM debate_origins WHERE debate_id = ?", (debate_id,))
         row = cursor.fetchone()
         conn.close()
 
@@ -130,9 +126,7 @@ class SQLiteOriginStore:
         """Remove expired origin records."""
         cutoff = time.time() - ttl_seconds
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.execute(
-            "DELETE FROM debate_origins WHERE created_at < ?", (cutoff,)
-        )
+        cursor = conn.execute("DELETE FROM debate_origins WHERE created_at < ?", (cutoff,))
         count = cursor.rowcount
         conn.commit()
         conn.close()
@@ -651,11 +645,7 @@ async def _send_google_chat_result(origin: DebateOrigin, result: Dict[str, Any])
 
         sections = [
             {"header": f"{consensus_emoji} Debate Complete"},
-            {
-                "widgets": [
-                    {"textParagraph": {"text": f"<b>Topic:</b> {topic[:200]}"}}
-                ]
-            },
+            {"widgets": [{"textParagraph": {"text": f"<b>Topic:</b> {topic[:200]}"}}]},
             {
                 "widgets": [
                     {
@@ -672,47 +662,45 @@ async def _send_google_chat_result(origin: DebateOrigin, result: Dict[str, Any])
                     },
                 ]
             },
-            {
-                "widgets": [
-                    {"textParagraph": {"text": f"<b>Conclusion:</b>\n{answer}"}}
-                ]
-            },
+            {"widgets": [{"textParagraph": {"text": f"<b>Conclusion:</b>\n{answer}"}}]},
         ]
 
         # Add vote buttons
         debate_id = result.get("id", origin.debate_id)
-        sections.append({
-            "widgets": [
-                {
-                    "buttonList": {
-                        "buttons": [
-                            {
-                                "text": "👍 Agree",
-                                "onClick": {
-                                    "action": {
-                                        "function": "vote_agree",
-                                        "parameters": [
-                                            {"key": "debate_id", "value": debate_id}
-                                        ],
-                                    }
+        sections.append(
+            {
+                "widgets": [
+                    {
+                        "buttonList": {
+                            "buttons": [
+                                {
+                                    "text": "👍 Agree",
+                                    "onClick": {
+                                        "action": {
+                                            "function": "vote_agree",
+                                            "parameters": [
+                                                {"key": "debate_id", "value": debate_id}
+                                            ],
+                                        }
+                                    },
                                 },
-                            },
-                            {
-                                "text": "👎 Disagree",
-                                "onClick": {
-                                    "action": {
-                                        "function": "vote_disagree",
-                                        "parameters": [
-                                            {"key": "debate_id", "value": debate_id}
-                                        ],
-                                    }
+                                {
+                                    "text": "👎 Disagree",
+                                    "onClick": {
+                                        "action": {
+                                            "function": "vote_disagree",
+                                            "parameters": [
+                                                {"key": "debate_id", "value": debate_id}
+                                            ],
+                                        }
+                                    },
                                 },
-                            },
-                        ]
+                            ]
+                        }
                     }
-                }
-            ]
-        })
+                ]
+            }
+        )
 
         # Send message with card
         response = await connector.send_message(
@@ -1037,19 +1025,40 @@ def _load_origin_redis(debate_id: str) -> Optional[DebateOrigin]:
 
 
 def cleanup_expired_origins() -> int:
-    """Remove expired origin records from in-memory store."""
+    """Remove expired origin records from in-memory store and SQLite.
+
+    This function cleans up expired debate origins from:
+    1. In-memory cache
+    2. SQLite database (for persistent storage)
+
+    Should be called periodically (e.g., hourly) to prevent unbounded growth.
+
+    Returns:
+        Total count of expired records removed
+    """
+    total_cleaned = 0
     now = time.time()
-    expired = [
-        k for k, v in _origin_store.items() if now - v.created_at > ORIGIN_TTL_SECONDS
-    ]
+
+    # Clean up in-memory store
+    expired = [k for k, v in _origin_store.items() if now - v.created_at > ORIGIN_TTL_SECONDS]
 
     for k in expired:
         del _origin_store[k]
 
     if expired:
-        logger.info(f"Cleaned up {len(expired)} expired debate origins")
+        logger.info(f"Cleaned up {len(expired)} expired debate origins from memory")
+        total_cleaned += len(expired)
 
-    return len(expired)
+    # Clean up SQLite store
+    try:
+        sqlite_cleaned = _get_sqlite_store().cleanup_expired(ORIGIN_TTL_SECONDS)
+        if sqlite_cleaned > 0:
+            logger.info(f"Cleaned up {sqlite_cleaned} expired debate origins from SQLite")
+            total_cleaned += sqlite_cleaned
+    except Exception as e:
+        logger.warning(f"SQLite cleanup failed: {e}")
+
+    return total_cleaned
 
 
 __all__ = [

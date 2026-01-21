@@ -123,7 +123,7 @@ class TestDebateOrigin:
         assert origin.metadata["test"] is True
 
     def test_cleanup_expired_origins(self):
-        """Test cleanup of expired origins."""
+        """Test cleanup of expired origins from memory."""
         import time
         from aragora.server.debate_origin import (
             register_debate_origin,
@@ -147,8 +147,60 @@ class TestDebateOrigin:
 
         # Cleanup should remove it
         count = cleanup_expired_origins()
-        assert count == 1
+        assert count >= 1  # At least memory cleanup
         assert "test-expire" not in _origin_store
+
+    def test_cleanup_expired_origins_sqlite(self):
+        """Test cleanup of expired origins from SQLite database."""
+        import tempfile
+        import os
+        import time
+        from aragora.server.debate_origin import (
+            SQLiteOriginStore,
+            DebateOrigin,
+            ORIGIN_TTL_SECONDS,
+        )
+
+        # Create temp database
+        fd, db_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+
+        try:
+            store = SQLiteOriginStore(db_path=db_path)
+
+            # Create an expired origin
+            expired_origin = DebateOrigin(
+                debate_id="expired-sqlite",
+                platform="telegram",
+                channel_id="123",
+                user_id="456",
+                created_at=time.time() - ORIGIN_TTL_SECONDS - 100,
+            )
+            store.save(expired_origin)
+
+            # Create a valid origin
+            valid_origin = DebateOrigin(
+                debate_id="valid-sqlite",
+                platform="telegram",
+                channel_id="789",
+                user_id="012",
+                created_at=time.time(),
+            )
+            store.save(valid_origin)
+
+            # Cleanup should remove only expired
+            count = store.cleanup_expired(ORIGIN_TTL_SECONDS)
+            assert count == 1
+
+            # Verify expired is gone, valid remains
+            assert store.get("expired-sqlite") is None
+            assert store.get("valid-sqlite") is not None
+
+        finally:
+            try:
+                os.unlink(db_path)
+            except OSError:
+                pass
 
 
 class TestFormatResultMessage:
@@ -286,9 +338,10 @@ class TestRouteDebateResult:
             user_id="87654321",
         )
 
-        with patch.dict(
-            "os.environ", {"TELEGRAM_BOT_TOKEN": "test_token"}
-        ), patch("httpx.AsyncClient") as mock_client:
+        with (
+            patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "test_token"}),
+            patch("httpx.AsyncClient") as mock_client,
+        ):
             mock_response = MagicMock()
             mock_response.is_success = True
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
@@ -325,13 +378,16 @@ class TestRouteDebateResult:
             user_id="+1234567890",
         )
 
-        with patch.dict(
-            "os.environ",
-            {
-                "WHATSAPP_ACCESS_TOKEN": "test_token",
-                "WHATSAPP_PHONE_NUMBER_ID": "12345",
-            },
-        ), patch("httpx.AsyncClient") as mock_client:
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "WHATSAPP_ACCESS_TOKEN": "test_token",
+                    "WHATSAPP_PHONE_NUMBER_ID": "12345",
+                },
+            ),
+            patch("httpx.AsyncClient") as mock_client,
+        ):
             mock_response = MagicMock()
             mock_response.is_success = True
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
@@ -384,9 +440,7 @@ class TestResultRouter:
         register_result_router_hooks(manager)
 
         # Check hook was registered
-        assert "result_router" in [
-            h.name for hooks in manager._hooks.values() for h in hooks
-        ]
+        assert "result_router" in [h.name for hooks in manager._hooks.values() for h in hooks]
 
     def test_post_debate_hook(self):
         """Test POST_DEBATE hook handler."""

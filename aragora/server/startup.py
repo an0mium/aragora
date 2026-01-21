@@ -32,7 +32,7 @@ def _get_config_value(name: str) -> str | None:
         return get_secret(name)
     except ImportError:
         return None
-    except Exception:
+    except Exception:  # noqa: BLE001 - Secret fetch fallback
         return None
 
 

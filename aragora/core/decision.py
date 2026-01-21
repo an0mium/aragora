@@ -1100,8 +1100,8 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                    logger.debug(f"Trace span cleanup error: {e}")
 
     async def _route_to_workflow(self, request: DecisionRequest) -> DecisionResult:
         """Route to workflow engine."""
@@ -1111,8 +1111,8 @@ class DecisionRouter:
             try:
                 span_ctx = _trace_decision_engine("workflow", request.request_id)
                 span = span_ctx.__enter__()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - Tracing must not block
+                logger.debug(f"Trace span error: {e}")
 
         try:
             if self._workflow_engine is None:
@@ -1162,8 +1162,8 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                    logger.debug(f"Trace span cleanup error: {e}")
 
     async def _route_to_gauntlet(self, request: DecisionRequest) -> DecisionResult:
         """Route to gauntlet engine."""
@@ -1173,8 +1173,8 @@ class DecisionRouter:
             try:
                 span_ctx = _trace_decision_engine("gauntlet", request.request_id)
                 span = span_ctx.__enter__()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - Tracing must not block
+                logger.debug(f"Trace span error: {e}")
 
         try:
             if self._gauntlet_engine is None:
@@ -1219,8 +1219,8 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                    logger.debug(f"Trace span cleanup error: {e}")
 
     async def _route_to_quick(self, request: DecisionRequest) -> DecisionResult:
         """Route to quick single-agent response."""
@@ -1230,8 +1230,8 @@ class DecisionRouter:
             try:
                 span_ctx = _trace_decision_engine("quick", request.request_id)
                 span = span_ctx.__enter__()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - Tracing must not block
+                logger.debug(f"Trace span error: {e}")
 
         # Use first configured agent for quick response
         agent_name = request.config.agents[0] if request.config.agents else "anthropic-api"
@@ -1274,8 +1274,8 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                    logger.debug(f"Trace span cleanup error: {e}")
 
     def _get_tts_bridge(self) -> Optional[Any]:
         """Lazy-load TTS bridge for voice responses."""
@@ -1331,8 +1331,8 @@ class DecisionRouter:
                 # Clean up temp file
                 try:
                     audio_path.unlink()
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                    logger.debug(f"Trace span cleanup error: {e}")
                 return audio_bytes
         except Exception as e:
             logger.error(f"Voice synthesis failed: {e}")
