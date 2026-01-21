@@ -210,6 +210,15 @@ from .versioning import (
     log_version_usage,
     normalize_path,
 )
+from .decision_routing import (
+    DecisionRoutingMiddleware,
+    RequestDeduplicator,
+    ResponseCache,
+    RoutingContext,
+    get_decision_middleware,
+    reset_decision_middleware,
+    route_decision,
+)
 
 __all__ = [
     # Auth
@@ -382,4 +391,12 @@ __all__ = [
     "get_all_versions",
     "deprecate_version",
     "log_version_usage",
+    # Decision routing
+    "DecisionRoutingMiddleware",
+    "RequestDeduplicator",
+    "ResponseCache",
+    "RoutingContext",
+    "get_decision_middleware",
+    "reset_decision_middleware",
+    "route_decision",
 ]

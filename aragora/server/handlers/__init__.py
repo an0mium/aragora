@@ -75,6 +75,7 @@ from .composite import CompositeHandler
 from .consensus import ConsensusHandler
 from .control_plane import ControlPlaneHandler
 from .decisions import DecisionExplainHandler
+from .decision import DecisionHandler
 from .critique import CritiqueHandler
 from .cross_pollination import (
     CrossPollinationStatsHandler,
@@ -209,6 +210,7 @@ ALL_HANDLERS = [
     ConsensusHandler,
     BeliefHandler,
     DecisionExplainHandler,  # Decision explainability API
+    DecisionHandler,  # Unified decision routing API
     ControlPlaneHandler,  # Enterprise control plane API
     CritiqueHandler,
     GenesisHandler,
@@ -335,6 +337,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AuthHandler": Stability.STABLE,
     # Extended - Stable
     "TournamentHandler": Stability.STABLE,
+    "DecisionHandler": Stability.EXPERIMENTAL,  # Unified decision routing API - new
     "ControlPlaneHandler": Stability.EXPERIMENTAL,  # Enterprise control plane - Phase 0
     "CritiqueHandler": Stability.STABLE,
     "RelationshipHandler": Stability.STABLE,
@@ -498,6 +501,7 @@ __all__ = [
     "BeliefHandler",
     "ControlPlaneHandler",
     "DecisionExplainHandler",
+    "DecisionHandler",
     "CritiqueHandler",
     "GenesisHandler",
     "ReplaysHandler",

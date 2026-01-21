@@ -163,6 +163,16 @@ WEBHOOK_RETRIES_TOTAL: Any = None
 WEBHOOK_CIRCUIT_BREAKER_STATES: Any = None
 WEBHOOK_QUEUE_SIZE: Any = None
 
+# Security & Governance Hardening metrics
+ENCRYPTION_OPERATIONS_TOTAL: Any = None
+ENCRYPTION_OPERATION_LATENCY: Any = None
+ENCRYPTION_ERRORS_TOTAL: Any = None
+RBAC_PERMISSION_CHECKS_TOTAL: Any = None
+RBAC_PERMISSION_DENIED_TOTAL: Any = None
+RBAC_CHECK_LATENCY: Any = None
+MIGRATION_RECORDS_TOTAL: Any = None
+MIGRATION_ERRORS_TOTAL: Any = None
+
 
 # Explicit exports for wildcard import
 __all__ = [
@@ -274,6 +284,15 @@ __all__ = [
     "WEBHOOK_RETRIES_TOTAL",
     "WEBHOOK_CIRCUIT_BREAKER_STATES",
     "WEBHOOK_QUEUE_SIZE",
+    # Security & Governance Hardening
+    "ENCRYPTION_OPERATIONS_TOTAL",
+    "ENCRYPTION_OPERATION_LATENCY",
+    "ENCRYPTION_ERRORS_TOTAL",
+    "RBAC_PERMISSION_CHECKS_TOTAL",
+    "RBAC_PERMISSION_DENIED_TOTAL",
+    "RBAC_CHECK_LATENCY",
+    "MIGRATION_RECORDS_TOTAL",
+    "MIGRATION_ERRORS_TOTAL",
     # Initialization
     "start_metrics_server",
     # Recording functions
@@ -403,6 +422,14 @@ __all__ = [
     "set_webhook_circuit_breaker_state",
     "set_webhook_queue_size",
     "track_webhook_delivery",
+    # Security & Governance Hardening
+    "record_encryption_operation",
+    "record_encryption_error",
+    "track_encryption_operation",
+    "record_rbac_check",
+    "track_rbac_check",
+    "record_migration_record",
+    "record_migration_error",
 ]
 
 
@@ -1062,6 +1089,53 @@ def _init_metrics() -> bool:
             "Current size of the webhook delivery queue",
         )
 
+        # Security & Governance Hardening metrics
+        global ENCRYPTION_OPERATIONS_TOTAL, ENCRYPTION_OPERATION_LATENCY, ENCRYPTION_ERRORS_TOTAL
+        global RBAC_PERMISSION_CHECKS_TOTAL, RBAC_PERMISSION_DENIED_TOTAL, RBAC_CHECK_LATENCY
+        global MIGRATION_RECORDS_TOTAL, MIGRATION_ERRORS_TOTAL
+
+        ENCRYPTION_OPERATIONS_TOTAL = Counter(
+            "aragora_encryption_operations_total",
+            "Total encryption/decryption operations",
+            ["operation", "store"],  # operation: encrypt/decrypt, store: sync_store/integration_store/gmail_token
+        )
+        ENCRYPTION_OPERATION_LATENCY = Histogram(
+            "aragora_encryption_operation_latency_seconds",
+            "Time spent on encryption/decryption operations",
+            ["operation"],
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+        )
+        ENCRYPTION_ERRORS_TOTAL = Counter(
+            "aragora_encryption_errors_total",
+            "Total encryption/decryption errors",
+            ["operation", "error_type"],
+        )
+        RBAC_PERMISSION_CHECKS_TOTAL = Counter(
+            "aragora_rbac_permission_checks_total",
+            "Total RBAC permission checks",
+            ["permission", "result"],  # result: allowed/denied
+        )
+        RBAC_PERMISSION_DENIED_TOTAL = Counter(
+            "aragora_rbac_permission_denied_total",
+            "Total RBAC permission denials",
+            ["permission", "handler"],
+        )
+        RBAC_CHECK_LATENCY = Histogram(
+            "aragora_rbac_check_latency_seconds",
+            "Time spent on RBAC permission checks",
+            buckets=[0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05],
+        )
+        MIGRATION_RECORDS_TOTAL = Counter(
+            "aragora_migration_records_total",
+            "Total records processed during data migration",
+            ["store", "status"],  # status: migrated/skipped/failed
+        )
+        MIGRATION_ERRORS_TOTAL = Counter(
+            "aragora_migration_errors_total",
+            "Total errors during data migration",
+            ["store", "error_type"],
+        )
+
         _initialized = True
         logger.info("Prometheus metrics initialized")
         return True
@@ -1246,6 +1320,19 @@ def _init_noop_metrics() -> None:
     WEBHOOK_RETRIES_TOTAL = NoOpMetric()
     WEBHOOK_CIRCUIT_BREAKER_STATES = NoOpMetric()
     WEBHOOK_QUEUE_SIZE = NoOpMetric()
+
+    # Security & Governance Hardening
+    global ENCRYPTION_OPERATIONS_TOTAL, ENCRYPTION_OPERATION_LATENCY, ENCRYPTION_ERRORS_TOTAL
+    global RBAC_PERMISSION_CHECKS_TOTAL, RBAC_PERMISSION_DENIED_TOTAL, RBAC_CHECK_LATENCY
+    global MIGRATION_RECORDS_TOTAL, MIGRATION_ERRORS_TOTAL
+    ENCRYPTION_OPERATIONS_TOTAL = NoOpMetric()
+    ENCRYPTION_OPERATION_LATENCY = NoOpMetric()
+    ENCRYPTION_ERRORS_TOTAL = NoOpMetric()
+    RBAC_PERMISSION_CHECKS_TOTAL = NoOpMetric()
+    RBAC_PERMISSION_DENIED_TOTAL = NoOpMetric()
+    RBAC_CHECK_LATENCY = NoOpMetric()
+    MIGRATION_RECORDS_TOTAL = NoOpMetric()
+    MIGRATION_ERRORS_TOTAL = NoOpMetric()
 
 
 def start_metrics_server() -> Optional[Any]:
@@ -3308,3 +3395,131 @@ def track_webhook_delivery(endpoint: str) -> Generator[None, None, None]:
     finally:
         latency = time.perf_counter() - start
         record_webhook_delivery(endpoint, success, latency)
+
+
+# =============================================================================
+# Security & Governance Hardening Metrics
+# =============================================================================
+
+
+def record_encryption_operation(
+    operation: str,
+    store: str,
+    latency_seconds: float,
+) -> None:
+    """Record an encryption or decryption operation.
+
+    Args:
+        operation: Operation type ("encrypt" or "decrypt")
+        store: Store name ("sync_store", "integration_store", "gmail_token")
+        latency_seconds: Operation latency in seconds
+    """
+    _init_metrics()
+    ENCRYPTION_OPERATIONS_TOTAL.labels(operation=operation, store=store).inc()
+    ENCRYPTION_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
+
+
+def record_encryption_error(
+    operation: str,
+    error_type: str,
+) -> None:
+    """Record an encryption or decryption error.
+
+    Args:
+        operation: Operation type ("encrypt" or "decrypt")
+        error_type: Type of error (e.g., "key_not_found", "decryption_failed")
+    """
+    _init_metrics()
+    ENCRYPTION_ERRORS_TOTAL.labels(operation=operation, error_type=error_type).inc()
+
+
+@contextmanager
+def track_encryption_operation(operation: str, store: str) -> Generator[None, None, None]:
+    """Context manager to track encryption/decryption operations.
+
+    Args:
+        operation: Operation type ("encrypt" or "decrypt")
+        store: Store name ("sync_store", "integration_store", "gmail_token")
+
+    Example:
+        with track_encryption_operation("encrypt", "sync_store"):
+            encrypted = service.encrypt_fields(data, fields)
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    try:
+        yield
+    except Exception as e:
+        record_encryption_error(operation, type(e).__name__)
+        raise
+    finally:
+        latency = time.perf_counter() - start
+        record_encryption_operation(operation, store, latency)
+
+
+def record_rbac_check(
+    permission: str,
+    allowed: bool,
+    handler: str = "",
+) -> None:
+    """Record an RBAC permission check.
+
+    Args:
+        permission: Permission checked (e.g., "workflows.read", "workflows.delete")
+        allowed: Whether permission was allowed
+        handler: Handler name for denied requests (optional)
+    """
+    _init_metrics()
+    result = "allowed" if allowed else "denied"
+    RBAC_PERMISSION_CHECKS_TOTAL.labels(permission=permission, result=result).inc()
+    if not allowed and handler:
+        RBAC_PERMISSION_DENIED_TOTAL.labels(permission=permission, handler=handler).inc()
+
+
+@contextmanager
+def track_rbac_check(permission: str, handler: str = "") -> Generator[None, None, None]:
+    """Context manager to track RBAC permission checks.
+
+    Args:
+        permission: Permission being checked
+        handler: Handler name for context
+
+    Example:
+        with track_rbac_check("workflows.delete", "WorkflowHandler"):
+            decision = check_permission(context, permission)
+    """
+    _init_metrics()
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        latency = time.perf_counter() - start
+        RBAC_CHECK_LATENCY.observe(latency)
+
+
+def record_migration_record(
+    store: str,
+    status: str,
+) -> None:
+    """Record a record processed during migration.
+
+    Args:
+        store: Store name ("sync_store", "integration_store", "gmail_token")
+        status: Status ("migrated", "skipped", "failed")
+    """
+    _init_metrics()
+    MIGRATION_RECORDS_TOTAL.labels(store=store, status=status).inc()
+
+
+def record_migration_error(
+    store: str,
+    error_type: str,
+) -> None:
+    """Record a migration error.
+
+    Args:
+        store: Store name ("sync_store", "integration_store", "gmail_token")
+        error_type: Type of error
+    """
+    _init_metrics()
+    MIGRATION_ERRORS_TOTAL.labels(store=store, error_type=error_type).inc()

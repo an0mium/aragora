@@ -57,6 +57,7 @@ MetricsHandler: HandlerType = None
 ConsensusHandler: HandlerType = None
 BeliefHandler: HandlerType = None
 DecisionExplainHandler: HandlerType = None
+DecisionHandler: HandlerType = None
 CritiqueHandler: HandlerType = None
 GenesisHandler: HandlerType = None
 ReplaysHandler: HandlerType = None
@@ -174,6 +175,9 @@ try:
     )
     from aragora.server.handlers import (
         DecisionExplainHandler as _DecisionExplainHandler,
+    )
+    from aragora.server.handlers import (
+        DecisionHandler as _DecisionHandler,
     )
     from aragora.server.handlers import (
         CritiqueHandler as _CritiqueHandler,
@@ -366,6 +370,7 @@ try:
     ConsensusHandler = _ConsensusHandler
     BeliefHandler = _BeliefHandler
     DecisionExplainHandler = _DecisionExplainHandler
+    DecisionHandler = _DecisionHandler
     CritiqueHandler = _CritiqueHandler
     GenesisHandler = _GenesisHandler
     ReplaysHandler = _ReplaysHandler
@@ -458,6 +463,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_consensus_handler", ConsensusHandler),
     ("_belief_handler", BeliefHandler),
     ("_decision_explain_handler", DecisionExplainHandler),
+    ("_decision_handler", DecisionHandler),
     ("_critique_handler", CritiqueHandler),
     ("_genesis_handler", GenesisHandler),
     ("_replays_handler", ReplaysHandler),
@@ -569,6 +575,7 @@ class RouteIndex:
             "_pulse_handler": ["/api/pulse/"],
             "_consensus_handler": ["/api/consensus/"],
             "_belief_handler": ["/api/belief-network/", "/api/laboratory/"],
+            "_decision_handler": ["/api/decisions"],
             "_genesis_handler": ["/api/genesis/"],
             "_replays_handler": ["/api/replays/"],
             "_tournament_handler": ["/api/tournaments/"],
@@ -964,6 +971,7 @@ class HandlerRegistryMixin:
     _consensus_handler: Optional["BaseHandler"] = None
     _belief_handler: Optional["BaseHandler"] = None
     _critique_handler: Optional["BaseHandler"] = None
+    _decision_handler: Optional["BaseHandler"] = None
     _genesis_handler: Optional["BaseHandler"] = None
     _replays_handler: Optional["BaseHandler"] = None
     _tournament_handler: Optional["BaseHandler"] = None

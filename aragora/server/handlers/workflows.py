@@ -29,6 +29,19 @@ from aragora.workflow.types import (
 from aragora.workflow.engine import WorkflowEngine
 from aragora.workflow.persistent_store import get_workflow_store, PersistentWorkflowStore
 
+# RBAC imports
+try:
+    from aragora.rbac import (
+        AuthorizationContext,
+        check_permission,
+        PermissionDeniedError,
+        get_role_permissions,
+    )
+    from aragora.billing.auth import extract_user_from_request
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -862,6 +875,89 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             or path.startswith("/api/workflow-executions")
         )
 
+    def _get_auth_context(self, handler: Any) -> Optional["AuthorizationContext"]:
+        """Build AuthorizationContext from JWT token or headers.
+
+        Returns None if RBAC is not available.
+        """
+        if not RBAC_AVAILABLE:
+            return None
+
+        # Try JWT authentication first (secure)
+        jwt_context = extract_user_from_request(handler)
+        if jwt_context.authenticated and jwt_context.user_id:
+            roles = {jwt_context.role} if jwt_context.role else {"member"}
+            permissions: set[str] = set()
+            for role in roles:
+                permissions |= get_role_permissions(role, include_inherited=True)
+
+            return AuthorizationContext(
+                user_id=jwt_context.user_id,
+                org_id=jwt_context.org_id,
+                roles=roles,
+                permissions=permissions,
+            )
+
+        # Fall back to headers for internal/service calls
+        headers = getattr(handler, "headers", {})
+        user_id = headers.get("X-User-ID", "anonymous")
+        if user_id and user_id != "anonymous":
+            logger.warning(
+                f"workflows: Header-based auth for user {user_id}. "
+                "JWT auth recommended for security."
+            )
+
+        org_id = headers.get("X-Org-ID")
+        roles_header = headers.get("X-User-Roles", "member")
+        roles = set(r.strip() for r in roles_header.split(",") if r.strip())
+
+        permissions = set()
+        for role in roles:
+            permissions |= get_role_permissions(role, include_inherited=True)
+
+        return AuthorizationContext(
+            user_id=user_id,
+            org_id=org_id,
+            roles=roles,
+            permissions=permissions,
+        )
+
+    def _check_permission(
+        self, handler: Any, permission_key: str, resource_id: Optional[str] = None
+    ) -> Optional[HandlerResult]:
+        """Check if the request has the required permission.
+
+        Returns None if allowed, or an error response if denied.
+        If RBAC is not available, allows the request (development mode).
+        """
+        if not RBAC_AVAILABLE:
+            logger.debug(f"RBAC not available, allowing {permission_key}")
+            return None
+
+        context = self._get_auth_context(handler)
+        if context is None:
+            return None  # RBAC not configured
+
+        try:
+            decision = check_permission(context, permission_key, resource_id)
+            if not decision.allowed:
+                logger.warning(
+                    f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
+                )
+                return error_response(f"Permission denied: {decision.reason}", 403)
+        except PermissionDeniedError as e:
+            logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            return error_response(f"Permission denied: {str(e)}", 403)
+        return None
+
+    def _get_tenant_id(self, handler: Any, query_params: dict) -> str:
+        """Extract tenant_id from auth context or query params."""
+        if RBAC_AVAILABLE:
+            context = self._get_auth_context(handler)
+            if context and context.org_id:
+                return context.org_id
+        return get_string_param(query_params, "tenant_id", "default")
+
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
@@ -871,36 +967,36 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         # GET /api/workflow-executions
         if path == "/api/workflow-executions":
-            return self._handle_list_executions(query_params)
+            return self._handle_list_executions(query_params, handler)
 
         # GET /api/workflow-templates
         if path == "/api/workflow-templates":
-            return self._handle_list_templates(query_params)
+            return self._handle_list_templates(query_params, handler)
 
         # GET /api/workflow-approvals
         if path == "/api/workflow-approvals":
-            return self._handle_list_approvals(query_params)
+            return self._handle_list_approvals(query_params, handler)
 
         # GET /api/workflows/{id}/versions
         if path.endswith("/versions"):
             workflow_id = self._extract_id(path, suffix="/versions")
             if workflow_id:
-                return self._handle_get_versions(workflow_id, query_params)
+                return self._handle_get_versions(workflow_id, query_params, handler)
 
         # GET /api/workflows/{id}/status
         if path.endswith("/status"):
             workflow_id = self._extract_id(path, suffix="/status")
             if workflow_id:
-                return self._handle_get_status(workflow_id, query_params)
+                return self._handle_get_status(workflow_id, query_params, handler)
 
         # GET /api/workflows/{id}
         workflow_id = self._extract_id(path)
         if workflow_id:
-            return self._handle_get_workflow(workflow_id, query_params)
+            return self._handle_get_workflow(workflow_id, query_params, handler)
 
         # GET /api/workflows
         if path == "/api/workflows":
-            return self._handle_list_workflows(query_params)
+            return self._handle_list_workflows(query_params, handler)
 
         return None
 
@@ -919,24 +1015,24 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if path.endswith("/execute"):
             workflow_id = self._extract_id(path, suffix="/execute")
             if workflow_id:
-                return self._handle_execute(workflow_id, body, query_params)
+                return self._handle_execute(workflow_id, body, query_params, handler)
 
         # POST /api/workflows/{id}/simulate
         if path.endswith("/simulate"):
             workflow_id = self._extract_id(path, suffix="/simulate")
             if workflow_id:
-                return self._handle_simulate(workflow_id, body, query_params)
+                return self._handle_simulate(workflow_id, body, query_params, handler)
 
         # POST /api/workflow-approvals/{id}/resolve
         if "/workflow-approvals/" in path and path.endswith("/resolve"):
             parts = path.split("/")
             if len(parts) >= 4:
                 request_id = parts[3]
-                return self._handle_resolve_approval(request_id, body, query_params)
+                return self._handle_resolve_approval(request_id, body, query_params, handler)
 
         # POST /api/workflows (create)
         if path == "/api/workflows":
-            return self._handle_create_workflow(body, query_params)
+            return self._handle_create_workflow(body, query_params, handler)
 
         return None
 
@@ -953,7 +1049,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         workflow_id = self._extract_id(path)
         if workflow_id:
-            return self._handle_update_workflow(workflow_id, body, query_params)
+            return self._handle_update_workflow(workflow_id, body, query_params, handler)
 
         return None
 
@@ -972,7 +1068,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         workflow_id = self._extract_id(path)
         if workflow_id:
-            return self._handle_delete_workflow(workflow_id, query_params)
+            return self._handle_delete_workflow(workflow_id, query_params, handler)
 
         return None
 
@@ -991,31 +1087,22 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return parts[2]
         return None
 
-    def _get_tenant_id(self, query_params: dict, handler: Any) -> str:
-        """Extract tenant ID from request."""
-        # Try query param first
-        tenant_id = get_string_param(query_params, "tenant_id", "")
-        if tenant_id:
-            return tenant_id
-
-        # Try auth context
-        user = self.get_current_user(handler) if handler else None
-        if user and hasattr(user, "org_id") and user.org_id:
-            return user.org_id
-
-        return "default"
-
     # =========================================================================
     # Request Handlers
     # =========================================================================
 
-    def _handle_list_workflows(self, query_params: dict) -> HandlerResult:
+    def _handle_list_workflows(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflows."""
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.read"):
+            return error
+
         try:
             limit, offset = self.get_pagination(query_params)
+            tenant_id = self._get_tenant_id(handler, query_params)
             result = _run_async(
                 list_workflows(
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    tenant_id=tenant_id,
                     category=get_string_param(query_params, "category", None),
                     search=get_string_param(query_params, "search", None),
                     limit=limit,
@@ -1027,13 +1114,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to list workflows: {e}")
             return error_response(safe_error_message(e, "list workflows"), 500)
 
-    def _handle_get_workflow(self, workflow_id: str, query_params: dict) -> HandlerResult:
+    def _handle_get_workflow(self, workflow_id: str, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflows/{id}."""
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.read", workflow_id):
+            return error
+
         try:
+            tenant_id = self._get_tenant_id(handler, query_params)
             result = _run_async(
                 get_workflow(
                     workflow_id,
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    tenant_id=tenant_id,
                 )
             )
             if result:
@@ -1043,14 +1135,23 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to get workflow: {e}")
             return error_response(safe_error_message(e, "get workflow"), 500)
 
-    def _handle_create_workflow(self, body: dict, query_params: dict) -> HandlerResult:
+    def _handle_create_workflow(self, body: dict, query_params: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/workflows."""
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.create"):
+            return error
+
         try:
+            tenant_id = self._get_tenant_id(handler, query_params)
+            # Get user_id from auth context if available
+            auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
+            created_by = auth_context.user_id if auth_context else get_string_param(query_params, "user_id", "")
+
             result = _run_async(
                 create_workflow(
                     body,
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
-                    created_by=get_string_param(query_params, "user_id", ""),
+                    tenant_id=tenant_id,
+                    created_by=created_by,
                 )
             )
             return json_response(result, status=201)
@@ -1061,15 +1162,20 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(safe_error_message(e, "create workflow"), 500)
 
     def _handle_update_workflow(
-        self, workflow_id: str, body: dict, query_params: dict
+        self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
         """Handle PATCH /api/workflows/{id}."""
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.update", workflow_id):
+            return error
+
         try:
+            tenant_id = self._get_tenant_id(handler, query_params)
             result = _run_async(
                 update_workflow(
                     workflow_id,
                     body,
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    tenant_id=tenant_id,
                 )
             )
             if result:
@@ -1081,14 +1187,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to update workflow: {e}")
             return error_response(safe_error_message(e, "update workflow"), 500)
 
-    def _handle_delete_workflow(self, workflow_id: str, query_params: dict) -> HandlerResult:
+    def _handle_delete_workflow(self, workflow_id: str, query_params: dict, handler: Any) -> HandlerResult:
         """Handle DELETE /api/workflows/{id}."""
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.delete", workflow_id):
+            return error
 
         try:
+            tenant_id = self._get_tenant_id(handler, query_params)
             deleted = _run_async(
                 delete_workflow(
                     workflow_id,
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    tenant_id=tenant_id,
                 )
             )
             if deleted:
@@ -1098,15 +1208,19 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to delete workflow: {e}")
             return error_response(safe_error_message(e, "delete workflow"), 500)
 
-    def _handle_execute(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
+    def _handle_execute(self, workflow_id: str, body: dict, query_params: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/workflows/{id}/execute."""
+        # RBAC check - execute requires specific permission
+        if error := self._check_permission(handler, "workflows.execute", workflow_id):
+            return error
 
         try:
+            tenant_id = self._get_tenant_id(handler, query_params)
             result = _run_async(
                 execute_workflow(
                     workflow_id,
                     inputs=body.get("inputs"),
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    tenant_id=tenant_id,
                 )
             )
             return json_response(result)
@@ -1116,14 +1230,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to execute workflow: {e}")
             return error_response(safe_error_message(e, "execute workflow"), 500)
 
-    def _handle_simulate(self, workflow_id: str, body: dict, query_params: dict) -> HandlerResult:
+    def _handle_simulate(self, workflow_id: str, body: dict, query_params: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/workflows/{id}/simulate (dry-run)."""
+        # RBAC check - simulate only needs read permission
+        if error := self._check_permission(handler, "workflows.read", workflow_id):
+            return error
 
         try:
+            tenant_id = self._get_tenant_id(handler, query_params)
             workflow_dict = _run_async(
                 get_workflow(
                     workflow_id,
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    tenant_id=tenant_id,
                 )
             )
             if not workflow_dict:
@@ -1168,8 +1286,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to simulate workflow: {e}")
             return error_response(safe_error_message(e, "simulate workflow"), 500)
 
-    def _handle_get_status(self, workflow_id: str, query_params: dict) -> HandlerResult:
+    def _handle_get_status(self, workflow_id: str, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflows/{id}/status."""
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.read", workflow_id):
+            return error
 
         try:
             executions = _run_async(list_executions(workflow_id=workflow_id, limit=1))
@@ -1186,14 +1307,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to get workflow status: {e}")
             return error_response(safe_error_message(e, "get workflow status"), 500)
 
-    def _handle_get_versions(self, workflow_id: str, query_params: dict) -> HandlerResult:
+    def _handle_get_versions(self, workflow_id: str, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflows/{id}/versions."""
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.read", workflow_id):
+            return error
 
         try:
+            tenant_id = self._get_tenant_id(handler, query_params)
             versions = _run_async(
                 get_workflow_versions(
                     workflow_id,
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    tenant_id=tenant_id,
                     limit=get_int_param(query_params, "limit", 20),
                 )
             )
@@ -1202,8 +1327,11 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to get workflow versions: {e}")
             return error_response(safe_error_message(e, "get workflow versions"), 500)
 
-    def _handle_list_templates(self, query_params: dict) -> HandlerResult:
+    def _handle_list_templates(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
+        # RBAC check - templates require read permission
+        if error := self._check_permission(handler, "workflows.read"):
+            return error
 
         try:
             templates = _run_async(
@@ -1216,14 +1344,18 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to list templates: {e}")
             return error_response(safe_error_message(e, "list workflow templates"), 500)
 
-    def _handle_list_approvals(self, query_params: dict) -> HandlerResult:
+    def _handle_list_approvals(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
+        # RBAC check - approvals require read permission
+        if error := self._check_permission(handler, "workflows.read"):
+            return error
 
         try:
+            tenant_id = self._get_tenant_id(handler, query_params)
             approvals = _run_async(
                 list_pending_approvals(
                     workflow_id=get_string_param(query_params, "workflow_id", None),
-                    tenant_id=get_string_param(query_params, "tenant_id", "default"),
+                    tenant_id=tenant_id,
                 )
             )
             return json_response({"approvals": approvals, "count": len(approvals)})
@@ -1231,21 +1363,26 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.exception(f"Failed to list approvals: {e}")
             return error_response(safe_error_message(e, "list workflow approvals"), 500)
 
-    def _handle_list_executions(self, query_params: dict) -> HandlerResult:
+    def _handle_list_executions(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-executions.
 
         Returns all workflow executions across all workflows, filtered by status.
         Used by the runtime monitoring dashboard.
         """
+        # RBAC check
+        if error := self._check_permission(handler, "workflows.read"):
+            return error
 
         try:
             status_filter = get_string_param(query_params, "status", None)
             workflow_id = get_string_param(query_params, "workflow_id", None)
             limit = get_int_param(query_params, "limit", 50)
+            tenant_id = self._get_tenant_id(handler, query_params)
 
             executions = _run_async(
                 list_executions(
                     workflow_id=workflow_id,
+                    tenant_id=tenant_id,
                     limit=limit,
                 )
             )
@@ -1265,16 +1402,23 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(safe_error_message(e, "list workflow executions"), 500)
 
     def _handle_resolve_approval(
-        self, request_id: str, body: dict, query_params: dict
+        self, request_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
         """Handle POST /api/workflow-approvals/{id}/resolve."""
+        # RBAC check - resolving approvals requires approve permission
+        if error := self._check_permission(handler, "workflows.approve", request_id):
+            return error
 
         try:
+            # Get responder from auth context if available
+            auth_context = self._get_auth_context(handler) if RBAC_AVAILABLE else None
+            responder_id = auth_context.user_id if auth_context else get_string_param(query_params, "user_id", "")
+
             resolved = _run_async(
                 resolve_approval(
                     request_id,
                     status=body.get("status", "approved"),
-                    responder_id=get_string_param(query_params, "user_id", ""),
+                    responder_id=responder_id,
                     notes=body.get("notes", ""),
                     checklist_updates=body.get("checklist"),
                 )
