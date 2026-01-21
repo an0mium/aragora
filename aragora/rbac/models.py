@@ -37,6 +37,7 @@ class ResourceType(str, Enum):
     GAUNTLET = "gauntlet"  # Adversarial stress-testing
     MARKETPLACE = "marketplace"  # Template marketplace
     EXPLAINABILITY = "explainability"  # Decision explanations
+    FINDINGS = "findings"  # Audit findings management
 
 
 class Action(str, Enum):
@@ -91,6 +92,10 @@ class Action(str, Enum):
 
     # Explainability-specific
     BATCH = "batch"  # Run batch operations
+
+    # Findings-specific
+    ASSIGN = "assign"  # Assign to users
+    BULK = "bulk"  # Bulk operations
 
     # Wildcard
     ALL = "*"

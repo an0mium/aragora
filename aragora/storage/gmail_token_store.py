@@ -51,21 +51,31 @@ except ImportError:
 _TOKEN_FIELDS = ["access_token", "refresh_token"]
 
 
-def _encrypt_token(token: str) -> str:
-    """Encrypt a token value for storage."""
+def _encrypt_token(token: str, user_id: str = "") -> str:
+    """
+    Encrypt a token value for storage.
+
+    Uses user_id as Associated Authenticated Data (AAD) to bind the ciphertext
+    to a specific user, preventing cross-user token attacks.
+    """
     if not CRYPTO_AVAILABLE or not token:
         return token
     try:
         service = get_encryption_service()
-        encrypted = service.encrypt(token)
+        # AAD binds token to this specific user
+        encrypted = service.encrypt(token, associated_data=user_id if user_id else None)
         return encrypted.to_base64()
     except Exception as e:
         logger.warning(f"Token encryption failed, storing unencrypted: {e}")
         return token
 
 
-def _decrypt_token(encrypted_token: str) -> str:
-    """Decrypt a token value, handling legacy unencrypted tokens."""
+def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
+    """
+    Decrypt a token value, handling legacy unencrypted tokens.
+
+    AAD must match what was used during encryption.
+    """
     if not CRYPTO_AVAILABLE or not encrypted_token:
         return encrypted_token
 
@@ -76,10 +86,10 @@ def _decrypt_token(encrypted_token: str) -> str:
 
     try:
         service = get_encryption_service()
-        return service.decrypt_string(encrypted_token)
+        return service.decrypt_string(encrypted_token, associated_data=user_id if user_id else None)
     except Exception as e:
         # Could be a legacy plain token that happens to start with "A"
-        logger.debug(f"Token decryption failed, returning as-is: {e}")
+        logger.debug(f"Token decryption failed for user {user_id}, returning as-is: {e}")
         return encrypted_token
 
 
@@ -172,11 +182,12 @@ class GmailUserState:
     @classmethod
     def from_row(cls, row: tuple) -> "GmailUserState":
         """Create from database row."""
+        user_id = row[0]
         return cls(
-            user_id=row[0],
+            user_id=user_id,
             email_address=row[1] or "",
-            access_token=_decrypt_token(row[2] or ""),
-            refresh_token=_decrypt_token(row[3] or ""),
+            access_token=_decrypt_token(row[2] or "", user_id),
+            refresh_token=_decrypt_token(row[3] or "", user_id),
             token_expiry=(
                 datetime.fromisoformat(row[4]) if row[4] else None
             ),

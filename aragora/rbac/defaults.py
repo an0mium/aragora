@@ -271,6 +271,20 @@ PERM_EXPLAINABILITY_BATCH = _permission(
     ResourceType.EXPLAINABILITY, Action.BATCH, "Batch Explanations", "Process batch explanation jobs"
 )
 
+# Findings permissions (audit findings management)
+PERM_FINDINGS_READ = _permission(
+    ResourceType.FINDINGS, Action.READ, "View Findings", "View audit findings and history"
+)
+PERM_FINDINGS_UPDATE = _permission(
+    ResourceType.FINDINGS, Action.UPDATE, "Update Findings", "Modify finding status and properties"
+)
+PERM_FINDINGS_ASSIGN = _permission(
+    ResourceType.FINDINGS, Action.ASSIGN, "Assign Findings", "Assign findings to users"
+)
+PERM_FINDINGS_BULK = _permission(
+    ResourceType.FINDINGS, Action.BULK, "Bulk Finding Operations", "Perform bulk actions on findings"
+)
+
 
 # All permissions as a dictionary for easy lookup
 SYSTEM_PERMISSIONS: dict[str, Permission] = {
@@ -357,6 +371,11 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Explainability
         PERM_EXPLAINABILITY_READ,
         PERM_EXPLAINABILITY_BATCH,
+        # Findings (audit)
+        PERM_FINDINGS_READ,
+        PERM_FINDINGS_UPDATE,
+        PERM_FINDINGS_ASSIGN,
+        PERM_FINDINGS_BULK,
     ]
 }
 
@@ -457,6 +476,11 @@ ROLE_ADMIN = Role(
         # Explainability (all operations)
         PERM_EXPLAINABILITY_READ.key,
         PERM_EXPLAINABILITY_BATCH.key,
+        # Findings (all operations)
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_FINDINGS_ASSIGN.key,
+        PERM_FINDINGS_BULK.key,
         # Admin (limited)
         PERM_ADMIN_METRICS.key,
     },
@@ -510,6 +534,10 @@ ROLE_DEBATE_CREATOR = Role(
         # Explainability (read and batch)
         PERM_EXPLAINABILITY_READ.key,
         PERM_EXPLAINABILITY_BATCH.key,
+        # Findings (read, update, assign - no bulk)
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_FINDINGS_ASSIGN.key,
         # User (self only - enforced at resource level)
         PERM_USER_READ.key,
         # Org (read only)

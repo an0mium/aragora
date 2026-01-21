@@ -295,6 +295,12 @@ def mark_result_sent(debate_id: str) -> None:
         origin.result_sent = True
         origin.result_sent_at = time.time()
 
+        # Update SQLite
+        try:
+            _get_sqlite_store().save(origin)
+        except Exception as e:
+            logger.debug(f"SQLite update failed: {e}")
+
         # Update Redis if available
         try:
             _store_origin_redis(origin)
