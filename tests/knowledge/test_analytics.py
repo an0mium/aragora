@@ -83,7 +83,7 @@ class TestAnalyticsInternalMethods:
         mock_mound = MagicMock()
         mock_mound.get_stats = AsyncMock(return_value=mock_stats)
 
-        with patch("aragora.server.handlers.knowledge.analytics.get_knowledge_mound", return_value=mock_mound):
+        with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=mock_mound):
             result = handler._get_mound_stats(None)
 
         assert result is not None
