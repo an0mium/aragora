@@ -518,8 +518,16 @@ class TeamsConnector(ChatPlatformConnector):
         Verify Bot Framework JWT token.
 
         Uses PyJWT to validate the token against Microsoft's public keys.
-        Falls back to header presence check if PyJWT is not available.
+        SECURITY: Fails closed in production if PyJWT is not available.
+        Set ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 to allow unverified webhooks (dev only).
         """
+        import os
+
+        allow_unverified = os.environ.get("ARAGORA_WEBHOOK_ALLOW_UNVERIFIED", "").lower() in (
+            "1",
+            "true",
+        )
+
         auth_header = headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             logger.warning("Missing or invalid Authorization header")
@@ -532,14 +540,26 @@ class TeamsConnector(ChatPlatformConnector):
             if HAS_JWT:
                 return verify_teams_webhook(auth_header, self.app_id)
             else:
+                if allow_unverified:
+                    logger.warning(
+                        "Teams webhook verification skipped - PyJWT not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set. "
+                        "Install PyJWT for secure webhook validation: pip install PyJWT"
+                    )
+                    return True
+                logger.error(
+                    "Teams webhook rejected - PyJWT not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+                )
+                return False
+        except ImportError:
+            if allow_unverified:
                 logger.warning(
-                    "PyJWT not available - accepting Teams webhook without full verification. "
-                    "Install PyJWT for secure webhook validation: pip install PyJWT"
+                    "Teams JWT verification module not available - ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set"
                 )
                 return True
-        except ImportError:
-            logger.warning("JWT verification module not available")
-            return True
+            logger.error(
+                "Teams webhook rejected - JWT verification module not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+            )
+            return False
 
     def parse_webhook_event(
         self,

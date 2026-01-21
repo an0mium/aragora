@@ -490,8 +490,16 @@ class GoogleChatConnector(ChatPlatformConnector):
         Verify Google Chat webhook JWT token.
 
         Uses PyJWT to validate the token against Google's public keys.
-        Falls back to header presence check if PyJWT is not available.
+        SECURITY: Fails closed in production if PyJWT is not available.
+        Set ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 to allow unverified webhooks (dev only).
         """
+        import os
+
+        allow_unverified = os.environ.get("ARAGORA_WEBHOOK_ALLOW_UNVERIFIED", "").lower() in (
+            "1",
+            "true",
+        )
+
         auth_header = headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             logger.warning("Missing Authorization header in Google Chat webhook")
@@ -504,14 +512,26 @@ class GoogleChatConnector(ChatPlatformConnector):
             if HAS_JWT:
                 return verify_google_chat_webhook(auth_header, self.project_id)
             else:
+                if allow_unverified:
+                    logger.warning(
+                        "Google Chat webhook verification skipped - PyJWT not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set. "
+                        "Install PyJWT for secure webhook validation: pip install PyJWT"
+                    )
+                    return True
+                logger.error(
+                    "Google Chat webhook rejected - PyJWT not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+                )
+                return False
+        except ImportError:
+            if allow_unverified:
                 logger.warning(
-                    "PyJWT not available - accepting Google Chat webhook without full verification. "
-                    "Install PyJWT for secure webhook validation: pip install PyJWT"
+                    "Google Chat JWT verification module not available - ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set"
                 )
                 return True
-        except ImportError:
-            logger.warning("JWT verification module not available")
-            return True
+            logger.error(
+                "Google Chat webhook rejected - JWT verification module not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+            )
+            return False
 
     def parse_webhook_event(
         self,
@@ -721,12 +741,14 @@ class GoogleChatConnector(ChatPlatformConnector):
 
                 spaces = []
                 for space in data.get("spaces", []):
-                    spaces.append({
-                        "id": space.get("name", ""),
-                        "display_name": space.get("displayName", ""),
-                        "type": space.get("type", ""),
-                        "single_user_bot_dm": space.get("singleUserBotDm", False),
-                    })
+                    spaces.append(
+                        {
+                            "id": space.get("name", ""),
+                            "display_name": space.get("displayName", ""),
+                            "type": space.get("type", ""),
+                            "single_user_bot_dm": space.get("singleUserBotDm", False),
+                        }
+                    )
 
                 return spaces
 

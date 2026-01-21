@@ -499,14 +499,39 @@ class DiscordConnector(ChatPlatformConnector):
         headers: dict[str, str],
         body: bytes,
     ) -> bool:
-        """Verify Discord interaction webhook signature."""
+        """Verify Discord interaction webhook signature.
+
+        SECURITY: Fails closed in production if PyNaCl is unavailable or public_key not configured.
+        Set ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 to allow unverified webhooks (dev only).
+        """
+        import os
+
+        allow_unverified = os.environ.get("ARAGORA_WEBHOOK_ALLOW_UNVERIFIED", "").lower() in (
+            "1",
+            "true",
+        )
+
         if not NACL_AVAILABLE:
-            logger.warning("PyNaCl not available - skipping verification")
-            return True
+            if allow_unverified:
+                logger.warning(
+                    "Discord webhook verification skipped - PyNaCl not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set"
+                )
+                return True
+            logger.error(
+                "Discord webhook rejected - PyNaCl not available and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+            )
+            return False
 
         if not self.public_key:
-            logger.warning("No Discord public key configured")
-            return True
+            if allow_unverified:
+                logger.warning(
+                    "Discord webhook verification skipped - public_key not configured and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED is set"
+                )
+                return True
+            logger.error(
+                "Discord webhook rejected - public_key not configured and ARAGORA_WEBHOOK_ALLOW_UNVERIFIED not set"
+            )
+            return False
 
         signature = headers.get("X-Signature-Ed25519", "")
         timestamp = headers.get("X-Signature-Timestamp", "")
