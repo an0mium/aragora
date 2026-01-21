@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Cloud KMS Provider** - Multi-cloud key management integration:
+  - AWS KMS support via boto3
+  - Azure Key Vault support via azure-identity
+  - GCP Cloud KMS support via google-cloud-kms
+  - Auto-detection of cloud platform from environment
+  - Envelope encryption with data key decrypt
+
+- **Encrypted Fields** - Field-level encryption for sensitive data:
+  - Automatic encryption of OAuth tokens, API keys, secrets
+  - Platform-specific credential encryption (Slack, Discord, Telegram, etc.)
+  - Transparent encrypt/decrypt on storage operations
+
+- **Decision Routing Middleware** - Smart request routing:
+  - `aragora/server/middleware/decision_routing.py` - Request routing based on decision context
+  - RBAC-aware routing decisions
+
+- **Re-enabled Integration Tests** - 47 previously skipped tests now passing:
+  - TestArenaRun (7 tests)
+  - TestRoundExecutionFlow (5 tests)
+  - TestPhaseTransitions (5 tests)
+  - TestEarlyTerminationOnConvergence (5 tests)
+  - TestConsensusDetection (5 tests)
+  - TestErrorHandling (5 tests)
+  - TestMemoryIntegration (5 tests)
+  - TestFullDebateFlow (7 tests)
+  - TestAgentFailureHandling (3 tests)
+  - Debate performance benchmarks re-enabled
+
+- **Production Deployment Documentation**:
+  - `docs/PRODUCTION_DEPLOYMENT.md` - Comprehensive ops guide
+  - `docs/SUPABASE_SETUP.md` - Hosted PostgreSQL setup
+
 - **Migration Configuration Tests** - 7 new tests verifying Alembic setup:
   - `test_alembic_config_exists` - Validates alembic.ini and directory structure
   - `test_initial_schema_exists` - Verifies schema SQL file

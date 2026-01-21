@@ -1,8 +1,53 @@
 # Aragora Project Status
 
-*Last updated: January 20, 2026*
+*Last updated: January 21, 2026*
 
 ## Current Release
+
+### v2.1.2 - Test Coverage & Integration Release (January 2026)
+
+**Production Ready** - Aragora 2.1.2 re-enables previously skipped integration tests, adds comprehensive PostgreSQL storage backends, and includes cloud KMS integration for encryption key management.
+
+#### Key Highlights
+- **41,600+ tests** collected and passing
+- **1,165+ test files** across all modules
+- **47 orchestrator integration tests** re-enabled (was skipped)
+- **Debate performance benchmarks** re-enabled
+- **Cloud KMS Integration** - AWS KMS, Azure Key Vault, GCP Cloud KMS
+- **Encrypted Fields** - Automatic encryption for sensitive storage fields
+- **PostgreSQL Backends** - Full horizontal scaling for all 11 storage modules
+- **Decision Routing Middleware** - Smart request routing
+- **Lines of Code**: 650,000+ LOC
+- **0 production blockers**
+- **118 fully integrated features** (+3 storage/security capabilities)
+
+#### What's New in 2.1.2
+
+**Re-enabled Integration Tests** (QUALITY)
+- 47 orchestrator integration tests now passing (was skipped)
+- Debate performance benchmarks enabled with KM graceful degradation
+- 141 orchestrator tests passing (up from 94)
+
+**Cloud KMS Provider** (SECURITY)
+- `aragora/security/kms_provider.py` - Multi-cloud KMS integration:
+  - AWS KMS support via boto3
+  - Azure Key Vault support via azure-identity
+  - GCP Cloud KMS support via google-cloud-kms
+  - Auto-detection of cloud platform from environment
+  - Envelope encryption with data key decrypt
+
+**Encrypted Fields** (SECURITY)
+- `aragora/storage/encrypted_fields.py` - Field-level encryption:
+  - Automatic encryption of OAuth tokens, API keys, secrets
+  - Platform-specific credential encryption
+  - Transparent encrypt/decrypt on storage operations
+
+**PostgreSQL Backends** (SCALING)
+- Complete PostgreSQL support for all 11 storage modules
+- Unified schema in `migrations/sql/001_initial_schema.sql`
+- Atomic transaction handling for multi-table operations
+
+---
 
 ### v2.1.1 - Voice & Observability Release (January 2026)
 
