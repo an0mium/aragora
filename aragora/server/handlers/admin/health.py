@@ -99,9 +99,14 @@ class HealthHandler(BaseHandler):
         Checks:
         - Storage initialized (if configured)
         - ELO system available (if configured)
+        - Redis connectivity (if distributed state required)
+        - PostgreSQL connectivity (if required)
         """
+        import asyncio
+        import os
+
         ready = True
-        checks: Dict[str, bool] = {}
+        checks: Dict[str, Any] = {}
 
         # Check storage readiness
         try:
@@ -126,6 +131,99 @@ class HealthHandler(BaseHandler):
             logger.warning(f"ELO system readiness check failed: {type(e).__name__}: {e}")
             checks["elo_system"] = False
             ready = False
+
+        # Check Redis connectivity (if distributed state required)
+        try:
+            from aragora.control_plane.leader import is_distributed_state_required
+            from aragora.server.startup import validate_redis_connectivity
+
+            distributed_required = is_distributed_state_required()
+            redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
+
+            if distributed_required and redis_url:
+                # Run async validation in sync context
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+
+                if loop:
+                    # Already in async context - schedule task
+                    import concurrent.futures
+
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run, validate_redis_connectivity(timeout_seconds=2.0)
+                        )
+                        redis_ok, redis_msg = future.result(timeout=3.0)
+                else:
+                    redis_ok, redis_msg = asyncio.run(
+                        validate_redis_connectivity(timeout_seconds=2.0)
+                    )
+
+                checks["redis"] = {"connected": redis_ok, "message": redis_msg}
+                if not redis_ok:
+                    ready = False
+            elif redis_url:
+                # Redis configured but not required - check but don't fail
+                checks["redis"] = {"configured": True, "required": False}
+            else:
+                checks["redis"] = {"configured": False}
+
+        except ImportError:
+            # Modules not available - skip check
+            checks["redis"] = {"status": "check_skipped"}
+        except Exception as e:
+            logger.warning(f"Redis readiness check failed: {type(e).__name__}: {e}")
+            checks["redis"] = {"error": str(e)[:80]}
+            # Don't fail readiness for Redis errors unless distributed required
+            try:
+                if is_distributed_state_required():
+                    ready = False
+            except Exception:
+                pass
+
+        # Check PostgreSQL connectivity (if required)
+        try:
+            from aragora.server.startup import validate_database_connectivity
+
+            database_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_POSTGRES_DSN")
+            require_database = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
+                "true",
+                "1",
+                "yes",
+            )
+
+            if require_database and database_url:
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+
+                if loop:
+                    import concurrent.futures
+
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run, validate_database_connectivity(timeout_seconds=2.0)
+                        )
+                        db_ok, db_msg = future.result(timeout=3.0)
+                else:
+                    db_ok, db_msg = asyncio.run(validate_database_connectivity(timeout_seconds=2.0))
+
+                checks["postgresql"] = {"connected": db_ok, "message": db_msg}
+                if not db_ok:
+                    ready = False
+            elif database_url:
+                checks["postgresql"] = {"configured": True, "required": False}
+            else:
+                checks["postgresql"] = {"configured": False}
+
+        except ImportError:
+            checks["postgresql"] = {"status": "check_skipped"}
+        except Exception as e:
+            logger.warning(f"PostgreSQL readiness check failed: {type(e).__name__}: {e}")
+            checks["postgresql"] = {"error": str(e)[:80]}
 
         status_code = 200 if ready else 503
         return json_response(
