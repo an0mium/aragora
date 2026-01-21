@@ -197,18 +197,74 @@ class TestHumanCheckpointDurability:
 
     def test_approval_persisted_to_governance_store(self):
         """Test that approvals are saved to GovernanceStore."""
-        # This requires GovernanceStore to be available
-        pass  # Placeholder - requires more mocking
+        from aragora.storage.governance_store import GovernanceStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "governance.db")
+            store = GovernanceStore(db_path)
+
+            # Save an approval with all required parameters
+            store.save_approval(
+                approval_id="test-approval-123",
+                title="Test Approval",
+                description="Testing approval persistence",
+                risk_level="medium",
+                status="pending",
+                requested_by="test-user",
+                changes=[{"action": "test"}],
+                metadata={
+                    "workflow_id": "wf-456",
+                    "step_id": "step-1",
+                    "type": "workflow_checkpoint",
+                },
+            )
+
+            # Retrieve and verify
+            record = store.get_approval("test-approval-123")
+            assert record is not None
+            assert record.status == "pending"
+            # Check metadata from metadata_json
+            import json
+            metadata = json.loads(record.metadata_json) if record.metadata_json else {}
+            assert metadata.get("workflow_id") == "wf-456"
 
     def test_pending_approvals_recovered(self):
         """Test that pending approvals can be recovered after restart."""
-        from aragora.workflow.nodes.human_checkpoint import (
-            get_pending_approvals,
-            get_approval_request,
-        )
+        from aragora.storage.governance_store import GovernanceStore
 
-        # Would need GovernanceStore mock
-        pass  # Placeholder
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "governance.db")
+
+            # First "session" - create approvals
+            store1 = GovernanceStore(db_path)
+            store1.save_approval(
+                approval_id="recover-1",
+                title="Pending Approval 1",
+                description="Testing recovery",
+                risk_level="low",
+                status="pending",
+                requested_by="test-user",
+                changes=[],
+                metadata={"type": "workflow_checkpoint"},
+            )
+            store1.save_approval(
+                approval_id="recover-2",
+                title="Completed Approval",
+                description="Already approved",
+                risk_level="low",
+                status="approved",
+                requested_by="test-user",
+                changes=[],
+                metadata={"type": "workflow_checkpoint"},
+            )
+
+            # Second "session" (simulating restart)
+            store2 = GovernanceStore(db_path)
+            pending = store2.list_approvals(status="pending")
+
+            # Should find only the pending approval
+            assert len(pending) == 1
+            assert pending[0].approval_id == "recover-1"
 
 
 class TestJobQueueDurability:
@@ -217,18 +273,92 @@ class TestJobQueueDurability:
     @pytest.mark.asyncio
     async def test_transcription_job_persisted(self):
         """Test that transcription jobs are persisted."""
-        from aragora.storage.job_queue_store import QueuedJob, JobStatus
+        from aragora.storage.job_queue_store import (
+            QueuedJob,
+            JobStatus,
+            SQLiteJobStore,
+        )
 
-        # Would need actual job store
-        pass  # Placeholder
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "jobs.db")
+            store = SQLiteJobStore(db_path)
+
+            # Create a transcription job
+            job = QueuedJob(
+                id="transcribe-123",
+                job_type="transcription_audio",
+                payload={
+                    "file_path": "/path/to/audio.mp3",
+                    "language": "en",
+                    "model": "whisper-1",
+                },
+                user_id="user-456",
+                workspace_id="ws-789",
+            )
+
+            # Enqueue and verify persistence
+            await store.enqueue(job)
+
+            # Verify job exists in database
+            jobs = await store.list_jobs(
+                job_type="transcription_audio",
+                status=JobStatus.PENDING,
+            )
+            assert len(jobs) >= 1
+            assert any(j.id == "transcribe-123" for j in jobs)
 
     @pytest.mark.asyncio
     async def test_routing_job_recovery(self):
-        """Test that routing jobs can be recovered."""
-        from aragora.queue.workers.routing_worker import recover_interrupted_routing
+        """Test that routing jobs can be recovered after server restart."""
+        from aragora.storage.job_queue_store import (
+            QueuedJob,
+            JobStatus,
+            SQLiteJobStore,
+        )
 
-        # Would need actual job store
-        pass  # Placeholder
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "routing_jobs.db")
+
+            # First "session" - create and start processing a job
+            store1 = SQLiteJobStore(db_path)
+
+            job = QueuedJob(
+                id="route-debate-123",
+                job_type="routing_debate",
+                payload={
+                    "debate_id": "debate-456",
+                    "result": {"verdict": "consensus"},
+                    "include_voice": False,
+                },
+                user_id="user-789",
+            )
+            await store1.enqueue(job)
+
+            # Dequeue (mark as processing)
+            dequeued = await store1.dequeue(
+                worker_id="worker-1",
+                job_types=["routing_debate"],
+            )
+            assert dequeued is not None
+            assert dequeued.id == "route-debate-123"
+
+            # Simulate crash - create new store instance
+            store2 = SQLiteJobStore(db_path)
+
+            # Recover stale jobs (those in processing state for too long)
+            recovered = await store2.recover_stale_jobs(
+                stale_threshold_seconds=0,  # Treat all processing jobs as stale
+            )
+
+            # Should have recovered the job
+            assert recovered >= 1
+
+            # Job should be back in pending state
+            pending = await store2.list_jobs(
+                job_type="routing_debate",
+                status=JobStatus.PENDING,
+            )
+            assert any(j.id == "route-debate-123" for j in pending)
 
 
 if __name__ == "__main__":

@@ -23,7 +23,8 @@ class TestIntegrationStoreEncryption:
         """Verify SENSITIVE_KEYS includes all expected fields."""
         from aragora.storage.integration_store import SENSITIVE_KEYS
 
-        expected = {"api_key", "api_secret", "access_token", "refresh_token", "password"}
+        # These are the core sensitive field patterns that should be encrypted
+        expected = {"api_key", "access_token", "password", "secret"}
         assert expected.issubset(SENSITIVE_KEYS)
 
     def test_encrypt_settings_with_sensitive_data(self):

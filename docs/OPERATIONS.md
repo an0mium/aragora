@@ -15,6 +15,7 @@ This document provides operational guidance for running, monitoring, and trouble
 9. [Backup & Recovery](#backup--recovery)
 10. [Storage Cleanup](#storage-cleanup)
 11. [Knowledge Mound Operations](#knowledge-mound-operations)
+12. [Security & Governance Hardening](#security--governance-hardening)
 
 ---
 
@@ -823,3 +824,194 @@ export ARAGORA_DB_POOL_TIMEOUT=30
 - GitHub Issues: https://github.com/an0mium/aragora/issues
 - Documentation: https://docs.aragora.ai
 - Status Page: https://status.aragora.ai
+
+---
+
+## Security & Governance Hardening
+
+This section covers the security hardening features including encryption at rest, RBAC, and data migration.
+
+### Encryption at Rest
+
+Sensitive data is encrypted using AES-256-GCM with field-level encryption. The following stores support encryption:
+
+- **SyncStore**: Connector credentials (api_key, secret, password, token, etc.)
+- **IntegrationStore**: Integration settings with sensitive fields
+- **GmailTokenStore**: OAuth access and refresh tokens
+
+#### Configuration
+
+```bash
+# Required: Set a 32-byte (64 hex characters) encryption key
+export ARAGORA_ENCRYPTION_KEY="your-64-hex-character-encryption-key-here"
+
+# Generate a secure key:
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+#### Migrating Existing Data
+
+If you have existing unencrypted data, use the migration utility:
+
+```bash
+# Dry run (preview what will be migrated)
+python -m aragora.storage.migrations.encrypt_existing_data --all
+
+# Execute migration
+python -m aragora.storage.migrations.encrypt_existing_data --all --execute
+
+# Migrate specific stores
+python -m aragora.storage.migrations.encrypt_existing_data --sync-store --execute
+python -m aragora.storage.migrations.encrypt_existing_data --integration-store --execute
+python -m aragora.storage.migrations.encrypt_existing_data --gmail-tokens --execute
+```
+
+The migration is backward-compatible: encrypted fields are marked with `_encrypted: true`, so the system can read both encrypted and plaintext data during transition.
+
+#### Verifying Encryption
+
+```bash
+# Check if encryption is properly configured
+python -c "
+from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+print(f'Crypto available: {CRYPTO_AVAILABLE}')
+if CRYPTO_AVAILABLE:
+    svc = get_encryption_service()
+    print(f'Active key: {svc.get_active_key_id()}')
+"
+```
+
+### RBAC (Role-Based Access Control)
+
+Workflow endpoints are protected with RBAC. The following permissions are enforced:
+
+| Permission | Endpoints |
+|------------|-----------|
+| `workflows.read` | GET /api/workflows, GET /api/workflow-templates, GET /api/workflow-approvals, GET /api/workflow-executions |
+| `workflows.create` | POST /api/workflows |
+| `workflows.update` | PATCH /api/workflows/{id} |
+| `workflows.delete` | DELETE /api/workflows/{id} |
+| `workflows.execute` | POST /api/workflows/{id}/execute |
+| `workflows.approve` | POST /api/workflow-approvals/{id}/resolve |
+
+#### Authentication Methods
+
+RBAC context is extracted from:
+1. **JWT Token**: Primary authentication (set via `Authorization: Bearer <token>`)
+2. **Request Headers**: Fallback for service-to-service calls
+   - `X-User-ID`: User identifier
+   - `X-Org-ID`: Organization/tenant identifier
+   - `X-User-Roles`: Comma-separated list of roles
+
+#### Example Request with RBAC
+
+```bash
+# Using JWT token
+curl -H "Authorization: Bearer $JWT_TOKEN" \
+     http://localhost:8080/api/workflows
+
+# Using headers (service-to-service)
+curl -H "X-User-ID: user-123" \
+     -H "X-Org-ID: org-456" \
+     -H "X-User-Roles: admin,member" \
+     http://localhost:8080/api/workflows
+```
+
+### Observability Metrics
+
+New Prometheus metrics are available for security monitoring:
+
+#### Encryption Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_encryption_operations_total` | Counter | operation, store | Total encrypt/decrypt operations |
+| `aragora_encryption_operation_latency_seconds` | Histogram | operation | Operation latency |
+| `aragora_encryption_errors_total` | Counter | operation, error_type | Encryption errors |
+
+#### RBAC Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_rbac_permission_checks_total` | Counter | permission, result | Permission check counts |
+| `aragora_rbac_permission_denied_total` | Counter | permission, handler | Permission denials |
+| `aragora_rbac_check_latency_seconds` | Histogram | - | Permission check latency |
+
+#### Migration Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_migration_records_total` | Counter | store, status | Records processed (migrated/skipped/failed) |
+| `aragora_migration_errors_total` | Counter | store, error_type | Migration errors |
+
+#### Grafana Queries
+
+```promql
+# Encryption operation rate
+rate(aragora_encryption_operations_total[5m])
+
+# Permission denial rate
+rate(aragora_rbac_permission_denied_total[5m])
+
+# Migration progress
+sum by (status) (aragora_migration_records_total)
+```
+
+### Storage Backends
+
+Critical data stores support multiple backends for durability:
+
+| Store | Backends | Default |
+|-------|----------|---------|
+| ApprovalRequestStore | SQLite, PostgreSQL, Redis | SQLite |
+| SessionStore | In-memory, Redis | Redis if available |
+| OAuthStateStore | In-memory, Redis | Redis if available |
+
+Configure via environment variables:
+
+```bash
+# Use PostgreSQL for approval requests
+export ARAGORA_APPROVAL_STORE_BACKEND=postgres
+export DATABASE_URL=postgresql://user:pass@host:5432/db
+
+# Use Redis for sessions
+export ARAGORA_REDIS_URL=redis://localhost:6379
+```
+
+### Troubleshooting
+
+#### Encryption Key Issues
+
+```bash
+# Error: "Data will not be recoverable after restart"
+# Fix: Set ARAGORA_ENCRYPTION_KEY environment variable
+
+# Error: "Key not found" during decryption
+# Cause: Data was encrypted with a different key
+# Fix: Use the same key that was used for encryption, or re-migrate data
+```
+
+#### RBAC Permission Denied
+
+```bash
+# Check what permissions a user has
+curl -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8080/api/auth/me | jq '.permissions'
+
+# Common causes:
+# - Missing required role for the permission
+# - Token expired (check exp claim)
+# - Org ID mismatch between token and resource
+```
+
+#### Migration Failures
+
+```bash
+# Check migration status
+python -m aragora.storage.migrations.encrypt_existing_data --all -v
+
+# Common issues:
+# - ARAGORA_ENCRYPTION_KEY not set
+# - Database connection failures
+# - Records with corrupt data (logged as errors, others continue)
+```

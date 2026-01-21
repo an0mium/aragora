@@ -5,14 +5,15 @@ Tests cover:
 - Handler routing for all workflow endpoints
 - ID extraction from paths
 - Route handling and can_handle method
+- RBAC permission checks
 """
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import pytest
 
-from aragora.server.handlers.workflows import WorkflowHandler
+from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
 
 
 @pytest.fixture
@@ -175,3 +176,210 @@ class TestWorkflowHandlerUnknownPath:
         result = handler.handle_patch("/api/other", {}, mock_http)
 
         assert result is None
+
+
+class TestWorkflowHandlerRBAC:
+    """Tests for RBAC permission checks."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        """Create mock HTTP handler with headers."""
+        mock = MagicMock()
+        mock.headers = {}
+        return mock
+
+    def test_rbac_available_check(self):
+        """Verify RBAC availability is correctly detected."""
+        # RBAC should be available if the aragora.rbac module exists
+        # Just verify the flag is set correctly
+        assert isinstance(RBAC_AVAILABLE, bool)
+
+    def test_get_auth_context_without_rbac(self, handler, mock_http):
+        """_get_auth_context returns None when RBAC not available."""
+        with patch("aragora.server.handlers.workflows.RBAC_AVAILABLE", False):
+            context = handler._get_auth_context(mock_http)
+            assert context is None
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_get_auth_context_from_headers(self, handler, mock_http):
+        """_get_auth_context extracts context from headers."""
+        mock_http.headers = {
+            "X-User-ID": "user-123",
+            "X-Org-ID": "org-456",
+            "X-User-Roles": "admin,member",
+        }
+
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            # Simulate no JWT auth
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            context = handler._get_auth_context(mock_http)
+
+            assert context is not None
+            assert context.user_id == "user-123"
+            assert context.org_id == "org-456"
+            assert "admin" in context.roles
+            assert "member" in context.roles
+
+    def test_check_permission_without_rbac(self, handler, mock_http):
+        """_check_permission returns None (allows) when RBAC not available."""
+        with patch("aragora.server.handlers.workflows.RBAC_AVAILABLE", False):
+            error = handler._check_permission(mock_http, "workflows.read")
+            assert error is None  # No error = allowed
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_check_permission_allowed(self, handler, mock_http):
+        """_check_permission returns None when permission granted."""
+        with patch("aragora.server.handlers.workflows.check_permission") as mock_check:
+            mock_decision = MagicMock()
+            mock_decision.allowed = True
+            mock_check.return_value = mock_decision
+
+            with patch.object(handler, "_get_auth_context") as mock_get_ctx:
+                mock_ctx = MagicMock()
+                mock_ctx.user_id = "user-123"
+                mock_get_ctx.return_value = mock_ctx
+
+                error = handler._check_permission(mock_http, "workflows.read")
+
+                assert error is None  # No error = allowed
+                mock_check.assert_called_once()
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_check_permission_denied(self, handler, mock_http):
+        """_check_permission returns 403 error when permission denied."""
+        with patch("aragora.server.handlers.workflows.check_permission") as mock_check:
+            mock_decision = MagicMock()
+            mock_decision.allowed = False
+            mock_decision.reason = "Insufficient permissions"
+            mock_check.return_value = mock_decision
+
+            with patch.object(handler, "_get_auth_context") as mock_get_ctx:
+                mock_ctx = MagicMock()
+                mock_ctx.user_id = "user-123"
+                mock_get_ctx.return_value = mock_ctx
+
+                error = handler._check_permission(mock_http, "workflows.delete")
+
+                assert error is not None
+                assert error.status_code == 403
+                # Parse the JSON body to check for error message
+                import json
+                body = json.loads(error.body)
+                assert "Permission denied" in body.get("error", "")
+
+    def test_get_tenant_id_from_query_params(self, handler, mock_http):
+        """_get_tenant_id returns tenant from query params."""
+        query_params = {"tenant_id": "custom-tenant"}
+
+        tenant_id = handler._get_tenant_id(mock_http, query_params)
+
+        assert tenant_id == "custom-tenant"
+
+    def test_get_tenant_id_default(self, handler, mock_http):
+        """_get_tenant_id returns default when not specified."""
+        query_params = {}
+
+        with patch("aragora.server.handlers.workflows.RBAC_AVAILABLE", False):
+            tenant_id = handler._get_tenant_id(mock_http, query_params)
+
+        assert tenant_id == "default"
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_get_tenant_id_from_auth_context(self, handler, mock_http):
+        """_get_tenant_id returns org_id from auth context."""
+        query_params = {}
+
+        with patch.object(handler, "_get_auth_context") as mock_get_ctx:
+            mock_ctx = MagicMock()
+            mock_ctx.org_id = "org-from-jwt"
+            mock_get_ctx.return_value = mock_ctx
+
+            tenant_id = handler._get_tenant_id(mock_http, query_params)
+
+            assert tenant_id == "org-from-jwt"
+
+
+class TestWorkflowHandlerRBACIntegration:
+    """Integration tests for RBAC with handler methods."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkflowHandler(mock_server_context)
+
+    @pytest.fixture
+    def mock_http(self):
+        """Create mock HTTP handler."""
+        mock = MagicMock()
+        mock.headers = {}
+        return mock
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_list_workflows_checks_permission(self, handler, mock_http):
+        """_handle_list_workflows checks workflows.read permission."""
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = None  # Allow
+
+            handler._handle_list_workflows({}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.read")
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_create_workflow_checks_permission(self, handler, mock_http):
+        """_handle_create_workflow checks workflows.create permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            # Return a proper HandlerResult for 403
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_create_workflow({}, {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.create")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_delete_workflow_checks_permission_with_resource_id(self, handler, mock_http):
+        """_handle_delete_workflow checks permission with workflow ID."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_delete_workflow("wf_123", {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.delete", "wf_123")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_execute_workflow_checks_execute_permission(self, handler, mock_http):
+        """_handle_execute checks workflows.execute permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_execute("wf_123", {}, {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.execute", "wf_123")
+            assert result.status_code == 403
+
+    @pytest.mark.skipif(not RBAC_AVAILABLE, reason="RBAC not available")
+    def test_resolve_approval_checks_approve_permission(self, handler, mock_http):
+        """_handle_resolve_approval checks workflows.approve permission."""
+        from aragora.server.handlers.base import error_response
+
+        with patch.object(handler, "_check_permission") as mock_check:
+            mock_check.return_value = error_response("denied", 403)
+
+            result = handler._handle_resolve_approval("req_123", {}, {}, mock_http)
+
+            mock_check.assert_called_once_with(mock_http, "workflows.approve", "req_123")
+            assert result.status_code == 403
