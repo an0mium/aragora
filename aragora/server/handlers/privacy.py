@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 from aragora.billing.jwt_auth import extract_user_from_request
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
@@ -30,12 +29,20 @@ from .base import (
     log_request,
 )
 from .utils.rate_limit import rate_limit
+from .secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
 
-class PrivacyHandler(BaseHandler):
-    """Handler for GDPR/CCPA privacy endpoints."""
+class PrivacyHandler(SecureHandler):
+    """Handler for GDPR/CCPA privacy endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+    """
+
+    # Resource type for audit logging
+    RESOURCE_TYPE = "privacy"
 
     ROUTES = [
         "/api/privacy/export",
