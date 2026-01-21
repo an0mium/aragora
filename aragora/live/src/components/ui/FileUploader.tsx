@@ -331,9 +331,10 @@ function FileItem({
       <button
         onClick={onRemove}
         className="text-text-muted hover:text-crimson transition-colors"
-        title="Remove"
+        title="Remove file"
+        aria-label={`Remove file ${file.name}`}
       >
-        x
+        <span aria-hidden="true">x</span>
       </button>
     </div>
   );

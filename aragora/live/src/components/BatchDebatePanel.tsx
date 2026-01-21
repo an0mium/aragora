@@ -149,10 +149,11 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
       {/* Input Area */}
       {inputMode === 'text' ? (
         <div>
-          <label className="block text-xs font-mono text-text-muted mb-1">
+          <label htmlFor="batch-questions-input" className="block text-xs font-mono text-text-muted mb-1">
             Questions (one per line)
           </label>
           <textarea
+            id="batch-questions-input"
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             rows={8}
@@ -162,10 +163,11 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
         </div>
       ) : (
         <div>
-          <label className="block text-xs font-mono text-text-muted mb-1">
+          <label htmlFor="batch-json-input" className="block text-xs font-mono text-text-muted mb-1">
             JSON Items
           </label>
           <textarea
+            id="batch-json-input"
             value={jsonInput}
             onChange={(e) => setJsonInput(e.target.value)}
             rows={8}
@@ -178,20 +180,21 @@ function BatchSubmitForm({ onSubmit, submitting, error }: BatchSubmitFormProps) 
       {/* Webhook URL (collapsed by default) */}
       <details className="group">
         <summary className="text-xs font-mono text-text-muted cursor-pointer hover:text-acid-green">
-          [+] Webhook Configuration
+          <span aria-hidden="true">[+]</span> Webhook Configuration
         </summary>
         <div className="mt-2">
-          <label className="block text-xs font-mono text-text-muted mb-1">
+          <label htmlFor="batch-webhook-url" className="block text-xs font-mono text-text-muted mb-1">
             Webhook URL (optional)
           </label>
           <input
+            id="batch-webhook-url"
             type="url"
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
             placeholder="https://your-server.com/webhook"
             className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green focus:outline-none"
           />
-          <p className="mt-1 text-xs font-mono text-text-muted">
+          <p id="batch-webhook-help" className="mt-1 text-xs font-mono text-text-muted">
             Receive POST notifications when batch completes
           </p>
         </div>

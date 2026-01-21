@@ -611,10 +611,11 @@ textarea:focus-visible {
 }
 
 /* Focus styling - WCAG 2.1 AA compliant */
+/* Use !important to override Tailwind's focus:outline-none */
 :focus-visible {
-  outline: 2px solid var(--acid-green);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(57, 255, 20, 0.25);
+  outline: 2px solid var(--acid-green) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(57, 255, 20, 0.25) !important;
 }
 
 /* Ensure buttons and interactive elements have visible focus */
@@ -623,10 +624,23 @@ a:focus-visible,
 [role="button"]:focus-visible,
 [role="tab"]:focus-visible,
 [role="menuitem"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="switch"]:focus-visible,
+[role="slider"]:focus-visible,
 select:focus-visible {
-  outline: 2px solid var(--acid-green);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(57, 255, 20, 0.25);
+  outline: 2px solid var(--acid-green) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(57, 255, 20, 0.25) !important;
+}
+
+/* Ensure form inputs have visible focus - override Tailwind */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--acid-green) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(57, 255, 20, 0.25) !important;
 }
 
 /* Screen reader only - visually hidden but accessible */

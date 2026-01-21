@@ -1767,6 +1767,33 @@ All stabilization items addressed:
 - ~~Token revocation mechanism not implemented~~ - **DONE** (Phase 13: JWT token versioning + UI)
 - Consider API versioning for backwards compatibility
 
+## Channel Production Readiness (Audited January 2026)
+
+### Summary
+| Channel | Readiness | Key Gaps |
+|---------|-----------|----------|
+| **Slack** | 85% ✅ | Missing retry logic |
+| **Discord** | 75% ⚠️ | Missing retry logic, timeouts |
+| **Teams** | 70% ⚠️ | ~~Missing rate limiting~~ **FIXED**, missing timeouts |
+| **Email** | 50% ❌ | Global state, missing rate limiting, OAuth refresh |
+
+### Production-Ready Features
+- **Slack**: Signature verification (HMAC-SHA256), rate limiting (30/60/100 RPM), comprehensive error handling
+- **Discord**: Ed25519 signature verification, rate limiting (30 RPM), good error handling
+- **Teams**: Bot Framework SDK auth, rate limiting (30/60 RPM) **ADDED**
+- **Email**: Gmail OAuth integration (experimental)
+
+### Remaining Gaps (P0/P1)
+1. **No retry logic** - Failed API calls go directly to user-facing errors (all channels)
+2. **No circuit breaker** - Cascading failures possible (module exists at `/aragora/resilience.py` but unused)
+3. **Missing timeouts** - Teams/Email/Discord requests can hang indefinitely
+4. **Email global state** - Not thread-safe for multi-worker deployment
+
+### Recommendation
+- **Slack/Discord**: Safe for production with monitoring
+- **Teams**: Safe with monitoring after timeout addition
+- **Email**: Experimental only - requires persistence layer for OAuth tokens
+
 ## Recommendations
 
 ### High Priority
