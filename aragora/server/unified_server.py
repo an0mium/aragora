@@ -749,27 +749,35 @@ class UnifiedServer:
     def _init_subsystems(self, nomic_dir: Path) -> None:
         """Initialize all nomic directory dependent subsystems.
 
+        Uses SubsystemRegistry for centralized initialization of database-backed
+        subsystems, then initializes non-database stores separately.
+
         Configures the UnifiedHandler class with all required subsystems
         for full API functionality.
         """
-        from aragora.server.initialization import init_handler_stores
+        from aragora.server.initialization import (
+            init_handler_stores,
+            initialize_subsystems,
+        )
 
         UnifiedHandler.nomic_state_file = nomic_dir / "nomic_state.json"
 
-        # Database-backed subsystems (from initialization.py)
-        UnifiedHandler.insight_store = init_insight_store(nomic_dir)
-        UnifiedHandler.elo_system = init_elo_system(nomic_dir)
-        UnifiedHandler.flip_detector = init_flip_detector(nomic_dir)
-        UnifiedHandler.persona_manager = init_persona_manager(nomic_dir)
-        UnifiedHandler.position_ledger = init_position_ledger(nomic_dir)
-        UnifiedHandler.debate_embeddings = init_debate_embeddings(nomic_dir)
-        UnifiedHandler.consensus_memory, UnifiedHandler.dissent_retriever = init_consensus_memory()
-        UnifiedHandler.moment_detector = init_moment_detector(
-            elo_system=UnifiedHandler.elo_system,
-            position_ledger=UnifiedHandler.position_ledger,
-        )
+        # Use SubsystemRegistry for batch initialization of database-backed subsystems
+        # This centralizes initialization and enables future async/parallel init
+        registry = initialize_subsystems(nomic_dir=nomic_dir, enable_persistence=False)
 
-        # Non-database stores and connectors (from initialization.py)
+        # Wire registry subsystems to UnifiedHandler
+        UnifiedHandler.insight_store = registry.insight_store
+        UnifiedHandler.elo_system = registry.elo_system
+        UnifiedHandler.flip_detector = registry.flip_detector
+        UnifiedHandler.persona_manager = registry.persona_manager
+        UnifiedHandler.position_ledger = registry.position_ledger
+        UnifiedHandler.debate_embeddings = registry.debate_embeddings
+        UnifiedHandler.consensus_memory = registry.consensus_memory
+        UnifiedHandler.dissent_retriever = registry.dissent_retriever
+        UnifiedHandler.moment_detector = registry.moment_detector
+
+        # Non-database stores and connectors (not yet in registry)
         stores = init_handler_stores(nomic_dir)
         UnifiedHandler.document_store = stores["document_store"]
         UnifiedHandler.audio_store = stores["audio_store"]
