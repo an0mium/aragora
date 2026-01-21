@@ -126,7 +126,7 @@ class KnowledgeFederationMixin:
         Returns:
             The registered FederatedRegion
         """
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         region = FederatedRegion(
             region_id=region_id,
@@ -150,7 +150,7 @@ class KnowledgeFederationMixin:
                 api_key=api_key,
                 mode=mode.value,
                 sync_scope=sync_scope.value,
-                workspace_id=self.workspace_id,
+                workspace_id=self.workspace_id,  # type: ignore[attr-defined]
             )
             await store.save(config)
         except ImportError:
@@ -159,7 +159,7 @@ class KnowledgeFederationMixin:
             logger.warning(f"Failed to persist federation registry: {e}")
 
         # Also register with CrossWorkspaceCoordinator if available
-        await self._register_with_coordinator(region)
+        await self._register_with_coordinator(region)  # type: ignore[attr-defined]
 
         # Cache in class-level dict for backward compatibility
         KnowledgeFederationMixin._federated_regions[region_id] = region
@@ -232,13 +232,13 @@ class KnowledgeFederationMixin:
         """
         import time
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         # Get region from persistent store
-        region = await self._get_region_from_store(region_id)
+        region = await self._get_region_from_store(region_id)  # type: ignore[attr-defined]
         if not region:
             return SyncResult(
                 region_id=region_id,
@@ -351,13 +351,13 @@ class KnowledgeFederationMixin:
         """
         import time
 
-        self._ensure_initialized()
+        self._ensure_initialized()  # type: ignore[attr-defined]
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id
+        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
 
         # Get region from persistent store
-        region = await self._get_region_from_store(region_id)
+        region = await self._get_region_from_store(region_id)  # type: ignore[attr-defined]
         if not region:
             return SyncResult(
                 region_id=region_id,
