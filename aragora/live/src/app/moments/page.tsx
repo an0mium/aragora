@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
+import { MomentsEmptyState } from '@/components/ui/EmptyState';
 
 interface Moment {
   id: string;
@@ -308,8 +309,8 @@ export default function MomentsPage() {
                     Loading timeline...
                   </div>
                 ) : moments.length === 0 ? (
-                  <div className="p-8 border border-acid-green/20 rounded text-center ml-8">
-                    <p className="font-mono text-text-muted">No moments recorded yet.</p>
+                  <div className="ml-8">
+                    <MomentsEmptyState onViewDebates={() => window.location.href = '/debates'} />
                   </div>
                 ) : (
                   <div className="space-y-4 ml-8">

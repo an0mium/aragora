@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/config';
 import { useProgressiveMode } from '@/context/ProgressiveModeContext';
+import { TemplateMarketplace } from '@/components/TemplateMarketplace';
 
 interface WorkflowStep {
   id: string;
@@ -124,7 +125,7 @@ export default function WorkflowsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'gallery' | 'my-workflows'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'my-workflows' | 'marketplace'>('gallery');
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowSummary | null>(null);
 
   const fetchTemplates = useCallback(async () => {
@@ -270,6 +271,16 @@ export default function WorkflowsPage() {
               }`}
             >
               My Workflows ({userWorkflows.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('marketplace')}
+              className={`py-4 font-mono text-sm border-b-2 transition-colors ${
+                activeTab === 'marketplace'
+                  ? 'border-acid-green text-acid-green'
+                  : 'border-transparent text-text-muted hover:text-text'
+              }`}
+            >
+              Community Marketplace
             </button>
           </div>
         </div>
@@ -442,7 +453,7 @@ export default function WorkflowsPage() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'my-workflows' ? (
         // My Workflows tab
         <div className="max-w-7xl mx-auto px-6 py-8">
           {userWorkflows.length === 0 ? (
@@ -472,6 +483,16 @@ export default function WorkflowsPage() {
               ))}
             </div>
           )}
+        </div>
+      ) : (
+        // Community Marketplace tab
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <TemplateMarketplace
+            onImport={(template) => {
+              // Navigate to builder with imported template
+              window.location.href = `/workflows/builder?import=${template.id}`;
+            }}
+          />
         </div>
       )}
 

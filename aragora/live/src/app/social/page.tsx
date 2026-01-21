@@ -6,6 +6,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
+import { HistoryEmptyState } from '@/components/ui/EmptyState';
 
 interface ConnectorStatus {
   name: string;
@@ -352,9 +353,7 @@ export default function SocialPage() {
       <h2 className="text-xl font-mono font-bold text-acid-green mb-4">Publish History</h2>
 
       {publishHistory.length === 0 ? (
-        <div className="p-8 bg-surface border border-border rounded-lg text-center">
-          <p className="text-text-muted font-mono">No publish history yet</p>
-        </div>
+        <HistoryEmptyState />
       ) : (
         <div className="space-y-3">
           {publishHistory.map((job) => (

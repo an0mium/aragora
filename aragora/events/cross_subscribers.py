@@ -24,7 +24,7 @@ Usage:
 
 import logging
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from aragora.events.subscribers.config import (
     RetryConfig,

@@ -44,9 +44,9 @@ export function WorkflowTemplatesBrowser() {
 
     try {
       const [templatesRes, categoriesRes, patternsRes] = await Promise.all([
-        apiFetch(`/api/workflow/templates${selectedCategory ? `?category=${selectedCategory}` : ''}`),
-        apiFetch('/api/workflow/categories'),
-        apiFetch('/api/workflow/patterns'),
+        apiFetch<{ templates: Template[] }>(`/api/workflow/templates${selectedCategory ? `?category=${selectedCategory}` : ''}`),
+        apiFetch<{ categories: Category[] }>('/api/workflow/categories'),
+        apiFetch<{ patterns: Pattern[] }>('/api/workflow/patterns'),
       ]);
 
       setTemplates(templatesRes.templates || []);
@@ -75,7 +75,7 @@ export function WorkflowTemplatesBrowser() {
 
   const handleRunTemplate = async (templateId: string) => {
     try {
-      const response = await apiFetch(`/api/workflow/templates/${templateId}/run`, {
+      const response = await apiFetch<{ status: string }>(`/api/workflow/templates/${templateId}/run`, {
         method: 'POST',
         body: JSON.stringify({ inputs: {} }),
       });

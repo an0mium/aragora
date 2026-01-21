@@ -93,7 +93,7 @@ class AnalyticsHandler(BaseHandler):
                 from aragora.knowledge.mound import get_knowledge_mound
 
                 async def fetch_stats():
-                    mound = await get_knowledge_mound(workspace_id or "default")
+                    mound = get_knowledge_mound(workspace_id or "default")
                     return await mound.get_stats(workspace_id)
 
                 # Run async in sync context

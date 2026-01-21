@@ -69,7 +69,22 @@ class TestAnalyticsInternalMethods:
         mock_ctx = MagicMock()
         handler = AnalyticsHandler(mock_ctx)
 
-        result = handler._get_mound_stats(None)
+        # Mock the knowledge mound and its get_stats method
+        mock_stats = MagicMock()
+        mock_stats.total_nodes = 10
+        mock_stats.nodes_by_type = {"fact": 5, "opinion": 3}
+        mock_stats.nodes_by_tier = {"fast": 2, "slow": 8}
+        mock_stats.nodes_by_validation = {"verified": 7, "unverified": 3}
+        mock_stats.total_relationships = 5
+        mock_stats.relationships_by_type = {"supports": 3, "contradicts": 2}
+        mock_stats.average_confidence = 0.75
+        mock_stats.stale_nodes_count = 1
+
+        mock_mound = MagicMock()
+        mock_mound.get_stats = AsyncMock(return_value=mock_stats)
+
+        with patch("aragora.server.handlers.knowledge.analytics.get_knowledge_mound", return_value=mock_mound):
+            result = handler._get_mound_stats(None)
 
         assert result is not None
         # HandlerResult is a dataclass with .body attribute
