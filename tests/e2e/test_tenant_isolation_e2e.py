@@ -31,7 +31,7 @@ from aragora.server.middleware.tenancy import (
     tenant_scoped,
     ensure_workspace_access,
 )
-from aragora.server.middleware.auth_v2 import User, Workspace
+from aragora.server.middleware.user_auth import User, Workspace
 
 
 # =============================================================================
