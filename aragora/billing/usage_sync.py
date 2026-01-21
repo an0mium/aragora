@@ -224,7 +224,11 @@ class UsageSyncService:
                 )
                 row = cursor.fetchone()
                 if row:
-                    return datetime.fromisoformat(row[0])
+                    dt = datetime.fromisoformat(row[0])
+                    # Ensure timezone awareness
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    return dt
         except sqlite3.Error as e:
             logger.warning(f"Error loading last billing period: {e}")
         return None
