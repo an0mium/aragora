@@ -695,3 +695,186 @@ class TestPostgresCritiqueStoreIntegration:
         assert "total_debates" in stats
         assert "total_critiques" in stats
         assert "total_patterns" in stats
+
+
+class TestPostgresContinuumMemoryIntegration:
+    """Integration tests for PostgresContinuumMemory."""
+
+    @pytest.fixture
+    async def memory(self, postgres_pool: asyncpg.Pool):
+        """Create and initialize continuum memory."""
+        from aragora.memory.postgres_continuum import PostgresContinuumMemory
+
+        memory = PostgresContinuumMemory(postgres_pool)
+        await memory.initialize()
+        return memory
+
+    @pytest.mark.asyncio
+    async def test_add_and_get_memory(self, memory):
+        """Test adding and retrieving a memory entry."""
+        unique_id = uuid.uuid4().hex[:8]
+        memory_id = f"test_memory_{unique_id}"
+
+        # Add memory
+        result = await memory.add(
+            memory_id=memory_id,
+            content="Test error handling pattern for database connections",
+            tier="slow",
+            importance=0.8,
+            metadata={"source": "integration_test"},
+        )
+
+        assert result["id"] == memory_id
+        assert result["importance"] == 0.8
+        assert result["tier"] == "slow"
+
+        # Retrieve
+        retrieved = await memory.get(memory_id)
+        assert retrieved is not None
+        assert retrieved["content"] == "Test error handling pattern for database connections"
+        assert retrieved["metadata"]["source"] == "integration_test"
+
+    @pytest.mark.asyncio
+    async def test_retrieve_with_query(self, memory):
+        """Test retrieving memories with keyword search."""
+        unique_id = uuid.uuid4().hex[:8]
+        memory_id = f"test_query_{unique_id}"
+
+        # Add a memory with specific content
+        await memory.add(
+            memory_id=memory_id,
+            content=f"Rate limiting pattern using token bucket {unique_id}",
+            tier="medium",
+            importance=0.9,
+        )
+
+        # Retrieve with keyword
+        results = await memory.retrieve(query=unique_id, limit=10)
+        assert len(results) >= 1
+        assert any(memory_id == r["id"] for r in results)
+
+    @pytest.mark.asyncio
+    async def test_update_outcome(self, memory):
+        """Test updating memory outcome and surprise score."""
+        unique_id = uuid.uuid4().hex[:8]
+        memory_id = f"test_outcome_{unique_id}"
+
+        # Add memory
+        await memory.add(
+            memory_id=memory_id,
+            content="Test pattern for outcome tracking",
+            tier="fast",
+            importance=0.7,
+        )
+
+        # Update with success
+        surprise = await memory.update_outcome(memory_id, success=True)
+        assert surprise >= 0
+
+        # Verify counts updated
+        entry = await memory.get(memory_id)
+        assert entry is not None
+        assert entry["success_count"] == 1
+        assert entry["update_count"] == 2  # Initial 1 + update 1
+
+    @pytest.mark.asyncio
+    async def test_tier_promotion(self, memory):
+        """Test tier promotion via promote_entry."""
+        unique_id = uuid.uuid4().hex[:8]
+        memory_id = f"test_promote_{unique_id}"
+
+        # Add memory in slow tier
+        await memory.add(
+            memory_id=memory_id,
+            content="Test pattern for promotion",
+            tier="slow",
+            importance=0.9,
+        )
+
+        # Promote to medium tier
+        from aragora.memory.tier_manager import MemoryTier
+
+        result = await memory.promote_entry(memory_id, MemoryTier.MEDIUM)
+        assert result is True
+
+        # Verify tier changed
+        entry = await memory.get(memory_id)
+        assert entry is not None
+        assert entry["tier"] == "medium"
+
+    @pytest.mark.asyncio
+    async def test_red_line_protection(self, memory):
+        """Test marking memory as red line (protected)."""
+        unique_id = uuid.uuid4().hex[:8]
+        memory_id = f"test_redline_{unique_id}"
+
+        # Add memory
+        await memory.add(
+            memory_id=memory_id,
+            content="Critical safety decision pattern",
+            tier="slow",
+            importance=0.5,
+        )
+
+        # Mark as red line
+        result = await memory.mark_red_line(
+            memory_id=memory_id,
+            reason="Safety-critical pattern",
+            promote_to_glacial=True,
+        )
+        assert result is True
+
+        # Verify protection
+        entry = await memory.get(memory_id)
+        assert entry is not None
+        assert entry["red_line"] is True
+        assert entry["tier"] == "glacial"
+        assert entry["importance"] == 1.0
+
+        # Verify delete is blocked
+        delete_result = await memory.delete(memory_id)
+        assert delete_result["blocked"] is True
+        assert delete_result["deleted"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_stats(self, memory):
+        """Test getting memory statistics."""
+        stats = await memory.get_stats()
+
+        assert "total_entries" in stats
+        assert "by_tier" in stats
+        assert "hyperparams" in stats
+        assert isinstance(stats["total_entries"], int)
+
+    @pytest.mark.asyncio
+    async def test_count_by_tier(self, memory):
+        """Test counting entries by tier."""
+        from aragora.memory.tier_manager import MemoryTier
+
+        # Count all
+        total = await memory.count()
+        assert isinstance(total, int)
+
+        # Count by tier
+        fast_count = await memory.count(tier=MemoryTier.FAST)
+        assert isinstance(fast_count, int)
+
+    @pytest.mark.asyncio
+    async def test_get_by_tier(self, memory):
+        """Test retrieving memories by specific tier."""
+        unique_id = uuid.uuid4().hex[:8]
+
+        # Add memory in fast tier
+        await memory.add(
+            memory_id=f"test_tier_{unique_id}",
+            content="Fast tier pattern",
+            tier="fast",
+            importance=0.8,
+        )
+
+        # Get by tier
+        from aragora.memory.tier_manager import MemoryTier
+
+        results = await memory.get_by_tier(MemoryTier.FAST, limit=50)
+        assert isinstance(results, list)
+        assert all(r["tier"] == "fast" for r in results)
