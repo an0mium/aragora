@@ -65,6 +65,21 @@ def mock_aiohttp_session():
     return mock_session, mock_response
 
 
+@pytest.fixture
+def force_hash_provider():
+    """Force fallback to hash-based provider by removing API keys.
+
+    This avoids rate limiting issues when running tests in parallel.
+    """
+    with patch.dict("os.environ", {}, clear=True):
+        with patch("socket.socket") as mock_socket:
+            mock_sock = MagicMock()
+            mock_sock.connect_ex.return_value = 1  # Ollama not available
+            mock_socket.return_value.__enter__ = MagicMock(return_value=mock_sock)
+            mock_socket.return_value.__exit__ = MagicMock(return_value=None)
+            yield
+
+
 # ===========================================================================
 # Utility Function Tests
 # ===========================================================================
@@ -483,7 +498,7 @@ class TestSemanticRetriever:
         assert hash1 == hash2
 
     @pytest.mark.asyncio
-    async def test_embed_and_store(self, temp_db):
+    async def test_embed_and_store(self, temp_db, force_hash_provider):
         """Test embedding and storing text."""
         retriever = SemanticRetriever(temp_db)
 
@@ -493,7 +508,7 @@ class TestSemanticRetriever:
         assert len(embedding) == retriever.provider.dimension
 
     @pytest.mark.asyncio
-    async def test_embed_and_store_deduplicates(self, temp_db):
+    async def test_embed_and_store_deduplicates(self, temp_db, force_hash_provider):
         """Test that identical texts are not re-embedded."""
         retriever = SemanticRetriever(temp_db)
 
@@ -507,7 +522,7 @@ class TestSemanticRetriever:
             assert a == pytest.approx(b, rel=1e-6)
 
     @pytest.mark.asyncio
-    async def test_find_similar(self, temp_db):
+    async def test_find_similar(self, temp_db, force_hash_provider):
         """Test finding similar texts."""
         retriever = SemanticRetriever(temp_db)
 
@@ -525,7 +540,7 @@ class TestSemanticRetriever:
             assert results[0][2] >= results[1][2]
 
     @pytest.mark.asyncio
-    async def test_find_similar_respects_limit(self, temp_db):
+    async def test_find_similar_respects_limit(self, temp_db, force_hash_provider):
         """Test that find_similar respects limit parameter."""
         retriever = SemanticRetriever(temp_db)
 
@@ -537,7 +552,7 @@ class TestSemanticRetriever:
         assert len(results) <= 3
 
     @pytest.mark.asyncio
-    async def test_find_similar_respects_min_similarity(self, temp_db):
+    async def test_find_similar_respects_min_similarity(self, temp_db, force_hash_provider):
         """Test that find_similar respects min_similarity parameter."""
         retriever = SemanticRetriever(temp_db)
 
@@ -550,7 +565,7 @@ class TestSemanticRetriever:
             assert similarity >= 0.99
 
     @pytest.mark.asyncio
-    async def test_find_similar_empty_db(self, temp_db):
+    async def test_find_similar_empty_db(self, temp_db, force_hash_provider):
         """Test find_similar on empty database."""
         retriever = SemanticRetriever(temp_db)
 
@@ -567,7 +582,7 @@ class TestSemanticRetriever:
         assert stats["total_embeddings"] == 0
 
     @pytest.mark.asyncio
-    async def test_get_stats_after_storage(self, temp_db):
+    async def test_get_stats_after_storage(self, temp_db, force_hash_provider):
         """Test stats after storing embeddings."""
         retriever = SemanticRetriever(temp_db)
 
@@ -634,7 +649,7 @@ class TestEmbeddingIntegration:
     """Integration tests for embedding workflow."""
 
     @pytest.mark.asyncio
-    async def test_full_workflow(self, temp_db):
+    async def test_full_workflow(self, temp_db, force_hash_provider):
         """Test complete embedding and retrieval workflow."""
         retriever = SemanticRetriever(temp_db)
 
@@ -676,7 +691,7 @@ class TestEmbeddingIntegration:
                 assert len(embedding) == 256  # Hash-based dimension
 
     @pytest.mark.asyncio
-    async def test_concurrent_embeddings(self, temp_db):
+    async def test_concurrent_embeddings(self, temp_db, force_hash_provider):
         """Test concurrent embedding operations."""
         retriever = SemanticRetriever(temp_db)
 

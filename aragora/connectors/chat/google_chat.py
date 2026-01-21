@@ -654,8 +654,8 @@ class GoogleChatConnector(ChatPlatformConnector):
             List of cached ChatMessage objects (if any)
         """
         logger.info(
-            f"Google Chat API does not provide message history. "
-            f"Messages are only available via webhook events."
+            "Google Chat API does not provide message history. "
+            "Messages are only available via webhook events."
         )
         # Return empty list - messages must be cached by webhook handler
         return []
@@ -692,9 +692,9 @@ class GoogleChatConnector(ChatPlatformConnector):
             Empty list (Google Chat API limitation)
         """
         logger.warning(
-            f"Google Chat evidence collection not available - "
-            f"API does not provide message history for bots. "
-            f"Consider storing messages from webhook events."
+            "Google Chat evidence collection not available - "
+            "API does not provide message history for bots. "
+            "Consider storing messages from webhook events."
         )
         return []
 

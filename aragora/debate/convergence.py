@@ -833,7 +833,6 @@ class ConvergenceDetector:
         """
         import numpy as np
 
-        from aragora.debate.similarity.ann import find_convergence_threshold
 
         # Don't check before minimum rounds
         if round_number <= self.min_rounds_before_check:

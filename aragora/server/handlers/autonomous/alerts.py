@@ -5,7 +5,7 @@ from typing import Optional
 
 from aiohttp import web
 
-from aragora.autonomous import AlertAnalyzer, AlertSeverity
+from aragora.autonomous import AlertAnalyzer
 
 logger = logging.getLogger(__name__)
 

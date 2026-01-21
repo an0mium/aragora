@@ -441,7 +441,7 @@ class KeyRotationScheduler:
 
             await self._send_alert(
                 "info",
-                f"Key rotation completed successfully",
+                "Key rotation completed successfully",
                 result.to_dict(),
             )
 
@@ -496,11 +496,6 @@ class KeyRotationScheduler:
         Returns:
             Number of records re-encrypted
         """
-        from aragora.storage.encrypted_fields import (
-            decrypt_sensitive,
-            encrypt_sensitive,
-            get_encrypted_field_names,
-        )
 
         count = 0
 

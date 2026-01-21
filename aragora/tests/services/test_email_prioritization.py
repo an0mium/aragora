@@ -12,7 +12,6 @@ Tests cover:
 
 import pytest
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.services.email_prioritization import (
     EmailPrioritizer,
@@ -20,7 +19,6 @@ from aragora.services.email_prioritization import (
     EmailPriority,
     EmailPriorityResult,
     ScoringTier,
-    SenderProfile,
 )
 
 

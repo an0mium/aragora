@@ -35,7 +35,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.collaboration.slack import SlackConnector
@@ -478,7 +478,7 @@ class CrossChannelContextService:
                         source = item.metadata.get("source_type", "")
                         if "slack" in source.lower():
                             boost.drive_relevance_boost += 0.05
-                            boost.drive_reason = f"Related to recent Slack discussion"
+                            boost.drive_reason = "Related to recent Slack discussion"
                         elif "drive" in source.lower() or "document" in source.lower():
                             boost.drive_relevance_boost += 0.1
                             boost.drive_reason = f"Related to recent document: {item.metadata.get('title', 'Unknown')}"

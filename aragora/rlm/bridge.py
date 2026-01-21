@@ -45,9 +45,8 @@ Usage:
 """
 
 import logging
-import time
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Callable, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +64,6 @@ from .types import (
     RLMConfig,
     RLMContext,
     RLMResult,
-    RLMStreamEvent,
-    RLMStreamEventType,
 )
 from .compressor import HierarchicalCompressor
 

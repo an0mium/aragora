@@ -32,7 +32,6 @@ from aragora.knowledge.mound.event_batcher import EventBatcher, AdapterEventBatc
 
 if TYPE_CHECKING:
     from aragora.server.stream.broadcaster import WebSocketBroadcaster
-    from aragora.events.types import StreamEvent
 
 logger = logging.getLogger(__name__)
 

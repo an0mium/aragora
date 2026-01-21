@@ -1194,7 +1194,7 @@ async def init_decision_router() -> bool:
         # back to the originating channel
 
         async def telegram_handler(result, channel):
-            from aragora.server.debate_origin import get_debate_origin, mark_result_sent
+            from aragora.server.debate_origin import get_debate_origin
             origin = get_debate_origin(result.request_id)
             if origin and origin.platform == "telegram":
                 await route_debate_result(result.request_id, result.to_dict())

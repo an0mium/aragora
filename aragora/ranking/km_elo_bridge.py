@@ -32,7 +32,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # Prometheus metrics - optional dependency
 try:
@@ -192,7 +192,6 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.elo_adapter import (
         EloAdapter,
         EloAdjustmentRecommendation,
-        EloSyncResult,
         KMEloPattern,
     )
     from aragora.knowledge.mound.core import KnowledgeMound

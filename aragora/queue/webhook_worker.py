@@ -17,7 +17,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from aragora.queue.base import Job, JobQueue, JobStatus
 from aragora.queue.config import get_queue_config

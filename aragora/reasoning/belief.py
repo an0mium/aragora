@@ -25,12 +25,6 @@ from aragora.config import BELIEF_CONVERGENCE_THRESHOLD, BELIEF_MAX_ITERATIONS
 from aragora.reasoning.claims import ClaimsKernel, ClaimType, RelationType, TypedClaim
 
 # Re-export crux detection classes for backward compatibility
-from aragora.reasoning.crux_detector import (
-    CruxClaim,
-    CruxAnalysisResult,
-    CruxDetector,
-    BeliefPropagationAnalyzer,
-)
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter

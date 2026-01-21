@@ -37,14 +37,12 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from aragora.connectors.exceptions import (
     ConnectorAuthError,
     ConnectorError,
-    ConnectorNetworkError,
     ConnectorRateLimitError,
-    ConnectorTimeoutError,
     classify_exception,
     get_retry_delay,
     is_retryable_error,

@@ -20,7 +20,6 @@ from typing import Any, Dict, Optional
 from .base import (
     BaseHandler,
     HandlerResult,
-    error_response,
     get_string_param,
     json_response,
 )
@@ -373,7 +372,6 @@ class GauntletReceiptExportHandler(BaseHandler):
                 # Try to create receipt from result
                 result = run.get("result")
                 if result:
-                    from aragora.gauntlet import DecisionReceipt
 
                     if hasattr(result, "to_receipt"):
                         receipt = result.to_receipt()

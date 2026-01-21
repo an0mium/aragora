@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
 from aragora.debate.cognitive_limiter import (
     STRESS_BUDGETS,

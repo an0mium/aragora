@@ -41,7 +41,6 @@ from aragora.control_plane.registry import AgentCapability, AgentInfo, AgentStat
 from aragora.control_plane.scheduler import Task, TaskPriority
 from aragora.control_plane.shared_state import (
     SharedControlPlaneState,
-    get_shared_state,
     set_shared_state,
 )
 

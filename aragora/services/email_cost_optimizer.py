@@ -49,7 +49,6 @@ if TYPE_CHECKING:
     from aragora.services.email_prioritization import (
         EmailPrioritizer,
         EmailPriorityResult,
-        ScoringTier,
     )
 
 logger = logging.getLogger(__name__)

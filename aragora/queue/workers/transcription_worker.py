@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from aragora.storage.job_queue_store import (
-    JobStatus,
     QueuedJob,
     get_job_store,
 )

@@ -9,8 +9,8 @@ Extracted from debate_rounds.py to handle:
 """
 
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from aragora.debate.phases.ready_signal import (
     CollectiveReadiness,

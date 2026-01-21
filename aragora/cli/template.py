@@ -16,7 +16,6 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +131,6 @@ def create_template_parser(subparsers: argparse._SubParsersAction) -> None:
 def cmd_template_list(args: argparse.Namespace) -> int:
     """List available templates."""
     try:
-        from aragora.workflow.templates import WORKFLOW_TEMPLATES
         from aragora.workflow.templates.package import (
             list_packages,
             TemplateCategory,

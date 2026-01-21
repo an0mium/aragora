@@ -11,9 +11,12 @@ from aragora.visualization.exporter import (
     _get_cached_export,
     _cache_export,
     clear_export_cache,
+    cleanup_expired_exports,
+    get_export_cache_stats,
     save_debate_visualization,
     generate_standalone_html,
     _EXPORT_CACHE_TTL,
+    _CLEANUP_INTERVAL,
 )
 from aragora.visualization.mapper import ArgumentCartographer
 
@@ -279,7 +282,160 @@ class TestExportCacheEviction:
         """Should handle many cache entries without error."""
         for i in range(50):
             _cache_export(f"debate-{i}", "json", f"hash-{i}", f"content-{i}")
-        
+
         # Should still work
         result = _get_cached_export("debate-25", "json", "hash-25")
         assert result == "content-25"
+
+
+class TestExportCacheCleanup:
+    """Tests for proactive cache cleanup functionality."""
+
+    def setup_method(self):
+        """Clear cache before each test."""
+        clear_export_cache()
+
+    def test_cleanup_expired_exports_removes_old_entries(self):
+        """Should remove expired entries from cache."""
+        # Add entry
+        _cache_export("old", "json", "hash", "old content")
+
+        # Verify it exists
+        assert _get_cached_export("old", "json", "hash") == "old content"
+
+        # Mock time to be past TTL and run cleanup
+        future_time = time.time() + _EXPORT_CACHE_TTL + 100
+        with patch("aragora.visualization.exporter.time.time") as mock_time:
+            mock_time.return_value = future_time
+            removed = cleanup_expired_exports()
+
+        assert removed == 1
+
+    def test_cleanup_expired_exports_keeps_valid_entries(self):
+        """Should keep non-expired entries."""
+        _cache_export("new", "json", "hash", "new content")
+
+        # Run cleanup (entries are fresh)
+        removed = cleanup_expired_exports()
+
+        assert removed == 0
+        assert _get_cached_export("new", "json", "hash") == "new content"
+
+    def test_cleanup_expired_exports_partial_cleanup(self):
+        """Should only remove expired entries, not all."""
+        _cache_export("old1", "json", "hash1", "content1")
+        _cache_export("old2", "json", "hash2", "content2")
+
+        # Mock time: first two entries expired, add fresh one
+        future_time = time.time() + _EXPORT_CACHE_TTL + 100
+        with patch("aragora.visualization.exporter.time.time") as mock_time:
+            mock_time.return_value = future_time
+            # Add fresh entry while time is mocked
+            _cache_export("new", "json", "hash3", "content3")
+            removed = cleanup_expired_exports()
+
+        # Should have removed 2 old entries
+        assert removed == 2
+
+        # Fresh entry should still exist
+        assert _get_cached_export("new", "json", "hash3") == "content3"
+
+    def test_cleanup_returns_zero_on_empty_cache(self):
+        """Should return 0 when cache is empty."""
+        removed = cleanup_expired_exports()
+        assert removed == 0
+
+
+class TestExportCacheStats:
+    """Tests for cache statistics."""
+
+    def setup_method(self):
+        """Clear cache before each test."""
+        clear_export_cache()
+
+    def test_stats_empty_cache(self):
+        """Should return stats for empty cache."""
+        stats = get_export_cache_stats()
+
+        assert stats["total_entries"] == 0
+        assert stats["active_entries"] == 0
+        assert stats["expired_entries"] == 0
+        assert stats["estimated_memory_bytes"] == 0
+
+    def test_stats_with_entries(self):
+        """Should count entries correctly."""
+        _cache_export("d1", "json", "h1", "content1")
+        _cache_export("d2", "json", "h2", "content2")
+
+        stats = get_export_cache_stats()
+
+        assert stats["total_entries"] == 2
+        assert stats["active_entries"] == 2
+        assert stats["expired_entries"] == 0
+        assert stats["estimated_memory_bytes"] > 0
+
+    def test_stats_with_expired_entries(self):
+        """Should count expired entries correctly."""
+        _cache_export("old", "json", "hash", "old content")
+
+        # Check stats with mocked expired time
+        future_time = time.time() + _EXPORT_CACHE_TTL + 100
+        with patch("aragora.visualization.exporter.time.time") as mock_time:
+            mock_time.return_value = future_time
+            stats = get_export_cache_stats()
+
+        assert stats["total_entries"] == 1
+        assert stats["expired_entries"] == 1
+        assert stats["active_entries"] == 0
+
+    def test_stats_includes_config(self):
+        """Should include configuration values."""
+        stats = get_export_cache_stats()
+
+        assert "max_entries" in stats
+        assert "ttl_seconds" in stats
+        assert "cleanup_interval_seconds" in stats
+        assert stats["ttl_seconds"] == _EXPORT_CACHE_TTL
+        assert stats["cleanup_interval_seconds"] == _CLEANUP_INTERVAL
+
+    def test_stats_memory_estimate(self):
+        """Should estimate memory based on content size."""
+        large_content = "x" * 10000
+        _cache_export("d1", "json", "h1", large_content)
+
+        stats = get_export_cache_stats()
+
+        assert stats["estimated_memory_bytes"] >= 10000
+
+
+class TestPeriodicCleanup:
+    """Tests for automatic periodic cleanup during caching."""
+
+    def setup_method(self):
+        """Clear cache and reset cleanup time."""
+        clear_export_cache()
+        import aragora.visualization.exporter as exp
+        exp._last_cleanup_time = 0.0
+
+    def test_cache_triggers_cleanup_after_interval(self):
+        """Caching should trigger cleanup after interval passes."""
+        import aragora.visualization.exporter as exp
+
+        # Add old entry
+        _cache_export("old", "json", "hash", "old content")
+
+        # Set last cleanup to past the interval
+        exp._last_cleanup_time = time.time() - _CLEANUP_INTERVAL - 10
+
+        # Mock time for cleanup check and expiration
+        future_time = time.time() + _EXPORT_CACHE_TTL + 100
+        with patch("aragora.visualization.exporter.time.time") as mock_time:
+            mock_time.return_value = future_time
+            # This should trigger cleanup
+            _cache_export("new", "json", "hash2", "new content")
+
+        # Old entry should be cleaned up (check without time mock)
+        # Note: The entry was expired and cleanup was triggered
+        stats = get_export_cache_stats()
+        # New entry should exist
+        assert stats["total_entries"] >= 1

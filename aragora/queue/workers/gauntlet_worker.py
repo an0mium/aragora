@@ -22,13 +22,12 @@ import time
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.storage.job_queue_store import (
-    JobStatus,
     QueuedJob,
     get_job_store,
 )
 
 if TYPE_CHECKING:
-    from aragora.gauntlet import GauntletOrchestrator, GauntletProgress
+    from aragora.gauntlet import GauntletProgress
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +197,6 @@ class GauntletWorker:
         from aragora.agents.base import AgentType, create_agent
         from aragora.gauntlet import (
             GauntletOrchestrator,
-            GauntletProgress,
             InputType,
             OrchestratorConfig,
         )

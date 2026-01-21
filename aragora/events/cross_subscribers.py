@@ -2218,7 +2218,6 @@ class CrossSubscriberManager:
                         # Emit validation event for dashboard
                         try:
                             from aragora.events.types import StreamEvent, StreamEventType
-                            from aragora.events.cross_subscribers import get_cross_subscriber_manager
 
                             validation_event = StreamEvent(
                                 type=StreamEventType.KM_ADAPTER_VALIDATION,

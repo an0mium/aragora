@@ -99,7 +99,6 @@ class WorkflowTemplatesHandler(BaseHandler):
     def _list_templates(self, query_params: dict) -> HandlerResult:
         """List available workflow templates."""
         from aragora.workflow.templates import list_templates, WORKFLOW_TEMPLATES
-        from aragora.workflow.templates.package import package_all_templates
 
         # Get filters
         category = get_bounded_string_param(
@@ -162,7 +161,7 @@ class WorkflowTemplatesHandler(BaseHandler):
     @handle_errors("get template")
     def _get_template(self, template_id: str) -> HandlerResult:
         """Get details of a specific template."""
-        from aragora.workflow.templates import get_template, WORKFLOW_TEMPLATES
+        from aragora.workflow.templates import get_template
 
         template = get_template(template_id)
         if not template:
@@ -439,7 +438,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
     @handle_errors("get pattern template")
     def _get_pattern_template(self, pattern_id: str) -> HandlerResult:
         """Get details of a specific pattern template."""
-        from aragora.workflow.templates.patterns import get_pattern_template, PATTERN_TEMPLATES
+        from aragora.workflow.templates.patterns import get_pattern_template
 
         # Try with pattern/ prefix if not found
         template = get_pattern_template(pattern_id)

@@ -18,8 +18,6 @@ Actions:
 - Run Gauntlet: Execute stress-test
 """
 
-import hashlib
-import hmac
 import logging
 import secrets
 import time

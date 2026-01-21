@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,

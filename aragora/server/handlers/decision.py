@@ -15,7 +15,6 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -46,8 +45,51 @@ def _get_decision_router():
     return _decision_router
 
 
-# In-memory result cache (for polling)
-_decision_results: Dict[str, Dict[str, Any]] = {}
+# Lazy-loaded result store instance
+_decision_result_store = None
+
+
+def _get_result_store():
+    """Get the decision result store for persistence."""
+    global _decision_result_store
+    if _decision_result_store is None:
+        try:
+            from aragora.storage.decision_result_store import get_decision_result_store
+            _decision_result_store = get_decision_result_store()
+        except Exception as e:
+            logger.warning(f"DecisionResultStore not available, using in-memory: {e}")
+    return _decision_result_store
+
+
+# Fallback in-memory cache (used only if persistent store fails)
+_decision_results_fallback: Dict[str, Dict[str, Any]] = {}
+
+
+def _save_result(request_id: str, data: Dict[str, Any]) -> None:
+    """Save a decision result to persistent store with fallback."""
+    store = _get_result_store()
+    if store:
+        try:
+            store.save(request_id, data)
+            return
+        except Exception as e:
+            logger.warning(f"Failed to persist result, using fallback: {e}")
+    # Fallback to in-memory
+    _decision_results_fallback[request_id] = data
+
+
+def _get_result(request_id: str) -> Optional[Dict[str, Any]]:
+    """Get a decision result from persistent store with fallback."""
+    store = _get_result_store()
+    if store:
+        try:
+            result = store.get(request_id)
+            if result:
+                return result
+        except Exception as e:
+            logger.warning(f"Failed to retrieve from store: {e}")
+    # Fallback to in-memory
+    return _decision_results_fallback.get(request_id)
 
 
 class DecisionHandler(BaseHandler):
@@ -194,13 +236,13 @@ class DecisionHandler(BaseHandler):
             finally:
                 loop.close()
 
-            # Cache result for polling
-            _decision_results[request.request_id] = {
+            # Cache result for polling (persistent)
+            _save_result(request.request_id, {
                 "request_id": request.request_id,
                 "status": "completed" if result.success else "failed",
                 "result": result.to_dict(),
                 "completed_at": datetime.utcnow().isoformat(),
-            }
+            })
 
             return json_response({
                 "request_id": request.request_id,
@@ -217,32 +259,41 @@ class DecisionHandler(BaseHandler):
 
         except asyncio.TimeoutError:
             # Save as pending for async polling
-            _decision_results[request.request_id] = {
+            _save_result(request.request_id, {
                 "request_id": request.request_id,
                 "status": "timeout",
                 "error": "Decision timed out",
-            }
+            })
             return error_response("Decision request timed out", 408)
 
         except Exception as e:
             logger.exception(f"Decision routing failed: {e}")
-            _decision_results[request.request_id] = {
+            _save_result(request.request_id, {
                 "request_id": request.request_id,
                 "status": "failed",
                 "error": str(e),
-            }
+            })
             return error_response(f"Decision failed: {e}", 500)
 
     def _get_decision(self, request_id: str) -> HandlerResult:
         """Get a decision result by ID."""
-        if request_id in _decision_results:
-            return json_response(_decision_results[request_id])
+        result = _get_result(request_id)
+        if result:
+            return json_response(result)
         return error_response("Decision not found", 404)
 
     def _get_decision_status(self, request_id: str) -> HandlerResult:
         """Get decision status for polling."""
-        if request_id in _decision_results:
-            result = _decision_results[request_id]
+        store = _get_result_store()
+        if store:
+            try:
+                return json_response(store.get_status(request_id))
+            except Exception as e:
+                logger.warning(f"Failed to get status from store: {e}")
+
+        # Fallback to in-memory
+        if request_id in _decision_results_fallback:
+            result = _decision_results_fallback[request_id]
             return json_response({
                 "request_id": request_id,
                 "status": result.get("status", "unknown"),
@@ -256,7 +307,21 @@ class DecisionHandler(BaseHandler):
     def _list_decisions(self, query_params: dict) -> HandlerResult:
         """List recent decisions."""
         limit = int(query_params.get("limit", 20))
-        decisions = list(_decision_results.values())[-limit:]
+
+        store = _get_result_store()
+        if store:
+            try:
+                decisions = store.list_recent(limit)
+                total = store.count()
+                return json_response({
+                    "decisions": decisions,
+                    "total": total,
+                })
+            except Exception as e:
+                logger.warning(f"Failed to list from store: {e}")
+
+        # Fallback to in-memory
+        decisions = list(_decision_results_fallback.values())[-limit:]
         return json_response({
             "decisions": [
                 {
@@ -266,7 +331,7 @@ class DecisionHandler(BaseHandler):
                 }
                 for d in decisions
             ],
-            "total": len(_decision_results),
+            "total": len(_decision_results_fallback),
         })
 
 

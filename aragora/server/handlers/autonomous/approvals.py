@@ -1,12 +1,11 @@
 """Approval flow HTTP handlers."""
 
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from aiohttp import web
 
-from aragora.autonomous import ApprovalFlow, ApprovalStatus
+from aragora.autonomous import ApprovalFlow
 
 logger = logging.getLogger(__name__)
 

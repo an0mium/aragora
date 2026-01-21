@@ -296,7 +296,7 @@ class AnalyticsHandler(BaseHandler):
         - Cross-debate utility (how useful knowledge is across debates)
         """
         try:
-            from datetime import datetime, timedelta
+            from datetime import datetime
 
             # Initialize default stats
             learning_stats = {

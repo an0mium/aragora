@@ -25,14 +25,13 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 from aragora.debate.similarity.backends import (
     JaccardBackend,
     SentenceTransformerBackend,
     SimilarityBackend,
     TFIDFBackend,
-    get_similarity_backend,
 )
 
 logger = logging.getLogger(__name__)

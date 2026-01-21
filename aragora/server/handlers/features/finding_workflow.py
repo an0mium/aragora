@@ -36,7 +36,7 @@ from aragora.rbac import (
     check_permission,
     PermissionDeniedError,
 )
-from aragora.billing.auth import extract_user_from_request, UserAuthContext
+from aragora.billing.auth import extract_user_from_request
 
 logger = logging.getLogger(__name__)
 

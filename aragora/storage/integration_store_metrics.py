@@ -28,7 +28,7 @@ from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .integration_store import IntegrationConfig, UserIdMapping
+    pass
 
 logger = logging.getLogger(__name__)
 

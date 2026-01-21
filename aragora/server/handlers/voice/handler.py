@@ -19,7 +19,6 @@ from aiohttp import web
 
 from aragora.integrations.twilio_voice import (
     TwilioVoiceIntegration,
-    TwilioVoiceConfig,
     get_twilio_voice,
     HAS_TWILIO,
 )

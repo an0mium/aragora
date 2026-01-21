@@ -7,7 +7,7 @@ Extracted from consensus_phase.py to handle:
 
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.observability.metrics import (
     record_evidence_citation_bonus,

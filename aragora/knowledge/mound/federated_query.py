@@ -24,12 +24,11 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.types import KnowledgeItem
+    pass
 
 logger = logging.getLogger(__name__)
 

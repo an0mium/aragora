@@ -34,7 +34,7 @@ from typing import Any, Callable, Optional, TypeVar, ParamSpec
 from aragora.rbac.models import AuthorizationContext
 from aragora.rbac.decorators import PermissionDeniedError, RoleRequiredError
 
-from .base import BaseHandler, HandlerResult, error_response, json_response, ServerContext
+from .base import BaseHandler, HandlerResult, error_response, ServerContext
 from .utils.auth import get_auth_context, UnauthorizedError, ForbiddenError
 
 logger = logging.getLogger(__name__)

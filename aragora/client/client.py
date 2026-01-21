@@ -37,7 +37,7 @@ from __future__ import annotations
 import json
 import logging
 import time as time_module
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, List, NoReturn, Optional
+from typing import TYPE_CHECKING, Any, NoReturn, Optional
 from urllib.parse import urljoin
 
 # Import from refactored modules
@@ -68,29 +68,7 @@ from .resources import (
     VerificationAPI,
 )
 from .models import (
-    ConsensusType,
-    Debate,
-    DebateCreateRequest,
-    DebateCreateResponse,
-    DebateStatus,
-    GauntletReceipt,
-    GauntletRunRequest,
-    GauntletRunResponse,
-    # Graph debates
-    GraphDebate,
-    GraphDebateBranch,
-    GraphDebateCreateRequest,
-    GraphDebateCreateResponse,
     HealthCheck,
-    MatrixConclusion,
-    # Matrix debates
-    MatrixDebate,
-    MatrixDebateCreateRequest,
-    MatrixDebateCreateResponse,
-    MatrixScenario,
-    # Memory analytics
-    Replay,
-    ReplaySummary,
 )
 
 if TYPE_CHECKING:

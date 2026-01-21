@@ -13,9 +13,8 @@ These schemas enable:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import json
 
 # JSON Schema version
 SCHEMA_VERSION = "1.0.0"

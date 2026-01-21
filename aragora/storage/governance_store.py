@@ -30,8 +30,7 @@ import asyncio
 import json
 import logging
 import os
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
@@ -1143,7 +1142,7 @@ class PostgresGovernanceStore:
             updates.append(f"approved_by = ${param_idx}")
             params.append(approved_by)
             param_idx += 1
-            updates.append(f"approved_at = NOW()")
+            updates.append("approved_at = NOW()")
 
         if rejection_reason:
             updates.append(f"rejection_reason = ${param_idx}")

@@ -38,7 +38,7 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
@@ -619,7 +619,6 @@ Output format: PRIORITY: [1-5], CONFIDENCE: [0-1], REASON: [brief explanation]""
 
         try:
             from aragora.debate.arena import DebateArena
-            from aragora.debate.protocol import DebateProtocol
 
             # Build debate question
             question = f"""Prioritize this email (1=Critical to 5=Defer):

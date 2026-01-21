@@ -1190,15 +1190,15 @@ async def notify_webhook_delivery_failure(
     if attempt_count >= 5:
         severity = "critical"
         priority = NotificationPriority.URGENT
-        title = f"Webhook Delivery Failed - Max Retries Exceeded"
+        title = "Webhook Delivery Failed - Max Retries Exceeded"
     elif attempt_count >= 3:
         severity = "error"
         priority = NotificationPriority.HIGH
-        title = f"Webhook Delivery Failing - Multiple Retries"
+        title = "Webhook Delivery Failing - Multiple Retries"
     else:
         severity = "warning"
         priority = NotificationPriority.NORMAL
-        title = f"Webhook Delivery Failed"
+        title = "Webhook Delivery Failed"
 
     # Truncate URL for display
     display_url = webhook_url if len(webhook_url) <= 50 else webhook_url[:47] + "..."
@@ -1266,7 +1266,7 @@ async def notify_webhook_circuit_breaker_opened(
     display_url = webhook_url if len(webhook_url) <= 50 else webhook_url[:47] + "..."
 
     notification = Notification(
-        title=f"Webhook Circuit Breaker Opened",
+        title="Webhook Circuit Breaker Opened",
         message=(
             f"The circuit breaker for webhook {display_url} has opened "
             f"after {failure_count} consecutive failures.\n\n"
@@ -1340,14 +1340,14 @@ async def notify_batch_job_failed(
 
     message_parts = [
         f"Batch job {job_id[:12]}... has completed with failures.",
-        f"",
-        f"Results:",
+        "",
+        "Results:",
         f"- Total debates: {total_debates}",
         f"- Successful: {success_count}",
         f"- Failed: {failure_count}",
     ]
     if error_message:
-        message_parts.append(f"")
+        message_parts.append("")
         message_parts.append(f"Error: {error_message}")
 
     notification = Notification(

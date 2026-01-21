@@ -26,16 +26,14 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
 import sqlite3
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -583,7 +581,7 @@ async def _send_teams_result(origin: DebateOrigin, result: Dict[str, Any]) -> bo
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(webhook_url, json=card)
             if response.is_success:
-                logger.info(f"Teams result sent via webhook")
+                logger.info("Teams result sent via webhook")
                 return True
             else:
                 logger.warning(f"Teams send failed: {response.status_code}")

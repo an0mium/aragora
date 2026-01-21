@@ -16,7 +16,7 @@ Security measures:
 
 import ipaddress
 import socket
-from typing import Optional, Tuple
+from typing import Tuple
 from urllib.parse import urlparse
 
 

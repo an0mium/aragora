@@ -17,7 +17,6 @@ __all__ = ["DecisionExplainHandler"]
 
 import json
 import logging
-from dataclasses import asdict
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -480,7 +479,7 @@ class DecisionExplainHandler(BaseHandler):
     def _format_markdown(self, explanation: dict[str, Any]) -> HandlerResult:
         """Format explanation as Markdown."""
         lines = [
-            f"# Decision Explanation",
+            "# Decision Explanation",
             f"**Request ID:** {explanation['request_id']}",
             f"**Generated:** {explanation['generated_at']}",
             "",

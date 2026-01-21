@@ -34,7 +34,6 @@ from base64 import b64encode
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
-from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 

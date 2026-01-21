@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from aragora.storage.base_store import SQLiteStore
-from aragora.storage.schema import SchemaManager
 
 if TYPE_CHECKING:
     from asyncpg import Pool

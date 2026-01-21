@@ -765,7 +765,7 @@ class RedisIntegrationStore(IntegrationStoreBackend):
             "ARAGORA_REDIS_URL", "redis://localhost:6379"
         )
         self._redis_checked = False
-        logger.info(f"RedisIntegrationStore initialized with SQLite fallback")
+        logger.info("RedisIntegrationStore initialized with SQLite fallback")
 
     def _get_redis(self) -> Optional[Any]:
         """Get Redis client (lazy initialization)."""
@@ -781,7 +781,7 @@ class RedisIntegrationStore(IntegrationStoreBackend):
             # Test connection
             self._redis.ping()
             self._redis_checked = True
-            logger.info(f"Redis connected for integration store")
+            logger.info("Redis connected for integration store")
         except Exception as e:
             logger.debug(f"Redis not available, using SQLite only: {e}")
             self._redis = None

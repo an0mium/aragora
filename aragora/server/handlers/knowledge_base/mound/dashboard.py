@@ -14,9 +14,8 @@ These endpoints power the Knowledge Mound dashboard panel.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING
 
-from aragora.server.http_utils import run_async as _run_async
 from ...base import HandlerResult, error_response
 
 if TYPE_CHECKING:

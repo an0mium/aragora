@@ -213,7 +213,7 @@ class EncryptionMigration:
         cursor = conn.cursor()
 
         try:
-            from aragora.security.encryption import get_encryption_service, EncryptedValue
+            from aragora.security.encryption import get_encryption_service
 
             service = get_encryption_service()
 

@@ -35,7 +35,7 @@ import asyncio
 import logging
 import sys
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -447,7 +447,7 @@ def main():
         for result in results:
             print(result)
             if result.errors:
-                print(f"  Errors:")
+                print("  Errors:")
                 for error in result.errors[:5]:
                     print(f"    - {error}")
                 if len(result.errors) > 5:

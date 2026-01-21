@@ -35,7 +35,6 @@ from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 
 from ..base import (
     SAFE_ID_PATTERN,
-    BaseHandler,
     HandlerResult,
     error_response,
     get_string_param,
@@ -46,8 +45,6 @@ from ..base import (
 )
 from ..secure import (
     SecureHandler,
-    secure_endpoint,
-    audit_sensitive_access,
     UnauthorizedError,
     ForbiddenError,
 )
@@ -158,7 +155,7 @@ def admin_secure_endpoint(
                     resource_id = kwargs.get(resource_id_param) if resource_id_param else None
                     try:
                         self.check_permission(auth_context, permission, resource_id)
-                    except ForbiddenError as e:
+                    except ForbiddenError:
                         return error_response(f"Permission denied: {permission}", 403)
 
                 # 5. Call the actual handler

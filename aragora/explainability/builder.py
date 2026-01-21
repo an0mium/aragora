@@ -506,7 +506,7 @@ class ExplanationBuilder:
                     ConfidenceAttribution(
                         factor="agent_calibration",
                         contribution=abs(contribution),
-                        explanation=f"Historical accuracy of participating agents",
+                        explanation="Historical accuracy of participating agents",
                         raw_value=avg_calibration,
                     )
                 )
@@ -655,45 +655,45 @@ class ExplanationBuilder:
 
         # Header
         consensus_status = "reached" if decision.consensus_reached else "not reached"
-        lines.append(f"## Decision Summary")
-        lines.append(f"")
+        lines.append("## Decision Summary")
+        lines.append("")
         lines.append(f"**Consensus:** {consensus_status.title()}")
         lines.append(f"**Confidence:** {decision.confidence:.0%}")
         lines.append(f"**Rounds:** {decision.rounds_used}")
-        lines.append(f"")
+        lines.append("")
 
         # Conclusion
         if decision.conclusion:
-            lines.append(f"### Conclusion")
+            lines.append("### Conclusion")
             lines.append(decision.conclusion[:500])
-            lines.append(f"")
+            lines.append("")
 
         # Key evidence
         top_evidence = decision.get_top_evidence(3)
         if top_evidence:
-            lines.append(f"### Key Evidence")
+            lines.append("### Key Evidence")
             for e in top_evidence:
                 lines.append(f"- **{e.source}**: {e.content[:100]}...")
-            lines.append(f"")
+            lines.append("")
 
         # Pivotal votes
         pivotal = decision.get_pivotal_votes(0.3)
         if pivotal:
-            lines.append(f"### Most Influential Votes")
+            lines.append("### Most Influential Votes")
             for v in pivotal[:3]:
                 lines.append(
                     f"- **{v.agent}** voted '{v.choice}' "
                     f"(influence: {v.influence_score:.0%})"
                 )
-            lines.append(f"")
+            lines.append("")
 
         # Confidence breakdown
         major_factors = decision.get_major_confidence_factors(0.15)
         if major_factors:
-            lines.append(f"### Confidence Factors")
+            lines.append("### Confidence Factors")
             for f in major_factors:
                 lines.append(f"- {f.factor}: {f.explanation}")
-            lines.append(f"")
+            lines.append("")
 
         return "\n".join(lines)
 

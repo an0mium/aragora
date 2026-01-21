@@ -14,6 +14,8 @@ _export_cache: dict[tuple[str, str, str], tuple[str, float]] = {}
 _export_cache_lock = threading.Lock()
 _EXPORT_CACHE_TTL = 300.0  # 5 minutes
 _MAX_CACHE_ENTRIES = 100
+_CLEANUP_INTERVAL = 60.0  # Minimum seconds between cleanups
+_last_cleanup_time = 0.0
 
 
 def _get_graph_hash(cartographer: ArgumentCartographer) -> str:
@@ -41,6 +43,9 @@ def _cache_export(debate_id: str, format_name: str, graph_hash: str, content: st
     """Cache an export. Thread-safe."""
     global _export_cache
 
+    # Run periodic cleanup to remove expired entries
+    _maybe_cleanup()
+
     with _export_cache_lock:
         # Evict old entries if at limit
         if len(_export_cache) >= _MAX_CACHE_ENTRIES:
@@ -58,6 +63,43 @@ def _cache_export(debate_id: str, format_name: str, graph_hash: str, content: st
         _export_cache[(debate_id, format_name, graph_hash)] = (content, time.time())
 
 
+def cleanup_expired_exports() -> int:
+    """
+    Remove expired entries from the export cache.
+
+    This function proactively removes all expired entries, not just when
+    they're accessed. Call periodically to prevent memory buildup.
+
+    Returns:
+        Number of entries removed.
+    """
+    global _export_cache, _last_cleanup_time
+    removed = 0
+
+    with _export_cache_lock:
+        now = time.time()
+        expired_keys = [
+            key for key, (_, timestamp) in _export_cache.items()
+            if now - timestamp > _EXPORT_CACHE_TTL
+        ]
+        for key in expired_keys:
+            del _export_cache[key]
+            removed += 1
+
+        _last_cleanup_time = now
+
+    return removed
+
+
+def _maybe_cleanup() -> None:
+    """Run cleanup if enough time has passed since last cleanup."""
+    global _last_cleanup_time
+
+    now = time.time()
+    if now - _last_cleanup_time >= _CLEANUP_INTERVAL:
+        cleanup_expired_exports()
+
+
 def clear_export_cache() -> int:
     """Clear the export cache. Returns number of entries cleared. Thread-safe."""
     global _export_cache
@@ -65,6 +107,37 @@ def clear_export_cache() -> int:
         count = len(_export_cache)
         _export_cache = {}
         return count
+
+
+def get_export_cache_stats() -> dict:
+    """
+    Get statistics about the export cache.
+
+    Returns:
+        Dictionary with cache statistics including count, expired count,
+        memory estimate, and TTL configuration.
+    """
+    with _export_cache_lock:
+        now = time.time()
+        total = len(_export_cache)
+        expired = sum(
+            1 for _, (_, timestamp) in _export_cache.items()
+            if now - timestamp > _EXPORT_CACHE_TTL
+        )
+        # Estimate memory (rough approximation)
+        total_size = sum(
+            len(content) for content, _ in _export_cache.values()
+        )
+
+        return {
+            "total_entries": total,
+            "expired_entries": expired,
+            "active_entries": total - expired,
+            "max_entries": _MAX_CACHE_ENTRIES,
+            "ttl_seconds": _EXPORT_CACHE_TTL,
+            "estimated_memory_bytes": total_size,
+            "cleanup_interval_seconds": _CLEANUP_INTERVAL,
+        }
 
 
 def save_debate_visualization(

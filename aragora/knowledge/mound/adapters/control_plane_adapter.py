@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 if TYPE_CHECKING:
     from aragora.knowledge.mound.core import KnowledgeMound
     from aragora.control_plane.coordinator import ControlPlaneCoordinator
-    from aragora.control_plane.scheduler import Task
 
 logger = logging.getLogger(__name__)
 

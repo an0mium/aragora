@@ -28,7 +28,6 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import email
 import hashlib
 import hmac
 import json
@@ -40,7 +39,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from email import policy
-from email.parser import BytesParser, Parser
+from email.parser import BytesParser
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 

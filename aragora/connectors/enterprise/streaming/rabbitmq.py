@@ -31,7 +31,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable, Dict, Optional
 
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import (

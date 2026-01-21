@@ -352,7 +352,7 @@ def with_webhook_metrics(platform: str) -> Callable:
             try:
                 result = func(*args, **kwargs)
                 return result
-            except Exception as e:
+            except Exception:
                 status = "error"
                 record_error(platform, "handler_exception")
                 raise
@@ -377,7 +377,7 @@ def with_api_metrics(platform: str, method: str) -> Callable:
             try:
                 result = await func(*args, **kwargs)
                 return result
-            except Exception as e:
+            except Exception:
                 status = "error"
                 raise
             finally:

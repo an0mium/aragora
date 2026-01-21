@@ -20,10 +20,9 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 from aragora.storage.job_queue_store import (
-    JobStatus,
     QueuedJob,
     get_job_store,
 )

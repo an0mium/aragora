@@ -20,7 +20,7 @@ import hashlib
 import hmac
 import logging
 import time
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
@@ -28,7 +28,6 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
-from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.utils.url_security import validate_webhook_url
 

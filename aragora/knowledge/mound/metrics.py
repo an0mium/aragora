@@ -26,10 +26,10 @@ import time
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from threading import Lock
-from typing import Any, Deque, Dict, Generator, List, Optional, Tuple
+from typing import Any, Deque, Dict, Generator, List, Optional
 
 logger = logging.getLogger(__name__)
 

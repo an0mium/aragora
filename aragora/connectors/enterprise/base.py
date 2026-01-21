@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
@@ -394,7 +394,7 @@ class EnterpriseConnector(BaseConnector):
             result = await self._request_with_retry(request_func, operation)
             self.record_success()
             return result
-        except Exception as e:
+        except Exception:
             self.record_failure()
             raise
 

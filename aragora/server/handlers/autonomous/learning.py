@@ -5,7 +5,7 @@ from typing import Optional
 
 from aiohttp import web
 
-from aragora.autonomous import ContinuousLearner, EloUpdater
+from aragora.autonomous import ContinuousLearner
 
 logger = logging.getLogger(__name__)
 

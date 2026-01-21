@@ -33,9 +33,9 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, cast
+from typing import Any, Dict, List, Optional, cast
 
-from aragora.workflow.queue.queue import TaskQueue, TaskQueueConfig, QueueStats
+from aragora.workflow.queue.queue import TaskQueue, TaskQueueConfig
 from aragora.workflow.queue.task import (
     TaskStatus,
     TaskPriority,

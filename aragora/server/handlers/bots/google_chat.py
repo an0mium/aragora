@@ -18,7 +18,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Callable, Coroutine, Dict, Optional
+from typing import Any, Coroutine, Dict, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -643,7 +643,7 @@ class GoogleChatHandler(BaseHandler):
 
                     await connector.send_message(
                         space_name,
-                        f"Gauntlet complete",
+                        "Gauntlet complete",
                         blocks=connector.format_blocks(
                             title=f"{status_emoji} Gauntlet Results",
                             body=body,
