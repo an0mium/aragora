@@ -252,7 +252,7 @@ class TestBasicDebateLifecycle:
     ) -> None:
         """Test that a simple debate runs to completion."""
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=quick_protocol,
         )
@@ -272,7 +272,7 @@ class TestBasicDebateLifecycle:
     ) -> None:
         """Test that all agents are called during debate."""
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=quick_protocol,
         )
@@ -292,7 +292,7 @@ class TestBasicDebateLifecycle:
     ) -> None:
         """Test debate with multiple rounds."""
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=basic_protocol,
         )
@@ -326,7 +326,7 @@ class TestConsensusAndVoting:
             E2ETestAgent(name="agent-c", vote_choice="agent-a"),
         ]
 
-        arena = Arena(env=basic_env, agents=agents, protocol=quick_protocol)
+        arena = Arena(basic_env, agents=agents, protocol=quick_protocol)
         result = await arena.run()
 
         # All agents voted for agent-a
@@ -353,7 +353,7 @@ class TestConsensusAndVoting:
             convergence_detection=False,
         )
 
-        arena = Arena(env=basic_env, agents=agents, protocol=protocol)
+        arena = Arena(basic_env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         assert result is not None
@@ -378,7 +378,7 @@ class TestConsensusAndVoting:
             convergence_detection=False,
         )
 
-        arena = Arena(env=basic_env, agents=agents, protocol=protocol)
+        arena = Arena(basic_env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         # Debate should complete despite no unanimous consensus
@@ -405,7 +405,7 @@ class TestCritiqueFlow:
             E2ETestAgent(name="critic-2", critique_severity=0.3),
         ]
 
-        arena = Arena(env=basic_env, agents=agents, protocol=basic_protocol)
+        arena = Arena(basic_env, agents=agents, protocol=basic_protocol)
         result = await arena.run()
 
         # With enable_critique=True, agents should have been asked to critique
@@ -430,7 +430,7 @@ class TestCritiqueFlow:
             convergence_detection=False,
         )
 
-        arena = Arena(env=basic_env, agents=agents, protocol=protocol)
+        arena = Arena(basic_env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         assert result is not None
@@ -475,7 +475,7 @@ class TestConvergenceDetection:
             critique_required=False,
         )
 
-        arena = Arena(env=basic_env, agents=agents, protocol=protocol)
+        arena = Arena(basic_env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         # Should complete even if not all 5 rounds run
@@ -507,7 +507,7 @@ class TestConvergenceDetection:
             critique_required=False,
         )
 
-        arena = Arena(env=basic_env, agents=agents, protocol=protocol)
+        arena = Arena(basic_env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         assert result is not None
@@ -538,7 +538,7 @@ class TestEventEmission:
         event_bus.subscribe("*", capture_event)
 
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=quick_protocol,
             event_bus=event_bus,
@@ -568,7 +568,7 @@ class TestEventEmission:
         event_bus.subscribe("*", capture_round_event)
 
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=basic_protocol,
             event_bus=event_bus,
@@ -603,7 +603,7 @@ class TestArenaConfiguration:
         )
 
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=quick_protocol,
             config=config,
@@ -621,7 +621,7 @@ class TestArenaConfiguration:
     ) -> None:
         """Test Arena as async context manager."""
         async with Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=quick_protocol,
         ) as arena:
@@ -637,7 +637,7 @@ class TestArenaConfiguration:
     ) -> None:
         """Test Arena with timeout configuration."""
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=quick_protocol,
             timeout_seconds=60.0,
@@ -671,7 +671,7 @@ class TestDebateTopologies:
         )
 
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=three_agents_with_disagreement,
             protocol=protocol,
         )
@@ -688,12 +688,14 @@ class TestDebateTopologies:
         """Test parallel (hive-mind) debate topology."""
         protocol = DebateProtocol(
             rounds=1,
-            topology="hive_mind",
-            enable_critique=False,
+            topology="all-to-all",  # Parallel-style topology
+            critique_required=False,
+            early_stopping=False,
+            convergence_detection=False,
         )
 
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=three_agents_with_disagreement,
             protocol=protocol,
         )
@@ -727,7 +729,7 @@ class TestErrorHandling:
             E2ETestAgent(name="working-agent"),
         ]
 
-        arena = Arena(env=basic_env, agents=agents, protocol=quick_protocol)
+        arena = Arena(basic_env, agents=agents, protocol=quick_protocol)
 
         # Should not crash, may return partial result or handle error
         try:
@@ -750,7 +752,7 @@ class TestErrorHandling:
             E2ETestAgent(name="normal-agent"),
         ]
 
-        arena = Arena(env=basic_env, agents=agents, protocol=quick_protocol)
+        arena = Arena(basic_env, agents=agents, protocol=quick_protocol)
         result = await arena.run()
 
         # Should complete despite empty response
@@ -780,7 +782,7 @@ class TestMemoryIntegration:
         )
 
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=quick_protocol,
         )
@@ -797,7 +799,7 @@ class TestMemoryIntegration:
     ) -> None:
         """Test that debate outcomes can be stored."""
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=quick_protocol,
         )
@@ -829,7 +831,7 @@ class TestUserParticipation:
             context={"user_preference": "integration-focused"},
         )
 
-        arena = Arena(env=env, agents=two_agents, protocol=quick_protocol)
+        arena = Arena(env, agents=two_agents, protocol=quick_protocol)
         result = await arena.run()
 
         assert result is not None
@@ -854,7 +856,7 @@ class TestCheckpointIntegration:
         config = ArenaConfig(enable_checkpointing=True)
 
         arena = Arena(
-            env=basic_env,
+            basic_env,
             agents=two_agents,
             protocol=basic_protocol,
             config=config,
@@ -881,7 +883,7 @@ class TestStressAndEdgeCases:
         """Test debate with only one agent."""
         agents = [E2ETestAgent(name="solo-agent")]
 
-        arena = Arena(env=basic_env, agents=agents, protocol=quick_protocol)
+        arena = Arena(basic_env, agents=agents, protocol=quick_protocol)
         result = await arena.run()
 
         # Should complete even with single agent
@@ -897,11 +899,13 @@ class TestStressAndEdgeCases:
 
         protocol = DebateProtocol(
             rounds=1,
-            topology="round_robin",
-            enable_critique=False,
+            topology="round-robin",
+            critique_required=False,
+            early_stopping=False,
+            convergence_detection=False,
         )
 
-        arena = Arena(env=basic_env, agents=agents, protocol=protocol)
+        arena = Arena(basic_env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         assert result is not None
@@ -920,7 +924,7 @@ class TestStressAndEdgeCases:
             E2ETestAgent(name="normal-agent"),
         ]
 
-        arena = Arena(env=basic_env, agents=agents, protocol=quick_protocol)
+        arena = Arena(basic_env, agents=agents, protocol=quick_protocol)
         result = await arena.run()
 
         assert result is not None
@@ -934,7 +938,7 @@ class TestStressAndEdgeCases:
         """Test debate with minimal task description."""
         env = Environment(task="")
 
-        arena = Arena(env=env, agents=two_agents, protocol=quick_protocol)
+        arena = Arena(env, agents=two_agents, protocol=quick_protocol)
 
         # May raise or handle gracefully
         try:

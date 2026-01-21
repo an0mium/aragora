@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.checkpoint import KMCheckpointStore
@@ -32,8 +32,8 @@ from aragora.server.handlers.utils.rate_limit import (
 from aragora.observability.metrics import (
     record_checkpoint_operation,
     track_checkpoint_operation,
-    check_and_record_slo,
 )
+from aragora.observability.metrics.slo import check_and_record_slo
 
 logger = logging.getLogger(__name__)
 
@@ -407,8 +407,14 @@ class KMCheckpointHandler(BaseHandler):
 
         return error_response("Not found", status=404)
 
-    def handle_post(self, handler) -> HandlerResult:
+    def handle_post(  # type: ignore[override]
+        self, path: str = "", query_params: dict | None = None, handler: Any = None
+    ) -> HandlerResult:
         """Handle POST requests."""
+        if handler is None:
+            from aragora.server.handlers.base import error_response
+
+            return error_response("Missing handler", status=500)
         path = handler.path.split("?")[0]
 
         if path == "/api/km/checkpoints":
@@ -424,8 +430,14 @@ class KMCheckpointHandler(BaseHandler):
 
         return error_response("Not found", status=404)
 
-    def handle_delete(self, handler) -> HandlerResult:
+    def handle_delete(  # type: ignore[override]
+        self, path: str = "", query_params: dict | None = None, handler: Any = None
+    ) -> HandlerResult:
         """Handle DELETE requests."""
+        if handler is None:
+            from aragora.server.handlers.base import error_response
+
+            return error_response("Missing handler", status=500)
         path = handler.path.split("?")[0]
 
         # Handle /api/km/checkpoints/{name}
