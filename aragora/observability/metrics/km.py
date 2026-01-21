@@ -463,7 +463,7 @@ def sync_km_metrics_to_prometheus() -> None:
 
 
 __all__ = [
-    # Metrics
+    # Core Metrics
     "KM_OPERATIONS_TOTAL",
     "KM_OPERATION_LATENCY",
     "KM_CACHE_HITS_TOTAL",
@@ -473,7 +473,18 @@ __all__ = [
     "KM_FEDERATED_QUERIES_TOTAL",
     "KM_EVENTS_EMITTED_TOTAL",
     "KM_ACTIVE_ADAPTERS",
-    # Functions
+    # Control Plane Metrics
+    "KM_CP_TASK_OUTCOMES_TOTAL",
+    "KM_CP_CAPABILITY_RECORDS_TOTAL",
+    "KM_CP_CROSS_WORKSPACE_SHARES_TOTAL",
+    "KM_CP_RECOMMENDATIONS_TOTAL",
+    # Bidirectional Flow Metrics
+    "KM_FORWARD_SYNC_LATENCY",
+    "KM_REVERSE_QUERY_LATENCY",
+    "KM_SEMANTIC_SEARCH_TOTAL",
+    "KM_VALIDATION_FEEDBACK_TOTAL",
+    "KM_CROSS_DEBATE_REUSE_TOTAL",
+    # Core Recording Functions
     "record_km_operation",
     "record_km_cache_access",
     "set_km_health_status",
@@ -483,4 +494,15 @@ __all__ = [
     "set_km_active_adapters",
     "sync_km_metrics_to_prometheus",
     "init_km_metrics",
+    # Control Plane Recording Functions
+    "record_cp_task_outcome",
+    "record_cp_capability_record",
+    "record_cp_cross_workspace_share",
+    "record_cp_recommendation_query",
+    # Bidirectional Flow Recording Functions
+    "record_forward_sync_latency",
+    "record_reverse_query_latency",
+    "record_semantic_search",
+    "record_validation_feedback",
+    "record_cross_debate_reuse",
 ]
