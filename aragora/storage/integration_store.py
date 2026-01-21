@@ -1177,7 +1177,14 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                           last_error, user_id, workspace_id
                    FROM integrations"""
             )
-            return [self._row_to_config(row) for row in rows]
+            configs = []
+            for row in rows:
+                config = self._row_to_config(row)
+                config.settings = _decrypt_settings(
+                    config.settings, config.user_id or "default", config.type
+                )
+                configs.append(config)
+            return configs
 
     def list_all_sync(self) -> List[IntegrationConfig]:
         """List all integrations (sync wrapper for async)."""

@@ -966,7 +966,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
             id=row["id"],
             url=row["url"],
             events=json.loads(row["events_json"]) if row["events_json"] else [],
-            secret=row["secret"],
+            secret=_decrypt_secret(row["secret"] or ""),
             active=bool(row["active"]),
             created_at=row["created_at"] or time.time(),
             updated_at=row["updated_at"] or time.time(),
