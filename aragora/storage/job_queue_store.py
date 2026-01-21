@@ -674,7 +674,7 @@ class PostgresJobQueueStore(JobStoreBackend):
         async with self._pool.acquire() as conn:
             # Use FOR UPDATE SKIP LOCKED for atomic claim
             if job_types:
-                placeholders = ", ".join(f"${i+2}" for i in range(len(job_types)))
+                placeholders = ", ".join(f"${i + 2}" for i in range(len(job_types)))
                 row = await conn.fetchrow(
                     f"""UPDATE job_queue
                        SET status = 'processing', worker_id = $1, started_at = NOW(),
