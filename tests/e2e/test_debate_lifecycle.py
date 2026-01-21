@@ -22,6 +22,26 @@ import pytest_asyncio
 from tests.e2e.conftest import TestTenant, DebateSetup, MockAgentResponse
 
 
+def create_mock_agent(name: str, response: str = "Default response") -> MagicMock:
+    """Create a properly mocked agent with all required async methods."""
+    agent = MagicMock()
+    agent.name = name
+    agent.generate = AsyncMock(return_value=response)
+    agent.vote = AsyncMock(return_value={"position": 0, "confidence": 0.8})
+    # Critique returns an object with all expected attributes
+    mock_critique = MagicMock()
+    mock_critique.issues = []
+    mock_critique.suggestions = []
+    mock_critique.score = 0.8
+    mock_critique.severity = 0.2  # Low severity for risk area detection
+    mock_critique.text = "No issues found."
+    mock_critique.agent = name
+    mock_critique.target_agent = "other"
+    mock_critique.round = 1
+    agent.critique = AsyncMock(return_value=mock_critique)
+    return agent
+
+
 # ============================================================================
 # Standard Debate E2E Tests
 # ============================================================================
@@ -47,11 +67,8 @@ class TestStandardDebateE2E:
             consensus="majority",
         )
 
-        # Mock agents
-        mock_agents = [MagicMock() for _ in basic_debate.agents]
-        for i, agent in enumerate(mock_agents):
-            agent.name = basic_debate.agents[i]
-            agent.generate = AsyncMock(return_value=f"Response from {basic_debate.agents[i]}")
+        # Mock agents using helper
+        mock_agents = [create_mock_agent(name, f"Response from {name}") for name in basic_debate.agents]
 
         arena = Arena(env, mock_agents, protocol)
 
@@ -76,11 +93,7 @@ class TestStandardDebateE2E:
         env = Environment(task="Simple question with clear answer")
         protocol = DebateProtocol(rounds=5, consensus="unanimous")
 
-        mock_agents = [MagicMock() for _ in range(3)]
-        for i, agent in enumerate(mock_agents):
-            agent.name = f"agent_{i}"
-            # All agents agree
-            agent.generate = AsyncMock(return_value="I agree with the consensus position.")
+        mock_agents = [create_mock_agent(f"agent_{i}", "I agree with the consensus position.") for i in range(3)]
 
         with patch.object(ConsensusDetector, "detect") as mock_detect:
             mock_detect.return_value = {
@@ -111,10 +124,8 @@ class TestStandardDebateE2E:
             critique_enabled=True,
         )
 
-        mock_agents = [MagicMock() for _ in range(3)]
-        for i, agent in enumerate(mock_agents):
-            agent.name = f"agent_{i}"
-            agent.generate = AsyncMock(return_value=f"Position {i}")
+        mock_agents = [create_mock_agent(f"agent_{i}", f"Position {i}") for i in range(3)]
+        for agent in mock_agents:
             agent.critique = AsyncMock(return_value="Critique of position")
 
         arena = Arena(env, mock_agents, protocol)
@@ -161,10 +172,7 @@ class TestExtendedDebateE2E:
         with patch.object(RLMContextManager, "compress") as mock_compress:
             mock_compress.return_value = "Compressed context summary"
 
-            mock_agents = [MagicMock() for _ in extended_debate.agents]
-            for i, agent in enumerate(mock_agents):
-                agent.name = extended_debate.agents[i]
-                agent.generate = AsyncMock(return_value=f"Round response from {agent.name}")
+            mock_agents = [create_mock_agent(name, f"Round response from {name}") for name in extended_debate.agents]
 
             arena = Arena(env, mock_agents, protocol)
 
@@ -190,10 +198,7 @@ class TestExtendedDebateE2E:
         env = Environment(task=extended_debate.topic)
         protocol = DebateProtocol(rounds=20)
 
-        mock_agents = [MagicMock() for _ in range(3)]
-        for i, agent in enumerate(mock_agents):
-            agent.name = f"agent_{i}"
-            agent.generate = AsyncMock(return_value=f"Response {i}")
+        mock_agents = [create_mock_agent(f"agent_{i}", f"Response {i}") for i in range(3)]
 
         arena = Arena(env, mock_agents, protocol)
 
