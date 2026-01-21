@@ -25,8 +25,14 @@ class TestEvaluationDimension:
     def test_all_dimensions_exist(self):
         """Should have all 8 evaluation dimensions."""
         expected = [
-            "relevance", "accuracy", "completeness", "clarity",
-            "reasoning", "evidence", "creativity", "safety"
+            "relevance",
+            "accuracy",
+            "completeness",
+            "clarity",
+            "reasoning",
+            "evidence",
+            "creativity",
+            "safety",
         ]
         actual = [d.value for d in EvaluationDimension]
         assert sorted(actual) == sorted(expected)
@@ -136,7 +142,7 @@ class TestEvaluationRubric:
             score_5="Fully correct",
         )
         prompt = rubric.to_prompt()
-        
+
         assert "ACCURACY" in prompt
         assert "Is it accurate?" in prompt
         assert "Score 1" in prompt
@@ -198,7 +204,7 @@ class TestDimensionScore:
             examples=["Example 1", "Example 2"],
         )
         data = score.to_dict()
-        
+
         assert data["dimension"] == "evidence"
         assert data["score"] == 4.0
         assert data["confidence"] == 0.8
@@ -233,15 +239,15 @@ class TestEvaluationResult:
                 feedback="Average",
             ),
         }
-        
+
         # Use simple equal weights for testing
         weights = {
             EvaluationDimension.RELEVANCE: 0.5,
             EvaluationDimension.ACCURACY: 0.5,
         }
-        
+
         score = result.calculate_overall_score(weights)
-        
+
         assert score == 4.0  # (5*0.5 + 3*0.5) / 1.0
         assert result.overall_score == 4.0
         assert result.overall_confidence == 0.9  # (1.0 + 0.8) / 2
@@ -256,9 +262,9 @@ class TestEvaluationResult:
                 confidence=0.8,
                 feedback="Good",
             )
-        
+
         score = result.calculate_overall_score()
-        
+
         assert score == 4.0  # All scores are 4.0
 
     def test_calculate_overall_score_empty(self):
@@ -277,7 +283,7 @@ class TestEvaluationResult:
             weaknesses=["Too long"],
         )
         data = result.to_dict()
-        
+
         assert data["response_id"] == "resp-123"
         assert data["overall_score"] == 4.2
         assert data["summary"] == "Good response"
@@ -316,7 +322,7 @@ class TestPairwiseResult:
             explanation="Response B was more accurate",
         )
         data = result.to_dict()
-        
+
         assert data["response_a_id"] == "resp-A"
         assert data["response_b_id"] == "resp-B"
         assert data["winner"] == "B"
@@ -329,7 +335,7 @@ class TestJudgeConfig:
     def test_default_config(self):
         """Should have sensible defaults."""
         config = JudgeConfig()
-        
+
         assert "claude" in config.model.lower() or "sonnet" in config.model.lower()
         assert config.temperature == 0.0
         assert config.pass_threshold == 3.5
@@ -343,7 +349,7 @@ class TestJudgeConfig:
             use_case="debate",
             pass_threshold=4.0,
         )
-        
+
         assert config.model == "gpt-4"
         assert config.temperature == 0.3
         assert config.use_case == "debate"
@@ -378,7 +384,7 @@ class TestLLMJudge:
         custom = {EvaluationDimension.ACCURACY: 1.0}
         config = JudgeConfig(custom_weights=custom)
         judge = LLMJudge(config)
-        
+
         assert judge._weights == custom
 
     def test_init_with_subset_dimensions(self):
@@ -386,7 +392,7 @@ class TestLLMJudge:
         dims = [EvaluationDimension.ACCURACY, EvaluationDimension.CLARITY]
         config = JudgeConfig(dimensions=dims)
         judge = LLMJudge(config)
-        
+
         assert judge._dimensions == dims
 
     def test_build_evaluation_prompt(self, judge):
@@ -395,7 +401,7 @@ class TestLLMJudge:
             query="What is 2+2?",
             response="The answer is 4.",
         )
-        
+
         assert "What is 2+2?" in prompt
         assert "The answer is 4." in prompt
         assert "RELEVANCE" in prompt
@@ -409,7 +415,7 @@ class TestLLMJudge:
             response="Summary here",
             context="Original document text",
         )
-        
+
         assert "Original document text" in prompt
         assert "Context" in prompt
 
@@ -420,7 +426,7 @@ class TestLLMJudge:
             response="Translation",
             reference="Correct translation",
         )
-        
+
         assert "Correct translation" in prompt
         assert "Reference" in prompt
 
@@ -431,7 +437,7 @@ class TestLLMJudge:
             response_a="Explanation A",
             response_b="Explanation B",
         )
-        
+
         assert "Explain X" in prompt
         assert "Response A" in prompt
         assert "Response B" in prompt
@@ -450,7 +456,7 @@ class TestLLMJudge:
 }
 ```"""
         scores = judge._parse_evaluation(json_text)
-        
+
         assert EvaluationDimension.RELEVANCE in scores
         assert scores[EvaluationDimension.RELEVANCE].score == 4
         assert scores[EvaluationDimension.ACCURACY].score == 5
@@ -463,7 +469,7 @@ class TestLLMJudge:
     }
 }"""
         scores = judge._parse_evaluation(json_text)
-        
+
         assert EvaluationDimension.RELEVANCE in scores
         assert scores[EvaluationDimension.RELEVANCE].score == 3
 
@@ -471,7 +477,7 @@ class TestLLMJudge:
         """Should use default for missing dimensions."""
         json_text = '{"dimension_scores": {}}'
         scores = judge._parse_evaluation(json_text)
-        
+
         # Should have all dimensions with defaults
         for dim in EvaluationDimension:
             assert dim in scores
@@ -520,7 +526,7 @@ class TestLLMJudge:
 }
 ```"""
         feedback = judge._extract_feedback(json_text)
-        
+
         assert feedback["summary"] == "Overall good"
         assert "Clear" in feedback["strengths"]
         assert "Too long" in feedback["weaknesses"]
@@ -536,7 +542,7 @@ class TestLLMJudge:
 }
 ```"""
         result = judge._parse_comparison(json_text)
-        
+
         assert result["winner"] == "A"
         assert result["confidence"] == 0.85
         assert result["dimension_preferences"]["accuracy"] == "A"
@@ -544,7 +550,7 @@ class TestLLMJudge:
     def test_parse_comparison_invalid(self, judge):
         """Should return defaults for invalid comparison."""
         result = judge._parse_comparison("not valid json")
-        
+
         assert result["winner"] == "tie"
         assert result["confidence"] == 0.5
 
@@ -578,15 +584,15 @@ class TestLLMJudgeAsync:
     "suggestions": ["Add citations"]
 }
 ```"""
-        
-        with patch.object(judge, '_call_judge', new_callable=AsyncMock) as mock_call:
+
+        with patch.object(judge, "_call_judge", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = mock_response
-            
+
             result = await judge.evaluate(
                 query="What is the capital of France?",
                 response="Paris is the capital of France.",
             )
-            
+
             assert result.overall_score > 0
             assert result.summary == "Good response overall"
             assert "Accurate" in result.strengths
@@ -594,14 +600,14 @@ class TestLLMJudgeAsync:
     @pytest.mark.asyncio
     async def test_evaluate_error_handling(self, judge):
         """Should handle errors gracefully."""
-        with patch.object(judge, '_call_judge', new_callable=AsyncMock) as mock_call:
+        with patch.object(judge, "_call_judge", new_callable=AsyncMock) as mock_call:
             mock_call.side_effect = Exception("API error")
-            
+
             result = await judge.evaluate(
                 query="Test",
                 response="Test response",
             )
-            
+
             assert "error" in result.summary.lower()
 
     @pytest.mark.asyncio
@@ -615,16 +621,16 @@ class TestLLMJudgeAsync:
     "explanation": "Response A was more accurate"
 }
 ```"""
-        
-        with patch.object(judge, '_call_judge', new_callable=AsyncMock) as mock_call:
+
+        with patch.object(judge, "_call_judge", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = mock_response
-            
+
             result = await judge.compare(
                 query="What is 2+2?",
                 response_a="4",
                 response_b="5",
             )
-            
+
             assert result.winner == "A"
             assert result.confidence == 0.8
 
@@ -639,17 +645,17 @@ class TestLLMJudgeAsync:
     "summary": "OK"
 }
 ```"""
-        
-        with patch.object(judge, '_call_judge', new_callable=AsyncMock) as mock_call:
+
+        with patch.object(judge, "_call_judge", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = mock_response
-            
+
             items = [
                 {"query": "Q1", "response": "R1"},
                 {"query": "Q2", "response": "R2"},
             ]
-            
+
             results = await judge.evaluate_batch(items)
-            
+
             assert len(results) == 2
             assert mock_call.call_count == 2
 
@@ -673,12 +679,12 @@ class TestQualityGate:
     }
 }
 ```"""
-        
-        with patch.object(judge, '_call_judge', new_callable=AsyncMock) as mock_call:
+
+        with patch.object(judge, "_call_judge", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = mock_response
-            
+
             result = await judge.evaluate("Q", "R")
-            
+
             # All dimensions default to score 3.0 except relevance which is 5.0
             # With default weights, this should be close to 3.0+
             assert result.threshold_used == 4.0
@@ -693,12 +699,12 @@ class TestQualityGate:
     }
 }
 ```"""
-        
-        with patch.object(judge, '_call_judge', new_callable=AsyncMock) as mock_call:
+
+        with patch.object(judge, "_call_judge", new_callable=AsyncMock) as mock_call:
             mock_call.return_value = mock_response
-            
+
             result = await judge.evaluate("Q", "R")
-            
+
             # Score should be low
             assert result.overall_score < 4.0
             assert not result.passes_threshold

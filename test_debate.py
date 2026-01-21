@@ -43,16 +43,11 @@ async def test_simple_debate():
     result = await arena.run()
 
     # Print results
-    print("\n" + "=" * 60)
-    print("DEBATE SUMMARY")
-    print("=" * 60)
-    print(result.summary())
 
     # Show stats
-    print("\nMemory Stats:")
     stats = memory.get_stats()
     for key, value in stats.items():
-        print(f"  {key}: {value}")
+        pass
 
     return result
 

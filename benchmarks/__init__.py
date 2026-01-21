@@ -27,7 +27,6 @@ Output includes:
 import argparse
 import asyncio
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -60,29 +59,26 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"Aragora Benchmark Suite")
-    print(f"======================")
-    print(f"Suite: {args.suite}")
-    print(f"Iterations: {args.iterations}")
-    print(f"Warmup: {args.warmup}")
-    print()
-
     results = {}
 
     if args.suite in ("all", "rlm"):
         from benchmarks.rlm_compression import run_rlm_benchmarks
+
         results["rlm"] = asyncio.run(run_rlm_benchmarks(args.iterations, args.warmup))
 
     if args.suite in ("all", "tenant"):
         from benchmarks.tenant_isolation import run_tenant_benchmarks
+
         results["tenant"] = asyncio.run(run_tenant_benchmarks(args.iterations, args.warmup))
 
     if args.suite in ("all", "debate"):
         from benchmarks.extended_debates import run_debate_benchmarks
+
         results["debate"] = asyncio.run(run_debate_benchmarks(args.iterations, args.warmup))
 
     if args.suite in ("all", "connector"):
         from benchmarks.connector_parallel import run_connector_benchmarks
+
         results["connector"] = asyncio.run(run_connector_benchmarks(args.iterations, args.warmup))
 
     # Add metadata
@@ -96,10 +92,8 @@ def main():
     if args.output:
         with open(args.output, "w") as f:
             json.dump(results, f, indent=2)
-        print(f"\nResults saved to: {args.output}")
     else:
-        print("\nResults:")
-        print(json.dumps(results, indent=2))
+        pass
 
 
 if __name__ == "__main__":

@@ -283,7 +283,9 @@ class TestConfluencePageOperations:
             ),
         ]
 
-        filtered = [p for p in pages if not any(l in connector.exclude_labels for l in p.labels)]
+        filtered = [
+            p for p in pages if not any(lbl in connector.exclude_labels for lbl in p.labels)
+        ]
 
         assert len(filtered) == 1
         assert filtered[0].title == "Public"

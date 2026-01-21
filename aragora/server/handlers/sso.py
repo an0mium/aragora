@@ -24,8 +24,9 @@ from urllib.parse import urlparse
 
 from aragora.exceptions import ConfigurationError
 
-from .base import BaseHandler, HandlerResult, error_response, json_response, safe_error_message
+from .base import HandlerResult, error_response, json_response, safe_error_message
 from .utils.rate_limit import rate_limit
+from .secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,14 @@ except ImportError:  # pragma: no cover - optional dependency
     SAMLProvider = None
 
 
-class SSOHandler(BaseHandler):
+class SSOHandler(SecureHandler):
+    """Handler for SSO (Single Sign-On) endpoints.
+
+    Extends SecureHandler for JWT-based authentication and audit logging.
+    """
+
+    RESOURCE_TYPE = "sso"
+
     """
     Handler for SSO authentication endpoints.
 

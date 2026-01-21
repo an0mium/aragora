@@ -44,7 +44,7 @@ class MockRequest:
         if self.query is None:
             self.query = {}
 
-    async def json(self) -> Dict[str, Any]:
+    async def json(self) -> Dict[str, Any]:  # noqa: F811 - intentional method name
         return self._body or {}
 
 

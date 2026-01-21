@@ -837,8 +837,6 @@ class TestOpenRouterAgent:
     @pytest.mark.asyncio
     async def test_openrouter_429_releases_token(self, openrouter_agent):
         """Test that 429 error releases token back to pool."""
-        from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
-
         # Reset rate limiter to fresh state (clears backoff)
         set_openrouter_tier("standard")
         limiter = get_openrouter_limiter()

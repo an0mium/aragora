@@ -59,10 +59,6 @@ Team context:
 async def run_design_debate():
     """Run a multi-agent design decision debate."""
 
-    print("\n" + "=" * 60)
-    print("ARAGORA: Design Decision Debate")
-    print("=" * 60)
-
     # Create agents with different perspectives
     agent_configs = [
         ("anthropic-api", "architect"),
@@ -75,12 +71,10 @@ async def run_design_debate():
         try:
             agent = create_agent(model_type=agent_type, name=f"{role}", role=role)  # type: ignore
             agents.append(agent)
-            print(f"  + {agent.name} ready")
-        except Exception as e:
-            print(f"  - {agent_type} unavailable: {str(e)[:40]}")
+        except Exception:
+            pass
 
     if len(agents) < 2:
-        print("\nError: Need at least 2 agents. Check API keys.")
         return None
 
     env = Environment(
@@ -102,21 +96,8 @@ Provide:
         early_stopping=True,
     )
 
-    print(f"\nDebating database choice with {len(agents)} agents...")
-
     arena = Arena(env, agents, protocol)
     result = await arena.run()
-
-    print(f"\n{'='*60}")
-    print("DESIGN DECISION RESULTS")
-    print(f"{'='*60}")
-    print(f"Consensus: {'Yes' if result.consensus_reached else 'No'}")
-    print(f"Confidence: {result.confidence:.0%}")
-    print(f"Rounds: {result.rounds_used}")
-
-    print(f"\n--- Recommendation ---")
-    answer = result.final_answer
-    print(answer[:1500] if len(answer) > 1500 else answer)
 
     return result
 
@@ -124,4 +105,4 @@ Provide:
 if __name__ == "__main__":
     result = asyncio.run(run_design_debate())
     if result and result.consensus_reached:
-        print("\n[SUCCESS] Design decision completed with consensus!")
+        pass

@@ -79,20 +79,22 @@ class EmailWebhookHandler(BaseHandler):
         sendgrid_configured = bool(os.environ.get("SENDGRID_INBOUND_SECRET"))
         ses_configured = bool(os.environ.get("SES_NOTIFICATION_SECRET"))
 
-        return json_response({
-            "platform": "email",
-            "inbound_enabled": EMAIL_INBOUND_ENABLED,
-            "providers": {
-                "sendgrid": {
-                    "configured": sendgrid_configured,
-                    "webhook_url": "/api/bots/email/webhook/sendgrid",
+        return json_response(
+            {
+                "platform": "email",
+                "inbound_enabled": EMAIL_INBOUND_ENABLED,
+                "providers": {
+                    "sendgrid": {
+                        "configured": sendgrid_configured,
+                        "webhook_url": "/api/bots/email/webhook/sendgrid",
+                    },
+                    "ses": {
+                        "configured": ses_configured,
+                        "webhook_url": "/api/bots/email/webhook/ses",
+                    },
                 },
-                "ses": {
-                    "configured": ses_configured,
-                    "webhook_url": "/api/bots/email/webhook/ses",
-                },
-            },
-        })
+            }
+        )
 
     def _handle_sendgrid_webhook(self, handler: Any) -> HandlerResult:
         """
@@ -194,10 +196,12 @@ class EmailWebhookHandler(BaseHandler):
                 if subscribe_url:
                     logger.info(f"SES subscription confirmation needed: {subscribe_url}")
                     # In production, auto-confirm by fetching the URL
-                    return json_response({
-                        "status": "subscription_pending",
-                        "subscribe_url": subscribe_url,
-                    })
+                    return json_response(
+                        {
+                            "status": "subscription_pending",
+                            "subscribe_url": subscribe_url,
+                        }
+                    )
 
             # Parse notification
             email_data = parse_ses_notification(notification)
@@ -245,7 +249,7 @@ class EmailWebhookHandler(BaseHandler):
 
             if boundary:
                 # Use cgi.parse_multipart for parsing
-                environ = {
+                {
                     "REQUEST_METHOD": "POST",
                     "CONTENT_TYPE": content_type,
                     "CONTENT_LENGTH": str(len(body)),
@@ -255,14 +259,13 @@ class EmailWebhookHandler(BaseHandler):
                 try:
                     # Python 3.11+ changed parse_multipart signature
                     import sys
+
                     if sys.version_info >= (3, 11):
                         from email.parser import BytesParser
                         from email.policy import default
 
                         # Reconstruct as email message
-                        msg_bytes = (
-                            b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body
-                        )
+                        msg_bytes = b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body
                         msg = BytesParser(policy=default).parsebytes(msg_bytes)
 
                         if msg.is_multipart():
@@ -282,6 +285,7 @@ class EmailWebhookHandler(BaseHandler):
 
         elif "application/x-www-form-urlencoded" in content_type:
             from urllib.parse import parse_qs
+
             parsed = parse_qs(body.decode("utf-8"))
             for key, values in parsed.items():
                 form_data[key] = values[0] if len(values) == 1 else values

@@ -48,6 +48,7 @@ def _import_tracing():
             trace_decision_engine,
             trace_response_delivery,
         )
+
         _trace_decision = trace_decision
         _trace_decision_engine = trace_decision_engine
         _trace_response_delivery = trace_response_delivery
@@ -68,6 +69,7 @@ def _import_cache():
         return
     try:
         from aragora.core.decision_cache import get_decision_cache
+
         _decision_cache = get_decision_cache()
     except ImportError:
         pass
@@ -97,6 +99,7 @@ def _import_metrics():
             record_decision_cache_hit,
             record_decision_dedup_hit,
         )
+
         _record_decision_request = record_decision_request
         _record_decision_result = record_decision_result
         _record_decision_error = record_decision_error
@@ -450,9 +453,7 @@ class DecisionRequest:
 
         # Ensure at least one response channel
         if not self.response_channels:
-            self.response_channels = [
-                ResponseChannel(platform=self.source.value)
-            ]
+            self.response_channels = [ResponseChannel(platform=self.source.value)]
 
         # Auto-detect decision type if needed
         if self.decision_type == DecisionType.AUTO:
@@ -503,8 +504,7 @@ class DecisionRequest:
             decision_type=DecisionType(data.get("decision_type", "auto")),
             source=InputSource(data.get("source", "http_api")),
             response_channels=[
-                ResponseChannel.from_dict(rc)
-                for rc in data.get("response_channels", [])
+                ResponseChannel.from_dict(rc) for rc in data.get("response_channels", [])
             ],
             context=RequestContext.from_dict(data.get("context", {})),
             config=DecisionConfig.from_dict(data.get("config", {})),
@@ -654,7 +654,7 @@ class DecisionRequest:
                 "document_url": document_url,
                 "source_platform": source_platform,
                 **kwargs,
-            }
+            },
         )
 
         # For document sources, typically respond via webhook or the originating system
@@ -810,9 +810,7 @@ class DecisionRouter:
                     DecisionType.GAUNTLET: ResourceType.AUDIT_FINDING,
                     DecisionType.QUICK: ResourceType.DEBATE,
                 }
-                resource_type = resource_type_map.get(
-                    request.decision_type, ResourceType.DEBATE
-                )
+                resource_type = resource_type_map.get(request.decision_type, ResourceType.DEBATE)
 
                 # Build isolation context
                 isolation_ctx = IsolationContext(
@@ -855,7 +853,6 @@ class DecisionRouter:
 
         # Check cache first
         cache_hit = False
-        dedup_hit = False
         if self._enable_caching and _decision_cache:
             cached_result = await _decision_cache.get(request)
             if cached_result:
@@ -885,7 +882,6 @@ class DecisionRouter:
                 logger.info(f"Waiting for in-flight request {request.request_id}")
                 dedup_result = await _decision_cache.wait_for_result(request)
                 if dedup_result:
-                    dedup_hit = True
                     # Record dedup hit metric
                     if _record_decision_dedup_hit:
                         _record_decision_dedup_hit(request.decision_type.value)
@@ -913,6 +909,7 @@ class DecisionRouter:
         if _trace_decision_engine:
             try:
                 from aragora.observability.tracing import trace_decision_routing
+
                 span_ctx = trace_decision_routing(
                     request_id=request.request_id,
                     decision_type=request.decision_type.value,
@@ -1054,6 +1051,7 @@ class DecisionRouter:
             if self._debate_engine is None:
                 # Lazy load
                 from aragora.debate import Arena
+
                 self._debate_engine = Arena
 
             # Convert to debate format
@@ -1091,7 +1089,9 @@ class DecisionRouter:
                 request_id=request.request_id,
                 decision_type=DecisionType.DEBATE,
                 answer=debate_result.final_answer or "",
-                confidence=debate_result.confidence if hasattr(debate_result, "confidence") else 0.8,
+                confidence=debate_result.confidence
+                if hasattr(debate_result, "confidence")
+                else 0.8,
                 consensus_reached=debate_result.consensus_reached,
                 reasoning=debate_result.summary if hasattr(debate_result, "summary") else None,
                 debate_result=debate_result,
@@ -1117,6 +1117,7 @@ class DecisionRouter:
         try:
             if self._workflow_engine is None:
                 from aragora.workflow.engine import get_workflow_engine
+
                 self._workflow_engine = get_workflow_engine()
 
             # Get or create workflow definition
@@ -1145,7 +1146,9 @@ class DecisionRouter:
                 span.set_attribute("workflow.success", workflow_result.success)
 
             # Extract answer from workflow outputs
-            answer = workflow_result.outputs.get("answer") or workflow_result.outputs.get("result") or ""
+            answer = (
+                workflow_result.outputs.get("answer") or workflow_result.outputs.get("result") or ""
+            )
 
             return DecisionResult(
                 request_id=request.request_id,
@@ -1176,6 +1179,7 @@ class DecisionRouter:
         try:
             if self._gauntlet_engine is None:
                 from aragora.gauntlet.orchestrator import GauntletOrchestrator
+
                 self._gauntlet_engine = GauntletOrchestrator()
 
             from aragora.gauntlet.config import GauntletConfig
@@ -1190,7 +1194,9 @@ class DecisionRouter:
 
             if span:
                 span.set_attribute("gauntlet.adversarial", request.config.enable_adversarial)
-                span.set_attribute("gauntlet.formal_verification", request.config.enable_formal_verification)
+                span.set_attribute(
+                    "gauntlet.formal_verification", request.config.enable_formal_verification
+                )
 
             gauntlet_result = await self._gauntlet_engine.run(
                 input_text=request.content,
@@ -1235,6 +1241,7 @@ class DecisionRouter:
 
         try:
             from aragora.agents import get_agent
+
             agent = get_agent(agent_name)
 
             response = await agent.generate(request.content)

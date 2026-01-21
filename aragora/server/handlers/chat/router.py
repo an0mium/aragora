@@ -33,6 +33,29 @@ from aragora.connectors.chat import (
     get_registry,
 )
 
+# DecisionRouter for unified routing
+try:
+    from aragora.core.decision import (
+        DecisionRequest,
+        DecisionRouter,
+        DecisionType,
+        InputSource,
+        ResponseChannel,
+        RequestContext,
+        get_decision_router,
+    )
+
+    DECISION_ROUTER_AVAILABLE = True
+except ImportError:
+    DECISION_ROUTER_AVAILABLE = False
+    DecisionRequest = None
+    DecisionRouter = None
+    DecisionType = None
+    InputSource = None
+    ResponseChannel = None
+    RequestContext = None
+    get_decision_router = None
+
 logger = logging.getLogger(__name__)
 
 # Import base handler utilities
@@ -40,11 +63,11 @@ try:
     from ..base import (
         BaseHandler,
         HandlerResult,
-        auto_error_response,
+        auto_error_response,  # noqa: F401
         error_response,
         json_response,
     )
-    from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
+    from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit  # noqa: F401
 
     HANDLER_BASE_AVAILABLE = True
     # Rate limiter for chat webhook endpoints (60 requests per minute)
@@ -96,6 +119,7 @@ class ChatWebhookRouter:
         self,
         event_handler: Optional[callable] = None,
         debate_starter: Optional[callable] = None,
+        decision_router: Optional[Any] = None,
     ):
         """
         Initialize the webhook router.
@@ -103,10 +127,19 @@ class ChatWebhookRouter:
         Args:
             event_handler: Async function to handle parsed events
             debate_starter: Async function to start debates from commands
+            decision_router: Optional DecisionRouter for unified routing
         """
         self.event_handler = event_handler
         self.debate_starter = debate_starter
         self._connectors: Dict[str, ChatPlatformConnector] = {}
+
+        # Initialize DecisionRouter if available
+        self._decision_router = decision_router
+        if self._decision_router is None and DECISION_ROUTER_AVAILABLE:
+            try:
+                self._decision_router = get_decision_router()
+            except Exception as e:
+                logger.debug(f"DecisionRouter not available: {e}")
 
     def get_connector(self, platform: str) -> Optional[ChatPlatformConnector]:
         """Get or create connector for a platform."""
@@ -165,7 +198,16 @@ class ChatWebhookRouter:
         # Telegram detection: has update_id and optional message/callback_query
         # Example: {"update_id": 123, "message": {...}} or {"update_id": 123, "callback_query": {...}}
         if "update_id" in payload:
-            if any(k in payload for k in ("message", "callback_query", "inline_query", "edited_message", "channel_post")):
+            if any(
+                k in payload
+                for k in (
+                    "message",
+                    "callback_query",
+                    "inline_query",
+                    "edited_message",
+                    "channel_post",
+                )
+            ):
                 return "telegram"
 
         # WhatsApp/Meta webhook structure
@@ -187,7 +229,12 @@ class ChatWebhookRouter:
 
         # Google Chat webhook structure
         # Example: {"type": "MESSAGE", "message": {...}, "space": {...}, "configCompleteRedirectUrl": ...}
-        if payload.get("type") in ("MESSAGE", "ADDED_TO_SPACE", "REMOVED_FROM_SPACE", "CARD_CLICKED"):
+        if payload.get("type") in (
+            "MESSAGE",
+            "ADDED_TO_SPACE",
+            "REMOVED_FROM_SPACE",
+            "CARD_CLICKED",
+        ):
             if "space" in payload or "message" in payload:
                 return "google_chat"
 
@@ -656,6 +703,7 @@ def _create_decision_router_debate_starter():
     This provides caching, deduplication, and metrics for all debates started
     from chat platforms.
     """
+
     async def debate_starter(
         topic: str,
         platform: str,

@@ -196,9 +196,7 @@ class TestConvergenceTracker:
         assert tracker.convergence_detector is mock_convergence_detector
         assert tracker.novelty_tracker is mock_novelty_tracker
 
-    def test_convergence_tracker_reset(
-        self, mock_convergence_detector, mock_novelty_tracker
-    ):
+    def test_convergence_tracker_reset(self, mock_convergence_detector, mock_novelty_tracker):
         """Test convergence tracker state reset."""
         from aragora.debate.phases.convergence_tracker import DebateConvergenceTracker
 
@@ -214,9 +212,7 @@ class TestConvergenceTracker:
 
         assert tracker._previous_round_responses == {}
 
-    def test_convergence_check(
-        self, mock_convergence_detector, mock_debate_context
-    ):
+    def test_convergence_check(self, mock_convergence_detector, mock_debate_context):
         """Test convergence checking logic."""
         from aragora.debate.phases.convergence_tracker import DebateConvergenceTracker
 
@@ -232,9 +228,7 @@ class TestConvergenceTracker:
         result2 = tracker.check_convergence(mock_debate_context, round_num=2)
         mock_convergence_detector.check_convergence.assert_called()
 
-    def test_novelty_tracking(
-        self, mock_novelty_tracker, mock_debate_context
-    ):
+    def test_novelty_tracking(self, mock_novelty_tracker, mock_debate_context):
         """Test novelty tracking functionality."""
         from aragora.debate.phases.convergence_tracker import DebateConvergenceTracker
 
@@ -308,9 +302,7 @@ class TestVoteBonusCalculator:
         calculator = VoteBonusCalculator(protocol=mock_protocol)
         assert calculator.protocol is mock_protocol
 
-    def test_evidence_citation_bonus_applied(
-        self, mock_protocol, mock_context_with_evidence
-    ):
+    def test_evidence_citation_bonus_applied(self, mock_protocol, mock_context_with_evidence):
         """Test evidence citation bonus is correctly applied."""
         from aragora.debate.phases.vote_bonus_calculator import VoteBonusCalculator
 
@@ -365,9 +357,7 @@ class TestVoteBonusCalculator:
         # No change expected
         assert result["agent_1"] == 1.0
 
-    def test_invalid_evidence_citation_ignored(
-        self, mock_protocol, mock_context_with_evidence
-    ):
+    def test_invalid_evidence_citation_ignored(self, mock_protocol, mock_context_with_evidence):
         """Test invalid evidence citations are ignored."""
         from aragora.debate.phases.vote_bonus_calculator import VoteBonusCalculator
 
@@ -435,9 +425,7 @@ class TestRLMStreamingMixin:
         )
 
     @pytest.mark.asyncio
-    async def test_streaming_mixin_query_stream_events(
-        self, mock_rlm_context, mock_rlm_result
-    ):
+    async def test_streaming_mixin_query_stream_events(self, mock_rlm_context, mock_rlm_result):
         """Test query_stream yields correct event sequence."""
         from aragora.rlm.streaming_mixin import RLMStreamingMixin
         from aragora.rlm.types import RLMStreamEventType
@@ -580,7 +568,6 @@ class TestCrossFeatureIntegration:
     @pytest.mark.asyncio
     async def test_metrics_recorded_during_operations(self):
         """Test that Prometheus metrics are recorded during operations."""
-        from unittest.mock import patch
 
         # Test TTS metrics
         with patch("aragora.server.stream.tts_integration.record_tts_synthesis") as mock_tts:
@@ -608,7 +595,9 @@ class TestCrossFeatureIntegration:
                 mock_latency.assert_called_once()
 
         # Test convergence metrics
-        with patch("aragora.debate.phases.convergence_tracker.record_convergence_check") as mock_conv:
+        with patch(
+            "aragora.debate.phases.convergence_tracker.record_convergence_check"
+        ) as mock_conv:
             from aragora.debate.phases.convergence_tracker import DebateConvergenceTracker
 
             detector = Mock()

@@ -77,7 +77,6 @@ def create_agents():
                 role=role,
             )
             agents.append(agent)
-            print(f"  + {agent_type} ready")
         except Exception:
             pass
 
@@ -120,16 +119,9 @@ async def run_debate(env: Environment, agents: list[Agent]) -> DebateResult:
 async def run_tournament():
     """Run a round-robin tournament between agents."""
 
-    print("\n" + "=" * 60)
-    print("ARAGORA TOURNAMENT")
-    print("=" * 60)
-
-    print("\nInitializing agents...")
     agents = create_agents()
 
     if len(agents) < 2:
-        print("\nError: Need at least 2 agents for tournament")
-        print("Set at least two of: ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, XAI_API_KEY")
         return None
 
     tasks = create_tournament_tasks()
@@ -137,7 +129,6 @@ async def run_tournament():
     # Use in-memory ELO for demo (won't persist between runs)
     elo = EloSystem(db_path=":memory:")
 
-    print(f"\nCreating tournament...")
     tournament = Tournament(
         name="Aragora Demo Tournament",
         agents=agents,
@@ -147,19 +138,11 @@ async def run_tournament():
         db_path=":memory:",  # In-memory for demo
     )
 
-    print(f"Format: {tournament.format.value}")
-    print(f"Agents: {[a.name for a in agents]}")
-    print(f"Tasks: {len(tasks)}")
-
     # Calculate expected matches
     n_agents = len(agents)
-    expected_matches = (n_agents * (n_agents - 1) // 2) * len(tasks)
-    print(f"Expected matches: {expected_matches}")
+    (n_agents * (n_agents - 1) // 2) * len(tasks)
 
     # Run tournament
-    print(f"\n{'='*60}")
-    print("RUNNING MATCHES")
-    print(f"{'='*60}")
 
     result = await tournament.run(
         run_debate_fn=run_debate,
@@ -167,39 +150,21 @@ async def run_tournament():
     )
 
     # Display results
-    print(f"\n{'='*60}")
-    print("FINAL STANDINGS")
-    print(f"{'='*60}")
-    print(f"Champion: {result.champion}")
-    print(f"Total matches: {len(result.matches)}")
-    print(f"\nLeaderboard:")
 
     for i, standing in enumerate(result.standings, 1):
-        rating = elo.get_rating(standing.agent_name)
-        rating_value = rating.rating if rating else 1500
-        print(
-            f"  {i}. {standing.agent_name:15} | "
-            f"Wins: {standing.wins} | "
-            f"Points: {standing.points:.1f} | "
-            f"ELO: {rating_value:.0f}"
-        )
+        elo.get_rating(standing.agent_name)
 
     # Show match history
-    print(f"\nMatch History:")
     for match in result.matches:
-        winner = match.winner or "Draw"
-        print(f"  - {' vs '.join(match.participants)}: {winner}")
+        pass
 
     return result
 
 
 if __name__ == "__main__":
-    print("Aragora Tournament Example")
-    print("This demonstrates competitive AI debates with ELO ranking.")
-
     result = asyncio.run(run_tournament())
 
     if result:
-        print(f"\n[SUCCESS] Tournament completed! Champion: {result.champion}")
+        pass
     else:
-        print("\n[ERROR] Tournament could not run - check API keys")
+        pass

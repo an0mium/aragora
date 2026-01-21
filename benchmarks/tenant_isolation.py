@@ -150,9 +150,7 @@ async def benchmark_concurrent_tenants(iterations: int = 100) -> BenchmarkResult
             tracemalloc.start()
 
             start = time.perf_counter()
-            results = await asyncio.gather(*[
-                tenant_request(t) for t in selected_tenants
-            ])
+            results = await asyncio.gather(*[tenant_request(t) for t in selected_tenants])
             elapsed = (time.perf_counter() - start) * 1000
 
             current, peak = tracemalloc.get_traced_memory()
@@ -180,11 +178,14 @@ async def benchmark_quota_check(iterations: int = 100) -> BenchmarkResult:
     tenant_id = f"tenant-{uuid.uuid4().hex[:8]}"
 
     # Configure tenant quotas
-    manager.configure_tenant(tenant_id, {
-        "api_requests_per_minute": 1000,
-        "storage_bytes": 1024 * 1024 * 100,  # 100MB
-        "max_debate_rounds": 50,
-    })
+    manager.configure_tenant(
+        tenant_id,
+        {
+            "api_requests_per_minute": 1000,
+            "storage_bytes": 1024 * 1024 * 100,  # 100MB
+            "max_debate_rounds": 50,
+        },
+    )
 
     quota_types = ["api_requests", "storage", "debate_rounds"]
 
@@ -208,13 +209,10 @@ async def benchmark_quota_check(iterations: int = 100) -> BenchmarkResult:
 
 async def run_tenant_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict[str, Any]:
     """Run all tenant isolation benchmarks."""
-    print("Running Tenant Isolation Benchmarks...")
-    print("-" * 40)
 
     results = {}
 
     # Warmup
-    print(f"Warming up ({warmup} iterations)...")
     await benchmark_context_switch(warmup)
 
     benchmarks = [
@@ -225,13 +223,10 @@ async def run_tenant_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict
     ]
 
     for name, bench_func in benchmarks:
-        print(f"  Running: {name}...")
         try:
             result = await bench_func(iterations)
             results[result.name] = result.to_dict()
-            print(f"    p50: {result.p50_ms:.2f}ms, p99: {result.p99_ms:.2f}ms")
         except Exception as e:
-            print(f"    Failed: {e}")
             results[name.lower().replace(" ", "_")] = {"error": str(e)}
 
     return results
@@ -239,5 +234,3 @@ async def run_tenant_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict
 
 if __name__ == "__main__":
     results = asyncio.run(run_tenant_benchmarks())
-    import json
-    print(json.dumps(results, indent=2))

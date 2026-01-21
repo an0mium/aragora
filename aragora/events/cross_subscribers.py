@@ -45,6 +45,7 @@ except ImportError:
     def get_settings():
         return None
 
+
 # Import metrics (optional - graceful fallback if not available)
 try:
     from aragora.server.prometheus_cross_pollination import (
@@ -1513,7 +1514,7 @@ class CrossSubscriberManager:
         data = event.data
         debate_id = data.get("debate_id", "")
         domain = data.get("domain", "")
-        protocol = data.get("protocol", {})
+        data.get("protocol", {})
 
         logger.debug(f"Loading culture patterns for debate {debate_id}, domain={domain}")
 
@@ -1603,8 +1604,7 @@ class CrossSubscriberManager:
             # Extract domain-specific patterns
             if hasattr(profile, "patterns"):
                 domain_patterns = [
-                    p for p in profile.patterns
-                    if hasattr(p, "domain") and p.domain == domain
+                    p for p in profile.patterns if hasattr(p, "domain") and p.domain == domain
                 ]
                 if domain_patterns:
                     protocol_hints["domain_patterns"] = [
@@ -1619,8 +1619,7 @@ class CrossSubscriberManager:
             }
 
             logger.info(
-                f"Stored culture context for debate {debate_id}: "
-                f"{len(protocol_hints)} hints"
+                f"Stored culture context for debate {debate_id}: " f"{len(protocol_hints)} hints"
             )
 
         except Exception as e:
@@ -1843,9 +1842,7 @@ class CrossSubscriberManager:
 
             # Calculate agreement ratio
             agreement_ratio = (
-                len(agreeing_agents) / len(participating_agents)
-                if participating_agents
-                else 0.0
+                len(agreeing_agents) / len(participating_agents) if participating_agents else 0.0
             )
 
             import asyncio
@@ -1925,7 +1922,9 @@ class CrossSubscriberManager:
                 for i, dissent in enumerate(dissents[:10]):  # Limit to 10 dissents
                     if isinstance(dissent, dict):
                         dissent_content = dissent.get("content", "")
-                        dissent_type = dissent.get("type", dissent.get("dissent_type", "alternative_approach"))
+                        dissent_type = dissent.get(
+                            "type", dissent.get("dissent_type", "alternative_approach")
+                        )
                         dissent_agent = dissent.get("agent_id", dissent.get("agent", "unknown"))
                         dissent_reasoning = dissent.get("reasoning", "")
                         dissent_confidence = dissent.get("confidence", 0.5)
@@ -1934,7 +1933,9 @@ class CrossSubscriberManager:
                     elif isinstance(dissent, str):
                         dissent_content = dissent
                         dissent_type = "alternative_approach"
-                        dissent_agent = dissenting_agents[i] if i < len(dissenting_agents) else "unknown"
+                        dissent_agent = (
+                            dissenting_agents[i] if i < len(dissenting_agents) else "unknown"
+                        )
                         dissent_reasoning = ""
                         dissent_confidence = 0.5
                         acknowledged = False
@@ -2120,7 +2121,7 @@ class CrossSubscriberManager:
                 ContinuumAdapter,
                 KMValidationResult,
             )
-            from aragora.knowledge.mound.adapters.consensus_adapter import ConsensusAdapter
+            from aragora.knowledge.mound.adapters.consensus_adapter import ConsensusAdapter  # noqa: F401
 
             mound = get_knowledge_mound()
             if not mound:
@@ -2150,9 +2151,17 @@ class CrossSubscriberManager:
                     consensus_validations = 0
 
                     for result in results:
-                        node_id = result.node_id if hasattr(result, "node_id") else result.get("node_id", "")
-                        score = result.score if hasattr(result, "score") else result.get("score", 0.0)
-                        source = result.source if hasattr(result, "source") else result.get("source", "")
+                        node_id = (
+                            result.node_id
+                            if hasattr(result, "node_id")
+                            else result.get("node_id", "")
+                        )
+                        score = (
+                            result.score if hasattr(result, "score") else result.get("score", 0.0)
+                        )
+                        source = (
+                            result.source if hasattr(result, "source") else result.get("source", "")
+                        )
 
                         # Determine validation recommendation based on outcome
                         # High confidence + high similarity = item was useful
@@ -2189,6 +2198,7 @@ class CrossSubscriberManager:
                             # ContinuumMemory item
                             try:
                                 from aragora.memory.continuum import get_continuum_memory
+
                                 continuum = get_continuum_memory()
                                 if continuum and hasattr(continuum, "_km_adapter"):
                                     adapter = continuum._km_adapter

@@ -53,12 +53,14 @@ except ImportError:
     class EncryptionError(Exception):
         pass
 
+
 # Import metrics (optional - graceful degradation if not available)
 try:
     from aragora.observability.metrics import (
         record_encryption_operation,
         record_encryption_error,
     )
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -69,11 +71,21 @@ except ImportError:
     def record_encryption_error(*args, **kwargs):
         pass
 
+
 # Credential fields that should be encrypted
-CREDENTIAL_KEYWORDS = frozenset([
-    "api_key", "secret", "password", "token", "auth_token",
-    "access_key", "private_key", "credentials", "client_secret",
-])
+CREDENTIAL_KEYWORDS = frozenset(
+    [
+        "api_key",
+        "secret",
+        "password",
+        "token",
+        "auth_token",
+        "access_key",
+        "private_key",
+        "credentials",
+        "client_secret",
+    ]
+)
 
 
 def _is_sensitive_key(key: str) -> bool:
@@ -95,6 +107,7 @@ def _encrypt_config(
         EncryptionError: If encryption fails and ARAGORA_ENCRYPTION_REQUIRED is True.
     """
     import time
+
     if not use_encryption or not config:
         return config
 
@@ -115,7 +128,9 @@ def _encrypt_config(
         start = time.perf_counter()
         service = get_encryption_service()
         # AAD binds config to this specific connector
-        result = service.encrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
+        result = service.encrypt_fields(
+            config, sensitive_keys, connector_id if connector_id else None
+        )
         latency = time.perf_counter() - start
         record_encryption_operation("encrypt", "sync_store", latency)
         return result
@@ -140,24 +155,26 @@ def _decrypt_config(
     AAD must match what was used during encryption.
     """
     import time
+
     if not use_encryption or not CRYPTO_AVAILABLE or not config:
         return config
 
     # Check for encryption markers - if none present, it's legacy data
-    has_encrypted = any(
-        isinstance(v, dict) and v.get("_encrypted")
-        for v in config.values()
-    )
+    has_encrypted = any(isinstance(v, dict) and v.get("_encrypted") for v in config.values())
     if not has_encrypted:
         return config  # Legacy unencrypted data - return as-is
 
     try:
         start = time.perf_counter()
         service = get_encryption_service()
-        sensitive_keys = [k for k in config if isinstance(config[k], dict) and config[k].get("_encrypted")]
+        sensitive_keys = [
+            k for k in config if isinstance(config[k], dict) and config[k].get("_encrypted")
+        ]
         if not sensitive_keys:
             return config
-        result = service.decrypt_fields(config, sensitive_keys, connector_id if connector_id else None)
+        result = service.decrypt_fields(
+            config, sensitive_keys, connector_id if connector_id else None
+        )
         latency = time.perf_counter() - start
         record_encryption_operation("decrypt", "sync_store", latency)
         return result
@@ -326,6 +343,9 @@ class SyncStore:
                 )
                 self._connectors_cache[config.id] = config
 
+        # Recover stale running jobs (mark as interrupted)
+        await self._recover_running_jobs()
+
     async def _init_postgres(self) -> None:
         """Initialize PostgreSQL database."""
         try:
@@ -378,12 +398,155 @@ class SyncStore:
         """
         )
 
+        # Load connectors into cache
+        rows = await self._connection.fetch("SELECT * FROM connectors")
+        for row in rows:
+            connector_id = row["id"]
+            config_json = row["config_json"]
+            config_data = json.loads(config_json) if isinstance(config_json, str) else config_json
+            config = ConnectorConfig(
+                id=connector_id,
+                connector_type=row["connector_type"],
+                name=row["name"],
+                config=_decrypt_config(config_data, self._use_encryption, connector_id),
+                status=row["status"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+                last_sync_at=row["last_sync_at"],
+                last_sync_status=row["last_sync_status"],
+                items_indexed=row["items_indexed"] or 0,
+                error_message=row["error_message"],
+            )
+            self._connectors_cache[config.id] = config
+
+        # Recover stale running jobs (mark as interrupted)
+        await self._recover_running_jobs()
+
     async def close(self) -> None:
         """Close database connection."""
         if self._connection:
             await self._connection.close()
             self._connection = None
             self._initialized = False
+
+    async def _recover_running_jobs(self) -> int:
+        """
+        Recover sync jobs that were running when the server was restarted.
+
+        Jobs with status='running' that are not in _active_jobs (i.e., were
+        running during a previous server instance) are marked as 'interrupted'.
+        This prevents them from appearing as perpetually running.
+
+        Returns:
+            Number of jobs recovered (marked as interrupted)
+        """
+        if not self._connection:
+            return 0
+
+        recovered = 0
+        now = datetime.now(timezone.utc)
+
+        try:
+            if self._database_url.startswith("sqlite"):
+                # Find running jobs that aren't in our active memory
+                async with self._connection.execute(
+                    "SELECT id, connector_id, started_at FROM sync_jobs WHERE status = 'running'"
+                ) as cursor:
+                    async for row in cursor:
+                        job_id = row[0]
+                        connector_id = row[1]
+                        # If not in our active jobs, it was running in a previous instance
+                        if job_id not in self._active_jobs:
+                            started_at_str = row[2]
+                            started_at = (
+                                datetime.fromisoformat(started_at_str) if started_at_str else now
+                            )
+                            duration = (now - started_at).total_seconds()
+
+                            await self._connection.execute(
+                                """
+                                UPDATE sync_jobs
+                                SET status = 'interrupted',
+                                    completed_at = ?,
+                                    duration_seconds = ?,
+                                    error_message = 'Job interrupted by server restart'
+                                WHERE id = ?
+                                """,
+                                (now.isoformat(), duration, job_id),
+                            )
+                            recovered += 1
+
+                            # Also update connector status if it was active
+                            if connector_id in self._connectors_cache:
+                                connector = self._connectors_cache[connector_id]
+                                if connector.status == "active":
+                                    connector.status = "configured"
+                                    connector.last_sync_status = "interrupted"
+                                    connector.last_sync_at = now
+
+                if recovered > 0:
+                    await self._connection.commit()
+                    logger.info(
+                        f"SyncStore: Recovered {recovered} interrupted sync jobs "
+                        "from previous server instance"
+                    )
+
+            elif self._database_url.startswith("postgresql"):
+                # PostgreSQL version
+                rows = await self._connection.fetch(
+                    "SELECT id, connector_id, started_at FROM sync_jobs WHERE status = 'running'"
+                )
+                for row in rows:
+                    job_id = row["id"]
+                    if job_id not in self._active_jobs:
+                        started_at = row["started_at"] or now
+                        duration = (now - started_at).total_seconds()
+
+                        await self._connection.execute(
+                            """
+                            UPDATE sync_jobs
+                            SET status = 'interrupted',
+                                completed_at = $1,
+                                duration_seconds = $2,
+                                error_message = 'Job interrupted by server restart'
+                            WHERE id = $3
+                            """,
+                            now,
+                            duration,
+                            job_id,
+                        )
+                        recovered += 1
+
+                        connector_id = row["connector_id"]
+                        if connector_id in self._connectors_cache:
+                            connector = self._connectors_cache[connector_id]
+                            if connector.status == "active":
+                                connector.status = "configured"
+                                connector.last_sync_status = "interrupted"
+                                connector.last_sync_at = now
+
+                if recovered > 0:
+                    logger.info(
+                        f"SyncStore: Recovered {recovered} interrupted sync jobs "
+                        "from previous server instance"
+                    )
+
+        except Exception as e:
+            logger.warning(f"SyncStore: Failed to recover running jobs: {e}")
+
+        return recovered
+
+    async def recover_running_jobs(self) -> int:
+        """
+        Public method to recover running jobs.
+
+        Call this after initialize() if you want explicit control over recovery.
+        By default, recovery happens automatically during initialization.
+
+        Returns:
+            Number of jobs recovered (marked as interrupted)
+        """
+        return await self._recover_running_jobs()
 
     # ==================== Connector Operations ====================
 

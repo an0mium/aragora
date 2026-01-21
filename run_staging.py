@@ -9,7 +9,6 @@ Usage:
 import argparse
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -23,7 +22,6 @@ try:
     env_path = Path(__file__).parent / ".env"
     if env_path.exists():
         load_dotenv(env_path)
-        print(f"Loaded environment from {env_path}")
 except ImportError:
     pass  # dotenv not installed, use environment variables directly
 
@@ -104,7 +102,7 @@ def main():
     # Resolve static directory
     static_dir = args.static_dir.resolve() if args.static_dir else None
 
-    logging.info(f"Starting Aragora staging server")
+    logging.info("Starting Aragora staging server")
     logging.info(f"  HTTP port: {http_port}")
     logging.info(f"  WebSocket port: {ws_port}")
     logging.info(f"  Nomic dir: {nomic_dir}")

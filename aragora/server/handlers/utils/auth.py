@@ -257,38 +257,33 @@ def get_user_from_handler(handler: Any) -> tuple[str, str]:
 
 def _extract_user_from_headers(handler: Any) -> tuple[str, str]:
     """
-    Extract user from headers with JWT validation when possible.
+    Extract user from JWT token only.
 
-    Falls back to header values but logs a warning for audit purposes.
+    SECURITY: Header-based authentication fallback has been removed to prevent
+    identity spoofing and privilege escalation attacks. Only JWT-verified
+    identities are returned.
+
+    Args:
+        handler: Request handler with headers
+
+    Returns:
+        Tuple of (user_id, user_name) from JWT, or ("anonymous", "Anonymous User")
+        if no valid JWT token is present.
     """
     from aragora.billing.jwt_auth import extract_user_from_request
 
     try:
-        # Try JWT extraction first
+        # Extract user from JWT token - this is the ONLY trusted source
         user_ctx = extract_user_from_request(handler, None)
         if user_ctx.is_authenticated:
             return user_ctx.user_id, user_ctx.email or user_ctx.user_id
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"JWT extraction failed: {e}")
 
-    # Fall back to headers (legacy support, not recommended)
-    user_id = "anonymous"
-    user_name = "Anonymous User"
-
-    if hasattr(handler, "headers"):
-        headers = handler.headers
-        header_user_id = headers.get("X-User-ID")
-        header_user_name = headers.get("X-User-Name")
-
-        if header_user_id:
-            # Log for audit - header trust is being deprecated
-            logger.debug(
-                f"User extracted from X-User-ID header: {header_user_id}. "
-                "This pattern is deprecated - use JWT authentication."
-            )
-            user_id = header_user_id
-
-        if header_user_name:
-            user_name = header_user_name
-
-    return user_id, user_name
+    # SECURITY: Do NOT fall back to X-User-ID headers - they can be spoofed
+    # Return anonymous identity instead
+    logger.debug(
+        "_extract_user_from_headers: No valid JWT token. "
+        "Returning anonymous. X-User-ID headers are NOT trusted."
+    )
+    return "anonymous", "Anonymous User"

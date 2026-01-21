@@ -14,7 +14,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.checkpoint import KMCheckpointStore
 
 from aragora.server.handlers.base import (
     BaseHandler,

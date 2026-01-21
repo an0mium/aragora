@@ -161,7 +161,7 @@ class TestEvidenceClaimLinking:
         links = bridge.get_evidence_for_claim(claim_id)
 
         assert len(links) == 3
-        assert all(l.claim_id == claim_id for l in links)
+        assert all(link.claim_id == claim_id for link in links)
 
     def test_get_claims_for_evidence(self):
         """Test getting all claims linked to evidence."""
@@ -175,7 +175,7 @@ class TestEvidenceClaimLinking:
         links = bridge.get_claims_for_evidence(snippet.id)
 
         assert len(links) == 3
-        assert all(l.evidence_id == snippet.id for l in links)
+        assert all(link.evidence_id == snippet.id for link in links)
 
 
 class TestBeliefUpdates:

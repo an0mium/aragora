@@ -66,10 +66,6 @@ Current Security Measures:
 async def run_security_audit_debate():
     """Run a multi-agent security audit debate."""
 
-    print("\n" + "=" * 60)
-    print("ARAGORA: Security Audit Debate")
-    print("=" * 60)
-
     # Red team vs Blue team agents
     agent_configs = [
         ("anthropic-api", "red_team"),  # Attack perspective
@@ -82,12 +78,10 @@ async def run_security_audit_debate():
         try:
             agent = create_agent(model_type=agent_type, name=f"{role}", role=role)  # type: ignore
             agents.append(agent)
-            print(f"  + {agent.name} ready ({role})")
-        except Exception as e:
-            print(f"  - {agent_type} unavailable: {str(e)[:40]}")
+        except Exception:
+            pass
 
     if len(agents) < 2:
-        print("\nError: Need at least 2 agents. Check API keys.")
         return None
 
     env = Environment(
@@ -114,20 +108,8 @@ Provide:
         enable_calibration=True,
     )
 
-    print(f"\nRunning security audit with {len(agents)} agents...")
-
     arena = Arena(env, agents, protocol)
     result = await arena.run()
-
-    print(f"\n{'='*60}")
-    print("SECURITY AUDIT RESULTS")
-    print(f"{'='*60}")
-    print(f"Consensus: {'Yes' if result.consensus_reached else 'No'}")
-    print(f"Confidence: {result.confidence:.0%}")
-
-    print(f"\n--- Security Findings ---")
-    answer = result.final_answer
-    print(answer[:2000] if len(answer) > 2000 else answer)
 
     return result
 
@@ -135,4 +117,4 @@ Provide:
 if __name__ == "__main__":
     result = asyncio.run(run_security_audit_debate())
     if result and result.consensus_reached:
-        print("\n[SUCCESS] Security audit completed with consensus!")
+        pass

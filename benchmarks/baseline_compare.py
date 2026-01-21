@@ -124,7 +124,6 @@ def compare_metric(
 
 async def run_quick_benchmarks() -> dict[str, float]:
     """Run quick benchmarks to capture current metrics."""
-    from unittest.mock import AsyncMock, MagicMock
 
     results: dict[str, float] = {}
 
@@ -201,9 +200,7 @@ def generate_report(
     ]
 
     # Group by status
-    by_status: dict[ComparisonStatus, list[ComparisonResult]] = {
-        s: [] for s in ComparisonStatus
-    }
+    by_status: dict[ComparisonStatus, list[ComparisonResult]] = {s: [] for s in ComparisonStatus}
     for c in comparisons:
         by_status[c.status].append(c)
 
@@ -249,7 +246,9 @@ async def main():
     parser = argparse.ArgumentParser(description="Baseline comparison tool")
     parser.add_argument("--run", action="store_true", help="Run benchmarks and compare")
     parser.add_argument("--report", action="store_true", help="Generate report only")
-    parser.add_argument("--update", action="store_true", help="Update baseline with current results")
+    parser.add_argument(
+        "--update", action="store_true", help="Update baseline with current results"
+    )
     parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format")
     parser.add_argument(
         "--baseline",
@@ -268,18 +267,18 @@ async def main():
     critical_threshold = rules.get("critical_threshold_percent", 25)
 
     if args.run:
-        print("Running benchmarks...")
         current_metrics = await run_quick_benchmarks()
 
-        print("\nCurrent measurements:")
         for name, value in current_metrics.items():
-            print(f"  {name}: {value:.3f}")
+            pass
 
         # Compare to baseline
         comparisons: list[ComparisonResult] = []
 
         # Memory operations comparison
-        baseline_memory = baseline.get("metrics", {}).get("memory_operations", {}).get("measurements", {})
+        baseline_memory = (
+            baseline.get("metrics", {}).get("memory_operations", {}).get("measurements", {})
+        )
         if baseline_memory:
             fast_read = baseline_memory.get("fast_tier_read", {})
             if "baseline" in fast_read:
@@ -307,14 +306,11 @@ async def main():
                     )
                 )
 
-        print("\n" + generate_report(comparisons, args.format))
-
         # Exit with error code if failures
         has_failures = any(c.status == ComparisonStatus.FAIL for c in comparisons)
         sys.exit(1 if has_failures else 0)
 
     if args.update:
-        print("Running benchmarks to update baseline...")
         current_metrics = await run_quick_benchmarks()
 
         # Update baseline values
@@ -322,15 +318,18 @@ async def main():
         memory_ops = metrics.setdefault("memory_operations", {}).setdefault("measurements", {})
 
         if current_metrics.get("memory_read_ops_per_sec"):
-            memory_ops.setdefault("fast_tier_read", {})["baseline"] = current_metrics["memory_read_ops_per_sec"]
+            memory_ops.setdefault("fast_tier_read", {})["baseline"] = current_metrics[
+                "memory_read_ops_per_sec"
+            ]
 
         if current_metrics.get("memory_write_ops_per_sec"):
-            memory_ops.setdefault("fast_tier_write", {})["baseline"] = current_metrics["memory_write_ops_per_sec"]
+            memory_ops.setdefault("fast_tier_write", {})["baseline"] = current_metrics[
+                "memory_write_ops_per_sec"
+            ]
 
         baseline["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         save_baseline(args.baseline, baseline)
-        print(f"Updated baseline saved to {args.baseline}")
 
 
 if __name__ == "__main__":

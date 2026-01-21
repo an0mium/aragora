@@ -66,10 +66,12 @@ _webhook_callback: Optional[Callable[[Dict[str, Any]], bool]] = None
 _violation_buffer: List[Dict[str, Any]] = []
 _buffer_lock: Optional[Any] = None  # threading.Lock set on init
 
+
 # Config for webhook notifications
 @dataclass
 class SLOWebhookConfig:
     """Configuration for SLO webhook notifications."""
+
     enabled: bool = True
     min_severity: str = "minor"  # minor, moderate, major, critical
     batch_size: int = 10  # Max violations per webhook call
@@ -382,6 +384,7 @@ def get_slo_metrics_summary() -> dict:
 
 # --- Webhook Integration ---
 
+
 def init_slo_webhooks(
     webhook_config: Optional[SLOWebhookConfig] = None,
 ) -> bool:
@@ -478,9 +481,7 @@ def notify_slo_violation(
     now = time.time()
     last_time = _last_notification.get(operation, 0)
     if now - last_time < cooldown_seconds:
-        logger.debug(
-            f"SLO webhook cooldown for {operation}, skipping notification"
-        )
+        logger.debug(f"SLO webhook cooldown for {operation}, skipping notification")
         return False
 
     margin_ms = latency_ms - threshold_ms
@@ -515,14 +516,10 @@ def get_slo_webhook_status() -> Dict[str, Any]:
     """
     return {
         "enabled": _webhook_callback is not None,
-        "cooldown_active": {
-            op: time.time() - ts < 60.0
-            for op, ts in _last_notification.items()
-        },
+        "cooldown_active": {op: time.time() - ts < 60.0 for op, ts in _last_notification.items()},
         "buffer_size": len(_violation_buffer),
         "operations_in_violation": [
-            op for op, state in _violation_state.items()
-            if state.get("in_violation", False)
+            op for op, state in _violation_state.items() if state.get("in_violation", False)
         ],
     }
 
@@ -553,7 +550,7 @@ def notify_slo_recovery(
     if _webhook_callback is None:
         return False
 
-    recovery_data = {
+    {
         "operation": operation,
         "percentile": percentile,
         "latency_ms": latency_ms,
@@ -636,8 +633,12 @@ def check_and_record_slo_with_recovery(
         if slo:
             threshold_ms = getattr(slo, f"{percentile}_ms", slo.p99_ms)
             severity = record_slo_violation(
-                operation, percentile, latency_ms, threshold_ms,
-                context=context, notify_webhook=True
+                operation,
+                percentile,
+                latency_ms,
+                threshold_ms,
+                context=context,
+                notify_webhook=True,
             )
 
             # Update violation state

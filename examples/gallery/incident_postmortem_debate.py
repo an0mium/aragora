@@ -69,10 +69,6 @@ TEAM CONTEXT:
 async def run_postmortem_debate():
     """Run a multi-agent incident postmortem debate."""
 
-    print("\n" + "=" * 60)
-    print("ARAGORA: Incident Postmortem Debate")
-    print("=" * 60)
-
     # Create agents with different perspectives
     agent_configs = [
         ("anthropic-api", "systems_engineer"),
@@ -85,12 +81,10 @@ async def run_postmortem_debate():
         try:
             agent = create_agent(model_type=agent_type, name=f"{role}", role=role)  # type: ignore
             agents.append(agent)
-            print(f"  + {agent.name} ready")
-        except Exception as e:
-            print(f"  - {agent_type} unavailable: {str(e)[:40]}")
+        except Exception:
+            pass
 
     if len(agents) < 2:
-        print("\nError: Need at least 2 agents. Check API keys.")
         return None
 
     env = Environment(
@@ -119,20 +113,8 @@ Provide:
         early_stopping=True,
     )
 
-    print(f"\nAnalyzing incident with {len(agents)} agents...")
-
     arena = Arena(env, agents, protocol)
     result = await arena.run()
-
-    print(f"\n{'='*60}")
-    print("POSTMORTEM ANALYSIS RESULTS")
-    print(f"{'='*60}")
-    print(f"Consensus: {'Yes' if result.consensus_reached else 'No'}")
-    print(f"Confidence: {result.confidence:.0%}")
-
-    print(f"\n--- Analysis ---")
-    answer = result.final_answer
-    print(answer[:2000] if len(answer) > 2000 else answer)
 
     return result
 
@@ -140,4 +122,4 @@ Provide:
 if __name__ == "__main__":
     result = asyncio.run(run_postmortem_debate())
     if result and result.consensus_reached:
-        print("\n[SUCCESS] Postmortem analysis completed with consensus!")
+        pass

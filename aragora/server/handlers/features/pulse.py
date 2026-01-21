@@ -135,7 +135,7 @@ def get_pulse_scheduler():
                     # Wire KM adapter for bidirectional sync
                     try:
                         from aragora.knowledge.mound.adapters.pulse_adapter import PulseAdapter
-                        from aragora.events.types import StreamEvent, StreamEventType
+                        from aragora.events.types import StreamEvent, StreamEventType  # noqa: F401
 
                         adapter = PulseAdapter(enable_dual_write=True)
 
@@ -146,7 +146,7 @@ def get_pulse_scheduler():
                                     "trending_topic_stored": StreamEventType.MOUND_UPDATED,
                                     "debate_scheduled": StreamEventType.MOUND_UPDATED,
                                 }
-                                stream_type = type_map.get(event_type, StreamEventType.MOUND_UPDATED)
+                                type_map.get(event_type, StreamEventType.MOUND_UPDATED)
                                 # Note: Event will be emitted when event_emitter is available
                                 logger.debug(f"KM event: {event_type}")
                             except Exception as e:
@@ -156,7 +156,9 @@ def get_pulse_scheduler():
                         _shared_scheduler.set_km_adapter(adapter)
                         logger.info("PulseDebateScheduler KM adapter wired for bidirectional sync")
                     except ImportError:
-                        logger.debug("KM PulseAdapter not available, scheduler will run without KM sync")
+                        logger.debug(
+                            "KM PulseAdapter not available, scheduler will run without KM sync"
+                        )
                     except Exception as km_e:
                         logger.warning(f"Failed to wire KM PulseAdapter: {km_e}")
 

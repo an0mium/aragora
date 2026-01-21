@@ -17,7 +17,15 @@ class TestNodeType:
 
     def test_all_node_types_exist(self):
         """Should have all expected node types."""
-        expected = ["proposal", "critique", "evidence", "concession", "rebuttal", "vote", "consensus"]
+        expected = [
+            "proposal",
+            "critique",
+            "evidence",
+            "concession",
+            "rebuttal",
+            "vote",
+            "consensus",
+        ]
         actual = [t.value for t in NodeType]
         assert sorted(actual) == sorted(expected)
 
@@ -88,7 +96,7 @@ class TestArgumentNode:
             metadata={"key": "value"},
         )
         data = node.to_dict()
-        
+
         assert data["id"] == "n1"
         assert data["agent"] == "claude"
         assert data["node_type"] == "critique"
@@ -132,7 +140,7 @@ class TestArgumentEdge:
             metadata={"reason": "test"},
         )
         data = edge.to_dict()
-        
+
         assert data["source_id"] == "n1"
         assert data["target_id"] == "n2"
         assert data["relation"] == "modifies"
@@ -169,7 +177,7 @@ class TestArgumentCartographer:
             role="proposer",
             round_num=1,
         )
-        
+
         assert node_id in cartographer.nodes
         node = cartographer.nodes[node_id]
         assert node.agent == "claude"
@@ -185,7 +193,7 @@ class TestArgumentCartographer:
             role="agent",
             round_num=1,
         )
-        
+
         node = cartographer.nodes[node_id]
         assert len(node.summary) <= 103  # 100 + "..."
         assert node.full_content == long_content
@@ -209,7 +217,7 @@ class TestArgumentCartographer:
             role="proposer",
             round_num=1,
         )
-        
+
         node_id = cartographer.update_from_message(
             agent="critic",
             content="I disagree with this approach, there's a major issue",
@@ -237,9 +245,9 @@ class TestArgumentCartographer:
             role="proposer",
             round_num=1,
         )
-        
+
         node_id = cartographer.update_from_vote("claude", "approve", 1)
-        
+
         assert node_id in cartographer.nodes
         node = cartographer.nodes[node_id]
         assert node.node_type == NodeType.VOTE
@@ -253,7 +261,7 @@ class TestArgumentCartographer:
             round_num=3,
             vote_counts={"approve": 3, "reject": 1},
         )
-        
+
         assert node_id in cartographer.nodes
         node = cartographer.nodes[node_id]
         assert node.node_type == NodeType.CONSENSUS
@@ -275,14 +283,14 @@ class TestArgumentCartographer:
             role="critic",
             round_num=1,
         )
-        
+
         edge_id = cartographer.update_from_critique(
             critic_agent="critic",
             target_agent="target",
             severity=0.8,
             round_num=1,
         )
-        
+
         assert edge_id is not None
         assert len(cartographer.edges) >= 1
 
@@ -295,10 +303,10 @@ class TestArgumentCartographer:
             role="proposer",
             round_num=1,
         )
-        
+
         json_str = cartographer.export_json()
         data = json.loads(json_str)
-        
+
         assert data["debate_id"] == "test-debate"
         assert data["topic"] == "Test topic"
         assert len(data["nodes"]) == 1
@@ -312,10 +320,10 @@ class TestArgumentCartographer:
             role="agent",
             round_num=1,
         )
-        
+
         json_str = cartographer.export_json(include_full_content=True)
         data = json.loads(json_str)
-        
+
         assert data["nodes"][0]["full_content"] == "Full content here"
 
     def test_export_mermaid(self, cartographer):
@@ -326,9 +334,9 @@ class TestArgumentCartographer:
             role="proposer",
             round_num=1,
         )
-        
+
         mermaid = cartographer.export_mermaid()
-        
+
         assert "graph" in mermaid
         assert "Round" in mermaid
         assert "classDef" in mermaid
@@ -341,10 +349,10 @@ class TestArgumentCartographer:
             role="agent",
             round_num=1,
         )
-        
+
         mermaid_td = cartographer.export_mermaid(direction="TD")
         mermaid_lr = cartographer.export_mermaid(direction="LR")
-        
+
         assert "graph TD" in mermaid_td
         assert "graph LR" in mermaid_lr
 
@@ -362,9 +370,9 @@ class TestArgumentCartographer:
             role="critic",
             round_num=1,
         )
-        
+
         stats = cartographer.get_statistics()
-        
+
         assert stats["node_count"] == 2
         assert "edge_count" in stats
         assert "max_depth" in stats
@@ -381,7 +389,7 @@ class TestCartographerEdges:
         """Create cartographer with some nodes."""
         cart = ArgumentCartographer()
         cart.set_debate_context("test", "Test debate")
-        
+
         # Add proposal
         cart.update_from_message(
             agent="proposer",
@@ -389,7 +397,7 @@ class TestCartographerEdges:
             role="proposer",
             round_num=1,
         )
-        
+
         # Add critique
         cart.update_from_message(
             agent="critic",
@@ -397,16 +405,16 @@ class TestCartographerEdges:
             role="critic",
             round_num=1,
         )
-        
+
         return cart
 
     def test_critique_links_to_proposal(self, populated_cartographer):
         """Critique should link to the round's proposal."""
         edges = populated_cartographer.edges
-        
+
         # Should have at least one edge
         assert len(edges) >= 1
-        
+
         # Find refutes edge
         refutes_edges = [e for e in edges if e.relation == EdgeRelation.REFUTES]
         assert len(refutes_edges) >= 1
@@ -414,7 +422,7 @@ class TestCartographerEdges:
     def test_vote_links_to_proposal(self):
         """Vote should link to the round's proposal."""
         cart = ArgumentCartographer()
-        
+
         # Add proposal
         cart.update_from_message(
             agent="proposer",
@@ -422,10 +430,10 @@ class TestCartographerEdges:
             role="proposer",
             round_num=1,
         )
-        
+
         # Add vote
         cart.update_from_vote("voter", "approve", 1)
-        
+
         # Should have edge from vote to proposal
         responds_edges = [e for e in cart.edges if e.relation == EdgeRelation.RESPONDS_TO]
         assert len(responds_edges) >= 1
@@ -433,7 +441,7 @@ class TestCartographerEdges:
     def test_consensus_links_to_votes(self):
         """Consensus should link to all votes in the round."""
         cart = ArgumentCartographer()
-        
+
         # Add proposal
         cart.update_from_message(
             agent="proposer",
@@ -441,14 +449,14 @@ class TestCartographerEdges:
             role="proposer",
             round_num=1,
         )
-        
+
         # Add votes
         cart.update_from_vote("voter1", "approve", 1)
         cart.update_from_vote("voter2", "approve", 1)
-        
+
         # Add consensus
         cart.update_from_consensus("approved", 1)
-        
+
         # Should have edges from votes to consensus
         supports_edges = [e for e in cart.edges if e.relation == EdgeRelation.SUPPORTS]
         assert len(supports_edges) >= 2
@@ -470,9 +478,9 @@ class TestCartographerSanitization:
             role="agent",
             round_num=1,
         )
-        
+
         mermaid = cartographer.export_mermaid()
-        
+
         # Should not have double quotes inside node labels
         # (except the enclosing ones)
         assert '\\"' not in mermaid or "'" in mermaid
@@ -485,9 +493,9 @@ class TestCartographerSanitization:
             role="agent",
             round_num=1,
         )
-        
+
         mermaid = cartographer.export_mermaid()
-        
+
         # Check that special chars are replaced
         # (actual node content is in the summary which gets sanitized)
         assert "[brackets]" not in mermaid
@@ -500,9 +508,9 @@ class TestCartographerSanitization:
             role="agent",
             round_num=1,
         )
-        
+
         mermaid = cartographer.export_mermaid()
-        
+
         # Newlines should be replaced with spaces in summaries
         assert "Line 1 Line 2" in mermaid or "Line 1  Line 2" in mermaid
 
@@ -514,7 +522,7 @@ class TestCartographerStatistics:
         """Empty cartographer should return zero stats."""
         cart = ArgumentCartographer()
         stats = cart.get_statistics()
-        
+
         assert stats["node_count"] == 0
         assert stats["edge_count"] == 0
         assert stats["max_depth"] == 0
@@ -522,7 +530,7 @@ class TestCartographerStatistics:
     def test_complexity_score_bounds(self):
         """Complexity score should be between 0 and 1."""
         cart = ArgumentCartographer()
-        
+
         # Add many nodes to increase complexity
         for i in range(10):
             cart.update_from_message(
@@ -531,15 +539,15 @@ class TestCartographerStatistics:
                 role="agent",
                 round_num=i // 3 + 1,
             )
-        
+
         stats = cart.get_statistics()
-        
+
         assert 0 <= stats["complexity_score"] <= 1
 
     def test_max_depth_calculation(self):
         """Should calculate max depth correctly."""
         cart = ArgumentCartographer()
-        
+
         # Create chain of nodes across rounds
         cart.update_from_message(
             agent="agent1",
@@ -559,7 +567,7 @@ class TestCartographerStatistics:
             role="proposer",
             round_num=2,
         )
-        
+
         stats = cart.get_statistics()
-        
+
         assert stats["max_depth"] >= 1

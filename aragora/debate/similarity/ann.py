@@ -369,6 +369,7 @@ def count_unique_fast(
     faiss_available = False
     try:
         import faiss
+
         faiss_available = True
     except ImportError:
         pass
@@ -380,13 +381,13 @@ def count_unique_fast(
 
         # Search for top-10 neighbors (excluding self)
         k = min(11, n)  # Extra one because first hit is always self
-        D, I = index.search(normalized.astype(np.float32), k)
+        distances, indices = index.search(normalized.astype(np.float32), k)
 
         unique_count = 0
         for i in range(n):
             is_unique = True
             for j in range(k):
-                if I[i, j] != i and D[i, j] >= threshold:
+                if indices[i, j] != i and distances[i, j] >= threshold:
                     is_unique = False
                     break
             if is_unique:

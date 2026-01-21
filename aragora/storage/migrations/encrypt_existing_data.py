@@ -48,6 +48,7 @@ except ImportError:
 # Check metrics availability
 try:
     from aragora.observability.metrics import record_migration_record, record_migration_error
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -409,7 +410,8 @@ def main():
         help="Actually perform migration (default is dry-run)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Verbose output",
     )
@@ -426,8 +428,7 @@ def main():
     dry_run = not args.execute
 
     if dry_run:
-        print("\n=== DRY RUN MODE ===")
-        print("No changes will be made. Use --execute to perform migration.\n")
+        pass
 
     async def run():
         results = []
@@ -443,16 +444,12 @@ def main():
                 results.append(await migrate_gmail_tokens(dry_run=dry_run))
 
         # Print results
-        print("\n=== Migration Results ===\n")
         for result in results:
-            print(result)
             if result.errors:
-                print("  Errors:")
                 for error in result.errors[:5]:
-                    print(f"    - {error}")
+                    pass
                 if len(result.errors) > 5:
-                    print(f"    ... and {len(result.errors) - 5} more errors")
-            print()
+                    pass
 
         # Exit with error if any failures
         if any(not r.success for r in results):

@@ -190,13 +190,9 @@ class ExplanationBuilder:
             evidence.append(link)
 
         # Extract from critiques
-        critiques = getattr(result, "critiques", {}) or getattr(
-            result, "all_critiques", {}
-        )
+        critiques = getattr(result, "critiques", {}) or getattr(result, "all_critiques", {})
         for round_data in critiques.values() if isinstance(critiques, dict) else []:
-            for agent, critique in (
-                round_data.items() if isinstance(round_data, dict) else []
-            ):
+            for agent, critique in round_data.items() if isinstance(round_data, dict) else []:
                 critique_text = (
                     critique if isinstance(critique, str) else getattr(critique, "text", "")
                 )
@@ -270,9 +266,7 @@ class ExplanationBuilder:
     # Vote Pivots
     # ==========================================================================
 
-    def _build_vote_pivots(
-        self, result: Any, context: Optional[Any]
-    ) -> List[VotePivot]:
+    def _build_vote_pivots(self, result: Any, context: Optional[Any]) -> List[VotePivot]:
         """Build vote pivot analysis."""
         pivots: List[VotePivot] = []
 
@@ -306,9 +300,7 @@ class ExplanationBuilder:
             reasoning = getattr(vote, "reasoning", "")
 
             # Influence = how much this vote affected the margin
-            margin = choice_counts[winner] - sum(
-                v for k, v in choice_counts.items() if k != winner
-            )
+            choice_counts[winner] - sum(v for k, v in choice_counts.items() if k != winner)
             influence = (weight / total_weight) if total_weight > 0 else 0.0
 
             # Bonus for votes that match winner
@@ -400,9 +392,7 @@ class ExplanationBuilder:
     # Belief Changes
     # ==========================================================================
 
-    def _build_belief_changes(
-        self, result: Any, context: Optional[Any]
-    ) -> List[BeliefChange]:
+    def _build_belief_changes(self, result: Any, context: Optional[Any]) -> List[BeliefChange]:
         """Build belief change analysis."""
         changes: List[BeliefChange] = []
 
@@ -464,8 +454,6 @@ class ExplanationBuilder:
         """Build confidence attribution analysis."""
         attributions: List[ConfidenceAttribution] = []
 
-        final_confidence = decision.confidence
-
         # Consensus strength factor
         if hasattr(result, "consensus_margin"):
             margin = result.consensus_margin
@@ -498,8 +486,7 @@ class ExplanationBuilder:
         if self.calibration_tracker and decision.agents_participated:
             try:
                 avg_calibration = sum(
-                    self.calibration_tracker.get_weight(a)
-                    for a in decision.agents_participated
+                    self.calibration_tracker.get_weight(a) for a in decision.agents_participated
                 ) / len(decision.agents_participated)
                 contribution = (avg_calibration - 0.5) * 0.2
                 attributions.append(
@@ -542,9 +529,7 @@ class ExplanationBuilder:
     # Counterfactuals
     # ==========================================================================
 
-    def _build_counterfactuals(
-        self, result: Any, decision: Decision
-    ) -> List[Counterfactual]:
+    def _build_counterfactuals(self, result: Any, decision: Decision) -> List[Counterfactual]:
         """Build counterfactual analysis."""
         counterfactuals: List[Counterfactual] = []
 
@@ -682,8 +667,7 @@ class ExplanationBuilder:
             lines.append("### Most Influential Votes")
             for v in pivotal[:3]:
                 lines.append(
-                    f"- **{v.agent}** voted '{v.choice}' "
-                    f"(influence: {v.influence_score:.0%})"
+                    f"- **{v.agent}** voted '{v.choice}' " f"(influence: {v.influence_score:.0%})"
                 )
             lines.append("")
 

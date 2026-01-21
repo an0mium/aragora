@@ -119,7 +119,9 @@ class TelegramHandler(BaseHandler):
                 "enabled": bool(TELEGRAM_BOT_TOKEN),
                 "token_configured": bool(TELEGRAM_BOT_TOKEN),
                 "webhook_secret_configured": bool(TELEGRAM_WEBHOOK_SECRET),
-                "webhook_token": TELEGRAM_WEBHOOK_TOKEN[:8] + "..." if TELEGRAM_WEBHOOK_TOKEN else None,
+                "webhook_token": TELEGRAM_WEBHOOK_TOKEN[:8] + "..."
+                if TELEGRAM_WEBHOOK_TOKEN
+                else None,
             }
         )
 
@@ -191,8 +193,8 @@ class TelegramHandler(BaseHandler):
         entities = message.get("entities", [])
         for entity in entities:
             if entity.get("type") == "bot_command" and entity.get("offset", 0) == 0:
-                command = text[entity["offset"]:entity["offset"] + entity["length"]]
-                args = text[entity["offset"] + entity["length"]:].strip()
+                command = text[entity["offset"] : entity["offset"] + entity["length"]]
+                args = text[entity["offset"] + entity["length"] :].strip()
                 return self._handle_command(command, args, chat_id, user_id, message)
 
         # Handle regular message (could be a debate input)
@@ -251,7 +253,7 @@ class TelegramHandler(BaseHandler):
 
     def _handle_inline_query(self, query: Dict[str, Any]) -> HandlerResult:
         """Handle inline query (@bot query)."""
-        query_id = query.get("id")
+        query.get("id")
         query_text = query.get("query", "")
 
         logger.debug(f"Telegram inline query: {query_text[:50]}...")
@@ -325,7 +327,7 @@ class TelegramHandler(BaseHandler):
             "/debate <question> - Start a multi-agent debate\n"
             "/status - Check system status\n"
             "/help - Show this help\n\n"
-            "Or just send me a question and I'll debate it!"
+            "Or just send me a question and I'll debate it!",
         )
         return json_response({"ok": True})
 
@@ -339,14 +341,17 @@ class TelegramHandler(BaseHandler):
             "/status - Check Aragora system status\n"
             "/help - Show this message\n\n"
             "Example:\n"
-            "/debate Should we use microservices or a monolith?"
+            "/debate Should we use microservices or a monolith?",
         )
         return json_response({"ok": True})
 
     def _cmd_debate(self, chat_id: int, user_id: int, topic: str) -> HandlerResult:
         """Handle /debate command."""
         if not topic.strip():
-            self._send_message(chat_id, "Please provide a topic. Example:\n/debate Is Python better than JavaScript?")
+            self._send_message(
+                chat_id,
+                "Please provide a topic. Example:\n/debate Is Python better than JavaScript?",
+            )
             return json_response({"ok": True})
 
         # Start debate via queue system
@@ -356,7 +361,7 @@ class TelegramHandler(BaseHandler):
             chat_id,
             f"Starting debate on:\n\n{topic[:200]}\n\n"
             "I'll notify you when the AI agents reach consensus. "
-            f"Debate ID: {debate_id[:8]}..."
+            f"Debate ID: {debate_id[:8]}...",
         )
 
         logger.info(f"Debate requested from Telegram user {user_id}: {topic[:100]}")
@@ -505,14 +510,14 @@ class TelegramHandler(BaseHandler):
                             f"Debate Complete!\n\n"
                             f"Topic: {topic[:100]}\n\n"
                             f"Consensus: {result.final_answer[:500]}\n\n"
-                            f"Confidence: {result.confidence:.0%}"
+                            f"Confidence: {result.confidence:.0%}",
                         )
                     else:
                         self._send_message(
                             chat_id,
                             f"Debate Complete!\n\n"
                             f"Topic: {topic[:100]}\n\n"
-                            "No consensus was reached. The agents had differing views."
+                            "No consensus was reached. The agents had differing views.",
                         )
 
                 asyncio.run(execute())
@@ -540,13 +545,15 @@ class TelegramHandler(BaseHandler):
             "- Mistral\n"
             "- DeepSeek\n"
             "- Qwen\n\n"
-            "Ready for debates!"
+            "Ready for debates!",
         )
         return json_response({"ok": True})
 
     def _cmd_unknown(self, chat_id: int, command: str) -> HandlerResult:
         """Handle unknown command."""
-        self._send_message(chat_id, f"Unknown command: /{command}\n\nUse /help to see available commands.")
+        self._send_message(
+            chat_id, f"Unknown command: /{command}\n\nUse /help to see available commands."
+        )
         return json_response({"ok": True})
 
     def _send_message(self, chat_id: int, text: str, parse_mode: str = "Markdown") -> None:

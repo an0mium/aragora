@@ -190,9 +190,21 @@ class WhatsAppHandler(BaseHandler):
 
         Must respond with the challenge if verify_token matches.
         """
-        mode = query_params.get("hub.mode", [""])[0] if isinstance(query_params.get("hub.mode"), list) else query_params.get("hub.mode", "")
-        token = query_params.get("hub.verify_token", [""])[0] if isinstance(query_params.get("hub.verify_token"), list) else query_params.get("hub.verify_token", "")
-        challenge = query_params.get("hub.challenge", [""])[0] if isinstance(query_params.get("hub.challenge"), list) else query_params.get("hub.challenge", "")
+        mode = (
+            query_params.get("hub.mode", [""])[0]
+            if isinstance(query_params.get("hub.mode"), list)
+            else query_params.get("hub.mode", "")
+        )
+        token = (
+            query_params.get("hub.verify_token", [""])[0]
+            if isinstance(query_params.get("hub.verify_token"), list)
+            else query_params.get("hub.verify_token", "")
+        )
+        challenge = (
+            query_params.get("hub.challenge", [""])[0]
+            if isinstance(query_params.get("hub.challenge"), list)
+            else query_params.get("hub.challenge", "")
+        )
 
         logger.info(f"WhatsApp webhook verification: mode={mode}, token={token[:10]}...")
 
@@ -335,19 +347,23 @@ class WhatsAppHandler(BaseHandler):
         elif lower_text.startswith("debate "):
             record_command("whatsapp", "debate")
             topic = text[7:].strip()
-            emit_command_received("whatsapp", from_number, from_number, profile_name, "debate", topic)
+            emit_command_received(
+                "whatsapp", from_number, from_number, profile_name, "debate", topic
+            )
             self._command_debate(from_number, profile_name, topic)
             return
         elif lower_text.startswith("gauntlet "):
             record_command("whatsapp", "gauntlet")
             statement = text[9:].strip()
-            emit_command_received("whatsapp", from_number, from_number, profile_name, "gauntlet", statement)
+            emit_command_received(
+                "whatsapp", from_number, from_number, profile_name, "gauntlet", statement
+            )
             self._command_gauntlet(from_number, profile_name, statement)
             return
         elif len(text) > 10:
             # Treat longer messages as potential topics
             response = (
-                f"I received: \"{text[:50]}...\"\n\n"
+                f'I received: "{text[:50]}..."\n\n'
                 "To start a debate, type:\n"
                 f"debate {text[:50]}"
             )
@@ -542,6 +558,7 @@ class WhatsAppHandler(BaseHandler):
             if debate_id:
                 try:
                     from aragora.server.debate_origin import mark_result_sent
+
                     mark_result_sent(debate_id)
                 except ImportError:
                     pass
@@ -701,7 +718,9 @@ class WhatsAppHandler(BaseHandler):
                         statement=statement,
                         verdict="passed" if passed else "failed",
                         confidence=score,
-                        challenges_passed=len([v for v in vulnerabilities if not v.get("critical", False)]),
+                        challenges_passed=len(
+                            [v for v in vulnerabilities if not v.get("critical", False)]
+                        ),
                         challenges_total=len(vulnerabilities) + 1,
                     )
 
@@ -747,7 +766,7 @@ class WhatsAppHandler(BaseHandler):
         lower_text = button_text.lower()
         if "agree" in lower_text:
             # Extract debate_id from context if available
-            context = message.get("context", {})
+            message.get("context", {})
             # For quick replies, we might not have the ID directly
             logger.info(f"Quick reply 'agree' from {profile_name}")
         elif "disagree" in lower_text:

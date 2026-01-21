@@ -23,11 +23,11 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Literal, Optional
 
 from aragora.server.handlers.base import (
-    BaseHandler,
     error_response,
     json_response,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.server.handlers.secure import SecureHandler
 from aragora.storage.integration_store import (
     IntegrationConfig,
     VALID_INTEGRATION_TYPES,
@@ -64,7 +64,14 @@ class IntegrationStatus:
 # =============================================================================
 
 
-class IntegrationsHandler(BaseHandler):
+class IntegrationsHandler(SecureHandler):
+    """Handler for integration management endpoints.
+
+    Extends SecureHandler for JWT-based authentication and audit logging.
+    """
+
+    RESOURCE_TYPE = "integration"
+
     """Handler for integration management endpoints."""
 
     async def get_status(self, user_id: str = "default") -> HandlerResult:

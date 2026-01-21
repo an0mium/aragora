@@ -35,8 +35,8 @@ from typing import List, Optional
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aragora.memory.continuum import ContinuumMemory, ContinuumMemoryEntry
-from aragora.memory.tier_manager import MemoryTier, TierManager
+from aragora.memory.continuum import ContinuumMemory
+from aragora.memory.tier_manager import MemoryTier
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -227,7 +227,7 @@ class MemoryTierBenchmark:
         for i in range(self.iterations):
             keyword = keywords[i % len(keywords)]
             start = time.perf_counter()
-            entries = self.memory.search(content_like=keyword, limit=20)
+            self.memory.search(content_like=keyword, limit=20)
             elapsed = (time.perf_counter() - start) * 1000
             latencies.append(elapsed)
 
@@ -354,7 +354,7 @@ class MemoryTierBenchmark:
         latencies = []
         for _ in range(min(self.iterations, 20)):  # Cleanup is expensive, limit iterations
             start = time.perf_counter()
-            removed = self.memory.cleanup(max_entries_per_tier=100)
+            self.memory.cleanup(max_entries_per_tier=100)
             elapsed = (time.perf_counter() - start) * 1000
             latencies.append(elapsed)
 
@@ -365,7 +365,6 @@ class MemoryTierBenchmark:
 
     def run_all(self) -> List[BenchmarkResult]:
         """Run all benchmarks."""
-        print(f"Running memory tier benchmarks ({self.iterations} iterations each)...\n")
 
         self.setup()
         try:
@@ -373,47 +372,33 @@ class MemoryTierBenchmark:
             for tier in MemoryTier:
                 result = self.benchmark_write_latency(tier)
                 self.results.append(result)
-                print(result)
-                print()
 
             # Read latency per tier
             for tier in MemoryTier:
                 result = self.benchmark_read_latency(tier)
                 self.results.append(result)
-                print(result)
-                print()
 
             # Search latency
             result = self.benchmark_search_latency()
             self.results.append(result)
-            print(result)
-            print()
 
             # Tier promotion
             result = self.benchmark_tier_promotion()
             self.results.append(result)
-            print(result)
-            print()
 
             # Cache hit rate
             result = self.benchmark_cache_hit_rate()
             self.results.append(result)
-            print(result)
             if "hit_rate" in result.extra:
-                print(f"  Cache hit rate: {result.extra['hit_rate']:.1%}")
-            print()
+                pass
 
             # Concurrent writes
             result = self.benchmark_concurrent_writes(concurrency=10)
             self.results.append(result)
-            print(result)
-            print()
 
             # Cleanup performance
             result = self.benchmark_cleanup_performance()
             self.results.append(result)
-            print(result)
-            print()
 
         finally:
             self.cleanup()
@@ -469,7 +454,6 @@ def main():
         iterations=args.iterations,
     )
     benchmark.run_all()
-    print(benchmark.summary())
 
 
 if __name__ == "__main__":

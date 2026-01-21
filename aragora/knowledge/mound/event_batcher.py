@@ -49,7 +49,7 @@ class BatchedEvent:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
-            "type": event_type,
+            "type": self.event_type,
             "data": self.data,
             "timestamp": self.timestamp,
         }

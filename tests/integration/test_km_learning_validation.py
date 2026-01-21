@@ -25,7 +25,11 @@ class TestCrossDebateLearningValidation:
         # Note: MIN_ELO_CHANGE is 25, so only deltas < 25 are filtered
         debates = [
             {"agent": "claude-3-opus", "domain": "security", "elo_change": 50},
-            {"agent": "claude-3-opus", "domain": "security", "elo_change": 20},  # Below MIN_ELO_CHANGE threshold (25)
+            {
+                "agent": "claude-3-opus",
+                "domain": "security",
+                "elo_change": 20,
+            },  # Below MIN_ELO_CHANGE threshold (25)
             {"agent": "claude-3-opus", "domain": "security", "elo_change": 75},
             {"agent": "gpt-4-turbo", "domain": "security", "elo_change": 60},
             {"agent": "claude-3-opus", "domain": "security", "elo_change": 55},
@@ -204,7 +208,9 @@ class TestCrossDebateLearningValidation:
 
         for question, expected_domain in test_cases:
             detected = adapter.detect_domain(question)
-            assert detected == expected_domain, f"Expected {expected_domain} for '{question}', got {detected}"
+            assert (
+                detected == expected_domain
+            ), f"Expected {expected_domain} for '{question}', got {detected}"
 
 
 class TestPatternLearningValidation:
@@ -276,7 +282,6 @@ class TestAdapterPersistenceValidation:
         # Second adapter: load from mock KM
         adapter2 = RankingAdapter()
 
-        from unittest.mock import MagicMock
         from datetime import datetime
 
         mock_node = MagicMock()
@@ -320,7 +325,6 @@ class TestAdapterPersistenceValidation:
         # Second adapter: load from mock KM
         adapter2 = RlmAdapter()
 
-        from unittest.mock import MagicMock
         from datetime import datetime
 
         mock_node = MagicMock()
@@ -400,7 +404,9 @@ class TestBatchingValidation:
 
         # Verify config matches settings
         assert manager._async_config.batch_size == integration.event_batch_size
-        assert manager._async_config.batch_timeout_seconds == integration.event_batch_timeout_seconds
+        assert (
+            manager._async_config.batch_timeout_seconds == integration.event_batch_timeout_seconds
+        )
         assert manager._async_config.enable_batching == integration.event_batching_enabled
 
     def test_batch_stats_available(self):

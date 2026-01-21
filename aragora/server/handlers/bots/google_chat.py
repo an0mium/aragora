@@ -190,7 +190,10 @@ class GoogleChatHandler(BaseHandler):
         # Check for @mention
         mentions = message.get("annotations", [])
         for mention in mentions:
-            if mention.get("type") == "USER_MENTION" and mention.get("userMention", {}).get("type") == "BOT":
+            if (
+                mention.get("type") == "USER_MENTION"
+                and mention.get("userMention", {}).get("type") == "BOT"
+            ):
                 # Bot was mentioned - extract text after mention
                 mention_text = text
                 if mention_text.strip():
@@ -307,10 +310,10 @@ class GoogleChatHandler(BaseHandler):
             return self._card_response(
                 title="Debate Details",
                 body=f"*Topic:* {task[:200]}\n\n"
-                     f"*Consensus:* {'Yes' if consensus else 'No'}\n"
-                     f"*Confidence:* {confidence:.1%}\n"
-                     f"*Rounds:* {rounds_used}\n\n"
-                     f"*Conclusion:*\n{final_answer[:500]}...",
+                f"*Consensus:* {'Yes' if consensus else 'No'}\n"
+                f"*Confidence:* {confidence:.1%}\n"
+                f"*Rounds:* {rounds_used}\n\n"
+                f"*Conclusion:*\n{final_answer[:500]}...",
             )
 
         except Exception as e:
@@ -320,19 +323,19 @@ class GoogleChatHandler(BaseHandler):
     def _handle_added_to_space(self, event: Dict[str, Any]) -> HandlerResult:
         """Handle bot added to space."""
         space = event.get("space", {})
-        space_name = space.get("displayName", "this space")
+        space.get("displayName", "this space")
 
         return self._card_response(
             title="Welcome to Aragora!",
             body="I'm an Omnivorous Multi-Agent Decision Making Engine.\n\n"
-                 "I harness Claude, GPT, Gemini, Grok and more to help you "
-                 "make better decisions through structured debate.\n\n"
-                 "*Commands:*\n"
-                 "/debate <topic> - Start a multi-agent debate\n"
-                 "/gauntlet <statement> - Run adversarial validation\n"
-                 "/status - Check system status\n"
-                 "/help - Show available commands\n\n"
-                 "Or just @mention me with a question!",
+            "I harness Claude, GPT, Gemini, Grok and more to help you "
+            "make better decisions through structured debate.\n\n"
+            "*Commands:*\n"
+            "/debate <topic> - Start a multi-agent debate\n"
+            "/gauntlet <statement> - Run adversarial validation\n"
+            "/status - Check system status\n"
+            "/help - Show available commands\n\n"
+            "Or just @mention me with a question!",
         )
 
     def _handle_removed_from_space(self, event: Dict[str, Any]) -> HandlerResult:
@@ -350,13 +353,13 @@ class GoogleChatHandler(BaseHandler):
         return self._card_response(
             title="Aragora Commands",
             body="*/debate <topic>* - Start a multi-agent debate\n"
-                 "*/gauntlet <statement>* - Run adversarial stress-test\n"
-                 "*/status* - Check system status\n"
-                 "*/agents* - List available agents\n"
-                 "*/help* - Show this message\n\n"
-                 "*Examples:*\n"
-                 '/debate Should AI be regulated?\n'
-                 '/gauntlet We should migrate to microservices',
+            "*/gauntlet <statement>* - Run adversarial stress-test\n"
+            "*/status* - Check system status\n"
+            "*/agents* - List available agents\n"
+            "*/help* - Show this message\n\n"
+            "*Examples:*\n"
+            "/debate Should AI be regulated?\n"
+            "/gauntlet We should migrate to microservices",
         )
 
     def _cmd_status(self, space_name: str) -> HandlerResult:
@@ -457,7 +460,7 @@ class GoogleChatHandler(BaseHandler):
         if not statement.strip():
             return self._card_response(
                 body="Please provide a statement to stress-test.\n\n"
-                     "Example: /gauntlet We should migrate to microservices"
+                "Example: /gauntlet We should migrate to microservices"
             )
 
         statement = statement.strip().strip("\"'")
@@ -466,7 +469,9 @@ class GoogleChatHandler(BaseHandler):
             return self._card_response(body="Statement is too short. Please provide more detail.")
 
         if len(statement) > 1000:
-            return self._card_response(body="Statement is too long. Please limit to 1000 characters.")
+            return self._card_response(
+                body="Statement is too long. Please limit to 1000 characters."
+            )
 
         user_name = user.get("displayName", "Unknown")
         user_id = user.get("name", "").split("/")[-1]
@@ -480,7 +485,7 @@ class GoogleChatHandler(BaseHandler):
         return self._card_response(
             title="Running Gauntlet Stress-Test",
             body=f"*Statement:* {statement[:200]}{'...' if len(statement) > 200 else ''}\n\n"
-                 "_Running adversarial validation..._",
+            "_Running adversarial validation..._",
             context=f"Requested by {user_name}",
         )
 
@@ -494,6 +499,7 @@ class GoogleChatHandler(BaseHandler):
         """Start a debate from a regular message or @mention."""
         # Clean up the text (remove @mentions)
         import re
+
         clean_text = re.sub(r"<users/[^>]+>", "", text).strip()
 
         if not clean_text or len(clean_text) < 10:
@@ -544,31 +550,37 @@ class GoogleChatHandler(BaseHandler):
 
             # Build result card
             consensus_emoji = "✅" if result.consensus_reached else "❌"
-            confidence_bar = "█" * int(result.confidence * 5) + "░" * (5 - int(result.confidence * 5))
+            confidence_bar = "█" * int(result.confidence * 5) + "░" * (
+                5 - int(result.confidence * 5)
+            )
 
-            sections = connector.format_blocks(
-                title=f"{consensus_emoji} Debate Complete",
-                body=f"*Topic:* {topic[:100]}...\n\n"
-                     f"*Conclusion:*\n{result.final_answer[:400] if result.final_answer else 'No conclusion'}...",
-                fields=[
-                    ("Consensus", "Yes" if result.consensus_reached else "No"),
-                    ("Confidence", f"{confidence_bar} {result.confidence:.0%}"),
-                    ("Rounds", str(result.rounds_used)),
-                    ("Agents", str(len(agents))),
-                ],
-                actions=[
-                    connector.connectors.chat.models.MessageButton(
-                        text="👍 Agree",
-                        action_id="vote_agree",
-                        value=result.id,
-                    ),
-                    connector.connectors.chat.models.MessageButton(
-                        text="👎 Disagree",
-                        action_id="vote_disagree",
-                        value=result.id,
-                    ),
-                ],
-            ) if hasattr(connector, 'format_blocks') else []
+            sections = (
+                connector.format_blocks(
+                    title=f"{consensus_emoji} Debate Complete",
+                    body=f"*Topic:* {topic[:100]}...\n\n"
+                    f"*Conclusion:*\n{result.final_answer[:400] if result.final_answer else 'No conclusion'}...",
+                    fields=[
+                        ("Consensus", "Yes" if result.consensus_reached else "No"),
+                        ("Confidence", f"{confidence_bar} {result.confidence:.0%}"),
+                        ("Rounds", str(result.rounds_used)),
+                        ("Agents", str(len(agents))),
+                    ],
+                    actions=[
+                        connector.connectors.chat.models.MessageButton(
+                            text="👍 Agree",
+                            action_id="vote_agree",
+                            value=result.id,
+                        ),
+                        connector.connectors.chat.models.MessageButton(
+                            text="👎 Disagree",
+                            action_id="vote_disagree",
+                            value=result.id,
+                        ),
+                    ],
+                )
+                if hasattr(connector, "format_blocks")
+                else []
+            )
 
             await connector.send_message(
                 space_name,
@@ -629,7 +641,9 @@ class GoogleChatHandler(BaseHandler):
                     status_emoji = "✅" if passed else "❌"
                     score_bar = "█" * int(score * 5) + "░" * (5 - int(score * 5))
 
-                    body = f"*Statement:* {statement[:200]}{'...' if len(statement) > 200 else ''}\n\n"
+                    body = (
+                        f"*Statement:* {statement[:200]}{'...' if len(statement) > 200 else ''}\n\n"
+                    )
                     body += f"*Score:* {score_bar} {score:.0%}\n"
                     body += f"*Status:* {'Passed' if passed else 'Failed'}\n"
                     body += f"*Issues Found:* {len(vulnerabilities)}\n"
@@ -647,7 +661,9 @@ class GoogleChatHandler(BaseHandler):
                         blocks=connector.format_blocks(
                             title=f"{status_emoji} Gauntlet Results",
                             body=body,
-                        ) if hasattr(connector, 'format_blocks') else None,
+                        )
+                        if hasattr(connector, "format_blocks")
+                        else None,
                     )
 
         except Exception as e:
@@ -679,39 +695,29 @@ class GoogleChatHandler(BaseHandler):
 
         # Body text
         if body:
-            sections.append({
-                "widgets": [
-                    {"textParagraph": {"text": body}}
-                ]
-            })
+            sections.append({"widgets": [{"textParagraph": {"text": body}}]})
 
         # Fields as decorated text
         if fields:
             widgets = []
             for label, value in fields:
-                widgets.append({
-                    "decoratedText": {
-                        "topLabel": label,
-                        "text": value,
+                widgets.append(
+                    {
+                        "decoratedText": {
+                            "topLabel": label,
+                            "text": value,
+                        }
                     }
-                })
+                )
             sections.append({"widgets": widgets})
 
         # Context footer
         if context:
-            sections.append({
-                "widgets": [
-                    {"textParagraph": {"text": f"<i>{context}</i>"}}
-                ]
-            })
+            sections.append({"widgets": [{"textParagraph": {"text": f"<i>{context}</i>"}}]})
 
         # Action buttons
         if actions:
-            sections.append({
-                "widgets": [
-                    {"buttonList": {"buttons": actions}}
-                ]
-            })
+            sections.append({"widgets": [{"buttonList": {"buttons": actions}}]})
 
         # Build card response
         response: dict[str, Any] = {}

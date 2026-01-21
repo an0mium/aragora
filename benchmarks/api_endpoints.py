@@ -14,12 +14,10 @@ Usage:
     pytest benchmarks/api_endpoints.py -v
 """
 
-import asyncio
 import statistics
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import Mock, patch
+from typing import Any, Callable, Dict, List, Tuple
 
 
 @dataclass
@@ -241,13 +239,6 @@ def test_health_endpoint_latency():
         name="health_check",
     )
 
-    print(f"\nHealth Check Benchmark:")
-    print(f"  P50: {result.p50_ms:.3f}ms (SLO: {result.slo_p50_ms}ms)")
-    print(f"  P95: {result.p95_ms:.3f}ms (SLO: {result.slo_p95_ms}ms)")
-    print(f"  P99: {result.p99_ms:.3f}ms (SLO: {result.slo_p99_ms}ms)")
-    print(f"  OPS: {result.ops_per_sec:.0f}/sec")
-    print(f"  Meets SLO: {result.meets_slo}")
-
     # Health check should be extremely fast
     assert result.p50_ms < 5, f"Health check P50 {result.p50_ms}ms exceeds 5ms SLO"
     assert result.p95_ms < 20, f"Health check P95 {result.p95_ms}ms exceeds 20ms SLO"
@@ -267,13 +258,6 @@ def test_auth_validation_latency():
         slo_p99_ms=300,
         name="auth_validation",
     )
-
-    print(f"\nAuth Validation Benchmark:")
-    print(f"  P50: {result.p50_ms:.3f}ms (SLO: {result.slo_p50_ms}ms)")
-    print(f"  P95: {result.p95_ms:.3f}ms (SLO: {result.slo_p95_ms}ms)")
-    print(f"  P99: {result.p99_ms:.3f}ms (SLO: {result.slo_p99_ms}ms)")
-    print(f"  OPS: {result.ops_per_sec:.0f}/sec")
-    print(f"  Meets SLO: {result.meets_slo}")
 
     assert result.p50_ms < 50, f"Auth P50 {result.p50_ms}ms exceeds 50ms SLO"
 
@@ -296,13 +280,6 @@ def test_debate_get_latency():
         name="debate_get",
     )
 
-    print(f"\nDebate Get Benchmark:")
-    print(f"  P50: {result.p50_ms:.3f}ms (SLO: {result.slo_p50_ms}ms)")
-    print(f"  P95: {result.p95_ms:.3f}ms (SLO: {result.slo_p95_ms}ms)")
-    print(f"  P99: {result.p99_ms:.3f}ms (SLO: {result.slo_p99_ms}ms)")
-    print(f"  OPS: {result.ops_per_sec:.0f}/sec")
-    print(f"  Meets SLO: {result.meets_slo}")
-
     assert result.p50_ms < 100, f"Debate get P50 {result.p50_ms}ms exceeds 100ms SLO"
 
 
@@ -324,13 +301,6 @@ def test_debate_list_latency():
         name="debate_list",
     )
 
-    print(f"\nDebate List Benchmark:")
-    print(f"  P50: {result.p50_ms:.3f}ms (SLO: {result.slo_p50_ms}ms)")
-    print(f"  P95: {result.p95_ms:.3f}ms (SLO: {result.slo_p95_ms}ms)")
-    print(f"  P99: {result.p99_ms:.3f}ms (SLO: {result.slo_p99_ms}ms)")
-    print(f"  OPS: {result.ops_per_sec:.0f}/sec")
-    print(f"  Meets SLO: {result.meets_slo}")
-
     assert result.p50_ms < 100, f"Debate list P50 {result.p50_ms}ms exceeds 100ms SLO"
 
 
@@ -350,13 +320,6 @@ def test_search_latency():
         slo_p99_ms=1000,
         name="search",
     )
-
-    print(f"\nSearch Benchmark:")
-    print(f"  P50: {result.p50_ms:.3f}ms (SLO: {result.slo_p50_ms}ms)")
-    print(f"  P95: {result.p95_ms:.3f}ms (SLO: {result.slo_p95_ms}ms)")
-    print(f"  P99: {result.p99_ms:.3f}ms (SLO: {result.slo_p99_ms}ms)")
-    print(f"  OPS: {result.ops_per_sec:.0f}/sec")
-    print(f"  Meets SLO: {result.meets_slo}")
 
     assert result.p50_ms < 200, f"Search P50 {result.p50_ms}ms exceeds 200ms SLO"
 
@@ -378,11 +341,6 @@ def test_throughput_target():
 
     actual_ops = count / duration_seconds
 
-    print(f"\nThroughput Test:")
-    print(f"  Target: {target_ops} ops/sec")
-    print(f"  Actual: {actual_ops:.0f} ops/sec")
-    print(f"  Meets target: {actual_ops >= target_ops}")
-
     # Should easily exceed 1000 ops/sec for simple in-memory operations
     assert actual_ops >= target_ops, f"Throughput {actual_ops:.0f} below target {target_ops}"
 
@@ -394,9 +352,6 @@ def test_throughput_target():
 
 def run_all_benchmarks():
     """Run all benchmarks and print summary."""
-    print("=" * 60)
-    print("Aragora API Endpoint Benchmarks")
-    print("=" * 60)
 
     results = []
 
@@ -452,22 +407,10 @@ def run_all_benchmarks():
     )
 
     # Print summary
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print(f"{'Benchmark':<20} {'P50':>10} {'P95':>10} {'P99':>10} {'OPS':>10} {'SLO':>8}")
-    print("-" * 60)
 
     all_pass = True
     for r in results:
-        status = "PASS" if r.meets_slo else "FAIL"
         all_pass = all_pass and r.meets_slo
-        print(
-            f"{r.name:<20} {r.p50_ms:>9.2f}ms {r.p95_ms:>9.2f}ms {r.p99_ms:>9.2f}ms {r.ops_per_sec:>9.0f} {status:>8}"
-        )
-
-    print("-" * 60)
-    print(f"Overall: {'ALL PASS' if all_pass else 'SOME FAILED'}")
 
     return results
 

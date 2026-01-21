@@ -31,12 +31,11 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
-from unittest.mock import AsyncMock
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aragora.core import Agent, Environment, Message
+from aragora.core import Agent, Environment
 from aragora.debate.orchestrator import Arena
 from aragora.debate.protocol import DebateProtocol
 
@@ -225,7 +224,6 @@ class DebateThroughputBenchmark:
             timeout=30.0,
         )
 
-        round_latencies = []
         agent_response_times = []
 
         start_time = time.perf_counter()
@@ -389,7 +387,6 @@ class DebateThroughputBenchmark:
 
     async def benchmark_consensus_detection(self) -> BenchmarkResult:
         """Benchmark consensus detection performance."""
-        from aragora.debate.consensus import ConsensusDetector
 
         # Create mock votes for consensus detection
         from aragora.core import Vote
@@ -419,7 +416,7 @@ class DebateThroughputBenchmark:
             total_votes = len(votes)
             majority_threshold = total_votes / 2
 
-            consensus_reached = any(count > majority_threshold for count in vote_counts.values())
+            any(count > majority_threshold for count in vote_counts.values())
 
             elapsed = (time.perf_counter() - start) * 1000
             latencies.append(elapsed)
@@ -432,49 +429,28 @@ class DebateThroughputBenchmark:
 
     async def run_all(self) -> List[BenchmarkResult]:
         """Run all benchmarks."""
-        print(f"Running debate throughput benchmarks...")
-        print(f"  Debates: {self.num_debates}")
-        print(f"  Rounds per debate: {self.rounds_per_debate}")
-        print(f"  Agents per debate: {self.agents_per_debate}")
-        print(f"  Mock response delay: {self.response_delay_ms}ms")
-        print()
 
         # Single debate latency
-        print("Benchmarking single debate latency...")
         result = await self.benchmark_single_debate_latency()
         self.results.append(result)
-        print(result)
-        print()
 
         # Concurrent debates
-        print("Benchmarking concurrent debates...")
         result = await self.benchmark_concurrent_debates(concurrency=3)
         self.results.append(result)
-        print(result)
         if "success_rate" in result.extra:
-            print(f"  Success rate: {result.extra['success_rate']:.1%}")
-        print()
+            pass
 
         # Round latency
-        print("Benchmarking per-round latency...")
         result = await self.benchmark_round_latency()
         self.results.append(result)
-        print(result)
-        print()
 
         # Agent response distribution
-        print("Benchmarking agent response distribution...")
         result = await self.benchmark_agent_response_distribution()
         self.results.append(result)
-        print(result)
-        print()
 
         # Consensus detection
-        print("Benchmarking consensus detection...")
         result = await self.benchmark_consensus_detection()
         self.results.append(result)
-        print(result)
-        print()
 
         return self.results
 
@@ -519,7 +495,6 @@ def main():
     )
 
     asyncio.run(benchmark.run_all())
-    print(benchmark.summary())
 
 
 if __name__ == "__main__":

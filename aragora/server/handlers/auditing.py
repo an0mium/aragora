@@ -34,7 +34,6 @@ from aragora.utils.optional_imports import try_import_class
 
 from .base import (
     SAFE_SLUG_PATTERN,
-    BaseHandler,
     HandlerResult,
     error_response,
     invalidate_leaderboard_cache,
@@ -42,6 +41,7 @@ from .base import (
     require_permission,
     safe_error_message,
 )
+from .secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
@@ -332,7 +332,14 @@ class AuditResultRecorder:
             logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
 
 
-class AuditingHandler(BaseHandler):
+class AuditingHandler(SecureHandler):
+    """Handler for audit log access and management.
+
+    Extends SecureHandler for JWT-based authentication and audit logging.
+    """
+
+    RESOURCE_TYPE = "audit"
+
     """Handler for security auditing and capability probing endpoints."""
 
     ROUTES = [

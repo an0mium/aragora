@@ -332,9 +332,7 @@ class MarketplaceStore(SQLiteStore):
             Template if found, None otherwise
         """
         with self.connection() as conn:
-            row = conn.execute(
-                "SELECT * FROM templates WHERE id = ?", (template_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM templates WHERE id = ?", (template_id,)).fetchone()
 
             if row is None:
                 return None
@@ -369,9 +367,7 @@ class MarketplaceStore(SQLiteStore):
             params.append(category)
 
         if search:
-            conditions.append(
-                "(name LIKE ? OR description LIKE ? OR tags LIKE ?)"
-            )
+            conditions.append("(name LIKE ? OR description LIKE ? OR tags LIKE ?)")
             search_pattern = f"%{search}%"
             params.extend([search_pattern, search_pattern, search_pattern])
 
@@ -494,9 +490,7 @@ class MarketplaceStore(SQLiteStore):
             params.append(category)
 
         if search:
-            conditions.append(
-                "(name LIKE ? OR description LIKE ? OR tags LIKE ?)"
-            )
+            conditions.append("(name LIKE ? OR description LIKE ? OR tags LIKE ?)")
             search_pattern = f"%{search}%"
             params.extend([search_pattern, search_pattern, search_pattern])
 
@@ -531,9 +525,7 @@ class MarketplaceStore(SQLiteStore):
                 return [], 0
 
             # Get column names from cursor description
-            col_names = [desc[0] for desc in conn.execute(
-                "SELECT * FROM templates LIMIT 0"
-            ).description]
+            [desc[0] for desc in conn.execute("SELECT * FROM templates LIMIT 0").description]
 
             # Total count is the same for all rows (from window function)
             total = rows[0][-1] if rows else 0
@@ -579,9 +571,7 @@ class MarketplaceStore(SQLiteStore):
     # Rating Operations
     # =========================================================================
 
-    def rate_template(
-        self, template_id: str, user_id: str, rating: int
-    ) -> tuple[float, int]:
+    def rate_template(self, template_id: str, user_id: str, rating: int) -> tuple[float, int]:
         """Rate a template.
 
         Args:
@@ -963,7 +953,14 @@ class PostgresMarketplaceStore:
         """Create a new template (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.create_template_async(
-                name, description, author_id, author_name, category, pattern, workflow_definition, tags
+                name,
+                description,
+                author_id,
+                author_name,
+                category,
+                pattern,
+                workflow_definition,
+                tags,
             )
         )
 
@@ -1096,7 +1093,9 @@ class PostgresMarketplaceStore:
             param_idx += 1
 
         if search:
-            conditions.append(f"(name ILIKE ${param_idx} OR description ILIKE ${param_idx + 1} OR tags::text ILIKE ${param_idx + 2})")
+            conditions.append(
+                f"(name ILIKE ${param_idx} OR description ILIKE ${param_idx + 1} OR tags::text ILIKE ${param_idx + 2})"
+            )
             search_pattern = f"%{search}%"
             params.extend([search_pattern, search_pattern, search_pattern])
             param_idx += 3
@@ -1229,9 +1228,7 @@ class PostgresMarketplaceStore:
     # Rating Operations
     # =========================================================================
 
-    def rate_template(
-        self, template_id: str, user_id: str, rating: int
-    ) -> tuple[float, int]:
+    def rate_template(self, template_id: str, user_id: str, rating: int) -> tuple[float, int]:
         """Rate a template (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.rate_template_async(template_id, user_id, rating)

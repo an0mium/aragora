@@ -18,7 +18,6 @@ import time
 import tracemalloc
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock
 
 
 @dataclass
@@ -128,8 +127,7 @@ async def benchmark_context_compression(iterations: int = 50) -> BenchmarkResult
         initial_size = 0
         for round_num in range(10):
             responses = [
-                {"agent": f"agent_{j}", "content": f"Response {round_num} " * 50}
-                for j in range(3)
+                {"agent": f"agent_{j}", "content": f"Response {round_num} " * 50} for j in range(3)
             ]
             if round_num == 0:
                 initial_size = sum(len(r["content"]) for r in responses)
@@ -163,8 +161,7 @@ async def benchmark_checkpoint_resume(iterations: int = 50) -> BenchmarkResult:
         # Build up 20 rounds
         for round_num in range(20):
             responses = [
-                {"agent": f"agent_{j}", "content": f"Response {round_num} " * 30}
-                for j in range(3)
+                {"agent": f"agent_{j}", "content": f"Response {round_num} " * 30} for j in range(3)
             ]
             await context_manager.add_round(round_num, responses)
 
@@ -209,12 +206,14 @@ async def benchmark_event_streaming(iterations: int = 100) -> BenchmarkResult:
 
         # Simulate 100 events
         for i in range(100):
-            await event_handler({
-                "type": "agent_message",
-                "round": i // 3,
-                "agent": f"agent_{i % 3}",
-                "content": f"Message {i}",
-            })
+            await event_handler(
+                {
+                    "type": "agent_message",
+                    "round": i // 3,
+                    "agent": f"agent_{i % 3}",
+                    "content": f"Message {i}",
+                }
+            )
 
         elapsed = time.perf_counter() - start
         elapsed_ms = elapsed * 1000
@@ -229,13 +228,10 @@ async def benchmark_event_streaming(iterations: int = 100) -> BenchmarkResult:
 
 async def run_debate_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict[str, Any]:
     """Run all extended debate benchmarks."""
-    print("Running Extended Debate Benchmarks...")
-    print("-" * 40)
 
     results = {}
 
     # Warmup
-    print(f"Warming up ({warmup} iterations)...")
     await benchmark_event_streaming(warmup)
 
     benchmarks = [
@@ -246,15 +242,12 @@ async def run_debate_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict
     ]
 
     for name, bench_func in benchmarks:
-        print(f"  Running: {name}...")
         try:
             # Use fewer iterations for memory-intensive tests
             iters = iterations // 10 if "Memory" in name else iterations
             result = await bench_func(iters)
             results[result.name] = result.to_dict()
-            print(f"    p50: {result.p50_ms:.2f}ms, p99: {result.p99_ms:.2f}ms")
         except Exception as e:
-            print(f"    Failed: {e}")
             results[name.lower().replace(" ", "_")] = {"error": str(e)}
 
     return results
@@ -262,5 +255,3 @@ async def run_debate_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict
 
 if __name__ == "__main__":
     results = asyncio.run(run_debate_benchmarks())
-    import json
-    print(json.dumps(results, indent=2))

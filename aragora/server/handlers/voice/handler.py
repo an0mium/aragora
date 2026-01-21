@@ -65,7 +65,7 @@ class VoiceHandler:
             return False
 
         # Get full URL
-        url = str(request.url)
+        str(request.url)
 
         # Get POST params (need to await for body)
         # For now, skip verification if we can't get params synchronously

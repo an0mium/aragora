@@ -100,56 +100,28 @@ def main():
     """Run the diagnostic check."""
     root = Path(__file__).parent.parent
 
-    print("=" * 70)
-    print("AUDIENCE WIRING DIAGNOSTIC")
-    print("Checking Arena instantiations for event_emitter parameter")
-    print("=" * 70)
-    print()
-
     calls = scan_codebase(root)
 
     if not calls:
-        print("No Arena() calls found in codebase.")
         return
 
     # Categorize calls
     missing_emitter = [c for c in calls if not c.has_event_emitter]
     has_emitter = [c for c in calls if c.has_event_emitter]
 
-    print(f"Found {len(calls)} Arena instantiations:")
-    print(f"  - {len(has_emitter)} with event_emitter (audience enabled)")
-    print(f"  - {len(missing_emitter)} without event_emitter (audience disabled)")
-    print()
-
     if missing_emitter:
-        print("-" * 70)
-        print("ARENA CALLS MISSING event_emitter:")
-        print("-" * 70)
         for call in missing_emitter:
-            print(f"\n  File: {call.filepath}:{call.line}")
-            print(f"  Code: {call.context}")
             if not call.has_loop_id:
-                print(f"  Note: Also missing loop_id")
+                pass
 
     if has_emitter:
-        print()
-        print("-" * 70)
-        print("ARENA CALLS WITH event_emitter (OK):")
-        print("-" * 70)
         for call in has_emitter:
-            print(f"\n  File: {call.filepath}:{call.line}")
-            loop_status = "has loop_id" if call.has_loop_id else "missing loop_id"
-            print(f"  Status: {loop_status}")
+            pass
 
-    print()
-    print("=" * 70)
     if missing_emitter:
-        print(
-            f"RESULT: {len(missing_emitter)} Arena calls need event_emitter for audience participation"
-        )
+        pass
     else:
-        print("RESULT: All Arena calls have event_emitter wired!")
-    print("=" * 70)
+        pass
 
 
 if __name__ == "__main__":

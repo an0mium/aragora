@@ -13,14 +13,9 @@ Usage:
 """
 
 import asyncio
-import cProfile
-import pstats
-import io
 import sqlite3
 import time
 from pathlib import Path
-from datetime import datetime
-from typing import Optional
 
 
 class PerformanceProfiler:
@@ -217,7 +212,7 @@ class PerformanceProfiler:
 
                 # Retrieve patterns
                 start = time.perf_counter()
-                patterns = store.retrieve_patterns("test query", limit=10)
+                store.retrieve_patterns("test query", limit=10)
                 results["retrieve_ms"] = round((time.perf_counter() - start) * 1000, 2)
 
         except Exception as e:
@@ -227,72 +222,51 @@ class PerformanceProfiler:
 
     async def run_profile(self, full: bool = False) -> dict:
         """Run all profiling tests."""
-        print("=" * 60)
-        print("ARAGORA PERFORMANCE PROFILE")
-        print(f"Time: {datetime.now().isoformat()}")
-        print("=" * 60)
 
         # Import times
-        print("\n[1/5] Profiling import times...")
         self.results["imports"] = self.profile_import_times()
 
         # Arena creation
-        print("[2/5] Profiling Arena creation...")
         self.results["arena"] = self.profile_arena_creation()
 
         # ELO operations
-        print("[3/5] Profiling ELO operations...")
         self.results["elo"] = self.profile_elo_operations()
 
         # Memory operations
-        print("[4/5] Profiling memory operations...")
         self.results["memory"] = self.profile_memory_operations()
 
         # Database queries
-        print("[5/5] Profiling database queries...")
         self.results["database"] = self.profile_database_queries()
 
         # Summary
-        print("\n" + "=" * 60)
-        print("PROFILE SUMMARY")
-        print("=" * 60)
 
         # Import times
-        print("\n## Import Times (ms)")
         for imp in self.results.get("imports", {}).get("imports", []):
             if "error" not in imp:
-                print(f"  {imp['module']}: {imp['time_ms']}ms")
+                pass
 
         # Arena
-        print("\n## Arena Initialization")
         arena = self.results.get("arena", {})
         if "arena_init_ms" in arena:
-            print(f"  Init time: {arena['arena_init_ms']}ms")
+            pass
 
         # ELO
-        print("\n## ELO Operations")
         elo = self.results.get("elo", {})
         for key in ["init_ms", "100_matches_ms", "5_ratings_ms", "leaderboard_ms"]:
             if key in elo:
-                print(f"  {key}: {elo[key]}ms")
+                pass
 
         # Memory
-        print("\n## Memory Store Operations")
         memory = self.results.get("memory", {})
         for key in ["init_ms", "50_patterns_ms", "retrieve_ms"]:
             if key in memory:
-                print(f"  {key}: {memory[key]}ms")
+                pass
 
         # Database
-        print("\n## Database Tables")
         db = self.results.get("database", {})
         for query in db.get("queries", [])[:10]:
             if "error" not in query:
-                print(
-                    f"  {query['db']}/{query['table']}: {query['rows']} rows ({query['count_ms']}ms)"
-                )
-
-        print("\n" + "=" * 60)
+                pass
 
         return self.results
 

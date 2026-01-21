@@ -451,7 +451,6 @@ class SQLiteJobStore(JobStoreBackend):
         now = time.time()
         if should_retry and job.attempts < job.max_attempts:
             # Schedule retry
-            new_status = JobStatus.RETRYING
             conn = self._get_conn()
             conn.execute(
                 """UPDATE job_queue
@@ -543,9 +542,7 @@ class SQLiteJobStore(JobStoreBackend):
     async def get_stats(self) -> Dict[str, int]:
         """Get queue statistics."""
         conn = self._get_conn()
-        cursor = conn.execute(
-            """SELECT status, COUNT(*) FROM job_queue GROUP BY status"""
-        )
+        cursor = conn.execute("""SELECT status, COUNT(*) FROM job_queue GROUP BY status""")
         stats = {row[0]: row[1] for row in cursor.fetchall()}
         stats["total"] = sum(stats.values())
         return stats
@@ -654,7 +651,7 @@ class PostgresJobQueueStore(JobStoreBackend):
         job_types: Optional[List[str]] = None,
     ) -> Optional[QueuedJob]:
         """Get the next available job and mark it as processing."""
-        now = time.time()
+        time.time()
 
         async with self._pool.acquire() as conn:
             # Use FOR UPDATE SKIP LOCKED for atomic claim

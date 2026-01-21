@@ -111,9 +111,9 @@ class MockFHIRConnector:
 
         redacted = resource.copy()
 
-        for field in self.PHI_FIELDS:
-            if field in redacted:
-                redacted[field] = "[REDACTED]"
+        for phi_field in self.PHI_FIELDS:
+            if phi_field in redacted:
+                redacted[phi_field] = "[REDACTED]"
 
         return redacted
 

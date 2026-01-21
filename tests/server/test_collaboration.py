@@ -155,9 +155,7 @@ class TestCollaborationSession:
 
     def test_participant_count(self):
         """Counts participants."""
-        s = CollaborationSession(
-            session_id="s1", debate_id="d1", created_by="u1"
-        )
+        s = CollaborationSession(session_id="s1", debate_id="d1", created_by="u1")
         s.participants["u1"] = Participant(user_id="u1", session_id="s1")
         s.participants["u2"] = Participant(user_id="u2", session_id="s1")
 
@@ -165,9 +163,7 @@ class TestCollaborationSession:
 
     def test_online_count(self):
         """Counts online participants."""
-        s = CollaborationSession(
-            session_id="s1", debate_id="d1", created_by="u1"
-        )
+        s = CollaborationSession(session_id="s1", debate_id="d1", created_by="u1")
         s.participants["u1"] = Participant(user_id="u1", session_id="s1", is_online=True)
         s.participants["u2"] = Participant(user_id="u2", session_id="s1", is_online=False)
         s.participants["u3"] = Participant(user_id="u3", session_id="s1", is_online=True)
@@ -189,24 +185,20 @@ class TestCollaborationSession:
 
     def test_is_expired_no_expiry(self):
         """Not expired when no expiry set."""
-        s = CollaborationSession(
-            session_id="s1", debate_id="d1", created_by="u1"
-        )
+        s = CollaborationSession(session_id="s1", debate_id="d1", created_by="u1")
         assert s.is_expired is False
 
     def test_is_expired_future(self):
         """Not expired when expiry in future."""
         s = CollaborationSession(
-            session_id="s1", debate_id="d1", created_by="u1",
-            expires_at=time.time() + 3600
+            session_id="s1", debate_id="d1", created_by="u1", expires_at=time.time() + 3600
         )
         assert s.is_expired is False
 
     def test_is_expired_past(self):
         """Expired when expiry in past."""
         s = CollaborationSession(
-            session_id="s1", debate_id="d1", created_by="u1",
-            expires_at=time.time() - 1
+            session_id="s1", debate_id="d1", created_by="u1", expires_at=time.time() - 1
         )
         assert s.is_expired is True
 
@@ -229,9 +221,7 @@ class TestCollaborationSession:
 
     def test_to_dict_without_participants(self):
         """Serializes without participants."""
-        s = CollaborationSession(
-            session_id="s1", debate_id="d1", created_by="u1"
-        )
+        s = CollaborationSession(session_id="s1", debate_id="d1", created_by="u1")
         s.participants["u1"] = Participant(user_id="u1", session_id="s1")
 
         d = s.to_dict(include_participants=False)
@@ -420,9 +410,7 @@ class TestSessionManager:
         session = manager.create_session("d1", "u1")
         manager.join_session(session.session_id, "u2", role=ParticipantRole.VIEWER)
 
-        success, msg = manager.change_role(
-            session.session_id, "u2", ParticipantRole.VOTER, "u1"
-        )
+        success, msg = manager.change_role(session.session_id, "u2", ParticipantRole.VOTER, "u1")
 
         assert success is True
         assert session.participants["u2"].role == ParticipantRole.VOTER
@@ -433,9 +421,7 @@ class TestSessionManager:
         manager.join_session(session.session_id, "u2", role=ParticipantRole.VOTER)
         manager.join_session(session.session_id, "u3", role=ParticipantRole.VIEWER)
 
-        success, msg = manager.change_role(
-            session.session_id, "u3", ParticipantRole.VOTER, "u2"
-        )
+        success, msg = manager.change_role(session.session_id, "u3", ParticipantRole.VOTER, "u2")
 
         assert success is False
         assert "denied" in msg.lower()
@@ -444,9 +430,7 @@ class TestSessionManager:
         """Cannot change session creator's role."""
         session = manager.create_session("d1", "u1")
 
-        success, msg = manager.change_role(
-            session.session_id, "u1", ParticipantRole.VIEWER, "u1"
-        )
+        success, msg = manager.change_role(session.session_id, "u1", ParticipantRole.VIEWER, "u1")
 
         assert success is False
         assert "creator" in msg.lower()
@@ -463,9 +447,7 @@ class TestSessionManager:
         session.require_approval = True
         session.pending_approvals.append("u2")
 
-        success, msg = manager.approve_join(
-            session.session_id, "u2", "u1", approved=True
-        )
+        success, msg = manager.approve_join(session.session_id, "u2", "u1", approved=True)
 
         # approve_join triggers join_session internally
         # With require_approval still True, the join_session will re-trigger approval
@@ -482,9 +464,7 @@ class TestSessionManager:
         # Disable require_approval to allow the join to proceed
         session.require_approval = False
 
-        success, msg = manager.approve_join(
-            session.session_id, "u2", "u1", approved=True
-        )
+        success, msg = manager.approve_join(session.session_id, "u2", "u1", approved=True)
 
         assert success is True
         assert "u2" in session.participants
@@ -494,9 +474,7 @@ class TestSessionManager:
         session = manager.create_session("d1", "u1", require_approval=True)
         manager.join_session(session.session_id, "u2")
 
-        success, msg = manager.approve_join(
-            session.session_id, "u2", "u1", approved=False
-        )
+        success, msg = manager.approve_join(session.session_id, "u2", "u1", approved=False)
 
         assert success is True
         assert "u2" not in session.participants
@@ -556,7 +534,10 @@ class TestSessionManager:
     def test_remove_event_handler(self, manager):
         """Event handlers can be removed."""
         events = []
-        handler = lambda e: events.append(e)
+
+        def handler(e):
+            return events.append(e)
+
         manager.add_event_handler(handler)
         manager.remove_event_handler(handler)
 

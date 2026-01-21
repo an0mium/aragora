@@ -174,8 +174,8 @@ class TestDebateStateManager:
         loops = manager.get_loop_list()
 
         assert len(loops) == 2
-        assert any(l["loop_id"] == "loop_001" for l in loops)
-        assert any(l["loop_id"] == "loop_002" for l in loops)
+        assert any(loop["loop_id"] == "loop_001" for loop in loops)
+        assert any(loop["loop_id"] == "loop_002" for loop in loops)
 
     def test_debate_state_operations(self, manager):
         """Test debate state get/set/remove."""

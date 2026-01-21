@@ -107,7 +107,9 @@ class MarketplaceTemplate:
         return {
             "id": self.id,
             "name": self.name,
-            "description": self.description[:200] + "..." if len(self.description) > 200 else self.description,
+            "description": self.description[:200] + "..."
+            if len(self.description) > 200
+            else self.description,
             "category": self.category,
             "pattern": self.pattern,
             "author_name": self.author_name,
@@ -165,6 +167,7 @@ def _init_persistent_store() -> bool:
     global _use_persistent_store, _persistent_store
     try:
         from aragora.storage.marketplace_store import get_marketplace_store
+
         _persistent_store = get_marketplace_store()
         _use_persistent_store = True
         logger.info("Template marketplace using persistent SQLite storage")
@@ -288,9 +291,7 @@ class TemplateMarketplaceHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/marketplace/")
 
-    def handle(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route marketplace requests."""
         # Ensure marketplace is seeded
         _seed_marketplace_templates()
@@ -375,14 +376,16 @@ class TemplateMarketplaceHandler(BaseHandler):
         if tags:
             tag_list = [t.strip().lower() for t in tags.split(",")]
             templates = [
-                t for t in templates
+                t
+                for t in templates
                 if any(tag.lower() in [x.lower() for x in t.tags] for tag in tag_list)
             ]
 
         if search:
             search_lower = search.lower()
             templates = [
-                t for t in templates
+                t
+                for t in templates
                 if search_lower in t.name.lower()
                 or search_lower in t.description.lower()
                 or any(search_lower in tag.lower() for tag in t.tags)
@@ -402,14 +405,16 @@ class TemplateMarketplaceHandler(BaseHandler):
         total = len(templates)
 
         # Apply pagination
-        templates = templates[offset:offset + limit]
+        templates = templates[offset : offset + limit]
 
-        return json_response({
-            "templates": [t.to_summary() for t in templates],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "templates": [t.to_summary() for t in templates],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("get marketplace template")
     def _get_template(self, template_id: str) -> HandlerResult:
@@ -437,9 +442,9 @@ class TemplateMarketplaceHandler(BaseHandler):
 
         # Validate required fields
         required = ["name", "description", "category", "pattern", "workflow_definition"]
-        for field in required:
-            if field not in data:
-                return error_response(f"Missing required field: {field}", 400)
+        for required_field in required:
+            if required_field not in data:
+                return error_response(f"Missing required field: {required_field}", 400)
 
         # Generate ID
         template_id = f"{data['category']}/{data['name'].lower().replace(' ', '-')}"
@@ -468,11 +473,14 @@ class TemplateMarketplaceHandler(BaseHandler):
 
         _marketplace_templates[template_id] = template
 
-        return json_response({
-            "status": "published",
-            "template_id": template_id,
-            "template": template.to_summary(),
-        }, status=201)
+        return json_response(
+            {
+                "status": "published",
+                "template_id": template_id,
+                "template": template.to_summary(),
+            },
+            status=201,
+        )
 
     @handle_errors("rate template")
     def _rate_template(self, template_id: str, handler: Any, client_ip: str) -> HandlerResult:
@@ -516,13 +524,15 @@ class TemplateMarketplaceHandler(BaseHandler):
             _user_ratings[user_id] = {}
         _user_ratings[user_id][template_id] = rating
 
-        return json_response({
-            "status": "rated",
-            "template_id": template_id,
-            "your_rating": rating,
-            "average_rating": round(template.rating, 2),
-            "rating_count": template.rating_count,
-        })
+        return json_response(
+            {
+                "status": "rated",
+                "template_id": template_id,
+                "your_rating": rating,
+                "average_rating": round(template.rating, 2),
+                "rating_count": template.rating_count,
+            }
+        )
 
     @handle_errors("get reviews")
     def _get_reviews(self, template_id: str, query_params: dict) -> HandlerResult:
@@ -537,14 +547,16 @@ class TemplateMarketplaceHandler(BaseHandler):
         # Sort by most helpful
         reviews_sorted = sorted(reviews, key=lambda r: r.helpful_count, reverse=True)
         total = len(reviews_sorted)
-        reviews_page = reviews_sorted[offset:offset + limit]
+        reviews_page = reviews_sorted[offset : offset + limit]
 
-        return json_response({
-            "reviews": [r.to_dict() for r in reviews_page],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "reviews": [r.to_dict() for r in reviews_page],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     @handle_errors("submit review")
     def _submit_review(self, template_id: str, handler: Any, client_ip: str) -> HandlerResult:
@@ -590,10 +602,13 @@ class TemplateMarketplaceHandler(BaseHandler):
         template.rating_count += 1
         template.rating = (total + rating) / template.rating_count
 
-        return json_response({
-            "status": "submitted",
-            "review": review.to_dict(),
-        }, status=201)
+        return json_response(
+            {
+                "status": "submitted",
+                "review": review.to_dict(),
+            },
+            status=201,
+        )
 
     @handle_errors("import template")
     def _import_template(self, template_id: str, handler: Any) -> HandlerResult:
@@ -616,31 +631,32 @@ class TemplateMarketplaceHandler(BaseHandler):
         template.download_count += 1
 
         # Return the full template definition for import
-        return json_response({
-            "status": "imported",
-            "template_id": template_id,
-            "workspace_id": workspace_id,
-            "workflow_definition": template.workflow_definition,
-            "input_schema": template.input_schema,
-            "output_schema": template.output_schema,
-            "documentation": template.documentation,
-            "download_count": template.download_count,
-        })
+        return json_response(
+            {
+                "status": "imported",
+                "template_id": template_id,
+                "workspace_id": workspace_id,
+                "workflow_definition": template.workflow_definition,
+                "input_schema": template.input_schema,
+                "output_schema": template.output_schema,
+                "documentation": template.documentation,
+                "download_count": template.download_count,
+            }
+        )
 
     @handle_errors("get featured")
     def _get_featured(self) -> HandlerResult:
         """Get featured marketplace templates."""
-        featured = [
-            t.to_summary() for t in _marketplace_templates.values()
-            if t.is_featured
-        ]
+        featured = [t.to_summary() for t in _marketplace_templates.values() if t.is_featured]
         # Sort by rating
         featured.sort(key=lambda t: t["rating"], reverse=True)
 
-        return json_response({
-            "featured": featured[:10],
-            "total": len(featured),
-        })
+        return json_response(
+            {
+                "featured": featured[:10],
+                "total": len(featured),
+            }
+        )
 
     @handle_errors("get trending")
     def _get_trending(self, query_params: dict) -> HandlerResult:
@@ -651,16 +667,16 @@ class TemplateMarketplaceHandler(BaseHandler):
         # In production, this would factor in recent downloads, ratings, etc.
         # For now, sort by download count
         templates = sorted(
-            _marketplace_templates.values(),
-            key=lambda t: t.download_count,
-            reverse=True
+            _marketplace_templates.values(), key=lambda t: t.download_count, reverse=True
         )[:limit]
 
-        return json_response({
-            "trending": [t.to_summary() for t in templates],
-            "period": period,
-            "total": len(templates),
-        })
+        return json_response(
+            {
+                "trending": [t.to_summary() for t in templates],
+                "period": period,
+                "total": len(templates),
+            }
+        )
 
     @handle_errors("get categories")
     def _get_categories(self) -> HandlerResult:
@@ -682,7 +698,9 @@ class TemplateMarketplaceHandler(BaseHandler):
         categories = list(category_counts.values())
         categories.sort(key=lambda c: c["template_count"], reverse=True)
 
-        return json_response({
-            "categories": categories,
-            "total": len(categories),
-        })
+        return json_response(
+            {
+                "categories": categories,
+                "total": len(categories),
+            }
+        )

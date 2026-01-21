@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SlackActivitySignal:
     """Signal from Slack activity."""
+
     user_email: str
     is_online: bool = False
     active_channels: List[str] = field(default_factory=list)
@@ -62,6 +63,7 @@ class SlackActivitySignal:
 @dataclass
 class DriveActivitySignal:
     """Signal from Google Drive activity."""
+
     user_email: str
     recently_edited_files: List[str] = field(default_factory=list)
     recently_viewed_files: List[str] = field(default_factory=list)
@@ -72,6 +74,7 @@ class DriveActivitySignal:
 @dataclass
 class CalendarSignal:
     """Signal from Google Calendar."""
+
     user_email: str
     upcoming_meetings: List[Dict[str, Any]] = field(default_factory=list)
     busy_periods: List[tuple[datetime, datetime]] = field(default_factory=list)
@@ -82,6 +85,7 @@ class CalendarSignal:
 @dataclass
 class ChannelContext:
     """Unified context from all channels."""
+
     user_email: str
     timestamp: datetime = field(default_factory=datetime.now)
 
@@ -114,21 +118,30 @@ class ChannelContext:
                 "active_channels": self.slack.active_channels if self.slack else [],
                 "recent_mentions": self.slack.recent_mentions if self.slack else 0,
                 "activity_score": self.slack.activity_score if self.slack else 0.0,
-            } if self.slack else None,
+            }
+            if self.slack
+            else None,
             "drive": {
                 "recently_edited_count": len(self.drive.recently_edited_files) if self.drive else 0,
                 "activity_score": self.drive.activity_score if self.drive else 0.0,
-            } if self.drive else None,
+            }
+            if self.drive
+            else None,
             "calendar": {
-                "upcoming_meetings_count": len(self.calendar.upcoming_meetings) if self.calendar else 0,
+                "upcoming_meetings_count": len(self.calendar.upcoming_meetings)
+                if self.calendar
+                else 0,
                 "meeting_density": self.calendar.meeting_density_score if self.calendar else 0.0,
-            } if self.calendar else None,
+            }
+            if self.calendar
+            else None,
         }
 
 
 @dataclass
 class EmailContextBoost:
     """Context-based priority boosts for an email."""
+
     email_id: str
 
     # Boost scores (0-1, applied as multipliers)
@@ -149,11 +162,7 @@ class EmailContextBoost:
     @property
     def total_boost(self) -> float:
         """Total combined boost."""
-        return (
-            self.slack_activity_boost +
-            self.drive_relevance_boost +
-            self.calendar_urgency_boost
-        )
+        return self.slack_activity_boost + self.drive_relevance_boost + self.calendar_urgency_boost
 
 
 class CrossChannelContextService:
@@ -272,7 +281,9 @@ class CrossChannelContextService:
             # Check for urgent thread correlation
             if sender_context.slack.urgent_threads:
                 boost.slack_activity_boost += 0.1
-                boost.slack_reason += f" with {len(sender_context.slack.urgent_threads)} urgent threads"
+                boost.slack_reason += (
+                    f" with {len(sender_context.slack.urgent_threads)} urgent threads"
+                )
 
             boost.related_slack_channels = sender_context.slack.active_channels[:3]
 
@@ -328,7 +339,7 @@ class CrossChannelContextService:
 
             # Get recent messages from user
             try:
-                cutoff = datetime.now() - timedelta(hours=lookback_hours)
+                datetime.now() - timedelta(hours=lookback_hours)
                 messages = await self.slack.search_messages(
                     query=f"from:<@{slack_user_id}>",
                     count=20,
@@ -346,9 +357,12 @@ class CrossChannelContextService:
 
                     # Count urgent thread indicators
                     urgent_count = sum(
-                        1 for msg in messages
-                        if any(kw in msg.get("text", "").lower()
-                               for kw in ["urgent", "asap", "blocker", "critical"])
+                        1
+                        for msg in messages
+                        if any(
+                            kw in msg.get("text", "").lower()
+                            for kw in ["urgent", "asap", "blocker", "critical"]
+                        )
                     )
                     if urgent_count > 0:
                         signal.urgent_threads = [m.get("ts") for m in messages[:urgent_count]]
@@ -386,9 +400,7 @@ class CrossChannelContextService:
         # Check persistent store
         if self._store:
             try:
-                mapping = await self._store.get_user_mapping(
-                    email, "slack", self._user_id
-                )
+                mapping = await self._store.get_user_mapping(email, "slack", self._user_id)
                 if mapping:
                     # Populate in-memory cache
                     self._email_to_slack_id[email] = mapping.platform_user_id
@@ -451,19 +463,108 @@ class CrossChannelContextService:
         words = set(text.lower().split())
 
         # Remove common words
-        stopwords = {"the", "a", "an", "is", "are", "was", "were", "be", "been",
-                     "have", "has", "had", "do", "does", "did", "will", "would",
-                     "could", "should", "may", "might", "must", "shall", "can",
-                     "and", "or", "but", "if", "then", "else", "when", "where",
-                     "which", "who", "whom", "this", "that", "these", "those",
-                     "i", "you", "he", "she", "it", "we", "they", "me", "him",
-                     "her", "us", "them", "my", "your", "his", "its", "our",
-                     "their", "for", "to", "from", "with", "at", "by", "on",
-                     "in", "of", "about", "into", "through", "during", "before",
-                     "after", "above", "below", "between", "under", "again",
-                     "further", "once", "here", "there", "all", "each", "few",
-                     "more", "most", "other", "some", "such", "no", "nor", "not",
-                     "only", "own", "same", "so", "than", "too", "very", "just"}
+        stopwords = {
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "and",
+            "or",
+            "but",
+            "if",
+            "then",
+            "else",
+            "when",
+            "where",
+            "which",
+            "who",
+            "whom",
+            "this",
+            "that",
+            "these",
+            "those",
+            "i",
+            "you",
+            "he",
+            "she",
+            "it",
+            "we",
+            "they",
+            "me",
+            "him",
+            "her",
+            "us",
+            "them",
+            "my",
+            "your",
+            "his",
+            "its",
+            "our",
+            "their",
+            "for",
+            "to",
+            "from",
+            "with",
+            "at",
+            "by",
+            "on",
+            "in",
+            "of",
+            "about",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "under",
+            "again",
+            "further",
+            "once",
+            "here",
+            "there",
+            "all",
+            "each",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "not",
+            "only",
+            "own",
+            "same",
+            "so",
+            "than",
+            "too",
+            "very",
+            "just",
+        }
         keywords = words - stopwords
 
         # Query knowledge mound for related content
@@ -504,9 +605,8 @@ class CrossChannelContextService:
 
         # Determine if user is likely busy
         context.is_likely_busy = (
-            (context.calendar and context.calendar.meeting_density_score > 0.7) or
-            context.overall_activity_score > 0.8
-        )
+            context.calendar and context.calendar.meeting_density_score > 0.7
+        ) or context.overall_activity_score > 0.8
 
         # Suggest response window
         if context.is_likely_busy:
@@ -543,9 +643,7 @@ class CrossChannelContextService:
             return 0
 
         try:
-            mappings = await self._store.list_user_mappings(
-                platform="slack", user_id=self._user_id
-            )
+            mappings = await self._store.list_user_mappings(platform="slack", user_id=self._user_id)
             for mapping in mappings:
                 self._email_to_slack_id[mapping.email] = mapping.platform_user_id
 
@@ -579,12 +677,14 @@ async def create_context_service(
 
     if slack_token:
         from aragora.connectors.enterprise.collaboration.slack import SlackConnector
+
         slack_connector = SlackConnector()
         await slack_connector.authenticate(token=slack_token)
 
     # Get integration store for persistent mappings
     try:
         from aragora.storage.integration_store import get_integration_store
+
         integration_store = get_integration_store()
     except (ImportError, ModuleNotFoundError) as e:
         logger.debug(f"Integration store module not available: {e}")

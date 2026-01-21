@@ -757,8 +757,6 @@ class TestResourceLimits:
     @pytest.mark.asyncio
     async def test_max_steps_limit(self) -> None:
         """Test that max steps limit is enforced."""
-        from aragora.workflow.engine_v2 import EnhancedWorkflowEngine, ResourceLimits
-
         engine = EnhancedWorkflowEngine(
             limits=ResourceLimits(max_api_calls=3),
             config=WorkflowConfig(),

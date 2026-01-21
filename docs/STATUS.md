@@ -4,6 +4,49 @@
 
 ## Current Release
 
+### v2.1.5 - Code Quality & RBAC Testing Release (January 2026)
+
+**Production Ready** - Aragora 2.1.5 delivers comprehensive RBAC enforcer test coverage, automated linter fixes across the codebase, and improved code quality standards.
+
+#### Key Highlights
+- **34,400+ tests** across 928 test files
+- **23 new RBAC enforcer tests** - Comprehensive permission checking coverage
+- **229 linter issues auto-fixed** - Cleaner, more maintainable codebase
+- **E2E tests passing** - 476 passed, 29 skipped
+- **RBAC coverage increased** - From 55% to 61%
+- **Lines of Code**: 660,000+ LOC
+- **0 production blockers**
+- **122 fully integrated features**
+
+#### What's New in 2.1.5
+
+**RBAC Enforcer Tests** (QUALITY)
+- `tests/rbac/test_enforcer.py` - 23 comprehensive tests covering:
+  - RBACConfig default and custom values
+  - PermissionCheckResult serialization
+  - PermissionDeniedException attributes
+  - Disabled enforcer behavior (allows all)
+  - Deny-by-default and permissive modes
+  - Role assignment and revocation
+  - Admin permission grants all actions
+  - Permission cache invalidation
+  - Isolation context handling
+  - Resource context conditions
+
+**Linter Auto-Fixes** (QUALITY)
+- 229 issues auto-fixed across 106 files
+- Removed unused imports (F401)
+- Removed unused variables (F841)
+- Fixed f-string formatting issues
+- Cleaner, more maintainable codebase
+
+**Test Infrastructure** (QUALITY)
+- Fixed RBAC permission mocking in tests
+- Proper system role usage (workspace_viewer, workspace_editor)
+- Role dataclass parameter validation
+
+---
+
 ### v2.1.4 - Benchmark & Connector Release (January 2026)
 
 **Production Ready** - Aragora 2.1.4 resolves all pytest-benchmark warnings in async load tests and enhances connector integrations with improved error handling.

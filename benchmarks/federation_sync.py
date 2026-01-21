@@ -174,10 +174,9 @@ class MockFederationStore:
         # Simulate filtering
         await asyncio.sleep(0.001)
 
-        items = [
-            item for item in self.items.values()
-            if item["visibility"] in visibility_levels
-        ][:limit]
+        items = [item for item in self.items.values() if item["visibility"] in visibility_levels][
+            :limit
+        ]
 
         # Apply scope filtering
         if scope == "metadata":
@@ -195,7 +194,9 @@ class MockFederationStore:
         await asyncio.sleep(0.005 * len(items) / 100)
         return len(items)
 
-    async def pull_from_remote(self, region_id: str, since: Optional[datetime] = None) -> List[Dict]:
+    async def pull_from_remote(
+        self, region_id: str, since: Optional[datetime] = None
+    ) -> List[Dict]:
         """Simulate pulling items from remote region."""
         # Simulate network latency and return random items
         await asyncio.sleep(0.01)
@@ -391,10 +392,7 @@ async def benchmark_multi_region_sync(
         )
 
         # Sync to all regions concurrently
-        tasks = [
-            store.push_to_remote(f"region_{i}", items)
-            for i in range(num_regions)
-        ]
+        tasks = [store.push_to_remote(f"region_{i}", items) for i in range(num_regions)]
         await asyncio.gather(*tasks)
 
         elapsed = (time.perf_counter() - start) * 1000
@@ -453,13 +451,6 @@ async def run_benchmarks(
     iterations: int = 100,
 ) -> List[BenchmarkResult]:
     """Run all federation sync benchmarks."""
-    print(f"\n{'='*60}")
-    print("Federation Sync Benchmarks")
-    print(f"{'='*60}")
-    print(f"Item count: {item_count}")
-    print(f"Regions: {num_regions}")
-    print(f"Iterations: {iterations}")
-    print(f"{'='*60}\n")
 
     # Create mock store with test data
     store = MockFederationStore(item_count)
@@ -467,60 +458,33 @@ async def run_benchmarks(
     results = []
 
     # Run benchmarks
-    print("Running region registration benchmark...")
     result = await benchmark_region_registration(store, num_regions, iterations)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running push sync benchmark (100 items)...")
     result = await benchmark_push_sync(store, 100, iterations)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running push sync benchmark (500 items)...")
     result = await benchmark_push_sync(store, 500, iterations // 2)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running pull sync benchmark...")
     result = await benchmark_pull_sync(store, iterations)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running scope filtering benchmark...")
     result = await benchmark_scope_filtering(store, iterations // 3)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running bidirectional sync benchmark...")
     result = await benchmark_bidirectional_sync(store, 100, iterations // 2)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running multi-region sync benchmark...")
     result = await benchmark_multi_region_sync(store, num_regions, 100, iterations // 2)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running status query benchmark...")
     result = await benchmark_status_query(store, num_regions * 2, iterations)
-    print(result)
     results.append(result)
-    print()
 
     # Summary
-    print(f"{'='*60}")
-    print("SUMMARY")
-    print(f"{'='*60}")
     for r in results:
-        print(f"  {r.name}: {r.mean_latency_ms:.3f}ms avg, {r.throughput_ops_per_sec:.1f} ops/sec")
+        pass
 
     return results
 

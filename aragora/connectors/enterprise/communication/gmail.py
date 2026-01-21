@@ -345,6 +345,7 @@ class GmailConnector(EnterpriseConnector):
     def _get_client(self):
         """Get HTTP client context manager for API requests."""
         import httpx
+
         return httpx.AsyncClient(timeout=60)
 
     async def get_user_info(self) -> Dict[str, Any]:
@@ -735,7 +736,9 @@ class GmailConnector(EnterpriseConnector):
                     msg = await self.get_message(msg_id)
 
                     # Skip excluded labels
-                    if self.exclude_labels and any(l in self.exclude_labels for l in msg.labels):
+                    if self.exclude_labels and any(
+                        lbl in self.exclude_labels for lbl in msg.labels
+                    ):
                         continue
 
                     yield self._message_to_sync_item(msg)
@@ -778,7 +781,9 @@ class GmailConnector(EnterpriseConnector):
                     msg = await self.get_message(msg_id)
 
                     # Skip excluded labels
-                    if self.exclude_labels and any(l in self.exclude_labels for l in msg.labels):
+                    if self.exclude_labels and any(
+                        lbl in self.exclude_labels for lbl in msg.labels
+                    ):
                         continue
 
                     yield self._message_to_sync_item(msg)
@@ -860,9 +865,7 @@ class GmailConnector(EnterpriseConnector):
 
             if response.status_code != 200:
                 error = response.json().get("error", {})
-                raise RuntimeError(
-                    f"Failed to send email: {error.get('message', response.text)}"
-                )
+                raise RuntimeError(f"Failed to send email: {error.get('message', response.text)}")
 
             result = response.json()
             logger.info(f"[Gmail] Sent message: {result.get('id')}")
@@ -912,7 +915,9 @@ class GmailConnector(EnterpriseConnector):
 
         # Determine reply recipients (reply to sender, CC original recipients)
         to = [original.from_address]
-        reply_cc = list(set(original.to_addresses + original.cc_addresses) - {original.from_address})
+        reply_cc = list(
+            set(original.to_addresses + original.cc_addresses) - {original.from_address}
+        )
         if cc:
             reply_cc.extend(cc)
 
@@ -951,12 +956,12 @@ class GmailConnector(EnterpriseConnector):
 
             if response.status_code != 200:
                 error = response.json().get("error", {})
-                raise RuntimeError(
-                    f"Failed to send reply: {error.get('message', response.text)}"
-                )
+                raise RuntimeError(f"Failed to send reply: {error.get('message', response.text)}")
 
             result = response.json()
-            logger.info(f"[Gmail] Sent reply: {result.get('id')} in thread {result.get('threadId')}")
+            logger.info(
+                f"[Gmail] Sent reply: {result.get('id')} in thread {result.get('threadId')}"
+            )
 
             return {
                 "message_id": result.get("id"),

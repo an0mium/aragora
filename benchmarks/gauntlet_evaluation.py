@@ -13,7 +13,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.gauntlet import GauntletRunner, GauntletConfig, AttackCategory
 
@@ -220,20 +220,11 @@ async def main() -> int:
 
     summary = summarize(results)
 
-    print("\nGAUNTLET EVALUATION SUMMARY")
-    print("=" * 60)
     for key, value in summary.items():
-        print(f"{key:>22}: {value}")
+        pass
 
-    print("\nDETAILS")
-    print("-" * 60)
     for result in results:
-        print(
-            f"{result['fixture_id']}: quality={result['quality_score']}, "
-            f"latency={result['latency_seconds']}s, "
-            f"coverage={result['coverage_score']}, "
-            f"verdict={result['verdict']}"
-        )
+        pass
 
     if args.output:
         output_path = Path(args.output)
@@ -247,7 +238,6 @@ async def main() -> int:
                 indent=2,
             )
         )
-        print(f"\nSaved results to {output_path}")
 
     return 0
 

@@ -77,10 +77,12 @@ def sendgrid_form_data():
         "text": "I agree with the consensus.\n\n--\nOn Mon, Jan 20, 2026...",
         "html": "<p>I agree with the consensus.</p>",
         "headers": "Message-ID: <msg123@example.com>\r\nReferences: <debate-abc123@aragora>",
-        "envelope": json.dumps({
-            "from": "user@example.com",
-            "to": ["debate@aragora.example.com"],
-        }),
+        "envelope": json.dumps(
+            {
+                "from": "user@example.com",
+                "to": ["debate@aragora.example.com"],
+            }
+        ),
     }
 
 
@@ -91,23 +93,25 @@ def ses_notification():
         "Type": "Notification",
         "MessageId": "sns-msg-123",
         "TopicArn": "arn:aws:sns:us-east-1:123456:aragora-emails",
-        "Message": json.dumps({
-            "notificationType": "Received",
-            "mail": {
-                "messageId": "ses-msg-456",
-                "source": "user@example.com",
-                "destination": ["debate@aragora.example.com"],
-                "commonHeaders": {
-                    "from": ["user@example.com"],
-                    "to": ["debate@aragora.example.com"],
-                    "subject": "Re: [Aragora Debate-xyz789] Climate Policy",
+        "Message": json.dumps(
+            {
+                "notificationType": "Received",
+                "mail": {
+                    "messageId": "ses-msg-456",
+                    "source": "user@example.com",
+                    "destination": ["debate@aragora.example.com"],
+                    "commonHeaders": {
+                        "from": ["user@example.com"],
+                        "to": ["debate@aragora.example.com"],
+                        "subject": "Re: [Aragora Debate-xyz789] Climate Policy",
+                    },
                 },
-            },
-            "receipt": {
-                "action": {"type": "S3", "bucketName": "emails", "objectKey": "email.eml"},
-            },
-            "content": "From: user@example.com\r\nTo: debate@aragora.example.com\r\n\r\nI disagree strongly.",
-        }),
+                "receipt": {
+                    "action": {"type": "S3", "bucketName": "emails", "objectKey": "email.eml"},
+                },
+                "content": "From: user@example.com\r\nTo: debate@aragora.example.com\r\n\r\nI disagree strongly.",
+            }
+        ),
         "Timestamp": "2026-01-20T10:00:00.000Z",
         "Signature": "test_signature",
         "SigningCertURL": "https://sns.us-east-1.amazonaws.com/cert.pem",
@@ -209,6 +213,7 @@ class TestSendGridWebhook:
         """Test successful SendGrid webhook processing."""
         # Create urlencoded form data
         from urllib.parse import urlencode
+
         body = urlencode(sendgrid_form_data).encode()
 
         mock_http = MockHandler(
@@ -222,15 +227,17 @@ class TestSendGridWebhook:
             method="POST",
         )
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.parse_sendgrid_webhook"
-        ) as mock_parse, patch(
-            "aragora.integrations.email_reply_loop.handle_email_reply",
-            new_callable=AsyncMock,
-        ) as mock_handle:
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
+                return_value=True,
+            ),
+            patch("aragora.integrations.email_reply_loop.parse_sendgrid_webhook") as mock_parse,
+            patch(
+                "aragora.integrations.email_reply_loop.handle_email_reply",
+                new_callable=AsyncMock,
+            ) as mock_handle,
+        ):
             # Configure mock email data
             mock_email = MagicMock()
             mock_email.message_id = "msg-123"
@@ -284,9 +291,7 @@ class TestSendGridWebhook:
             method="POST",
         )
 
-        with patch(
-            "aragora.server.handlers.bots.email_webhook.EMAIL_INBOUND_ENABLED", False
-        ):
+        with patch("aragora.server.handlers.bots.email_webhook.EMAIL_INBOUND_ENABLED", False):
             result = handler.handle_post("/api/bots/email/webhook/sendgrid", {}, mock_http)
 
         assert result is not None
@@ -314,14 +319,16 @@ class TestSESWebhook:
             method="POST",
         )
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.parse_ses_notification"
-        ) as mock_parse, patch(
-            "aragora.integrations.email_reply_loop.handle_email_reply",
-            new_callable=AsyncMock,
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch("aragora.integrations.email_reply_loop.parse_ses_notification") as mock_parse,
+            patch(
+                "aragora.integrations.email_reply_loop.handle_email_reply",
+                new_callable=AsyncMock,
+            ),
         ):
             mock_email = MagicMock()
             mock_email.message_id = "ses-msg-456"
@@ -421,12 +428,15 @@ class TestSESWebhook:
             method="POST",
         )
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_ses_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.parse_ses_notification",
-            return_value=None,  # Not an email receipt
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_ses_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.parse_ses_notification",
+                return_value=None,  # Not an email receipt
+            ),
         ):
             result = handler.handle_post("/api/bots/email/webhook/ses", {}, mock_http)
 
@@ -459,18 +469,16 @@ class TestFormDataParsing:
         """Test parsing multipart form data."""
         boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
         body = (
-            f"------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
-            f'Content-Disposition: form-data; name="from"\r\n\r\n'
-            f"test@example.com\r\n"
-            f"------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
-            f'Content-Disposition: form-data; name="text"\r\n\r\n'
-            f"Hello multipart\r\n"
-            f"------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n"
+            "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
+            'Content-Disposition: form-data; name="from"\r\n\r\n'
+            "test@example.com\r\n"
+            "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
+            'Content-Disposition: form-data; name="text"\r\n\r\n'
+            "Hello multipart\r\n"
+            "------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n"
         ).encode()
 
-        result = handler._parse_form_data(
-            body, f"multipart/form-data; boundary={boundary}"
-        )
+        result = handler._parse_form_data(body, f"multipart/form-data; boundary={boundary}")
 
         # May not parse perfectly in all Python versions, but should not crash
         assert isinstance(result, dict)
@@ -522,12 +530,15 @@ class TestErrorHandling:
             method="POST",
         )
 
-        with patch(
-            "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
-            return_value=True,
-        ), patch(
-            "aragora.integrations.email_reply_loop.parse_sendgrid_webhook",
-            side_effect=ValueError("Parse error"),
+        with (
+            patch(
+                "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
+                return_value=True,
+            ),
+            patch(
+                "aragora.integrations.email_reply_loop.parse_sendgrid_webhook",
+                side_effect=ValueError("Parse error"),
+            ),
         ):
             result = handler.handle_post("/api/bots/email/webhook/sendgrid", {}, mock_http)
 

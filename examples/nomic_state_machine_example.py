@@ -19,12 +19,9 @@ import logging
 from pathlib import Path
 
 from aragora.nomic import (
-    NomicStateMachine,
     NomicState,
     StateContext,
     Event,
-    CheckpointManager,
-    RecoveryManager,
     create_nomic_state_machine,
 )
 
@@ -146,9 +143,6 @@ async def simple_recovery_handler(context: StateContext, event: Event):
 
 async def run_example():
     """Run the state machine example."""
-    print("\n" + "=" * 60)
-    print("Nomic State Machine Example")
-    print("=" * 60 + "\n")
 
     # Create checkpoint directory
     checkpoint_dir = Path(".nomic/example_checkpoints")
@@ -171,16 +165,15 @@ async def run_example():
 
     # Register callbacks for visibility
     def on_transition(from_state, to_state, event):
-        print(f"  -> Transition: {from_state.name} -> {to_state.name}")
+        pass
 
     def on_error(state, error):
-        print(f"  !! Error in {state.name}: {error}")
+        pass
 
     machine.on_transition(on_transition)
     machine.on_error(on_error)
 
     # Start the cycle
-    print("Starting nomic loop cycle...\n")
     await machine.start()
 
     # Wait for completion (in real usage, this would be event-driven)
@@ -188,31 +181,18 @@ async def run_example():
         await asyncio.sleep(0.1)
 
     # Show results
-    print("\n" + "-" * 60)
-    print("Cycle Complete!")
-    print("-" * 60)
 
     metrics = machine.get_metrics()
-    print(f"\nFinal State: {metrics['current_state']}")
-    print(f"Cycle ID: {metrics['cycle_id']}")
-    print(f"Events Logged: {metrics['event_count']}")
-    print(f"Errors: {metrics['error_count']}")
 
     if metrics["state_durations"]:
-        print("\nState Durations:")
         for state, duration in metrics["state_durations"].items():
-            print(f"  {state}: {duration:.2f}s")
-
-    print("\n" + "=" * 60 + "\n")
+            pass
 
     return machine
 
 
 async def run_recovery_example():
     """Demonstrate error recovery."""
-    print("\n" + "=" * 60)
-    print("Recovery Example (simulating failure)")
-    print("=" * 60 + "\n")
 
     machine = create_nomic_state_machine(enable_checkpoints=False)
 
@@ -233,27 +213,19 @@ async def run_recovery_example():
     machine.register_handler(NomicState.COMMIT, simple_commit_handler)
     machine.register_handler(NomicState.RECOVERY, simple_recovery_handler)
 
-    print("Starting cycle with simulated failures...\n")
     await machine.start()
 
     while machine.running:
         await asyncio.sleep(0.1)
 
-    metrics = machine.get_metrics()
-    print(f"\nFinal State: {metrics['current_state']}")
-    print(f"Total Errors: {metrics['error_count']}")
-    print(f"Failures simulated: {failure_count[0]}")
+    machine.get_metrics()
 
     return machine
 
 
 if __name__ == "__main__":
-    print("Running Nomic State Machine Examples")
-
     # Run main example
     asyncio.run(run_example())
 
     # Run recovery example
     asyncio.run(run_recovery_example())
-
-    print("Examples complete!")

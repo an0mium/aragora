@@ -463,40 +463,83 @@ class RedisOAuthStateStore(OAuthStateStore):
 
 
 class FallbackOAuthStateStore(OAuthStateStore):
-    """OAuth state store with automatic Redis fallback to in-memory."""
+    """OAuth state store with automatic fallback chain: Redis -> SQLite -> In-memory.
 
-    def __init__(self, redis_url: str = REDIS_URL, max_memory_size: int = MAX_OAUTH_STATES):
+    Priority:
+    1. Redis (if REDIS_URL configured and available) - for multi-instance deployments
+    2. SQLite (persistent) - for single-instance with persistence across restarts
+    3. In-memory (volatile) - last resort fallback
+    """
+
+    def __init__(
+        self,
+        redis_url: str = REDIS_URL,
+        sqlite_path: str = "aragora_oauth.db",
+        max_memory_size: int = MAX_OAUTH_STATES,
+        use_sqlite: bool = True,
+    ):
         self._redis_store: Optional[RedisOAuthStateStore] = None
+        self._sqlite_store: Optional[SQLiteOAuthStateStore] = None
         self._memory_store = InMemoryOAuthStateStore(max_size=max_memory_size)
         self._redis_url = redis_url
         self._use_redis = bool(redis_url)
+        self._use_sqlite = use_sqlite
         self._redis_failed = False
+        self._sqlite_failed = False
 
         if self._use_redis:
             self._redis_store = RedisOAuthStateStore(redis_url)
 
+        if self._use_sqlite:
+            try:
+                self._sqlite_store = SQLiteOAuthStateStore(
+                    db_path=sqlite_path,
+                    max_size=max_memory_size,
+                )
+            except Exception as e:
+                logger.warning(f"SQLite OAuth store initialization failed: {e}")
+                self._sqlite_failed = True
+
     def _get_active_store(self) -> OAuthStateStore:
         """Get the active storage backend."""
+        # Try Redis first (best for multi-instance)
         if self._use_redis and not self._redis_failed and self._redis_store:
             try:
-                # Quick connectivity check
                 redis_client = self._redis_store._get_redis()
                 if redis_client:
                     return self._redis_store
             except Exception as e:
                 logger.debug(f"Redis connectivity check failed: {e}")
-            # Redis not available, fall back to memory
             self._redis_failed = True
-            logger.warning(
-                "OAuth state store: Redis unavailable, falling back to in-memory storage. "
-                "This is not suitable for multi-instance deployments."
-            )
+            logger.warning("OAuth state store: Redis unavailable, falling back to SQLite storage.")
+
+        # Try SQLite (good for single-instance with persistence)
+        if self._use_sqlite and not self._sqlite_failed and self._sqlite_store:
+            return self._sqlite_store
+
+        # Last resort: in-memory
+        if not self._redis_failed or not self._use_sqlite:
+            logger.debug("OAuth state store: Using in-memory storage (volatile)")
         return self._memory_store
 
     @property
     def is_using_redis(self) -> bool:
         """Check if Redis is currently being used."""
         return self._use_redis and not self._redis_failed
+
+    @property
+    def is_using_sqlite(self) -> bool:
+        """Check if SQLite is currently being used."""
+        return self._use_sqlite and not self._sqlite_failed and not self.is_using_redis
+
+    @property
+    def backend_name(self) -> str:
+        """Get the name of the active backend."""
+        if self.is_using_redis:
+            return "redis"
+        if self.is_using_sqlite:
+            return "sqlite"
+        return "memory"
 
     def generate(
         self,
@@ -510,26 +553,61 @@ class FallbackOAuthStateStore(OAuthStateStore):
             return store.generate(user_id, redirect_url, ttl_seconds)
         except Exception as e:
             if store is self._redis_store:
-                logger.warning(f"Redis generate failed, using memory fallback: {e}")
+                logger.warning(f"Redis generate failed, using SQLite fallback: {e}")
                 self._redis_failed = True
+                # Try SQLite
+                if self._use_sqlite and not self._sqlite_failed and self._sqlite_store:
+                    try:
+                        return self._sqlite_store.generate(user_id, redirect_url, ttl_seconds)
+                    except Exception as sqlite_e:
+                        logger.warning(f"SQLite generate failed, using memory: {sqlite_e}")
+                        self._sqlite_failed = True
+                return self._memory_store.generate(user_id, redirect_url, ttl_seconds)
+            elif store is self._sqlite_store:
+                logger.warning(f"SQLite generate failed, using memory fallback: {e}")
+                self._sqlite_failed = True
                 return self._memory_store.generate(user_id, redirect_url, ttl_seconds)
             raise
 
     def validate_and_consume(self, state: str) -> Optional[OAuthState]:
-        """Validate state using active backend."""
+        """Validate state using active backend, checking fallbacks if needed."""
         store = self._get_active_store()
         try:
-            return store.validate_and_consume(state)
+            result = store.validate_and_consume(state)
+            if result:
+                return result
         except Exception as e:
             if store is self._redis_store:
-                logger.warning(f"Redis validate failed, checking memory fallback: {e}")
-                # Also check memory store in case state was created during Redis failure
-                return self._memory_store.validate_and_consume(state)
-            raise
+                logger.warning(f"Redis validate failed: {e}")
+                self._redis_failed = True
+            elif store is self._sqlite_store:
+                logger.warning(f"SQLite validate failed: {e}")
+                self._sqlite_failed = True
+
+        # Check fallback stores for state created during previous backend's availability
+        if store is not self._sqlite_store and self._sqlite_store and not self._sqlite_failed:
+            try:
+                result = self._sqlite_store.validate_and_consume(state)
+                if result:
+                    return result
+            except Exception:
+                pass
+
+        if store is not self._memory_store:
+            result = self._memory_store.validate_and_consume(state)
+            if result:
+                return result
+
+        return None
 
     def cleanup_expired(self) -> int:
-        """Cleanup expired states."""
+        """Cleanup expired states from all backends."""
         count = self._memory_store.cleanup_expired()
+        if self._sqlite_store and not self._sqlite_failed:
+            try:
+                count += self._sqlite_store.cleanup_expired()
+            except Exception as e:
+                logger.debug(f"SQLite cleanup failed: {e}")
         # Redis handles TTL automatically
         return count
 
@@ -554,17 +632,40 @@ class FallbackOAuthStateStore(OAuthStateStore):
             logger.debug(f"Redis reconnection attempt failed: {e}")
         return False
 
+    def close(self) -> None:
+        """Close resources."""
+        if self._sqlite_store:
+            try:
+                self._sqlite_store.close()
+            except Exception:
+                pass
+
 
 # Global singleton
 _oauth_state_store: Optional[FallbackOAuthStateStore] = None
 
 
-def get_oauth_state_store() -> FallbackOAuthStateStore:
-    """Get the global OAuth state store instance."""
+def get_oauth_state_store(
+    sqlite_path: str = "aragora_oauth.db",
+    use_sqlite: bool = True,
+) -> FallbackOAuthStateStore:
+    """Get the global OAuth state store instance.
+
+    Args:
+        sqlite_path: Path to SQLite database for persistent storage
+        use_sqlite: Whether to use SQLite as fallback (default True)
+
+    Returns:
+        Configured FallbackOAuthStateStore with Redis -> SQLite -> memory fallback
+    """
     global _oauth_state_store
     if _oauth_state_store is None:
-        _oauth_state_store = FallbackOAuthStateStore(redis_url=REDIS_URL)
-        backend = "Redis" if _oauth_state_store.is_using_redis else "in-memory"
+        _oauth_state_store = FallbackOAuthStateStore(
+            redis_url=REDIS_URL,
+            sqlite_path=sqlite_path,
+            use_sqlite=use_sqlite,
+        )
+        backend = _oauth_state_store.backend_name
         logger.info(f"OAuth state store initialized: {backend}")
     return _oauth_state_store
 
@@ -572,6 +673,8 @@ def get_oauth_state_store() -> FallbackOAuthStateStore:
 def reset_oauth_state_store() -> None:
     """Reset the global store (for testing)."""
     global _oauth_state_store
+    if _oauth_state_store is not None:
+        _oauth_state_store.close()
     _oauth_state_store = None
 
 
@@ -601,6 +704,7 @@ __all__ = [
     "OAuthState",
     "OAuthStateStore",
     "InMemoryOAuthStateStore",
+    "SQLiteOAuthStateStore",
     "RedisOAuthStateStore",
     "FallbackOAuthStateStore",
     "get_oauth_state_store",

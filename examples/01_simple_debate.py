@@ -43,10 +43,6 @@ from aragora.agents.base import create_agent
 async def run_simple_debate():
     """Run a simple multi-agent debate on API design."""
 
-    print("\n" + "=" * 60)
-    print("ARAGORA: Simple Multi-Agent Debate")
-    print("=" * 60)
-
     # Try to create agents based on available API keys
     # Prioritize paid APIs (more reliable) over free tiers
     agent_configs = [
@@ -58,7 +54,6 @@ async def run_simple_debate():
     ]
 
     agents = []
-    print("\nInitializing agents...")
 
     for agent_type, role in agent_configs:
         try:
@@ -68,14 +63,11 @@ async def run_simple_debate():
                 role=role,
             )
             agents.append(agent)
-            print(f"  + {agent.name} ready ({role})")
-        except Exception as e:
+        except Exception:
             # Skip agents that can't be created (missing API keys)
-            print(f"  - {agent_type} unavailable: {str(e)[:50]}")
+            pass
 
     if len(agents) < 2:
-        print("\nError: Need at least 2 agents for a debate.")
-        print("Set at least two of: ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, XAI_API_KEY")
         return None
 
     # Define the debate environment
@@ -102,46 +94,28 @@ Provide a concrete API design with:
     )
 
     # Create and run debate
-    print(f"\n{'='*60}")
-    print("DEBATE: Rate Limiter API Design")
-    print(f"{'='*60}")
-    print(f"Agents: {[a.name for a in agents]}")
-    print(f"Rounds: {protocol.rounds}")
-    print(f"Consensus mode: {protocol.consensus}")
-    print("\nDebate in progress...")
 
     arena = Arena(env, agents, protocol)
     result = await arena.run()
 
     # Display results
-    print(f"\n{'='*60}")
-    print("RESULTS")
-    print(f"{'='*60}")
-    print(f"Consensus reached: {'Yes' if result.consensus_reached else 'No'}")
-    print(f"Confidence: {result.confidence:.0%}")
-    print(f"Rounds used: {result.rounds_used}")
-    print(f"Duration: {result.duration_seconds:.1f}s")
 
     # Show final answer (truncated for display)
-    print(f"\n--- Final Answer ---")
     answer = result.final_answer
     if len(answer) > 800:
-        print(answer[:800] + "\n\n[... truncated for display ...]")
+        pass
     else:
-        print(answer)
+        pass
 
     return result
 
 
 if __name__ == "__main__":
-    print("Aragora Simple Debate Example")
-    print("This demonstrates multi-agent debate with propose/critique/synthesize.")
-
     result = asyncio.run(run_simple_debate())
 
     if result and result.consensus_reached:
-        print("\n[SUCCESS] Debate completed with consensus!")
+        pass
     elif result:
-        print("\n[INFO] Debate completed without full consensus")
+        pass
     else:
-        print("\n[ERROR] Debate could not run - check API keys")
+        pass

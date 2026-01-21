@@ -33,8 +33,8 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import List, Optional
+from unittest.mock import AsyncMock, MagicMock
 import uuid
 
 # Add parent to path for imports
@@ -197,8 +197,7 @@ class KMAdapterBenchmark:
         mound = MagicMock(spec=KnowledgeMound)
         mound.query = AsyncMock(
             return_value=[
-                {"id": f"km_{i}", "content": f"Result {i}", "confidence": 0.8}
-                for i in range(5)
+                {"id": f"km_{i}", "content": f"Result {i}", "confidence": 0.8} for i in range(5)
             ]
         )
 
@@ -267,9 +266,7 @@ class KMAdapterBenchmark:
 
         return create_result(f"{adapter_name}_semantic_search", latencies)
 
-    async def benchmark_concurrent_operations(
-        self, adapter_name: str
-    ) -> BenchmarkResult:
+    async def benchmark_concurrent_operations(self, adapter_name: str) -> BenchmarkResult:
         """Benchmark concurrent adapter operations."""
         from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
         from aragora.knowledge.mound.core import KnowledgeMound
@@ -294,9 +291,7 @@ class KMAdapterBenchmark:
             start = time.perf_counter()
 
             if op_type == 0:
-                await adapter.forward_sync(
-                    {"content": f"Entry {idx}", "confidence": 0.8}
-                )
+                await adapter.forward_sync({"content": f"Entry {idx}", "confidence": 0.8})
             elif op_type == 1:
                 await adapter.reverse_query(topic="test topic", limit=5)
             else:
@@ -309,18 +304,13 @@ class KMAdapterBenchmark:
         batch_count = self.iterations // self.concurrent
 
         for batch in range(batch_count):
-            tasks = [
-                mixed_operation(batch * self.concurrent + i)
-                for i in range(self.concurrent)
-            ]
+            tasks = [mixed_operation(batch * self.concurrent + i) for i in range(self.concurrent)]
             batch_latencies = await asyncio.gather(*tasks)
             all_latencies.extend(batch_latencies)
 
         return create_result(f"{adapter_name}_concurrent", all_latencies)
 
-    async def benchmark_validation_feedback(
-        self, adapter_name: str
-    ) -> BenchmarkResult:
+    async def benchmark_validation_feedback(self, adapter_name: str) -> BenchmarkResult:
         """Benchmark validation feedback processing."""
         from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
         from aragora.knowledge.mound.core import KnowledgeMound
@@ -360,9 +350,7 @@ class KMAdapterBenchmark:
         config = MoundConfig(workspace_id=f"bench_{adapter_name}")
 
         mound = MagicMock(spec=KnowledgeMound)
-        mound.ingest_batch = AsyncMock(
-            return_value=[f"km_{i}" for i in range(100)]
-        )
+        mound.ingest_batch = AsyncMock(return_value=[f"km_{i}" for i in range(100)])
 
         adapter = ContinuumAdapter(mound, config)
 
@@ -397,51 +385,34 @@ class KMAdapterBenchmark:
         await self.setup()
 
         try:
-            print(f"\nRunning KM Adapter Benchmarks")
-            print(f"  Iterations: {self.iterations}")
-            print(f"  Concurrency: {self.concurrent}")
-            print(f"  Adapters: {', '.join(self.adapters)}")
-            print("=" * 60)
-
             for adapter in self.adapters:
-                print(f"\n--- {adapter.upper()} Adapter ---")
-
                 # Forward sync
                 result = await self.benchmark_forward_sync(adapter)
                 self.results.append(result)
-                print(result)
 
                 # Reverse query
                 result = await self.benchmark_reverse_query(adapter)
                 self.results.append(result)
-                print(result)
 
                 # Semantic search
                 result = await self.benchmark_semantic_search(adapter)
                 self.results.append(result)
-                print(result)
 
                 # Concurrent operations
                 result = await self.benchmark_concurrent_operations(adapter)
                 self.results.append(result)
-                print(result)
 
                 # Validation feedback
                 result = await self.benchmark_validation_feedback(adapter)
                 self.results.append(result)
-                print(result)
 
                 # Batch ingestion
                 result = await self.benchmark_batch_ingestion(adapter)
                 self.results.append(result)
-                print(result)
                 if "items_per_second" in result.extra:
-                    print(f"  Items/sec: {result.extra['items_per_second']:.1f}")
+                    pass
 
             # Summary
-            print("\n" + "=" * 60)
-            print("SUMMARY - SLO Compliance Check")
-            print("=" * 60)
 
             slo_checks = {
                 "forward_sync": {"p95": 300, "p99": 800},
@@ -453,14 +424,8 @@ class KMAdapterBenchmark:
             for result in self.results:
                 for slo_name, thresholds in slo_checks.items():
                     if slo_name in result.name:
-                        p95_ok = result.p95_latency_ms <= thresholds["p95"]
-                        p99_ok = result.p99_latency_ms <= thresholds["p99"]
-                        status = "PASS" if (p95_ok and p99_ok) else "FAIL"
-                        print(
-                            f"  {result.name}: {status} "
-                            f"(p95={result.p95_latency_ms:.1f}ms <= {thresholds['p95']}ms, "
-                            f"p99={result.p99_latency_ms:.1f}ms <= {thresholds['p99']}ms)"
-                        )
+                        result.p95_latency_ms <= thresholds["p95"]
+                        result.p99_latency_ms <= thresholds["p99"]
 
             return self.results
 

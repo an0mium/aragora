@@ -334,7 +334,7 @@ async def init_shared_control_plane_state() -> bool:
         True if Redis connected, False if using in-memory fallback
     """
     try:
-        from aragora.control_plane.shared_state import get_shared_state, set_shared_state
+        from aragora.control_plane.shared_state import get_shared_state, set_shared_state  # noqa: F401
 
         state = await get_shared_state(auto_connect=True)
         if state.is_persistent:
@@ -363,7 +363,7 @@ async def init_persistent_task_queue() -> int:
     try:
         from aragora.workflow.queue import (
             get_persistent_task_queue,
-            PersistentTaskQueue,
+            PersistentTaskQueue,  # noqa: F401
         )
 
         # Get or create the singleton queue
@@ -518,7 +518,10 @@ def get_km_config_from_env() -> "MoundConfig":
         sqlite_path=sqlite_path or None,
         # Weaviate
         weaviate_url=os.environ.get("KM_WEAVIATE_URL", os.environ.get("WEAVIATE_URL", "")) or None,
-        weaviate_api_key=os.environ.get("KM_WEAVIATE_API_KEY", os.environ.get("WEAVIATE_API_KEY", "")) or None,
+        weaviate_api_key=os.environ.get(
+            "KM_WEAVIATE_API_KEY", os.environ.get("WEAVIATE_API_KEY", "")
+        )
+        or None,
         weaviate_collection=os.environ.get("KM_WEAVIATE_COLLECTION", "KnowledgeMound"),
         # Feature flags
         enable_staleness_detection=env_bool("KM_ENABLE_STALENESS", True),
@@ -631,7 +634,7 @@ async def init_km_adapters() -> bool:
         try:
             from aragora.knowledge.mound.websocket_bridge import create_km_bridge
 
-            bridge = create_km_bridge()
+            create_km_bridge()
             logger.debug("KM WebSocket bridge initialized")
         except ImportError:
             pass
@@ -892,9 +895,7 @@ async def run_startup_sequence(
     if missing_requirements:
         for req in missing_requirements:
             logger.error(f"Missing production requirement: {req}")
-        raise RuntimeError(
-            f"Production requirements not met: {', '.join(missing_requirements)}"
-        )
+        raise RuntimeError(f"Production requirements not met: {', '.join(missing_requirements)}")
 
     status: dict[str, Any] = {
         "error_monitoring": False,
@@ -1001,7 +1002,7 @@ async def init_rbac_distributed_cache() -> bool:
     try:
         from aragora.rbac.cache import (
             RBACCacheConfig,
-            RBACDistributedCache,
+            RBACDistributedCache,  # noqa: F401
             get_rbac_cache,
         )
         from aragora.rbac.checker import (
@@ -1097,7 +1098,9 @@ async def init_key_rotation_scheduler() -> bool:
     enabled = os.environ.get("ARAGORA_KEY_ROTATION_ENABLED", default_enabled).lower() == "true"
 
     if not enabled:
-        logger.debug("Key rotation scheduler disabled (set ARAGORA_KEY_ROTATION_ENABLED=true to enable)")
+        logger.debug(
+            "Key rotation scheduler disabled (set ARAGORA_KEY_ROTATION_ENABLED=true to enable)"
+        )
         return False
 
     # Check if encryption key is configured
@@ -1125,12 +1128,14 @@ async def init_key_rotation_scheduler() -> bool:
 
                 dispatcher = get_webhook_dispatcher()
                 if dispatcher:
-                    dispatcher.enqueue({
-                        "type": "security.key_rotation",
-                        "severity": severity,
-                        "message": message,
-                        **details,
-                    })
+                    dispatcher.enqueue(
+                        {
+                            "type": "security.key_rotation",
+                            "severity": severity,
+                            "message": message,
+                            **details,
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"Failed to dispatch key rotation alert: {e}")
 
@@ -1195,42 +1200,49 @@ async def init_decision_router() -> bool:
 
         async def telegram_handler(result, channel):
             from aragora.server.debate_origin import get_debate_origin
+
             origin = get_debate_origin(result.request_id)
             if origin and origin.platform == "telegram":
                 await route_debate_result(result.request_id, result.to_dict())
 
         async def slack_handler(result, channel):
             from aragora.server.debate_origin import get_debate_origin
+
             origin = get_debate_origin(result.request_id)
             if origin and origin.platform == "slack":
                 await route_debate_result(result.request_id, result.to_dict())
 
         async def discord_handler(result, channel):
             from aragora.server.debate_origin import get_debate_origin
+
             origin = get_debate_origin(result.request_id)
             if origin and origin.platform == "discord":
                 await route_debate_result(result.request_id, result.to_dict())
 
         async def whatsapp_handler(result, channel):
             from aragora.server.debate_origin import get_debate_origin
+
             origin = get_debate_origin(result.request_id)
             if origin and origin.platform == "whatsapp":
                 await route_debate_result(result.request_id, result.to_dict())
 
         async def teams_handler(result, channel):
             from aragora.server.debate_origin import get_debate_origin
+
             origin = get_debate_origin(result.request_id)
             if origin and origin.platform == "teams":
                 await route_debate_result(result.request_id, result.to_dict())
 
         async def email_handler(result, channel):
             from aragora.server.debate_origin import get_debate_origin
+
             origin = get_debate_origin(result.request_id)
             if origin and origin.platform == "email":
                 await route_debate_result(result.request_id, result.to_dict())
 
         async def google_chat_handler(result, channel):
             from aragora.server.debate_origin import get_debate_origin
+
             origin = get_debate_origin(result.request_id)
             if origin and origin.platform in ("google_chat", "gchat"):
                 await route_debate_result(result.request_id, result.to_dict())

@@ -24,11 +24,11 @@ from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
-    BaseHandler,
     error_response,
     json_response,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.url_security import validate_webhook_url
 
 # RBAC imports - graceful fallback if not available
@@ -128,8 +128,15 @@ def verify_signature(payload: str, signature: str, secret: str) -> bool:
 # =============================================================================
 
 
-class WebhookHandler(BaseHandler):
-    """Handler for webhook management API endpoints."""
+class WebhookHandler(SecureHandler):
+    """Handler for webhook management API endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+    """
+
+    # Resource type for audit logging
+    RESOURCE_TYPE = "webhook"
 
     # Routes this handler responds to
     routes = [

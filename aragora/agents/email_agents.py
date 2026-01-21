@@ -127,7 +127,7 @@ class SenderReputationAgent(BaseDebateAgent):
         score = 0.5  # Baseline
 
         email = sender_info.get("email", "")
-        domain = sender_info.get("domain", "")
+        sender_info.get("domain", "")
 
         # VIP check
         if sender_info.get("is_vip"):

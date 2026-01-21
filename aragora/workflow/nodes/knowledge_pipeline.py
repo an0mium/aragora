@@ -74,12 +74,12 @@ class KnowledgePipelineStep(BaseStep):
         chunk_strategy = config.get("chunk_strategy", "semantic")
         chunk_size = config.get("chunk_size", 512)
         chunk_overlap = config.get("chunk_overlap", 64)
-        embedding_model = config.get("embedding_model", "text-embedding-3-small")
-        use_knowledge_mound = config.get("use_knowledge_mound", True)
+        config.get("embedding_model", "text-embedding-3-small")
+        config.get("use_knowledge_mound", True)
         extract_facts = config.get("extract_facts", True)
         connector_type = config.get("connector_type", "local_docs")
         connector_config = config.get("connector_config", {})
-        timeout_seconds = config.get("timeout_seconds", 600.0)
+        config.get("timeout_seconds", 600.0)
         config.get("batch_size", 10)
 
         # Also check workflow inputs for sources
@@ -110,7 +110,7 @@ class KnowledgePipelineStep(BaseStep):
             from aragora.documents.chunking import ChunkingConfig
 
             # Build pipeline configuration
-            chunking_config = ChunkingConfig(
+            ChunkingConfig(
                 chunk_size=chunk_size,
                 overlap=chunk_overlap,
             )

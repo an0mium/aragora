@@ -26,14 +26,12 @@ import asyncio
 import logging
 import statistics
 import sys
-import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
-from unittest.mock import AsyncMock, MagicMock
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -354,7 +352,7 @@ async def benchmark_merge_operation(
         start = time.perf_counter()
 
         # Keep first, archive rest
-        primary_id = group[0]
+        group[0]
         for dup_id in group[1:]:
             await store.archive_node(dup_id)
 
@@ -373,12 +371,6 @@ async def run_benchmarks(
     iterations: int = 100,
 ) -> List[BenchmarkResult]:
     """Run all knowledge maintenance benchmarks."""
-    print(f"\n{'='*60}")
-    print("Knowledge Maintenance Benchmarks")
-    print(f"{'='*60}")
-    print(f"Item count: {item_count}")
-    print(f"Iterations: {iterations}")
-    print(f"{'='*60}\n")
 
     # Create mock store with test data
     store = MockStore(item_count)
@@ -386,54 +378,30 @@ async def run_benchmarks(
     results = []
 
     # Run benchmarks
-    print("Running duplicate detection benchmark...")
     result = await benchmark_duplicate_detection(store, iterations)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running similarity search benchmark...")
     result = await benchmark_similarity_search(store, iterations)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running pruning evaluation benchmark...")
     result = await benchmark_pruning_evaluation(store, iterations)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running batch archive benchmark (10 items)...")
     result = await benchmark_batch_archive(store, 10, iterations)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running batch archive benchmark (100 items)...")
     result = await benchmark_batch_archive(store, 100, iterations // 10)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running confidence decay benchmark...")
     result = await benchmark_confidence_decay(store, iterations // 10)
-    print(result)
     results.append(result)
-    print()
 
-    print("Running merge operation benchmark...")
     result = await benchmark_merge_operation(store, iterations)
-    print(result)
     results.append(result)
-    print()
 
     # Summary
-    print(f"{'='*60}")
-    print("SUMMARY")
-    print(f"{'='*60}")
     for r in results:
-        print(f"  {r.name}: {r.mean_latency_ms:.3f}ms avg, {r.throughput_ops_per_sec:.1f} ops/sec")
+        pass
 
     return results
 

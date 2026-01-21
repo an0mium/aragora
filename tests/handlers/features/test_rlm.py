@@ -10,6 +10,7 @@ Tests the RLM API endpoints including:
 - GET /api/metrics/rlm - Get RLM metrics
 """
 
+import asyncio
 import json
 from dataclasses import dataclass
 from io import BytesIO

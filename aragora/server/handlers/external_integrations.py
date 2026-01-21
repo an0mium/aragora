@@ -37,10 +37,10 @@ from aragora.integrations.make import MakeIntegration, get_make_integration
 from aragora.integrations.n8n import N8nIntegration, get_n8n_integration
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
-    BaseHandler,
     error_response,
     json_response,
 )
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ try:
         PermissionDeniedError,
     )
     from aragora.billing.auth import extract_user_from_request
+
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
@@ -60,6 +61,7 @@ except ImportError:
 # Metrics imports (optional)
 try:
     from aragora.observability.metrics import record_rbac_check
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -73,7 +75,14 @@ except ImportError:
 # =============================================================================
 
 
-class ExternalIntegrationsHandler(BaseHandler):
+class ExternalIntegrationsHandler(SecureHandler):
+    """Handler for external integration management.
+
+    Extends SecureHandler for JWT-based authentication and audit logging.
+    """
+
+    RESOURCE_TYPE = "external_integration"
+
     """Handler for external integrations API endpoints."""
 
     # Routes this handler responds to
@@ -179,7 +188,9 @@ class ExternalIntegrationsHandler(BaseHandler):
                 logger.warning(
                     f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
                 )
-                record_rbac_check(permission_key, allowed=False, handler="ExternalIntegrationsHandler")
+                record_rbac_check(
+                    permission_key, allowed=False, handler="ExternalIntegrationsHandler"
+                )
                 return error_response(f"Permission denied: {decision.reason}", 403)
             record_rbac_check(permission_key, allowed=True)
         except PermissionDeniedError as e:
@@ -353,44 +364,46 @@ class ExternalIntegrationsHandler(BaseHandler):
     # Zapier Handlers
     # =========================================================================
 
-    def _handle_list_zapier_apps(
-        self, query_params: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_list_zapier_apps(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/zapier/apps - list Zapier apps."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "integrations.read")
         if perm_error:
             return perm_error
 
-        user = self.get_current_user(handler)
+        self.get_current_user(handler)
         workspace_id = query_params.get("workspace_id", [None])[0]
 
         zapier = self._get_zapier()
         apps = zapier.list_apps(workspace_id)
 
-        return json_response({
-            "apps": [
-                {
-                    "id": app.id,
-                    "workspace_id": app.workspace_id,
-                    "created_at": app.created_at,
-                    "active": app.active,
-                    "trigger_count": app.trigger_count,
-                    "action_count": app.action_count,
-                }
-                for app in apps
-            ],
-            "count": len(apps),
-        })
+        return json_response(
+            {
+                "apps": [
+                    {
+                        "id": app.id,
+                        "workspace_id": app.workspace_id,
+                        "created_at": app.created_at,
+                        "active": app.active,
+                        "trigger_count": app.trigger_count,
+                        "action_count": app.action_count,
+                    }
+                    for app in apps
+                ],
+                "count": len(apps),
+            }
+        )
 
     def _handle_list_zapier_trigger_types(self) -> HandlerResult:
         """Handle GET /api/integrations/zapier/triggers - list trigger types."""
         zapier = self._get_zapier()
 
-        return json_response({
-            "triggers": zapier.TRIGGER_TYPES,
-            "actions": zapier.ACTION_TYPES,
-        })
+        return json_response(
+            {
+                "triggers": zapier.TRIGGER_TYPES,
+                "actions": zapier.ACTION_TYPES,
+            }
+        )
 
     def _handle_create_zapier_app(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/apps - create Zapier app."""
@@ -434,9 +447,7 @@ class ExternalIntegrationsHandler(BaseHandler):
         else:
             return error_response(f"Zapier app not found: {app_id}", 404)
 
-    def _handle_subscribe_zapier_trigger(
-        self, body: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_subscribe_zapier_trigger(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/zapier/triggers - subscribe to trigger."""
         app_id = body.get("app_id")
         trigger_type = body.get("trigger_type")
@@ -492,9 +503,7 @@ class ExternalIntegrationsHandler(BaseHandler):
     # Make Handlers
     # =========================================================================
 
-    def _handle_list_make_connections(
-        self, query_params: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_list_make_connections(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/make/connections - list connections."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "integrations.read")
@@ -506,32 +515,34 @@ class ExternalIntegrationsHandler(BaseHandler):
         make = self._get_make()
         connections = make.list_connections(workspace_id)
 
-        return json_response({
-            "connections": [
-                {
-                    "id": conn.id,
-                    "workspace_id": conn.workspace_id,
-                    "created_at": conn.created_at,
-                    "active": conn.active,
-                    "total_operations": conn.total_operations,
-                    "webhooks_count": len(conn.webhooks),
-                }
-                for conn in connections
-            ],
-            "count": len(connections),
-        })
+        return json_response(
+            {
+                "connections": [
+                    {
+                        "id": conn.id,
+                        "workspace_id": conn.workspace_id,
+                        "created_at": conn.created_at,
+                        "active": conn.active,
+                        "total_operations": conn.total_operations,
+                        "webhooks_count": len(conn.webhooks),
+                    }
+                    for conn in connections
+                ],
+                "count": len(connections),
+            }
+        )
 
     def _handle_list_make_modules(self) -> HandlerResult:
         """Handle GET /api/integrations/make/modules - list available modules."""
         make = self._get_make()
 
-        return json_response({
-            "modules": make.MODULE_TYPES,
-        })
+        return json_response(
+            {
+                "modules": make.MODULE_TYPES,
+            }
+        )
 
-    def _handle_create_make_connection(
-        self, body: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_create_make_connection(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/make/connections - create connection."""
         # Check RBAC permission - creating integrations exposes API keys
         perm_error = self._check_permission(handler, "integrations.create")
@@ -558,9 +569,7 @@ class ExternalIntegrationsHandler(BaseHandler):
             status=201,
         )
 
-    def _handle_delete_make_connection(
-        self, conn_id: str, handler: Any
-    ) -> HandlerResult:
+    def _handle_delete_make_connection(self, conn_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/make/connections/:id - delete."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "integrations.delete", conn_id)
@@ -574,9 +583,7 @@ class ExternalIntegrationsHandler(BaseHandler):
         else:
             return error_response(f"Make connection not found: {conn_id}", 404)
 
-    def _handle_register_make_webhook(
-        self, body: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_register_make_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/make/webhooks - register webhook."""
         conn_id = body.get("connection_id")
         module_type = body.get("module_type")
@@ -631,9 +638,7 @@ class ExternalIntegrationsHandler(BaseHandler):
     # n8n Handlers
     # =========================================================================
 
-    def _handle_list_n8n_credentials(
-        self, query_params: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_list_n8n_credentials(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/n8n/credentials - list credentials."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "integrations.read")
@@ -645,36 +650,38 @@ class ExternalIntegrationsHandler(BaseHandler):
         n8n = self._get_n8n()
         credentials = n8n.list_credentials(workspace_id)
 
-        return json_response({
-            "credentials": [
-                {
-                    "id": cred.id,
-                    "workspace_id": cred.workspace_id,
-                    "api_url": cred.api_url,
-                    "created_at": cred.created_at,
-                    "active": cred.active,
-                    "operation_count": cred.operation_count,
-                    "webhooks_count": len(cred.webhooks),
-                }
-                for cred in credentials
-            ],
-            "count": len(credentials),
-        })
+        return json_response(
+            {
+                "credentials": [
+                    {
+                        "id": cred.id,
+                        "workspace_id": cred.workspace_id,
+                        "api_url": cred.api_url,
+                        "created_at": cred.created_at,
+                        "active": cred.active,
+                        "operation_count": cred.operation_count,
+                        "webhooks_count": len(cred.webhooks),
+                    }
+                    for cred in credentials
+                ],
+                "count": len(credentials),
+            }
+        )
 
     def _handle_get_n8n_nodes(self) -> HandlerResult:
         """Handle GET /api/integrations/n8n/nodes - get node definitions."""
         n8n = self._get_n8n()
 
-        return json_response({
-            "node": n8n.get_node_definition(),
-            "trigger": n8n.get_trigger_node_definition(),
-            "credential": n8n.get_credential_definition(),
-            "events": n8n.EVENT_TYPES,
-        })
+        return json_response(
+            {
+                "node": n8n.get_node_definition(),
+                "trigger": n8n.get_trigger_node_definition(),
+                "credential": n8n.get_credential_definition(),
+                "events": n8n.EVENT_TYPES,
+            }
+        )
 
-    def _handle_create_n8n_credential(
-        self, body: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_create_n8n_credential(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/n8n/credentials - create credential."""
         # Check RBAC permission - creating credentials exposes API keys
         perm_error = self._check_permission(handler, "integrations.create")
@@ -705,9 +712,7 @@ class ExternalIntegrationsHandler(BaseHandler):
             status=201,
         )
 
-    def _handle_delete_n8n_credential(
-        self, cred_id: str, handler: Any
-    ) -> HandlerResult:
+    def _handle_delete_n8n_credential(self, cred_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/integrations/n8n/credentials/:id - delete."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "integrations.delete", cred_id)
@@ -721,9 +726,7 @@ class ExternalIntegrationsHandler(BaseHandler):
         else:
             return error_response(f"n8n credential not found: {cred_id}", 404)
 
-    def _handle_register_n8n_webhook(
-        self, body: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_register_n8n_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/n8n/webhooks - register webhook."""
         cred_id = body.get("credential_id")
         events = body.get("events", [])
@@ -775,37 +778,41 @@ class ExternalIntegrationsHandler(BaseHandler):
     # Test Handler
     # =========================================================================
 
-    def _handle_test_integration(
-        self, platform: str, handler: Any
-    ) -> HandlerResult:
+    def _handle_test_integration(self, platform: str, handler: Any) -> HandlerResult:
         """Handle POST /api/integrations/:platform/test - test integration."""
         if platform == "zapier":
             zapier = self._get_zapier()
-            return json_response({
-                "platform": "zapier",
-                "status": "ok",
-                "apps_count": len(zapier._apps),
-                "trigger_types": list(zapier.TRIGGER_TYPES.keys()),
-                "action_types": list(zapier.ACTION_TYPES.keys()),
-            })
+            return json_response(
+                {
+                    "platform": "zapier",
+                    "status": "ok",
+                    "apps_count": len(zapier._apps),
+                    "trigger_types": list(zapier.TRIGGER_TYPES.keys()),
+                    "action_types": list(zapier.ACTION_TYPES.keys()),
+                }
+            )
 
         elif platform == "make":
             make = self._get_make()
-            return json_response({
-                "platform": "make",
-                "status": "ok",
-                "connections_count": len(make._connections),
-                "module_types": list(make.MODULE_TYPES.keys()),
-            })
+            return json_response(
+                {
+                    "platform": "make",
+                    "status": "ok",
+                    "connections_count": len(make._connections),
+                    "module_types": list(make.MODULE_TYPES.keys()),
+                }
+            )
 
         elif platform == "n8n":
             n8n = self._get_n8n()
-            return json_response({
-                "platform": "n8n",
-                "status": "ok",
-                "credentials_count": len(n8n._credentials),
-                "event_types": list(n8n.EVENT_TYPES.keys()),
-            })
+            return json_response(
+                {
+                    "platform": "n8n",
+                    "status": "ok",
+                    "credentials_count": len(n8n._credentials),
+                    "event_types": list(n8n.EVENT_TYPES.keys()),
+                }
+            )
 
         else:
             return error_response(f"Unknown platform: {platform}", 400)

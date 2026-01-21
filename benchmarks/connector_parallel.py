@@ -17,7 +17,6 @@ import time
 import tracemalloc
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 @dataclass
@@ -101,10 +100,7 @@ async def benchmark_parallel_sync(iterations: int = 50) -> BenchmarkResult:
 
     for parallelism in parallelism_levels:
         for _ in range(iterations // len(parallelism_levels)):
-            connectors = [
-                MockConnector(f"connector-{i}", latency_ms=5)
-                for i in range(parallelism)
-            ]
+            connectors = [MockConnector(f"connector-{i}", latency_ms=5) for i in range(parallelism)]
 
             gc.collect()
             tracemalloc.start()
@@ -251,7 +247,7 @@ async def benchmark_error_recovery(iterations: int = 50) -> BenchmarkResult:
                     return {"status": "success", "attempt": attempt + 1}
 
                 self.retries += 1
-                await asyncio.sleep(0.001 * (2 ** attempt))  # Exponential backoff
+                await asyncio.sleep(0.001 * (2**attempt))  # Exponential backoff
 
             return {"status": "failed", "attempts": self.max_retries}
 
@@ -263,9 +259,7 @@ async def benchmark_error_recovery(iterations: int = 50) -> BenchmarkResult:
         start = time.perf_counter()
 
         # Run 10 syncs
-        results = await asyncio.gather(*[
-            connector.sync_with_retry() for _ in range(10)
-        ])
+        await asyncio.gather(*[connector.sync_with_retry() for _ in range(10)])
 
         elapsed_ms = (time.perf_counter() - start) * 1000
 
@@ -277,13 +271,10 @@ async def benchmark_error_recovery(iterations: int = 50) -> BenchmarkResult:
 
 async def run_connector_benchmarks(iterations: int = 100, warmup: int = 10) -> Dict[str, Any]:
     """Run all connector parallelization benchmarks."""
-    print("Running Connector Parallelization Benchmarks...")
-    print("-" * 40)
 
     results = {}
 
     # Warmup
-    print(f"Warming up ({warmup} iterations)...")
     await benchmark_parallel_sync(warmup)
 
     benchmarks = [
@@ -294,13 +285,10 @@ async def run_connector_benchmarks(iterations: int = 100, warmup: int = 10) -> D
     ]
 
     for name, bench_func in benchmarks:
-        print(f"  Running: {name}...")
         try:
             result = await bench_func(iterations)
             results[result.name] = result.to_dict()
-            print(f"    p50: {result.p50_ms:.2f}ms, p99: {result.p99_ms:.2f}ms")
         except Exception as e:
-            print(f"    Failed: {e}")
             results[name.lower().replace(" ", "_")] = {"error": str(e)}
 
     return results
@@ -308,5 +296,3 @@ async def run_connector_benchmarks(iterations: int = 100, warmup: int = 10) -> D
 
 if __name__ == "__main__":
     results = asyncio.run(run_connector_benchmarks())
-    import json
-    print(json.dumps(results, indent=2))

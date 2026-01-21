@@ -50,6 +50,7 @@ def _record_metrics(operation: str, success: bool, latency: float) -> None:
     """Record task queue metrics if available."""
     try:
         from aragora.observability.metrics import record_task_queue_operation
+
         record_task_queue_operation(operation, success, latency)
     except ImportError:
         pass
@@ -59,6 +60,7 @@ def _record_recovery(original_status: str, count: int = 1) -> None:
     """Record recovery metrics if available."""
     try:
         from aragora.observability.metrics import record_task_queue_recovery
+
         record_task_queue_recovery(original_status, count)
     except ImportError:
         pass
@@ -68,6 +70,7 @@ def _record_cleanup(count: int) -> None:
     """Record cleanup metrics if available."""
     try:
         from aragora.observability.metrics import record_task_queue_cleanup
+
         record_task_queue_cleanup(count)
     except ImportError:
         pass
@@ -131,9 +134,7 @@ class PersistentTaskQueue(TaskQueue):
         if db_path:
             self._db_path = Path(db_path)
         else:
-            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get(
-                "ARAGORA_NOMIC_DIR"
-            )
+            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
             data_dir = Path(env_dir or ".nomic")
             self._db_path = data_dir / "task_queue.db"
 
@@ -173,6 +174,7 @@ class PersistentTaskQueue(TaskQueue):
             Task ID
         """
         import time as _time
+
         start = _time.perf_counter()
         success = True
         try:
@@ -372,20 +374,10 @@ class PersistentTaskQueue(TaskQueue):
                 if row["created_at"]
                 else datetime.now(timezone.utc)
             ),
-            queued_at=(
-                datetime.fromisoformat(row["queued_at"])
-                if row["queued_at"]
-                else None
-            ),
-            started_at=(
-                datetime.fromisoformat(row["started_at"])
-                if row["started_at"]
-                else None
-            ),
+            queued_at=(datetime.fromisoformat(row["queued_at"]) if row["queued_at"] else None),
+            started_at=(datetime.fromisoformat(row["started_at"]) if row["started_at"] else None),
             completed_at=(
-                datetime.fromisoformat(row["completed_at"])
-                if row["completed_at"]
-                else None
+                datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None
             ),
             executor_id=row["executor_id"],
             tenant_id=row["tenant_id"] or "default",
@@ -479,7 +471,7 @@ class PersistentTaskQueue(TaskQueue):
         """
         conn = self._get_conn()
         try:
-            cutoff = datetime.now(timezone.utc)
+            datetime.now(timezone.utc)
 
             query = """
                 DELETE FROM task_queue

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 try:
     import httpx
@@ -25,6 +25,7 @@ except ImportError:
 @dataclass
 class ApiConfig:
     """Configuration for the API client."""
+
     base_url: str
     api_key: Optional[str] = None
     timeout: float = 30.0
@@ -42,7 +43,9 @@ class AragoraClient:
         headers: Optional[Dict[str, str]] = None,
     ):
         if httpx is None:
-            raise ImportError("httpx is required for AragoraClient. Install with: pip install httpx")
+            raise ImportError(
+                "httpx is required for AragoraClient. Install with: pip install httpx"
+            )
 
         self.config = ApiConfig(
             base_url=base_url.rstrip("/"),
@@ -151,7 +154,9 @@ class AragoraClient:
         params = {"sort_by": sort_by}
         if min_contribution is not None:
             params["min_contribution"] = min_contribution
-        return await self._request("GET", f"/api/debates/{debate_id}/explainability/factors", params=params)
+        return await self._request(
+            "GET", f"/api/debates/{debate_id}/explainability/factors", params=params
+        )
 
     async def get_counterfactuals(
         self,
@@ -176,7 +181,9 @@ class AragoraClient:
         body = {"hypothesis": hypothesis}
         if affected_agents:
             body["affected_agents"] = affected_agents
-        return await self._request("POST", f"/api/debates/{debate_id}/explainability/counterfactual", json=body)
+        return await self._request(
+            "POST", f"/api/debates/{debate_id}/explainability/counterfactual", json=body
+        )
 
     async def get_provenance(
         self,
@@ -372,7 +379,9 @@ class AragoraClient:
             body["config"] = config
         if agents:
             body["agents"] = agents
-        return await self._request("POST", f"/api/workflow/patterns/{pattern_id}/instantiate", json=body)
+        return await self._request(
+            "POST", f"/api/workflow/patterns/{pattern_id}/instantiate", json=body
+        )
 
     # =========================================================================
     # Template Marketplace
@@ -596,8 +605,12 @@ class AragoraClientSync:
     def get_marketplace_template(self, template_id: str) -> Dict[str, Any]:
         return self._run(self._async_client.get_marketplace_template(template_id))
 
-    def publish_template(self, template_id: str, name: str, description: str, category: str, **kwargs: Any) -> Dict[str, Any]:
-        return self._run(self._async_client.publish_template(template_id, name, description, category, **kwargs))
+    def publish_template(
+        self, template_id: str, name: str, description: str, category: str, **kwargs: Any
+    ) -> Dict[str, Any]:
+        return self._run(
+            self._async_client.publish_template(template_id, name, description, category, **kwargs)
+        )
 
     def rate_template(self, template_id: str, rating: int) -> Dict[str, Any]:
         return self._run(self._async_client.rate_template(template_id, rating))

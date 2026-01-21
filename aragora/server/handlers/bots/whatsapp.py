@@ -58,11 +58,7 @@ def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
 
     expected_sig = signature[7:]  # Remove "sha256=" prefix
 
-    computed_sig = hmac.new(
-        WHATSAPP_APP_SECRET.encode(),
-        body,
-        hashlib.sha256
-    ).hexdigest()
+    computed_sig = hmac.new(WHATSAPP_APP_SECRET.encode(), body, hashlib.sha256).hexdigest()
 
     return hmac.compare_digest(expected_sig, computed_sig)
 
@@ -189,7 +185,7 @@ class WhatsAppHandler(BaseHandler):
     def _process_messages(self, value: Dict[str, Any]) -> None:
         """Process incoming WhatsApp messages."""
         metadata = value.get("metadata", {})
-        phone_number_id = metadata.get("phone_number_id")
+        metadata.get("phone_number_id")
 
         contacts = value.get("contacts", [])
         messages = value.get("messages", [])
@@ -198,7 +194,7 @@ class WhatsAppHandler(BaseHandler):
             msg_type = message.get("type")
             from_number = message.get("from")
             msg_id = message.get("id")
-            timestamp = message.get("timestamp")
+            message.get("timestamp")
 
             # Find contact info
             contact_name = "Unknown"
@@ -240,7 +236,7 @@ class WhatsAppHandler(BaseHandler):
             else:
                 self._send_message(
                     from_number,
-                    f"Unknown command: /{command}\n\nUse /help to see available commands."
+                    f"Unknown command: /{command}\n\nUse /help to see available commands.",
                 )
         elif text_lower in ("hi", "hello", "hey", "start"):
             self._send_welcome(from_number)
@@ -295,7 +291,9 @@ class WhatsAppHandler(BaseHandler):
             with httpx.Client(timeout=10.0) as client:
                 response = client.post(url, headers=headers, json=data)
                 if not response.is_success:
-                    logger.warning(f"WhatsApp send failed: {response.status_code} - {response.text}")
+                    logger.warning(
+                        f"WhatsApp send failed: {response.status_code} - {response.text}"
+                    )
 
         except ImportError:
             logger.warning("httpx not available for WhatsApp messaging")
@@ -313,7 +311,7 @@ class WhatsAppHandler(BaseHandler):
             "Commands:\n"
             "/debate <question> - Start a debate\n"
             "/status - Check system status\n"
-            "/help - Show help"
+            "/help - Show help",
         )
 
     def _send_help(self, to_number: str) -> None:
@@ -326,7 +324,7 @@ class WhatsAppHandler(BaseHandler):
             "/help - Show this message\n\n"
             "Or just send me any question to start a debate!\n\n"
             "Example:\n"
-            "Should we use microservices or a monolith for our new project?"
+            "Should we use microservices or a monolith for our new project?",
         )
 
     def _send_status(self, to_number: str) -> None:
@@ -342,7 +340,7 @@ class WhatsAppHandler(BaseHandler):
             "- Mistral\n"
             "- DeepSeek\n"
             "- Qwen\n\n"
-            "Ready for debates!"
+            "Ready for debates!",
         )
 
     def _start_debate(self, to_number: str, contact_name: str, topic: str) -> None:
@@ -351,7 +349,7 @@ class WhatsAppHandler(BaseHandler):
             self._send_message(
                 to_number,
                 "Please provide a topic for the debate.\n\n"
-                "Example: Should startups focus on growth or profitability first?"
+                "Example: Should startups focus on growth or profitability first?",
             )
             return
 
@@ -362,7 +360,7 @@ class WhatsAppHandler(BaseHandler):
             to_number,
             f"Starting debate on:\n\n{topic[:200]}\n\n"
             "I'll notify you when the AI agents reach consensus. "
-            f"Debate ID: {debate_id[:8]}..."
+            f"Debate ID: {debate_id[:8]}...",
         )
 
         logger.info(f"Debate requested from WhatsApp {contact_name} ({to_number}): {topic[:100]}")
@@ -405,14 +403,14 @@ class WhatsAppHandler(BaseHandler):
             async def enqueue_job():
                 try:
                     from aragora.queue import create_redis_queue
+
                     queue = await create_redis_queue()
                     await queue.enqueue(job)
                     logger.info(f"WhatsApp debate job enqueued: {job.job_id}")
                 except Exception as e:
                     logger.error(f"Failed to enqueue debate job: {e}")
                     self._send_message(
-                        to_number,
-                        "Sorry, I couldn't start the debate. Please try again later."
+                        to_number, "Sorry, I couldn't start the debate. Please try again later."
                     )
 
             # Run async enqueue in background
@@ -463,14 +461,14 @@ class WhatsAppHandler(BaseHandler):
                             f"Debate Complete!\n\n"
                             f"Topic: {topic[:100]}\n\n"
                             f"Consensus: {result.final_answer[:500]}\n\n"
-                            f"Confidence: {result.confidence:.0%}"
+                            f"Confidence: {result.confidence:.0%}",
                         )
                     else:
                         self._send_message(
                             to_number,
                             f"Debate Complete!\n\n"
                             f"Topic: {topic[:100]}\n\n"
-                            "No consensus was reached. The agents had differing views."
+                            "No consensus was reached. The agents had differing views.",
                         )
 
                 asyncio.run(execute())

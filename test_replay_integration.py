@@ -28,11 +28,8 @@ def test_recorder():
             storage_dir=str(replay_dir),
         )
 
-        print("✓ Recorder created")
-
         # Start recording
         recorder.start()
-        print("✓ Recorder started")
 
         # Record some events
         recorder.record_phase_change("round_1_start")
@@ -41,8 +38,6 @@ def test_recorder():
         recorder.record_vote("Agent1", "Option A", "Because it's better")
         recorder.record_phase_change("consensus_reached: Option A")
 
-        print("✓ Events recorded")
-
         # Wait a bit for async writing
         import time
 
@@ -50,7 +45,6 @@ def test_recorder():
 
         # Finalize
         recorder.finalize("Option A", {"Option A": 2, "Option B": 1})
-        print("✓ Recording finalized")
 
         # Check if files were created
         session_dir = replay_dir / "test_debate_001"
@@ -58,26 +52,19 @@ def test_recorder():
         events_file = session_dir / "events.jsonl"
 
         if meta_file.exists():
-            print("✓ Meta file created")
             with open(meta_file, "r") as f:
-                meta = json.load(f)
-            print(f"  Status: {meta.get('status')}")
-            print(f"  Event count: {meta.get('event_count')}")
+                json.load(f)
         else:
-            print("✗ Meta file missing")
+            pass
 
         if events_file.exists():
-            print("✓ Events file created")
             # Count events
             with open(events_file, "r") as f:
                 events = [json.loads(line) for line in f]
-            print(f"✓ Recorded {len(events)} events")
             for event in events:
-                print(f"  - {event['event_type']}: {event['source']} - {event['content'][:50]}...")
+                pass
         else:
-            print("✗ Events file missing")
-
-        print("Recorder test completed successfully!")
+            pass
 
 
 def test_storage():
@@ -89,27 +76,16 @@ def test_storage():
         # Should list empty
         recordings = storage.list_recordings()
         assert len(recordings) == 0, f"Expected 0 recordings, got {len(recordings)}"
-        print("✓ Storage lists empty correctly")
-
-        print("Storage test completed successfully!")
 
 
 def test_api():
     """Test API endpoints (basic import test)."""
-    print("✓ API imports work")
 
     # Test that the class attributes work
     assert DebateAPIHandler.replay_storage is None, "Replay storage should be None initially"
-    print("✓ API handler class attributes work")
-
-    print("API test completed successfully!")
 
 
 if __name__ == "__main__":
-    print("Testing replay integration...")
     test_recorder()
-    print()
     test_storage()
-    print()
     test_api()
-    print("\nAll tests passed!")

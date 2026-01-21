@@ -30,7 +30,6 @@ except ImportError:
 
 from aragora import Arena, Environment, DebateProtocol
 from aragora.agents.base import create_agent
-from aragora.templates import CODE_REVIEW_TEMPLATE
 
 
 # Code sample to review
@@ -54,10 +53,6 @@ def process_user_data(user_input: str, db_connection) -> dict:
 async def run_code_review_debate():
     """Run a multi-agent code review debate."""
 
-    print("\n" + "=" * 60)
-    print("ARAGORA: Code Review Debate")
-    print("=" * 60)
-
     # Create specialized agents
     agent_configs = [
         ("anthropic-api", "security_reviewer"),
@@ -70,12 +65,10 @@ async def run_code_review_debate():
         try:
             agent = create_agent(model_type=agent_type, name=f"{role}", role=role)  # type: ignore
             agents.append(agent)
-            print(f"  + {agent.name} ready")
-        except Exception as e:
-            print(f"  - {agent_type} unavailable: {str(e)[:40]}")
+        except Exception:
+            pass
 
     if len(agents) < 2:
-        print("\nError: Need at least 2 agents. Check API keys.")
         return None
 
     # Use code review template
@@ -101,20 +94,8 @@ Provide:
         enable_calibration=True,
     )
 
-    print(f"\nReviewing code with {len(agents)} agents...")
-
     arena = Arena(env, agents, protocol)
     result = await arena.run()
-
-    print(f"\n{'='*60}")
-    print("CODE REVIEW RESULTS")
-    print(f"{'='*60}")
-    print(f"Consensus: {'Yes' if result.consensus_reached else 'No'}")
-    print(f"Confidence: {result.confidence:.0%}")
-
-    print(f"\n--- Review Summary ---")
-    answer = result.final_answer
-    print(answer[:1500] if len(answer) > 1500 else answer)
 
     return result
 
@@ -122,4 +103,4 @@ Provide:
 if __name__ == "__main__":
     result = asyncio.run(run_code_review_debate())
     if result and result.consensus_reached:
-        print("\n[SUCCESS] Code review completed with consensus!")
+        pass

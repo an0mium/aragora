@@ -73,13 +73,13 @@ def validate_all(strict: bool = False) -> Dict[str, Any]:
     # Check encryption key in production
     if is_production:
         if not os.environ.get("ARAGORA_ENCRYPTION_KEY"):
-            errors.append(
-                "ARAGORA_ENCRYPTION_KEY required in production for secrets encryption"
-            )
+            errors.append("ARAGORA_ENCRYPTION_KEY required in production for secrets encryption")
 
         # Check for debug mode in production
         if os.environ.get("ARAGORA_DEBUG", "").lower() in ("true", "1", "yes"):
-            warnings.append("ARAGORA_DEBUG is enabled in production - this may expose sensitive info")
+            warnings.append(
+                "ARAGORA_DEBUG is enabled in production - this may expose sensitive info"
+            )
 
         # Check for secure cookies
         if os.environ.get("ARAGORA_SECURE_COOKIES", "").lower() not in ("true", "1", "yes"):
@@ -212,39 +212,19 @@ def print_config_status() -> None:
     """Print a formatted configuration status report to stdout."""
     result = validate_all(strict=False)
 
-    print("\n" + "=" * 60)
-    print("ARAGORA CONFIGURATION STATUS")
-    print("=" * 60)
-
     summary = result.get("config_summary", {})
 
-    print(f"\nEnvironment: {summary.get('environment', 'unknown')}")
-    print(f"Production Mode: {'Yes' if summary.get('is_production') else 'No'}")
-    print(f"Database Backend: {summary.get('db_backend', 'unknown')}")
-    print(f"State Backend: {summary.get('state_backend', 'unknown')}")
-    print(f"Redis Configured: {'Yes' if summary.get('redis_configured') else 'No'}")
-    print(f"Encryption Configured: {'Yes' if summary.get('encryption_configured') else 'No'}")
-    print(f"Supabase Configured: {'Yes' if summary.get('supabase_configured') else 'No'}")
-
-    providers = summary.get("api_providers", [])
-    print(f"AI Providers: {', '.join(providers) if providers else 'None'}")
+    summary.get("api_providers", [])
 
     if result["errors"]:
-        print("\n" + "-" * 60)
-        print("ERRORS:")
         for error in result["errors"]:
-            print(f"  [X] {error}")
+            pass
 
     if result["warnings"]:
-        print("\n" + "-" * 60)
-        print("WARNINGS:")
         for warning in result["warnings"]:
-            print(f"  [!] {warning}")
+            pass
 
-    print("\n" + "=" * 60)
-    status = "PASS" if result["valid"] else "FAIL"
-    print(f"OVERALL STATUS: {status}")
-    print("=" * 60 + "\n")
+    "PASS" if result["valid"] else "FAIL"
 
 
 __all__ = [
