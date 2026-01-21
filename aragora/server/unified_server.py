@@ -77,19 +77,9 @@ TRUSTED_PROXIES = frozenset(
     p.strip() for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
 )
 
-# Import from initialization module (subsystem init functions)
+# Import from initialization module
 from aragora.server.handler_registry import HandlerRegistryMixin
-from aragora.server.initialization import (
-    init_consensus_memory,
-    init_debate_embeddings,
-    init_elo_system,
-    init_flip_detector,
-    init_insight_store,
-    init_moment_detector,
-    init_persistence,
-    init_persona_manager,
-    init_position_ledger,
-)
+from aragora.server.initialization import init_persistence
 
 # Server startup time for uptime tracking
 _server_start_time: float = time.time()

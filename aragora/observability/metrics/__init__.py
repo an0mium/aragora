@@ -63,3 +63,11 @@ from aragora.observability.metrics.slo import (  # noqa: F401, E402
     track_operation_slo,
     get_slo_metrics_summary,
 )
+
+from aragora.observability.metrics.webhook import (  # noqa: F401, E402
+    record_webhook_delivery,
+    record_webhook_retry,
+    set_queue_size as set_webhook_queue_size,
+    set_active_endpoints as set_webhook_active_endpoints,
+    WebhookDeliveryTimer,
+)

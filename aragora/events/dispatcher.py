@@ -183,6 +183,13 @@ def dispatch_webhook_with_retry(
     Returns:
         DeliveryResult with outcome
     """
+    # Import metrics (lazy to avoid circular imports)
+    try:
+        from aragora.observability.metrics.webhook import record_webhook_retry
+    except ImportError:
+        record_webhook_retry = None
+
+    event_type = payload.get("event", "unknown")
     start_time = time.time()
     delay = initial_delay
 
@@ -209,6 +216,10 @@ def dispatch_webhook_with_retry(
 
         # Retry on 5xx or connection errors
         if attempt < max_retries:
+            # Record retry metric
+            if record_webhook_retry:
+                record_webhook_retry(event_type, attempt + 1)
+
             logger.info(
                 f"Retrying webhook {webhook.id} in {delay:.1f}s "
                 f"(attempt {attempt + 1}/{max_retries})"
@@ -309,6 +320,13 @@ class WebhookDispatcher:
         """Deliver webhook in background thread."""
         from aragora.server.handlers.webhooks import get_webhook_store
 
+        # Import metrics (lazy to avoid circular imports)
+        try:
+            from aragora.observability.metrics.webhook import record_webhook_delivery
+        except ImportError:
+            record_webhook_delivery = None
+
+        event_type = payload.get("event", "unknown")
         result = dispatch_webhook_with_retry(webhook, payload)
 
         # Update stats
@@ -318,6 +336,15 @@ class WebhookDispatcher:
                 self._successes += 1
             else:
                 self._failures += 1
+
+        # Record Prometheus metrics
+        if record_webhook_delivery:
+            record_webhook_delivery(
+                event_type=event_type,
+                success=result.success,
+                duration_seconds=result.duration_ms / 1000.0,
+                status_code=result.status_code if not result.success else None,
+            )
 
         # Record delivery in store
         store = get_webhook_store()
