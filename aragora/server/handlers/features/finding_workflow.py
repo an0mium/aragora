@@ -31,6 +31,11 @@ from uuid import uuid4
 
 from aragora.server.handlers.base import BaseHandler
 from aragora.storage.finding_workflow_store import get_finding_workflow_store
+from aragora.rbac import (
+    AuthorizationContext,
+    check_permission,
+    PermissionDeniedError,
+)
 
 logger = logging.getLogger(__name__)
 

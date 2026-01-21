@@ -406,8 +406,8 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
             (
                 state.user_id,
                 state.email_address,
-                _encrypt_token(state.access_token),
-                _encrypt_token(state.refresh_token),
+                _encrypt_token(state.access_token, state.user_id),
+                _encrypt_token(state.refresh_token, state.user_id),
                 state.token_expiry.isoformat() if state.token_expiry else None,
                 state.history_id,
                 state.last_sync.isoformat() if state.last_sync else None,

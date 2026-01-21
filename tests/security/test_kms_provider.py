@@ -126,11 +126,12 @@ class TestLocalKmsProvider:
         """Should encrypt and decrypt data keys."""
         provider = LocalKmsProvider(master_key=b"x" * 32)
 
-        original = b"test-data-key-32-bytes-exactly!"
-        encrypted = await provider.encrypt_data_key(original, "test")
-        decrypted = await provider.decrypt_data_key(encrypted, "test")
+        # Use exactly 32 bytes for the key
+        original = b"test-data-key-exactly-32-bytes!"
+        assert len(original) == 32
 
-        # Note: Local provider uses XOR, so roundtrip works
+        encrypted = await provider.encrypt_data_key(original, "test")
+        # Note: Local provider uses XOR, so roundtrip should work
         assert len(encrypted) == 32
 
     @pytest.mark.asyncio

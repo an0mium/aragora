@@ -168,6 +168,22 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/auth/register", "POST", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/auth/callback", "*", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/auth/refresh", "POST", "", allow_unauthenticated=True),
+    # Audit findings workflow
+    RoutePermission(r"^/api/audit/findings/bulk-action$", "POST", "findings.bulk"),
+    RoutePermission(r"^/api/audit/findings/my-assignments$", "GET", "findings.read"),
+    RoutePermission(r"^/api/audit/findings/overdue$", "GET", "findings.read"),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/status$", "PATCH", "findings.update", 1),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/assign$", "PATCH", "findings.assign", 1),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/unassign$", "POST", "findings.assign", 1),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/comments$", "*", "findings.read", 1),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/history$", "GET", "findings.read", 1),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/priority$", "PATCH", "findings.update", 1),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/due-date$", "PATCH", "findings.update", 1),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/link$", "POST", "findings.update", 1),
+    RoutePermission(r"^/api/audit/findings/([^/]+)/duplicate$", "POST", "findings.update", 1),
+    RoutePermission(r"^/api/audit/workflow/states$", "GET", "findings.read"),
+    RoutePermission(r"^/api/audit/presets$", "GET", "findings.read"),
+    RoutePermission(r"^/api/audit/types$", "GET", "findings.read"),
 ]
 
 
