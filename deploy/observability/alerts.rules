@@ -221,6 +221,120 @@ groups:
           summary: "SLO Debate success rate breach"
           description: "Debate success SLO (95%) is breached. Current: {{ $value | printf \"%.2f\" }}"
 
+  - name: aragora_slo_operations
+    interval: 30s
+    rules:
+      # High SLO violation rate for any operation
+      - alert: SLOViolationRateHigh
+        expr: |
+          sum by (operation) (rate(aragora_slo_violations_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          slo: operation
+        annotations:
+          summary: "High SLO violation rate for {{ $labels.operation }}"
+          description: "Operation {{ $labels.operation }} has elevated SLO violations. Rate: {{ $value | printf \"%.2f\" }}/s"
+          runbook_url: "https://docs.aragora.io/runbooks/slo-violations"
+
+      # Critical SLO violations (severe)
+      - alert: SLOViolationCritical
+        expr: |
+          sum by (operation) (rate(aragora_slo_violations_total{severity="critical"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          slo: operation
+        annotations:
+          summary: "Critical SLO violation for {{ $labels.operation }}"
+          description: "Operation {{ $labels.operation }} has critical SLO violations (>2x threshold)."
+
+      # KM Query latency breach
+      - alert: SLOKMQueryLatencyBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_slo_operation_latency_ms_bucket{operation="km_query"}[5m])) > 500
+        for: 5m
+        labels:
+          severity: warning
+          slo: km_query
+        annotations:
+          summary: "Knowledge Mound query P99 latency breach"
+          description: "KM query P99 latency exceeds 500ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Consensus ingestion latency breach
+      - alert: SLOConsensusIngestionBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_slo_operation_latency_ms_bucket{operation="consensus_ingestion"}[5m])) > 200
+        for: 5m
+        labels:
+          severity: warning
+          slo: consensus_ingestion
+        annotations:
+          summary: "Consensus ingestion P99 latency breach"
+          description: "Consensus ingestion P99 latency exceeds 200ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Handler execution latency breach
+      - alert: SLOHandlerExecutionBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_slo_operation_latency_ms_bucket{operation="handler_execution"}[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          slo: handler_execution
+        annotations:
+          summary: "Event handler execution P99 latency breach"
+          description: "Handler execution P99 latency exceeds 100ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Memory store latency breach
+      - alert: SLOMemoryStoreBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_slo_operation_latency_ms_bucket{operation="memory_store"}[5m])) > 50
+        for: 5m
+        labels:
+          severity: warning
+          slo: memory_store
+        annotations:
+          summary: "Memory store P99 latency breach"
+          description: "Memory store P99 latency exceeds 50ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Debate round latency breach
+      - alert: SLODebateRoundBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_slo_operation_latency_ms_bucket{operation="debate_round"}[5m])) > 60000
+        for: 10m
+        labels:
+          severity: warning
+          slo: debate_round
+        annotations:
+          summary: "Debate round P99 duration breach"
+          description: "Debate round P99 duration exceeds 60s SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # SLO check failure rate
+      - alert: SLOCheckFailureRateHigh
+        expr: |
+          sum(rate(aragora_slo_checks_total{result="fail"}[15m]))
+          /
+          sum(rate(aragora_slo_checks_total[15m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          slo: overall
+        annotations:
+          summary: "High SLO check failure rate"
+          description: "More than 10% of SLO checks are failing. Current: {{ $value | printf \"%.1f\" }}%"
+
+      # High SLO violation margin
+      - alert: SLOHighViolationMargin
+        expr: |
+          aragora_slo_violation_margin_ms > 1000
+        for: 5m
+        labels:
+          severity: warning
+          slo: margin
+        annotations:
+          summary: "SLO violation margin high for {{ $labels.operation }}"
+          description: "Operation {{ $labels.operation }} is exceeding SLO by {{ $value | printf \"%.0f\" }}ms"
+
   - name: aragora_database
     interval: 60s
     rules:
