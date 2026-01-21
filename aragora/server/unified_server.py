@@ -41,7 +41,7 @@ from urllib.parse import urlparse
 
 from .auth import auth_config, check_auth
 from .middleware.tracing import TracingMiddleware
-from aragora.rbac.middleware import RBACMiddleware, RBACMiddlewareConfig
+from aragora.rbac.middleware import RBACMiddleware, RBACMiddlewareConfig, DEFAULT_ROUTE_PERMISSIONS
 from .storage import DebateStorage
 from .stream import (
     ControlPlaneStreamServer,
@@ -102,6 +102,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
     rbac: RBACMiddleware = RBACMiddleware(
         RBACMiddlewareConfig(
+            route_permissions=DEFAULT_ROUTE_PERMISSIONS,
             bypass_paths={
                 "/health",
                 "/healthz",
@@ -109,9 +110,10 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
                 "/metrics",
                 "/api/docs",
                 "/openapi.json",
+                "/api/public/",  # Public API endpoints
             },
             bypass_methods={"OPTIONS"},
-            default_authenticated=False,  # Allow unauthenticated by default, handlers enforce auth
+            default_authenticated=False,  # Allow unauthenticated by default for unmatched routes
         )
     )
     nomic_state_file: Optional[Path] = None
@@ -575,6 +577,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
                 self._send_json({"error": error_msg}, status=400)
                 return
 
+        # RBAC check for all API requests (authorization)
+        if path.startswith("/api/"):
+            if not self._check_rbac(path, "GET"):
+                return
+
         # Rate limit all API GET requests (DoS protection)
         if path.startswith("/api/"):
             if not self._check_rate_limit():
@@ -607,6 +614,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def _do_POST_internal(self, path: str) -> None:
         """Internal POST handler with actual routing logic."""
+        # RBAC check for all API requests (authorization)
+        if path.startswith("/api/"):
+            if not self._check_rbac(path, "POST"):
+                return
+
         # Route all /api/* requests through modular handlers
         if path.startswith("/api/"):
             try:
@@ -629,6 +641,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def _do_DELETE_internal(self, path: str) -> None:
         """Internal DELETE handler with actual routing logic."""
+        # RBAC check for all API requests (authorization)
+        if path.startswith("/api/"):
+            if not self._check_rbac(path, "DELETE"):
+                return
+
         # Try modular handlers first
         if path.startswith("/api/"):
             if self._try_modular_handler(path, {}):
@@ -643,6 +660,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def _do_PATCH_internal(self, path: str) -> None:
         """Internal PATCH handler with actual routing logic."""
+        # RBAC check for all API requests (authorization)
+        if path.startswith("/api/"):
+            if not self._check_rbac(path, "PATCH"):
+                return
+
         # Try modular handlers first
         if path.startswith("/api/"):
             if self._try_modular_handler(path, {}):
@@ -657,6 +679,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     def _do_PUT_internal(self, path: str) -> None:
         """Internal PUT handler with actual routing logic."""
+        # RBAC check for all API requests (authorization)
+        if path.startswith("/api/"):
+            if not self._check_rbac(path, "PUT"):
+                return
+
         # Try modular handlers first
         if path.startswith("/api/"):
             if self._try_modular_handler(path, {}):
