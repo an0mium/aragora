@@ -183,6 +183,19 @@ class MockVerificationResult:
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def clear_rate_limits():
+    """Clear rate limiters before each test to prevent pollution."""
+    from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+    from aragora.server.handlers.knowledge_base import handler as kh
+    clear_all_limiters()
+    # Also clear the module-level knowledge handler limiter
+    kh._knowledge_limiter.clear()
+    yield
+    clear_all_limiters()
+    kh._knowledge_limiter.clear()
+
+
 @pytest.fixture
 def mock_fact_store():
     """Create a mock fact store with common operations."""

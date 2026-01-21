@@ -1155,6 +1155,289 @@ async def notify_checkpoint_resolved(
     return results
 
 
+# =============================================================================
+# Webhook Delivery Failure Notifications
+# =============================================================================
+
+
+async def notify_webhook_delivery_failure(
+    webhook_id: str,
+    webhook_url: str,
+    event_type: str,
+    error_message: str,
+    attempt_count: int,
+    workspace_id: Optional[str] = None,
+    owner_email: Optional[str] = None,
+) -> list[NotificationResult]:
+    """
+    Send notification when a webhook delivery fails.
+
+    Args:
+        webhook_id: ID of the webhook
+        webhook_url: URL of the webhook endpoint
+        event_type: Type of event being delivered
+        error_message: Error message from delivery attempt
+        attempt_count: Number of delivery attempts made
+        workspace_id: Optional workspace ID
+        owner_email: Email of webhook owner to notify
+
+    Returns:
+        List of notification results
+    """
+    service = get_notification_service()
+
+    # Determine severity based on attempt count
+    if attempt_count >= 5:
+        severity = "critical"
+        priority = NotificationPriority.URGENT
+        title = f"Webhook Delivery Failed - Max Retries Exceeded"
+    elif attempt_count >= 3:
+        severity = "error"
+        priority = NotificationPriority.HIGH
+        title = f"Webhook Delivery Failing - Multiple Retries"
+    else:
+        severity = "warning"
+        priority = NotificationPriority.NORMAL
+        title = f"Webhook Delivery Failed"
+
+    # Truncate URL for display
+    display_url = webhook_url if len(webhook_url) <= 50 else webhook_url[:47] + "..."
+
+    notification = Notification(
+        title=title,
+        message=(
+            f"Webhook delivery to {display_url} failed.\n\n"
+            f"Event type: {event_type}\n"
+            f"Attempt: {attempt_count}\n"
+            f"Error: {error_message}"
+        ),
+        severity=severity,
+        priority=priority,
+        resource_type="webhook",
+        resource_id=webhook_id,
+        workspace_id=workspace_id,
+        action_label="View Webhook",
+        metadata={
+            "webhook_url": webhook_url,
+            "event_type": event_type,
+            "attempt_count": attempt_count,
+            "error_message": error_message,
+        },
+    )
+
+    # Build recipients
+    recipients: dict[NotificationChannel, list[str]] = {}
+    if owner_email:
+        recipients[NotificationChannel.EMAIL] = [owner_email]
+
+    results = await service.notify(
+        notification,
+        recipients=recipients if recipients else None,
+    )
+
+    return results
+
+
+async def notify_webhook_circuit_breaker_opened(
+    webhook_id: str,
+    webhook_url: str,
+    failure_count: int,
+    cooldown_seconds: float,
+    workspace_id: Optional[str] = None,
+    owner_email: Optional[str] = None,
+) -> list[NotificationResult]:
+    """
+    Send notification when a webhook's circuit breaker opens.
+
+    Args:
+        webhook_id: ID of the webhook
+        webhook_url: URL of the webhook endpoint
+        failure_count: Number of failures that triggered the circuit breaker
+        cooldown_seconds: Cooldown period before retrying
+        workspace_id: Optional workspace ID
+        owner_email: Email of webhook owner to notify
+
+    Returns:
+        List of notification results
+    """
+    service = get_notification_service()
+
+    cooldown_minutes = int(cooldown_seconds / 60)
+    display_url = webhook_url if len(webhook_url) <= 50 else webhook_url[:47] + "..."
+
+    notification = Notification(
+        title=f"Webhook Circuit Breaker Opened",
+        message=(
+            f"The circuit breaker for webhook {display_url} has opened "
+            f"after {failure_count} consecutive failures.\n\n"
+            f"Deliveries will be paused for {cooldown_minutes} minutes before retrying.\n"
+            f"Please check that the webhook endpoint is accessible and returning success responses."
+        ),
+        severity="critical",
+        priority=NotificationPriority.URGENT,
+        resource_type="webhook",
+        resource_id=webhook_id,
+        workspace_id=workspace_id,
+        action_label="Check Webhook",
+        metadata={
+            "webhook_url": webhook_url,
+            "failure_count": failure_count,
+            "cooldown_seconds": cooldown_seconds,
+            "circuit_state": "open",
+        },
+    )
+
+    recipients: dict[NotificationChannel, list[str]] = {}
+    if owner_email:
+        recipients[NotificationChannel.EMAIL] = [owner_email]
+
+    results = await service.notify(
+        notification,
+        recipients=recipients if recipients else None,
+    )
+
+    # Also send to webhooks (other endpoints might want to know)
+    await service.notify_all_webhooks(notification, "webhook.circuit_breaker_opened")
+
+    return results
+
+
+async def notify_batch_job_failed(
+    job_id: str,
+    total_debates: int,
+    success_count: int,
+    failure_count: int,
+    error_message: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    user_email: Optional[str] = None,
+) -> list[NotificationResult]:
+    """
+    Send notification when a batch explainability job fails.
+
+    Args:
+        job_id: ID of the batch job
+        total_debates: Total debates in the batch
+        success_count: Number of successful explanations
+        failure_count: Number of failed explanations
+        error_message: Optional error message
+        workspace_id: Optional workspace ID
+        user_email: Email of user who created the job
+
+    Returns:
+        List of notification results
+    """
+    service = get_notification_service()
+
+    if failure_count == total_debates:
+        severity = "critical"
+        title = "Batch Explainability Job Failed Completely"
+    elif failure_count > success_count:
+        severity = "error"
+        title = "Batch Explainability Job Mostly Failed"
+    else:
+        severity = "warning"
+        title = "Batch Explainability Job Partially Failed"
+
+    message_parts = [
+        f"Batch job {job_id[:12]}... has completed with failures.",
+        f"",
+        f"Results:",
+        f"- Total debates: {total_debates}",
+        f"- Successful: {success_count}",
+        f"- Failed: {failure_count}",
+    ]
+    if error_message:
+        message_parts.append(f"")
+        message_parts.append(f"Error: {error_message}")
+
+    notification = Notification(
+        title=title,
+        message="\n".join(message_parts),
+        severity=severity,
+        priority=NotificationPriority.HIGH if failure_count > success_count else NotificationPriority.NORMAL,
+        resource_type="batch_job",
+        resource_id=job_id,
+        workspace_id=workspace_id,
+        action_label="View Results",
+        metadata={
+            "total_debates": total_debates,
+            "success_count": success_count,
+            "failure_count": failure_count,
+        },
+    )
+
+    recipients: dict[NotificationChannel, list[str]] = {}
+    if user_email:
+        recipients[NotificationChannel.EMAIL] = [user_email]
+
+    results = await service.notify(
+        notification,
+        recipients=recipients if recipients else None,
+    )
+
+    return results
+
+
+async def notify_batch_job_completed(
+    job_id: str,
+    total_debates: int,
+    success_count: int,
+    elapsed_seconds: float,
+    workspace_id: Optional[str] = None,
+    user_email: Optional[str] = None,
+) -> list[NotificationResult]:
+    """
+    Send notification when a batch explainability job completes successfully.
+
+    Args:
+        job_id: ID of the batch job
+        total_debates: Total debates processed
+        success_count: Number of successful explanations
+        elapsed_seconds: Total processing time
+        workspace_id: Optional workspace ID
+        user_email: Email of user who created the job
+
+    Returns:
+        List of notification results
+    """
+    service = get_notification_service()
+
+    elapsed_min = int(elapsed_seconds / 60)
+    elapsed_sec = int(elapsed_seconds % 60)
+    time_str = f"{elapsed_min}m {elapsed_sec}s" if elapsed_min > 0 else f"{elapsed_sec}s"
+
+    notification = Notification(
+        title="Batch Explainability Job Completed",
+        message=(
+            f"Batch job {job_id[:12]}... has completed successfully.\n\n"
+            f"Processed {total_debates} debates in {time_str}.\n"
+            f"All {success_count} explanations generated successfully."
+        ),
+        severity="info",
+        priority=NotificationPriority.NORMAL,
+        resource_type="batch_job",
+        resource_id=job_id,
+        workspace_id=workspace_id,
+        action_label="View Results",
+        metadata={
+            "total_debates": total_debates,
+            "success_count": success_count,
+            "elapsed_seconds": elapsed_seconds,
+        },
+    )
+
+    recipients: dict[NotificationChannel, list[str]] = {}
+    if user_email:
+        recipients[NotificationChannel.EMAIL] = [user_email]
+
+    results = await service.notify(
+        notification,
+        recipients=recipients if recipients else None,
+    )
+
+    return results
+
+
 # Global instance
 _notification_service: Optional[NotificationService] = None
 _lock = threading.Lock()

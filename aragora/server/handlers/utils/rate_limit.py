@@ -222,6 +222,20 @@ def _get_limiter(name: str, rpm: int) -> RateLimiter:
         return _limiters[name]
 
 
+def clear_all_limiters() -> int:
+    """Clear all rate limiters (for testing).
+
+    Returns:
+        Number of limiters cleared.
+    """
+    with _limiters_lock:
+        count = 0
+        for limiter in _limiters.values():
+            limiter.clear()
+            count += 1
+        return count
+
+
 def rate_limit(
     rpm: int = 60,
     key_func: Optional[Callable[[Any], str]] = None,

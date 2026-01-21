@@ -442,7 +442,7 @@ class WebhookDeliveryWorker:
         # Update circuit state
         circuit = self._circuit_breakers.get(url)
         if circuit:
-            health.circuit_state = circuit.state.value
+            health.circuit_state = circuit.state
 
 
 async def enqueue_webhook_delivery(
