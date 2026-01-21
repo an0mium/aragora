@@ -579,6 +579,8 @@ ROLE_ANALYST = Role(
         PERM_MARKETPLACE_READ.key,
         # Explainability (read only)
         PERM_EXPLAINABILITY_READ.key,
+        # Findings (read only)
+        PERM_FINDINGS_READ.key,
         # User/Org read
         PERM_USER_READ.key,
         PERM_ORG_READ.key,
@@ -641,6 +643,9 @@ ROLE_MEMBER = Role(
         PERM_MARKETPLACE_REVIEW.key,
         # Explainability (read only)
         PERM_EXPLAINABILITY_READ.key,
+        # Findings (read and update own assignments)
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
         # Basic access
         PERM_USER_READ.key,
         PERM_ORG_READ.key,
