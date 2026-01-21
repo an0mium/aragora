@@ -39,6 +39,16 @@ from typing import TYPE_CHECKING, Any, Optional
 from aragora.server.http_utils import run_async
 
 from aragora.billing.jwt_auth import extract_user_from_request
+
+# RBAC imports - graceful fallback if not available
+try:
+    from aragora.rbac import AuthorizationContext, check_permission
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+    AuthorizationContext = None
+    check_permission = None
 from aragora.privacy import (
     AccessDeniedException,
     AuditAction,
@@ -129,6 +139,58 @@ class WorkspaceHandler(BaseHandler):
     def _get_user_store(self) -> Any:
         """Get user store from context."""
         return self.ctx.get("user_store")
+
+    def _get_auth_context(self, handler, auth_ctx=None) -> Optional[AuthorizationContext]:
+        """Build RBAC authorization context from request."""
+        if not RBAC_AVAILABLE or AuthorizationContext is None:
+            return None
+
+        if auth_ctx is None:
+            user_store = self._get_user_store()
+            auth_ctx = extract_user_from_request(handler, user_store)
+
+        if not auth_ctx.is_authenticated:
+            return None
+
+        # Get user role from user store if available
+        user_store = self._get_user_store()
+        user = user_store.get_user_by_id(auth_ctx.user_id) if user_store else None
+        roles = set([user.role]) if user and user.role else set()
+
+        return AuthorizationContext(
+            user_id=auth_ctx.user_id,
+            roles=roles,
+            org_id=auth_ctx.org_id,
+        )
+
+    def _check_rbac_permission(
+        self, handler, permission_key: str, auth_ctx=None
+    ) -> Optional[HandlerResult]:
+        """
+        Check RBAC permission.
+
+        Returns None if allowed, or an error response if denied.
+        """
+        if not RBAC_AVAILABLE:
+            return None
+
+        rbac_ctx = self._get_auth_context(handler, auth_ctx)
+        if not rbac_ctx:
+            # No auth context - rely on existing auth checks
+            return None
+
+        decision = check_permission(rbac_ctx, permission_key)
+        if not decision.allowed:
+            logger.warning(
+                f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
+                f"reason={decision.reason}"
+            )
+            return error_response(
+                {"error": "Permission denied", "reason": decision.reason},
+                403,
+            )
+
+        return None
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -329,6 +391,11 @@ class WorkspaceHandler(BaseHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "workspaces.create", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
@@ -430,6 +497,11 @@ class WorkspaceHandler(BaseHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "workspaces.delete", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         body = self.read_json_body(handler) or {}
         force = body.get("force", False)
 
@@ -467,6 +539,11 @@ class WorkspaceHandler(BaseHandler):
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "workspaces.members.add", auth_ctx)
+        if rbac_error:
+            return rbac_error
 
         body = self.read_json_body(handler)
         if body is None:
@@ -515,6 +592,11 @@ class WorkspaceHandler(BaseHandler):
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "workspaces.members.remove", auth_ctx)
+        if rbac_error:
+            return rbac_error
 
         manager = self._get_isolation_manager()
         try:
@@ -587,6 +669,11 @@ class WorkspaceHandler(BaseHandler):
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "retention.policies.create", auth_ctx)
+        if rbac_error:
+            return rbac_error
 
         body = self.read_json_body(handler)
         if body is None:
@@ -691,6 +778,11 @@ class WorkspaceHandler(BaseHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "retention.policies.update", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
@@ -742,6 +834,11 @@ class WorkspaceHandler(BaseHandler):
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "retention.policies.delete", auth_ctx)
+        if rbac_error:
+            return rbac_error
+
         manager = self._get_retention_manager()
         manager.delete_policy(policy_id)
 
@@ -768,6 +865,11 @@ class WorkspaceHandler(BaseHandler):
         auth_ctx = extract_user_from_request(handler, user_store)
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
+
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "retention.policies.execute", auth_ctx)
+        if rbac_error:
+            return rbac_error
 
         dry_run = query_params.get("dry_run", "false").lower() == "true"
         manager = self._get_retention_manager()

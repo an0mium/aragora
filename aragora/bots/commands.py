@@ -334,14 +334,76 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         cooldown=30,  # 30 second cooldown to prevent spam
     )
     async def cmd_debate(ctx: CommandContext) -> CommandResult:
-        """Start a multi-agent debate on a topic."""
-        import aiohttp
-
+        """Start a multi-agent debate on a topic via DecisionRouter."""
         topic = ctx.raw_args
         if not topic:
             return CommandResult.fail("Please provide a debate topic.")
 
         api_base = ctx.metadata.get("api_base", "http://localhost:8080")
+
+        # Try to use DecisionRouter for unified routing with deduplication
+        try:
+            from aragora.core import (
+                DecisionRequest,
+                DecisionType,
+                InputSource,
+                RequestContext,
+                ResponseChannel,
+                get_decision_router,
+            )
+
+            # Map platform to InputSource
+            platform_to_source = {
+                Platform.DISCORD: InputSource.DISCORD,
+                Platform.TEAMS: InputSource.TEAMS,
+                Platform.SLACK: InputSource.SLACK,
+                Platform.TELEGRAM: InputSource.TELEGRAM,
+                Platform.WHATSAPP: InputSource.WHATSAPP,
+            }
+            source = platform_to_source.get(ctx.platform, InputSource.API)
+
+            response_channel = ResponseChannel(
+                platform=ctx.platform.value,
+                channel_id=ctx.channel_id,
+                user_id=ctx.user_id,
+                thread_id=ctx.thread_id,
+            )
+
+            request_context = RequestContext(
+                user_id=ctx.user_id,
+                session_id=f"{ctx.platform.value}:{ctx.channel_id}",
+            )
+
+            request = DecisionRequest(
+                content=topic,
+                decision_type=DecisionType.DEBATE,
+                source=source,
+                response_channels=[response_channel],
+                context=request_context,
+            )
+
+            router = get_decision_router()
+            result = await router.route(request)
+
+            if result.debate_id:
+                return CommandResult.ok(
+                    f"Debate started on: **{topic}**\n"
+                    f"Debate ID: `{result.debate_id}`\n"
+                    f"View at: {api_base.replace('http://', 'https://')}/debate/{result.debate_id}",
+                    data={"debate_id": result.debate_id},
+                )
+            else:
+                return CommandResult.fail(
+                    result.error or "Failed to start debate via router"
+                )
+
+        except ImportError:
+            logger.debug("DecisionRouter not available, falling back to HTTP")
+        except Exception as e:
+            logger.warning(f"DecisionRouter failed, falling back to HTTP: {e}")
+
+        # Fallback to HTTP API if DecisionRouter unavailable
+        import aiohttp
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -367,7 +429,8 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                         return CommandResult.ok(
                             f"Debate started on: **{topic}**\n"
                             f"Debate ID: `{debate_id}`\n"
-                            f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}"
+                            f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
+                            data={"debate_id": debate_id},
                         )
                     else:
                         error = data.get("error", "Unknown error")

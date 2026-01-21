@@ -458,3 +458,209 @@ class TestWorkspaceHandlerMainHandle:
         result = handler.handle("/api/other", {}, mock_http)
 
         assert result is None
+
+
+# ===========================================================================
+# RBAC Tests
+# ===========================================================================
+
+
+from dataclasses import dataclass
+from unittest.mock import patch
+
+
+@dataclass
+class MockPermissionDecision:
+    """Mock RBAC permission decision."""
+
+    allowed: bool = True
+    reason: str = "Allowed by test"
+
+
+@dataclass
+class MockAuthContext:
+    """Mock auth context for testing."""
+
+    is_authenticated: bool = True
+    user_id: str = "user-123"
+    org_id: str = "org-123"
+
+
+@dataclass
+class MockUser:
+    """Mock user for testing."""
+
+    id: str = "user-123"
+    role: str = "admin"
+    org_id: str = "org-123"
+
+
+def mock_check_permission_allowed(*args, **kwargs):
+    """Mock check_permission that always allows."""
+    return MockPermissionDecision(allowed=True)
+
+
+def mock_check_permission_denied(*args, **kwargs):
+    """Mock check_permission that always denies."""
+    return MockPermissionDecision(allowed=False, reason="Permission denied by test")
+
+
+class TestWorkspaceRBAC:
+    """Tests for RBAC permission checks in WorkspaceHandler."""
+
+    @pytest.fixture
+    def handler(self, mock_server_context):
+        return WorkspaceHandler(mock_server_context)
+
+    def test_rbac_helper_methods_exist(self, handler):
+        """Handler should have RBAC helper methods."""
+        assert hasattr(handler, "_check_rbac_permission")
+        assert hasattr(handler, "_get_auth_context")
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", False)
+    def test_permission_check_without_rbac(self, handler):
+        """Permission check should pass when RBAC not available."""
+        mock_http = MagicMock()
+        auth_ctx = MockAuthContext()
+
+        result = handler._check_rbac_permission(mock_http, "workspaces.create", auth_ctx)
+        assert result is None  # None means allowed
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_allowed)
+    def test_permission_check_allowed(self, handler):
+        """Permission check should pass when RBAC allows."""
+        mock_http = MagicMock()
+        auth_ctx = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+
+        result = handler._check_rbac_permission(mock_http, "workspaces.create", auth_ctx)
+        assert result is None  # None means allowed
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    def test_permission_check_denied(self, handler):
+        """Permission check should return error when RBAC denies."""
+        mock_http = MagicMock()
+        auth_ctx = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser(role="viewer")
+        handler.ctx["user_store"] = mock_user_store
+
+        result = handler._check_rbac_permission(mock_http, "workspaces.create", auth_ctx)
+        assert result is not None
+        assert result.status_code == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_create_workspace_rbac_denied(self, mock_extract, handler):
+        """Create workspace should deny when RBAC denies."""
+        mock_extract.return_value = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+        mock_http = MagicMock()
+
+        result = handler._handle_create_workspace(mock_http)
+        assert result.status_code == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_delete_workspace_rbac_denied(self, mock_extract, handler):
+        """Delete workspace should deny when RBAC denies."""
+        mock_extract.return_value = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+        mock_http = MagicMock()
+
+        result = handler._handle_delete_workspace(mock_http, "ws-123")
+        assert result.status_code == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_add_member_rbac_denied(self, mock_extract, handler):
+        """Add member should deny when RBAC denies."""
+        mock_extract.return_value = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+        mock_http = MagicMock()
+
+        result = handler._handle_add_member(mock_http, "ws-123")
+        assert result.status_code == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_remove_member_rbac_denied(self, mock_extract, handler):
+        """Remove member should deny when RBAC denies."""
+        mock_extract.return_value = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+        mock_http = MagicMock()
+
+        result = handler._handle_remove_member(mock_http, "ws-123", "user-456")
+        assert result.status_code == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_create_policy_rbac_denied(self, mock_extract, handler):
+        """Create retention policy should deny when RBAC denies."""
+        mock_extract.return_value = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+        mock_http = MagicMock()
+
+        result = handler._handle_create_policy(mock_http)
+        assert result.status_code == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_update_policy_rbac_denied(self, mock_extract, handler):
+        """Update retention policy should deny when RBAC denies."""
+        mock_extract.return_value = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+        mock_http = MagicMock()
+
+        result = handler._handle_update_policy(mock_http, "pol-123")
+        assert result.status_code == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_delete_policy_rbac_denied(self, mock_extract, handler):
+        """Delete retention policy should deny when RBAC denies."""
+        mock_extract.return_value = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+        mock_http = MagicMock()
+
+        result = handler._handle_delete_policy(mock_http, "pol-123")
+        assert result.status_code == 403
+
+    @patch("aragora.server.handlers.workspace.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.workspace.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.workspace.extract_user_from_request")
+    def test_execute_policy_rbac_denied(self, mock_extract, handler):
+        """Execute retention policy should deny when RBAC denies."""
+        mock_extract.return_value = MockAuthContext()
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockUser()
+        handler.ctx["user_store"] = mock_user_store
+        mock_http = MagicMock()
+
+        result = handler._handle_execute_policy(mock_http, "pol-123", {})
+        assert result.status_code == 403
