@@ -451,6 +451,109 @@ class ContinuumAdapter:
         finally:
             self._record_metric("search", success, time.time() - start)
 
+    async def semantic_search(
+        self,
+        query: str,
+        limit: int = 10,
+        min_similarity: float = 0.6,
+        tenant_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Semantic vector search over memory entries.
+
+        Uses the Knowledge Mound's SemanticStore for embedding-based similarity
+        search, falling back to keyword search if embeddings aren't available.
+
+        Args:
+            query: The search query
+            limit: Maximum results to return
+            min_similarity: Minimum similarity threshold (0.0-1.0)
+            tenant_id: Optional tenant filter
+
+        Returns:
+            List of matching entries with similarity scores
+        """
+        import time
+        start = time.time()
+        success = False
+
+        try:
+            # Try semantic search first
+            try:
+                from aragora.knowledge.mound.semantic_store import (
+                    SemanticStore,
+                    SemanticSearchResult,
+                )
+
+                # Get or create semantic store
+                store = SemanticStore()
+
+                # Search using embeddings
+                results = await store.search_similar(
+                    query=query,
+                    tenant_id=tenant_id or "default",
+                    limit=limit,
+                    min_similarity=min_similarity,
+                    source_type="continuum",
+                )
+
+                # Enrich results with full memory entries
+                enriched = []
+                for r in results:
+                    # Try to get the full entry from memory
+                    entry_id = r.source_id
+                    if entry_id.startswith("cm_"):
+                        entry_id = entry_id[3:]
+
+                    entry = self._continuum.get(entry_id)
+                    if entry:
+                        enriched.append({
+                            "id": entry.id,
+                            "content": entry.content,
+                            "tier": entry.tier.value,
+                            "importance": entry.importance,
+                            "similarity": r.similarity,
+                            "domain": r.domain,
+                            "created_at": entry.created_at,
+                            "updated_at": entry.updated_at,
+                            "metadata": entry.metadata,
+                        })
+                    else:
+                        # Entry may have been evicted from memory
+                        enriched.append({
+                            "id": r.source_id,
+                            "similarity": r.similarity,
+                            "domain": r.domain,
+                            "importance": r.importance,
+                            "metadata": r.metadata,
+                        })
+
+                success = True
+                logger.debug(f"Semantic search returned {len(enriched)} results for '{query[:50]}'")
+
+                # Emit event
+                self._emit_event("km_adapter_semantic_search", {
+                    "source": "continuum",
+                    "query_preview": query[:50],
+                    "results_count": len(enriched),
+                    "search_type": "vector",
+                })
+
+                return enriched
+
+            except ImportError:
+                logger.debug("SemanticStore not available, falling back to keyword search")
+            except Exception as e:
+                logger.debug(f"Semantic search failed, falling back: {e}")
+
+            # Fallback to keyword search
+            results = self.search_similar(query, limit=limit, min_similarity=min_similarity)
+            success = True
+            return results
+
+        finally:
+            self._record_metric("semantic_search", success, time.time() - start)
+
     def store_memory(self, entry: "ContinuumMemoryEntry") -> None:
         """
         Store a memory entry in the Knowledge Mound (forward flow).
