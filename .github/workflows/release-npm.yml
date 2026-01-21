@@ -1,15 +1,10 @@
 name: Release NPM
 
-# Publishes @aragora/sdk to npm registry using Trusted Publishing (OIDC)
+# Publishes @aragora/sdk to npm registry
 #
-# This workflow uses npm's Trusted Publishing feature which authenticates via
-# GitHub's OIDC provider - no tokens required!
-#
-# Prerequisites:
-# 1. Package @aragora/sdk must exist on npm
-# 2. Trusted Publisher configured: npmjs.com -> @aragora/sdk -> Settings
-#    - Repository: an0mium/aragora
-#    - Workflow: release-npm.yml
+# Requires NPM_TOKEN secret configured in GitHub repository settings.
+# The npm account should have "Require 2FA for write actions" DISABLED
+# for token-based CI/CD publishing to work.
 
 on:
   push:
@@ -73,6 +68,7 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Publish to npm (Trusted Publishing)
+      - name: Publish to npm
         run: npm publish --provenance --access public
-        # No NODE_AUTH_TOKEN needed - uses OIDC via Trusted Publishing
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
