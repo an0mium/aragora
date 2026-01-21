@@ -308,22 +308,18 @@ class Arena:
                         auto_initialize=True,
                     )
                     logger.info(
-                        "[knowledge_mound] Auto-created KM instance for debate "
-                        "(enable_retrieval=%s, enable_ingestion=%s)",
-                        enable_knowledge_retrieval,
-                        enable_knowledge_ingestion,
+                        f"[knowledge_mound] Auto-created KM instance for debate "
+                        f"(enable_retrieval={enable_knowledge_retrieval}, enable_ingestion={enable_knowledge_ingestion})"
                     )
                 except ImportError as e:
                     logger.warning(
-                        "[knowledge_mound] Could not auto-create: %s. "
-                        "Debates will run without knowledge grounding.",
-                        e,
+                        f"[knowledge_mound] Could not auto-create: {e}. "
+                        "Debates will run without knowledge grounding."
                     )
                 except Exception as e:
                     logger.warning(
-                        "[knowledge_mound] Failed to initialize: %s. "
-                        "Debates will run without knowledge grounding.",
-                        e,
+                        f"[knowledge_mound] Failed to initialize: {e}. "
+                        "Debates will run without knowledge grounding."
                     )
         elif knowledge_mound is None:
             # User explicitly disabled auto-create
