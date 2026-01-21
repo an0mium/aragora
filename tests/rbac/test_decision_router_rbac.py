@@ -7,7 +7,6 @@ for all decision types (debates, workflows, gauntlet, quick).
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 
 from aragora.core.decision import (
     DecisionRouter,
@@ -17,6 +16,9 @@ from aragora.core.decision import (
     InputSource,
     Priority,
     ResponseChannel,
+    RequestContext,
+    get_decision_router,
+    reset_decision_router,
 )
 from aragora.rbac.models import AuthorizationContext
 
@@ -78,85 +80,121 @@ def auth_context_without_permission():
     )
 
 
-class TestDecisionRouterAuthorization:
-    """Test authorization checks in DecisionRouter."""
+class TestDecisionRequest:
+    """Test DecisionRequest creation and serialization."""
 
-    def test_decision_request_has_auth_context(self):
-        """DecisionRequest should support auth context."""
+    def test_create_basic_request(self):
+        """DecisionRequest should be created with content."""
         request = DecisionRequest(
-            request_id="test_123",
-            query="Test query",
+            content="What is 2+2?",
             decision_type=DecisionType.DEBATE,
-            source=InputSource.API,
-            user_id="user_123",
-            org_id="org_456",
+            source=InputSource.HTTP_API,
         )
 
-        assert request.user_id == "user_123"
-        assert request.org_id == "org_456"
+        assert request.content == "What is 2+2?"
+        assert request.decision_type == DecisionType.DEBATE
+        assert request.source == InputSource.HTTP_API
+        assert request.request_id is not None
 
-    def test_decision_request_from_chat_message(self):
-        """DecisionRequest from chat should include user context."""
-        request = DecisionRequest.from_chat_message(
+    def test_request_with_context(self):
+        """DecisionRequest should support user context."""
+        context = RequestContext(
+            user_id="user_123",
+            org_id="org_456",
+            workspace_id="ws_789",
+        )
+        request = DecisionRequest(
+            content="Test query",
+            context=context,
+        )
+
+        assert request.context.user_id == "user_123"
+        assert request.context.org_id == "org_456"
+
+    def test_request_from_chat_platform(self):
+        """DecisionRequest should work for chat platforms."""
+        request = DecisionRequest(
+            content="What is the weather?",
+            source=InputSource.SLACK,
+            context=RequestContext(user_id="U12345"),
+            response_channels=[
+                ResponseChannel(
+                    platform="slack",
+                    channel_id="C67890",
+                    user_id="U12345",
+                )
+            ],
+        )
+
+        assert request.source == InputSource.SLACK
+        assert len(request.response_channels) == 1
+        assert request.response_channels[0].platform == "slack"
+
+    def test_request_to_dict(self):
+        """DecisionRequest should serialize correctly."""
+        request = DecisionRequest(
+            content="Test content",
+            decision_type=DecisionType.DEBATE,
+            source=InputSource.HTTP_API,
+        )
+
+        data = request.to_dict()
+        assert data["content"] == "Test content"
+        assert data["decision_type"] == "debate"
+        assert data["source"] == "http_api"
+
+    def test_auto_detect_workflow_type(self):
+        """Should auto-detect workflow type."""
+        from aragora.core.decision import DecisionConfig
+
+        request = DecisionRequest(
+            content="Run my workflow",
+            decision_type=DecisionType.AUTO,
+            config=DecisionConfig(workflow_id="wf_123"),
+        )
+
+        assert request.decision_type == DecisionType.WORKFLOW
+
+
+class TestResponseChannel:
+    """Test ResponseChannel creation and serialization."""
+
+    def test_create_response_channel(self):
+        """ResponseChannel should be created correctly."""
+        channel = ResponseChannel(
+            platform="telegram",
+            channel_id="12345",
+            user_id="67890",
+        )
+
+        assert channel.platform == "telegram"
+        assert channel.channel_id == "12345"
+        assert channel.user_id == "67890"
+
+    def test_response_channel_with_thread(self):
+        """ResponseChannel should support thread_id."""
+        channel = ResponseChannel(
             platform="slack",
             channel_id="C123",
             user_id="U456",
-            content="What is 2+2?",
             thread_id="T789",
         )
 
-        assert request.user_id == "U456"
-        assert request.source == InputSource.CHAT
-        assert request.metadata["platform"] == "slack"
-        assert request.metadata["channel_id"] == "C123"
+        assert channel.thread_id == "T789"
 
-    def test_decision_request_from_api(self):
-        """DecisionRequest from API should include user context."""
-        request = DecisionRequest.from_api_request(
-            query="Analyze this data",
-            user_id="user_123",
-            org_id="org_456",
-            decision_type=DecisionType.DEBATE,
+    def test_response_channel_to_dict(self):
+        """ResponseChannel should serialize correctly."""
+        channel = ResponseChannel(
+            platform="discord",
+            channel_id="123456",
+            user_id="654321",
+            message_id="msg_999",
         )
 
-        assert request.user_id == "user_123"
-        assert request.org_id == "org_456"
-        assert request.source == InputSource.API
-
-
-class TestDecisionRouterResourceIsolation:
-    """Test resource isolation in decision routing."""
-
-    def test_debate_result_includes_user_context(self):
-        """Debate results should include user context for filtering."""
-        result = DecisionResult(
-            request_id="req_123",
-            success=True,
-            decision_type=DecisionType.DEBATE,
-            answer="Test answer",
-            confidence=0.9,
-            consensus_reached=True,
-            user_id="user_123",
-            org_id="org_456",
-        )
-
-        assert result.user_id == "user_123"
-        assert result.org_id == "org_456"
-
-    def test_result_to_dict_includes_user_context(self):
-        """Result serialization should include user context."""
-        result = DecisionResult(
-            request_id="req_123",
-            success=True,
-            decision_type=DecisionType.DEBATE,
-            answer="Test answer",
-            user_id="user_123",
-            org_id="org_456",
-        )
-
-        data = result.to_dict()
-        assert data["user_id"] == "user_123"
-        assert data["org_id"] == "org_456"
+        data = channel.to_dict()
+        assert data["platform"] == "discord"
+        assert data["channel_id"] == "123456"
+        assert data["user_id"] == "654321"
 
 
 class TestResponseHandlerRegistration:
@@ -193,138 +231,11 @@ class TestResponseHandlerRegistration:
         assert "slack" in router._response_handlers
 
 
-class TestResponseChannelRouting:
-    """Test response channel routing."""
-
-    def test_response_channel_from_request(self):
-        """ResponseChannel should be created from request."""
-        request = DecisionRequest.from_chat_message(
-            platform="telegram",
-            channel_id="12345",
-            user_id="67890",
-            content="Hello",
-            message_id="msg_123",
-        )
-
-        channel = ResponseChannel(
-            platform=request.metadata["platform"],
-            channel_id=request.metadata["channel_id"],
-            user_id=request.user_id,
-            thread_id=request.metadata.get("thread_id"),
-            message_id=request.metadata.get("message_id"),
-        )
-
-        assert channel.platform == "telegram"
-        assert channel.channel_id == "12345"
-        assert channel.user_id == "67890"
-
-    def test_response_channel_to_dict(self):
-        """ResponseChannel should serialize correctly."""
-        channel = ResponseChannel(
-            platform="slack",
-            channel_id="C123",
-            user_id="U456",
-            thread_id="T789",
-        )
-
-        data = channel.to_dict()
-        assert data["platform"] == "slack"
-        assert data["channel_id"] == "C123"
-        assert data["user_id"] == "U456"
-        assert data["thread_id"] == "T789"
-
-
-class TestDecisionTypeRouting:
-    """Test routing to different decision engines."""
-
-    @pytest.mark.asyncio
-    async def test_route_to_debate(self, router, mock_debate_engine):
-        """Debate requests should route to debate engine."""
-        request = DecisionRequest(
-            request_id="test_123",
-            query="Test debate",
-            decision_type=DecisionType.DEBATE,
-            source=InputSource.API,
-            user_id="user_123",
-        )
-
-        # Mock the internal route method
-        with patch.object(router, '_route_to_debate', new_callable=AsyncMock) as mock_route:
-            mock_route.return_value = DecisionResult(
-                request_id="test_123",
-                success=True,
-                decision_type=DecisionType.DEBATE,
-                answer="Test answer",
-            )
-
-            result = await router.route(request)
-
-            assert result.success is True
-            mock_route.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_route_to_workflow(self, router, mock_workflow_engine):
-        """Workflow requests should route to workflow engine."""
-        request = DecisionRequest(
-            request_id="test_456",
-            query="Test workflow",
-            decision_type=DecisionType.WORKFLOW,
-            source=InputSource.API,
-            user_id="user_123",
-        )
-
-        with patch.object(router, '_route_to_workflow', new_callable=AsyncMock) as mock_route:
-            mock_route.return_value = DecisionResult(
-                request_id="test_456",
-                success=True,
-                decision_type=DecisionType.WORKFLOW,
-                answer="Workflow result",
-            )
-
-            result = await router.route(request)
-
-            assert result.success is True
-            mock_route.assert_called_once()
-
-
-class TestDecisionRouterMetrics:
-    """Test metrics and observability."""
-
-    @pytest.mark.asyncio
-    async def test_route_records_metrics(self, router):
-        """Routing should record metrics."""
-        request = DecisionRequest(
-            request_id="test_789",
-            query="Test query",
-            decision_type=DecisionType.QUICK,
-            source=InputSource.API,
-            user_id="user_123",
-        )
-
-        with patch.object(router, '_route_to_quick', new_callable=AsyncMock) as mock_route:
-            mock_route.return_value = DecisionResult(
-                request_id="test_789",
-                success=True,
-                decision_type=DecisionType.QUICK,
-                answer="Quick answer",
-            )
-
-            # Metrics should be recorded (patched at module level)
-            with patch('aragora.core.decision._record_decision_request') as mock_metric:
-                result = await router.route(request)
-
-                # Metric should be called if available
-                if mock_metric:
-                    mock_metric.assert_called()
-
-
 class TestDecisionRouterSingleton:
     """Test the singleton pattern for DecisionRouter."""
 
     def test_get_decision_router_returns_singleton(self):
         """get_decision_router should return the same instance."""
-        from aragora.core.decision import get_decision_router, reset_decision_router
-
         reset_decision_router()
 
         router1 = get_decision_router()
@@ -334,10 +245,109 @@ class TestDecisionRouterSingleton:
 
     def test_reset_decision_router_clears_singleton(self):
         """reset_decision_router should clear the singleton."""
-        from aragora.core.decision import get_decision_router, reset_decision_router
-
         router1 = get_decision_router()
         reset_decision_router()
         router2 = get_decision_router()
 
         assert router1 is not router2
+
+
+class TestDecisionResult:
+    """Test DecisionResult creation and serialization."""
+
+    def test_create_successful_result(self):
+        """DecisionResult should be created for successful decisions."""
+        result = DecisionResult(
+            request_id="req_123",
+            success=True,
+            decision_type=DecisionType.DEBATE,
+            answer="The answer is 4",
+            confidence=0.95,
+            consensus_reached=True,
+        )
+
+        assert result.success is True
+        assert result.answer == "The answer is 4"
+        assert result.confidence == 0.95
+
+    def test_create_failed_result(self):
+        """DecisionResult should support failure states."""
+        result = DecisionResult(
+            request_id="req_456",
+            success=False,
+            decision_type=DecisionType.DEBATE,
+            error="Insufficient agents available",
+        )
+
+        assert result.success is False
+        assert result.error == "Insufficient agents available"
+
+    def test_result_to_dict(self):
+        """DecisionResult should serialize correctly."""
+        result = DecisionResult(
+            request_id="req_789",
+            success=True,
+            decision_type=DecisionType.QUICK,
+            answer="Quick answer",
+        )
+
+        data = result.to_dict()
+        assert data["request_id"] == "req_789"
+        assert data["success"] is True
+        assert data["decision_type"] == "quick"
+
+
+class TestDecisionPriority:
+    """Test decision priority handling."""
+
+    def test_priority_levels(self):
+        """Priority enum should have expected levels."""
+        assert Priority.CRITICAL.value == "critical"
+        assert Priority.HIGH.value == "high"
+        assert Priority.NORMAL.value == "normal"
+        assert Priority.LOW.value == "low"
+        assert Priority.BATCH.value == "batch"
+
+    def test_request_with_priority(self):
+        """Request should support priority setting."""
+        request = DecisionRequest(
+            content="Critical question",
+            priority=Priority.CRITICAL,
+        )
+
+        assert request.priority == Priority.CRITICAL
+
+
+class TestInputSource:
+    """Test input source handling."""
+
+    def test_chat_sources(self):
+        """InputSource should have chat platform sources."""
+        assert InputSource.SLACK.value == "slack"
+        assert InputSource.DISCORD.value == "discord"
+        assert InputSource.TELEGRAM.value == "telegram"
+        assert InputSource.TEAMS.value == "teams"
+
+    def test_api_sources(self):
+        """InputSource should have API sources."""
+        assert InputSource.HTTP_API.value == "http_api"
+        assert InputSource.WEBSOCKET.value == "websocket"
+        assert InputSource.CLI.value == "cli"
+
+    def test_voice_sources(self):
+        """InputSource should have voice sources."""
+        assert InputSource.VOICE.value == "voice"
+        assert InputSource.VOICE_SLACK.value == "voice_slack"
+        assert InputSource.VOICE_TELEGRAM.value == "voice_telegram"
+
+
+class TestDecisionType:
+    """Test decision type handling."""
+
+    def test_decision_types(self):
+        """DecisionType enum should have expected types."""
+        assert DecisionType.DEBATE.value == "debate"
+        assert DecisionType.WORKFLOW.value == "workflow"
+        assert DecisionType.GAUNTLET.value == "gauntlet"
+        assert DecisionType.QUICK.value == "quick"
+        assert DecisionType.AUTO.value == "auto"

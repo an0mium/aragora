@@ -5,6 +5,36 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-01-21
+
+### Added
+
+- **Migration Configuration Tests** - 7 new tests verifying Alembic setup:
+  - `test_alembic_config_exists` - Validates alembic.ini and directory structure
+  - `test_initial_schema_exists` - Verifies schema SQL file
+  - `test_initial_schema_has_required_tables` - Checks all 11 required tables
+  - `test_init_postgres_script_exists` - Validates initialization script
+  - `test_migration_env_uses_asyncpg` - Confirms async support
+  - `test_migration_version_exists` - Verifies migration versions
+
+- **Architecture Documentation** - Added Storage Architecture section:
+  - PostgreSQL store implementations table (13 stores)
+  - Database migration commands
+  - Transaction safety documentation
+
+### Fixed
+
+- **Circuit Breaker Test Isolation** - Fixed flaky `test_get_metrics_provides_summary`:
+  - Uses UUID-based service names to avoid cross-test interference
+  - Added specific assertion for created breaker in metrics
+
+### Changed
+
+- **Documentation Updates**:
+  - `docs/ENVIRONMENT.md` - Added Alembic migration commands
+  - `docs/ARCHITECTURE.md` - Added Storage Architecture section with PostgreSQL details
+  - Updated performance metrics (38,000+ tests, 250+ strict modules, 468 storage tests)
+
 ## [2.1.1] - 2026-01-20
 
 ### Added
