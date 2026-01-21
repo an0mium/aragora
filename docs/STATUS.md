@@ -1030,7 +1030,7 @@ All stabilization items addressed:
   - 29 new tests for phase factories and result types
 - **Test Isolation**: Added global `clear_handler_cache` fixture to conftest.py
 - **Flaky Test Fixes**: Fixed pulse handler tests that were making real API calls
-- **Test Count**: Expanded to 12,001 tests (from 3,400+)
+- **Test Count**: Expanded to 40,500+ tests (from 3,400+)
 
 ### Recent Changes (2026-01-07)
 - **Database Consolidation**: Implemented full migration system for 22→4 databases
