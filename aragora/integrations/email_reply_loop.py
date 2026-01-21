@@ -157,10 +157,75 @@ class EmailReplyOrigin:
     reply_received_at: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "debate_id": self.debate_id,
+            "message_id": self.message_id,
+            "recipient_email": self.recipient_email,
+            "recipient_name": self.recipient_name,
+            "sent_at": self.sent_at.isoformat() if self.sent_at else None,
+            "reply_received": self.reply_received,
+            "reply_received_at": self.reply_received_at.isoformat() if self.reply_received_at else None,
+            "metadata": self.metadata,
+        }
 
-# In-memory store for tracking reply origins (use Redis in production)
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EmailReplyOrigin":
+        """Create from dictionary."""
+        sent_at = data.get("sent_at")
+        reply_received_at = data.get("reply_received_at")
+        return cls(
+            debate_id=data["debate_id"],
+            message_id=data["message_id"],
+            recipient_email=data["recipient_email"],
+            recipient_name=data.get("recipient_name", ""),
+            sent_at=datetime.fromisoformat(sent_at) if sent_at else datetime.utcnow(),
+            reply_received=data.get("reply_received", False),
+            reply_received_at=datetime.fromisoformat(reply_received_at) if reply_received_at else None,
+            metadata=data.get("metadata", {}),
+        )
+
+
+# TTL for email origins in Redis (24 hours)
+EMAIL_ORIGIN_TTL_SECONDS = 86400
+
+# In-memory store for tracking reply origins (with Redis persistence)
 _reply_origins: Dict[str, EmailReplyOrigin] = {}
 _reply_origins_lock = asyncio.Lock()
+
+
+def _store_email_origin_redis(origin: EmailReplyOrigin) -> None:
+    """Store email origin in Redis with TTL."""
+    try:
+        import redis
+
+        r = redis.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379"))
+        key = f"email_origin:{origin.message_id}"
+        r.setex(key, EMAIL_ORIGIN_TTL_SECONDS, json.dumps(origin.to_dict()))
+    except ImportError:
+        raise
+    except Exception as e:
+        logger.debug(f"Redis email origin store failed: {e}")
+        raise
+
+
+def _load_email_origin_redis(message_id: str) -> Optional[EmailReplyOrigin]:
+    """Load email origin from Redis."""
+    try:
+        import redis
+
+        r = redis.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379"))
+        key = f"email_origin:{message_id}"
+        data = r.get(key)
+        if data:
+            return EmailReplyOrigin.from_dict(json.loads(data))
+        return None
+    except ImportError:
+        raise
+    except Exception as e:
+        logger.debug(f"Redis email origin load failed: {e}")
+        raise
 
 
 def register_email_origin(
@@ -193,14 +258,38 @@ def register_email_origin(
         metadata=metadata or {},
     )
     _reply_origins[message_id] = origin
+
+    # Persist to Redis for durability across restarts
+    try:
+        _store_email_origin_redis(origin)
+    except Exception as e:
+        logger.debug(f"Redis email origin storage not available: {e}")
+
     logger.debug(f"Registered email origin for debate {debate_id}: {message_id}")
     return origin
 
 
 async def get_origin_by_reply(in_reply_to: str) -> Optional[EmailReplyOrigin]:
-    """Get the origin for an email reply."""
+    """Get the origin for an email reply.
+
+    Checks in-memory cache first, then falls back to Redis.
+    """
     async with _reply_origins_lock:
-        return _reply_origins.get(in_reply_to)
+        # Check in-memory first
+        origin = _reply_origins.get(in_reply_to)
+        if origin:
+            return origin
+
+        # Fall back to Redis
+        try:
+            origin = _load_email_origin_redis(in_reply_to)
+            if origin:
+                _reply_origins[in_reply_to] = origin  # Cache locally
+                return origin
+        except Exception as e:
+            logger.debug(f"Redis email origin lookup not available: {e}")
+
+        return None
 
 
 def parse_raw_email(raw_data: bytes) -> InboundEmail:

@@ -27,11 +27,14 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
+import sqlite3
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -41,6 +44,113 @@ _origin_store: Dict[str, "DebateOrigin"] = {}
 
 # TTL for origin records (24 hours)
 ORIGIN_TTL_SECONDS = int(os.environ.get("DEBATE_ORIGIN_TTL", 86400))
+
+
+class SQLiteOriginStore:
+    """SQLite-backed debate origin store for durability without Redis."""
+
+    def __init__(self, db_path: Optional[str] = None):
+        if db_path is None:
+            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
+            db_path = str(Path(data_dir) / "debate_origins.db")
+        self.db_path = db_path
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        self._init_schema()
+
+    def _init_schema(self) -> None:
+        """Initialize database schema."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS debate_origins (
+                debate_id TEXT PRIMARY KEY,
+                platform TEXT NOT NULL,
+                channel_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                metadata_json TEXT,
+                thread_id TEXT,
+                message_id TEXT,
+                result_sent INTEGER DEFAULT 0,
+                result_sent_at REAL
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_origins_created ON debate_origins(created_at)"
+        )
+        conn.commit()
+        conn.close()
+
+    def save(self, origin: "DebateOrigin") -> None:
+        """Save a debate origin to SQLite."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """INSERT OR REPLACE INTO debate_origins
+               (debate_id, platform, channel_id, user_id, created_at,
+                metadata_json, thread_id, message_id, result_sent, result_sent_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                origin.debate_id,
+                origin.platform,
+                origin.channel_id,
+                origin.user_id,
+                origin.created_at,
+                json.dumps(origin.metadata),
+                origin.thread_id,
+                origin.message_id,
+                1 if origin.result_sent else 0,
+                origin.result_sent_at,
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+    def get(self, debate_id: str) -> Optional["DebateOrigin"]:
+        """Get a debate origin by ID."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.execute(
+            "SELECT * FROM debate_origins WHERE debate_id = ?", (debate_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            return DebateOrigin(
+                debate_id=row[0],
+                platform=row[1],
+                channel_id=row[2],
+                user_id=row[3],
+                created_at=row[4],
+                metadata=json.loads(row[5]) if row[5] else {},
+                thread_id=row[6],
+                message_id=row[7],
+                result_sent=bool(row[8]),
+                result_sent_at=row[9],
+            )
+        return None
+
+    def cleanup_expired(self, ttl_seconds: int = ORIGIN_TTL_SECONDS) -> int:
+        """Remove expired origin records."""
+        cutoff = time.time() - ttl_seconds
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.execute(
+            "DELETE FROM debate_origins WHERE created_at < ?", (cutoff,)
+        )
+        count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return count
+
+
+# Lazy-loaded SQLite store
+_sqlite_store: Optional[SQLiteOriginStore] = None
+
+
+def _get_sqlite_store() -> SQLiteOriginStore:
+    """Get or create the SQLite origin store."""
+    global _sqlite_store
+    if _sqlite_store is None:
+        _sqlite_store = SQLiteOriginStore()
+    return _sqlite_store
 
 
 @dataclass
@@ -127,6 +237,12 @@ def register_debate_origin(
 
     _origin_store[debate_id] = origin
 
+    # Persist to SQLite for durability (always available)
+    try:
+        _get_sqlite_store().save(origin)
+    except Exception as e:
+        logger.warning(f"SQLite origin storage failed: {e}")
+
     # Also try Redis if available
     try:
         _store_origin_redis(origin)
@@ -159,6 +275,15 @@ def get_debate_origin(debate_id: str) -> Optional[DebateOrigin]:
             return origin
     except Exception as e:
         logger.debug(f"Redis origin lookup not available: {e}")
+
+    # Try SQLite fallback
+    try:
+        origin = _get_sqlite_store().get(debate_id)
+        if origin:
+            _origin_store[debate_id] = origin  # Cache locally
+            return origin
+    except Exception as e:
+        logger.debug(f"SQLite origin lookup failed: {e}")
 
     return None
 
