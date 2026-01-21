@@ -119,7 +119,10 @@ class SyncStore:
         try:
             import aiosqlite
         except ImportError:
-            logger.warning("aiosqlite not installed, using in-memory fallback")
+            logger.warning(
+                "CONNECTOR SYNC STORE: aiosqlite not installed - using in-memory fallback. "
+                "DATA WILL BE LOST ON RESTART! Install with: pip install aiosqlite"
+            )
             return
 
         # Extract path from URL
@@ -194,7 +197,10 @@ class SyncStore:
         try:
             import asyncpg
         except ImportError:
-            logger.warning("asyncpg not installed, using in-memory fallback")
+            logger.warning(
+                "CONNECTOR SYNC STORE: asyncpg not installed - using in-memory fallback. "
+                "DATA WILL BE LOST ON RESTART! Install with: pip install asyncpg"
+            )
             return
 
         self._connection = await asyncpg.connect(self._database_url)

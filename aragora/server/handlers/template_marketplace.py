@@ -168,10 +168,13 @@ def _init_persistent_store() -> bool:
         from aragora.storage.marketplace_store import get_marketplace_store
         _persistent_store = get_marketplace_store()
         _use_persistent_store = True
-        logger.info("Marketplace using persistent SQLite storage")
+        logger.info("Template marketplace using persistent SQLite storage")
         return True
     except Exception as e:
-        logger.warning(f"Persistent storage unavailable, using in-memory: {e}")
+        logger.warning(
+            f"TEMPLATE MARKETPLACE: Persistent storage unavailable ({e}). "
+            "Using in-memory fallback - TEMPLATES AND REVIEWS WILL BE LOST ON RESTART!"
+        )
         _use_persistent_store = False
         return False
 

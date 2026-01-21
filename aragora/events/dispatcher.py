@@ -183,16 +183,67 @@ def dispatch_webhook_with_retry(
     Returns:
         DeliveryResult with outcome
     """
-    # Import metrics (lazy to avoid circular imports)
+    # Import metrics and tracing (lazy to avoid circular imports)
     try:
         from aragora.observability.metrics.webhook import record_webhook_retry
     except ImportError:
         record_webhook_retry = None
 
+    try:
+        from aragora.observability.tracing import trace_webhook_delivery
+    except ImportError:
+        trace_webhook_delivery = None
+
     event_type = payload.get("event", "unknown")
+    correlation_id = (
+        payload.get("data", {}).get("correlation_id")
+        or payload.get("correlation_id")
+        or get_trace_id()
+    )
     start_time = time.time()
     delay = initial_delay
 
+    # Create tracing span for the entire delivery (including retries)
+    if trace_webhook_delivery:
+        # Use the context manager
+        with trace_webhook_delivery(
+            event_type=event_type,
+            webhook_id=webhook.id,
+            webhook_url=webhook.url,
+            correlation_id=correlation_id,
+        ) as span:
+            result = _dispatch_with_retry_impl(
+                webhook, payload, max_retries, initial_delay, max_delay,
+                start_time, delay, event_type, record_webhook_retry, span
+            )
+            # Add result attributes to span
+            span.set_attribute("webhook.success", result.success)
+            span.set_attribute("webhook.status_code", result.status_code)
+            span.set_attribute("webhook.retry_count", result.retry_count)
+            span.set_attribute("webhook.duration_ms", result.duration_ms)
+            if result.error:
+                span.set_attribute("webhook.error", result.error[:200])
+            return result
+    else:
+        return _dispatch_with_retry_impl(
+            webhook, payload, max_retries, initial_delay, max_delay,
+            start_time, delay, event_type, record_webhook_retry, None
+        )
+
+
+def _dispatch_with_retry_impl(
+    webhook: "WebhookConfig",
+    payload: dict,
+    max_retries: int,
+    initial_delay: float,
+    max_delay: float,
+    start_time: float,
+    delay: float,
+    event_type: str,
+    record_webhook_retry,
+    span,
+) -> DeliveryResult:
+    """Internal implementation of dispatch with retry logic."""
     for attempt in range(max_retries + 1):
         success, status_code, error = dispatch_webhook(webhook, payload)
 
@@ -219,6 +270,13 @@ def dispatch_webhook_with_retry(
             # Record retry metric
             if record_webhook_retry:
                 record_webhook_retry(event_type, attempt + 1)
+
+            # Add retry event to span
+            if span:
+                span.add_event(
+                    "retry",
+                    {"attempt": attempt + 1, "delay_seconds": delay}
+                )
 
             logger.info(
                 f"Retrying webhook {webhook.id} in {delay:.1f}s "

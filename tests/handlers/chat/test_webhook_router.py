@@ -122,6 +122,98 @@ class TestWebhookSignatureVerification:
         assert signature.startswith("sha256=")
 
 
+class TestBodyBasedDetection:
+    """Test body-based platform detection (fallback)."""
+
+    def test_detect_telegram_from_body(self):
+        """Detect Telegram from update_id in body."""
+        router = ChatWebhookRouter()
+        body = b'{"update_id": 123456789, "message": {"text": "Hello"}}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result == "telegram"
+
+    def test_detect_telegram_callback_query(self):
+        """Detect Telegram from callback_query in body."""
+        router = ChatWebhookRouter()
+        body = b'{"update_id": 123456789, "callback_query": {"id": "123"}}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result == "telegram"
+
+    def test_detect_whatsapp_from_body(self):
+        """Detect WhatsApp from object field in body."""
+        router = ChatWebhookRouter()
+        body = b'{"object": "whatsapp_business_account", "entry": [{"changes": []}]}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result == "whatsapp"
+
+    def test_detect_teams_from_service_url(self):
+        """Detect Teams from serviceUrl in body."""
+        router = ChatWebhookRouter()
+        body = b'{"type": "message", "serviceUrl": "https://smba.trafficmanager.net/emea/"}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result == "teams"
+
+    def test_detect_teams_from_channel_id(self):
+        """Detect Teams from channelId in body."""
+        router = ChatWebhookRouter()
+        body = b'{"type": "message", "channelId": "msteams"}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result == "teams"
+
+    def test_detect_google_chat_from_body(self):
+        """Detect Google Chat from type and space in body."""
+        router = ChatWebhookRouter()
+        body = b'{"type": "MESSAGE", "message": {"text": "Hello"}, "space": {"name": "spaces/123"}}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result == "google_chat"
+
+    def test_detect_discord_from_body(self):
+        """Detect Discord from application_id and numeric type."""
+        router = ChatWebhookRouter()
+        body = b'{"type": 1, "application_id": "123456789"}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result == "discord"
+
+    def test_detect_slack_from_body(self):
+        """Detect Slack from team_id and api_app_id."""
+        router = ChatWebhookRouter()
+        body = b'{"token": "abc", "team_id": "T123", "api_app_id": "A456"}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result == "slack"
+
+    def test_returns_none_for_invalid_json(self):
+        """Return None for invalid JSON body."""
+        router = ChatWebhookRouter()
+        body = b'not valid json'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result is None
+
+    def test_returns_none_for_unknown_structure(self):
+        """Return None for unknown body structure."""
+        router = ChatWebhookRouter()
+        body = b'{"unknown": "structure"}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result is None
+
+    def test_facebook_not_detected_as_whatsapp(self):
+        """Facebook webhooks should not be detected as WhatsApp."""
+        router = ChatWebhookRouter()
+        body = b'{"object": "page", "entry": []}'
+
+        result = router.detect_platform_from_body({}, body)
+        assert result is None
+
+
 class TestWebhookRouting:
     """Test webhook event routing."""
 

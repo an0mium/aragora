@@ -572,6 +572,84 @@ def trace_response_delivery(
         yield span
 
 
+# =============================================================================
+# Webhook Tracing
+# =============================================================================
+
+
+@contextmanager
+def trace_webhook_delivery(
+    event_type: str,
+    webhook_id: str,
+    webhook_url: str,
+    correlation_id: Optional[str] = None,
+) -> Iterator[Any]:
+    """Context manager for tracing webhook delivery.
+
+    Args:
+        event_type: Type of event being delivered (e.g., "slo_violation")
+        webhook_id: Unique identifier for the webhook endpoint
+        webhook_url: URL of the webhook endpoint
+        correlation_id: Optional correlation ID for request tracing
+
+    Yields:
+        The span object
+
+    Example:
+        with trace_webhook_delivery("slo_violation", webhook.id, webhook.url) as span:
+            result = dispatch_webhook(webhook, payload)
+            span.set_attribute("webhook.success", result.success)
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span("webhook.delivery") as span:
+        span.set_attribute("webhook.event_type", event_type)
+        span.set_attribute("webhook.id", webhook_id)
+        span.set_attribute("webhook.url", _redact_url(webhook_url))
+        if correlation_id:
+            span.set_attribute("webhook.correlation_id", correlation_id)
+        yield span
+
+
+@contextmanager
+def trace_webhook_batch(
+    event_type: str,
+    batch_size: int,
+    correlation_id: Optional[str] = None,
+) -> Iterator[Any]:
+    """Context manager for tracing batched webhook delivery.
+
+    Args:
+        event_type: Type of events in the batch
+        batch_size: Number of events in the batch
+        correlation_id: Optional correlation ID
+
+    Yields:
+        The span object
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span("webhook.batch_delivery") as span:
+        span.set_attribute("webhook.event_type", event_type)
+        span.set_attribute("webhook.batch_size", batch_size)
+        if correlation_id:
+            span.set_attribute("webhook.correlation_id", correlation_id)
+        yield span
+
+
+def _redact_url(url: str) -> str:
+    """Redact sensitive parts of webhook URL for tracing.
+
+    Keeps host and path but removes query params that might contain secrets.
+    """
+    try:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        # Keep scheme, host, and path; remove query and fragment
+        return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    except Exception:
+        return "[redacted]"
+
+
 def trace_decision(func: F) -> F:
     """Decorator to trace the entire decision routing lifecycle.
 

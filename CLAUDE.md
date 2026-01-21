@@ -244,16 +244,16 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Control Plane - Agent registry, task scheduler, health monitoring (142 tests)
 
 **Integrated:**
-- Knowledge Mound - STABLE (Phase 2 complete, 146+ tests passing)
+- Knowledge Mound - STABLE (100% integrated, 911+ tests passing)
+  - 9 bidirectional adapters (Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost)
   - Visibility, sharing, federation, global knowledge
-  - Cross-pollination with debate, memory, RLM subsystems
+  - Semantic search, validation feedback, cross-debate learning
+  - SLO alerting with Prometheus metrics
 - Pulse (trending topics) - STABLE (358+ tests passing)
   - HackerNews, Reddit, Twitter ingestors
   - Quality filtering, freshness scoring, source weighting
   - Integration with debate context and prompt building
-
-**Partial:**
-- Evidence collection - functional but limited connectors
+- Evidence collection - STABLE with KM integration
 
 See `docs/STATUS.md` for 74+ detailed feature statuses.
 

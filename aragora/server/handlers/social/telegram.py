@@ -72,6 +72,15 @@ from .telemetry import (
     record_webhook_latency,
     record_webhook_request,
 )
+from .chat_events import (
+    emit_command_received,
+    emit_debate_completed,
+    emit_debate_started,
+    emit_gauntlet_completed,
+    emit_gauntlet_started,
+    emit_message_received,
+    emit_vote_received,
+)
 
 # TTS support
 TTS_VOICE_ENABLED = os.environ.get("TELEGRAM_TTS_ENABLED", "false").lower() == "true"
@@ -280,6 +289,16 @@ class TelegramHandler(BaseHandler):
 
         record_message("telegram", "text")
 
+        # Emit webhook event for message received
+        emit_message_received(
+            platform="telegram",
+            chat_id=str(chat_id),
+            user_id=str(user_id),
+            username=username,
+            message_text=text,
+            message_type="text",
+        )
+
         # Handle regular messages as questions/topics
         if len(text) > 10:
             response = (
@@ -315,6 +334,16 @@ class TelegramHandler(BaseHandler):
 
         # Record command metric (strip leading /)
         cmd_name = command[1:] if command.startswith("/") else command
+
+        # Emit webhook event for command received
+        emit_command_received(
+            platform="telegram",
+            chat_id=str(chat_id),
+            user_id=str(user_id),
+            username=username,
+            command=cmd_name,
+            args=args,
+        )
 
         if command == "/start":
             record_command("telegram", "start")
@@ -496,6 +525,16 @@ class TelegramHandler(BaseHandler):
                 debate_id = None
                 logger.debug("Debate origin tracking not available")
 
+            # Emit webhook event for debate started
+            emit_debate_started(
+                platform="telegram",
+                chat_id=str(chat_id),
+                user_id=str(user_id),
+                username=username,
+                topic=topic,
+                debate_id=debate_id,
+            )
+
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])
             protocol = DebateProtocol(
@@ -569,6 +608,18 @@ class TelegramHandler(BaseHandler):
                     result.confidence,
                     result.rounds_used,
                 )
+
+            # Emit webhook event for debate completed
+            emit_debate_completed(
+                platform="telegram",
+                chat_id=str(chat_id),
+                debate_id=result.id,
+                topic=topic,
+                consensus_reached=result.consensus_reached,
+                confidence=result.confidence,
+                rounds_used=result.rounds_used,
+                final_answer=result.final_answer,
+            )
 
             # Record successful debate completion
             record_debate_completed("telegram", result.consensus_reached)
@@ -644,6 +695,16 @@ class TelegramHandler(BaseHandler):
         import aiohttp
 
         record_gauntlet_started("telegram")
+
+        # Emit webhook event for gauntlet started
+        emit_gauntlet_started(
+            platform="telegram",
+            chat_id=str(chat_id),
+            user_id=str(user_id),
+            username=username,
+            statement=statement,
+        )
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -701,6 +762,18 @@ class TelegramHandler(BaseHandler):
                         parse_mode="Markdown",
                     )
 
+                    # Emit webhook event for gauntlet completed
+                    emit_gauntlet_completed(
+                        platform="telegram",
+                        chat_id=str(chat_id),
+                        gauntlet_id=run_id,
+                        statement=statement,
+                        verdict="passed" if passed else "failed",
+                        confidence=score,
+                        challenges_passed=len([v for v in vulnerabilities if not v.get("critical", False)]),
+                        challenges_total=len(vulnerabilities) + 1,
+                    )
+
                     # Record successful gauntlet completion
                     record_gauntlet_completed("telegram", passed)
 
@@ -755,6 +828,16 @@ class TelegramHandler(BaseHandler):
     ) -> HandlerResult:
         """Handle vote callback."""
         logger.info(f"Vote received: {debate_id} -> {vote_option} from {username}")
+
+        # Emit webhook event for vote received
+        emit_vote_received(
+            platform="telegram",
+            chat_id=str(chat_id),
+            user_id=str(user_id),
+            username=username,
+            debate_id=debate_id,
+            vote=vote_option,
+        )
 
         # Record vote metrics
         record_vote("telegram", vote_option)

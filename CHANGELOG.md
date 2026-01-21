@@ -47,6 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rating and review system
   - Category browsing
 
+- **GauntletRunStore** - Persistent storage for in-flight gauntlet runs:
+  - InMemory, SQLite, and Redis backends
+  - Status tracking (pending/running/completed/failed/cancelled)
+  - Template and workspace filtering
+  - Active run listing with Redis index support
+
+- **ApprovalRequestStore** - Persistent storage for human approval requests:
+  - InMemory, SQLite, and Redis backends
+  - Workflow and step tracking
+  - Expiration management
+  - Response recording with responder tracking
+  - Priority-based ordering
+
 ### Fixed
 
 - **EmailHandler Interface** - Added missing `can_handle` and `handle` methods required by BaseHandler

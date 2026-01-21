@@ -46,7 +46,11 @@ try:
     HAS_SYNC_STORE = True
 except ImportError:
     HAS_SYNC_STORE = False
-    logger.warning("sync_store not available, using in-memory fallback")
+    logger.warning(
+        "ENTERPRISE CONNECTORS: sync_store module not available - using in-memory fallback. "
+        "CONNECTOR CONFIGURATIONS WILL BE LOST ON RESTART! "
+        "To fix: ensure aragora.connectors.enterprise.sync_store is importable."
+    )
 
 # In-memory fallback storage (used when sync_store not available)
 _connectors: Dict[str, Dict[str, Any]] = {}
@@ -63,9 +67,12 @@ async def _get_store() -> Optional["SyncStore"]:
     if _store is None and HAS_SYNC_STORE:
         try:
             _store = await get_sync_store()
-            logger.info("Using persistent sync store")
+            logger.info("Using persistent sync store for enterprise connectors")
         except Exception as e:
-            logger.warning(f"Failed to initialize sync store: {e}, using in-memory")
+            logger.warning(
+                f"ENTERPRISE CONNECTORS: Failed to initialize sync store: {e}. "
+                "Using in-memory fallback - CONFIGURATIONS WILL BE LOST ON RESTART!"
+            )
     return _store
 
 

@@ -118,29 +118,89 @@ class ChatWebhookRouter:
 
     def detect_platform(self, headers: Dict[str, str]) -> Optional[str]:
         """Auto-detect platform from request headers."""
-        # Check for Slack
+        # Check for Slack (most reliable - unique signature header)
         if headers.get("X-Slack-Signature"):
             return "slack"
 
-        # Check for Discord
+        # Check for Discord (unique signature header)
         if headers.get("X-Signature-Ed25519"):
             return "discord"
 
-        # Check for Telegram
+        # Check for Telegram secret token (if configured)
         if headers.get("X-Telegram-Bot-Api-Secret-Token"):
             return "telegram"
 
-        # Check for WhatsApp/Meta (uses X-Hub-Signature-256)
+        # Check for WhatsApp/Meta signature
+        # Note: X-Hub-Signature-256 is used by Meta (Facebook/Instagram/WhatsApp)
         if headers.get("X-Hub-Signature-256"):
             return "whatsapp"
 
         # Teams and Google Chat both use Authorization headers
-        # Check content for clues
         auth = headers.get("Authorization", "")
         if "Bearer" in auth:
-            # Could be Teams or Google - need to check body
-            # Default to teams as it's more common
+            # Could be Teams or Google - need to check body later
             return "teams"
+
+        return None
+
+    def detect_platform_from_body(
+        self,
+        headers: Dict[str, str],
+        body: bytes,
+    ) -> Optional[str]:
+        """
+        Auto-detect platform from request body structure.
+
+        Used as fallback when headers don't provide definitive identification.
+        This is particularly useful for:
+        - Telegram webhooks without secret token configured
+        - Distinguishing WhatsApp from other Meta webhooks
+        - Distinguishing Teams from Google Chat
+        """
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None
+
+        # Telegram detection: has update_id and optional message/callback_query
+        # Example: {"update_id": 123, "message": {...}} or {"update_id": 123, "callback_query": {...}}
+        if "update_id" in payload:
+            if any(k in payload for k in ("message", "callback_query", "inline_query", "edited_message", "channel_post")):
+                return "telegram"
+
+        # WhatsApp/Meta webhook structure
+        # Example: {"object": "whatsapp_business_account", "entry": [...]}
+        if payload.get("object") == "whatsapp_business_account":
+            return "whatsapp"
+
+        # Facebook/Instagram webhooks also use X-Hub-Signature-256 but different object
+        if payload.get("object") in ("page", "instagram"):
+            # Not WhatsApp - could add separate handling if needed
+            return None
+
+        # Microsoft Teams Bot Framework
+        # Example: {"type": "message", "serviceUrl": "https://smba.trafficmanager.net/...", ...}
+        if payload.get("serviceUrl") and "trafficmanager.net" in payload.get("serviceUrl", ""):
+            return "teams"
+        if payload.get("channelId") == "msteams":
+            return "teams"
+
+        # Google Chat webhook structure
+        # Example: {"type": "MESSAGE", "message": {...}, "space": {...}, "configCompleteRedirectUrl": ...}
+        if payload.get("type") in ("MESSAGE", "ADDED_TO_SPACE", "REMOVED_FROM_SPACE", "CARD_CLICKED"):
+            if "space" in payload or "message" in payload:
+                return "google_chat"
+
+        # Discord interaction (not signature-based)
+        # Example: {"type": 1, "application_id": "...", ...}
+        if "application_id" in payload and "type" in payload:
+            if isinstance(payload.get("type"), int):
+                return "discord"
+
+        # Slack (for non-signed requests like certain slash commands)
+        # Example: {"token": "...", "team_id": "...", "api_app_id": "..."}
+        if all(k in payload for k in ("token", "team_id", "api_app_id")):
+            return "slack"
 
         return None
 
@@ -527,10 +587,25 @@ if HANDLER_BASE_AVAILABLE:
             elif "/whatsapp/" in path:
                 platform = "whatsapp"
             else:
+                # Try header-based detection first
                 platform = self.router.detect_platform(headers)
 
+                # Fall back to body-based detection if headers weren't definitive
+                if not platform:
+                    platform = self.router.detect_platform_from_body(headers, raw_body)
+                    if platform:
+                        logger.info(f"Detected platform '{platform}' from body structure")
+
             if not platform:
-                return error_response("Could not determine platform", 400)
+                logger.warning(
+                    "Could not determine chat platform from headers or body. "
+                    "Use platform-specific endpoint (e.g., /api/chat/telegram/webhook) "
+                    "or configure webhook signatures."
+                )
+                return error_response(
+                    "Could not determine platform. Use platform-specific endpoint.",
+                    400,
+                )
 
             # Handle webhook asynchronously
             import asyncio

@@ -77,6 +77,15 @@ from .telemetry import (
     record_webhook_latency,
     record_webhook_request,
 )
+from .chat_events import (
+    emit_command_received,
+    emit_debate_completed,
+    emit_debate_started,
+    emit_gauntlet_completed,
+    emit_gauntlet_started,
+    emit_message_received,
+    emit_vote_received,
+)
 
 # TTS support
 TTS_VOICE_ENABLED = os.environ.get("WHATSAPP_TTS_ENABLED", "false").lower() == "true"
@@ -298,26 +307,41 @@ class WhatsAppHandler(BaseHandler):
         text = text.strip()
         logger.info(f"WhatsApp message from {profile_name} ({from_number}): {text[:50]}...")
 
+        # Emit webhook event for message received
+        emit_message_received(
+            platform="whatsapp",
+            chat_id=from_number,
+            user_id=from_number,
+            username=profile_name,
+            message_text=text,
+            message_type="text",
+        )
+
         # Parse commands (lowercase first word)
         lower_text = text.lower()
 
         if lower_text == "help":
             record_command("whatsapp", "help")
+            emit_command_received("whatsapp", from_number, from_number, profile_name, "help")
             response = self._command_help()
         elif lower_text == "status":
             record_command("whatsapp", "status")
+            emit_command_received("whatsapp", from_number, from_number, profile_name, "status")
             response = self._command_status()
         elif lower_text == "agents":
             record_command("whatsapp", "agents")
+            emit_command_received("whatsapp", from_number, from_number, profile_name, "agents")
             response = self._command_agents()
         elif lower_text.startswith("debate "):
             record_command("whatsapp", "debate")
             topic = text[7:].strip()
+            emit_command_received("whatsapp", from_number, from_number, profile_name, "debate", topic)
             self._command_debate(from_number, profile_name, topic)
             return
         elif lower_text.startswith("gauntlet "):
             record_command("whatsapp", "gauntlet")
             statement = text[9:].strip()
+            emit_command_received("whatsapp", from_number, from_number, profile_name, "gauntlet", statement)
             self._command_gauntlet(from_number, profile_name, statement)
             return
         elif len(text) > 10:
@@ -460,6 +484,16 @@ class WhatsAppHandler(BaseHandler):
             except ImportError:
                 logger.debug("Debate origin tracking not available")
 
+            # Emit webhook event for debate started
+            emit_debate_started(
+                platform="whatsapp",
+                chat_id=from_number,
+                user_id=from_number,
+                username=profile_name,
+                topic=topic,
+                debate_id=debate_id,
+            )
+
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])
             protocol = DebateProtocol(
@@ -522,6 +556,18 @@ class WhatsAppHandler(BaseHandler):
                     result.confidence,
                     result.rounds_used,
                 )
+
+            # Emit webhook event for debate completed
+            emit_debate_completed(
+                platform="whatsapp",
+                chat_id=from_number,
+                debate_id=result.id,
+                topic=topic,
+                consensus_reached=result.consensus_reached,
+                confidence=result.confidence,
+                rounds_used=result.rounds_used,
+                final_answer=result.final_answer,
+            )
 
             # Record successful debate completion
             record_debate_completed("whatsapp", result.consensus_reached)
@@ -588,6 +634,16 @@ class WhatsAppHandler(BaseHandler):
         import aiohttp
 
         record_gauntlet_started("whatsapp")
+
+        # Emit webhook event for gauntlet started
+        emit_gauntlet_started(
+            platform="whatsapp",
+            chat_id=from_number,
+            user_id=from_number,
+            username=profile_name,
+            statement=statement,
+        )
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -636,6 +692,18 @@ class WhatsAppHandler(BaseHandler):
                     response += f"\n_Run ID: {run_id}_\n_Requested by {profile_name}_"
 
                     await self._send_text_message_async(from_number, response)
+
+                    # Emit webhook event for gauntlet completed
+                    emit_gauntlet_completed(
+                        platform="whatsapp",
+                        chat_id=from_number,
+                        gauntlet_id=run_id,
+                        statement=statement,
+                        verdict="passed" if passed else "failed",
+                        confidence=score,
+                        challenges_passed=len([v for v in vulnerabilities if not v.get("critical", False)]),
+                        challenges_total=len(vulnerabilities) + 1,
+                    )
 
                     # Record successful gauntlet completion
                     record_gauntlet_completed("whatsapp", passed)
@@ -713,6 +781,16 @@ class WhatsAppHandler(BaseHandler):
     ) -> None:
         """Record a vote."""
         logger.info(f"Vote received: {debate_id} -> {vote_option} from {profile_name}")
+
+        # Emit webhook event for vote received
+        emit_vote_received(
+            platform="whatsapp",
+            chat_id=from_number,
+            user_id=from_number,
+            username=profile_name,
+            debate_id=debate_id,
+            vote=vote_option,
+        )
 
         # Record vote metrics
         record_vote("whatsapp", vote_option)

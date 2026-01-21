@@ -257,10 +257,29 @@ class BatchWebhookDispatcher:
         self._batches_sent += 1
 
         if self._deliver_callback:
+            # Import tracing lazily to avoid circular imports
             try:
-                self._deliver_callback(event_type, batch.to_payload())
-            except Exception as e:
-                logger.error(f"Failed to deliver batch for {event_type}: {e}")
+                from aragora.observability.tracing import trace_webhook_batch
+            except ImportError:
+                trace_webhook_batch = None
+
+            payload = batch.to_payload()
+            batch_size = len(batch.events)
+
+            if trace_webhook_batch:
+                with trace_webhook_batch(event_type, batch_size) as span:
+                    try:
+                        self._deliver_callback(event_type, payload)
+                        span.set_attribute("webhook.batch_success", True)
+                    except Exception as e:
+                        span.set_attribute("webhook.batch_success", False)
+                        span.set_attribute("webhook.error", str(e)[:200])
+                        logger.error(f"Failed to deliver batch for {event_type}: {e}")
+            else:
+                try:
+                    self._deliver_callback(event_type, payload)
+                except Exception as e:
+                    logger.error(f"Failed to deliver batch for {event_type}: {e}")
 
     def _flush_loop(self) -> None:
         """Background thread that flushes expired batches."""

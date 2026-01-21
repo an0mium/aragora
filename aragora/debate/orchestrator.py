@@ -1622,7 +1622,7 @@ class Arena:
         )
 
         # Initialize BeliefNetwork with KM seeding if enabled
-        if getattr(self.config, "enable_km_belief_sync", False):
+        if getattr(self.protocol, "enable_km_belief_sync", False):
             ctx.belief_network = self._setup_belief_network(
                 debate_id=debate_id,
                 topic=self.env.task,

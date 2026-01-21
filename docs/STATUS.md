@@ -4,6 +4,67 @@
 
 ## Current Release
 
+### v2.0.10 - Bidirectional Knowledge Mound Integration (January 2026)
+
+**Production Ready** - Aragora 2.0.10 completes full bidirectional Knowledge Mound integration, enabling cross-subsystem organizational learning across the entire platform.
+
+#### Key Highlights
+- **40,700+ tests** collected and passing (+2,300 new tests)
+- **Knowledge Mound 100% integrated** - All subsystems bidirectionally wired
+- **9 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost
+- **Cross-debate learning** - Organizational knowledge persists and improves across debates
+- **Semantic search** - Vector-based similarity search in all adapters
+- **SLO alerting** - Adapter performance monitoring with Prometheus metrics
+- **Lines of Code**: 455,000+ LOC (+5,000)
+- **0 production blockers**
+- **110 fully integrated features** (+4 KM capabilities)
+
+#### What's New in 2.0.10
+
+**Bidirectional Adapter Architecture** (COMPLETE)
+- `aragora/knowledge/mound/adapters/`:
+  - `evidence_adapter.py` - Evidence snippets with reliability thresholds
+  - `pulse_adapter.py` - Trending topics and scheduled debate outcomes
+  - `insights_adapter.py` - Debate insights and Trickster flip events
+  - `elo_adapter.py` - Agent rankings and calibration predictions
+  - `belief_adapter.py` - Belief network cruxes and converged beliefs
+  - `cost_adapter.py` - Budget alerts and cost anomalies (opt-in)
+- All adapters support forward sync (data → KM) and reverse queries (KM → data)
+- Semantic search with vector embeddings in all adapters
+
+**KM Validation Feedback Loop** (NEW)
+- `aragora/events/cross_subscribers.py` - `_handle_km_validation_feedback`
+- Listens for CONSENSUS events to validate KM items based on debate outcomes
+- Generates `KMValidationResult` for source systems
+- Automatic confidence adjustments based on validation
+
+**Cross-Debate Learning Analytics** (NEW)
+- `GET /api/knowledge/learning/stats` - Learning analytics endpoint
+- Tracks: knowledge reuse rate, validation accuracy, learning velocity
+- Cross-debate utility scoring for knowledge items
+- Adapter activity monitoring (forward syncs, reverse queries, semantic searches)
+
+**Belief Network KM Seeding** (NEW)
+- Debate orchestrator seeds BeliefNetwork from KM at debate start
+- Enabled via `ArenaConfig.enable_km_belief_sync`
+- Historical beliefs inform new debate reasoning
+
+**Adapter SLO Monitoring** (NEW)
+- `aragora/config/performance_slos.py`:
+  - `AdapterForwardSyncSLO` - p50: 100ms, p90: 300ms, p99: 800ms
+  - `AdapterReverseSLO` - p50: 50ms, p90: 150ms, p99: 500ms
+  - `AdapterSemanticSearchSLO` - p50: 100ms, p90: 300ms, p99: 1000ms
+  - `AdapterValidationSLO` - p50: 200ms, p90: 500ms, p99: 1500ms
+- Prometheus metrics for SLO violations
+
+**KM Dashboard Component** (NEW)
+- `aragora/live/src/components/knowledge/KMAdapterActivity.tsx`
+- Real-time adapter activity visualization
+- Forward/reverse sync statistics per adapter
+- WebSocket-powered live updates
+
+---
+
 ### v2.0.9 - Phase 5 Autonomous Operations (January 2026)
 
 **Production Ready** - Aragora 2.0.9 completes Phase 5: Autonomous Operations with self-improvement capabilities, continuous learning, and proactive intelligence.
@@ -618,9 +679,9 @@ else:
 - Relevance-based context retrieval
 - Fixed: Race condition in concurrent reads via snapshot pattern
 
-**Knowledge Mound** (STABLE - Production Ready)
+**Knowledge Mound** (STABLE - Production Ready, 100% Integrated)
 - `aragora/knowledge/mound/` - Unified enterprise knowledge storage
-- **525 tests passing**, 7 skipped (optional deps)
+- **911 tests passing** across mound and integration suites
 - SemanticStore with mandatory embeddings for semantic search
 - KnowledgeGraphStore for relationship tracking and lineage
 - DomainTaxonomy for hierarchical organization

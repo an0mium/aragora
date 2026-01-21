@@ -75,11 +75,14 @@ class TeamSelectionConfig:
     delegation_weight: float = 0.2  # Weight for delegation strategy scoring
     domain_capability_weight: float = 0.25  # Weight for domain expertise matching
     culture_weight: float = 0.15  # Weight for culture-based agent recommendations
+    km_expertise_weight: float = 0.25  # Weight for KM-stored historical expertise
     base_score: float = 1.0
     elo_baseline: int = 1000
     enable_domain_filtering: bool = True  # Enable domain-based agent filtering
     domain_filter_fallback: bool = True  # Fall back to all agents if no match
     enable_culture_selection: bool = False  # Enable culture-based agent scoring
+    enable_km_expertise: bool = True  # Enable KM-based expertise lookup
+    km_expertise_cache_ttl: int = 300  # Cache TTL in seconds (5 minutes)
     custom_domain_map: dict[str, list[str]] = field(default_factory=dict)
 
 
@@ -106,6 +109,7 @@ class TeamSelector:
         circuit_breaker: Optional["CircuitBreaker"] = None,
         delegation_strategy: Optional["DelegationStrategy"] = None,
         knowledge_mound: Optional[Any] = None,
+        ranking_adapter: Optional[Any] = None,
         config: Optional[TeamSelectionConfig] = None,
     ):
         self.elo_system = elo_system
@@ -113,8 +117,10 @@ class TeamSelector:
         self.circuit_breaker = circuit_breaker
         self.delegation_strategy = delegation_strategy
         self.knowledge_mound = knowledge_mound
+        self.ranking_adapter = ranking_adapter
         self.config = config or TeamSelectionConfig()
         self._culture_recommendations_cache: dict[str, list[str]] = {}
+        self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}  # domain -> (timestamp, experts)
 
     def select(
         self,

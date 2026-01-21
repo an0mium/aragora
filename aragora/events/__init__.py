@@ -48,6 +48,22 @@ from .arena_bridge import (
     create_arena_bridge,
     EVENT_TYPE_MAP,
 )
+from .webhook_verify import (
+    VerificationResult,
+    generate_signature,
+    verify_signature,
+    verify_timestamp,
+    verify_webhook_request,
+    create_test_webhook_payload,
+)
+from .batch_dispatcher import (
+    BatchWebhookDispatcher,
+    BatchedEvent,
+    EventBatch,
+    get_batch_dispatcher,
+    queue_batched_event,
+    shutdown_batch_dispatcher,
+)
 
 __all__ = [
     # Event types (shared layer)
@@ -70,4 +86,18 @@ __all__ = [
     "ArenaEventBridge",
     "create_arena_bridge",
     "EVENT_TYPE_MAP",
+    # Webhook verification
+    "VerificationResult",
+    "generate_signature",
+    "verify_signature",
+    "verify_timestamp",
+    "verify_webhook_request",
+    "create_test_webhook_payload",
+    # Batch dispatcher
+    "BatchWebhookDispatcher",
+    "BatchedEvent",
+    "EventBatch",
+    "get_batch_dispatcher",
+    "queue_batched_event",
+    "shutdown_batch_dispatcher",
 ]

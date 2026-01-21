@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -30,7 +31,10 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, cast
+
+if TYPE_CHECKING:
+    from asyncpg import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -772,6 +776,355 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         self._sqlite.close()
         if self._redis:
             self._redis.close()
+
+
+class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
+    """
+    PostgreSQL-backed webhook config store.
+
+    Async implementation for production multi-instance deployments
+    with horizontal scaling and concurrent writes.
+    """
+
+    SCHEMA_NAME = "webhook_configs"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS webhook_configs (
+            id TEXT PRIMARY KEY,
+            url TEXT NOT NULL,
+            events_json JSONB NOT NULL,
+            secret TEXT NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            name TEXT,
+            description TEXT,
+            last_delivery_at TIMESTAMPTZ,
+            last_delivery_status INTEGER,
+            delivery_count INTEGER DEFAULT 0,
+            failure_count INTEGER DEFAULT 0,
+            user_id TEXT,
+            workspace_id TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_webhook_configs_user ON webhook_configs(user_id);
+        CREATE INDEX IF NOT EXISTS idx_webhook_configs_workspace ON webhook_configs(workspace_id);
+        CREATE INDEX IF NOT EXISTS idx_webhook_configs_active ON webhook_configs(active);
+    """
+
+    def __init__(self, pool: "Pool"):
+        self._pool = pool
+        self._initialized = False
+        logger.info("PostgresWebhookConfigStore initialized")
+
+    async def initialize(self) -> None:
+        """Initialize database schema."""
+        if self._initialized:
+            return
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(self.INITIAL_SCHEMA)
+
+        self._initialized = True
+        logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
+
+    def register(
+        self,
+        url: str,
+        events: List[str],
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        user_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> WebhookConfig:
+        """Register a new webhook (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.register_async(url, events, name, description, user_id, workspace_id)
+        )
+
+    async def register_async(
+        self,
+        url: str,
+        events: List[str],
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        user_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> WebhookConfig:
+        """Register a new webhook asynchronously."""
+        webhook_id = str(uuid.uuid4())
+        secret = secrets.token_urlsafe(32)
+        now = time.time()
+
+        webhook = WebhookConfig(
+            id=webhook_id,
+            url=url,
+            events=events,
+            secret=secret,
+            name=name,
+            description=description,
+            user_id=user_id,
+            workspace_id=workspace_id,
+            created_at=now,
+            updated_at=now,
+        )
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO webhook_configs
+                   (id, url, events_json, secret, active, created_at, updated_at,
+                    name, description, last_delivery_at, last_delivery_status,
+                    delivery_count, failure_count, user_id, workspace_id)
+                   VALUES ($1, $2, $3, $4, $5, to_timestamp($6), to_timestamp($7),
+                           $8, $9, $10, $11, $12, $13, $14, $15)""",
+                webhook.id,
+                webhook.url,
+                json.dumps(webhook.events),
+                webhook.secret,
+                webhook.active,
+                webhook.created_at,
+                webhook.updated_at,
+                webhook.name,
+                webhook.description,
+                None,  # last_delivery_at
+                None,  # last_delivery_status
+                0,  # delivery_count
+                0,  # failure_count
+                webhook.user_id,
+                webhook.workspace_id,
+            )
+
+        logger.info(f"Registered webhook {webhook_id} for events: {events}")
+        return webhook
+
+    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
+        """Get webhook by ID (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(self.get_async(webhook_id))
+
+    async def get_async(self, webhook_id: str) -> Optional[WebhookConfig]:
+        """Get webhook by ID asynchronously."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT id, url, events_json, secret, active,
+                          EXTRACT(EPOCH FROM created_at) as created_at,
+                          EXTRACT(EPOCH FROM updated_at) as updated_at,
+                          name, description,
+                          EXTRACT(EPOCH FROM last_delivery_at) as last_delivery_at,
+                          last_delivery_status, delivery_count, failure_count,
+                          user_id, workspace_id
+                   FROM webhook_configs WHERE id = $1""",
+                webhook_id,
+            )
+            if row:
+                return self._row_to_config(row)
+            return None
+
+    def _row_to_config(self, row: Any) -> WebhookConfig:
+        """Convert database row to WebhookConfig."""
+        return WebhookConfig(
+            id=row["id"],
+            url=row["url"],
+            events=json.loads(row["events_json"]) if row["events_json"] else [],
+            secret=row["secret"],
+            active=bool(row["active"]),
+            created_at=row["created_at"] or time.time(),
+            updated_at=row["updated_at"] or time.time(),
+            name=row["name"],
+            description=row["description"],
+            last_delivery_at=row["last_delivery_at"],
+            last_delivery_status=row["last_delivery_status"],
+            delivery_count=row["delivery_count"] or 0,
+            failure_count=row["failure_count"] or 0,
+            user_id=row["user_id"],
+            workspace_id=row["workspace_id"],
+        )
+
+    def list(
+        self,
+        user_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        active_only: bool = False,
+    ) -> List[WebhookConfig]:
+        """List webhooks (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.list_async(user_id, workspace_id, active_only)
+        )
+
+    async def list_async(
+        self,
+        user_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        active_only: bool = False,
+    ) -> List[WebhookConfig]:
+        """List webhooks asynchronously."""
+        query = """SELECT id, url, events_json, secret, active,
+                          EXTRACT(EPOCH FROM created_at) as created_at,
+                          EXTRACT(EPOCH FROM updated_at) as updated_at,
+                          name, description,
+                          EXTRACT(EPOCH FROM last_delivery_at) as last_delivery_at,
+                          last_delivery_status, delivery_count, failure_count,
+                          user_id, workspace_id
+                   FROM webhook_configs WHERE 1=1"""
+        params: List[Any] = []
+        param_idx = 1
+
+        if user_id:
+            query += f" AND user_id = ${param_idx}"
+            params.append(user_id)
+            param_idx += 1
+        if workspace_id:
+            query += f" AND workspace_id = ${param_idx}"
+            params.append(workspace_id)
+            param_idx += 1
+        if active_only:
+            query += " AND active = TRUE"
+
+        query += " ORDER BY created_at DESC"
+
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, *params)
+            return [self._row_to_config(row) for row in rows]
+
+    def delete(self, webhook_id: str) -> bool:
+        """Delete webhook (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(self.delete_async(webhook_id))
+
+    async def delete_async(self, webhook_id: str) -> bool:
+        """Delete webhook asynchronously."""
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM webhook_configs WHERE id = $1", webhook_id
+            )
+            deleted = result != "DELETE 0"
+            if deleted:
+                logger.info(f"Deleted webhook {webhook_id}")
+            return deleted
+
+    def update(
+        self,
+        webhook_id: str,
+        url: Optional[str] = None,
+        events: Optional[List[str]] = None,
+        active: Optional[bool] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Optional[WebhookConfig]:
+        """Update webhook (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.update_async(webhook_id, url, events, active, name, description)
+        )
+
+    async def update_async(
+        self,
+        webhook_id: str,
+        url: Optional[str] = None,
+        events: Optional[List[str]] = None,
+        active: Optional[bool] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Optional[WebhookConfig]:
+        """Update webhook asynchronously."""
+        webhook = await self.get_async(webhook_id)
+        if not webhook:
+            return None
+
+        updates: List[str] = []
+        params: List[Any] = []
+        param_idx = 1
+
+        if url is not None:
+            updates.append(f"url = ${param_idx}")
+            params.append(url)
+            param_idx += 1
+            webhook.url = url
+        if events is not None:
+            updates.append(f"events_json = ${param_idx}")
+            params.append(json.dumps(events))
+            param_idx += 1
+            webhook.events = events
+        if active is not None:
+            updates.append(f"active = ${param_idx}")
+            params.append(active)
+            param_idx += 1
+            webhook.active = active
+        if name is not None:
+            updates.append(f"name = ${param_idx}")
+            params.append(name)
+            param_idx += 1
+            webhook.name = name
+        if description is not None:
+            updates.append(f"description = ${param_idx}")
+            params.append(description)
+            param_idx += 1
+            webhook.description = description
+
+        if updates:
+            updates.append(f"updated_at = to_timestamp(${param_idx})")
+            params.append(time.time())
+            param_idx += 1
+            params.append(webhook_id)
+
+            async with self._pool.acquire() as conn:
+                await conn.execute(
+                    f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ${param_idx}",
+                    *params,
+                )
+            webhook.updated_at = time.time()
+
+        return webhook
+
+    def record_delivery(
+        self,
+        webhook_id: str,
+        status_code: int,
+        success: bool = True,
+    ) -> None:
+        """Record delivery (sync wrapper for async)."""
+        asyncio.get_event_loop().run_until_complete(
+            self.record_delivery_async(webhook_id, status_code, success)
+        )
+
+    async def record_delivery_async(
+        self,
+        webhook_id: str,
+        status_code: int,
+        success: bool = True,
+    ) -> None:
+        """Record delivery asynchronously."""
+        async with self._pool.acquire() as conn:
+            if success:
+                await conn.execute(
+                    """UPDATE webhook_configs SET
+                       last_delivery_at = NOW(), last_delivery_status = $1,
+                       delivery_count = delivery_count + 1
+                       WHERE id = $2""",
+                    status_code,
+                    webhook_id,
+                )
+            else:
+                await conn.execute(
+                    """UPDATE webhook_configs SET
+                       last_delivery_at = NOW(), last_delivery_status = $1,
+                       delivery_count = delivery_count + 1, failure_count = failure_count + 1
+                       WHERE id = $2""",
+                    status_code,
+                    webhook_id,
+                )
+
+    def get_for_event(self, event_type: str) -> List[WebhookConfig]:
+        """Get webhooks for event (sync wrapper for async)."""
+        return asyncio.get_event_loop().run_until_complete(
+            self.get_for_event_async(event_type)
+        )
+
+    async def get_for_event_async(self, event_type: str) -> List[WebhookConfig]:
+        """Get webhooks for event asynchronously."""
+        webhooks = await self.list_async(active_only=True)
+        return [w for w in webhooks if w.matches_event(event_type)]
+
+    def close(self) -> None:
+        """Close is a no-op for pool-based stores (pool managed externally)."""
+        pass
 
 
 # =============================================================================
