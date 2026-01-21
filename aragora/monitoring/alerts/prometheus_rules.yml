@@ -759,3 +759,428 @@ groups:
         annotations:
           summary: "Slow gauntlet export ({{ $labels.format }})"
           description: "Export format {{ $labels.format }} p95 latency is {{ $value | humanizeDuration }}."
+
+  # =========================================================================
+  # Enhanced Security Alerts
+  # =========================================================================
+  - name: aragora_security_enhanced
+    rules:
+      # -----------------------------------------------------------------------
+      # RBAC Authorization Alerts
+      # -----------------------------------------------------------------------
+      - alert: HighRBACDenialRate
+        expr: |
+          (
+            sum(rate(aragora_security_rbac_decisions_total{decision="denied"}[5m]))
+            /
+            sum(rate(aragora_security_rbac_decisions_total[5m]))
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "High RBAC denial rate ({{ $value | humanizePercentage }})"
+          description: "More than 20% of authorization requests are being denied. May indicate misconfigured permissions or attack attempt."
+          runbook_url: "https://docs.aragora.io/runbooks/security/high-rbac-denials"
+
+      - alert: RBACDenialSpike
+        expr: |
+          sum(rate(aragora_security_rbac_denied_total[5m]))
+          > 3 * sum(rate(aragora_security_rbac_denied_total[1h] offset 5m))
+        for: 2m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "RBAC denial rate spiked 3x above baseline"
+          description: "Sudden increase in authorization denials detected. Possible privilege escalation attempt."
+          runbook_url: "https://docs.aragora.io/runbooks/security/rbac-spike"
+
+      - alert: SensitivePermissionDenied
+        expr: |
+          sum(rate(aragora_security_rbac_denied_total{permission=~"admin.*|security.*|billing.*|users.delete"}[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: high
+          service: aragora
+          category: security
+        annotations:
+          summary: "Sensitive permission denials detected"
+          description: "Repeated attempts to access admin/security/billing resources are being denied. Review for potential attack."
+          runbook_url: "https://docs.aragora.io/runbooks/security/sensitive-permission-denied"
+
+      # -----------------------------------------------------------------------
+      # Encryption and Key Management Alerts
+      # -----------------------------------------------------------------------
+      - alert: HighEncryptionLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_security_encryption_latency_seconds_bucket[5m])) by (le, operation)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "High encryption latency ({{ $labels.operation }} p95 > 100ms)"
+          description: "Encryption operations taking unusually long. May indicate key derivation issues or system load."
+          runbook_url: "https://docs.aragora.io/runbooks/security/encryption-latency"
+
+      - alert: EncryptionErrorsIncreasing
+        expr: |
+          increase(aragora_security_encryption_errors_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: high
+          service: aragora
+          category: security
+        annotations:
+          summary: "Encryption errors increasing ({{ $value }} in 5m)"
+          description: "Multiple encryption errors detected. Check encryption key availability and configuration."
+          runbook_url: "https://docs.aragora.io/runbooks/security/encryption-errors"
+
+      - alert: KeyRotationFailed
+        expr: |
+          increase(aragora_security_key_rotations_total{status="error"}[1h]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: aragora
+          category: security
+        annotations:
+          summary: "Encryption key rotation failed"
+          description: "Key rotation operation failed. Secrets may be encrypted with old keys. Immediate attention required."
+          runbook_url: "https://docs.aragora.io/runbooks/security/key-rotation-failed"
+
+      - alert: KeyRotationOverdue
+        expr: |
+          time() - aragora_security_last_key_rotation_timestamp > 7776000
+        for: 1h
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "Encryption key rotation overdue"
+          description: "Primary encryption key has not been rotated in over 90 days. Schedule key rotation."
+          runbook_url: "https://docs.aragora.io/runbooks/security/key-rotation-schedule"
+
+      - alert: NoActiveEncryptionKeys
+        expr: |
+          aragora_security_active_keys{key_type="master"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: aragora
+          category: security
+        annotations:
+          summary: "No active encryption master key"
+          description: "No master encryption key is loaded. All encryption/decryption operations will fail."
+          runbook_url: "https://docs.aragora.io/runbooks/security/no-encryption-key"
+
+      # -----------------------------------------------------------------------
+      # Authentication Security Alerts
+      # -----------------------------------------------------------------------
+      - alert: BruteForceAttemptDetected
+        expr: |
+          sum(rate(aragora_security_auth_failures_total{reason=~"invalid_credentials|invalid_password"}[5m])) by (method) > 5
+        for: 2m
+        labels:
+          severity: high
+          service: aragora
+          category: security
+        annotations:
+          summary: "Possible brute force attack detected"
+          description: "High rate of failed authentication attempts ({{ $value }}/s). May indicate credential stuffing or brute force attack."
+          runbook_url: "https://docs.aragora.io/runbooks/security/brute-force"
+
+      - alert: HighTokenExpiredRate
+        expr: |
+          (
+            sum(rate(aragora_security_auth_failures_total{reason="expired_token"}[5m]))
+            /
+            sum(rate(aragora_security_auth_attempts_total[5m]))
+          ) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "High rate of expired tokens ({{ $value | humanizePercentage }})"
+          description: "Many authentication attempts are failing due to expired tokens. Check token TTL configuration."
+          runbook_url: "https://docs.aragora.io/runbooks/security/expired-tokens"
+
+      - alert: JWTValidationErrors
+        expr: |
+          sum(rate(aragora_security_auth_failures_total{reason=~"invalid_signature|malformed_token|invalid_claims"}[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "JWT validation errors detected"
+          description: "Tokens with invalid signatures or malformed structure detected. May indicate token forgery attempt."
+          runbook_url: "https://docs.aragora.io/runbooks/security/jwt-validation"
+
+      - alert: UnusualAuthenticationLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_security_auth_latency_seconds_bucket[5m])) by (le, method)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "High authentication latency ({{ $labels.method }} p95 > 500ms)"
+          description: "Authentication operations taking unusually long. Check for timing attacks or backend issues."
+          runbook_url: "https://docs.aragora.io/runbooks/security/auth-latency"
+
+      # -----------------------------------------------------------------------
+      # Secret Access Monitoring Alerts
+      # -----------------------------------------------------------------------
+      - alert: UnusualSecretAccessPattern
+        expr: |
+          sum(rate(aragora_security_secret_access_total[5m])) by (secret_type)
+          > 3 * sum(rate(aragora_security_secret_access_total[1h] offset 5m)) by (secret_type)
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "Unusual secret access pattern for {{ $labels.secret_type }}"
+          description: "Secret access rate is 3x above normal baseline. Review for potential data exfiltration."
+          runbook_url: "https://docs.aragora.io/runbooks/security/unusual-secret-access"
+
+      - alert: HighSecretDecryptionRate
+        expr: |
+          sum(rate(aragora_security_secret_decryption_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "High secret decryption rate ({{ $value }}/s)"
+          description: "Unusually high rate of secret decryptions. May indicate bulk secret access or data harvesting."
+          runbook_url: "https://docs.aragora.io/runbooks/security/high-decryption-rate"
+
+      - alert: SensitiveFieldAccessSpike
+        expr: |
+          sum(rate(aragora_security_sensitive_field_operations_total{operation="access"}[5m])) by (field) > 50
+        for: 2m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "High access rate to sensitive field: {{ $labels.field }}"
+          description: "Sensitive field {{ $labels.field }} is being accessed at high rate. Review access patterns."
+          runbook_url: "https://docs.aragora.io/runbooks/security/sensitive-field-access"
+
+      # -----------------------------------------------------------------------
+      # Security Incident Alerts
+      # -----------------------------------------------------------------------
+      - alert: CriticalSecurityIncident
+        expr: |
+          increase(aragora_security_incidents_total{severity="critical"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: aragora
+          category: security
+        annotations:
+          summary: "Critical security incident detected"
+          description: "A critical security incident of type {{ $labels.type }} has been detected. Immediate investigation required."
+          runbook_url: "https://docs.aragora.io/runbooks/security/critical-incident"
+
+      - alert: HighSecurityIncidentRate
+        expr: |
+          sum(rate(aragora_security_incidents_total[1h])) > 10
+        for: 10m
+        labels:
+          severity: high
+          service: aragora
+          category: security
+        annotations:
+          summary: "High rate of security incidents ({{ $value }}/hour)"
+          description: "Multiple security incidents being generated. System may be under active attack."
+          runbook_url: "https://docs.aragora.io/runbooks/security/incident-rate"
+
+      - alert: BlockedRequestsSpike
+        expr: |
+          sum(rate(aragora_security_blocked_requests_total[5m])) > 50
+        for: 2m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "High rate of blocked requests ({{ $value }}/s)"
+          description: "Many requests are being blocked. Check for attack or misconfiguration."
+          runbook_url: "https://docs.aragora.io/runbooks/security/blocked-requests"
+
+      - alert: RepeatedUnauthorizedAccess
+        expr: |
+          sum(rate(aragora_security_blocked_requests_total{reason="unauthorized"}[5m])) > 10
+        for: 2m
+        labels:
+          severity: high
+          service: aragora
+          category: security
+        annotations:
+          summary: "Repeated unauthorized access attempts"
+          description: "Multiple unauthorized access attempts detected. Review source IPs and user patterns."
+          runbook_url: "https://docs.aragora.io/runbooks/security/unauthorized-access"
+
+      # -----------------------------------------------------------------------
+      # Encryption Migration Alerts
+      # -----------------------------------------------------------------------
+      - alert: MigrationErrorsDetected
+        expr: |
+          increase(aragora_security_migration_errors_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: high
+          service: aragora
+          category: security
+        annotations:
+          summary: "Encryption migration errors on {{ $labels.store }}"
+          description: "Errors occurred during encryption migration of {{ $labels.store }}. Check logs for details."
+          runbook_url: "https://docs.aragora.io/runbooks/security/migration-errors"
+
+      - alert: MigrationTakingTooLong
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_security_migration_duration_seconds_bucket[5m])) by (le, store)
+          ) > 300
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "Encryption migration taking too long for {{ $labels.store }}"
+          description: "Migration p95 duration is {{ $value | humanizeDuration }}. May need optimization."
+          runbook_url: "https://docs.aragora.io/runbooks/security/slow-migration"
+
+  # =========================================================================
+  # Approval Workflow Security Alerts
+  # =========================================================================
+  - name: aragora_approval_security
+    rules:
+      - alert: ApprovalRequestTimeout
+        expr: |
+          increase(aragora_approval_requests_total{status="timeout"}[1h]) > 5
+        for: 10m
+        labels:
+          severity: warning
+          service: aragora
+          category: security
+        annotations:
+          summary: "Multiple approval requests timing out"
+          description: "{{ $value }} approval requests have timed out in the last hour. Operations may be blocked."
+          runbook_url: "https://docs.aragora.io/runbooks/security/approval-timeout"
+
+      - alert: HighApprovalRejectionRate
+        expr: |
+          (
+            sum(rate(aragora_approval_requests_total{status="rejected"}[1h]))
+            /
+            sum(rate(aragora_approval_requests_total[1h]))
+          ) > 0.5
+        for: 30m
+        labels:
+          severity: info
+          service: aragora
+          category: security
+        annotations:
+          summary: "High approval rejection rate ({{ $value | humanizePercentage }})"
+          description: "More than half of approval requests are being rejected. Review request patterns."
+          runbook_url: "https://docs.aragora.io/runbooks/security/approval-rejections"
+
+      - alert: CriticalOperationPendingTooLong
+        expr: |
+          aragora_pending_critical_approvals > 0
+          and
+          time() - aragora_oldest_pending_critical_approval_timestamp > 3600
+        for: 5m
+        labels:
+          severity: high
+          service: aragora
+          category: security
+        annotations:
+          summary: "Critical operation pending approval for over 1 hour"
+          description: "A critical operation has been awaiting approval for too long. May block important workflows."
+          runbook_url: "https://docs.aragora.io/runbooks/security/pending-critical-approval"
+
+      - alert: UnauthorizedApprovalAttempt
+        expr: |
+          increase(aragora_approval_unauthorized_attempts_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: high
+          service: aragora
+          category: security
+        annotations:
+          summary: "Unauthorized approval attempt detected"
+          description: "Someone attempted to approve/reject a request without proper authorization."
+          runbook_url: "https://docs.aragora.io/runbooks/security/unauthorized-approval"
+
+  # =========================================================================
+  # RBAC Cache and Performance Alerts
+  # =========================================================================
+  - name: aragora_rbac_performance
+    rules:
+      - alert: LowRBACCacheHitRate
+        expr: |
+          (
+            sum(rate(aragora_rbac_cache_hits_total[5m]))
+            /
+            (sum(rate(aragora_rbac_cache_hits_total[5m])) + sum(rate(aragora_rbac_cache_misses_total[5m])))
+          ) < 0.7
+        for: 10m
+        labels:
+          severity: info
+          service: aragora
+          category: performance
+        annotations:
+          summary: "Low RBAC cache hit rate ({{ $value | humanizePercentage }})"
+          description: "RBAC cache hit rate below 70%. May cause increased authorization latency."
+          runbook_url: "https://docs.aragora.io/runbooks/rbac/cache-performance"
+
+      - alert: RBACCacheEvictionHigh
+        expr: |
+          sum(rate(aragora_rbac_cache_evictions_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: performance
+        annotations:
+          summary: "High RBAC cache eviction rate"
+          description: "RBAC cache is evicting entries rapidly. Consider increasing cache size."
+          runbook_url: "https://docs.aragora.io/runbooks/rbac/cache-evictions"
+
+      - alert: SlowRBACEvaluation
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aragora_security_rbac_evaluation_latency_seconds_bucket[5m])) by (le)
+          ) > 0.025
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: performance
+        annotations:
+          summary: "Slow RBAC evaluation (p95 > 25ms)"
+          description: "RBAC policy evaluation taking longer than expected. Check cache status and policy complexity."
+          runbook_url: "https://docs.aragora.io/runbooks/rbac/slow-evaluation"
