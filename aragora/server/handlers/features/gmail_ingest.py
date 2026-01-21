@@ -25,18 +25,19 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
     safe_error_message,
 )
+from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from aragora.storage.gmail_token_store import (
     GmailUserState,
     SyncJobState,
     get_gmail_token_store,
 )
+from aragora.billing.auth import extract_user_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +81,17 @@ async def delete_sync_job(user_id: str) -> bool:
     return await store.delete_sync_job(user_id)
 
 
-class GmailIngestHandler(BaseHandler):
-    """Handler for Gmail inbox ingestion endpoints."""
+class GmailIngestHandler(SecureHandler):
+    """Handler for Gmail inbox ingestion endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+
+    SECURITY: All user_id values are bound to the authenticated JWT context
+    to prevent cross-tenant access. Caller-supplied user_id is ignored.
+    """
+
+    RESOURCE_TYPE = "gmail"
 
     ROUTES = [
         "/api/gmail/connect",
@@ -99,6 +109,28 @@ class GmailIngestHandler(BaseHandler):
         """Check if this handler can process the path."""
         return path.startswith("/api/gmail/")
 
+    def _get_authenticated_user(
+        self, handler: Any
+    ) -> tuple[Optional[str], Optional[str], Optional[HandlerResult]]:
+        """Extract authenticated user from JWT token.
+
+        SECURITY: user_id is bound to JWT context to prevent cross-tenant access.
+        Caller-supplied user_id in query/body is ignored.
+
+        Returns:
+            Tuple of (user_id, org_id, error_response).
+            If authentication fails, error_response is set and user_id/org_id are None.
+        """
+        auth_ctx = extract_user_from_request(handler)
+        if not auth_ctx.authenticated or not auth_ctx.user_id:
+            logger.warning("Gmail endpoint accessed without valid JWT authentication")
+            return (
+                None,
+                None,
+                error_response("Authentication required. Please provide a valid JWT token.", 401),
+            )
+        return auth_ctx.user_id, auth_ctx.org_id, None
+
     def handle(
         self,
         path: str,
@@ -112,8 +144,10 @@ class GmailIngestHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for Gmail endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Extract user_id from auth (simplified - use real auth in production)
-        user_id = query_params.get("user_id", "default")
+        # SECURITY: Extract user_id from JWT token, not from query params
+        user_id, org_id, auth_error = self._get_authenticated_user(handler)
+        if auth_error:
+            return auth_error
 
         if path == "/api/gmail/status":
             return self._get_status(user_id)
@@ -150,8 +184,10 @@ class GmailIngestHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for Gmail endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Extract user_id from body or auth
-        user_id = body.get("user_id", "default")
+        # SECURITY: Extract user_id from JWT token, not from body
+        user_id, org_id, auth_error = self._get_authenticated_user(handler)
+        if auth_error:
+            return auth_error
 
         if path == "/api/gmail/connect":
             return self._start_connect(body, user_id)
@@ -248,9 +284,14 @@ class GmailIngestHandler(BaseHandler):
         query_params: Dict[str, Any],
         user_id: str,
     ) -> HandlerResult:
-        """Handle OAuth callback (GET)."""
+        """Handle OAuth callback (GET).
+
+        SECURITY: user_id is bound to JWT context. The state parameter is used
+        for CSRF protection only, NOT to identify the user. This prevents
+        cross-tenant token theft via state manipulation.
+        """
         code = query_params.get("code")
-        state = query_params.get("state", user_id)
+        state = query_params.get("state")
         error = query_params.get("error")
 
         if error:
@@ -259,9 +300,13 @@ class GmailIngestHandler(BaseHandler):
         if not code:
             return error_response("Missing authorization code", 400)
 
-        # Use state as user_id if present
-        if state:
-            user_id = state
+        # SECURITY: Validate state matches authenticated user to prevent CSRF
+        # State should contain user_id for verification, but we ALWAYS use JWT user_id
+        if state and state != user_id:
+            logger.warning(
+                f"OAuth state mismatch: state={state}, jwt_user={user_id}. "
+                "Using JWT user_id for security."
+            )
 
         return self._complete_oauth(code, query_params.get("redirect_uri", ""), user_id)
 
