@@ -584,38 +584,38 @@ class TestIntegration:
 class TestExtendedCommands:
     """Extended tests for command handling."""
 
-    def test_command_debate_valid_topic(self, handler):
-        """Test debate command with valid topic creates tasks."""
+    def test_command_debate_valid_args(self, handler):
+        """Test debate command with valid args creates tasks."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
             handler._command_debate(
                 chat_id=123,
                 user_id=456,
                 username="testuser",
-                topic="Should we use Python for everything?",
+                args="Should we use Python for everything?",
             )
             # Should create acknowledgment and debate execution tasks
             assert mock_task.call_count >= 2
 
-    def test_command_debate_short_topic(self, handler):
-        """Test debate command with short topic sends error."""
+    def test_command_debate_short_args(self, handler):
+        """Test debate command with short args sends error."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
             handler._command_debate(123, 456, "user", "hi")
             mock_task.assert_called()
 
-    def test_command_gauntlet_valid_statement(self, handler):
-        """Test gauntlet command with valid statement creates tasks."""
+    def test_command_gauntlet_valid_args(self, handler):
+        """Test gauntlet command with valid args creates tasks."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
             handler._command_gauntlet(
                 chat_id=123,
                 user_id=456,
                 username="testuser",
-                statement="Microservices are better than monoliths for all applications",
+                args="Microservices are better than monoliths for all applications",
             )
             # Should create acknowledgment and gauntlet execution tasks
             assert mock_task.call_count >= 2
 
-    def test_command_gauntlet_short_statement(self, handler):
-        """Test gauntlet command with short statement sends error."""
+    def test_command_gauntlet_short_args(self, handler):
+        """Test gauntlet command with short args sends error."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
             handler._command_gauntlet(123, 456, "user", "yes")
             mock_task.assert_called()
