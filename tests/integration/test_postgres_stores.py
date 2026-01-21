@@ -32,6 +32,7 @@ POSTGRES_AVAILABLE = bool(POSTGRES_DSN)
 
 try:
     import asyncpg
+
     ASYNCPG_AVAILABLE = True
 except ImportError:
     ASYNCPG_AVAILABLE = False
@@ -41,7 +42,7 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
         not POSTGRES_AVAILABLE or not ASYNCPG_AVAILABLE,
-        reason="PostgreSQL not configured (set ARAGORA_POSTGRES_DSN) or asyncpg not installed"
+        reason="PostgreSQL not configured (set ARAGORA_POSTGRES_DSN) or asyncpg not installed",
     ),
 ]
 
@@ -95,6 +96,7 @@ class TestPostgresWebhookConfigStore:
     def store(self, postgres_pool: asyncpg.Pool):
         """Create webhook config store."""
         from aragora.storage.webhook_config_store import PostgresWebhookConfigStore
+
         return PostgresWebhookConfigStore(postgres_pool)
 
     @pytest.mark.asyncio
@@ -188,19 +190,22 @@ class TestPostgresGauntletRunStore:
     def store(self, postgres_pool: asyncpg.Pool):
         """Create gauntlet run store."""
         from aragora.storage.gauntlet_run_store import PostgresGauntletRunStore
+
         return PostgresGauntletRunStore(postgres_pool)
 
     @pytest.mark.asyncio
     async def test_save_and_get(self, store, clean_test_tables):
         """Test saving and retrieving a gauntlet run."""
         run_id = f"test-{uuid.uuid4().hex[:8]}"
-        await store.save({
-            "run_id": run_id,
-            "template_id": "security-audit",
-            "status": "pending",
-            "config_data": {"max_rounds": 5},
-            "workspace_id": "test-ws",
-        })
+        await store.save(
+            {
+                "run_id": run_id,
+                "template_id": "security-audit",
+                "status": "pending",
+                "config_data": {"max_rounds": 5},
+                "workspace_id": "test-ws",
+            }
+        )
 
         result = await store.get(run_id)
         assert result is not None
@@ -211,11 +216,13 @@ class TestPostgresGauntletRunStore:
     async def test_status_lifecycle(self, store, clean_test_tables):
         """Test gauntlet run status transitions."""
         run_id = f"test-{uuid.uuid4().hex[:8]}"
-        await store.save({
-            "run_id": run_id,
-            "template_id": "compliance-check",
-            "status": "pending",
-        })
+        await store.save(
+            {
+                "run_id": run_id,
+                "template_id": "compliance-check",
+                "status": "pending",
+            }
+        )
 
         # Start running
         await store.update_status(run_id, "running")
@@ -239,11 +246,13 @@ class TestPostgresGauntletRunStore:
         """Test listing active runs."""
         # Create runs with different statuses
         for i, status in enumerate(["pending", "running", "completed", "failed"]):
-            await store.save({
-                "run_id": f"test-run-{i}",
-                "template_id": "test",
-                "status": status,
-            })
+            await store.save(
+                {
+                    "run_id": f"test-run-{i}",
+                    "template_id": "test",
+                    "status": status,
+                }
+            )
 
         active = await store.list_active()
         active_ids = [r["run_id"] for r in active]
@@ -261,20 +270,23 @@ class TestPostgresApprovalRequestStore:
     def store(self, postgres_pool: asyncpg.Pool):
         """Create approval request store."""
         from aragora.storage.approval_request_store import PostgresApprovalRequestStore
+
         return PostgresApprovalRequestStore(postgres_pool)
 
     @pytest.mark.asyncio
     async def test_save_and_respond(self, store, clean_test_tables):
         """Test creating and responding to approval request."""
         request_id = f"test-{uuid.uuid4().hex[:8]}"
-        await store.save({
-            "request_id": request_id,
-            "workflow_id": "test-workflow",
-            "step_id": "step-1",
-            "title": "Approve deployment",
-            "status": "pending",
-            "priority": 1,
-        })
+        await store.save(
+            {
+                "request_id": request_id,
+                "workflow_id": "test-workflow",
+                "step_id": "step-1",
+                "title": "Approve deployment",
+                "status": "pending",
+                "priority": 1,
+            }
+        )
 
         # Respond to request
         success = await store.respond(
@@ -296,14 +308,16 @@ class TestPostgresApprovalRequestStore:
         """Test pending requests ordered by priority."""
         # Create requests with different priorities
         for i, priority in enumerate([3, 1, 2]):
-            await store.save({
-                "request_id": f"test-req-{i}",
-                "workflow_id": "test",
-                "step_id": "step",
-                "title": f"Request {i}",
-                "status": "pending",
-                "priority": priority,
-            })
+            await store.save(
+                {
+                    "request_id": f"test-req-{i}",
+                    "workflow_id": "test",
+                    "step_id": "step",
+                    "title": f"Request {i}",
+                    "status": "pending",
+                    "priority": priority,
+                }
+            )
 
         pending = await store.list_pending()
         priorities = [r["priority"] for r in pending if r["request_id"].startswith("test-")]
@@ -319,6 +333,7 @@ class TestPostgresConcurrency:
     async def test_concurrent_writes(self, postgres_pool: asyncpg.Pool, clean_test_tables):
         """Test concurrent writes don't cause conflicts."""
         from aragora.storage.webhook_config_store import PostgresWebhookConfigStore
+
         store = PostgresWebhookConfigStore(postgres_pool)
 
         # Concurrent webhook registrations
@@ -335,7 +350,9 @@ class TestPostgresConcurrency:
         assert all(r.id is not None for r in results)
 
     @pytest.mark.asyncio
-    async def test_concurrent_counter_increments(self, postgres_pool: asyncpg.Pool, clean_test_tables):
+    async def test_concurrent_counter_increments(
+        self, postgres_pool: asyncpg.Pool, clean_test_tables
+    ):
         """Test atomic counter increments under concurrent load."""
         from aragora.storage.federation_registry_store import PostgresFederationRegistryStore
         from aragora.storage.federation_registry_store import FederatedRegionConfig
@@ -414,6 +431,7 @@ class TestPostgresConnectionPool:
     async def test_pool_exhaustion_handling(self, postgres_pool: asyncpg.Pool, clean_test_tables):
         """Test behavior when pool connections are exhausted."""
         from aragora.storage.webhook_config_store import PostgresWebhookConfigStore
+
         store = PostgresWebhookConfigStore(postgres_pool)
 
         # Many concurrent operations (more than pool size)
@@ -426,8 +444,7 @@ class TestPostgresConnectionPool:
 
         # Should handle gracefully even with limited pool
         results = await asyncio.gather(
-            *[quick_operation(i) for i in range(20)],
-            return_exceptions=True
+            *[quick_operation(i) for i in range(20)], return_exceptions=True
         )
 
         # All should succeed (pool handles queueing)
@@ -438,6 +455,7 @@ class TestPostgresConnectionPool:
     async def test_connection_reuse(self, postgres_pool: asyncpg.Pool, clean_test_tables):
         """Test that connections are properly returned to pool."""
         from aragora.storage.webhook_config_store import PostgresWebhookConfigStore
+
         store = PostgresWebhookConfigStore(postgres_pool)
 
         initial_size = postgres_pool.get_size()
@@ -452,3 +470,228 @@ class TestPostgresConnectionPool:
         # Pool size should not have grown unbounded
         final_size = postgres_pool.get_size()
         assert final_size <= postgres_pool.get_max_size()
+
+
+class TestPostgresConsensusMemoryIntegration:
+    """Integration tests for PostgresConsensusMemory."""
+
+    @pytest.fixture
+    async def memory(self, postgres_pool: asyncpg.Pool):
+        """Create and initialize consensus memory."""
+        from aragora.memory.postgres_consensus import PostgresConsensusMemory
+
+        memory = PostgresConsensusMemory(postgres_pool)
+        await memory.initialize()
+        return memory
+
+    @pytest.mark.asyncio
+    async def test_store_and_retrieve_consensus(self, memory):
+        """Test storing and retrieving a consensus record."""
+        unique_id = uuid.uuid4().hex[:8]
+        topic = f"Test topic {unique_id}"
+
+        # Store
+        result = await memory.store_consensus(
+            topic=topic,
+            conclusion="Test conclusion",
+            strength="strong",
+            confidence=0.9,
+            participating_agents=["claude", "gpt4"],
+            agreeing_agents=["claude", "gpt4"],
+            domain="testing",
+        )
+
+        assert result["topic"] == topic
+        assert result["confidence"] == 0.9
+        consensus_id = result["id"]
+
+        # Retrieve
+        retrieved = await memory.get_consensus(consensus_id)
+        assert retrieved is not None
+        assert retrieved["topic"] == topic
+        assert retrieved["conclusion"] == "Test conclusion"
+
+    @pytest.mark.asyncio
+    async def test_find_similar(self, memory):
+        """Test finding similar consensus records."""
+        unique_id = uuid.uuid4().hex[:8]
+        base_topic = f"Rate limiting approach {unique_id}"
+
+        # Store a consensus
+        await memory.store_consensus(
+            topic=base_topic,
+            conclusion="Use token bucket",
+            strength="strong",
+            confidence=0.85,
+            participating_agents=["claude"],
+            agreeing_agents=["claude"],
+        )
+
+        # Find similar
+        results = await memory.find_similar(base_topic, limit=5)
+        assert len(results) >= 1
+        assert any(base_topic in r.get("topic", "") for r in results)
+
+    @pytest.mark.asyncio
+    async def test_store_dissent(self, memory):
+        """Test storing dissent records."""
+        unique_id = uuid.uuid4().hex[:8]
+        topic = f"Test topic for dissent {unique_id}"
+
+        # First create a consensus
+        result = await memory.store_consensus(
+            topic=topic,
+            conclusion="Main conclusion",
+            strength="moderate",
+            confidence=0.7,
+            participating_agents=["claude", "gpt4"],
+            agreeing_agents=["claude"],
+        )
+        debate_id = result["id"]
+
+        # Store dissent
+        dissent = await memory.store_dissent(
+            debate_id=debate_id,
+            agent_id="gpt4",
+            dissent_type="alternative_approach",
+            content="I disagree with this approach",
+            reasoning="Here's why...",
+            confidence=0.6,
+        )
+
+        assert dissent["debate_id"] == debate_id
+        assert dissent["agent_id"] == "gpt4"
+
+        # Retrieve dissents
+        dissents = await memory.get_dissents_for_debate(debate_id)
+        assert len(dissents) >= 1
+
+    @pytest.mark.asyncio
+    async def test_get_stats(self, memory):
+        """Test getting statistics."""
+        stats = await memory.get_stats()
+
+        assert "total_consensus" in stats
+        assert "total_dissents" in stats
+        assert isinstance(stats["total_consensus"], int)
+
+
+class TestPostgresCritiqueStoreIntegration:
+    """Integration tests for PostgresCritiqueStore."""
+
+    @pytest.fixture
+    async def store(self, postgres_pool: asyncpg.Pool):
+        """Create and initialize critique store."""
+        from aragora.memory.postgres_critique import PostgresCritiqueStore
+
+        store = PostgresCritiqueStore(postgres_pool)
+        await store.initialize()
+        return store
+
+    @pytest.mark.asyncio
+    async def test_store_and_retrieve_debate(self, store):
+        """Test storing and retrieving a debate record."""
+        unique_id = uuid.uuid4().hex[:8]
+        debate_id = f"debate_{unique_id}"
+
+        # Store
+        result = await store.store_debate(
+            debate_id=debate_id,
+            task="Design a caching system",
+            final_answer="Use Redis with LRU eviction",
+            consensus_reached=True,
+            confidence=0.88,
+            rounds_used=3,
+            duration_seconds=45.5,
+        )
+
+        assert result["id"] == debate_id
+        assert result["consensus_reached"] is True
+
+        # Retrieve
+        retrieved = await store.get_debate(debate_id)
+        assert retrieved is not None
+        assert retrieved["task"] == "Design a caching system"
+        assert retrieved["confidence"] == 0.88
+
+    @pytest.mark.asyncio
+    async def test_store_critique(self, store):
+        """Test storing critique records."""
+        unique_id = uuid.uuid4().hex[:8]
+        debate_id = f"debate_{unique_id}"
+
+        # First store a debate
+        await store.store_debate(
+            debate_id=debate_id,
+            task="Test task",
+            consensus_reached=True,
+            confidence=0.8,
+        )
+
+        # Store critique
+        critique_id = await store.store_critique(
+            debate_id=debate_id,
+            agent="claude",
+            target_agent="gpt4",
+            issues=["Logic flaw", "Missing edge case"],
+            suggestions=["Add validation", "Handle null"],
+            severity=0.7,
+            reasoning="The approach needs improvement",
+        )
+
+        assert critique_id > 0
+
+        # Get critiques for debate
+        critiques = await store.get_critiques_for_debate(debate_id)
+        assert len(critiques) >= 1
+        assert critiques[0]["agent"] == "claude"
+
+    @pytest.mark.asyncio
+    async def test_store_pattern(self, store):
+        """Test storing and retrieving patterns."""
+        unique_id = uuid.uuid4().hex[:8]
+        issue_text = f"SQL injection vulnerability {unique_id}"
+
+        # Store pattern
+        result = await store.store_pattern(
+            issue_text=issue_text,
+            suggestion_text="Use parameterized queries",
+            severity=0.9,
+            example_task="Fix user login",
+        )
+
+        assert result["issue_type"] == "security"
+
+        # Retrieve patterns
+        patterns = await store.retrieve_patterns(issue_type="security", min_success=1, limit=10)
+        assert any(issue_text in p.issue_text for p in patterns)
+
+    @pytest.mark.asyncio
+    async def test_reputation_tracking(self, store):
+        """Test agent reputation tracking."""
+        unique_id = uuid.uuid4().hex[:8]
+        agent_name = f"test_agent_{unique_id}"
+
+        # Update reputation
+        await store.update_reputation(
+            agent_name,
+            proposal_made=True,
+            proposal_accepted=True,
+            critique_given=True,
+            critique_valuable=True,
+        )
+
+        # Get reputation
+        rep = await store.get_reputation(agent_name)
+        assert rep is not None
+        assert rep.agent_name == agent_name
+        assert rep.proposals_made == 1
+
+    @pytest.mark.asyncio
+    async def test_get_stats(self, store):
+        """Test getting statistics."""
+        stats = await store.get_stats()
+
+        assert "total_debates" in stats
+        assert "total_critiques" in stats
+        assert "total_patterns" in stats
