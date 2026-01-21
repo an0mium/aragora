@@ -5,6 +5,57 @@ All notable changes to Aragora will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.8] - 2026-01-20
+
+### Added
+
+- **Cross-Pollination Health Endpoint** - `/api/health/cross-pollination` for monitoring feature integrations:
+  - ELO weighting status
+  - Calibration tracking health
+  - Evidence quality scoring
+  - RLM hierarchy caching metrics
+  - Knowledge Mound operations
+  - Pulse trending topics
+
+- **Cross-Pollination CLI Flags** - Control features via CLI:
+  - `--no-elo-weighting` - Disable ELO-based vote weights
+  - `--no-calibration` - Disable calibration tracking
+  - `--no-evidence-weighting` - Disable evidence quality scoring
+  - `--no-trending` - Disable Pulse trending topics
+
+- **Cross-Pollination Grafana Dashboard** - `deploy/grafana/dashboards/cross-pollination.json`:
+  - RLM cache hit rate gauge
+  - Calibration error (ECE) gauge
+  - Voting accuracy rate
+  - ELO weight adjustments
+  - Calibration adjustments by agent
+  - Evidence quality bonuses
+  - Knowledge Mound operations
+
+- **CultureAdapter** - Bridges Culture Accumulator to Knowledge Mound:
+  - Culture pattern storage after debates
+  - Pattern retrieval for protocol configuration
+  - Cross-workspace culture promotion
+
+- **MultiInboxManager** - Unified Gmail account management:
+  - Multi-account authentication
+  - Cross-account sender intelligence
+  - Unified prioritization
+
+- **Template Marketplace** - Community workflow template sharing:
+  - SQLite-backed storage
+  - Rating and review system
+  - Category browsing
+
+### Fixed
+
+- **EmailHandler Interface** - Added missing `can_handle` and `handle` methods required by BaseHandler
+
+### Changed
+
+- **Cross-Pollination Enabled by Default** - All features now enabled out of the box
+- **Quick Start Documentation** - Added to CROSS_POLLINATION.md
+
 ## [2.0.7] - 2026-01-20
 
 ### Added
