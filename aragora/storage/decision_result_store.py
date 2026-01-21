@@ -605,7 +605,14 @@ class DecisionResultStore:
             "max_entries": self._max_entries,
             "ttl_seconds": self._ttl_seconds,
             "db_path": str(self._db_path),
+            "backend_type": self.backend_type,
         }
+
+    def close(self) -> None:
+        """Close database connection/pool."""
+        if self._backend is not None:
+            self._backend.close()
+            self._backend = None
 
 
 # Global singleton instance
@@ -615,6 +622,8 @@ _store_lock = threading.Lock()
 
 def get_decision_result_store(
     db_path: Optional[Union[str, Path]] = None,
+    backend: Optional[str] = None,
+    database_url: Optional[str] = None,
     **kwargs,
 ) -> DecisionResultStore:
     """
@@ -622,6 +631,8 @@ def get_decision_result_store(
 
     Args:
         db_path: Optional custom database path
+        backend: Database backend ("sqlite" or "postgresql")
+        database_url: PostgreSQL connection URL
         **kwargs: Additional arguments for DecisionResultStore
 
     Returns:
@@ -635,7 +646,12 @@ def get_decision_result_store(
                 "ARAGORA_DECISION_RESULTS_DB",
                 str(DEFAULT_DB_PATH),
             )
-            _decision_result_store = DecisionResultStore(db_path=path, **kwargs)
+            _decision_result_store = DecisionResultStore(
+                db_path=path,
+                backend=backend,
+                database_url=database_url,
+                **kwargs,
+            )
 
     return _decision_result_store
 
@@ -644,7 +660,9 @@ def reset_decision_result_store() -> None:
     """Reset the global store instance (for testing)."""
     global _decision_result_store
     with _store_lock:
-        _decision_result_store = None
+        if _decision_result_store is not None:
+            _decision_result_store.close()
+            _decision_result_store = None
 
 
 __all__ = [
