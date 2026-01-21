@@ -124,6 +124,49 @@ class FindingWorkflowHandler(BaseHandler):
         user_name = request.headers.get("X-User-Name", "Anonymous User")
         return user_id, user_name
 
+    def _get_auth_context(self, request: Any) -> AuthorizationContext:
+        """Build AuthorizationContext from request headers."""
+        user_id = request.headers.get("X-User-ID", "anonymous")
+        org_id = request.headers.get("X-Org-ID")
+        # Roles from header (comma-separated) or default to member
+        roles_header = request.headers.get("X-User-Roles", "member")
+        roles = set(r.strip() for r in roles_header.split(",") if r.strip())
+
+        # Get resolved permissions for the roles
+        from aragora.rbac import get_role_permissions
+        permissions: set[str] = set()
+        for role in roles:
+            permissions |= get_role_permissions(role, include_inherited=True)
+
+        return AuthorizationContext(
+            user_id=user_id,
+            org_id=org_id,
+            roles=roles,
+            permissions=permissions,
+            ip_address=request.headers.get("X-Forwarded-For"),
+        )
+
+    def _check_permission(
+        self, request: Any, permission_key: str, resource_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """
+        Check if the request has the required permission.
+
+        Returns None if allowed, or an error response dict if denied.
+        """
+        context = self._get_auth_context(request)
+        try:
+            decision = check_permission(context, permission_key, resource_id)
+            if not decision.allowed:
+                logger.warning(
+                    f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
+                )
+                return self._error_response(403, f"Permission denied: {decision.reason}")
+        except PermissionDeniedError as e:
+            logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
+            return self._error_response(403, f"Permission denied: {str(e)}")
+        return None
+
     async def _get_or_create_workflow(self, finding_id: str) -> dict[str, Any]:
         """Get or create workflow data for a finding."""
         store = get_finding_workflow_store()
@@ -156,6 +199,10 @@ class FindingWorkflowHandler(BaseHandler):
             "comment": "Optional comment explaining transition"
         }
         """
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.update", finding_id):
+            return error
+
         try:
             body = await self._parse_json_body(request)
         except (json.JSONDecodeError, ValueError, TypeError):

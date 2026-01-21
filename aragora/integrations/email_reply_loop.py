@@ -197,6 +197,95 @@ _reply_origins: Dict[str, EmailReplyOrigin] = {}
 _reply_origins_lock = asyncio.Lock()
 
 
+class SQLiteEmailReplyStore:
+    """SQLite-backed email reply origin store for durability without Redis."""
+
+    def __init__(self, db_path: Optional[str] = None):
+        if db_path is None:
+            data_dir = os.environ.get("ARAGORA_DATA_DIR", ".nomic")
+            db_path = str(Path(data_dir) / "email_reply_origins.db")
+        self.db_path = db_path
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        self._init_schema()
+
+    def _init_schema(self) -> None:
+        """Initialize database schema."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS email_reply_origins (
+                message_id TEXT PRIMARY KEY,
+                debate_id TEXT NOT NULL,
+                recipient_email TEXT NOT NULL,
+                recipient_name TEXT,
+                sent_at TEXT,
+                reply_received INTEGER DEFAULT 0,
+                reply_received_at TEXT,
+                metadata_json TEXT
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_email_origins_debate ON email_reply_origins(debate_id)"
+        )
+        conn.commit()
+        conn.close()
+
+    def save(self, origin: "EmailReplyOrigin") -> None:
+        """Save an email reply origin to SQLite."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """INSERT OR REPLACE INTO email_reply_origins
+               (message_id, debate_id, recipient_email, recipient_name,
+                sent_at, reply_received, reply_received_at, metadata_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                origin.message_id,
+                origin.debate_id,
+                origin.recipient_email,
+                origin.recipient_name,
+                origin.sent_at.isoformat() if origin.sent_at else None,
+                1 if origin.reply_received else 0,
+                origin.reply_received_at.isoformat() if origin.reply_received_at else None,
+                json.dumps(origin.metadata),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+    def get(self, message_id: str) -> Optional["EmailReplyOrigin"]:
+        """Get an email reply origin by message ID."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.execute(
+            "SELECT * FROM email_reply_origins WHERE message_id = ?", (message_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            return EmailReplyOrigin(
+                message_id=row[0],
+                debate_id=row[1],
+                recipient_email=row[2],
+                recipient_name=row[3] or "",
+                sent_at=datetime.fromisoformat(row[4]) if row[4] else datetime.utcnow(),
+                reply_received=bool(row[5]),
+                reply_received_at=datetime.fromisoformat(row[6]) if row[6] else None,
+                metadata=json.loads(row[7]) if row[7] else {},
+            )
+        return None
+
+
+# Lazy-loaded SQLite store
+_sqlite_email_store: Optional[SQLiteEmailReplyStore] = None
+
+
+def _get_sqlite_email_store() -> SQLiteEmailReplyStore:
+    """Get or create the SQLite email reply store."""
+    global _sqlite_email_store
+    if _sqlite_email_store is None:
+        _sqlite_email_store = SQLiteEmailReplyStore()
+    return _sqlite_email_store
+
+
 def _store_email_origin_redis(origin: EmailReplyOrigin) -> None:
     """Store email origin in Redis with TTL."""
     try:

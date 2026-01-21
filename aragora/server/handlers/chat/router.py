@@ -649,9 +649,94 @@ if HANDLER_BASE_AVAILABLE:
 _router: Optional[ChatWebhookRouter] = None
 
 
+def _create_decision_router_debate_starter():
+    """
+    Create a debate starter that uses DecisionRouter for unified routing.
+
+    This provides caching, deduplication, and metrics for all debates started
+    from chat platforms.
+    """
+    async def debate_starter(
+        topic: str,
+        platform: str,
+        channel: str,
+        user: str,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        try:
+            from aragora.core import (
+                DecisionRequest,
+                DecisionType,
+                InputSource,
+                RequestContext,
+                ResponseChannel,
+                get_decision_router,
+            )
+
+            # Map platform to InputSource
+            source_map = {
+                "slack": InputSource.SLACK,
+                "discord": InputSource.SLACK,  # Fallback to SLACK for similar platforms
+                "teams": InputSource.SLACK,
+                "telegram": InputSource.TELEGRAM,
+                "whatsapp": InputSource.WHATSAPP,
+                "google_chat": InputSource.SLACK,
+            }
+
+            # Map platform to ResponseChannel
+            channel_map = {
+                "slack": ResponseChannel.SLACK,
+                "discord": ResponseChannel.SLACK,
+                "teams": ResponseChannel.SLACK,
+                "telegram": ResponseChannel.TELEGRAM,
+                "whatsapp": ResponseChannel.WHATSAPP,
+                "google_chat": ResponseChannel.SLACK,
+            }
+
+            request = DecisionRequest(
+                query=topic,
+                decision_type=DecisionType.COMPLEX,
+                context={
+                    "platform": platform,
+                    "channel": channel,
+                    "initiated_by": user,
+                    **kwargs,
+                },
+            )
+
+            context = RequestContext(
+                source=source_map.get(platform, InputSource.API),
+                channels=[channel_map.get(platform, ResponseChannel.API)],
+                user_id=user,
+                session_id=f"{platform}:{channel}",
+                metadata={
+                    "platform": platform,
+                    "channel_id": channel,
+                },
+            )
+
+            router = get_decision_router()
+            result = await router.route(request, context)
+
+            return {
+                "debate_id": result.debate_id or "pending",
+                "status": result.status.value if result.status else "started",
+                "topic": topic,
+            }
+        except ImportError:
+            logger.debug("DecisionRouter not available, returning minimal response")
+            return {"debate_id": "pending", "topic": topic}
+        except Exception as e:
+            logger.error(f"DecisionRouter debate start failed: {e}")
+            raise
+
+    return debate_starter
+
+
 def get_webhook_router(
     event_handler: Optional[callable] = None,
     debate_starter: Optional[callable] = None,
+    use_decision_router: bool = True,
 ) -> ChatWebhookRouter:
     """Get or create the webhook router singleton."""
     global _router

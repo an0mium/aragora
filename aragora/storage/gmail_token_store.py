@@ -724,11 +724,12 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 
     def _row_to_state(self, row: Any) -> GmailUserState:
         """Convert database row to GmailUserState."""
+        user_id = row["user_id"]
         return GmailUserState(
-            user_id=row["user_id"],
+            user_id=user_id,
             email_address=row["email_address"] or "",
-            access_token=_decrypt_token(row["access_token"] or ""),
-            refresh_token=_decrypt_token(row["refresh_token"] or ""),
+            access_token=_decrypt_token(row["access_token"] or "", user_id),
+            refresh_token=_decrypt_token(row["refresh_token"] or "", user_id),
             token_expiry=row["token_expiry"],  # Already a datetime from asyncpg
             history_id=row["history_id"] or "",
             last_sync=row["last_sync"],  # Already a datetime from asyncpg
