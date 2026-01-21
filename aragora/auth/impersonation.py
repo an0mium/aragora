@@ -11,11 +11,15 @@ Provides secure admin impersonation with:
 import hashlib
 import logging
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# Global recovery state
+_sessions_recovered: bool = False
 
 
 @dataclass
@@ -136,6 +140,21 @@ class ImpersonationManager:
         # In-memory audit log (backup if callback not configured)
         self._audit_log: List[ImpersonationAuditEntry] = []
 
+        # Optional persistent store
+        self._store = None
+        self._use_persistence = True  # Can be disabled for testing
+
+    def _get_store(self):
+        """Lazily get the impersonation store."""
+        if self._store is None and self._use_persistence:
+            try:
+                from aragora.storage.impersonation_store import get_impersonation_store
+
+                self._store = get_impersonation_store()
+            except Exception as e:
+                logger.warning(f"Failed to get impersonation store: {e}")
+        return self._store
+
     def _generate_session_id(self, admin_id: str, target_id: str) -> str:
         """Generate unique session ID."""
         timestamp = str(time.time_ns())
@@ -143,18 +162,40 @@ class ImpersonationManager:
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
     def _log_audit(self, entry: ImpersonationAuditEntry) -> None:
-        """Log audit entry via callback and in-memory."""
+        """Log audit entry via callback, in-memory, and persistent store."""
         self._audit_log.append(entry)
 
         # Keep in-memory log bounded
         if len(self._audit_log) > 10000:
             self._audit_log = self._audit_log[-5000:]
 
+        # Persist to store
+        store = self._get_store()
+        if store:
+            try:
+                audit_id = str(uuid.uuid4())
+                store.save_audit_entry(
+                    audit_id=audit_id,
+                    timestamp=entry.timestamp,
+                    event_type=entry.event_type,
+                    admin_user_id=entry.admin_user_id,
+                    ip_address=entry.ip_address,
+                    user_agent=entry.user_agent,
+                    success=entry.success,
+                    session_id=entry.session_id,
+                    target_user_id=entry.target_user_id,
+                    reason=entry.reason,
+                    action_details=entry.action_details,
+                    error_message=entry.error_message,
+                )
+            except Exception as e:
+                logger.error(f"Failed to persist audit entry to store: {e}")
+
         if self._audit_callback:
             try:
                 self._audit_callback(entry)
             except Exception as e:
-                logger.error(f"Failed to persist audit entry: {e}")
+                logger.error(f"Failed to persist audit entry via callback: {e}")
 
         # Always log to structured logger
         logger.info(
@@ -313,11 +354,30 @@ class ImpersonationManager:
             user_agent=user_agent,
         )
 
-        # Store session
+        # Store session in memory
         self._sessions[session_id] = session
         if admin_user_id not in self._admin_sessions:
             self._admin_sessions[admin_user_id] = []
         self._admin_sessions[admin_user_id].append(session_id)
+
+        # Persist session to store
+        store = self._get_store()
+        if store:
+            try:
+                store.save_session(
+                    session_id=session_id,
+                    admin_user_id=admin_user_id,
+                    admin_email=admin_email,
+                    target_user_id=target_user_id,
+                    target_email=target_email,
+                    reason=reason,
+                    started_at=now,
+                    expires_at=session.expires_at,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                )
+            except Exception as e:
+                logger.error(f"Failed to persist session to store: {e}")
 
         # Log audit
         entry = ImpersonationAuditEntry(
@@ -397,7 +457,19 @@ class ImpersonationManager:
         )
         self._log_audit(entry)
 
-        # Remove session
+        # Mark session as ended in store
+        store = self._get_store()
+        if store:
+            try:
+                store.end_session(
+                    session_id=session_id,
+                    ended_by="admin",
+                    actions_performed=session.actions_performed,
+                )
+            except Exception as e:
+                logger.error(f"Failed to end session in store: {e}")
+
+        # Remove session from memory
         del self._sessions[session_id]
         if admin_user_id in self._admin_sessions:
             self._admin_sessions[admin_user_id] = [
@@ -436,6 +508,14 @@ class ImpersonationManager:
             return False
 
         session.actions_performed += 1
+
+        # Update action count in store
+        store = self._get_store()
+        if store:
+            try:
+                store.update_session_actions(session_id, session.actions_performed)
+            except Exception as e:
+                logger.error(f"Failed to update session actions in store: {e}")
 
         entry = ImpersonationAuditEntry(
             timestamp=datetime.utcnow(),
@@ -495,6 +575,18 @@ class ImpersonationManager:
             success=True,
         )
         self._log_audit(entry)
+
+        # Mark session as ended in store
+        store = self._get_store()
+        if store:
+            try:
+                store.end_session(
+                    session_id=session_id,
+                    ended_by="timeout",
+                    actions_performed=session.actions_performed,
+                )
+            except Exception as e:
+                logger.error(f"Failed to end session in store: {e}")
 
         del self._sessions[session_id]
         admin_id = session.admin_user_id
@@ -577,3 +669,88 @@ def configure_impersonation_manager(
         max_concurrent_sessions=max_concurrent_sessions,
     )
     return _impersonation_manager
+
+
+def recover_impersonation_sessions() -> int:
+    """
+    Recover active impersonation sessions from the persistent store.
+
+    Call this on server startup to ensure active sessions survive restarts.
+    Returns the number of sessions recovered.
+
+    This function is idempotent - calling it multiple times is safe.
+    """
+    global _sessions_recovered
+
+    if _sessions_recovered:
+        logger.debug("Impersonation sessions already recovered, skipping")
+        return 0
+
+    manager = get_impersonation_manager()
+    store = manager._get_store()
+
+    if not store:
+        logger.debug("ImpersonationStore not available, cannot recover sessions")
+        return 0
+
+    recovered = 0
+    try:
+        active_sessions = store.get_active_sessions()
+
+        for record in active_sessions:
+            if record.session_id in manager._sessions:
+                # Already in memory, skip
+                continue
+
+            # Reconstruct ImpersonationSession from stored record
+            session = ImpersonationSession(
+                session_id=record.session_id,
+                admin_user_id=record.admin_user_id,
+                admin_email=record.admin_email,
+                target_user_id=record.target_user_id,
+                target_email=record.target_email,
+                reason=record.reason,
+                started_at=record.started_at,
+                expires_at=record.expires_at,
+                ip_address=record.ip_address,
+                user_agent=record.user_agent,
+                actions_performed=record.actions_performed,
+            )
+
+            # Add to in-memory structures
+            manager._sessions[record.session_id] = session
+            if record.admin_user_id not in manager._admin_sessions:
+                manager._admin_sessions[record.admin_user_id] = []
+            manager._admin_sessions[record.admin_user_id].append(record.session_id)
+
+            recovered += 1
+
+        _sessions_recovered = True
+
+        if recovered > 0:
+            logger.info(f"Recovered {recovered} active impersonation sessions from store")
+
+    except Exception as e:
+        logger.warning(f"Failed to recover impersonation sessions: {e}")
+
+    return recovered
+
+
+def reset_session_recovery() -> None:
+    """Reset recovery state (for testing)."""
+    global _sessions_recovered
+    _sessions_recovered = False
+
+
+def clear_impersonation_sessions() -> int:
+    """
+    Clear all sessions from memory (for testing).
+
+    Returns the number of sessions cleared.
+    """
+    manager = get_impersonation_manager()
+    count = len(manager._sessions)
+    manager._sessions.clear()
+    manager._admin_sessions.clear()
+    manager._audit_log.clear()
+    return count

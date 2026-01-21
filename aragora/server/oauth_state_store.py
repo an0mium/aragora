@@ -11,13 +11,16 @@ If Redis is unavailable, automatically falls back to in-memory storage.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import secrets
+import sqlite3
 import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Optional
 
 from aragora.exceptions import RedisUnavailableError
@@ -156,6 +159,177 @@ class InMemoryOAuthStateStore(OAuthStateStore):
             return len(self._states)
 
 
+class SQLiteOAuthStateStore(OAuthStateStore):
+    """SQLite-backed OAuth state storage (persistent, single-instance).
+
+    Provides persistence across restarts for single-instance deployments
+    without requiring Redis. Uses thread-local connections for thread safety.
+    """
+
+    def __init__(self, db_path: str = "aragora_oauth.db", max_size: int = MAX_OAUTH_STATES):
+        self._db_path = Path(db_path)
+        self._max_size = max_size
+        self._local = threading.local()
+        self._init_lock = threading.Lock()
+        self._init_db()
+
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get thread-local database connection."""
+        if not hasattr(self._local, "connection"):
+            self._local.connection = sqlite3.connect(
+                str(self._db_path),
+                check_same_thread=False,
+                timeout=30.0,
+            )
+            self._local.connection.execute("PRAGMA journal_mode=WAL")
+            self._local.connection.execute("PRAGMA synchronous=NORMAL")
+        return self._local.connection
+
+    def _init_db(self) -> None:
+        """Initialize database schema."""
+        with self._init_lock:
+            conn = self._get_connection()
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS oauth_states (
+                    state_token TEXT PRIMARY KEY,
+                    user_id TEXT,
+                    redirect_url TEXT,
+                    expires_at REAL NOT NULL,
+                    created_at REAL NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_oauth_expires
+                ON oauth_states(expires_at)
+            """)
+            conn.commit()
+            logger.info(f"SQLite OAuth state store initialized: {self._db_path}")
+
+    def generate(
+        self,
+        user_id: Optional[str] = None,
+        redirect_url: Optional[str] = None,
+        ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
+    ) -> str:
+        """Generate and store a new state token."""
+        # Cleanup before adding new state
+        self.cleanup_expired()
+
+        state_token = secrets.token_urlsafe(32)
+        now = time.time()
+
+        conn = self._get_connection()
+        try:
+            # Check if at max capacity
+            cursor = conn.execute("SELECT COUNT(*) FROM oauth_states")
+            count = cursor.fetchone()[0]
+
+            if count >= self._max_size:
+                # Evict oldest 10% of entries
+                evict_count = max(1, count // 10)
+                conn.execute(
+                    """
+                    DELETE FROM oauth_states WHERE state_token IN (
+                        SELECT state_token FROM oauth_states
+                        ORDER BY expires_at ASC LIMIT ?
+                    )
+                """,
+                    (evict_count,),
+                )
+                logger.info(f"OAuth SQLite store: evicted {evict_count} oldest entries")
+
+            # Insert new state
+            conn.execute(
+                """
+                INSERT INTO oauth_states (state_token, user_id, redirect_url, expires_at, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """,
+                (state_token, user_id, redirect_url, now + ttl_seconds, now),
+            )
+            conn.commit()
+        except Exception as e:
+            logger.error(f"SQLite OAuth store generate failed: {e}")
+            raise
+
+        return state_token
+
+    def validate_and_consume(self, state: str) -> Optional[OAuthState]:
+        """Validate state token and remove it (single use)."""
+        self.cleanup_expired()
+        conn = self._get_connection()
+
+        try:
+            # Get and delete atomically
+            cursor = conn.execute(
+                """
+                SELECT user_id, redirect_url, expires_at, created_at
+                FROM oauth_states WHERE state_token = ?
+            """,
+                (state,),
+            )
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            # Delete the state
+            conn.execute("DELETE FROM oauth_states WHERE state_token = ?", (state,))
+            conn.commit()
+
+            state_data = OAuthState(
+                user_id=row[0],
+                redirect_url=row[1],
+                expires_at=row[2],
+                created_at=row[3],
+            )
+
+            if state_data.is_expired:
+                return None
+
+            return state_data
+        except Exception as e:
+            logger.error(f"SQLite OAuth store validate failed: {e}")
+            return None
+
+    def cleanup_expired(self) -> int:
+        """Remove expired states."""
+        now = time.time()
+        conn = self._get_connection()
+
+        try:
+            cursor = conn.execute("SELECT COUNT(*) FROM oauth_states WHERE expires_at < ?", (now,))
+            count = cursor.fetchone()[0]
+
+            if count > 0:
+                conn.execute("DELETE FROM oauth_states WHERE expires_at < ?", (now,))
+                conn.commit()
+                logger.debug(f"OAuth SQLite store: cleaned up {count} expired states")
+
+            return count
+        except Exception as e:
+            logger.error(f"SQLite OAuth store cleanup failed: {e}")
+            return 0
+
+    def size(self) -> int:
+        """Get current number of stored states."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute("SELECT COUNT(*) FROM oauth_states")
+            return cursor.fetchone()[0]
+        except Exception as e:
+            logger.error(f"SQLite OAuth store size query failed: {e}")
+            return 0
+
+    def close(self) -> None:
+        """Close the database connection."""
+        if hasattr(self._local, "connection"):
+            try:
+                self._local.connection.close()
+            except Exception:
+                pass
+            delattr(self._local, "connection")
+
+
 class RedisOAuthStateStore(OAuthStateStore):
     """Redis-backed OAuth state storage (multi-instance safe)."""
 
@@ -211,8 +385,6 @@ class RedisOAuthStateStore(OAuthStateStore):
         if not redis_client:
             raise RedisUnavailableError("OAuth state storage")
 
-        import json
-
         state_token = secrets.token_urlsafe(32)
         now = time.time()
 
@@ -238,8 +410,6 @@ class RedisOAuthStateStore(OAuthStateStore):
         redis_client = self._get_redis()
         if not redis_client:
             raise RedisUnavailableError("OAuth state storage")
-
-        import json
 
         key = self._key(state)
 

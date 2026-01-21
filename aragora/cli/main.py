@@ -223,15 +223,17 @@ def cmd_ask(args: argparse.Namespace) -> None:
         rounds = min(args.rounds, 2)
         learn = False
         enable_audience = False
-        protocol_overrides.update({
-            "convergence_detection": False,
-            "vote_grouping": False,
-            "enable_trickster": False,
-            "enable_research": False,
-            "enable_rhetorical_observer": False,
-            "role_rotation": False,
-            "role_matching": False,
-        })
+        protocol_overrides.update(
+            {
+                "convergence_detection": False,
+                "vote_grouping": False,
+                "enable_trickster": False,
+                "enable_research": False,
+                "enable_rhetorical_observer": False,
+                "role_rotation": False,
+                "role_matching": False,
+            }
+        )
 
     result = asyncio.run(
         run_debate(
@@ -670,7 +672,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
 
         processes: list[multiprocessing.Process] = []
 
-        def shutdown_workers(signum, frame):
+        def shutdown_workers(signum, _frame):
             print("\nShutting down workers...")
             for p in processes:
                 if p.is_alive():

@@ -21,8 +21,7 @@ import pytest
 
 # Skip encryption tests if no key
 pytestmark_encryption = pytest.mark.skipif(
-    not os.environ.get("ARAGORA_ENCRYPTION_KEY"),
-    reason="ARAGORA_ENCRYPTION_KEY not set"
+    not os.environ.get("ARAGORA_ENCRYPTION_KEY"), reason="ARAGORA_ENCRYPTION_KEY not set"
 )
 
 
@@ -33,6 +32,7 @@ class TestEncryptionIntegration:
     def encryption_key(self):
         """Generate a test encryption key."""
         import secrets
+
         key = secrets.token_hex(32)
         with patch.dict(os.environ, {"ARAGORA_ENCRYPTION_KEY": key}):
             yield key
@@ -82,9 +82,7 @@ class TestEncryptionIntegration:
 
         # Encrypt for record 1
         data = {"api_key": "secret123"}
-        encrypted = service.encrypt_fields(
-            data.copy(), ["api_key"], associated_data="record_1"
-        )
+        encrypted = service.encrypt_fields(data.copy(), ["api_key"], associated_data="record_1")
 
         # Try to decrypt for record 2 (should fail)
         with pytest.raises(Exception):
@@ -103,6 +101,7 @@ class TestRBACIntegration:
         """Set up RBAC for testing."""
         try:
             from aragora.rbac import AuthorizationContext, check_permission, PermissionDecision
+
             return AuthorizationContext, check_permission, PermissionDecision
         except ImportError:
             pytest.skip("RBAC module not available")
@@ -195,6 +194,7 @@ class TestMigrationIntegration:
     def encryption_key(self):
         """Generate a test encryption key."""
         import secrets
+
         key = secrets.token_hex(32)
         with patch.dict(os.environ, {"ARAGORA_ENCRYPTION_KEY": key}):
             yield key
@@ -313,6 +313,7 @@ class TestDecisionRouterIntegration:
         """Test that DecisionRouter is properly exported."""
         try:
             from aragora.core import get_decision_router, DecisionRouter
+
             assert get_decision_router is not None
             assert DecisionRouter is not None
         except ImportError:
@@ -386,6 +387,7 @@ class TestSecurityHardeningComplete:
     def encryption_key(self):
         """Generate a test encryption key."""
         import secrets
+
         key = secrets.token_hex(32)
         with patch.dict(os.environ, {"ARAGORA_ENCRYPTION_KEY": key}):
             yield key
@@ -410,9 +412,7 @@ class TestSecurityHardeningComplete:
 
         # 2. Encrypt before storage
         encrypted = service.encrypt_fields(
-            integration_config.copy(),
-            sensitive_fields,
-            associated_data=integration_config["id"]
+            integration_config.copy(), sensitive_fields, associated_data=integration_config["id"]
         )
 
         # 3. Simulate storage (JSON serialization)
@@ -423,9 +423,7 @@ class TestSecurityHardeningComplete:
 
         # 5. Decrypt after retrieval
         decrypted = service.decrypt_fields(
-            retrieved,
-            sensitive_fields,
-            associated_data=integration_config["id"]
+            retrieved, sensitive_fields, associated_data=integration_config["id"]
         )
 
         # 6. Verify integrity
@@ -438,12 +436,15 @@ class TestSecurityHardeningComplete:
         from aragora.security.migration import get_startup_migration_config
 
         # Test with migration enabled
-        with patch.dict(os.environ, {
-            "ARAGORA_MIGRATE_ON_STARTUP": "true",
-            "ARAGORA_MIGRATION_DRY_RUN": "true",
-            "ARAGORA_MIGRATION_STORES": "integration,gmail",
-            "ARAGORA_MIGRATION_FAIL_ON_ERROR": "true",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_MIGRATE_ON_STARTUP": "true",
+                "ARAGORA_MIGRATION_DRY_RUN": "true",
+                "ARAGORA_MIGRATION_STORES": "integration,gmail",
+                "ARAGORA_MIGRATION_FAIL_ON_ERROR": "true",
+            },
+        ):
             config = get_startup_migration_config()
 
             assert config.enabled is True
@@ -521,3 +522,154 @@ class TestSecurityHardeningComplete:
         decrypted1 = service.decrypt_fields(migrated1.copy(), sensitive_fields)
         decrypted2 = service.decrypt_fields(migrated2.copy(), sensitive_fields)
         assert decrypted1["api_key"] == decrypted2["api_key"] == "secret123"
+
+
+class TestHeaderTrustVulnerabilityFix:
+    """
+    Tests verifying that header-based authentication fallback is removed.
+
+    SECURITY CONTEXT:
+    The X-User-ID and X-User-Roles headers were previously trusted when JWT
+    authentication failed. This allowed identity spoofing and privilege escalation
+    by simply setting headers in requests.
+
+    These tests verify:
+    1. Handlers reject requests without valid JWT tokens
+    2. Spoofed headers are ignored
+    3. Only JWT-based authentication is accepted
+    """
+
+    @pytest.fixture
+    def mock_request_with_spoofed_headers(self):
+        """Create a request with spoofed identity headers."""
+        request = MagicMock()
+        request.headers = {
+            "X-User-ID": "spoofed-admin-user",
+            "X-Org-ID": "spoofed-org",
+            "X-User-Roles": "admin,owner,superuser",  # Privilege escalation attempt
+        }
+        return request
+
+    def test_workflows_handler_rejects_spoofed_headers(self, mock_request_with_spoofed_headers):
+        """Test that WorkflowHandler rejects spoofed headers without JWT."""
+        from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
+
+        if not RBAC_AVAILABLE:
+            pytest.skip("RBAC not available")
+
+        handler = WorkflowHandler({})
+
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            # Simulate no valid JWT token
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            context = handler._get_auth_context(mock_request_with_spoofed_headers)
+
+            # Should return "unauthenticated" sentinel, NOT use spoofed headers
+            assert context == "unauthenticated"
+
+    def test_finding_workflow_handler_rejects_spoofed_headers(
+        self, mock_request_with_spoofed_headers
+    ):
+        """Test that FindingWorkflowHandler rejects spoofed headers without JWT."""
+        from aragora.server.handlers.features.finding_workflow import FindingWorkflowHandler
+
+        handler = FindingWorkflowHandler({})
+
+        with patch(
+            "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
+        ) as mock_extract:
+            # Simulate no valid JWT token
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            context = handler._get_auth_context(mock_request_with_spoofed_headers)
+
+            # Should return None, NOT use spoofed headers
+            assert context is None
+
+    def test_check_permission_returns_401_for_spoofed_headers(
+        self, mock_request_with_spoofed_headers
+    ):
+        """Test that _check_permission returns 401 for unauthenticated requests."""
+        from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
+
+        if not RBAC_AVAILABLE:
+            pytest.skip("RBAC not available")
+
+        handler = WorkflowHandler({})
+
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = False
+            mock_jwt_context.user_id = None
+            mock_extract.return_value = mock_jwt_context
+
+            error_response = handler._check_permission(
+                mock_request_with_spoofed_headers, "workflows.read"
+            )
+
+            # Should return 401 Unauthorized, NOT allow access
+            assert error_response is not None
+            assert error_response.status_code == 401
+
+    def test_valid_jwt_is_accepted(self):
+        """Test that valid JWT authentication is accepted."""
+        from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
+
+        if not RBAC_AVAILABLE:
+            pytest.skip("RBAC not available")
+
+        handler = WorkflowHandler({})
+        request = MagicMock()
+        request.headers = {}
+
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            # Simulate valid JWT token
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = True
+            mock_jwt_context.user_id = "jwt-verified-user"
+            mock_jwt_context.org_id = "org-123"
+            mock_jwt_context.role = "admin"
+            mock_extract.return_value = mock_jwt_context
+
+            context = handler._get_auth_context(request)
+
+            # Should return valid AuthorizationContext
+            assert context is not None
+            assert context != "unauthenticated"
+            assert context.user_id == "jwt-verified-user"
+            assert context.org_id == "org-123"
+
+    def test_privilege_escalation_prevented(self, mock_request_with_spoofed_headers):
+        """Test that X-User-Roles header cannot escalate privileges."""
+        from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
+
+        if not RBAC_AVAILABLE:
+            pytest.skip("RBAC not available")
+
+        handler = WorkflowHandler({})
+
+        with patch("aragora.server.handlers.workflows.extract_user_from_request") as mock_extract:
+            # Attacker has valid JWT but tries to escalate via headers
+            mock_jwt_context = MagicMock()
+            mock_jwt_context.authenticated = True
+            mock_jwt_context.user_id = "low-priv-user"
+            mock_jwt_context.org_id = "org-123"
+            mock_jwt_context.role = "viewer"  # Low privilege role from JWT
+            mock_extract.return_value = mock_jwt_context
+
+            context = handler._get_auth_context(mock_request_with_spoofed_headers)
+
+            # Should use JWT role, NOT the spoofed X-User-Roles header
+            assert context is not None
+            assert context != "unauthenticated"
+            assert "viewer" in context.roles
+            assert "admin" not in context.roles  # Escalation prevented
+            assert "owner" not in context.roles
+            assert "superuser" not in context.roles
