@@ -6,6 +6,7 @@ Provides reliable webhook delivery with:
 - Retry queue with exponential backoff
 - Dead-letter queue for consistently failing webhooks
 - Delivery SLA metrics
+- SQLite persistence for queue durability
 
 Usage:
     from aragora.server.webhook_delivery import (
@@ -24,14 +25,24 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
+import sqlite3
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# Default database path
+_DEFAULT_DB_PATH = os.environ.get(
+    "ARAGORA_WEBHOOK_DB",
+    os.path.join(os.environ.get("ARAGORA_DATA_DIR", ".nomic"), "webhook_delivery.db"),
+)
 
 
 class DeliveryStatus(str, Enum):
@@ -123,6 +134,189 @@ class DeliveryMetrics:
         }
 
 
+class DeliveryPersistence:
+    """SQLite persistence for webhook delivery queues.
+
+    Ensures retry and dead-letter queues survive server restarts.
+    Uses thread-local connections for thread safety.
+    """
+
+    def __init__(self, db_path: str = _DEFAULT_DB_PATH):
+        self._db_path = db_path
+        self._local = threading.local()
+        self._initialized = False
+        self._init_lock = threading.Lock()
+
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get thread-local database connection."""
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            # Ensure directory exists
+            Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
+            self._local.conn = sqlite3.connect(
+                self._db_path,
+                check_same_thread=False,
+                timeout=30.0,
+            )
+            self._local.conn.row_factory = sqlite3.Row
+            self._local.conn.execute("PRAGMA journal_mode=WAL")
+            self._local.conn.execute("PRAGMA busy_timeout=30000")
+        return self._local.conn
+
+    def initialize(self) -> None:
+        """Initialize database schema."""
+        with self._init_lock:
+            if self._initialized:
+                return
+
+            conn = self._get_connection()
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS webhook_deliveries (
+                    delivery_id TEXT PRIMARY KEY,
+                    webhook_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    attempts INTEGER DEFAULT 0,
+                    max_attempts INTEGER DEFAULT 5,
+                    next_retry_at TEXT,
+                    last_error TEXT,
+                    last_status_code INTEGER,
+                    delivered_at TEXT,
+                    dead_lettered_at TEXT,
+                    metadata TEXT,
+                    url TEXT,
+                    secret TEXT
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_deliveries_status
+                    ON webhook_deliveries(status);
+                CREATE INDEX IF NOT EXISTS idx_deliveries_next_retry
+                    ON webhook_deliveries(next_retry_at) WHERE status = 'retrying';
+                CREATE INDEX IF NOT EXISTS idx_deliveries_webhook
+                    ON webhook_deliveries(webhook_id);
+            """)
+            conn.commit()
+            self._initialized = True
+            logger.info(f"Webhook delivery persistence initialized at {self._db_path}")
+
+    def save_delivery(self, delivery: WebhookDelivery, url: str, secret: Optional[str] = None) -> None:
+        """Save or update a delivery record."""
+        conn = self._get_connection()
+        metadata = delivery.metadata.copy()
+        # Store url/secret in metadata for retries
+        if url:
+            metadata["retry_url"] = url
+        if secret:
+            metadata["retry_secret"] = secret
+
+        conn.execute("""
+            INSERT OR REPLACE INTO webhook_deliveries (
+                delivery_id, webhook_id, event_type, payload, status,
+                created_at, updated_at, attempts, max_attempts,
+                next_retry_at, last_error, last_status_code,
+                delivered_at, dead_lettered_at, metadata, url, secret
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            delivery.delivery_id,
+            delivery.webhook_id,
+            delivery.event_type,
+            json.dumps(delivery.payload),
+            delivery.status.value,
+            delivery.created_at.isoformat(),
+            delivery.updated_at.isoformat(),
+            delivery.attempts,
+            delivery.max_attempts,
+            delivery.next_retry_at.isoformat() if delivery.next_retry_at else None,
+            delivery.last_error,
+            delivery.last_status_code,
+            delivery.delivered_at.isoformat() if delivery.delivered_at else None,
+            delivery.dead_lettered_at.isoformat() if delivery.dead_lettered_at else None,
+            json.dumps(metadata),
+            url,
+            secret,
+        ))
+        conn.commit()
+
+    def delete_delivery(self, delivery_id: str) -> None:
+        """Delete a delivery record (after successful delivery)."""
+        conn = self._get_connection()
+        conn.execute("DELETE FROM webhook_deliveries WHERE delivery_id = ?", (delivery_id,))
+        conn.commit()
+
+    def load_pending_retries(self) -> List[tuple]:
+        """Load all deliveries that need retry (for recovery on startup)."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM webhook_deliveries
+            WHERE status IN ('pending', 'retrying', 'in_progress')
+            ORDER BY next_retry_at ASC NULLS LAST
+        """)
+        return cursor.fetchall()
+
+    def load_dead_letter_queue(self, limit: int = 100) -> List[tuple]:
+        """Load dead-lettered deliveries."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM webhook_deliveries
+            WHERE status = 'dead_lettered'
+            ORDER BY dead_lettered_at DESC
+            LIMIT ?
+        """, (limit,))
+        return cursor.fetchall()
+
+    def _row_to_delivery(self, row: sqlite3.Row) -> tuple:
+        """Convert database row to (WebhookDelivery, url, secret) tuple."""
+        metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+
+        delivery = WebhookDelivery(
+            delivery_id=row["delivery_id"],
+            webhook_id=row["webhook_id"],
+            event_type=row["event_type"],
+            payload=json.loads(row["payload"]),
+            status=DeliveryStatus(row["status"]),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+            attempts=row["attempts"],
+            max_attempts=row["max_attempts"],
+            next_retry_at=datetime.fromisoformat(row["next_retry_at"]) if row["next_retry_at"] else None,
+            last_error=row["last_error"],
+            last_status_code=row["last_status_code"],
+            delivered_at=datetime.fromisoformat(row["delivered_at"]) if row["delivered_at"] else None,
+            dead_lettered_at=datetime.fromisoformat(row["dead_lettered_at"]) if row["dead_lettered_at"] else None,
+            metadata=metadata,
+        )
+        return delivery, row["url"], row["secret"]
+
+    def get_metrics_from_db(self) -> Dict[str, int]:
+        """Get aggregate metrics from database."""
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT status, COUNT(*) as count
+            FROM webhook_deliveries
+            GROUP BY status
+        """)
+        return {row["status"]: row["count"] for row in cursor.fetchall()}
+
+    def cleanup_old_delivered(self, days: int = 7) -> int:
+        """Remove delivered records older than N days."""
+        conn = self._get_connection()
+        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cursor = conn.execute("""
+            DELETE FROM webhook_deliveries
+            WHERE status = 'delivered' AND delivered_at < ?
+        """, (cutoff,))
+        conn.commit()
+        return cursor.rowcount
+
+    def close(self) -> None:
+        """Close database connection."""
+        if hasattr(self._local, "conn") and self._local.conn:
+            self._local.conn.close()
+            self._local.conn = None
+
+
 class WebhookDeliveryManager:
     """
     Manages webhook delivery with reliability guarantees.
@@ -133,6 +327,7 @@ class WebhookDeliveryManager:
     - Dead-letter queue for failed deliveries
     - Delivery tracking and metrics
     - Circuit breaker per endpoint
+    - SQLite persistence for queue durability
     """
 
     def __init__(
@@ -142,6 +337,8 @@ class WebhookDeliveryManager:
         max_delay_seconds: float = 300.0,
         timeout_seconds: float = 30.0,
         circuit_breaker_threshold: int = 5,
+        db_path: Optional[str] = None,
+        enable_persistence: bool = True,
     ):
         """
         Initialize the delivery manager.
@@ -152,6 +349,8 @@ class WebhookDeliveryManager:
             max_delay_seconds: Maximum delay between retries
             timeout_seconds: HTTP timeout for delivery
             circuit_breaker_threshold: Failures before circuit opens
+            db_path: Path to SQLite database for persistence
+            enable_persistence: Whether to enable SQLite persistence
         """
         self._max_retries = max_retries
         self._base_delay = base_delay_seconds
@@ -159,11 +358,15 @@ class WebhookDeliveryManager:
         self._timeout = timeout_seconds
         self._circuit_threshold = circuit_breaker_threshold
 
-        # In-memory stores (could be backed by Redis/SQLite for production)
+        # In-memory caches (backed by SQLite when persistence enabled)
         self._pending: Dict[str, WebhookDelivery] = {}
         self._retry_queue: Dict[str, WebhookDelivery] = {}
         self._dead_letter_queue: Dict[str, WebhookDelivery] = {}
         self._delivered: Dict[str, WebhookDelivery] = {}
+
+        # URL/secret mapping for retries
+        self._delivery_urls: Dict[str, str] = {}
+        self._delivery_secrets: Dict[str, Optional[str]] = {}
 
         # Circuit breaker state per endpoint
         self._circuit_failures: Dict[str, int] = {}
@@ -179,14 +382,59 @@ class WebhookDeliveryManager:
         # HTTP sender (can be mocked for testing)
         self._sender: Optional[Callable] = None
 
+        # Persistence layer
+        self._enable_persistence = enable_persistence
+        self._persistence: Optional[DeliveryPersistence] = None
+        if enable_persistence:
+            self._persistence = DeliveryPersistence(db_path or _DEFAULT_DB_PATH)
+
     async def start(self) -> None:
-        """Start the background retry processor."""
+        """Start the background retry processor and recover pending deliveries."""
         if self._running:
             return
+
+        # Initialize persistence and recover pending deliveries
+        if self._persistence:
+            self._persistence.initialize()
+            await self._recover_pending_deliveries()
 
         self._running = True
         self._retry_task = asyncio.create_task(self._process_retries())
         logger.info("Webhook delivery manager started")
+
+    async def _recover_pending_deliveries(self) -> None:
+        """Recover pending deliveries from database on startup."""
+        if not self._persistence:
+            return
+
+        try:
+            rows = self._persistence.load_pending_retries()
+            recovered = 0
+
+            for row in rows:
+                delivery, url, secret = self._persistence._row_to_delivery(row)
+
+                # Store URL/secret for retries
+                self._delivery_urls[delivery.delivery_id] = url or ""
+                self._delivery_secrets[delivery.delivery_id] = secret
+
+                # Add to appropriate queue based on status
+                if delivery.status == DeliveryStatus.RETRYING:
+                    self._retry_queue[delivery.delivery_id] = delivery
+                elif delivery.status in (DeliveryStatus.PENDING, DeliveryStatus.IN_PROGRESS):
+                    # Treat in-progress as needing retry (server may have crashed)
+                    delivery.status = DeliveryStatus.RETRYING
+                    delivery.next_retry_at = datetime.utcnow()
+                    self._retry_queue[delivery.delivery_id] = delivery
+                    self._persistence.save_delivery(delivery, url or "", secret)
+
+                recovered += 1
+
+            if recovered > 0:
+                logger.info(f"Recovered {recovered} pending webhook deliveries from database")
+
+        except Exception as e:
+            logger.error(f"Failed to recover pending deliveries: {e}")
 
     async def stop(self) -> None:
         """Stop the background retry processor."""
@@ -240,7 +488,13 @@ class WebhookDeliveryManager:
         )
 
         self._pending[delivery.delivery_id] = delivery
+        self._delivery_urls[delivery.delivery_id] = url
+        self._delivery_secrets[delivery.delivery_id] = secret
         self._metrics.total_deliveries += 1
+
+        # Persist delivery record
+        if self._persistence:
+            self._persistence.save_delivery(delivery, url, secret)
 
         # Check circuit breaker
         if self._is_circuit_open(url):
@@ -259,6 +513,9 @@ class WebhookDeliveryManager:
             del self._pending[delivery.delivery_id]
             self._metrics.successful_deliveries += 1
             self._reset_circuit(url)
+            # Remove from persistent storage on success
+            if self._persistence:
+                self._persistence.delete_delivery(delivery.delivery_id)
         else:
             self._record_circuit_failure(url)
             if delivery.attempts >= self._max_retries:
@@ -385,8 +642,14 @@ class WebhookDeliveryManager:
         delivery.metadata["retry_secret"] = secret
 
         self._retry_queue[delivery.delivery_id] = delivery
+        self._delivery_urls[delivery.delivery_id] = url
+        self._delivery_secrets[delivery.delivery_id] = secret
         if delivery.delivery_id in self._pending:
             del self._pending[delivery.delivery_id]
+
+        # Persist retry status
+        if self._persistence:
+            self._persistence.save_delivery(delivery, url, secret)
 
         self._metrics.retries += 1
         logger.debug(

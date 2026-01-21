@@ -10,18 +10,35 @@ Tests the administrative API endpoints including:
 """
 
 import json
+from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from aragora.server.handlers.admin.admin import AdminHandler, ADMIN_ROLES
+from aragora.rbac.models import AuthorizationDecision
 
 
 def parse_body(result) -> dict:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body.decode("utf-8"))
+
+
+@contextmanager
+def mock_rbac_allowed(permission_key: str = "") -> Generator[MagicMock, None, None]:
+    """Context manager to mock RBAC check_permission as allowed.
+
+    This is needed because tests mock authentication but not RBAC permissions.
+    """
+    with patch("aragora.server.handlers.admin.admin.check_permission") as mock_rbac:
+        mock_rbac.return_value = AuthorizationDecision(
+            allowed=True,
+            reason="Mocked permission check",
+            permission_key=permission_key or "admin.test",
+        )
+        yield mock_rbac
 
 
 class MockUser:
@@ -474,23 +491,24 @@ class TestUserManagement:
 
         with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
-                self.setup_admin_auth(mock_extract, mock_mfa)
+                with mock_rbac_allowed("admin.users.deactivate"):
+                    self.setup_admin_auth(mock_extract, mock_mfa)
 
-                result = admin_handler.handle(
-                    "/api/admin/users/user_0/deactivate",
-                    {},
-                    mock_handler,
-                    method="POST",
-                )
-                body = parse_body(result)
+                    result = admin_handler.handle(
+                        "/api/admin/users/user_0/deactivate",
+                        {},
+                        mock_handler,
+                        method="POST",
+                    )
+                    body = parse_body(result)
 
-                assert result.status_code == 200
-                assert body["success"] is True
-                assert body["is_active"] is False
+                    assert result.status_code == 200
+                    assert body["success"] is True
+                    assert body["is_active"] is False
 
-                # Verify user was actually deactivated
-                user = user_store.get_user_by_id("user_0")
-                assert user.is_active is False
+                    # Verify user was actually deactivated
+                    user = user_store.get_user_by_id("user_0")
+                    assert user.is_active is False
 
     def test_deactivate_self_rejected(self, admin_handler):
         """Test that admin cannot deactivate themselves."""
@@ -498,17 +516,18 @@ class TestUserManagement:
 
         with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
-                self.setup_admin_auth(mock_extract, mock_mfa)
+                with mock_rbac_allowed("admin.users.deactivate"):
+                    self.setup_admin_auth(mock_extract, mock_mfa)
 
-                result = admin_handler.handle(
-                    "/api/admin/users/admin_1/deactivate",
-                    {},
-                    mock_handler,
-                    method="POST",
-                )
+                    result = admin_handler.handle(
+                        "/api/admin/users/admin_1/deactivate",
+                        {},
+                        mock_handler,
+                        method="POST",
+                    )
 
-                assert result.status_code == 400
-                assert "yourself" in parse_body(result)["error"].lower()
+                    assert result.status_code == 400
+                    assert "yourself" in parse_body(result)["error"].lower()
 
     def test_deactivate_nonexistent_user(self, admin_handler):
         """Test deactivating non-existent user."""
@@ -516,16 +535,17 @@ class TestUserManagement:
 
         with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
-                self.setup_admin_auth(mock_extract, mock_mfa)
+                with mock_rbac_allowed("admin.users.deactivate"):
+                    self.setup_admin_auth(mock_extract, mock_mfa)
 
-                result = admin_handler.handle(
-                    "/api/admin/users/nonexistent/deactivate",
-                    {},
-                    mock_handler,
-                    method="POST",
-                )
+                    result = admin_handler.handle(
+                        "/api/admin/users/nonexistent/deactivate",
+                        {},
+                        mock_handler,
+                        method="POST",
+                    )
 
-                assert result.status_code == 404
+                    assert result.status_code == 404
 
     def test_activate_user_success(self, admin_handler, user_store):
         """Test successful user activation."""
@@ -537,22 +557,23 @@ class TestUserManagement:
 
         with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
-                self.setup_admin_auth(mock_extract, mock_mfa)
+                with mock_rbac_allowed("admin.users.activate"):
+                    self.setup_admin_auth(mock_extract, mock_mfa)
 
-                result = admin_handler.handle(
-                    "/api/admin/users/user_0/activate",
-                    {},
-                    mock_handler,
-                    method="POST",
-                )
-                body = parse_body(result)
+                    result = admin_handler.handle(
+                        "/api/admin/users/user_0/activate",
+                        {},
+                        mock_handler,
+                        method="POST",
+                    )
+                    body = parse_body(result)
 
-                assert result.status_code == 200
-                assert body["success"] is True
+                    assert result.status_code == 200
+                    assert body["success"] is True
 
-                # Verify user was activated
-                user = user_store.get_user_by_id("user_0")
-                assert user.is_active is True
+                    # Verify user was activated
+                    user = user_store.get_user_by_id("user_0")
+                    assert user.is_active is True
 
     def test_invalid_user_id_format_rejected(self, admin_handler):
         """Test that invalid user ID format is rejected."""
@@ -585,24 +606,25 @@ class TestImpersonation:
         with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
                 with patch("aragora.server.handlers.admin.admin.create_access_token") as mock_token:
-                    mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
-                    mock_extract.return_value = mock_ctx
-                    mock_mfa.return_value = None
-                    mock_token.return_value = "impersonation_token_123"
+                    with mock_rbac_allowed("admin.users.impersonate"):
+                        mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
+                        mock_extract.return_value = mock_ctx
+                        mock_mfa.return_value = None
+                        mock_token.return_value = "impersonation_token_123"
 
-                    result = admin_handler.handle(
-                        "/api/admin/impersonate/user_0",
-                        {},
-                        mock_handler,
-                        method="POST",
-                    )
-                    body = parse_body(result)
+                        result = admin_handler.handle(
+                            "/api/admin/impersonate/user_0",
+                            {},
+                            mock_handler,
+                            method="POST",
+                        )
+                        body = parse_body(result)
 
-                    assert result.status_code == 200
-                    assert "token" in body
-                    assert body["expires_in"] == 3600
-                    assert body["target_user"]["id"] == "user_0"
-                    assert "warning" in body
+                        assert result.status_code == 200
+                        assert "token" in body
+                        assert body["expires_in"] == 3600
+                        assert body["target_user"]["id"] == "user_0"
+                        assert "warning" in body
 
     def test_impersonate_records_audit(self, admin_handler, user_store):
         """Test that impersonation is recorded in audit log."""
@@ -611,24 +633,25 @@ class TestImpersonation:
         with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
                 with patch("aragora.server.handlers.admin.admin.create_access_token") as mock_token:
-                    mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
-                    mock_extract.return_value = mock_ctx
-                    mock_mfa.return_value = None
-                    mock_token.return_value = "token"
+                    with mock_rbac_allowed("admin.users.impersonate"):
+                        mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
+                        mock_extract.return_value = mock_ctx
+                        mock_mfa.return_value = None
+                        mock_token.return_value = "token"
 
-                    result = admin_handler.handle(
-                        "/api/admin/impersonate/user_0",
-                        {},
-                        mock_handler,
-                        method="POST",
-                    )
+                        result = admin_handler.handle(
+                            "/api/admin/impersonate/user_0",
+                            {},
+                            mock_handler,
+                            method="POST",
+                        )
 
-                    assert result.status_code == 200
-                    # Check audit event was recorded
-                    assert len(user_store._audit_events) == 1
-                    event = user_store._audit_events[0]
-                    assert event["event_type"] == "admin_impersonate"
-                    assert event["resource_id"] == "user_0"
+                        assert result.status_code == 200
+                        # Check audit event was recorded
+                        assert len(user_store._audit_events) == 1
+                        event = user_store._audit_events[0]
+                        assert event["event_type"] == "admin_impersonate"
+                        assert event["resource_id"] == "user_0"
 
     def test_impersonate_nonexistent_user(self, admin_handler):
         """Test impersonating non-existent user."""
@@ -636,18 +659,19 @@ class TestImpersonation:
 
         with patch("aragora.server.handlers.admin.admin.extract_user_from_request") as mock_extract:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
-                mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
-                mock_extract.return_value = mock_ctx
-                mock_mfa.return_value = None
+                with mock_rbac_allowed("admin.users.impersonate"):
+                    mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
+                    mock_extract.return_value = mock_ctx
+                    mock_mfa.return_value = None
 
-                result = admin_handler.handle(
-                    "/api/admin/impersonate/nonexistent",
-                    {},
-                    mock_handler,
-                    method="POST",
-                )
+                    result = admin_handler.handle(
+                        "/api/admin/impersonate/nonexistent",
+                        {},
+                        mock_handler,
+                        method="POST",
+                    )
 
-                assert result.status_code == 404
+                    assert result.status_code == 404
 
 
 class TestMethodNotAllowed:
