@@ -172,7 +172,6 @@ class CrossPollinationMetricsHandler(BaseHandler):
         try:
             from aragora.server.prometheus_cross_pollination import (
                 get_cross_pollination_metrics_text,
-                PROMETHEUS_AVAILABLE,
             )
 
             metrics_text = get_cross_pollination_metrics_text()
