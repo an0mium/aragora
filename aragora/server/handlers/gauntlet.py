@@ -313,9 +313,7 @@ class GauntletHandler(BaseHandler):
             return True
         return False
 
-    def _add_version_headers(
-        self, result: HandlerResult, original_path: str
-    ) -> HandlerResult:
+    def _add_version_headers(self, result: HandlerResult, original_path: str) -> HandlerResult:
         """Add API version headers and deprecation warning for legacy routes."""
         if result is None:
             return result
@@ -331,9 +329,7 @@ class GauntletHandler(BaseHandler):
         if self._is_legacy_route(original_path):
             result.headers["Deprecation"] = "true"
             result.headers["Sunset"] = "2026-06-01"  # 6 months notice
-            result.headers["Link"] = (
-                f'</api/v1{original_path[4:]}>; rel="successor-version"'
-            )
+            result.headers["Link"] = f'</api/v1{original_path[4:]}>; rel="successor-version"'
             logger.debug(f"Legacy route accessed: {original_path}")
 
         return result
@@ -561,13 +557,15 @@ class GauntletHandler(BaseHandler):
         # Include config_json so jobs can be recovered if server restarts
         import json as _json
 
-        config_json = _json.dumps({
-            "input_content": input_content,
-            "input_type": input_type,
-            "persona": persona,
-            "agents": agents,
-            "profile": profile,
-        })
+        config_json = _json.dumps(
+            {
+                "input_content": input_content,
+                "input_type": input_type,
+                "persona": persona,
+                "agents": agents,
+                "profile": profile,
+            }
+        )
 
         try:
             storage = _get_storage()
@@ -874,7 +872,9 @@ class GauntletHandler(BaseHandler):
         if gauntlet_id in _gauntlet_runs:
             run = _gauntlet_runs[gauntlet_id]
             if run["status"] != "completed":
-                body, status = gauntlet_error_response("not_completed", {"gauntlet_id": gauntlet_id})
+                body, status = gauntlet_error_response(
+                    "not_completed", {"gauntlet_id": gauntlet_id}
+                )
                 return json_response(body, status=status)
             result = run["result"]
             result_obj = run.get("result_obj")
@@ -886,7 +886,9 @@ class GauntletHandler(BaseHandler):
                 if stored:
                     result = stored
                 else:
-                    body, status = gauntlet_error_response("gauntlet_not_found", {"gauntlet_id": gauntlet_id})
+                    body, status = gauntlet_error_response(
+                        "gauntlet_not_found", {"gauntlet_id": gauntlet_id}
+                    )
                     return json_response(body, status=status)
             except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
@@ -962,9 +964,7 @@ class GauntletHandler(BaseHandler):
                 status_code=200,
                 content_type="application/sarif+json",
                 body=receipt.to_sarif_json().encode("utf-8"),
-                headers={
-                    "Content-Disposition": f'attachment; filename="{gauntlet_id}.sarif"'
-                },
+                headers={"Content-Disposition": f'attachment; filename="{gauntlet_id}.sarif"'},
             )
         elif format_type == "pdf":
             # PDF format (requires weasyprint)
@@ -1028,16 +1028,19 @@ class GauntletHandler(BaseHandler):
         if result_obj:
             heatmap = RiskHeatmap.from_mode_result(result_obj)
         else:
+            # COMPATIBILITY: Use vulnerabilities if findings not present (post-restart scenario)
+            findings_data = result.get("findings") or result.get("vulnerabilities", [])
+
             cells = []
             categories = set()
             severities = ["critical", "high", "medium", "low"]
 
-            for finding in result.get("findings", []):
+            for finding in findings_data:
                 category = finding.get("category", "unknown")
                 categories.add(category)
 
             category_severity_counts: dict[tuple[str, str], int] = {}
-            for finding in result.get("findings", []):
+            for finding in findings_data:
                 category = finding.get("category", "unknown")
                 severity = finding.get("severity_level", "medium").lower()
                 key = (category, severity)
@@ -1235,23 +1238,29 @@ class GauntletHandler(BaseHandler):
         }
 
         if include_findings:
-            report["findings"] = result.get("findings", [])
+            # COMPATIBILITY: GauntletResult stores "vulnerabilities", but API expects "findings"
+            # Map vulnerabilities to findings for backwards compatibility
+            findings = result.get("findings") or result.get("vulnerabilities", [])
+            report["findings"] = findings
 
         if include_heatmap:
             # Generate heatmap data
+            # COMPATIBILITY: Use vulnerabilities if findings not present (post-restart scenario)
+            findings_for_heatmap = result.get("findings") or result.get("vulnerabilities", [])
 
             cells = []
             categories = set()
             severities = ["critical", "high", "medium", "low"]
 
-            for finding in result.get("findings", []):
+            for finding in findings_for_heatmap:
                 category = finding.get("category", "unknown")
                 categories.add(category)
 
             category_severity_counts: dict[tuple[str, str], int] = {}
-            for finding in result.get("findings", []):
+            # COMPATIBILITY: Use findings_for_heatmap (includes vulnerabilities fallback)
+            for finding in findings_for_heatmap:
                 category = finding.get("category", "unknown")
-                severity = finding.get("severity_level", "medium").lower()
+                severity = finding.get("severity_level", finding.get("severity", "medium")).lower()
                 key = (category, severity)
                 category_severity_counts[key] = category_severity_counts.get(key, 0) + 1
 
@@ -1301,7 +1310,9 @@ class GauntletHandler(BaseHandler):
             verdict_color = (
                 "#22c55e"
                 if verdict in ["APPROVED", "PASS"]
-                else "#ef4444" if verdict in ["REJECTED", "FAIL"] else "#eab308"
+                else "#ef4444"
+                if verdict in ["REJECTED", "FAIL"]
+                else "#eab308"
             )
 
             html_parts = [
