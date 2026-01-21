@@ -738,8 +738,23 @@ def get_webhook_router(
     debate_starter: Optional[callable] = None,
     use_decision_router: bool = True,
 ) -> ChatWebhookRouter:
-    """Get or create the webhook router singleton."""
+    """
+    Get or create the webhook router singleton.
+
+    Args:
+        event_handler: Custom event handler callback
+        debate_starter: Custom debate starter callback (overrides use_decision_router)
+        use_decision_router: If True and no debate_starter provided, use DecisionRouter
+            for unified routing with caching, deduplication, and metrics
+
+    Returns:
+        ChatWebhookRouter singleton instance
+    """
     global _router
     if _router is None:
+        # Use DecisionRouter-based debate starter by default if not provided
+        if debate_starter is None and use_decision_router:
+            debate_starter = _create_decision_router_debate_starter()
+
         _router = ChatWebhookRouter(event_handler, debate_starter)
     return _router

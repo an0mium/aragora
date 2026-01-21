@@ -311,6 +311,10 @@ class FindingWorkflowHandler(BaseHandler):
             "comment": "Please review"  // optional
         }
         """
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.assign", finding_id):
+            return error
+
         try:
             body = await self._parse_json_body(request)
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -384,6 +388,10 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _unassign(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Remove assignment from finding."""
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.assign", finding_id):
+            return error
+
         comment = ""
         try:
             body = await self._parse_json_body(request)
@@ -445,6 +453,10 @@ class FindingWorkflowHandler(BaseHandler):
             "comment": "This needs more investigation"
         }
         """
+        # Check RBAC permission (read permission is sufficient for comments)
+        if error := self._check_permission(request, "findings.read", finding_id):
+            return error
+
         try:
             body = await self._parse_json_body(request)
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -507,6 +519,10 @@ class FindingWorkflowHandler(BaseHandler):
 
     async def _get_comments(self, request: Any, finding_id: str) -> dict[str, Any]:
         """Get all comments for a finding."""
+        # Check RBAC permission
+        if error := self._check_permission(request, "findings.read", finding_id):
+            return error
+
         workflow_dict = await self._get_or_create_workflow(finding_id)
         comments = [e for e in workflow_dict.get("history", []) if e.get("event_type") == "comment"]
 

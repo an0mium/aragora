@@ -16,6 +16,42 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def check_production_requirements() -> list[str]:
+    """Check if production requirements are met.
+
+    Returns:
+        List of missing requirements (empty if all met)
+    """
+    import os
+
+    missing = []
+    env = os.environ.get("ARAGORA_ENV", "development")
+
+    if env == "production":
+        # Encryption key is required for production
+        if not os.environ.get("ARAGORA_ENCRYPTION_KEY"):
+            missing.append(
+                "ARAGORA_ENCRYPTION_KEY required in production "
+                "(32-byte hex string for AES-256 encryption)"
+            )
+
+        # Redis is required for durable state
+        if not os.environ.get("REDIS_URL"):
+            missing.append(
+                "REDIS_URL required in production for debate origins "
+                "and control plane state"
+            )
+
+        # PostgreSQL is recommended for governance store
+        if not os.environ.get("DATABASE_URL"):
+            logger.warning(
+                "DATABASE_URL not set in production - using SQLite. "
+                "PostgreSQL recommended for governance store."
+            )
+
+    return missing
+
+
 async def init_error_monitoring() -> bool:
     """Initialize error monitoring (Sentry).
 

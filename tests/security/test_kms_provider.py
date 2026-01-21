@@ -144,14 +144,6 @@ class TestLocalKmsProvider:
 class TestAwsKmsProvider:
     """Tests for AwsKmsProvider with mocked boto3."""
 
-    @pytest.fixture
-    def mock_boto3(self):
-        """Mock boto3 client."""
-        with patch("aragora.security.kms_provider.boto3") as mock:
-            mock_client = MagicMock()
-            mock.client.return_value = mock_client
-            yield mock_client
-
     def test_init_with_defaults(self, monkeypatch):
         """Should use environment defaults."""
         monkeypatch.setenv("AWS_REGION", "us-west-2")
@@ -170,51 +162,54 @@ class TestAwsKmsProvider:
         assert provider.default_key_id == "alias/custom"
 
     @pytest.mark.asyncio
-    async def test_get_encryption_key(self, mock_boto3):
+    async def test_get_encryption_key(self, monkeypatch):
         """Should call GenerateDataKey."""
-        mock_boto3.generate_data_key.return_value = {
+        mock_client = MagicMock()
+        mock_client.generate_data_key.return_value = {
             "Plaintext": b"generated-key-32bytes-here!!!!!",
             "CiphertextBlob": b"encrypted-blob",
         }
 
-        with patch.dict(os.environ, {"AWS_REGION": "us-east-1"}):
-            provider = AwsKmsProvider()
-            provider._client = mock_boto3
+        monkeypatch.setenv("AWS_REGION", "us-east-1")
+        provider = AwsKmsProvider()
+        provider._client = mock_client
 
-            key = await provider.get_encryption_key("alias/test")
+        key = await provider.get_encryption_key("alias/test")
 
-            assert key == b"generated-key-32bytes-here!!!!!"
-            mock_boto3.generate_data_key.assert_called_once()
+        assert key == b"generated-key-32bytes-here!!!!!"
+        mock_client.generate_data_key.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_decrypt_data_key(self, mock_boto3):
+    async def test_decrypt_data_key(self, monkeypatch):
         """Should call Decrypt."""
-        mock_boto3.decrypt.return_value = {
+        mock_client = MagicMock()
+        mock_client.decrypt.return_value = {
             "Plaintext": b"decrypted-key-32bytes-here!!!!!",
         }
 
-        with patch.dict(os.environ, {"AWS_REGION": "us-east-1"}):
-            provider = AwsKmsProvider()
-            provider._client = mock_boto3
+        monkeypatch.setenv("AWS_REGION", "us-east-1")
+        provider = AwsKmsProvider()
+        provider._client = mock_client
 
-            key = await provider.decrypt_data_key(b"encrypted", "alias/test")
+        key = await provider.decrypt_data_key(b"encrypted", "alias/test")
 
-            assert key == b"decrypted-key-32bytes-here!!!!!"
+        assert key == b"decrypted-key-32bytes-here!!!!!"
 
     @pytest.mark.asyncio
-    async def test_encrypt_data_key(self, mock_boto3):
+    async def test_encrypt_data_key(self, monkeypatch):
         """Should call Encrypt."""
-        mock_boto3.encrypt.return_value = {
+        mock_client = MagicMock()
+        mock_client.encrypt.return_value = {
             "CiphertextBlob": b"encrypted-result",
         }
 
-        with patch.dict(os.environ, {"AWS_REGION": "us-east-1"}):
-            provider = AwsKmsProvider()
-            provider._client = mock_boto3
+        monkeypatch.setenv("AWS_REGION", "us-east-1")
+        provider = AwsKmsProvider()
+        provider._client = mock_client
 
-            result = await provider.encrypt_data_key(b"plaintext", "alias/test")
+        result = await provider.encrypt_data_key(b"plaintext", "alias/test")
 
-            assert result == b"encrypted-result"
+        assert result == b"encrypted-result"
 
 
 class TestGetKmsProvider:
