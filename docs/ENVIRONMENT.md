@@ -1,6 +1,6 @@
 # Environment Variable Reference
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-21
 
 
 Complete reference for all environment variables used by Aragora.
@@ -862,9 +862,16 @@ See [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) for detailed setup guides.
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `ARAGORA_ENCRYPTION_KEY` | Optional | Encryption key for sensitive data at rest | - |
+| `ARAGORA_ENCRYPTION_REQUIRED` | Optional | Fail if encryption unavailable | `false` (auto `true` in production) |
 | `ARAGORA_AUDIT_SIGNING_KEY` | Optional | Key for signing audit log entries | - |
 | `ARAGORA_METRICS_TOKEN` | Optional | Auth token for metrics endpoint | - |
 | `ARAGORA_SECRET_NAME` | Optional | AWS Secrets Manager secret name | - |
+| `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` | Optional | Allow unverified webhooks (dev only) | `false` |
+
+**Security Notes:**
+- `ARAGORA_ENCRYPTION_REQUIRED` is automatically enabled when `ARAGORA_ENV=production`
+- `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` should **never** be set in production - webhooks will fail-closed if verification is unavailable
+- Webhook verification requires: Slack (signing secret), Discord (PyNaCl + public key), Teams/Google Chat (PyJWT)
 
 ## Knowledge System
 
