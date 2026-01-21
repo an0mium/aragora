@@ -30,7 +30,7 @@ from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
-    from aragora.connectors.documents.parser import ParsedDocument
+    from aragora.connectors.documents.parser import DocumentTable, ParsedDocument
 
 logger = logging.getLogger(__name__)
 
@@ -489,7 +489,21 @@ class EvidenceCollector:
 
         # Create snippets from tables (higher reliability - structured data)
         for j, table in enumerate(doc.tables):
-            table_content = self._format_table_for_snippet(table.data, table.headers)
+            # Handle both DocumentTable objects and raw List[List[str]] data
+            if isinstance(table, list):
+                # Raw table data (List[List[str]])
+                table_data = cast(List[List[Any]], table)
+                table_headers: Optional[List[str]] = None
+                table_page: Optional[int] = None
+                table_caption: Optional[str] = None
+            else:
+                # DocumentTable object
+                table_data = table.data
+                table_headers = table.headers
+                table_page = table.page
+                table_caption = table.caption
+
+            table_content = self._format_table_for_snippet(table_data, table_headers)
             snippet_id = hashlib.sha256(
                 f"{source}_table_{j}_{table_content[:50]}".encode()
             ).hexdigest()[:12]
@@ -505,8 +519,8 @@ class EvidenceCollector:
                     metadata={
                         "filename": doc.filename,
                         "format": format_name,
-                        "page": table.page,
-                        "caption": table.caption,
+                        "page": table_page,
+                        "caption": table_caption,
                         "table_index": j,
                         "total_tables": len(doc.tables),
                     },

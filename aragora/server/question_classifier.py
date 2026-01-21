@@ -302,8 +302,14 @@ Guidelines:
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            # Parse response
-            content = response.content[0].text
+            # Parse response - extract text from first TextBlock
+            content = ""
+            for block in response.content:
+                if hasattr(block, "text"):
+                    content = block.text
+                    break
+            if not content:
+                raise ValueError("No text content in response")
             # Extract JSON from response (handle markdown code blocks)
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]

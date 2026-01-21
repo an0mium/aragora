@@ -13,6 +13,7 @@ from typing import Any, Optional
 import aiohttp
 
 from aragora.core import DebateResult
+from aragora.http_client import DEFAULT_TIMEOUT
 
 try:
     from aragora.observability.tracing import build_trace_headers

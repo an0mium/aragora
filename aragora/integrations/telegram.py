@@ -14,6 +14,7 @@ from typing import Any, Optional
 import aiohttp
 
 from aragora.core import DebateResult
+from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 

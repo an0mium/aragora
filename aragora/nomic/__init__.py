@@ -88,6 +88,9 @@ from aragora.nomic.task_decomposer import (
     get_task_decomposer,
 )
 
+# Legacy NomicLoop API (compatibility)
+from aragora.nomic.loop import NomicLoop
+
 # Cross-cycle learning
 from aragora.nomic.cycle_record import (
     AgentContribution,

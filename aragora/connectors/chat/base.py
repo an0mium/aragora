@@ -147,6 +147,93 @@ class ChatPlatformConnector(ABC):
                     f"Circuit breaker OPENED for {self.platform_name} after repeated failures"
                 )
 
+    async def _with_retry(
+        self,
+        operation: str,
+        func,
+        *args,
+        max_retries: int = 3,
+        base_delay: float = 1.0,
+        max_delay: float = 30.0,
+        retryable_exceptions: tuple = (Exception,),
+        **kwargs,
+    ):
+        """
+        Execute an async function with exponential backoff retry and circuit breaker.
+
+        This provides a standardized retry pattern for all connector operations.
+
+        Args:
+            operation: Name of the operation (for logging)
+            func: Async function to execute
+            *args: Arguments to pass to the function
+            max_retries: Maximum number of retry attempts
+            base_delay: Initial delay between retries in seconds
+            max_delay: Maximum delay between retries
+            retryable_exceptions: Tuple of exception types to retry on
+            **kwargs: Keyword arguments to pass to the function
+
+        Returns:
+            Result of the function call
+
+        Raises:
+            Last exception if all retries fail
+        """
+        import asyncio
+        import random
+
+        # Check circuit breaker first
+        can_proceed, error_msg = self._check_circuit_breaker()
+        if not can_proceed:
+            raise ConnectionError(error_msg)
+
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                result = await func(*args, **kwargs)
+                self._record_success()
+                return result
+            except retryable_exceptions as e:
+                last_exception = e
+                self._record_failure(e)
+
+                if attempt < max_retries - 1:
+                    # Calculate delay with exponential backoff and jitter
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    jitter = random.uniform(0, delay * 0.1)
+                    total_delay = delay + jitter
+
+                    logger.warning(
+                        f"{self.platform_name} {operation} failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                        f"Retrying in {total_delay:.1f}s"
+                    )
+                    await asyncio.sleep(total_delay)
+                else:
+                    logger.error(
+                        f"{self.platform_name} {operation} failed after {max_retries} attempts: {e}"
+                    )
+
+        if last_exception:
+            raise last_exception
+        raise RuntimeError(f"{operation} failed with no exception captured")
+
+    def _is_retryable_status_code(self, status_code: int) -> bool:
+        """
+        Check if an HTTP status code indicates a retryable error.
+
+        Args:
+            status_code: HTTP status code
+
+        Returns:
+            True if the error is transient and should be retried
+        """
+        # 429 Too Many Requests - rate limited
+        # 500 Internal Server Error - server error
+        # 502 Bad Gateway - upstream error
+        # 503 Service Unavailable - server overloaded
+        # 504 Gateway Timeout - upstream timeout
+        return status_code in {429, 500, 502, 503, 504}
+
     @property
     @abstractmethod
     def platform_name(self) -> str:

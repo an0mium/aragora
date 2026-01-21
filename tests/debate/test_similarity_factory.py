@@ -126,6 +126,8 @@ class TestSimilarityFactory:
 
     def test_create_tfidf_backend(self):
         """Test creating tfidf backend."""
+        if not SimilarityFactory.is_available("tfidf"):
+            pytest.skip("TFIDFBackend requires scikit-learn")
         backend = SimilarityFactory.create("tfidf")
         assert isinstance(backend, TFIDFBackend)
 

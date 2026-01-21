@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 import aiohttp
+from aiohttp import ClientTimeout
 
 from aragora.core import DebateResult
 
@@ -106,6 +107,9 @@ class BaseIntegration(ABC):
     # Default URLs
     BASE_URL = "https://aragora.ai"
 
+    # Default timeout for HTTP requests (30 seconds)
+    DEFAULT_TIMEOUT = ClientTimeout(total=30, connect=10, sock_read=20)
+
     # Default truncation limits
     DEFAULT_QUESTION_LIMIT = 200
     DEFAULT_ANSWER_LIMIT = 500
@@ -137,9 +141,9 @@ class BaseIntegration(ABC):
     # =========================================================================
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
+        """Get or create aiohttp session with timeout protection."""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            self._session = aiohttp.ClientSession(timeout=self.DEFAULT_TIMEOUT)
         return self._session
 
     async def close(self) -> None:

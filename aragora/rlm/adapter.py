@@ -679,8 +679,285 @@ Summary:"""
         return truncated + "..."
 
 
-# Global adapter instance
+# =============================================================================
+# REPLContextAdapter - TRUE RLM with REPL environment
+# =============================================================================
+
+
+class REPLContextAdapter(RLMContextAdapter):
+    """
+    TRUE RLM adapter using REPL environments for programmatic context access.
+
+    Based on arXiv:2512.24601 "Recursive Language Models":
+    This adapter creates REPL environments where content is stored as Python
+    variables and the LLM writes code to examine/query the context.
+
+    Key difference from RLMContextAdapter:
+    - RLMContextAdapter: Content registered, LLM queries via API calls
+    - REPLContextAdapter: Content in REPL, LLM writes code to navigate
+
+    Usage:
+        from aragora.rlm.adapter import REPLContextAdapter
+
+        adapter = REPLContextAdapter()
+
+        # Register debate content - creates REPL environment
+        env = adapter.create_repl_for_debate(debate_result)
+
+        # LLM writes code like:
+        # >>> round1 = get_round(debate, 1)
+        # >>> disagreements = search_debate(debate, r"disagree|however")
+        # >>> FINAL(f"Key disagreements: {summarize(disagreements)}")
+
+    Requires: pip install aragora[rlm] for TRUE RLM functionality
+    """
+
+    def __init__(
+        self,
+        compressor: Optional["HierarchicalCompressor"] = None,
+        agent_call: Optional[Callable[[str, str], Any]] = None,
+    ):
+        """Initialize the REPL context adapter."""
+        super().__init__(compressor=compressor, agent_call=agent_call)
+        self._repl_environments: dict[str, Any] = {}
+        self._has_true_rlm = self._check_true_rlm()
+
+    def _check_true_rlm(self) -> bool:
+        """Check if TRUE RLM (official library) is available."""
+        try:
+            from .bridge import HAS_OFFICIAL_RLM
+            return HAS_OFFICIAL_RLM
+        except ImportError:
+            return False
+
+    @property
+    def has_true_rlm(self) -> bool:
+        """Whether TRUE RLM is available."""
+        return self._has_true_rlm
+
+    def create_repl_for_debate(
+        self,
+        debate_result: Any,
+        content_id: Optional[str] = None,
+    ) -> Optional[Any]:
+        """
+        Create a TRUE RLM REPL environment for a debate.
+
+        The debate content is loaded into a REPL environment where the LLM
+        can write code to navigate and query the debate history.
+
+        Args:
+            debate_result: DebateResult from a completed debate
+            content_id: Optional ID (auto-generated if not provided)
+
+        Returns:
+            RLM environment (or None if TRUE RLM not available)
+
+        Example:
+            >>> env = adapter.create_repl_for_debate(result)
+            >>> # LLM can now write code like:
+            >>> # debate = load_debate_context(result)
+            >>> # proposals = get_proposals_by_agent(debate, "claude")
+        """
+        if not self._has_true_rlm:
+            logger.warning(
+                "TRUE RLM not available for REPL environment. "
+                "Install with: pip install aragora[rlm]"
+            )
+            return None
+
+        from .debate_helpers import get_debate_helpers, load_debate_context
+
+        # Generate content ID if not provided
+        if not content_id:
+            debate_id = getattr(debate_result, "debate_id", "")
+            content_id = f"debate_{debate_id or self._generate_id(str(debate_result))}"
+
+        try:
+            # Load debate into structured context
+            debate_context = load_debate_context(debate_result)
+
+            # Create REPL environment
+            from .repl import RLMEnvironment
+
+            env = RLMEnvironment()
+
+            # Inject debate context and helpers
+            env.set_variable("debate", debate_context)
+            env.set_variable("debate_result", debate_result)
+
+            # Inject all debate helpers
+            for name, helper in get_debate_helpers().items():
+                env.set_variable(name, helper)
+
+            # Store environment
+            self._repl_environments[content_id] = env
+
+            logger.info(
+                f"repl_env_created type=debate id={content_id} "
+                f"rounds={debate_context.total_rounds} agents={len(debate_context.agent_names)}"
+            )
+
+            return env
+
+        except Exception as e:
+            logger.error(f"Failed to create debate REPL environment: {e}")
+            return None
+
+    def create_repl_for_knowledge(
+        self,
+        mound: Any,
+        workspace_id: str,
+        content_id: Optional[str] = None,
+    ) -> Optional[Any]:
+        """
+        Create a TRUE RLM REPL environment for Knowledge Mound queries.
+
+        The knowledge content is loaded into a REPL environment where the LLM
+        can write code to query facts, claims, and evidence.
+
+        Args:
+            mound: KnowledgeMound instance
+            workspace_id: Workspace to load knowledge from
+            content_id: Optional ID (auto-generated if not provided)
+
+        Returns:
+            RLM environment (or None if TRUE RLM not available)
+
+        Example:
+            >>> env = adapter.create_repl_for_knowledge(mound, "ws-123")
+            >>> # LLM can now write code like:
+            >>> # facts = get_facts(km, "rate limiting", min_confidence=0.8)
+            >>> # related = get_related(km, facts[0].id)
+        """
+        if not self._has_true_rlm:
+            logger.warning(
+                "TRUE RLM not available for REPL environment. "
+                "Install with: pip install aragora[rlm]"
+            )
+            return None
+
+        from .knowledge_helpers import get_knowledge_helpers, load_knowledge_context
+
+        # Generate content ID if not provided
+        if not content_id:
+            content_id = f"knowledge_{workspace_id}"
+
+        try:
+            # Load knowledge into structured context
+            km_context = load_knowledge_context(mound, workspace_id)
+
+            # Create REPL environment
+            from .repl import RLMEnvironment
+
+            env = RLMEnvironment()
+
+            # Inject knowledge context and helpers
+            env.set_variable("km", km_context)
+            env.set_variable("mound", mound)
+            env.set_variable("workspace_id", workspace_id)
+
+            # Inject all knowledge helpers
+            for name, helper in get_knowledge_helpers(mound).items():
+                env.set_variable(name, helper)
+
+            # Store environment
+            self._repl_environments[content_id] = env
+
+            logger.info(
+                f"repl_env_created type=knowledge id={content_id} "
+                f"items={km_context.total_items} confidence={km_context.avg_confidence:.2f}"
+            )
+
+            return env
+
+        except Exception as e:
+            logger.error(f"Failed to create knowledge REPL environment: {e}")
+            return None
+
+    def get_repl_environment(self, content_id: str) -> Optional[Any]:
+        """
+        Get an existing REPL environment by content ID.
+
+        Args:
+            content_id: The content ID used when creating the environment
+
+        Returns:
+            RLM environment or None if not found
+        """
+        return self._repl_environments.get(content_id)
+
+    def get_repl_prompt(self, content_id: str, content_type: str = "debate") -> str:
+        """
+        Get REPL system prompt for agent instructions.
+
+        This prompt tells the agent how to use the REPL environment
+        to query context programmatically.
+
+        Args:
+            content_id: The content ID for reference
+            content_type: Type of content ("debate" or "knowledge")
+
+        Returns:
+            System prompt with REPL usage instructions
+        """
+        if content_type == "debate":
+            return f"""You have access to a REPL environment containing debate context.
+The debate is stored in the variable `debate` (DebateREPLContext).
+
+Available functions:
+- get_round(debate, round_num) → list of messages in that round
+- get_proposals_by_agent(debate, agent_name) → all messages from an agent
+- search_debate(debate, pattern) → messages matching regex pattern
+- get_critiques(debate, target_agent) → critique messages
+- partition_debate(debate, "round" or "agent") → partitioned messages
+
+For recursive queries on subsets:
+- RLM_M(query, subset=messages) → answer about subset
+
+When you have your final answer:
+- FINAL(answer) → return the final answer
+
+Content ID: {content_id}
+"""
+        elif content_type == "knowledge":
+            return f"""You have access to a REPL environment containing knowledge context.
+The knowledge is stored in the variable `km` (KnowledgeREPLContext).
+
+Available functions:
+- get_facts(km, query, min_confidence) → filtered facts
+- get_claims(km, query, validated_only) → filtered claims
+- get_evidence(km, query, source_type) → filtered evidence
+- get_related(km, item_id, depth) → related items via graph
+- filter_by_confidence(items, min, max) → confidence filter
+- search_knowledge(km, pattern) → regex search
+
+For recursive queries on subsets:
+- RLM_M(query, subset=items) → answer about subset
+
+When you have your final answer:
+- FINAL(answer) → return the final answer
+
+Content ID: {content_id}
+"""
+        else:
+            return f"REPL environment available for {content_type}. Content ID: {content_id}"
+
+    def list_repl_environments(self) -> list[str]:
+        """List all active REPL environment content IDs."""
+        return list(self._repl_environments.keys())
+
+    def close_repl_environment(self, content_id: str) -> bool:
+        """Close and remove a REPL environment."""
+        if content_id in self._repl_environments:
+            del self._repl_environments[content_id]
+            return True
+        return False
+
+
+# Global adapter instances
 _global_adapter: Optional[RLMContextAdapter] = None
+_global_repl_adapter: Optional[REPLContextAdapter] = None
 
 
 def get_adapter() -> RLMContextAdapter:
@@ -691,8 +968,26 @@ def get_adapter() -> RLMContextAdapter:
     return _global_adapter
 
 
+def get_repl_adapter() -> REPLContextAdapter:
+    """
+    Get the global REPLContextAdapter instance for TRUE RLM.
+
+    This adapter creates REPL environments where LLMs write code
+    to query context programmatically.
+
+    Returns:
+        REPLContextAdapter (prefers TRUE RLM when available)
+    """
+    global _global_repl_adapter
+    if _global_repl_adapter is None:
+        _global_repl_adapter = REPLContextAdapter()
+    return _global_repl_adapter
+
+
 __all__ = [
     "RLMContextAdapter",
+    "REPLContextAdapter",
     "RegisteredContent",
     "get_adapter",
+    "get_repl_adapter",
 ]

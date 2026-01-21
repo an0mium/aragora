@@ -96,8 +96,21 @@ from .batch import (
 )
 from .adapter import (
     RLMContextAdapter,
+    REPLContextAdapter,
     RegisteredContent,
     get_adapter,
+    get_repl_adapter,
+)
+from .debate_helpers import (
+    DebateREPLContext,
+    load_debate_context,
+    get_debate_helpers,
+)
+from .knowledge_helpers import (
+    KnowledgeItem,
+    KnowledgeREPLContext,
+    load_knowledge_context,
+    get_knowledge_helpers,
 )
 from .factory import (
     get_rlm,
@@ -170,8 +183,19 @@ __all__ = [
     "batch_race",
     # Context adapter (external environment pattern)
     "RLMContextAdapter",
+    "REPLContextAdapter",
     "RegisteredContent",
     "get_adapter",
+    "get_repl_adapter",
+    # Debate REPL helpers (TRUE RLM)
+    "DebateREPLContext",
+    "load_debate_context",
+    "get_debate_helpers",
+    # Knowledge REPL helpers (TRUE RLM)
+    "KnowledgeItem",
+    "KnowledgeREPLContext",
+    "load_knowledge_context",
+    "get_knowledge_helpers",
     # Factory (preferred entry point)
     "get_rlm",
     "get_compressor",

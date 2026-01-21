@@ -43,6 +43,19 @@ from aragora.ml.local_finetuning import (
     TrainingExample,
     create_fine_tuner,
 )
+from aragora.ml.degradation import (
+    MLFeature,
+    DegradationLevel,
+    MLDegradationManager,
+    MLFallbackService,
+    get_ml_manager,
+    get_ml_fallback,
+    force_degradation,
+    reset_degradation,
+    heuristic_similarity,
+    heuristic_consensus_prediction,
+    heuristic_quality_score,
+)
 
 __all__ = [
     # Embeddings
@@ -72,4 +85,16 @@ __all__ = [
     "TrainingData",
     "TrainingExample",
     "create_fine_tuner",
+    # Degradation
+    "MLFeature",
+    "DegradationLevel",
+    "MLDegradationManager",
+    "MLFallbackService",
+    "get_ml_manager",
+    "get_ml_fallback",
+    "force_degradation",
+    "reset_degradation",
+    "heuristic_similarity",
+    "heuristic_consensus_prediction",
+    "heuristic_quality_score",
 ]

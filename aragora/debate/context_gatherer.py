@@ -1138,6 +1138,159 @@ class ContextGatherer:
             content[: max_chars - 30] + "... [truncated]" if len(content) > max_chars else content
         )
 
+    async def _query_with_true_rlm(
+        self,
+        query: str,
+        content: str,
+        source_type: str = "documentation",
+    ) -> Optional[str]:
+        """
+        Query content using TRUE RLM (REPL-based) when available.
+
+        TRUE RLM allows the model to write code to examine context stored
+        as Python variables in a REPL environment, rather than having the
+        context stuffed into prompts.
+
+        This is the PREFERRED method when the official `rlm` package is installed:
+        - Model has agency in deciding how to query content
+        - No information loss from truncation or compression
+        - Model writes code like: `search_debate(context, r"consensus")`
+
+        Falls back to compression-based query if TRUE RLM not available.
+
+        Args:
+            query: The question to answer about the content
+            content: The content to query
+            source_type: Type of content (for context hints)
+
+        Returns:
+            Answer from TRUE RLM, or None if not available
+        """
+        if not self._enable_rlm or not self._aragora_rlm:
+            return None
+
+        try:
+            # Check if TRUE RLM is available (not just compression fallback)
+            if HAS_RLM and HAS_OFFICIAL_RLM:
+                logger.debug(
+                    f"[rlm] Using TRUE RLM for query: '{query[:50]}...' "
+                    f"on {len(content)} chars of {source_type}"
+                )
+
+                result = await asyncio.wait_for(
+                    self._aragora_rlm.query(
+                        query=query,
+                        context=content,
+                        strategy="auto",  # Let RLM decide: grep, partition, peek, etc.
+                    ),
+                    timeout=20.0,
+                )
+
+                if result.used_true_rlm and result.answer:
+                    logger.debug(
+                        f"[rlm] TRUE RLM query successful: {len(result.answer)} chars, "
+                        f"confidence={result.confidence:.2f}"
+                    )
+                    return result.answer
+
+            # TRUE RLM not available - fall back to compress_and_query
+            logger.debug(
+                "[rlm] TRUE RLM not available for query, using compress_and_query"
+            )
+            result = await asyncio.wait_for(
+                self._aragora_rlm.compress_and_query(
+                    query=query,
+                    content=content,
+                    source_type=source_type,
+                ),
+                timeout=15.0,
+            )
+
+            if result.answer:
+                approach = "TRUE RLM" if result.used_true_rlm else "compression"
+                logger.debug(
+                    f"[rlm] Query via {approach}: {len(result.answer)} chars"
+                )
+                return result.answer
+
+        except asyncio.TimeoutError:
+            logger.debug(f"[rlm] TRUE RLM query timed out for: '{query[:30]}...'")
+        except (ValueError, RuntimeError) as e:
+            # Expected: query processing issues
+            logger.debug(f"[rlm] TRUE RLM query failed: {e}")
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"[rlm] Unexpected error in TRUE RLM query: {e}")
+
+        return None
+
+    async def query_knowledge_with_true_rlm(
+        self,
+        task: str,
+        max_items: int = 10,
+    ) -> Optional[str]:
+        """
+        Query Knowledge Mound using TRUE RLM for better answer quality.
+
+        When TRUE RLM is available, creates a REPL environment where the
+        model can write code to navigate and query knowledge items.
+
+        Args:
+            task: The debate task/query
+            max_items: Maximum knowledge items to include in context
+
+        Returns:
+            Synthesized answer from knowledge, or None if unavailable
+        """
+        if not self._enable_knowledge_grounding or not self._knowledge_mound:
+            return None
+
+        if not (HAS_RLM and HAS_OFFICIAL_RLM):
+            # TRUE RLM not available - use standard query
+            return await self.gather_knowledge_mound_context(task)
+
+        try:
+            from aragora.rlm import get_repl_adapter
+
+            adapter = get_repl_adapter()
+
+            # Create REPL environment for knowledge queries
+            env = adapter.create_repl_for_knowledge(
+                mound=self._knowledge_mound,
+                workspace_id=self._knowledge_workspace_id,
+                content_id=f"km_{self._get_task_hash(task)}",
+            )
+
+            if not env:
+                # TRUE RLM REPL failed - fall back to standard
+                return await self.gather_knowledge_mound_context(task)
+
+            # Get REPL prompt for agent
+            repl_prompt = adapter.get_repl_prompt(
+                content_id=f"km_{self._get_task_hash(task)}",
+                content_type="knowledge",
+            )
+
+            logger.info(
+                f"[rlm] Created TRUE RLM REPL environment for knowledge query: '{task[:50]}...'"
+            )
+
+            # Return the REPL prompt - the agent will use it to write code
+            # that queries the knowledge programmatically
+            return (
+                "## KNOWLEDGE MOUND CONTEXT (TRUE RLM)\n"
+                f"A REPL environment is available for knowledge queries.\n\n"
+                f"{repl_prompt}\n"
+            )
+
+        except ImportError:
+            logger.debug("[rlm] REPL adapter not available for knowledge queries")
+        except Exception as e:
+            logger.warning(f"[rlm] Failed to create knowledge REPL: {e}")
+
+        # Fall back to standard knowledge query
+        return await self.gather_knowledge_mound_context(task)
+
     def get_continuum_context(
         self,
         continuum_memory: Any,
