@@ -352,6 +352,10 @@ class WebhookHandler(BaseHandler):
         if path == "/api/webhooks/events":
             return self._handle_list_events()
 
+        # GET /api/webhooks/slo/status - get SLO webhook status
+        if path == "/api/webhooks/slo/status":
+            return self._handle_slo_status()
+
         # GET /api/webhooks/:id
         if path.startswith("/api/webhooks/") and path.count("/") == 3:
             webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
@@ -369,6 +373,10 @@ class WebhookHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests for webhook endpoints."""
+        # POST /api/webhooks/slo/test - send test SLO violation notification
+        if path == "/api/webhooks/slo/test":
+            return self._handle_slo_test()
+
         # POST /api/webhooks/:id/test
         if path.endswith("/test") and path.count("/") == 4:
             webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
@@ -632,6 +640,106 @@ class WebhookHandler(BaseHandler):
                 },
                 status=502,
             )
+
+    def _handle_slo_status(self) -> HandlerResult:
+        """Handle GET /api/webhooks/slo/status - get SLO webhook status."""
+        try:
+            from aragora.observability.metrics.slo import (
+                get_slo_webhook_status,
+                get_violation_state,
+            )
+
+            webhook_status = get_slo_webhook_status()
+            violation_state = get_violation_state()
+
+            # enabled means initialized (callback is set)
+            is_enabled = webhook_status.get("enabled", False)
+
+            return json_response(
+                {
+                    "slo_webhooks": {
+                        "enabled": is_enabled,
+                        "initialized": is_enabled,  # Same as enabled
+                        "config": webhook_status.get("config"),
+                        "notifications_sent": webhook_status.get("notifications_sent", 0),
+                        "recoveries_sent": webhook_status.get("recoveries_sent", 0),
+                    },
+                    "violation_state": violation_state,
+                    "active_violations": sum(
+                        1 for v in violation_state.values() if v.get("in_violation", False)
+                    ),
+                }
+            )
+        except ImportError:
+            return json_response(
+                {
+                    "slo_webhooks": {
+                        "enabled": False,
+                        "initialized": False,
+                        "error": "SLO module not available",
+                    },
+                    "violation_state": {},
+                    "active_violations": 0,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error getting SLO webhook status: {e}")
+            return error_response(f"Failed to get SLO status: {e}", 500)
+
+    def _handle_slo_test(self) -> HandlerResult:
+        """Handle POST /api/webhooks/slo/test - send test SLO violation notification."""
+        try:
+            from aragora.observability.metrics.slo import (
+                get_slo_webhook_status,
+                notify_slo_violation,
+            )
+
+            status = get_slo_webhook_status()
+            if not status.get("enabled", False):
+                return error_response(
+                    "SLO webhooks are not enabled. Initialize with init_slo_webhooks() first.",
+                    400,
+                )
+
+            # Send a test violation notification
+            success = notify_slo_violation(
+                operation="test_operation",
+                percentile="p99",
+                latency_ms=1500.0,
+                threshold_ms=500.0,
+                severity="minor",
+                context={"test": True, "message": "This is a test SLO violation notification"},
+                cooldown_seconds=0.0,  # Bypass cooldown for test
+            )
+
+            if success:
+                return json_response(
+                    {
+                        "success": True,
+                        "message": "Test SLO violation notification sent successfully",
+                        "details": {
+                            "operation": "test_operation",
+                            "percentile": "p99",
+                            "latency_ms": 1500.0,
+                            "threshold_ms": 500.0,
+                            "severity": "minor",
+                        },
+                    }
+                )
+            else:
+                return json_response(
+                    {
+                        "success": False,
+                        "message": "Test SLO violation notification was not sent (may be on cooldown or filtered)",
+                    },
+                    status=200,
+                )
+
+        except ImportError:
+            return error_response("SLO module not available", 500)
+        except Exception as e:
+            logger.error(f"Error sending test SLO notification: {e}")
+            return error_response(f"Failed to send test notification: {e}", 500)
 
 
 # =============================================================================
