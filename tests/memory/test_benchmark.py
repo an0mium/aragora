@@ -332,17 +332,27 @@ class TestMemoryCoordinatorSLOs:
 
     @pytest.mark.benchmark(group="slo-verification")
     def test_sequential_write_meets_slo(self, benchmark, coordinator, debate_context):
-        """Verify sequential writes meet SLO."""
+        """Verify sequential writes meet SLO.
+
+        Note: Creates event loop once outside the benchmark function to avoid
+        asyncio.run() overhead (~1 second per call for loop creation).
+        """
         coordinator.options.parallel_writes = False
 
-        def sync_wrapper():
-            return asyncio.run(coordinator.commit_debate_outcome(debate_context))
+        # Create event loop once before benchmarking
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-        result = benchmark(sync_wrapper)
+        try:
 
-        # Check SLO (benchmark.stats available after benchmark call)
-        # Note: With mocked memory systems, this should be very fast
-        assert result is not None
+            def sync_wrapper():
+                return loop.run_until_complete(coordinator.commit_debate_outcome(debate_context))
+
+            result = benchmark(sync_wrapper)
+            assert result is not None
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
 
     @pytest.mark.benchmark(group="slo-verification")
     def test_build_operations_meets_slo(self, benchmark, coordinator, debate_context):

@@ -34,8 +34,8 @@ from aragora.memory.embeddings import (
     unpack_embedding,
     SemanticRetriever,
     get_embedding_cache_stats,
+    get_embedding_cache,
     _retry_with_backoff,
-    _embedding_cache,
 )
 
 
@@ -275,7 +275,7 @@ class TestOpenAIEmbedding:
         provider = OpenAIEmbedding(api_key="test-key")
 
         # Pre-populate cache
-        _embedding_cache.set("cached text", [0.1, 0.2, 0.3])
+        get_embedding_cache().set("cached text", [0.1, 0.2, 0.3])
 
         result = await provider.embed("cached text")
         assert result == [0.1, 0.2, 0.3]
@@ -288,10 +288,10 @@ class TestOpenAIEmbedding:
 
         # Pre-populate cache
         test_embedding = [0.1] * 1536
-        _embedding_cache.set("openai_cache_test", test_embedding)
+        get_embedding_cache().set("openai_cache_test", test_embedding)
 
         # The embedding from cache should have correct dimension
-        cached = _embedding_cache.get("openai_cache_test")
+        cached = get_embedding_cache().get("openai_cache_test")
         assert cached == test_embedding
         assert len(cached) == provider.dimension
 
@@ -322,7 +322,7 @@ class TestGeminiEmbedding:
         provider = GeminiEmbedding(api_key="test-key")
 
         # Pre-populate cache
-        _embedding_cache.set("gemini cached", [0.5, 0.6])
+        get_embedding_cache().set("gemini cached", [0.5, 0.6])
 
         result = await provider.embed("gemini cached")
         assert result == [0.5, 0.6]

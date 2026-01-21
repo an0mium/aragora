@@ -393,3 +393,384 @@ class TestBackwardsCompatibility:
         # Verify they're classes
         assert Critique is not None
         assert DebateResult is not None
+
+
+# =============================================================================
+# Exception Hierarchy Tests
+# =============================================================================
+
+
+class TestEmbeddingExceptions:
+    """Test the structured exception hierarchy for embeddings."""
+
+    def test_base_exception(self):
+        """Test EmbeddingError base exception."""
+        from aragora.core.embeddings.types import EmbeddingError
+
+        error = EmbeddingError("Test error", provider="openai", status_code=500)
+        assert str(error) == "Test error"
+        assert error.provider == "openai"
+        assert error.status_code == 500
+        assert error.retryable is False
+
+    def test_rate_limit_error(self):
+        """Test EmbeddingRateLimitError is retryable."""
+        from aragora.core.embeddings.types import EmbeddingRateLimitError
+
+        error = EmbeddingRateLimitError("Rate limit exceeded", provider="openai", retry_after=30.0)
+        assert error.retryable is True
+        assert error.retry_after == 30.0
+        assert error.status_code == 429
+
+    def test_auth_error(self):
+        """Test EmbeddingAuthError is not retryable."""
+        from aragora.core.embeddings.types import EmbeddingAuthError
+
+        error = EmbeddingAuthError("Invalid API key", provider="gemini")
+        assert error.retryable is False
+        assert error.status_code == 401
+
+    def test_timeout_error(self):
+        """Test EmbeddingTimeoutError is retryable."""
+        from aragora.core.embeddings.types import EmbeddingTimeoutError
+
+        error = EmbeddingTimeoutError("Request timed out", timeout=30.0)
+        assert error.retryable is True
+        assert error.timeout == 30.0
+
+    def test_connection_error(self):
+        """Test EmbeddingConnectionError is retryable."""
+        from aragora.core.embeddings.types import EmbeddingConnectionError
+
+        error = EmbeddingConnectionError(
+            "Connection failed", provider="ollama", host="localhost:11434"
+        )
+        assert error.retryable is True
+        assert error.host == "localhost:11434"
+
+    def test_quota_error(self):
+        """Test EmbeddingQuotaError is not retryable."""
+        from aragora.core.embeddings.types import EmbeddingQuotaError
+
+        error = EmbeddingQuotaError("Quota exceeded", provider="openai")
+        assert error.retryable is False
+        assert error.status_code == 402
+
+    def test_model_error(self):
+        """Test EmbeddingModelError is not retryable."""
+        from aragora.core.embeddings.types import EmbeddingModelError
+
+        error = EmbeddingModelError("Model not found", model="invalid-model")
+        assert error.retryable is False
+        assert error.model == "invalid-model"
+
+    def test_circuit_open_error(self):
+        """Test EmbeddingCircuitOpenError is retryable."""
+        from aragora.core.embeddings.types import EmbeddingCircuitOpenError
+
+        error = EmbeddingCircuitOpenError(
+            "Circuit breaker open", provider="openai", cooldown_remaining=30.0
+        )
+        assert error.retryable is True
+        assert error.cooldown_remaining == 30.0
+
+    def test_original_error_preserved(self):
+        """Test original exception is preserved."""
+        from aragora.core.embeddings.types import EmbeddingConnectionError
+
+        original = ConnectionRefusedError("Connection refused")
+        error = EmbeddingConnectionError("Connection failed", original_error=original)
+        assert error.original_error is original
+
+    def test_exception_inheritance(self):
+        """Test exception hierarchy."""
+        from aragora.core.embeddings.types import (
+            EmbeddingError,
+            EmbeddingRateLimitError,
+            EmbeddingAuthError,
+            EmbeddingTimeoutError,
+            EmbeddingConnectionError,
+            EmbeddingQuotaError,
+            EmbeddingModelError,
+            EmbeddingCircuitOpenError,
+        )
+
+        # All should inherit from EmbeddingError
+        assert issubclass(EmbeddingRateLimitError, EmbeddingError)
+        assert issubclass(EmbeddingAuthError, EmbeddingError)
+        assert issubclass(EmbeddingTimeoutError, EmbeddingError)
+        assert issubclass(EmbeddingConnectionError, EmbeddingError)
+        assert issubclass(EmbeddingQuotaError, EmbeddingError)
+        assert issubclass(EmbeddingModelError, EmbeddingError)
+        assert issubclass(EmbeddingCircuitOpenError, EmbeddingError)
+
+
+# =============================================================================
+# Circuit Breaker Tests
+# =============================================================================
+
+
+class TestBackendCircuitBreaker:
+    """Test circuit breaker integration in backends."""
+
+    @pytest.mark.asyncio
+    async def test_openai_backend_with_circuit_breaker(self):
+        """Test OpenAI backend initializes with circuit breaker."""
+        config = EmbeddingConfig()
+        backend = OpenAIBackend(config, use_circuit_breaker=True)
+
+        assert backend._circuit_breaker is not None
+
+    @pytest.mark.asyncio
+    async def test_openai_backend_without_circuit_breaker(self):
+        """Test OpenAI backend can disable circuit breaker."""
+        config = EmbeddingConfig()
+        backend = OpenAIBackend(config, use_circuit_breaker=False)
+
+        assert backend._circuit_breaker is None
+
+    @pytest.mark.asyncio
+    async def test_gemini_backend_with_circuit_breaker(self):
+        """Test Gemini backend initializes with circuit breaker."""
+        config = EmbeddingConfig()
+        backend = GeminiBackend(config, use_circuit_breaker=True)
+
+        assert backend._circuit_breaker is not None
+
+    @pytest.mark.asyncio
+    async def test_ollama_backend_with_circuit_breaker(self):
+        """Test Ollama backend initializes with circuit breaker."""
+        config = EmbeddingConfig()
+        backend = OllamaBackend(config, use_circuit_breaker=True)
+
+        assert backend._circuit_breaker is not None
+
+    @pytest.mark.asyncio
+    async def test_hash_backend_no_circuit_breaker(self):
+        """Test Hash backend never uses circuit breaker."""
+        config = EmbeddingConfig()
+        backend = HashBackend(config, use_circuit_breaker=True)
+
+        # Hash backend ignores circuit breaker flag
+        assert backend._circuit_breaker is None
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_blocks_when_open(self):
+        """Test circuit breaker blocks requests when open."""
+        from aragora.core.embeddings.types import EmbeddingCircuitOpenError
+        from aragora.resilience import get_circuit_breaker
+
+        config = EmbeddingConfig()
+        backend = OpenAIBackend(config, use_circuit_breaker=True)
+
+        # Trip the circuit breaker
+        cb = backend._circuit_breaker
+        for _ in range(10):
+            cb.record_failure()
+
+        # Should raise circuit open error
+        with pytest.raises(EmbeddingCircuitOpenError):
+            backend._check_circuit_breaker()
+
+    @pytest.mark.asyncio
+    async def test_successful_request_resets_circuit_breaker(self):
+        """Test successful request records success."""
+        config = EmbeddingConfig()
+        backend = OpenAIBackend(config, use_circuit_breaker=True)
+
+        # Record some failures
+        backend._record_failure()
+        backend._record_failure()
+
+        # Record success
+        backend._record_success()
+
+        # Should still work
+        assert backend._circuit_breaker.can_proceed()
+
+
+# =============================================================================
+# Backend Error Handling Tests
+# =============================================================================
+
+
+class TestOpenAIBackendErrors:
+    """Test OpenAI backend error handling."""
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_error(self):
+        """Test 429 response raises EmbeddingRateLimitError."""
+        from aragora.core.embeddings.types import EmbeddingRateLimitError
+
+        config = EmbeddingConfig(api_key="test-key", max_retries=1)
+        backend = OpenAIBackend(config, use_circuit_breaker=False)
+
+        mock_response = AsyncMock()
+        mock_response.status = 429
+        mock_response.headers = {}
+        mock_response.text = AsyncMock(return_value="rate limited")
+
+        with patch("aiohttp.ClientSession.post") as mock_post:
+            mock_post.return_value.__aenter__.return_value = mock_response
+
+            with pytest.raises(EmbeddingRateLimitError) as exc_info:
+                await backend._call_api(["test"])
+
+            assert exc_info.value.provider == "openai"
+
+    @pytest.mark.asyncio
+    async def test_auth_error(self):
+        """Test 401 response raises EmbeddingAuthError."""
+        from aragora.core.embeddings.types import EmbeddingAuthError
+
+        config = EmbeddingConfig(api_key="test-key", max_retries=1)
+        backend = OpenAIBackend(config, use_circuit_breaker=False)
+
+        mock_response = AsyncMock()
+        mock_response.status = 401
+        mock_response.text = AsyncMock(return_value="unauthorized")
+
+        with patch("aiohttp.ClientSession.post") as mock_post:
+            mock_post.return_value.__aenter__.return_value = mock_response
+
+            with pytest.raises(EmbeddingAuthError) as exc_info:
+                await backend._call_api(["test"])
+
+            assert exc_info.value.provider == "openai"
+
+    @pytest.mark.asyncio
+    async def test_quota_error(self):
+        """Test 402 response raises EmbeddingQuotaError."""
+        from aragora.core.embeddings.types import EmbeddingQuotaError
+
+        config = EmbeddingConfig(api_key="test-key", max_retries=1)
+        backend = OpenAIBackend(config, use_circuit_breaker=False)
+
+        mock_response = AsyncMock()
+        mock_response.status = 402
+        mock_response.text = AsyncMock(return_value="quota exceeded")
+
+        with patch("aiohttp.ClientSession.post") as mock_post:
+            mock_post.return_value.__aenter__.return_value = mock_response
+
+            with pytest.raises(EmbeddingQuotaError) as exc_info:
+                await backend._call_api(["test"])
+
+            assert exc_info.value.provider == "openai"
+
+
+class TestOllamaBackendErrors:
+    """Test Ollama backend error handling."""
+
+    @pytest.mark.asyncio
+    async def test_model_not_found(self):
+        """Test 404 response raises EmbeddingModelError."""
+        from aragora.core.embeddings.types import EmbeddingModelError
+
+        config = EmbeddingConfig(max_retries=1)
+        backend = OllamaBackend(config, use_circuit_breaker=False)
+
+        mock_response = AsyncMock()
+        mock_response.status = 404
+        mock_response.text = AsyncMock(return_value="model not found")
+
+        with patch("aiohttp.ClientSession.post") as mock_post:
+            mock_post.return_value.__aenter__.return_value = mock_response
+
+            with pytest.raises(EmbeddingModelError) as exc_info:
+                await backend.embed("test")
+
+            assert exc_info.value.provider == "ollama"
+            assert "nomic-embed-text" in exc_info.value.model
+
+    @pytest.mark.asyncio
+    async def test_connection_error(self):
+        """Test connection failure raises EmbeddingConnectionError."""
+        from aragora.core.embeddings.types import EmbeddingConnectionError
+        import aiohttp
+
+        config = EmbeddingConfig(max_retries=1)
+        backend = OllamaBackend(config, use_circuit_breaker=False)
+
+        with patch("aiohttp.ClientSession.post") as mock_post:
+            mock_post.return_value.__aenter__.side_effect = aiohttp.ClientConnectorError(
+                None, OSError("Connection refused")
+            )
+
+            with pytest.raises(EmbeddingConnectionError) as exc_info:
+                await backend.embed("test")
+
+            assert exc_info.value.provider == "ollama"
+            assert "localhost" in exc_info.value.host
+
+
+# =============================================================================
+# Integration Tests
+# =============================================================================
+
+
+class TestEmbeddingServiceIntegration:
+    """Integration tests for the unified embedding service."""
+
+    def setup_method(self):
+        """Reset global state before each test."""
+        reset_embedding_service()
+        reset_caches()
+
+    @pytest.mark.asyncio
+    async def test_service_with_hash_backend(self):
+        """Test full service workflow with hash backend."""
+        config = EmbeddingConfig(provider="hash", dimension=256)
+        service = UnifiedEmbeddingService(config=config)
+
+        # Single embed
+        result = await service.embed("test text")
+        assert result.provider == "hash"
+        assert len(result.embedding) == 256
+
+        # Batch embed
+        results = await service.embed_batch(["a", "b", "c"])
+        assert len(results) == 3
+
+        # Similarity
+        sim = await service.similarity("hello", "hello")
+        assert sim == pytest.approx(1.0, abs=0.01)
+
+        # Find similar
+        similar = await service.find_similar("query", ["a", "b", "c"])
+        assert len(similar) <= 5
+
+    @pytest.mark.asyncio
+    async def test_service_caching_workflow(self):
+        """Test caching behavior across operations."""
+        cache = EmbeddingCache(ttl_seconds=3600, max_size=100)
+        config = EmbeddingConfig(provider="hash", dimension=256)
+        service = UnifiedEmbeddingService(config=config, cache=cache)
+
+        # First embed - cache miss
+        result1 = await service.embed("cached text")
+        assert result1.cached is False
+
+        # Second embed - cache hit
+        result2 = await service.embed("cached text")
+        assert result2.cached is True
+
+        # Verify cache stats
+        stats = service.get_cache_stats()
+        assert stats.hits == 1
+        assert stats.misses == 1
+
+    @pytest.mark.asyncio
+    async def test_scoped_cache_isolation(self):
+        """Test scoped caches are isolated."""
+        config = EmbeddingConfig(provider="hash", dimension=256)
+
+        service1 = get_embedding_service(config=config, scope_id="debate_1")
+        service2 = get_embedding_service(config=config, scope_id="debate_2")
+
+        # Cache in service1
+        await service1.embed("shared text")
+
+        # Service2 should not see cached value
+        result = await service2.embed("shared text")
+        assert result.cached is False
