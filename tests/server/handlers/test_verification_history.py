@@ -44,9 +44,14 @@ def mock_http_handler():
 
 @pytest.fixture(autouse=True)
 def clear_history():
-    """Clear history before each test."""
+    """Clear history before each test and disable GovernanceStore persistence."""
     _verification_history.clear()
-    yield
+    # Disable GovernanceStore during tests to ensure isolation
+    with patch(
+        "aragora.server.handlers.verification.formal_verification._get_governance_store",
+        return_value=None,
+    ):
+        yield
     _verification_history.clear()
 
 

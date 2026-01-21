@@ -23,9 +23,11 @@ Endpoints:
 
 from __future__ import annotations
 
+import functools
 import logging
+import time
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TypeVar, ParamSpec
 
 from aragora.auth.lockout import get_lockout_tracker
 from aragora.billing.jwt_auth import create_access_token, extract_user_from_request
@@ -42,6 +44,16 @@ from ..base import (
     log_request,
     validate_path_segment,
 )
+from ..secure import (
+    SecureHandler,
+    secure_endpoint,
+    audit_sensitive_access,
+    UnauthorizedError,
+    ForbiddenError,
+)
+
+P = ParamSpec("P")
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +82,128 @@ except ImportError:
         pass
 
 
-class AdminHandler(BaseHandler):
-    """Handler for admin endpoints."""
+def admin_secure_endpoint(
+    permission: Optional[str] = None,
+    audit: bool = False,
+    audit_action: Optional[str] = None,
+    resource_id_param: Optional[str] = None,
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """
+    Admin-specific secure endpoint decorator.
+
+    Combines SecureHandler's @secure_endpoint with admin MFA enforcement.
+    All admin endpoints require:
+    1. Authentication (JWT)
+    2. Admin or owner role
+    3. MFA enabled (SOC 2 CC5-01)
+    4. Optional RBAC permission check
+
+    Args:
+        permission: Required RBAC permission (e.g., "admin.users.impersonate")
+        audit: Whether to log to audit trail
+        audit_action: Custom action name for audit
+        resource_id_param: Parameter containing resource ID
+
+    Usage:
+        @admin_secure_endpoint(permission="admin.users.impersonate", audit=True)
+        async def _impersonate_user(self, request, auth_context, target_user_id):
+            ...
+    """
+    from aragora.observability.immutable_log import get_audit_log
+    from aragora.observability.metrics.security import (
+        record_auth_attempt,
+        record_blocked_request,
+    )
+
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        async def wrapper(
+            self: "AdminHandler",
+            request: Any,
+            *args: P.args,
+            **kwargs: P.kwargs,
+        ) -> T:
+            start_time = time.perf_counter()
+
+            try:
+                # 1. Get auth context
+                auth_context = await self.get_auth_context(request, require_auth=True)
+                record_auth_attempt("jwt", success=True)
+
+                # 2. Check admin role
+                user_store = self._get_user_store()
+                if not user_store:
+                    return error_response("Service unavailable", 503)
+
+                user = user_store.get_user_by_id(auth_context.user_id)
+                if not user or user.role not in ADMIN_ROLES:
+                    logger.warning(f"Non-admin user {auth_context.user_id} attempted admin access")
+                    record_blocked_request("admin_required", "user")
+                    return error_response("Admin access required", 403)
+
+                # 3. Enforce MFA for admin users (SOC 2 CC5-01)
+                mfa_result = enforce_admin_mfa_policy(user, user_store)
+                if mfa_result is not None:
+                    reason = mfa_result.get("reason", "MFA required")
+                    logger.warning(f"Admin user {auth_context.user_id} denied: {reason}")
+                    record_blocked_request("mfa_required", "admin")
+                    return error_response(
+                        f"Administrative access requires MFA. {reason}",
+                        403,
+                        code="ADMIN_MFA_REQUIRED",
+                    )
+
+                # 4. Check RBAC permission if specified
+                if permission:
+                    resource_id = kwargs.get(resource_id_param) if resource_id_param else None
+                    try:
+                        self.check_permission(auth_context, permission, resource_id)
+                    except ForbiddenError as e:
+                        return error_response(f"Permission denied: {permission}", 403)
+
+                # 5. Call the actual handler
+                result = await func(self, request, auth_context, *args, **kwargs)
+
+                # 6. Audit if requested
+                if audit:
+                    action_name = audit_action or func.__name__.lstrip("_")
+                    resource_id = str(kwargs.get(resource_id_param, "system"))
+                    await get_audit_log().append(
+                        event_type=f"admin.{action_name}",
+                        actor=auth_context.user_id,
+                        actor_type="admin",
+                        resource_type=self.RESOURCE_TYPE,
+                        resource_id=resource_id,
+                        action=action_name,
+                        workspace_id=auth_context.workspace_id,
+                        details={
+                            "duration_ms": round((time.perf_counter() - start_time) * 1000, 2),
+                            "permission_checked": permission,
+                        },
+                        ip_address=getattr(request, "remote", None),
+                        user_agent=request.headers.get("User-Agent") if hasattr(request, "headers") else None,
+                    )
+
+                return result
+
+            except (UnauthorizedError, ForbiddenError) as e:
+                return self.handle_security_error(e, request)
+
+        return wrapper  # type: ignore
+
+    return decorator
+
+
+class AdminHandler(SecureHandler):
+    """
+    Handler for admin endpoints.
+
+    Extends SecureHandler with admin-specific MFA enforcement.
+    All admin operations are audited to the immutable log.
+    """
+
+    # Resource type for audit logging
+    RESOURCE_TYPE = "admin"
 
     ROUTES = [
         "/api/admin/organizations",

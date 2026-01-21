@@ -56,6 +56,14 @@ def create_auth_request_body(data: dict) -> MagicMock:
     return handler
 
 
+def create_admin_user() -> MagicMock:
+    """Create a mock admin user with proper role for RBAC."""
+    user = MagicMock()
+    user.user_id = "test-admin"
+    user.role = "admin"  # Required for controlplane:* permissions
+    return user
+
+
 @pytest.fixture
 def mock_coordinator():
     """Create a mock control plane coordinator."""
@@ -388,7 +396,7 @@ class TestControlPlaneHandlerRegisterAgent:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post("/api/control-plane/agents", {}, handler)
 
@@ -408,7 +416,7 @@ class TestControlPlaneHandlerRegisterAgent:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post("/api/control-plane/agents", {}, handler)
 
@@ -431,7 +439,7 @@ class TestControlPlaneHandlerHeartbeat:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/agents/test-agent/heartbeat", {}, handler
@@ -452,7 +460,7 @@ class TestControlPlaneHandlerHeartbeat:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/agents/nonexistent/heartbeat", {}, handler
@@ -490,7 +498,7 @@ class TestControlPlaneHandlerSubmitTask:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
 
@@ -509,7 +517,7 @@ class TestControlPlaneHandlerSubmitTask:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
 
@@ -529,7 +537,7 @@ class TestControlPlaneHandlerSubmitTask:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
 
@@ -551,7 +559,7 @@ class TestControlPlaneHandlerCompleteTask:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/task-123/complete", {}, handler
@@ -572,7 +580,7 @@ class TestControlPlaneHandlerCompleteTask:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/nonexistent/complete", {}, handler
@@ -596,7 +604,7 @@ class TestControlPlaneHandlerFailTask:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/task-123/fail", {}, handler
@@ -617,7 +625,7 @@ class TestControlPlaneHandlerFailTask:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/nonexistent/fail", {}, handler
@@ -636,7 +644,7 @@ class TestControlPlaneHandlerCancelTask:
         handler = create_auth_request_body({})
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/task-123/cancel", {}, handler
@@ -653,7 +661,7 @@ class TestControlPlaneHandlerCancelTask:
         handler = create_auth_request_body({})
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks/nonexistent/cancel", {}, handler
@@ -686,7 +694,7 @@ class TestControlPlaneHandlerUnregisterAgent:
         ControlPlaneHandler.coordinator = mock_coordinator
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_delete(
                 "/api/control-plane/agents/test-agent", {}, mock_http_handler
@@ -704,7 +712,7 @@ class TestControlPlaneHandlerUnregisterAgent:
         mock_coordinator.unregister_agent = AsyncMock(return_value=False)
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_delete(
                 "/api/control-plane/agents/nonexistent", {}, mock_http_handler
@@ -732,7 +740,7 @@ class TestControlPlaneHandlerIntegration:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/agents", {}, register_handler
@@ -751,7 +759,7 @@ class TestControlPlaneHandlerIntegration:
         heartbeat_handler = create_auth_request_body({"status": "ready"})
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/agents/lifecycle-agent/heartbeat", {}, heartbeat_handler
@@ -763,7 +771,7 @@ class TestControlPlaneHandlerIntegration:
 
         # Step 4: Unregister agent
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_delete(
                 "/api/control-plane/agents/lifecycle-agent", {}, mock_http_handler
@@ -787,7 +795,7 @@ class TestControlPlaneHandlerIntegration:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 "/api/control-plane/tasks", {}, submit_handler
@@ -808,7 +816,7 @@ class TestControlPlaneHandlerIntegration:
         )
 
         with patch.object(
-            control_plane_handler, "require_auth_or_error", return_value=(MagicMock(), None)
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
                 f"/api/control-plane/tasks/{task_id}/complete", {}, complete_handler

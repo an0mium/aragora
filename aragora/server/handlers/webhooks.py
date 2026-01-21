@@ -32,6 +32,16 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.utils.url_security import validate_webhook_url
 
+# RBAC imports - graceful fallback if not available
+try:
+    from aragora.rbac import AuthorizationContext, check_permission
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+    AuthorizationContext = None
+    check_permission = None
+
 # Import durable storage from storage module
 from aragora.storage.webhook_config_store import (
     WEBHOOK_EVENTS,
@@ -151,6 +161,51 @@ class WebhookHandler(BaseHandler):
                 self._webhook_store = get_webhook_store()
                 self.ctx["webhook_store"] = self._webhook_store
         return self._webhook_store
+
+    def _get_auth_context(self, handler) -> Optional[AuthorizationContext]:
+        """Build RBAC authorization context from request."""
+        if not RBAC_AVAILABLE or AuthorizationContext is None:
+            return None
+
+        user = self.get_current_user(handler)
+        if not user:
+            return None
+
+        # User context has user_id and potentially role info
+        return AuthorizationContext(
+            user_id=user.user_id,
+            roles=set([user.role]) if hasattr(user, "role") and user.role else set(),
+            org_id=getattr(user, "org_id", None),
+        )
+
+    def _check_rbac_permission(
+        self, handler, permission_key: str
+    ) -> Optional[HandlerResult]:
+        """
+        Check RBAC permission.
+
+        Returns None if allowed, or an error response if denied.
+        """
+        if not RBAC_AVAILABLE:
+            return None
+
+        rbac_ctx = self._get_auth_context(handler)
+        if not rbac_ctx:
+            # No auth context - rely on existing auth checks
+            return None
+
+        decision = check_permission(rbac_ctx, permission_key)
+        if not decision.allowed:
+            logger.warning(
+                f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
+                f"reason={decision.reason}"
+            )
+            return error_response(
+                {"error": "Permission denied", "reason": decision.reason},
+                403,
+            )
+
+        return None
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -310,6 +365,11 @@ class WebhookHandler(BaseHandler):
 
     def _handle_register_webhook(self, body: dict, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks - register new webhook."""
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "webhooks.create")
+        if rbac_error:
+            return rbac_error
+
         url = body.get("url", "").strip()
         if not url:
             return error_response("URL is required", 400)
@@ -356,6 +416,11 @@ class WebhookHandler(BaseHandler):
 
     def _handle_delete_webhook(self, webhook_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/webhooks/:id - delete webhook."""
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "webhooks.delete")
+        if rbac_error:
+            return rbac_error
+
         store = self._get_webhook_store()
         webhook = store.get(webhook_id)
 
@@ -377,6 +442,11 @@ class WebhookHandler(BaseHandler):
 
     def _handle_update_webhook(self, webhook_id: str, body: dict, handler: Any) -> HandlerResult:
         """Handle PATCH /api/webhooks/:id - update webhook."""
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "webhooks.update")
+        if rbac_error:
+            return rbac_error
+
         store = self._get_webhook_store()
         webhook = store.get(webhook_id)
 
@@ -415,6 +485,11 @@ class WebhookHandler(BaseHandler):
 
     def _handle_test_webhook(self, webhook_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks/:id/test - send test event."""
+        # RBAC permission check
+        rbac_error = self._check_rbac_permission(handler, "webhooks.test")
+        if rbac_error:
+            return rbac_error
+
         store = self._get_webhook_store()
         webhook = store.get(webhook_id)
 
