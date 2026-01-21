@@ -707,10 +707,17 @@ def _create_decision_router_debate_starter():
             router = get_decision_router()
             result = await router.route(request)
 
+            # Extract debate_id from debate_result if available
+            debate_id = result.request_id
+            if result.debate_result and hasattr(result.debate_result, "debate_id"):
+                debate_id = result.debate_result.debate_id or debate_id
+
             return {
-                "debate_id": result.debate_id or "pending",
-                "status": result.status.value if result.status else "started",
+                "debate_id": debate_id or "pending",
+                "status": "completed" if result.success else "failed",
                 "topic": topic,
+                "answer": result.answer,
+                "confidence": result.confidence,
             }
         except ImportError:
             logger.debug("DecisionRouter not available, returning minimal response")

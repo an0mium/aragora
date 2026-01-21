@@ -429,7 +429,30 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         )
     )
 
-    # Phase 14: Close Redis connection pool
+    # Phase 14: Stop RBAC distributed cache
+    async def stop_rbac_cache():
+        try:
+            from aragora.rbac.cache import get_rbac_cache, reset_rbac_cache
+
+            cache = get_rbac_cache()
+            if cache:
+                cache.stop()
+                reset_rbac_cache()  # Clear singleton for clean restart
+                logger.debug("RBAC distributed cache stopped")
+        except ImportError:
+            pass  # RBAC module not available
+        except Exception as e:
+            logger.debug(f"RBAC cache stop skipped: {e}")
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Stop RBAC cache",
+            execute=stop_rbac_cache,
+            timeout=2.0,
+        )
+    )
+
+    # Phase 15: Close Redis connection pool
     async def close_redis():
         from aragora.server.redis_config import close_redis_pool
 
@@ -444,7 +467,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         )
     )
 
-    # Phase 15: Stop auth cleanup thread
+    # Phase 16: Stop auth cleanup thread
     async def stop_auth_cleanup():
         from aragora.server.auth import auth_config
 
@@ -459,7 +482,7 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         )
     )
 
-    # Phase 16: Close database connections
+    # Phase 17: Close database connections
     async def close_databases():
         from aragora.storage.schema import DatabaseManager
 

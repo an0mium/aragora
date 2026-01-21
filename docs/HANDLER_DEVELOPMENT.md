@@ -356,3 +356,199 @@ If decorator signature changes, ensure test mocks match:
 @handle_errors("operation")  # Correct
 @handle_errors  # Wrong - missing argument
 ```
+
+---
+
+## Secure Handlers
+
+For handlers that deal with sensitive operations, authentication, or require RBAC enforcement, use `SecureHandler` instead of `BaseHandler`.
+
+### When to Use SecureHandler
+
+Use `SecureHandler` for:
+- **User management** operations (create, update, delete users)
+- **Admin operations** (impersonation, system config)
+- **Billing/payment** operations
+- **Data export/deletion** (GDPR compliance)
+- **API key management**
+- **Operations requiring audit trails**
+
+### SecureHandler Features
+
+SecureHandler provides automatic:
+1. **JWT Authentication** - Token extraction and verification
+2. **RBAC Enforcement** - Permission checking via the permission system
+3. **Audit Logging** - Writes to the immutable audit trail
+4. **Security Metrics** - Records auth attempts, RBAC decisions, blocked requests
+5. **Encryption Support** - Built-in field encryption/decryption helpers
+
+### Creating a Secure Handler
+
+```python
+from aragora.server.handlers.secure import (
+    SecureHandler,
+    secure_endpoint,
+    audit_sensitive_access,
+)
+
+class MySecureHandler(SecureHandler):
+    """Handler with security features."""
+
+    # Resource type for audit logging
+    RESOURCE_TYPE = "my_resource"
+
+    ROUTES = ["/api/secure/myresource"]
+
+    @secure_endpoint(permission="myresource.read")
+    async def handle_get(self, request, auth_context, **kwargs):
+        """auth_context is automatically injected and verified."""
+        return json_response({"user_id": auth_context.user_id})
+
+    @secure_endpoint(permission="myresource.write", audit=True)
+    async def handle_post(self, request, auth_context, **kwargs):
+        """This action is logged to the audit trail."""
+        return json_response({"created": True})
+
+    @secure_endpoint(permission="myresource.delete", audit=True, audit_action="delete")
+    async def handle_delete(self, request, auth_context, resource_id, **kwargs):
+        """Custom audit action name."""
+        return json_response({"deleted": True})
+```
+
+### The @secure_endpoint Decorator
+
+```python
+@secure_endpoint(
+    permission="resource.action",      # RBAC permission key (optional)
+    require_auth=True,                  # Require authentication (default: True)
+    audit=False,                        # Log to audit trail (default: False)
+    audit_action=None,                  # Custom audit action name
+    resource_id_param=None,             # Parameter containing resource ID
+)
+```
+
+### Auditing Sensitive Data Access
+
+For endpoints that access PII or secrets, use `@audit_sensitive_access`:
+
+```python
+@audit_sensitive_access("api_key", "read")
+async def get_api_key(self, request, auth_context):
+    """This logs to audit trail that API key was accessed."""
+    return json_response({"key": "..."})
+```
+
+### Admin Handlers with MFA Enforcement
+
+For admin handlers that require MFA (SOC 2 CC5-01 compliance), use the `admin_secure_endpoint` decorator:
+
+```python
+from aragora.server.handlers.admin.admin import AdminHandler, admin_secure_endpoint
+
+class MyAdminHandler(AdminHandler):
+    RESOURCE_TYPE = "admin_operation"
+
+    @admin_secure_endpoint(permission="admin.users.manage", audit=True)
+    async def manage_users(self, request, auth_context, **kwargs):
+        """
+        Automatically enforces:
+        1. JWT authentication
+        2. Admin or owner role
+        3. MFA enabled
+        4. RBAC permission check
+        5. Audit logging
+        """
+        return json_response({"success": True})
+```
+
+### Testing Secure Handlers
+
+When testing secure handlers, mock the RBAC permission check:
+
+```python
+from unittest.mock import patch, MagicMock
+
+def _mock_allowed_decision():
+    """Create a mock decision that allows access."""
+    decision = MagicMock()
+    decision.allowed = True
+    decision.reason = "Test mock: allowed"
+    return decision
+
+@patch("aragora.server.handlers.secure.check_permission")
+@patch("aragora.server.handlers.utils.auth.get_auth_context")
+def test_secure_endpoint(mock_auth, mock_check_permission):
+    mock_auth.return_value = MagicMock(user_id="user-123", roles={"admin"})
+    mock_check_permission.return_value = _mock_allowed_decision()
+
+    # Your test code here
+```
+
+### Checklist for Secure Handlers
+
+- [ ] Handler inherits from `SecureHandler` (or `AdminHandler` for admin ops)
+- [ ] `RESOURCE_TYPE` is set for audit logging
+- [ ] `@secure_endpoint` decorator with appropriate permission
+- [ ] `audit=True` for state-changing operations
+- [ ] `@audit_sensitive_access` for PII/secret access
+- [ ] Tests mock `check_permission` to allow/deny access
+- [ ] Error handling uses `handle_security_error()`
+
+---
+
+## Approval Gate Middleware
+
+For high-risk operations that require human approval, use the approval gate:
+
+```python
+from aragora.server.middleware import require_approval, OperationRiskLevel
+
+@require_approval(
+    risk_level=OperationRiskLevel.HIGH,
+    operation_type="delete_all_data",
+    description="Delete all user data permanently",
+)
+async def delete_all_data(request):
+    """This endpoint requires human approval before execution."""
+    # Only reaches here after approval is granted
+    return await perform_deletion()
+```
+
+### Approval States
+
+| State | HTTP Code | Meaning |
+|-------|-----------|---------|
+| PENDING | 202 | Waiting for approval |
+| APPROVED | 200 | Proceeds to handler |
+| DENIED | 403 | Operation blocked |
+| EXPIRED | 410 | Approval timed out |
+
+### Working with Approvals
+
+```python
+from aragora.server.middleware import (
+    create_approval_request,
+    get_approval_request,
+    resolve_approval,
+    ApprovalState,
+)
+
+# Create approval request
+approval = await create_approval_request(
+    operation_type="delete_user",
+    risk_level=OperationRiskLevel.HIGH,
+    requested_by="user-123",
+    metadata={"target_user": "user-456"},
+)
+
+# Get pending approvals
+pending = await get_pending_approvals(workspace_id="workspace-123")
+
+# Approve/deny
+await resolve_approval(
+    approval_id=approval.id,
+    state=ApprovalState.APPROVED,
+    approved_by="admin-789",
+    notes="Verified deletion request",
+)
+```

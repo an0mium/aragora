@@ -258,8 +258,13 @@ class TestDecisionRouterIntegration:
         with patch("aragora.core.get_decision_router") as mock_get_router:
             mock_router = MagicMock()
             mock_result = MagicMock()
-            mock_result.debate_id = "test-debate-123"
-            mock_result.status = MagicMock(value="started")
+            # Use correct DecisionResult attributes
+            mock_result.request_id = "test-debate-123"
+            mock_result.success = True
+            mock_result.answer = "Test answer"
+            mock_result.confidence = 0.9
+            mock_result.debate_result = MagicMock()
+            mock_result.debate_result.debate_id = "test-debate-123"
             mock_router.route = AsyncMock(return_value=mock_result)
             mock_get_router.return_value = mock_router
 
@@ -272,6 +277,7 @@ class TestDecisionRouterIntegration:
 
             assert result["debate_id"] == "test-debate-123"
             assert result["topic"] == "Test debate topic"
+            assert result["status"] == "completed"
             mock_router.route.assert_called_once()
 
     @pytest.mark.asyncio
@@ -364,8 +370,13 @@ class TestDecisionRouterIntegration:
             with patch("aragora.core.get_decision_router") as mock_get_router:
                 mock_router = MagicMock()
                 mock_result = MagicMock()
-                mock_result.debate_id = f"debate-{platform}"
-                mock_result.status = MagicMock(value="started")
+                # Use correct DecisionResult attributes
+                mock_result.request_id = f"debate-{platform}"
+                mock_result.success = True
+                mock_result.answer = "Test answer"
+                mock_result.confidence = 0.9
+                mock_result.debate_result = MagicMock()
+                mock_result.debate_result.debate_id = f"debate-{platform}"
                 mock_router.route = AsyncMock(return_value=mock_result)
                 mock_get_router.return_value = mock_router
 

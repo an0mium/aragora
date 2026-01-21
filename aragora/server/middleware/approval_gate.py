@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -588,6 +589,97 @@ def _record_approval_resolved(request: OperationApprovalRequest) -> None:
 
 
 # =============================================================================
+# Startup Recovery
+# =============================================================================
+
+
+async def recover_pending_approvals() -> int:
+    """
+    Recover pending approval requests from the governance store at startup.
+
+    This function should be called during server initialization to restore
+    any pending approvals that were active when the server last stopped.
+    Approvals that have expired are automatically rejected.
+
+    Returns:
+        Number of pending approvals recovered
+    """
+    try:
+        from aragora.storage.governance_store import get_governance_store
+
+        store = get_governance_store()
+        pending_records = store.list_approvals(status="pending")
+
+        recovered = 0
+        expired = 0
+        now = datetime.now(timezone.utc)
+
+        for record in pending_records:
+            try:
+                metadata = json.loads(record.metadata_json) if record.metadata_json else {}
+
+                # Check if expired
+                if record.timeout_seconds:
+                    expires_at = record.requested_at + timedelta(seconds=record.timeout_seconds)
+                    if now > expires_at:
+                        # Auto-expire
+                        store.update_approval_status(
+                            approval_id=record.approval_id,
+                            status="expired",
+                        )
+                        expired += 1
+                        continue
+
+                # Recover to in-memory cache
+                checklist = [
+                    ApprovalChecklistItem(
+                        label=item.get("label", ""),
+                        required=item.get("required", True),
+                    )
+                    for item in metadata.get("checklist", [])
+                ]
+
+                request = OperationApprovalRequest(
+                    id=record.approval_id,
+                    operation=metadata.get("operation", "unknown"),
+                    risk_level=OperationRiskLevel(record.risk_level or "high"),
+                    requester_id=record.requested_by or "",
+                    org_id=metadata.get("org_id"),
+                    workspace_id=record.workspace_id,
+                    resource_type=metadata.get("resource_type", ""),
+                    resource_id=metadata.get("resource_id", ""),
+                    description=record.description or "",
+                    checklist=checklist,
+                    context=metadata.get("context", {}),
+                    state=ApprovalState.PENDING,
+                    created_at=record.requested_at,
+                    expires_at=record.requested_at + timedelta(seconds=record.timeout_seconds)
+                    if record.timeout_seconds
+                    else None,
+                )
+
+                _pending_approvals[record.approval_id] = request
+                recovered += 1
+
+            except Exception as e:
+                logger.warning(f"Failed to recover approval {record.approval_id}: {e}")
+
+        if recovered > 0 or expired > 0:
+            logger.info(
+                f"Approval gate recovery: {recovered} pending restored, {expired} expired"
+            )
+
+        return recovered
+
+    except ImportError:
+        logger.debug("GovernanceStore not available, approval recovery skipped")
+        return 0
+    except Exception as e:
+        logger.warning(f"Failed to recover pending approvals: {e}")
+        return 0
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -602,6 +694,7 @@ __all__ = [
     "create_approval_request",
     "get_approval_request",
     "get_pending_approvals",
+    "recover_pending_approvals",
     "require_approval",
     "resolve_approval",
 ]

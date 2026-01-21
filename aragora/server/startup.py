@@ -964,6 +964,9 @@ async def run_startup_sequence(
     # Initialize RBAC distributed cache for horizontal scaling
     status["rbac_distributed_cache"] = await init_rbac_distributed_cache()
 
+    # Recover pending approval requests from governance store
+    status["approval_gate_recovery"] = await init_approval_gate_recovery()
+
     return status
 
 
@@ -1042,6 +1045,32 @@ async def init_rbac_distributed_cache() -> bool:
         logger.warning(f"Failed to initialize RBAC distributed cache: {e}")
 
     return False
+
+
+async def init_approval_gate_recovery() -> int:
+    """Recover pending approval requests from the governance store.
+
+    Restores any pending approval requests that were active when the server
+    last stopped. Approvals that have expired since then are automatically
+    marked as expired.
+
+    Returns:
+        Number of pending approvals recovered
+    """
+    try:
+        from aragora.server.middleware.approval_gate import recover_pending_approvals
+
+        recovered = await recover_pending_approvals()
+        if recovered > 0:
+            logger.info(f"Recovered {recovered} pending approval requests")
+        return recovered
+
+    except ImportError as e:
+        logger.debug(f"Approval gate recovery not available: {e}")
+        return 0
+    except Exception as e:
+        logger.warning(f"Failed to recover pending approvals: {e}")
+        return 0
 
 
 async def init_key_rotation_scheduler() -> bool:
@@ -1248,5 +1277,6 @@ __all__ = [
     "init_decision_router",
     "init_key_rotation_scheduler",
     "init_rbac_distributed_cache",
+    "init_approval_gate_recovery",
     "run_startup_sequence",
 ]

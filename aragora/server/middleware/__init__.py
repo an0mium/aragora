@@ -234,6 +234,7 @@ from .approval_gate import (
     create_approval_request,
     get_approval_request,
     get_pending_approvals,
+    recover_pending_approvals,
     require_approval,
     resolve_approval,
 )
@@ -432,6 +433,7 @@ __all__ = [
     "create_approval_request",
     "get_approval_request",
     "get_pending_approvals",
+    "recover_pending_approvals",
     "require_approval",
     "resolve_approval",
 ]
