@@ -7814,7 +7814,44 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         Args:
             improvement: The improvement proposal from debate phase
             belief_analysis: Optional belief analysis from debate (contested/crux claims)
+
+        Task decomposition is performed for complex tasks to break them into
+        manageable subtasks with dependencies.
         """
+        # Task decomposition for complex tasks
+        from aragora.nomic.task_decomposer import analyze_task
+
+        decomposition = analyze_task(improvement)
+
+        if decomposition.should_decompose:
+            self._log(f"  [design] Task decomposed into {len(decomposition.subtasks)} subtasks")
+            self._log(
+                f"  [design] Complexity: {decomposition.complexity_level} (score={decomposition.complexity_score})"
+            )
+            self._log(f"  [design] Rationale: {decomposition.rationale}")
+
+            # For decomposed tasks, process subtasks sequentially with dependencies
+            designs = []
+            for subtask in decomposition.subtasks:
+                self._log(f"  [design] Processing subtask: {subtask.title}")
+                subtask_design = await self._design_subtask(subtask, improvement, belief_analysis)
+                designs.append(subtask_design)
+
+            # Merge designs into unified design
+            merged_design = self._merge_subtask_designs(designs, decomposition)
+            return {
+                "phase": "design",
+                "success": all(d["success"] for d in designs),
+                "design": merged_design,
+                "files_affected": list(
+                    set(f for d in designs for f in d.get("files_affected", []))
+                ),
+                "complexity": decomposition.complexity_level,
+                "decomposed": True,
+                "subtask_count": len(decomposition.subtasks),
+            }
+
+        # Standard path for simple tasks
         design_phase = self._create_design_phase()
         # Build belief context from analysis
         from aragora.nomic.phases.design import BeliefContext
@@ -7839,6 +7876,63 @@ Start directly with "## 1. FILE CHANGES" or similar."""
             "files_affected": result["files_affected"],
             "complexity": result["complexity_estimate"],
         }
+
+    async def _design_subtask(
+        self, subtask, parent_improvement: str, belief_analysis: dict = None
+    ) -> dict:
+        """Design a single subtask from decomposition."""
+        design_phase = self._create_design_phase()
+        from aragora.nomic.phases.design import BeliefContext
+
+        belief_ctx = None
+        if belief_analysis:
+            belief_ctx = BeliefContext(
+                contested_count=belief_analysis.get("contested_count", 0),
+                crux_count=belief_analysis.get("crux_count", 0),
+                posteriors=belief_analysis.get("posteriors"),
+                convergence_achieved=belief_analysis.get("convergence_achieved", False),
+            )
+
+        # Build subtask-specific improvement prompt
+        subtask_prompt = f"""SUBTASK: {subtask.title}
+
+{subtask.description}
+
+PARENT IMPROVEMENT CONTEXT:
+{parent_improvement[:1000]}...
+
+FILES IN SCOPE: {', '.join(subtask.file_scope) if subtask.file_scope else 'auto-detect'}
+DEPENDENCIES: {', '.join(subtask.dependencies) if subtask.dependencies else 'none'}
+"""
+
+        result = await design_phase.execute(
+            improvement=subtask_prompt,
+            belief_context=belief_ctx,
+        )
+        return {
+            "subtask_id": subtask.id,
+            "success": result["success"],
+            "design": result["design"],
+            "files_affected": result["files_affected"],
+        }
+
+    def _merge_subtask_designs(self, designs: list, decomposition) -> str:
+        """Merge subtask designs into a unified implementation plan."""
+        merged_parts = ["# UNIFIED IMPLEMENTATION PLAN\n"]
+        merged_parts.append(f"Original task: {decomposition.original_task[:200]}...\n")
+        merged_parts.append(
+            f"Complexity: {decomposition.complexity_level} (score={decomposition.complexity_score})\n\n"
+        )
+
+        for i, (subtask, design) in enumerate(zip(decomposition.subtasks, designs), 1):
+            merged_parts.append(f"## Phase {i}: {subtask.title}\n")
+            merged_parts.append(
+                f"Dependencies: {', '.join(subtask.dependencies) if subtask.dependencies else 'none'}\n"
+            )
+            merged_parts.append(f"Estimated complexity: {subtask.estimated_complexity}\n\n")
+            merged_parts.append(design.get("design", "No design generated") + "\n\n")
+
+        return "\n".join(merged_parts)
 
     async def phase_implement(self, design: str) -> dict:
         """Phase 3: Hybrid multi-model implementation."""

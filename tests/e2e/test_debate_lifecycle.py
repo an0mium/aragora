@@ -46,6 +46,13 @@ def create_mock_agent(name: str, response: str = "Default response") -> MagicMoc
     mock_critique.target_agent = "other"
     mock_critique.round = 1
     agent.critique = AsyncMock(return_value=mock_critique)
+
+    # Token usage tracking (required by extensions)
+    agent.total_input_tokens = 0
+    agent.total_output_tokens = 0
+    agent.input_tokens = 0
+    agent.output_tokens = 0
+
     return agent
 
 
@@ -54,11 +61,14 @@ def create_mock_agent(name: str, response: str = "Default response") -> MagicMoc
 # ============================================================================
 
 
+@pytest.mark.e2e
 class TestStandardDebateE2E:
-    """E2E tests for standard debate lifecycle."""
+    """E2E tests for standard debate lifecycle.
+
+    Uses mock agents - no API keys required.
+    """
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="E2E test requires full integration environment with API keys")
     async def test_basic_debate_lifecycle(
         self,
         basic_debate: DebateSetup,
@@ -89,7 +99,6 @@ class TestStandardDebateE2E:
         assert result.rounds_completed <= basic_debate.rounds
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="E2E test requires full integration environment")
     async def test_debate_with_consensus_detection(
         self,
         basic_debate: DebateSetup,
@@ -122,7 +131,6 @@ class TestStandardDebateE2E:
             assert result is not None
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="E2E test requires full integration environment")
     async def test_debate_with_critiques(
         self,
         basic_debate: DebateSetup,
@@ -154,9 +162,14 @@ class TestStandardDebateE2E:
 # ============================================================================
 
 
-@pytest.mark.skip(reason="E2E tests require full integration environment with metrics and API keys")
+@pytest.mark.e2e
+@pytest.mark.slow
 class TestExtendedDebateE2E:
-    """E2E tests for extended (50+) round debates."""
+    """E2E tests for extended (50+) round debates.
+
+    Uses mock agents - no API keys required.
+    Marked slow due to 50+ round iterations.
+    """
 
     @pytest.mark.asyncio
     async def test_extended_debate_with_rlm(
@@ -356,9 +369,12 @@ class TestCrossDebateMemoryE2E:
 # ============================================================================
 
 
-@pytest.mark.skip(reason="E2E tests require full integration environment with metrics")
+@pytest.mark.e2e
 class TestDebateStreamingE2E:
-    """E2E tests for debate event streaming."""
+    """E2E tests for debate event streaming.
+
+    Uses mock agents and event capturing.
+    """
 
     @pytest.mark.asyncio
     async def test_debate_event_stream(
@@ -423,9 +439,12 @@ class TestDebateStreamingE2E:
 # ============================================================================
 
 
-@pytest.mark.skip(reason="E2E tests require full integration environment with metrics")
+@pytest.mark.e2e
 class TestDebateVotingE2E:
-    """E2E tests for debate voting system."""
+    """E2E tests for debate voting system.
+
+    Uses mock agents with vote() method configured.
+    """
 
     @pytest.mark.asyncio
     async def test_agent_voting(
@@ -482,9 +501,12 @@ class TestDebateVotingE2E:
 # ============================================================================
 
 
-@pytest.mark.skip(reason="E2E tests require full integration environment with metrics")
+@pytest.mark.e2e
 class TestDebateErrorHandlingE2E:
-    """E2E tests for debate error handling."""
+    """E2E tests for debate error handling.
+
+    Tests error recovery with mock agents.
+    """
 
     @pytest.mark.asyncio
     async def test_agent_failure_recovery(

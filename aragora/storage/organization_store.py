@@ -177,7 +177,7 @@ class OrganizationStore:
     def get_organization_by_id(self, org_id: str) -> Optional[Organization]:
         """Get organization by ID."""
         with self._transaction() as cursor:
-            cursor.execute("SELECT * FROM organizations WHERE id = ?", (org_id,))
+            cursor.execute(f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE id = ?", (org_id,))
             row = cursor.fetchone()
             if row:
                 return self._row_to_org(row)
@@ -186,7 +186,7 @@ class OrganizationStore:
     def get_organization_by_slug(self, slug: str) -> Optional[Organization]:
         """Get organization by slug."""
         with self._transaction() as cursor:
-            cursor.execute("SELECT * FROM organizations WHERE slug = ?", (slug,))
+            cursor.execute(f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE slug = ?", (slug,))
             row = cursor.fetchone()
             if row:
                 return self._row_to_org(row)
@@ -198,7 +198,7 @@ class OrganizationStore:
         """Get organization by Stripe customer ID."""
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT * FROM organizations WHERE stripe_customer_id = ?",
+                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_customer_id = ?",
                 (stripe_customer_id,),
             )
             row = cursor.fetchone()
@@ -210,7 +210,7 @@ class OrganizationStore:
         """Get organization by Stripe subscription ID."""
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT * FROM organizations WHERE stripe_subscription_id = ?",
+                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_subscription_id = ?",
                 (subscription_id,),
             )
             row = cursor.fetchone()
@@ -307,7 +307,7 @@ class OrganizationStore:
             )
 
         with self._transaction() as cursor:
-            cursor.execute("SELECT * FROM users WHERE org_id = ?", (org_id,))
+            cursor.execute(f"SELECT {self._USER_COLUMNS} FROM users WHERE org_id = ?", (org_id,))
             return [self._external_row_to_user(row) for row in cursor.fetchall()]
 
     def _row_to_org(self, row: sqlite3.Row) -> Organization:
@@ -359,7 +359,7 @@ class OrganizationStore:
         """Get invitation by ID."""
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT * FROM org_invitations WHERE id = ?",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = ?",
                 (invitation_id,),
             )
             row = cursor.fetchone()
@@ -371,7 +371,7 @@ class OrganizationStore:
         """Get invitation by token."""
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT * FROM org_invitations WHERE token = ?",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = ?",
                 (token,),
             )
             row = cursor.fetchone()
@@ -385,8 +385,8 @@ class OrganizationStore:
         """Get invitation by email and org."""
         with self._transaction() as cursor:
             cursor.execute(
-                """
-                SELECT * FROM org_invitations
+                f"""
+                SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                 WHERE email = ? AND org_id = ? AND status = ?
                 """,
                 (email, org_id, status),
@@ -400,7 +400,7 @@ class OrganizationStore:
         """Get all invitations for an organization."""
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT * FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",
                 (org_id,),
             )
             return [self._row_to_invitation(row) for row in cursor.fetchall()]
@@ -409,8 +409,8 @@ class OrganizationStore:
         """Get all pending invitations for an email address."""
         with self._transaction() as cursor:
             cursor.execute(
-                """
-                SELECT * FROM org_invitations
+                f"""
+                SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                 WHERE email = ? AND status = 'pending'
                 ORDER BY created_at DESC
                 """,

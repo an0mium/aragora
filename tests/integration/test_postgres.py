@@ -319,32 +319,46 @@ class TestStoreIntegration:
         # Just verify it initializes
         assert store is not None
 
-    @pytest.mark.skip(reason="Requires PostgreSQL-aware stores - implement after migration")
+    @pytest.mark.skip(
+        reason="Superseded by TestPostgresEloDatabaseIntegration in test_postgres_stores.py"
+    )
     def test_elo_system_postgres(self, pg_connection_url):
-        """Test EloSystem works with PostgreSQL."""
-        from aragora.ranking.elo import EloSystem
+        """Test EloSystem works with PostgreSQL.
 
-        # This would require EloSystem to support PostgreSQL
+        Note: PostgresEloDatabase is implemented in aragora/ranking/postgres_database.py
+        See tests/integration/test_postgres_stores.py for comprehensive tests.
+        """
         pass
 
-    @pytest.mark.skip(reason="Requires PostgreSQL-aware stores - implement after migration")
+    @pytest.mark.skip(
+        reason="Superseded by TestPostgresContinuumMemoryIntegration in test_postgres_stores.py"
+    )
     def test_continuum_memory_postgres(self, pg_connection_url):
-        """Test ContinuumMemory works with PostgreSQL."""
-        from aragora.memory.continuum import ContinuumMemory
+        """Test ContinuumMemory works with PostgreSQL.
 
-        # This would require ContinuumMemory to support PostgreSQL
+        Note: PostgresContinuumMemory is implemented in aragora/memory/postgres_continuum.py
+        See tests/integration/test_postgres_stores.py for comprehensive tests.
+        """
         pass
 
 
 class TestMigrations:
     """Tests for database migrations - requires PostgreSQL."""
 
-    @pytest.mark.skip(reason="Requires PostgreSQL-aware EloSystem - implement after ELO migration")
+    @pytest.mark.skip(reason="Superseded by PostgresEloDatabase.initialize() which creates schema")
     def test_elo_migrations(self, pg_connection_url):
-        """Test ELO system migrations."""
+        """Test ELO system migrations.
+
+        Note: PostgresEloDatabase handles schema creation in initialize().
+        """
         pass
 
-    @pytest.mark.skip(reason="Requires PostgreSQL-aware ContinuumMemory - implement after memory migration")
+    @pytest.mark.skip(
+        reason="Superseded by PostgresContinuumMemory.initialize() which creates schema"
+    )
     def test_continuum_migrations(self, pg_connection_url):
-        """Test Continuum memory migrations."""
+        """Test Continuum memory migrations.
+
+        Note: PostgresContinuumMemory handles schema creation in initialize().
+        """
         pass

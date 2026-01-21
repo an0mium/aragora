@@ -216,7 +216,7 @@ class Arena:
         enable_consensus_estimation: bool = False,  # Use ConsensusEstimator for early termination
         consensus_early_termination_threshold: float = 0.85,  # Probability threshold
         # RLM Cognitive Load Limiter (for long debates)
-        use_rlm_limiter: bool = False,  # Use RLM-enhanced cognitive limiter for context compression
+        use_rlm_limiter: bool = True,  # Use RLM-enhanced cognitive limiter for context compression (auto after round 3)
         rlm_limiter=None,  # Pre-configured RLMCognitiveLoadLimiter
         rlm_compression_threshold: int = 3000,  # Chars above which to trigger RLM compression
         rlm_max_recent_messages: int = 5,  # Keep N most recent messages at full detail
@@ -304,6 +304,7 @@ class Arena:
             if enable_knowledge_retrieval or enable_knowledge_ingestion:
                 try:
                     from aragora.knowledge.mound import get_knowledge_mound
+
                     knowledge_mound = get_knowledge_mound(
                         workspace_id=org_id or "default",
                         auto_initialize=True,
@@ -1043,6 +1044,7 @@ class Arena:
             km_adapter = None
             try:
                 from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
+
                 km_adapter = BeliefAdapter()
             except ImportError:
                 logger.debug("[arena] BeliefAdapter not available")
@@ -1883,9 +1885,8 @@ class Arena:
             elo_system=self.elo_system,
             judge_selection=self.protocol.judge_selection,
             generate_fn=generate_wrapper,
-            build_vote_prompt_fn=lambda candidates, props: self.prompt_builder.build_judge_vote_prompt(
-                candidates, props
-            ),
+            build_vote_prompt_fn=lambda candidates,
+            props: self.prompt_builder.build_judge_vote_prompt(candidates, props),
             sanitize_fn=OutputSanitizer.sanitize_agent_output,
             consensus_memory=self.consensus_memory,
         )

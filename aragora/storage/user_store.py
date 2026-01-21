@@ -59,6 +59,26 @@ class UserStore:
     Uses WAL mode for better read/write concurrency.
     """
 
+    # Explicit columns for SELECT queries - prevents SELECT * data exposure
+    _USER_COLUMNS = (
+        "id, email, password_hash, password_salt, name, org_id, role, "
+        "is_active, email_verified, api_key_hash, api_key_prefix, "
+        "api_key_created_at, api_key_expires_at, created_at, updated_at, "
+        "last_login_at, mfa_secret, mfa_enabled, mfa_backup_codes, token_version"
+    )
+    _ORG_COLUMNS = (
+        "id, name, slug, tier, owner_id, stripe_customer_id, "
+        "stripe_subscription_id, debates_used_this_month, billing_cycle_start, "
+        "settings, created_at, updated_at"
+    )
+    _INVITATION_COLUMNS = (
+        "id, org_id, email, role, token, invited_by, status, " "created_at, expires_at, accepted_at"
+    )
+    _AUDIT_LOG_COLUMNS = (
+        "id, timestamp, user_id, org_id, action, resource_type, "
+        "resource_id, old_value, new_value, metadata, ip_address, user_agent"
+    )
+
     # Class-level lock for schema migrations to prevent race conditions
     _schema_lock = threading.Lock()
 
@@ -670,7 +690,7 @@ class UserStore:
 
         # nosec B608: where_clause is built from constants, all values are parameterized
         query = f"""
-            SELECT * FROM organizations
+            SELECT {self._ORG_COLUMNS} FROM organizations
             {where_clause}
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
@@ -712,7 +732,7 @@ class UserStore:
 
         # nosec B608: where_clause is built from constants, all values are parameterized
         query = f"""
-            SELECT * FROM users
+            SELECT {self._USER_COLUMNS} FROM users
             {where_clause}
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
@@ -1778,7 +1798,7 @@ class PostgresUserStore:
         offset: int = 0,
     ) -> list[dict]:
         """Query audit log entries asynchronously."""
-        query = "SELECT * FROM audit_log WHERE 1=1"
+        query = f"SELECT {self._AUDIT_LOG_COLUMNS} FROM audit_log WHERE 1=1"
         params: list[Any] = []
         param_idx = 1
 
@@ -1917,7 +1937,10 @@ class PostgresUserStore:
     ) -> Optional[OrganizationInvitation]:
         """Get invitation by ID asynchronously."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM org_invitations WHERE id = $1", invitation_id)
+            row = await conn.fetchrow(
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = $1",
+                invitation_id,
+            )
             if row:
                 return self._row_to_invitation(row)
             return None
@@ -1931,7 +1954,10 @@ class PostgresUserStore:
     async def get_invitation_by_token_async(self, token: str) -> Optional[OrganizationInvitation]:
         """Get invitation by token asynchronously."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM org_invitations WHERE token = $1", token)
+            row = await conn.fetchrow(
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = $1",
+                token,
+            )
             if row:
                 return self._row_to_invitation(row)
             return None
@@ -1948,7 +1974,7 @@ class PostgresUserStore:
         """Get pending invitation asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                """SELECT * FROM org_invitations
+                f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                    WHERE org_id = $1 AND email = $2 AND status = 'pending'""",
                 org_id,
                 email,
@@ -1967,7 +1993,7 @@ class PostgresUserStore:
         """Get all invitations for an organization asynchronously."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT * FROM org_invitations WHERE org_id = $1 ORDER BY created_at DESC",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = $1 ORDER BY created_at DESC",
                 org_id,
             )
             return [self._row_to_invitation(row) for row in rows]
@@ -1984,7 +2010,7 @@ class PostgresUserStore:
         """Get all pending invitations asynchronously."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                """SELECT * FROM org_invitations
+                f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                    WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",
                 email,
             )
@@ -2205,7 +2231,7 @@ class PostgresUserStore:
                     "SELECT COUNT(*) FROM organizations WHERE tier = $1", tier_filter
                 )
                 rows = await conn.fetch(
-                    """SELECT * FROM organizations WHERE tier = $1
+                    f"""SELECT {self._ORG_COLUMNS} FROM organizations WHERE tier = $1
                        ORDER BY created_at DESC LIMIT $2 OFFSET $3""",
                     tier_filter,
                     limit,
@@ -2214,7 +2240,7 @@ class PostgresUserStore:
             else:
                 total_row = await conn.fetchrow("SELECT COUNT(*) FROM organizations")
                 rows = await conn.fetch(
-                    """SELECT * FROM organizations
+                    f"""SELECT {self._ORG_COLUMNS} FROM organizations
                        ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
                     limit,
                     offset,
