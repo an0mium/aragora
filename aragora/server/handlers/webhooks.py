@@ -11,16 +11,16 @@ Provides REST API endpoints for webhook management:
 
 Webhooks receive HTTP POST requests when subscribed events occur.
 All webhook payloads include HMAC-SHA256 signatures for verification.
+
+Webhook configurations are persisted to SQLite (default) or Redis+SQLite for
+multi-instance deployments. This ensures webhooks survive server restarts.
 """
 
 import hashlib
 import hmac
 import logging
-import secrets
 import time
-import uuid
-from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, List, Optional
 
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
@@ -32,6 +32,14 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.utils.url_security import validate_webhook_url
 
+# Import durable storage from storage module
+from aragora.storage.webhook_config_store import (
+    WEBHOOK_EVENTS,
+    WebhookConfig,
+    WebhookConfigStoreBackend,
+    get_webhook_config_store,
+)
+
 logger = logging.getLogger(__name__)
 
 # Rate limits for webhook operations
@@ -40,223 +48,23 @@ WEBHOOK_TEST_RPM = 5       # Max 5 test deliveries per minute
 WEBHOOK_LIST_RPM = 60      # Max 60 list operations per minute
 
 
-# =============================================================================
-# Webhook Data Models
-# =============================================================================
-
-# Events that can trigger webhooks (subset of StreamEventType)
-WEBHOOK_EVENTS: Set[str] = {
-    # Debate lifecycle
-    "debate_start",
-    "debate_end",
-    "consensus",
-    "round_start",
-    # Agent events
-    "agent_message",
-    "vote",
-    # Memory/learning
-    "insight_extracted",
-    "memory_stored",
-    "memory_retrieved",
-    # Verification
-    "claim_verification_result",
-    "formal_verification_result",
-    # Gauntlet
-    "gauntlet_complete",
-    "gauntlet_verdict",
-    "receipt_ready",  # Receipt is ready for export
-    "receipt_exported",  # Receipt has been exported
-    # Graph debates
-    "graph_branch_created",
-    "graph_branch_merged",
-    # Genesis evolution
-    "genesis_evolution",
-    # Breakpoints
-    "breakpoint",
-    "breakpoint_resolved",
-    # Cross-pollination events
-    "agent_elo_updated",
-    "knowledge_indexed",
-    "knowledge_queried",
-    "mound_updated",
-    "calibration_update",
-    "evidence_found",
-    "agent_calibration_changed",
-    "agent_fallback_triggered",
-    # Explainability
-    "explanation_ready",  # Decision explanation is available
-}
+# Backward compatibility alias - the old WebhookStore interface is now provided
+# by WebhookConfigStoreBackend from aragora.storage.webhook_config_store
+WebhookStore = WebhookConfigStoreBackend
 
 
-@dataclass
-class WebhookConfig:
-    """Configuration for a registered webhook."""
+def get_webhook_store() -> WebhookConfigStoreBackend:
+    """Get or create the webhook store.
 
-    id: str
-    url: str
-    events: List[str]
-    secret: str  # Used for HMAC signature
-    active: bool = True
-    created_at: float = field(default_factory=time.time)
-    updated_at: float = field(default_factory=time.time)
+    Returns a durable storage backend (SQLite by default, Redis+SQLite for
+    multi-instance deployments). Webhooks survive server restarts.
 
-    # Optional metadata
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-    # Delivery tracking
-    last_delivery_at: Optional[float] = None
-    last_delivery_status: Optional[int] = None
-    delivery_count: int = 0
-    failure_count: int = 0
-
-    # Owner (for multi-tenant)
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-
-    def to_dict(self, include_secret: bool = False) -> dict:
-        """Convert to dict, optionally excluding secret."""
-        result = asdict(self)
-        if not include_secret:
-            result.pop("secret", None)
-        return result
-
-    def matches_event(self, event_type: str) -> bool:
-        """Check if this webhook should receive the given event."""
-        if not self.active:
-            return False
-        # "*" means all events
-        if "*" in self.events:
-            return event_type in WEBHOOK_EVENTS
-        return event_type in self.events
-
-
-class WebhookStore:
+    Configure via environment:
+    - ARAGORA_WEBHOOK_CONFIG_STORE_BACKEND: "sqlite" (default), "redis", or "memory"
+    - ARAGORA_DATA_DIR: Directory for SQLite database
+    - ARAGORA_REDIS_URL: Redis connection URL (for redis backend)
     """
-    In-memory webhook storage with optional persistence.
-
-    For production, this should be backed by a database.
-    """
-
-    def __init__(self):
-        self._webhooks: Dict[str, WebhookConfig] = {}
-
-    def register(
-        self,
-        url: str,
-        events: List[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-    ) -> WebhookConfig:
-        """Register a new webhook."""
-        webhook_id = str(uuid.uuid4())
-        secret = secrets.token_urlsafe(32)
-
-        webhook = WebhookConfig(
-            id=webhook_id,
-            url=url,
-            events=events,
-            secret=secret,
-            name=name,
-            description=description,
-            user_id=user_id,
-            workspace_id=workspace_id,
-        )
-
-        self._webhooks[webhook_id] = webhook
-        logger.info(f"Registered webhook {webhook_id} for events: {events}")
-        return webhook
-
-    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
-        """Get webhook by ID."""
-        return self._webhooks.get(webhook_id)
-
-    def list(
-        self,
-        user_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        active_only: bool = False,
-    ) -> List[WebhookConfig]:
-        """List webhooks with optional filtering."""
-        webhooks = list(self._webhooks.values())
-
-        if user_id:
-            webhooks = [w for w in webhooks if w.user_id == user_id]
-        if workspace_id:
-            webhooks = [w for w in webhooks if w.workspace_id == workspace_id]
-        if active_only:
-            webhooks = [w for w in webhooks if w.active]
-
-        return sorted(webhooks, key=lambda w: w.created_at, reverse=True)
-
-    def delete(self, webhook_id: str) -> bool:
-        """Delete webhook by ID."""
-        if webhook_id in self._webhooks:
-            del self._webhooks[webhook_id]
-            logger.info(f"Deleted webhook {webhook_id}")
-            return True
-        return False
-
-    def update(
-        self,
-        webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ) -> Optional[WebhookConfig]:
-        """Update webhook configuration."""
-        webhook = self._webhooks.get(webhook_id)
-        if not webhook:
-            return None
-
-        if url is not None:
-            webhook.url = url
-        if events is not None:
-            webhook.events = events
-        if active is not None:
-            webhook.active = active
-        if name is not None:
-            webhook.name = name
-        if description is not None:
-            webhook.description = description
-
-        webhook.updated_at = time.time()
-        return webhook
-
-    def record_delivery(
-        self,
-        webhook_id: str,
-        status_code: int,
-        success: bool = True,
-    ) -> None:
-        """Record webhook delivery attempt."""
-        webhook = self._webhooks.get(webhook_id)
-        if webhook:
-            webhook.last_delivery_at = time.time()
-            webhook.last_delivery_status = status_code
-            webhook.delivery_count += 1
-            if not success:
-                webhook.failure_count += 1
-
-    def get_for_event(self, event_type: str) -> List[WebhookConfig]:
-        """Get all active webhooks that should receive the given event."""
-        return [w for w in self._webhooks.values() if w.matches_event(event_type)]
-
-
-# Global webhook store (can be replaced with DB-backed implementation)
-_webhook_store: Optional[WebhookStore] = None
-
-
-def get_webhook_store() -> WebhookStore:
-    """Get or create the webhook store."""
-    global _webhook_store
-    if _webhook_store is None:
-        _webhook_store = WebhookStore()
-    return _webhook_store
+    return get_webhook_config_store()
 
 
 # =============================================================================

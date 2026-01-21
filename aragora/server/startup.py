@@ -644,6 +644,32 @@ def init_webhook_dispatcher() -> bool:
     return False
 
 
+def init_gauntlet_run_recovery() -> int:
+    """Recover stale gauntlet runs after server restart.
+
+    Finds gauntlet runs that were pending/running when the server stopped
+    and marks them as interrupted. Users can then view the status and
+    optionally restart them.
+
+    Returns:
+        Number of stale runs recovered/marked as interrupted
+    """
+    try:
+        from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
+
+        recovered = recover_stale_gauntlet_runs(max_age_seconds=7200)
+        if recovered > 0:
+            logger.info(f"Recovered {recovered} stale gauntlet runs from previous session")
+        return recovered
+
+    except ImportError as e:
+        logger.debug(f"Gauntlet run recovery not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to recover stale gauntlet runs: {e}")
+
+    return 0
+
+
 def init_workflow_checkpoint_persistence() -> bool:
     """Wire Knowledge Mound to workflow checkpoint persistence.
 
@@ -706,6 +732,7 @@ async def run_startup_sequence(
         "persistent_task_queue": 0,
         "webhook_dispatcher": False,
         "slo_webhooks": False,
+        "gauntlet_runs_recovered": 0,
     }
 
     # Initialize in parallel where possible
@@ -730,6 +757,9 @@ async def run_startup_sequence(
     status["webhook_dispatcher"] = init_webhook_dispatcher()
     status["slo_webhooks"] = init_slo_webhooks()
 
+    # Recover stale gauntlet runs from previous session
+    status["gauntlet_runs_recovered"] = init_gauntlet_run_recovery()
+
     return status
 
 
@@ -750,5 +780,6 @@ __all__ = [
     "init_workflow_checkpoint_persistence",
     "init_webhook_dispatcher",
     "init_slo_webhooks",
+    "init_gauntlet_run_recovery",
     "run_startup_sequence",
 ]

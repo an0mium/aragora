@@ -34,6 +34,8 @@ from aragora.server.handlers.webhooks import (
     get_webhook_store,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
+# Import concrete implementation for testing
+from aragora.storage.webhook_config_store import InMemoryWebhookConfigStore
 
 
 def parse_handler_result(result: HandlerResult) -> tuple[dict, int]:
@@ -78,8 +80,8 @@ def mock_other_user():
 
 @pytest.fixture
 def webhook_store():
-    """Create a fresh webhook store for testing."""
-    return WebhookStore()
+    """Create a fresh in-memory webhook store for testing."""
+    return InMemoryWebhookConfigStore()
 
 
 @pytest.fixture

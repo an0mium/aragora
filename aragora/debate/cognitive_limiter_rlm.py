@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 from aragora.debate.cognitive_limiter import (
     STRESS_BUDGETS,
@@ -53,6 +53,9 @@ if TYPE_CHECKING:
     from aragora.rlm.types import CompressionResult
 
 logger = logging.getLogger(__name__)
+
+# Sentinel value for deprecated rlm_backend parameter
+_DEPRECATED_RLM_BACKEND = object()
 
 
 @dataclass
@@ -139,7 +142,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         budget: Optional[RLMCognitiveBudget] = None,
         compressor: Optional["HierarchicalCompressor"] = None,
         summarize_fn: Optional[Callable[[str, str], str]] = None,
-        rlm_backend: str = "openai",
+        rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
         rlm_model: str = "gpt-4o",
     ):
         """
@@ -150,16 +153,17 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             compressor: HierarchicalCompressor instance (lazy-loaded if None)
             summarize_fn: Optional sync function for rule-based summarization
             rlm_backend: DEPRECATED - Backend is determined by rlm_model.
-                         This parameter is ignored.
+                         This parameter is ignored and will be removed in v3.0.
             rlm_model: Model for real RLM queries (e.g., 'claude', 'gpt-4o')
         """
         import warnings
 
-        # rlm_backend is deprecated - warn if non-default value is passed
-        if rlm_backend != "openai":
+        # rlm_backend is deprecated - warn if any value is passed
+        if rlm_backend is not _DEPRECATED_RLM_BACKEND:
             warnings.warn(
                 "rlm_backend parameter is deprecated and ignored. "
-                "Backend is determined by rlm_model. Use rlm_model to select provider.",
+                "Backend is determined by rlm_model. Use rlm_model to select provider. "
+                "This parameter will be removed in v3.0.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -313,7 +317,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
     def for_stress_level(
         cls,
         level: str,
-        rlm_backend: str = "openai",
+        rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
         rlm_model: str = "gpt-4o",
     ) -> "RLMCognitiveLoadLimiter":
         """
@@ -322,7 +326,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         Args:
             level: Stress level (nominal, elevated, high, critical)
             rlm_backend: DEPRECATED - Backend is determined by rlm_model.
-                        Kept for backward compatibility but ignored.
+                        This parameter is ignored and will be removed in v3.0.
             rlm_model: Model for real RLM queries
 
         Returns:
@@ -346,6 +350,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             summary_level="ABSTRACT" if level == "critical" else "SUMMARY",
         )
 
+        # Pass rlm_backend through to trigger deprecation warning if explicitly set
         return cls(budget=rlm_budget, rlm_backend=rlm_backend, rlm_model=rlm_model)
 
     async def compress_context_async(
@@ -888,7 +893,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 def create_rlm_limiter(
     stress_level: str = "elevated",
     compressor: Optional["HierarchicalCompressor"] = None,
-    rlm_backend: str = "openai",
+    rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
     rlm_model: str = "gpt-4o",
 ) -> RLMCognitiveLoadLimiter:
     """
@@ -902,7 +907,7 @@ def create_rlm_limiter(
         stress_level: Current system stress level
         compressor: Optional pre-configured compressor (for fallback)
         rlm_backend: DEPRECATED - Backend is determined by rlm_model.
-                    Kept for backward compatibility but ignored.
+                    This parameter is ignored and will be removed in v3.0.
         rlm_model: Model for real RLM queries
 
     Returns:
@@ -921,6 +926,7 @@ def create_rlm_limiter(
         else:
             compressed = await limiter.compress_context_async(messages=messages)
     """
+    # Pass rlm_backend through to trigger deprecation warning if explicitly set
     limiter = RLMCognitiveLoadLimiter.for_stress_level(
         stress_level,
         rlm_backend=rlm_backend,

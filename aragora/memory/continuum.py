@@ -194,7 +194,7 @@ class AwaitableList(list):
         return _wrap().__await__()
 
 
-class ContinuumMemory(ContinuumGlacialMixin, ContinuumSnapshotMixin, SQLiteStore):
+class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin):
     """
     Continuum Memory System with multi-timescale updates.
 
@@ -202,6 +202,7 @@ class ContinuumMemory(ContinuumGlacialMixin, ContinuumSnapshotMixin, SQLiteStore
     treated as a spectrum with modules updating at different frequency rates.
 
     Inherits from:
+        - SQLiteStore: Database operations (must be first for MRO)
         - ContinuumGlacialMixin: Glacial tier access for cross-session learning
         - ContinuumSnapshotMixin: Checkpoint export/restore capabilities
 

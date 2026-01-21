@@ -159,6 +159,72 @@ def _cleanup_gauntlet_runs() -> None:
         _gauntlet_runs.popitem(last=False)  # Remove oldest
 
 
+def recover_stale_gauntlet_runs(max_age_seconds: int = 7200) -> int:
+    """
+    Recover stale inflight gauntlet runs after server restart.
+
+    Finds runs that were pending/running when the server stopped and marks
+    them as interrupted. This should be called during server startup.
+
+    Args:
+        max_age_seconds: Maximum age in seconds for a run to be considered stale
+
+    Returns:
+        Number of stale runs recovered/marked as interrupted
+    """
+    try:
+        storage = _get_storage()
+        stale_runs = storage.list_stale_inflight(max_age_seconds=max_age_seconds)
+
+        if not stale_runs:
+            logger.debug("No stale gauntlet runs found to recover")
+            return 0
+
+        recovered = 0
+        for run in stale_runs:
+            try:
+                # Mark as interrupted with error message
+                storage.update_inflight_status(
+                    gauntlet_id=run.gauntlet_id,
+                    status="interrupted",
+                    error=f"Server restarted while run was {run.status}. "
+                    f"Progress was {run.progress_percent:.0f}% in phase '{run.current_phase or 'unknown'}'.",
+                )
+
+                # Also add to in-memory dict for immediate access
+                _gauntlet_runs[run.gauntlet_id] = {
+                    "gauntlet_id": run.gauntlet_id,
+                    "status": "interrupted",
+                    "input_type": run.input_type,
+                    "input_summary": run.input_summary,
+                    "persona": run.persona,
+                    "agents": run.agents,
+                    "profile": run.profile,
+                    "created_at": run.created_at.isoformat(),
+                    "error": f"Server restarted while run was {run.status}",
+                    "progress_percent": run.progress_percent,
+                    "current_phase": run.current_phase,
+                }
+
+                logger.info(
+                    f"Marked stale gauntlet run {run.gauntlet_id} as interrupted "
+                    f"(was {run.status}, {run.progress_percent:.0f}% complete)"
+                )
+                recovered += 1
+
+            except (OSError, RuntimeError, ValueError) as e:
+                logger.warning(f"Failed to recover stale run {run.gauntlet_id}: {e}")
+
+        if recovered:
+            logger.info(f"Recovered {recovered} stale gauntlet runs after server restart")
+
+        return recovered
+
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        logger.warning(f"Failed to recover stale gauntlet runs: {e}")
+        return 0
+
+
 class GauntletHandler(BaseHandler):
     """Handler for gauntlet stress-testing endpoints.
 
