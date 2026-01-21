@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from aragora.server.handlers.base import BaseHandler
+from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.decorators import has_permission
 
 logger = logging.getLogger(__name__)
@@ -39,8 +39,6 @@ try:
     from aragora.connectors.enterprise.sync_store import (
         SyncStore,
         get_sync_store,
-        ConnectorConfig,
-        SyncJob,
     )
 
     HAS_SYNC_STORE = True
@@ -132,12 +130,16 @@ CONNECTOR_TYPES = {
 }
 
 
-class ConnectorsHandler(BaseHandler):
-    """
-    Handler for enterprise connector endpoints.
+class ConnectorsHandler(SecureHandler):
+    """Handler for enterprise connector endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
 
     Provides CRUD operations and sync management for data source connectors.
     """
+
+    RESOURCE_TYPE = "connector"
 
     ROUTES = [
         "/api/connectors",

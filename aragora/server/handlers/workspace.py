@@ -66,13 +66,13 @@ from aragora.privacy import (
 from aragora.privacy.audit_log import Actor, Resource
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
     log_request,
 )
+from .secure import SecureHandler
 from .utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
@@ -81,8 +81,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class WorkspaceHandler(BaseHandler):
-    """Handler for workspace and privacy management endpoints."""
+class WorkspaceHandler(SecureHandler):
+    """Handler for workspace and privacy management endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+    """
+
+    RESOURCE_TYPE = "workspace"
 
     ROUTES = [
         "/api/workspaces",

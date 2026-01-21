@@ -155,6 +155,33 @@ class TestSecureHandlerInheritance:
             SSOHandler, SecureHandler
         ), "SECURITY REGRESSION: SSOHandler must extend SecureHandler"
 
+    def test_connectors_handler_extends_secure_handler(self):
+        """ConnectorsHandler must extend SecureHandler."""
+        from aragora.server.handlers.features.connectors import ConnectorsHandler
+        from aragora.server.handlers.secure import SecureHandler
+
+        assert issubclass(
+            ConnectorsHandler, SecureHandler
+        ), "SECURITY REGRESSION: ConnectorsHandler must extend SecureHandler"
+
+    def test_oauth_handler_extends_secure_handler(self):
+        """OAuthHandler must extend SecureHandler."""
+        from aragora.server.handlers.oauth import OAuthHandler
+        from aragora.server.handlers.secure import SecureHandler
+
+        assert issubclass(
+            OAuthHandler, SecureHandler
+        ), "SECURITY REGRESSION: OAuthHandler must extend SecureHandler"
+
+    def test_workspace_handler_extends_secure_handler(self):
+        """WorkspaceHandler must extend SecureHandler."""
+        from aragora.server.handlers.workspace import WorkspaceHandler
+        from aragora.server.handlers.secure import SecureHandler
+
+        assert issubclass(
+            WorkspaceHandler, SecureHandler
+        ), "SECURITY REGRESSION: WorkspaceHandler must extend SecureHandler"
+
 
 class TestEncryptionService:
     """Verify encryption service works correctly."""

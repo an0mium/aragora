@@ -25,13 +25,13 @@ from typing import Any, Optional, Union
 from urllib.parse import urlencode
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
     log_request,
 )
+from .secure import SecureHandler
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -362,8 +362,14 @@ def _cleanup_expired_states() -> int:
         return 0
 
 
-class OAuthHandler(BaseHandler):
-    """Handler for OAuth authentication endpoints."""
+class OAuthHandler(SecureHandler):
+    """Handler for OAuth authentication endpoints.
+
+    Extends SecureHandler for JWT-based authentication, RBAC permission
+    enforcement, and security audit logging.
+    """
+
+    RESOURCE_TYPE = "oauth"
 
     ROUTES = [
         "/api/auth/oauth/google",
