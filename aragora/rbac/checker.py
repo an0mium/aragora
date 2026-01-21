@@ -3,13 +3,16 @@ RBAC Permission Checker - Evaluates access control decisions.
 
 Provides the core logic for checking if a user has permission to perform
 an action on a resource, with support for caching and audit logging.
+
+Supports both in-memory and distributed (Redis-backed) caching for
+horizontal scaling in multi-instance deployments.
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .defaults import get_role_permissions
 from .models import (
@@ -22,6 +25,7 @@ from .models import (
 
 if TYPE_CHECKING:
     from .audit import AuthorizationAuditor
+    from .cache import RBACDistributedCache
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +49,7 @@ class PermissionChecker:
         auditor: AuthorizationAuditor | None = None,
         cache_ttl: int = 300,
         enable_cache: bool = True,
+        cache_backend: Optional["RBACDistributedCache"] = None,
     ) -> None:
         """
         Initialize the permission checker.
@@ -53,14 +58,23 @@ class PermissionChecker:
             auditor: Optional auditor for logging authorization decisions
             cache_ttl: Cache TTL in seconds (default 5 minutes)
             enable_cache: Whether to enable decision caching
+            cache_backend: Optional distributed cache backend (Redis-backed).
+                          If provided, uses distributed cache instead of local dict.
         """
         self._auditor = auditor
         self._cache_ttl = cache_ttl
         self._enable_cache = enable_cache
+        self._cache_backend = cache_backend
+
+        # Local cache (used when no distributed backend, or as L1)
         self._decision_cache: dict[str, tuple[AuthorizationDecision, datetime]] = {}
         self._role_assignments: dict[str, list[RoleAssignment]] = {}
         self._custom_roles: dict[str, dict[str, Any]] = {}
         self._resource_policies: dict[str, Callable[..., bool]] = {}
+
+        # If distributed cache provided, register for invalidation callbacks
+        if self._cache_backend:
+            self._cache_backend.add_invalidation_callback(self._on_remote_invalidation)
 
     def check_permission(
         self,
@@ -79,10 +93,9 @@ class PermissionChecker:
         Returns:
             AuthorizationDecision with result and reason
         """
-        # Check cache first
-        cache_key = self._cache_key(context, permission_key, resource_id)
+        # Check cache first (distributed or local)
         if self._enable_cache:
-            cached = self._get_cached_decision(cache_key)
+            cached = self._get_cached_decision(context, permission_key, resource_id)
             if cached:
                 return cached
 
@@ -93,9 +106,9 @@ class PermissionChecker:
         # Check permission
         decision = self._evaluate_permission(context, permission_key, resource_id)
 
-        # Cache the decision
+        # Cache the decision (distributed or local)
         if self._enable_cache:
-            self._cache_decision(cache_key, decision)
+            self._cache_decision(context, permission_key, resource_id, decision)
 
         # Audit log
         if self._auditor:
@@ -322,18 +335,43 @@ class PermissionChecker:
             context=context,
         )
 
-    def _cache_key(
+    def _roles_hash(self, roles: set[str]) -> str:
+        """Generate hash for a set of roles."""
+        return str(hash(frozenset(roles)))
+
+    def _get_cached_decision(
         self,
         context: AuthorizationContext,
         permission_key: str,
         resource_id: str | None,
-    ) -> str:
-        """Generate cache key for a permission check."""
-        roles_hash = hash(frozenset(context.roles))
-        return f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
+    ) -> AuthorizationDecision | None:
+        """Get cached decision if valid (from distributed or local cache)."""
+        roles_hash = self._roles_hash(context.roles)
 
-    def _get_cached_decision(self, cache_key: str) -> AuthorizationDecision | None:
-        """Get cached decision if valid."""
+        # Try distributed cache first if available
+        if self._cache_backend:
+            cached_dict = self._cache_backend.get_decision(
+                context.user_id,
+                context.org_id,
+                roles_hash,
+                permission_key,
+                resource_id,
+            )
+            if cached_dict:
+                return AuthorizationDecision(
+                    allowed=cached_dict["allowed"],
+                    reason=cached_dict["reason"],
+                    permission_key=cached_dict.get("permission_key", permission_key),
+                    resource_id=cached_dict.get("resource_id"),
+                    context=context,
+                    checked_at=datetime.fromisoformat(cached_dict["checked_at"])
+                    if cached_dict.get("checked_at")
+                    else datetime.utcnow(),
+                    cached=True,
+                )
+
+        # Fall back to local cache
+        cache_key = f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
         if cache_key not in self._decision_cache:
             return None
 
@@ -355,9 +393,89 @@ class PermissionChecker:
             cached=True,
         )
 
-    def _cache_decision(self, cache_key: str, decision: AuthorizationDecision) -> None:
-        """Cache a decision."""
+    def _cache_decision(
+        self,
+        context: AuthorizationContext,
+        permission_key: str,
+        resource_id: str | None,
+        decision: AuthorizationDecision,
+    ) -> None:
+        """Cache a decision (to distributed and/or local cache)."""
+        roles_hash = self._roles_hash(context.roles)
+
+        # Cache to distributed backend if available
+        if self._cache_backend:
+            self._cache_backend.set_decision(
+                context.user_id,
+                context.org_id,
+                roles_hash,
+                permission_key,
+                resource_id,
+                {
+                    "allowed": decision.allowed,
+                    "reason": decision.reason,
+                    "permission_key": decision.permission_key,
+                    "resource_id": decision.resource_id,
+                    "checked_at": decision.checked_at.isoformat()
+                    if decision.checked_at
+                    else datetime.utcnow().isoformat(),
+                },
+            )
+
+        # Also cache locally (L1 when using distributed, primary otherwise)
+        cache_key = f"{context.user_id}:{context.org_id}:{roles_hash}:{permission_key}:{resource_id}"
         self._decision_cache[cache_key] = (decision, datetime.utcnow())
+
+    def _on_remote_invalidation(self, key: str) -> None:
+        """Handle invalidation from distributed cache (pub/sub)."""
+        if key == "all":
+            self._decision_cache.clear()
+        elif key.startswith("user:"):
+            user_id = key[5:]
+            keys_to_remove = [k for k in self._decision_cache if k.startswith(f"{user_id}:")]
+            for k in keys_to_remove:
+                del self._decision_cache[k]
+
+    def get_role_permissions(self, role_name: str) -> set[str]:
+        """
+        Get permissions for a role, with caching.
+
+        Args:
+            role_name: Name of the role
+
+        Returns:
+            Set of permission keys
+        """
+        # Check distributed cache first
+        if self._cache_backend:
+            cached = self._cache_backend.get_role_permissions(role_name)
+            if cached is not None:
+                return cached
+
+        # Get from defaults
+        permissions = get_role_permissions(role_name, include_inherited=True)
+
+        # Cache if distributed backend available
+        if self._cache_backend:
+            self._cache_backend.set_role_permissions(role_name, permissions)
+
+        return permissions
+
+    def get_cache_stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        stats: dict[str, Any] = {
+            "local_cache_size": len(self._decision_cache),
+            "cache_enabled": self._enable_cache,
+            "cache_ttl": self._cache_ttl,
+        }
+
+        if self._cache_backend:
+            stats["distributed"] = True
+            stats["distributed_stats"] = self._cache_backend.get_stats()
+        else:
+            stats["distributed"] = False
+
+        return stats
 
 
 # Global permission checker instance

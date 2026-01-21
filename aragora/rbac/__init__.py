@@ -119,6 +119,16 @@ from .audit import (
     log_permission_check,
 )
 
+# Distributed cache (for horizontal scaling)
+from .cache import (
+    RBACCacheConfig,
+    RBACDistributedCache,
+    CacheStats,
+    get_rbac_cache,
+    set_rbac_cache,
+    reset_rbac_cache,
+)
+
 
 __all__ = [
     # Legacy Types (backward compatible)
@@ -190,4 +200,11 @@ __all__ = [
     "get_auditor",
     "set_auditor",
     "log_permission_check",
+    # Distributed Cache
+    "RBACCacheConfig",
+    "RBACDistributedCache",
+    "CacheStats",
+    "get_rbac_cache",
+    "set_rbac_cache",
+    "reset_rbac_cache",
 ]
