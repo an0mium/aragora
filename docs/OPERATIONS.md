@@ -16,6 +16,9 @@ This document provides operational guidance for running, monitoring, and trouble
 10. [Storage Cleanup](#storage-cleanup)
 11. [Knowledge Mound Operations](#knowledge-mound-operations)
 12. [Security & Governance Hardening](#security--governance-hardening)
+13. [Decision Router Cache Invalidation](#decision-router-cache-invalidation)
+14. [Webhook Delivery Manager](#webhook-delivery-manager)
+15. [Integration Store Metrics](#integration-store-metrics)
 
 ---
 
@@ -1232,3 +1235,409 @@ On-Call Engineer: [Rotation Schedule/PagerDuty]
 Legal/Compliance: [Name] - [Contact]
 Data Protection Officer: [Name] - [Contact]
 ```
+
+---
+
+## Decision Router Cache Invalidation
+
+The DecisionRouter includes a response cache that improves performance by caching routing decisions. The cache supports multiple invalidation strategies for different scenarios.
+
+### Cache Configuration
+
+```python
+from aragora.server.middleware.decision_routing import (
+    get_decision_router,
+    invalidate_cache_for_workspace,
+    invalidate_cache_for_policy_change,
+    invalidate_cache_for_agent_upgrade,
+    get_cache_stats,
+)
+
+# Get the router with caching enabled
+router = await get_decision_router()
+```
+
+### Invalidation Strategies
+
+#### Workspace-Scoped Invalidation
+
+Invalidate all cached decisions for a specific workspace:
+
+```python
+# When workspace configuration changes
+count = await invalidate_cache_for_workspace("workspace-123")
+print(f"Invalidated {count} cached entries for workspace")
+```
+
+Use cases:
+- Workspace policy updates
+- Team membership changes
+- Per-workspace routing rule changes
+
+#### Policy Version Invalidation
+
+When global routing policies change, update the policy version:
+
+```python
+# Deploy new routing policy
+await invalidate_cache_for_policy_change("v2.0.0")
+
+# All cached entries with older policy versions become stale
+# and will be re-computed on next access
+```
+
+This uses lazy invalidation - entries are marked stale but not immediately removed.
+
+#### Agent Version Invalidation
+
+When agents are upgraded, invalidate responses that used old versions:
+
+```python
+# After upgrading Claude from v3.5 to v4
+count = await invalidate_cache_for_agent_upgrade("claude", "3.5")
+print(f"Invalidated {count} cached entries using claude v3.5")
+```
+
+#### Tag-Based Invalidation
+
+Entries can be tagged for granular invalidation:
+
+```python
+from aragora.server.middleware.decision_routing import ResponseCache
+
+cache = ResponseCache(max_size=1000, ttl_seconds=3600)
+
+# Store with tags
+cache.set(
+    key="debate-123",
+    result={"decision": "approve"},
+    workspace_id="ws-1",
+    tags=["debate", "high-priority"],
+)
+
+# Invalidate all entries with a specific tag
+count = cache.invalidate_by_tag("high-priority")
+```
+
+### Cache Monitoring
+
+```python
+# Get cache statistics
+stats = await get_cache_stats()
+print(f"Total entries: {stats['total_entries']}")
+print(f"Hit rate: {stats['hit_rate']:.2%}")
+print(f"Policy version: {stats['current_policy_version']}")
+```
+
+### Prometheus Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `aragora_decision_cache_hits_total` | Counter | Cache hit count |
+| `aragora_decision_cache_misses_total` | Counter | Cache miss count |
+| `aragora_decision_cache_invalidations_total` | Counter | Invalidation events by type |
+| `aragora_decision_cache_size` | Gauge | Current cache size |
+
+### Deployment Recommendations
+
+1. **Rolling deployments**: Set new policy version before deploying new code
+2. **Agent upgrades**: Invalidate old agent versions after confirming new agent is healthy
+3. **Emergency changes**: Use workspace invalidation for targeted cache clearing
+4. **Monitoring**: Alert on sudden drops in cache hit rate
+
+---
+
+## Webhook Delivery Manager
+
+The Webhook Delivery Manager provides reliable webhook delivery with retry logic, dead-letter queuing, and circuit breaker protection.
+
+### Quick Start
+
+```python
+from aragora.server.webhook_delivery import (
+    deliver_webhook,
+    get_delivery_manager,
+    WebhookDeliveryManager,
+)
+
+# Simple delivery
+delivery = await deliver_webhook(
+    webhook_id="wh-123",
+    event_type="debate_end",
+    payload={"debate_id": "d-456", "result": "consensus"},
+    url="https://example.com/webhook",
+    secret="your-hmac-secret",  # Optional: enables signature verification
+)
+
+print(f"Status: {delivery.status}")  # DELIVERED, RETRYING, or DEAD_LETTERED
+```
+
+### Configuration
+
+```python
+manager = WebhookDeliveryManager(
+    max_retries=5,              # Maximum retry attempts (default: 5)
+    base_delay_seconds=1.0,     # Initial retry delay (default: 1.0)
+    max_delay_seconds=300.0,    # Maximum retry delay cap (default: 300)
+    timeout_seconds=30.0,       # Request timeout (default: 30)
+    circuit_breaker_threshold=5, # Failures before circuit opens (default: 5)
+)
+```
+
+### Delivery States
+
+| State | Description |
+|-------|-------------|
+| `PENDING` | Queued for delivery |
+| `IN_PROGRESS` | Currently being delivered |
+| `DELIVERED` | Successfully delivered (2xx response) |
+| `RETRYING` | Failed, scheduled for retry |
+| `DEAD_LETTERED` | Max retries exceeded, moved to dead-letter queue |
+
+### Retry Behavior
+
+Retries use exponential backoff with jitter:
+
+```
+delay = min(base_delay * (2 ^ attempt), max_delay) + random_jitter
+```
+
+Default progression: 1s → 2s → 4s → 8s → 16s → ... → 300s max
+
+### Circuit Breaker
+
+The circuit breaker prevents overwhelming failing endpoints:
+
+```python
+# Circuit opens after threshold consecutive failures
+# While open, deliveries to that URL are immediately queued for retry
+
+# Check circuit state
+manager = await get_delivery_manager()
+is_open = manager._is_circuit_open("https://example.com/webhook")
+
+# Circuit automatically closes after the cooldown period (default: 60s)
+```
+
+### Dead-Letter Queue
+
+Failed deliveries are moved to the dead-letter queue after max retries:
+
+```python
+# List dead-lettered deliveries
+dead_letters = await manager.get_dead_letter_queue(limit=100)
+
+for delivery in dead_letters:
+    print(f"ID: {delivery.delivery_id}")
+    print(f"Event: {delivery.event_type}")
+    print(f"Last error: {delivery.last_error}")
+    print(f"Attempts: {delivery.attempts}")
+
+# Retry a dead-lettered delivery
+success = await manager.retry_dead_letter(delivery_id="dlv-123")
+```
+
+### HMAC Signature Verification
+
+When a secret is provided, webhooks include an HMAC-SHA256 signature:
+
+```python
+# Delivery includes X-Webhook-Signature header
+delivery = await deliver_webhook(
+    webhook_id="wh-123",
+    event_type="debate_end",
+    payload={"debate_id": "d-456"},
+    url="https://example.com/webhook",
+    secret="your-secret-key",
+)
+
+# Recipient verifies signature:
+# X-Webhook-Signature: sha256=<hex-encoded-hmac>
+```
+
+Verification code for recipients:
+
+```python
+import hmac
+import hashlib
+import json
+
+def verify_signature(payload: dict, signature: str, secret: str) -> bool:
+    expected = "sha256=" + hmac.new(
+        secret.encode(),
+        json.dumps(payload).encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+### Monitoring
+
+```python
+# Get delivery metrics
+metrics = await manager.get_metrics()
+print(f"Total deliveries: {metrics['total_deliveries']}")
+print(f"Success rate: {metrics['success_rate']}%")
+print(f"Average latency: {metrics['avg_latency_ms']}ms")
+print(f"Dead-lettered: {metrics['dead_lettered']}")
+print(f"Retries pending: {metrics['retries_pending']}")
+```
+
+### Prometheus Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_webhook_deliveries_total` | Counter | status, event_type | Total delivery attempts |
+| `aragora_webhook_delivery_latency_seconds` | Histogram | event_type | Delivery latency |
+| `aragora_webhook_retries_total` | Counter | event_type | Retry attempts |
+| `aragora_webhook_dead_lettered_total` | Counter | event_type | Dead-lettered count |
+| `aragora_webhook_circuit_breaker_state` | Gauge | endpoint | Circuit breaker state (0=closed, 1=open) |
+
+### Operational Recommendations
+
+1. **Monitor dead-letter queue**: Set up alerts when queue grows
+2. **Review circuit breaker opens**: Investigate endpoints that frequently trip
+3. **Set appropriate timeouts**: Match recipient's expected processing time
+4. **Use secrets**: Always use HMAC signatures in production
+5. **Idempotency**: Include `delivery_id` in payload for recipient-side deduplication
+
+---
+
+## Integration Store Metrics
+
+The Integration Store Metrics system provides observability into integration storage operations, including latency tracking, error rates, and health monitoring.
+
+### Quick Start
+
+```python
+from aragora.storage.integration_store_metrics import (
+    InstrumentedIntegrationStore,
+    get_integration_metrics,
+    get_integration_health,
+)
+
+# Wrap an existing store with instrumentation
+instrumented = InstrumentedIntegrationStore(base_store, backend_type="postgresql")
+
+# Use normally - metrics are collected automatically
+await instrumented.save({"type": "slack", "user_id": "u-123", "token": "..."})
+config = await instrumented.get("slack", "u-123")
+```
+
+### Tracked Operations
+
+| Operation | Metrics Collected |
+|-----------|-------------------|
+| `get` | Latency, success/failure count, cache hit/miss |
+| `save` | Latency, success/failure count |
+| `delete` | Latency, success/failure count |
+| `list` | Latency, active integration count |
+| `refresh_token` | Latency, success/failure count |
+
+### Health Monitoring
+
+The store tracks consecutive failures and marks itself unhealthy after 3 failures:
+
+```python
+# Check health status
+health = await instrumented.health_check()
+print(f"Healthy: {health['healthy']}")
+print(f"Backend: {health['backend_type']}")
+print(f"Consecutive failures: {health['consecutive_failures']}")
+print(f"Active integrations: {health['active_integrations']}")
+```
+
+Health automatically recovers after a successful operation.
+
+### Getting Metrics
+
+```python
+# Get comprehensive metrics
+metrics = await get_integration_metrics()
+
+# Structure:
+# {
+#   "backend_type": "postgresql",
+#   "is_healthy": true,
+#   "cache_hit_rate": 85.5,
+#   "operations": {
+#     "get": {"total_calls": 1000, "success_rate": 99.5, "avg_latency_seconds": 0.012},
+#     "save": {"total_calls": 200, "success_rate": 100.0, "avg_latency_seconds": 0.025},
+#     ...
+#   }
+# }
+
+# Get health summary
+health = await get_integration_health()
+# {
+#   "healthy": true,
+#   "backend_type": "postgresql",
+#   "consecutive_failures": 0,
+#   "operations_summary": {
+#     "get_success_rate": 99.5,
+#     "save_success_rate": 100.0,
+#     "cache_hit_rate": 85.5
+#   }
+# }
+```
+
+### Prometheus Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_integration_store_operations_total` | Counter | operation, status | Operation count by type |
+| `aragora_integration_store_latency_seconds` | Histogram | operation | Operation latency |
+| `aragora_integration_store_health` | Gauge | backend | Health status (1=healthy, 0=unhealthy) |
+| `aragora_integration_store_active_integrations` | Gauge | - | Count of active integrations |
+| `aragora_integration_store_cache_hit_rate` | Gauge | - | Cache hit rate percentage |
+| `aragora_integration_store_consecutive_failures` | Gauge | - | Consecutive failure count |
+
+### Alerting Rules
+
+```yaml
+groups:
+  - name: integration_store
+    rules:
+      - alert: IntegrationStoreUnhealthy
+        expr: aragora_integration_store_health == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Integration store unhealthy (3+ consecutive failures)"
+
+      - alert: IntegrationStoreHighLatency
+        expr: histogram_quantile(0.95, aragora_integration_store_latency_seconds) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Integration store p95 latency > 1s"
+
+      - alert: IntegrationStoreLowSuccessRate
+        expr: |
+          sum(rate(aragora_integration_store_operations_total{status="success"}[5m])) /
+          sum(rate(aragora_integration_store_operations_total[5m])) < 0.95
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Integration store success rate below 95%"
+```
+
+### Troubleshooting
+
+**High consecutive failure count:**
+1. Check database connectivity
+2. Review recent error logs for the backend
+3. Verify credentials and connection strings
+
+**Low cache hit rate:**
+1. Review access patterns - are integrations being fetched repeatedly?
+2. Consider increasing cache TTL
+3. Check if cache invalidation is too aggressive
+
+**High latency:**
+1. Check database performance (slow queries, locks)
+2. Review network latency to database
+3. Consider connection pool sizing
