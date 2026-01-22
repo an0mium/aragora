@@ -78,7 +78,7 @@ class ShareSettings:
     def _get_share_url(self) -> str:
         """Generate the share URL."""
         # This would be configured via settings in production
-        return f"/api/shared/{self.share_token}"
+        return f"/api/v1/shared/{self.share_token}"
 
     @property
     def is_expired(self) -> bool:
@@ -213,9 +213,9 @@ class SharingHandler(BaseHandler):
     """Handler for debate sharing endpoints."""
 
     ROUTES = [
-        "/api/debates/*/share",
-        "/api/debates/*/share/revoke",
-        "/api/shared/*",
+        "/api/v1/debates/*/share",
+        "/api/v1/debates/*/share/revoke",
+        "/api/v1/shared/*",
     ]
 
     # Require auth for all endpoints except shared view
@@ -231,8 +231,8 @@ class SharingHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle GET requests."""
         # Shared debate access (public endpoint)
-        if path.startswith("/api/shared/"):
-            token = path.split("/api/shared/")[1].rstrip("/")
+        if path.startswith("/api/v1/shared/"):
+            token = path.split("/api/v1/shared/")[1].rstrip("/")
             return self._get_shared_debate(token, query_params)
 
         # Get sharing settings

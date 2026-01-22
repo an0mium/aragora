@@ -50,21 +50,21 @@ class FindingWorkflowHandler(BaseHandler):
     """
 
     ROUTES = [
-        "/api/audit/findings/{finding_id}/status",
-        "/api/audit/findings/{finding_id}/assign",
-        "/api/audit/findings/{finding_id}/unassign",
-        "/api/audit/findings/{finding_id}/comments",
-        "/api/audit/findings/{finding_id}/history",
-        "/api/audit/findings/{finding_id}/priority",
-        "/api/audit/findings/{finding_id}/due-date",
-        "/api/audit/findings/{finding_id}/link",
-        "/api/audit/findings/{finding_id}/duplicate",
-        "/api/audit/findings/bulk-action",
-        "/api/audit/findings/my-assignments",
-        "/api/audit/findings/overdue",
-        "/api/audit/workflow/states",
-        "/api/audit/presets",
-        "/api/audit/types",
+        "/api/v1/audit/findings/{finding_id}/status",
+        "/api/v1/audit/findings/{finding_id}/assign",
+        "/api/v1/audit/findings/{finding_id}/unassign",
+        "/api/v1/audit/findings/{finding_id}/comments",
+        "/api/v1/audit/findings/{finding_id}/history",
+        "/api/v1/audit/findings/{finding_id}/priority",
+        "/api/v1/audit/findings/{finding_id}/due-date",
+        "/api/v1/audit/findings/{finding_id}/link",
+        "/api/v1/audit/findings/{finding_id}/duplicate",
+        "/api/v1/audit/findings/bulk-action",
+        "/api/v1/audit/findings/my-assignments",
+        "/api/v1/audit/findings/overdue",
+        "/api/v1/audit/workflow/states",
+        "/api/v1/audit/presets",
+        "/api/v1/audit/types",
     ]
 
     async def handle_request(self, request: Any) -> Any:

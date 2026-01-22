@@ -71,28 +71,28 @@ class PluginsHandler(BaseHandler):
         return getattr(user, "user_id", None)
 
     ROUTES = [
-        "/api/plugins",
-        "/api/plugins/installed",
-        "/api/plugins/marketplace",
-        "/api/plugins/submit",
-        "/api/plugins/submissions",
-        "/api/plugins/*",
-        "/api/plugins/*/install",
-        "/api/plugins/*/run",
+        "/api/v1/plugins",
+        "/api/v1/plugins/installed",
+        "/api/v1/plugins/marketplace",
+        "/api/v1/plugins/submit",
+        "/api/v1/plugins/submissions",
+        "/api/v1/plugins/*",
+        "/api/v1/plugins/*/install",
+        "/api/v1/plugins/*/run",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         if path in (
-            "/api/plugins",
-            "/api/plugins/installed",
-            "/api/plugins/marketplace",
-            "/api/plugins/submit",
-            "/api/plugins/submissions",
+            "/api/v1/plugins",
+            "/api/v1/plugins/installed",
+            "/api/v1/plugins/marketplace",
+            "/api/v1/plugins/submit",
+            "/api/v1/plugins/submissions",
         ):
             return True
         # Match /api/plugins/{name}, /api/plugins/{name}/run, /api/plugins/{name}/install
-        if path.startswith("/api/plugins/"):
+        if path.startswith("/api/v1/plugins/"):
             parts = path.split("/")
             # /api/plugins/{name} has 4 parts
             # /api/plugins/{name}/run or /api/plugins/{name}/install has 5 parts
@@ -101,20 +101,20 @@ class PluginsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
-        if path == "/api/plugins":
+        if path == "/api/v1/plugins":
             return self._list_plugins()
 
-        if path == "/api/plugins/installed":
+        if path == "/api/v1/plugins/installed":
             return self._list_installed(handler)
 
-        if path == "/api/plugins/marketplace":
+        if path == "/api/v1/plugins/marketplace":
             return self._get_marketplace()
 
-        if path == "/api/plugins/submissions":
+        if path == "/api/v1/plugins/submissions":
             return self._list_submissions(handler)
 
         # Get plugin details: /api/plugins/{name}
-        if path.startswith("/api/plugins/") and not path.endswith(("/run", "/install")):
+        if path.startswith("/api/v1/plugins/") and not path.endswith(("/run", "/install")):
             plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
             if err:
                 return err
@@ -125,18 +125,18 @@ class PluginsHandler(BaseHandler):
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         # Submit plugin: /api/plugins/submit
-        if path == "/api/plugins/submit":
+        if path == "/api/v1/plugins/submit":
             return self._submit_plugin(handler)
 
         # Run plugin: /api/plugins/{name}/run
-        if path.startswith("/api/plugins/") and path.endswith("/run"):
+        if path.startswith("/api/v1/plugins/") and path.endswith("/run"):
             plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
             if err:
                 return err
             return self._run_plugin(plugin_name, handler)
 
         # Install plugin: /api/plugins/{name}/install
-        if path.startswith("/api/plugins/") and path.endswith("/install"):
+        if path.startswith("/api/v1/plugins/") and path.endswith("/install"):
             plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
             if err:
                 return err
@@ -147,7 +147,7 @@ class PluginsHandler(BaseHandler):
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE requests to appropriate methods."""
         # Uninstall plugin: /api/plugins/{name}/install
-        if path.startswith("/api/plugins/") and path.endswith("/install"):
+        if path.startswith("/api/v1/plugins/") and path.endswith("/install"):
             plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
             if err:
                 return err

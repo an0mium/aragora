@@ -418,15 +418,15 @@ class AnalyticsHandler(BaseHandler):
             # Calculate derived metrics
             reuse = learning_stats["knowledge_reuse"]  # type: ignore[index]
             if reuse["total_queries"] > 0:  # type: ignore[index]
-                reuse["reuse_rate"] = round(  # type: ignore[index]
-                    reuse["queries_with_hits"] / reuse["total_queries"],
-                    3,  # type: ignore[index]
+                reuse["reuse_rate"] = round(  # type: ignore[index,arg-type]
+                    reuse["queries_with_hits"] / reuse["total_queries"],  # type: ignore[arg-type]
+                    3,
                 )
 
             validation = learning_stats["validation"]  # type: ignore[index]
             if validation["total_validations"] > 0:  # type: ignore[index]
-                validation["accuracy_rate"] = round(  # type: ignore[index]
-                    validation["positive_validations"]  # type: ignore[index]
+                validation["accuracy_rate"] = round(  # type: ignore[index,arg-type]
+                    validation["positive_validations"]  # type: ignore[index,arg-type]
                     / validation["total_validations"],
                     3,
                 )

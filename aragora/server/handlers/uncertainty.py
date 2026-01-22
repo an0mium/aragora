@@ -33,15 +33,15 @@ class UncertaintyHandler(BaseHandler):
     """Handler for uncertainty estimation endpoints."""
 
     ROUTES = [
-        "/api/uncertainty/estimate",
-        "/api/uncertainty/followups",
-        "/api/uncertainty/debate/*",
-        "/api/uncertainty/agent/*",
+        "/api/v1/uncertainty/estimate",
+        "/api/v1/uncertainty/followups",
+        "/api/v1/uncertainty/debate/*",
+        "/api/v1/uncertainty/agent/*",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith("/api/uncertainty/"):
+        if path.startswith("/api/v1/uncertainty/"):
             return True
         return False
 
@@ -57,15 +57,15 @@ class UncertaintyHandler(BaseHandler):
             parse_qs(query_str)
 
         # POST /api/uncertainty/estimate
-        if path == "/api/uncertainty/estimate" and method == "POST":
+        if path == "/api/v1/uncertainty/estimate" and method == "POST":
             return await self._estimate_uncertainty(handler)
 
         # POST /api/uncertainty/followups
-        if path == "/api/uncertainty/followups" and method == "POST":
+        if path == "/api/v1/uncertainty/followups" and method == "POST":
             return await self._generate_followups(handler)
 
         # GET /api/uncertainty/debate/:id
-        if path.startswith("/api/uncertainty/debate/") and method == "GET":
+        if path.startswith("/api/v1/uncertainty/debate/") and method == "GET":
             parts = path.split("/")
             if len(parts) == 5:
                 debate_id = parts[4]
@@ -75,7 +75,7 @@ class UncertaintyHandler(BaseHandler):
                 return await self._get_debate_uncertainty(debate_id)
 
         # GET /api/uncertainty/agent/:id
-        if path.startswith("/api/uncertainty/agent/") and method == "GET":
+        if path.startswith("/api/v1/uncertainty/agent/") and method == "GET":
             parts = path.split("/")
             if len(parts) == 5:
                 agent_id = parts[4]

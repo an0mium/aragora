@@ -59,10 +59,10 @@ class EvaluationHandler(BaseHandler):
     """Handler for LLM-as-Judge evaluation endpoints."""
 
     ROUTES = [
-        "/api/evaluate",
-        "/api/evaluate/compare",
-        "/api/evaluate/dimensions",
-        "/api/evaluate/profiles",
+        "/api/v1/evaluate",
+        "/api/v1/evaluate/compare",
+        "/api/v1/evaluate/dimensions",
+        "/api/v1/evaluate/profiles",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -77,9 +77,9 @@ class EvaluationHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for evaluation endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/evaluate/dimensions":
+        if path == "/api/v1/evaluate/dimensions":
             return self._list_dimensions()
-        if path == "/api/evaluate/profiles":
+        if path == "/api/v1/evaluate/profiles":
             return self._list_profiles()
         return None
 
@@ -91,9 +91,9 @@ class EvaluationHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for evaluation endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/evaluate":
+        if path == "/api/v1/evaluate":
             return self._evaluate_response(handler)
-        if path == "/api/evaluate/compare":
+        if path == "/api/v1/evaluate/compare":
             return self._compare_responses(handler)
         return None
 

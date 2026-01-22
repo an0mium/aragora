@@ -161,7 +161,7 @@ def admin_secure_endpoint(
                         return error_response(f"Permission denied: {permission}", 403)  # type: ignore[return-value]
 
                 # 5. Call the actual handler
-                result = await func(self, request, auth_context, *args, **kwargs)  # type: ignore[assignment]
+                result = await func(self, request, auth_context, *args, **kwargs)  # type: ignore[assignment,arg-type]
 
                 # 6. Audit if requested
                 if audit:
@@ -207,25 +207,25 @@ class AdminHandler(SecureHandler):
     RESOURCE_TYPE = "admin"
 
     ROUTES = [
-        "/api/admin/organizations",
-        "/api/admin/users",
-        "/api/admin/stats",
-        "/api/admin/system/metrics",
-        "/api/admin/impersonate",
-        "/api/admin/revenue",
+        "/api/v1/admin/organizations",
+        "/api/v1/admin/users",
+        "/api/v1/admin/stats",
+        "/api/v1/admin/system/metrics",
+        "/api/v1/admin/impersonate",
+        "/api/v1/admin/revenue",
         # Nomic admin endpoints
-        "/api/admin/nomic/status",
-        "/api/admin/nomic/circuit-breakers",
-        "/api/admin/nomic/reset",
-        "/api/admin/nomic/pause",
-        "/api/admin/nomic/resume",
-        "/api/admin/nomic/circuit-breakers/reset",
+        "/api/v1/admin/nomic/status",
+        "/api/v1/admin/nomic/circuit-breakers",
+        "/api/v1/admin/nomic/reset",
+        "/api/v1/admin/nomic/pause",
+        "/api/v1/admin/nomic/resume",
+        "/api/v1/admin/nomic/circuit-breakers/reset",
     ]
 
     @staticmethod
     def can_handle(path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/admin")
+        return path.startswith("/api/v1/admin")
 
     def _get_user_store(self):
         """Get user store from context."""
@@ -328,32 +328,32 @@ class AdminHandler(SecureHandler):
 
         # GET routes
         if method == "GET":
-            if path == "/api/admin/organizations":
+            if path == "/api/v1/admin/organizations":
                 return self._list_organizations(handler, query_params)
 
-            if path == "/api/admin/users":
+            if path == "/api/v1/admin/users":
                 return self._list_users(handler, query_params)
 
-            if path == "/api/admin/stats":
+            if path == "/api/v1/admin/stats":
                 return self._get_stats(handler)
 
-            if path == "/api/admin/system/metrics":
+            if path == "/api/v1/admin/system/metrics":
                 return self._get_system_metrics(handler)
 
-            if path == "/api/admin/revenue":
+            if path == "/api/v1/admin/revenue":
                 return self._get_revenue_stats(handler)
 
             # Nomic admin GET routes
-            if path == "/api/admin/nomic/status":
+            if path == "/api/v1/admin/nomic/status":
                 return self._get_nomic_status(handler)
 
-            if path == "/api/admin/nomic/circuit-breakers":
+            if path == "/api/v1/admin/nomic/circuit-breakers":
                 return self._get_nomic_circuit_breakers(handler)
 
         # POST routes
         if method == "POST":
             # POST /api/admin/impersonate/:user_id
-            if path.startswith("/api/admin/impersonate/"):
+            if path.startswith("/api/v1/admin/impersonate/"):
                 user_id = path.split("/")[-1]
                 if not validate_path_segment(user_id, "user_id", SAFE_ID_PATTERN)[0]:
                     return error_response("Invalid user ID format", 400)
@@ -384,16 +384,16 @@ class AdminHandler(SecureHandler):
                 return self._unlock_user(handler, user_id)
 
             # Nomic admin POST routes
-            if path == "/api/admin/nomic/reset":
+            if path == "/api/v1/admin/nomic/reset":
                 return self._reset_nomic_phase(handler)
 
-            if path == "/api/admin/nomic/pause":
+            if path == "/api/v1/admin/nomic/pause":
                 return self._pause_nomic(handler)
 
-            if path == "/api/admin/nomic/resume":
+            if path == "/api/v1/admin/nomic/resume":
                 return self._resume_nomic(handler)
 
-            if path == "/api/admin/nomic/circuit-breakers/reset":
+            if path == "/api/v1/admin/nomic/circuit-breakers/reset":
                 return self._reset_nomic_circuit_breakers(handler)
 
         return error_response("Method not allowed", 405)

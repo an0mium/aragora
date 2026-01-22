@@ -32,10 +32,10 @@ class DocumentQueryHandler(BaseHandler):
     """Handler for natural language document query endpoints."""
 
     ROUTES = [
-        "/api/documents/query",
-        "/api/documents/summarize",
-        "/api/documents/compare",
-        "/api/documents/extract",
+        "/api/v1/documents/query",
+        "/api/v1/documents/summarize",
+        "/api/v1/documents/compare",
+        "/api/v1/documents/extract",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -48,13 +48,13 @@ class DocumentQueryHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/documents/query":
+        if path == "/api/v1/documents/query":
             return self._query_documents(handler)
-        elif path == "/api/documents/summarize":
+        elif path == "/api/v1/documents/summarize":
             return self._summarize_documents(handler)
-        elif path == "/api/documents/compare":
+        elif path == "/api/v1/documents/compare":
             return self._compare_documents(handler)
-        elif path == "/api/documents/extract":
+        elif path == "/api/v1/documents/extract":
             return self._extract_information(handler)
         return None
 

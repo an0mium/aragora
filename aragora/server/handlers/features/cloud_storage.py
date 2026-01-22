@@ -50,15 +50,15 @@ def get_provider_connector(provider: str):
     elif provider == "onedrive":
         from aragora.connectors.enterprise.documents.onedrive import OneDriveConnector
 
-        return OneDriveConnector()
+        return OneDriveConnector()  # type: ignore[abstract]
     elif provider == "dropbox":
         from aragora.connectors.enterprise.documents.dropbox import DropboxConnector
 
-        return DropboxConnector()
+        return DropboxConnector()  # type: ignore[abstract]
     elif provider == "s3":
         from aragora.connectors.enterprise.documents.s3 import S3Connector
 
-        return S3Connector()
+        return S3Connector()  # type: ignore[call-arg]
     return None
 
 
@@ -214,21 +214,21 @@ if HANDLER_BASE_AVAILABLE:
         """HTTP handler for cloud storage operations."""
 
         ROUTES = [
-            "/api/cloud/status",
-            "/api/cloud/google_drive/auth/url",
-            "/api/cloud/google_drive/auth/callback",
-            "/api/cloud/google_drive/files",
-            "/api/cloud/onedrive/auth/url",
-            "/api/cloud/onedrive/auth/callback",
-            "/api/cloud/onedrive/files",
-            "/api/cloud/dropbox/auth/url",
-            "/api/cloud/dropbox/auth/callback",
-            "/api/cloud/dropbox/files",
+            "/api/v1/cloud/status",
+            "/api/v1/cloud/google_drive/auth/url",
+            "/api/v1/cloud/google_drive/auth/callback",
+            "/api/v1/cloud/google_drive/files",
+            "/api/v1/cloud/onedrive/auth/url",
+            "/api/v1/cloud/onedrive/auth/callback",
+            "/api/v1/cloud/onedrive/files",
+            "/api/v1/cloud/dropbox/auth/url",
+            "/api/v1/cloud/dropbox/auth/callback",
+            "/api/v1/cloud/dropbox/files",
         ]
 
         def can_handle(self, path: str, method: str = "GET") -> bool:
             """Check if this handler can process the given path."""
-            return path.startswith("/api/cloud/")
+            return path.startswith("/api/v1/cloud/")
 
         def handle(
             self,
@@ -237,7 +237,7 @@ if HANDLER_BASE_AVAILABLE:
             handler: Any,
         ) -> Optional[HandlerResult]:
             """Route cloud storage requests."""
-            if path == "/api/cloud/status":
+            if path == "/api/v1/cloud/status":
                 return json_response(get_all_provider_status())
 
             # Parse provider from path: /api/cloud/{provider}/...

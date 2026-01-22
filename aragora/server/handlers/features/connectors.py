@@ -142,15 +142,15 @@ class ConnectorsHandler(SecureHandler):
     RESOURCE_TYPE = "connector"
 
     ROUTES = [
-        "/api/connectors",
-        "/api/connectors/{connector_id}",
-        "/api/connectors/{connector_id}/sync",
-        "/api/connectors/sync/{sync_id}/cancel",
-        "/api/connectors/test",
-        "/api/connectors/sync-history",
-        "/api/connectors/stats",
-        "/api/connectors/health",
-        "/api/connectors/types",
+        "/api/v1/connectors",
+        "/api/v1/connectors/{connector_id}",
+        "/api/v1/connectors/{connector_id}/sync",
+        "/api/v1/connectors/sync/{sync_id}/cancel",
+        "/api/v1/connectors/test",
+        "/api/v1/connectors/sync-history",
+        "/api/v1/connectors/stats",
+        "/api/v1/connectors/health",
+        "/api/v1/connectors/types",
     ]
 
     def _check_permission(self, request: Any, permission: str) -> Optional[Dict[str, Any]]:

@@ -32,8 +32,8 @@ class MemoryAnalyticsHandler(BaseHandler):
     """Handler for memory analytics endpoints."""
 
     ROUTES = [
-        "/api/memory/analytics",
-        "/api/memory/analytics/snapshot",
+        "/api/v1/memory/analytics",
+        "/api/v1/memory/analytics/snapshot",
     ]
 
     def __init__(self, ctx: dict = None):
@@ -59,7 +59,7 @@ class MemoryAnalyticsHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle tier-specific routes
-        if path.startswith("/api/memory/analytics/tier/"):
+        if path.startswith("/api/v1/memory/analytics/tier/"):
             return True
         return False
 
@@ -71,11 +71,11 @@ class MemoryAnalyticsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for memory analytics endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/memory/analytics":
+        if path == "/api/v1/memory/analytics":
             days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
             return self._get_analytics(days)
 
-        if path.startswith("/api/memory/analytics/tier/"):
+        if path.startswith("/api/v1/memory/analytics/tier/"):
             tier_name = path.split("/")[-1]
             days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
             return self._get_tier_stats(tier_name, days)
@@ -84,7 +84,7 @@ class MemoryAnalyticsHandler(BaseHandler):
 
     def handle_post(self, path: str, body: dict, handler=None) -> Optional[HandlerResult]:
         """Handle POST requests."""
-        if path == "/api/memory/analytics/snapshot":
+        if path == "/api/v1/memory/analytics/snapshot":
             return self._take_snapshot()
         return None
 

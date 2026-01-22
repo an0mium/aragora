@@ -34,31 +34,31 @@ class RLMHandler(BaseHandler):
     """Handler for RLM-powered query and compression endpoints."""
 
     ROUTES = [
-        "/api/debates/{debate_id}/query-rlm",
-        "/api/debates/{debate_id}/compress",
-        "/api/debates/{debate_id}/context/{level}",
-        "/api/debates/{debate_id}/refinement-status",
-        "/api/knowledge/query-rlm",
-        "/api/rlm/status",
-        "/api/metrics/rlm",
+        "/api/v1/debates/{debate_id}/query-rlm",
+        "/api/v1/debates/{debate_id}/compress",
+        "/api/v1/debates/{debate_id}/context/{level}",
+        "/api/v1/debates/{debate_id}/refinement-status",
+        "/api/v1/knowledge/query-rlm",
+        "/api/v1/rlm/status",
+        "/api/v1/metrics/rlm",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         # Handle parameterized routes
-        if path.startswith("/api/debates/") and "/query-rlm" in path:
+        if path.startswith("/api/v1/debates/") and "/query-rlm" in path:
             return True
-        if path.startswith("/api/debates/") and "/compress" in path:
+        if path.startswith("/api/v1/debates/") and "/compress" in path:
             return True
-        if path.startswith("/api/debates/") and "/context/" in path:
+        if path.startswith("/api/v1/debates/") and "/context/" in path:
             return True
-        if path.startswith("/api/debates/") and "/refinement-status" in path:
+        if path.startswith("/api/v1/debates/") and "/refinement-status" in path:
             return True
-        if path == "/api/knowledge/query-rlm":
+        if path == "/api/v1/knowledge/query-rlm":
             return True
-        if path == "/api/rlm/status":
+        if path == "/api/v1/rlm/status":
             return True
-        if path == "/api/metrics/rlm":
+        if path == "/api/v1/metrics/rlm":
             return True
         return False
 
@@ -78,9 +78,9 @@ class RLMHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle GET requests."""
-        if path == "/api/rlm/status":
+        if path == "/api/v1/rlm/status":
             return self._get_rlm_status()
-        if path == "/api/metrics/rlm":
+        if path == "/api/v1/metrics/rlm":
             return self._get_rlm_metrics()
         if "/context/" in path:
             return self._get_context_level(path, handler)
@@ -90,11 +90,11 @@ class RLMHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if "/query-rlm" in path and path.startswith("/api/debates/"):
+        if "/query-rlm" in path and path.startswith("/api/v1/debates/"):
             return self._query_debate_rlm(path, handler)
         if "/compress" in path:
             return self._compress_debate(path, handler)
-        if path == "/api/knowledge/query-rlm":
+        if path == "/api/v1/knowledge/query-rlm":
             return self._query_knowledge_rlm(handler)
         return None
 

@@ -73,17 +73,17 @@ class SelectionHandler(BaseHandler):
     """Handler for selection plugin endpoints."""
 
     ROUTES = [
-        "/api/selection/plugins",
-        "/api/selection/defaults",
-        "/api/selection/score",
-        "/api/selection/team",
+        "/api/v1/selection/plugins",
+        "/api/v1/selection/defaults",
+        "/api/v1/selection/score",
+        "/api/v1/selection/team",
     ]
 
     # Routes with path parameters
     PREFIX_ROUTES = [
-        "/api/selection/scorers/",
-        "/api/selection/team-selectors/",
-        "/api/selection/role-assigners/",
+        "/api/v1/selection/scorers/",
+        "/api/v1/selection/team-selectors/",
+        "/api/v1/selection/role-assigners/",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -100,26 +100,26 @@ class SelectionHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for selection endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/selection/plugins":
+        if path == "/api/v1/selection/plugins":
             return self._list_plugins()
-        if path == "/api/selection/defaults":
+        if path == "/api/v1/selection/defaults":
             return self._get_defaults()
-        if path.startswith("/api/selection/scorers/"):
+        if path.startswith("/api/v1/selection/scorers/"):
             name = path.split("/")[-1]
             return self._get_scorer(name)
-        if path.startswith("/api/selection/team-selectors/"):
+        if path.startswith("/api/v1/selection/team-selectors/"):
             name = path.split("/")[-1]
             return self._get_team_selector(name)
-        if path.startswith("/api/selection/role-assigners/"):
+        if path.startswith("/api/v1/selection/role-assigners/"):
             name = path.split("/")[-1]
             return self._get_role_assigner(name)
         return None
 
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/selection/score":
+        if path == "/api/v1/selection/score":
             return self._score_agents(handler)
-        if path == "/api/selection/team":
+        if path == "/api/v1/selection/team":
             return self._select_team(handler)
         return None
 

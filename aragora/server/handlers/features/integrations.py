@@ -424,14 +424,14 @@ class IntegrationsHandler(SecureHandler):
             elif integration_type == "matrix":
                 from aragora.integrations.matrix import MatrixConfig, MatrixIntegration
 
-                integration = MatrixIntegration(
+                integration = MatrixIntegration(  # type: ignore[arg-type]
                     MatrixConfig(  # type: ignore[call-arg]
                         homeserver_url=settings.get("homeserver_url", ""),
                         access_token=settings.get("access_token", ""),
                         room_id=settings.get("room_id", ""),
                     )
                 )
-                return await integration.verify_connection()  # type: ignore[return-value]
+                return await integration.verify_connection()  # type: ignore[return-value,attr-defined]
 
             return False
 

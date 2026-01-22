@@ -41,20 +41,20 @@ class AnalyticsDashboardHandler(BaseHandler):
     """Handler for analytics dashboard endpoints."""
 
     ROUTES = [
-        "/api/analytics/summary",
-        "/api/analytics/trends/findings",
-        "/api/analytics/remediation",
-        "/api/analytics/agents",
-        "/api/analytics/cost",
-        "/api/analytics/compliance",
-        "/api/analytics/heatmap",
-        "/api/analytics/tokens",
-        "/api/analytics/tokens/trends",
-        "/api/analytics/tokens/providers",
-        "/api/analytics/flips/summary",
-        "/api/analytics/flips/recent",
-        "/api/analytics/flips/consistency",
-        "/api/analytics/flips/trends",
+        "/api/v1/analytics/summary",
+        "/api/v1/analytics/trends/findings",
+        "/api/v1/analytics/remediation",
+        "/api/v1/analytics/agents",
+        "/api/v1/analytics/cost",
+        "/api/v1/analytics/compliance",
+        "/api/v1/analytics/heatmap",
+        "/api/v1/analytics/tokens",
+        "/api/v1/analytics/tokens/trends",
+        "/api/v1/analytics/tokens/providers",
+        "/api/v1/analytics/flips/summary",
+        "/api/v1/analytics/flips/recent",
+        "/api/v1/analytics/flips/consistency",
+        "/api/v1/analytics/flips/trends",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -64,33 +64,33 @@ class AnalyticsDashboardHandler(BaseHandler):
     @rate_limit(rpm=60)
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
-        if path == "/api/analytics/summary":
+        if path == "/api/v1/analytics/summary":
             return self._get_summary(query_params)
-        elif path == "/api/analytics/trends/findings":
+        elif path == "/api/v1/analytics/trends/findings":
             return self._get_finding_trends(query_params)
-        elif path == "/api/analytics/remediation":
+        elif path == "/api/v1/analytics/remediation":
             return self._get_remediation_metrics(query_params)
-        elif path == "/api/analytics/agents":
+        elif path == "/api/v1/analytics/agents":
             return self._get_agent_metrics(query_params)
-        elif path == "/api/analytics/cost":
+        elif path == "/api/v1/analytics/cost":
             return self._get_cost_metrics(query_params)
-        elif path == "/api/analytics/compliance":
+        elif path == "/api/v1/analytics/compliance":
             return self._get_compliance_scorecard(query_params)
-        elif path == "/api/analytics/heatmap":
+        elif path == "/api/v1/analytics/heatmap":
             return self._get_risk_heatmap(query_params)
-        elif path == "/api/analytics/tokens":
+        elif path == "/api/v1/analytics/tokens":
             return self._get_token_usage(query_params)
-        elif path == "/api/analytics/tokens/trends":
+        elif path == "/api/v1/analytics/tokens/trends":
             return self._get_token_trends(query_params)
-        elif path == "/api/analytics/tokens/providers":
+        elif path == "/api/v1/analytics/tokens/providers":
             return self._get_provider_breakdown(query_params)
-        elif path == "/api/analytics/flips/summary":
+        elif path == "/api/v1/analytics/flips/summary":
             return self._get_flip_summary(query_params)
-        elif path == "/api/analytics/flips/recent":
+        elif path == "/api/v1/analytics/flips/recent":
             return self._get_recent_flips(query_params)
-        elif path == "/api/analytics/flips/consistency":
+        elif path == "/api/v1/analytics/flips/consistency":
             return self._get_agent_consistency(query_params)
-        elif path == "/api/analytics/flips/trends":
+        elif path == "/api/v1/analytics/flips/trends":
             return self._get_flip_trends(query_params)
 
         return None

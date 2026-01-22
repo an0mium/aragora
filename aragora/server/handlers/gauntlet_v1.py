@@ -443,7 +443,7 @@ class GauntletReceiptExportHandler(BaseHandler):
 
                 return HandlerResult(  # type: ignore[call-arg,arg-type]
                     status=200,
-                    body=content,
+                    body=content,  # type: ignore[arg-type]
                     headers={"Content-Type": content_type},
                 )
 
@@ -455,12 +455,12 @@ class GauntletReceiptExportHandler(BaseHandler):
             )
 
             # Map format string to enum
-            format_map = {  # type: ignore[dict-item]
-                "json": ReceiptExportFormat.JSON,
-                "markdown": ReceiptExportFormat.MARKDOWN,
-                "html": ReceiptExportFormat.HTML,
-                "csv": ReceiptExportFormat.CSV,
-                "sarif": ReceiptExportFormat.SARIF,
+            format_map = {
+                "json": ReceiptExportFormat.JSON,  # type: ignore[dict-item]
+                "markdown": ReceiptExportFormat.MARKDOWN,  # type: ignore[dict-item]
+                "html": ReceiptExportFormat.HTML,  # type: ignore[dict-item]
+                "csv": ReceiptExportFormat.CSV,  # type: ignore[dict-item]
+                "sarif": ReceiptExportFormat.SARIF,  # type: ignore[dict-item]
             }
 
             if format_str not in format_map:
@@ -496,7 +496,7 @@ class GauntletReceiptExportHandler(BaseHandler):
 
             return HandlerResult(  # type: ignore[call-arg,arg-type]
                 status=200,
-                body=content,
+                body=content,  # type: ignore[arg-type]
                 headers={"Content-Type": content_type},
             )
 
@@ -613,7 +613,7 @@ class GauntletHeatmapExportHandler(BaseHandler):
 
             return HandlerResult(  # type: ignore[call-arg,arg-type]
                 status=200,
-                body=content,
+                body=content,  # type: ignore[arg-type]
                 headers={"Content-Type": content_type},
             )
 

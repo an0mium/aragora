@@ -49,7 +49,7 @@ class RelationshipOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node = _run_async(mound.get_node(node_id))  # type: ignore[attr-defined]
+            node = _run_async(mound.get_node(node_id))  # type: ignore[attr-defined,misc]
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -67,7 +67,7 @@ class RelationshipOperationsMixin:
 
         try:
             relationships = _run_async(
-                mound.get_relationships(  # type: ignore[attr-defined]
+                mound.get_relationships(  # type: ignore[attr-defined,misc]
                     node_id=node_id,
                     relationship_type=relationship_type,
                     direction=direction,
@@ -138,7 +138,7 @@ class RelationshipOperationsMixin:
 
         try:
             rel_id = _run_async(
-                mound.add_relationship(  # type: ignore[attr-defined,call-arg]
+                mound.add_relationship(  # type: ignore[attr-defined,call-arg,misc]
                     from_node_id=from_node_id,
                     to_node_id=to_node_id,
                     relationship_type=relationship_type,

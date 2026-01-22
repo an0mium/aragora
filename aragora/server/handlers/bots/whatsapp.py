@@ -67,8 +67,8 @@ class WhatsAppHandler(BaseHandler):
     """Handler for WhatsApp Cloud API webhook endpoints."""
 
     ROUTES = [
-        "/api/bots/whatsapp/webhook",
-        "/api/bots/whatsapp/status",
+        "/api/v1/bots/whatsapp/webhook",
+        "/api/v1/bots/whatsapp/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -80,10 +80,10 @@ class WhatsAppHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route WhatsApp GET requests."""
-        if path == "/api/bots/whatsapp/status":
+        if path == "/api/v1/bots/whatsapp/status":
             return self._get_status()
 
-        if path == "/api/bots/whatsapp/webhook":
+        if path == "/api/v1/bots/whatsapp/webhook":
             # Webhook verification challenge
             return self._handle_verification(query_params)
 
@@ -94,7 +94,7 @@ class WhatsAppHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests (webhook messages)."""
-        if path == "/api/bots/whatsapp/webhook":
+        if path == "/api/v1/bots/whatsapp/webhook":
             return self._handle_webhook(handler)
 
         return None

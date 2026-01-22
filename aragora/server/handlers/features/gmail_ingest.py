@@ -94,20 +94,20 @@ class GmailIngestHandler(SecureHandler):
     RESOURCE_TYPE = "gmail"
 
     ROUTES = [
-        "/api/gmail/connect",
-        "/api/gmail/auth/url",
-        "/api/gmail/auth/callback",
-        "/api/gmail/sync",
-        "/api/gmail/sync/status",
-        "/api/gmail/messages",
-        "/api/gmail/search",
-        "/api/gmail/disconnect",
-        "/api/gmail/status",
+        "/api/v1/gmail/connect",
+        "/api/v1/gmail/auth/url",
+        "/api/v1/gmail/auth/callback",
+        "/api/v1/gmail/sync",
+        "/api/v1/gmail/sync/status",
+        "/api/v1/gmail/messages",
+        "/api/v1/gmail/search",
+        "/api/v1/gmail/disconnect",
+        "/api/v1/gmail/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the path."""
-        return path.startswith("/api/gmail/")
+        return path.startswith("/api/v1/gmail/")
 
     def _get_authenticated_user(
         self, handler: Any
@@ -149,23 +149,23 @@ class GmailIngestHandler(SecureHandler):
         if auth_error:
             return auth_error
 
-        if path == "/api/gmail/status":
+        if path == "/api/v1/gmail/status":
             return self._get_status(user_id)
 
-        if path == "/api/gmail/auth/url":
+        if path == "/api/v1/gmail/auth/url":
             return self._get_auth_url(query_params)
 
-        if path == "/api/gmail/auth/callback":
+        if path == "/api/v1/gmail/auth/callback":
             # Handle OAuth callback GET
             return self._handle_oauth_callback(query_params, user_id, org_id or "")
 
-        if path == "/api/gmail/sync/status":
+        if path == "/api/v1/gmail/sync/status":
             return self._get_sync_status(user_id)
 
-        if path == "/api/gmail/messages":
+        if path == "/api/v1/gmail/messages":
             return self._list_messages(user_id, query_params)
 
-        if path.startswith("/api/gmail/message/"):
+        if path.startswith("/api/v1/gmail/message/"):
             message_id = path.split("/")[-1]
             return self._get_message(user_id, message_id)
 
@@ -189,19 +189,19 @@ class GmailIngestHandler(SecureHandler):
         if auth_error:
             return auth_error
 
-        if path == "/api/gmail/connect":
+        if path == "/api/v1/gmail/connect":
             return self._start_connect(body, user_id)
 
-        if path == "/api/gmail/auth/callback":
+        if path == "/api/v1/gmail/auth/callback":
             return self._handle_oauth_callback_post(body, user_id, org_id or "")
 
-        if path == "/api/gmail/sync":
+        if path == "/api/v1/gmail/sync":
             return self._start_sync(body, user_id)
 
-        if path == "/api/gmail/search":
+        if path == "/api/v1/gmail/search":
             return self._search(user_id, body)
 
-        if path == "/api/gmail/disconnect":
+        if path == "/api/v1/gmail/disconnect":
             return self._disconnect(user_id)
 
         return error_response("Not found", 404)

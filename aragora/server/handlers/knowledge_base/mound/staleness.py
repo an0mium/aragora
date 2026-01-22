@@ -76,9 +76,9 @@ class StalenessOperationsMixin:
                         "staleness_score": item.staleness_score,
                         "reasons": [r.value if hasattr(r, "value") else r for r in item.reasons],
                         "last_validated_at": (
-                            item.last_validated_at.isoformat() if item.last_validated_at else None
+                            item.last_validated_at.isoformat() if item.last_validated_at else None  # type: ignore[attr-defined]
                         ),
-                        "recommended_action": item.recommended_action,
+                        "recommended_action": item.recommended_action,  # type: ignore[attr-defined]
                     }
                     for item in stale_items
                 ],

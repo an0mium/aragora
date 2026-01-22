@@ -82,38 +82,38 @@ class DebatesHandler(
 
     # Route patterns this handler manages
     ROUTES = [
-        "/api/debate",  # POST - create new debate (legacy endpoint)
-        "/api/debates",
-        "/api/debates/",  # With trailing slash
-        "/api/debates/batch",  # POST - batch debate submission
-        "/api/debates/batch/",
-        "/api/debates/batch/*/status",  # GET - batch status
-        "/api/debates/queue/status",  # GET - queue status
-        "/api/debates/export/batch",  # POST - start batch export
-        "/api/debates/export/batch/",
-        "/api/debates/export/batch/*/status",  # GET - export job status
-        "/api/debates/export/batch/*/results",  # GET - export job results
-        "/api/debates/export/batch/*/stream",  # GET - SSE progress stream
-        "/api/debates/slug/",
-        "/api/debates/*/export/",
-        "/api/debates/*/impasse",
-        "/api/debates/*/convergence",
-        "/api/debates/*/citations",
-        "/api/debates/*/messages",  # Paginated message history
-        "/api/debates/*/fork",  # POST - counterfactual fork
-        "/api/debates/*/followup",  # POST - crux-driven follow-up debate
-        "/api/debates/*/followups",  # GET - list follow-up suggestions
-        "/api/debates/*/forks",  # GET - list all forks for a debate
-        "/api/debates/*/verification-report",  # Verification feedback
-        "/api/debates/*/summary",  # GET - human-readable summary
-        "/api/debates/*/cancel",  # POST - cancel running debate
-        "/api/search",  # Cross-debate search
+        "/api/v1/debate",  # POST - create new debate (legacy endpoint)
+        "/api/v1/debates",
+        "/api/v1/debates/",  # With trailing slash
+        "/api/v1/debates/batch",  # POST - batch debate submission
+        "/api/v1/debates/batch/",
+        "/api/v1/debates/batch/*/status",  # GET - batch status
+        "/api/v1/debates/queue/status",  # GET - queue status
+        "/api/v1/debates/export/batch",  # POST - start batch export
+        "/api/v1/debates/export/batch/",
+        "/api/v1/debates/export/batch/*/status",  # GET - export job status
+        "/api/v1/debates/export/batch/*/results",  # GET - export job results
+        "/api/v1/debates/export/batch/*/stream",  # GET - SSE progress stream
+        "/api/v1/debates/slug/",
+        "/api/v1/debates/*/export/",
+        "/api/v1/debates/*/impasse",
+        "/api/v1/debates/*/convergence",
+        "/api/v1/debates/*/citations",
+        "/api/v1/debates/*/messages",  # Paginated message history
+        "/api/v1/debates/*/fork",  # POST - counterfactual fork
+        "/api/v1/debates/*/followup",  # POST - crux-driven follow-up debate
+        "/api/v1/debates/*/followups",  # GET - list follow-up suggestions
+        "/api/v1/debates/*/forks",  # GET - list all forks for a debate
+        "/api/v1/debates/*/verification-report",  # Verification feedback
+        "/api/v1/debates/*/summary",  # GET - human-readable summary
+        "/api/v1/debates/*/cancel",  # POST - cancel running debate
+        "/api/v1/search",  # Cross-debate search
     ]
 
     # Endpoints that require authentication
     AUTH_REQUIRED_ENDPOINTS = [
-        "/api/debates",  # List all debates - prevents enumeration
-        "/api/debates/batch",  # Batch submission requires auth
+        "/api/v1/debates",  # List all debates - prevents enumeration
+        "/api/v1/debates/batch",  # Batch submission requires auth
         "/export/",  # Export debate data
         "/citations",  # Evidence citations
         "/fork",  # Fork debate
@@ -275,16 +275,16 @@ class DebatesHandler(
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/debate":
+        if path == "/api/v1/debate":
             return True  # POST - create debate
-        if path == "/api/debates":
+        if path == "/api/v1/debates":
             return True
-        if path == "/api/search":
+        if path == "/api/v1/search":
             return True
-        if path.startswith("/api/debates/"):
+        if path.startswith("/api/v1/debates/"):
             return True
         # Also handle /api/debate/{id}/meta-critique and /api/debate/{id}/graph/stats
-        if path.startswith("/api/debate/") and (
+        if path.startswith("/api/v1/debate/") and (
             path.endswith("/meta-critique") or path.endswith("/graph/stats")
         ):
             return True
@@ -299,7 +299,7 @@ class DebatesHandler(
                 return auth_error
 
         # Search endpoint
-        if path == "/api/search":
+        if path == "/api/v1/search":
             query = query_params.get("q", query_params.get("query", ""))
             if isinstance(query, list):
                 query = query[0] if query else ""
@@ -311,35 +311,35 @@ class DebatesHandler(
             return self._search_debates(query, limit, offset, org_id)
 
         # Queue status endpoint
-        if path == "/api/debates/queue/status":
+        if path == "/api/v1/debates/queue/status":
             return self._get_queue_status()
 
         # Batch status endpoint (GET /api/debates/batch/{id}/status)
-        if path.startswith("/api/debates/batch/") and path.endswith("/status"):
+        if path.startswith("/api/v1/debates/batch/") and path.endswith("/status"):
             parts = path.split("/")
             if len(parts) >= 5:
                 batch_id = parts[4]
                 return self._get_batch_status(batch_id)
 
         # List batches (GET /api/debates/batch)
-        if path in ("/api/debates/batch", "/api/debates/batch/"):
+        if path in ("/api/v1/debates/batch", "/api/v1/debates/batch/"):
             limit = min(get_int_param(query_params, "limit", 50), 100)
             status_filter = query_params.get("status")
             return self._list_batches(limit, status_filter)
 
         # Batch export endpoints
-        if path.startswith("/api/debates/export/batch"):
+        if path.startswith("/api/v1/debates/export/batch"):
             return self._handle_batch_export(path, query_params, handler)
 
         # Exact path matches
-        if path == "/api/debates":
+        if path == "/api/v1/debates":
             limit = min(get_int_param(query_params, "limit", 20), 100)
             # Get authenticated user for org-scoped results
             user = self.get_current_user(handler)
             org_id = user.org_id if user else None
             return self._list_debates(limit, org_id)
 
-        if path.startswith("/api/debates/slug/"):
+        if path.startswith("/api/v1/debates/slug/"):
             slug = path.split("/")[-1]
             return self._get_debate_by_slug(handler, slug)
 
@@ -374,7 +374,7 @@ class DebatesHandler(
                 return self._export_debate(handler, debate_id, export_format, table)
 
         # Default: treat as slug lookup
-        if path.startswith("/api/debates/"):
+        if path.startswith("/api/v1/debates/"):
             slug = path.split("/")[-1]
             if slug and slug not in ("impasse", "convergence"):
                 return self._get_debate_by_slug(handler, slug)
@@ -406,18 +406,18 @@ class DebatesHandler(
         from aragora.server.http_utils import run_async
 
         # POST /api/debates/export/batch - start batch export
-        if path in ("/api/debates/export/batch", "/api/debates/export/batch/"):
+        if path in ("/api/v1/debates/export/batch", "/api/v1/debates/export/batch/"):
             body = self.read_json_body(handler)
             if not body:
                 return error_response("Invalid or missing JSON body", 400)
             debate_ids = body.get("debate_ids", [])
             format = body.get("format", "json")
-            return self._start_batch_export(handler, debate_ids, format)
+            return self._start_batch_export(handler, debate_ids, format)  # type: ignore[misc]
 
         # GET /api/debates/export/batch - list export jobs
-        if path == "/api/debates/export/batch":
+        if path == "/api/v1/debates/export/batch":
             limit = min(get_int_param(query_params, "limit", 50), 100)
-            return self._list_batch_exports(limit)
+            return self._list_batch_exports(limit)  # type: ignore[misc]
 
         # Extract job ID from path
         parts = path.split("/")
@@ -428,11 +428,11 @@ class DebatesHandler(
 
         # GET /api/debates/export/batch/{job_id}/status
         if path.endswith("/status"):
-            return self._get_batch_export_status(job_id)
+            return self._get_batch_export_status(job_id)  # type: ignore[misc]
 
         # GET /api/debates/export/batch/{job_id}/results
         if path.endswith("/results"):
-            return self._get_batch_export_results(job_id)
+            return self._get_batch_export_results(job_id)  # type: ignore[misc]
 
         # GET /api/debates/export/batch/{job_id}/stream - SSE stream
         if path.endswith("/stream"):
@@ -471,8 +471,8 @@ class DebatesHandler(
         debates = storage.list_recent(limit=limit, org_id=org_id)
         # Convert DebateMetadata objects to dicts and normalize for SDK compatibility
         debates_list = [
-            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else d)
-            for d in debates  # type: ignore[arg-type]
+            normalize_debate_response(d.__dict__ if hasattr(d, "__dict__") else d)  # type: ignore[arg-type]
+            for d in debates
         ]
         return json_response({"debates": debates_list, "count": len(debates_list)})
 
@@ -734,7 +734,7 @@ class DebatesHandler(
                 continuum = self.ctx.get("continuum_memory")
                 if continuum and task:
                     # Query for evidence-type memories related to this task
-                    memories = continuum.search(
+                    memories = continuum.search(  # type: ignore[attr-defined]
                         query=task[:200],
                         limit=10,
                         min_importance=0.3,
@@ -871,11 +871,11 @@ class DebatesHandler(
         """Route POST requests to appropriate methods."""
         # Create debate endpoint - both legacy and RESTful
         # POST /api/debates (canonical) or POST /api/debate (legacy, deprecated)
-        if path in ("/api/debate", "/api/debates"):
+        if path in ("/api/v1/debate", "/api/v1/debates"):
             result = self._create_debate(handler)
 
             # Add deprecation headers for legacy endpoint
-            if path == "/api/debate" and result:
+            if path == "/api/v1/debate" and result:
                 # RFC 8594 Sunset header - 6 months from now
                 result.headers = result.headers or {}
                 result.headers["Deprecation"] = "true"
@@ -885,7 +885,7 @@ class DebatesHandler(
             return result
 
         # Batch submission endpoint
-        if path in ("/api/debates/batch", "/api/debates/batch/"):
+        if path in ("/api/v1/debates/batch", "/api/v1/debates/batch/"):
             return self._submit_batch(handler)
 
         if path.endswith("/fork"):
@@ -1178,7 +1178,7 @@ class DebatesHandler(
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route PATCH requests to appropriate methods."""
         # Handle /api/debates/{id} pattern for updates
-        if path.startswith("/api/debates/") and path.count("/") == 3:
+        if path.startswith("/api/v1/debates/") and path.count("/") == 3:
             debate_id, err = self._extract_debate_id(path)
             if err:
                 return error_response(err, 400)

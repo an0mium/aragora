@@ -432,7 +432,7 @@ class DebateStreamServer(ServerBase):
             if should_send:
                 try:
                     # Timeout prevents hanging if client disconnects mid-send
-                    async with asyncio.timeout(5.0):
+                    async with asyncio.timeout(5.0):  # type: ignore[attr-defined]
                         await client.send(message)
                 except asyncio.TimeoutError:
                     logger.warning("Client send timed out during broadcast, marking for disconnect")
@@ -487,7 +487,7 @@ class DebateStreamServer(ServerBase):
             if should_send:
                 try:
                     # Timeout prevents hanging if client disconnects mid-send
-                    async with asyncio.timeout(5.0):
+                    async with asyncio.timeout(5.0):  # type: ignore[attr-defined]
                         await client.send(message)
                 except asyncio.TimeoutError:
                     logger.warning(

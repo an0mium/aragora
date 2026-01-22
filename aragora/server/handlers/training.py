@@ -36,27 +36,27 @@ class TrainingHandler(BaseHandler):
     """Handler for training data export endpoints."""
 
     ROUTES = {
-        "/api/training/export/sft": "handle_export_sft",
-        "/api/training/export/dpo": "handle_export_dpo",
-        "/api/training/export/gauntlet": "handle_export_gauntlet",
-        "/api/training/stats": "handle_stats",
-        "/api/training/formats": "handle_formats",
-        "/api/training/jobs": "handle_list_jobs",
+        "/api/v1/training/export/sft": "handle_export_sft",
+        "/api/v1/training/export/dpo": "handle_export_dpo",
+        "/api/v1/training/export/gauntlet": "handle_export_gauntlet",
+        "/api/v1/training/stats": "handle_stats",
+        "/api/v1/training/formats": "handle_formats",
+        "/api/v1/training/jobs": "handle_list_jobs",
     }
 
     # Dynamic routes that need special handling
     JOB_ROUTES = [
-        "/api/training/jobs/*/export",
-        "/api/training/jobs/*/start",
-        "/api/training/jobs/*/complete",
-        "/api/training/jobs/*/metrics",
-        "/api/training/jobs/*/artifacts",
-        "/api/training/jobs/*",
+        "/api/v1/training/jobs/*/export",
+        "/api/v1/training/jobs/*/start",
+        "/api/v1/training/jobs/*/complete",
+        "/api/v1/training/jobs/*/metrics",
+        "/api/v1/training/jobs/*/artifacts",
+        "/api/v1/training/jobs/*",
     ]
 
     def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
-        super().__init__(ctx)
+        super().__init__(ctx)  # type: ignore[arg-type]
         self._exporters: dict[str, Any] = {}
         self._export_dir = Path(
             os.environ.get("ARAGORA_TRAINING_EXPORT_DIR", ".nomic/training_exports")
@@ -68,7 +68,7 @@ class TrainingHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Check job routes (dynamic patterns)
-        if path.startswith("/api/training/jobs/"):
+        if path.startswith("/api/v1/training/jobs/"):
             return True
         return False
 
@@ -86,7 +86,7 @@ class TrainingHandler(BaseHandler):
             return cast(Optional[HandlerResult], result)
 
         # Handle job-specific routes
-        if path.startswith("/api/training/jobs/"):
+        if path.startswith("/api/v1/training/jobs/"):
             return self._handle_job_route(path, query_params, handler)
 
         return None
@@ -577,9 +577,9 @@ class TrainingHandler(BaseHandler):
                 "formats": formats,
                 "output_formats": ["json", "jsonl"],
                 "endpoints": {
-                    "sft": "/api/training/export/sft",
-                    "dpo": "/api/training/export/dpo",
-                    "gauntlet": "/api/training/export/gauntlet",
+                    "sft": "/api/v1/training/export/sft",
+                    "dpo": "/api/v1/training/export/dpo",
+                    "gauntlet": "/api/v1/training/export/gauntlet",
                 },
             }
         )
@@ -715,7 +715,9 @@ class TrainingHandler(BaseHandler):
         """Cancel a training job."""
         # Check permission for training creation (cancel is a destructive action)
         user = self.get_current_user(handler)
-        if user and not has_permission(user.role if hasattr(user, "role") else None, "training:create"):
+        if user and not has_permission(
+            user.role if hasattr(user, "role") else None, "training:create"
+        ):
             return error_response("Permission denied: training:create required", 403)
 
         pipeline = self._get_training_pipeline()
@@ -725,7 +727,7 @@ class TrainingHandler(BaseHandler):
         try:
             from aragora.training.specialist_models import TrainingStatus
 
-            pipeline._registry.update_status(job_id, TrainingStatus.CANCELLED)
+            pipeline._registry.update_status(job_id, TrainingStatus.CANCELLED)  # type: ignore[attr-defined]
             return json_response({"success": True, "job_id": job_id, "status": "cancelled"})
         except ValueError as e:
             return error_response(str(e), 404)
@@ -747,7 +749,9 @@ class TrainingHandler(BaseHandler):
         """Export training data for a specific job."""
         # Check permission for training export
         user = self.get_current_user(handler)
-        if user and not has_permission(user.role if hasattr(user, "role") else None, "training:export"):
+        if user and not has_permission(
+            user.role if hasattr(user, "role") else None, "training:export"
+        ):
             return error_response("Permission denied: training:export required", 403)
 
         pipeline = self._get_training_pipeline()
@@ -787,7 +791,9 @@ class TrainingHandler(BaseHandler):
         """Start training for a job."""
         # Check permission for training creation
         user = self.get_current_user(handler)
-        if user and not has_permission(user.role if hasattr(user, "role") else None, "training:create"):
+        if user and not has_permission(
+            user.role if hasattr(user, "role") else None, "training:create"
+        ):
             return error_response("Permission denied: training:create required", 403)
 
         pipeline = self._get_training_pipeline()
@@ -828,7 +834,9 @@ class TrainingHandler(BaseHandler):
         """Mark a training job as complete (webhook endpoint)."""
         # Check permission for training creation
         user = self.get_current_user(handler)
-        if user and not has_permission(user.role if hasattr(user, "role") else None, "training:create"):
+        if user and not has_permission(
+            user.role if hasattr(user, "role") else None, "training:create"
+        ):
             return error_response("Permission denied: training:create required", 403)
 
         pipeline = self._get_training_pipeline()

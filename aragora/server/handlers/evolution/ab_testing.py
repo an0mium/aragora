@@ -44,17 +44,17 @@ class EvolutionABTestingHandler(BaseHandler):
     """Handler for evolution A/B testing endpoints."""
 
     ROUTES = [
-        "/api/evolution/ab-tests",
-        "/api/evolution/ab-tests/",
+        "/api/v1/evolution/ab-tests",
+        "/api/v1/evolution/ab-tests/",
     ]
 
     AUTH_REQUIRED_ENDPOINTS = [
-        "/api/evolution/ab-tests",
+        "/api/v1/evolution/ab-tests",
     ]
 
     def __init__(self, ctx: dict = None):
         """Initialize with context."""
-        super().__init__(ctx)
+        super().__init__(ctx)  # type: ignore[arg-type]
         self._manager: Optional[ABTestManager] = None
 
     @property
@@ -62,7 +62,7 @@ class EvolutionABTestingHandler(BaseHandler):
         """Lazy-load A/B test manager."""
         if self._manager is None and AB_TESTING_AVAILABLE:
             db_path = self.ctx.get("ab_tests_db", "ab_tests.db")
-            self._manager = ABTestManager(db_path=db_path)
+            self._manager = ABTestManager(db_path=db_path)  # type: ignore[arg-type]
         return self._manager
 
     def _get_user_store(self):
@@ -71,14 +71,14 @@ class EvolutionABTestingHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/evolution/ab-tests")
+        return path.startswith("/api/v1/evolution/ab-tests")
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests."""
         if not AB_TESTING_AVAILABLE:
             return error_response("A/B testing module not available", 503)
 
-        if path == "/api/evolution/ab-tests" or path == "/api/evolution/ab-tests/":
+        if path == "/api/v1/evolution/ab-tests" or path == "/api/v1/evolution/ab-tests/":
             return self._list_tests(query_params)
 
         # Parse path segments
@@ -110,7 +110,7 @@ class EvolutionABTestingHandler(BaseHandler):
             return error_response("A/B testing module not available", 503)
 
         # POST /api/evolution/ab-tests - Create new test
-        if path == "/api/evolution/ab-tests" or path == "/api/evolution/ab-tests/":
+        if path == "/api/v1/evolution/ab-tests" or path == "/api/v1/evolution/ab-tests/":
             return self._create_test(body)
 
         parts = path.rstrip("/").split("/")

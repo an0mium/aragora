@@ -42,19 +42,19 @@ class InsightsHandler(BaseHandler):
 
     # Route patterns this handler manages
     ROUTES = [
-        "/api/insights/recent",
-        "/api/insights/extract-detailed",
-        "/api/flips/recent",
+        "/api/v1/insights/recent",
+        "/api/v1/insights/extract-detailed",
+        "/api/v1/flips/recent",
     ]
 
     # Endpoints that require authentication
     AUTH_REQUIRED_ENDPOINTS = [
-        "/api/insights/extract-detailed",  # Computationally expensive
+        "/api/v1/insights/extract-detailed",  # Computationally expensive
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/insights/") or path == "/api/flips/recent"
+        return path.startswith("/api/v1/insights/") or path == "/api/v1/flips/recent"
 
     def handle_get(self, path: str, query: dict, handler, ctx: dict) -> Optional[HandlerResult]:
         """Handle GET requests for insights endpoints."""
@@ -64,10 +64,10 @@ class InsightsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for insights endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/insights/recent":
+        if path == "/api/v1/insights/recent":
             return self._get_recent_insights(query, ctx)
 
-        if path == "/api/flips/recent":
+        if path == "/api/v1/flips/recent":
             return self._get_recent_flips(query, ctx)
 
         return None
@@ -80,7 +80,7 @@ class InsightsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for insights POST endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/insights/extract-detailed":
+        if path == "/api/v1/insights/extract-detailed":
             # Read JSON body from request
             data = self.read_json_body(handler)
             if data is None:

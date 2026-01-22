@@ -653,14 +653,14 @@ if HANDLER_BASE_AVAILABLE:
         """HTTP handler for smart file uploads."""
 
         ROUTES = [
-            "/api/upload/smart",
-            "/api/upload/batch",
-            "/api/upload/status",
+            "/api/v1/upload/smart",
+            "/api/v1/upload/batch",
+            "/api/v1/upload/status",
         ]
 
         def can_handle(self, path: str, method: str = "GET") -> bool:
             """Check if this handler can process the given path."""
-            return path.startswith("/api/upload/")
+            return path.startswith("/api/v1/upload/")
 
         def handle(
             self,
@@ -669,7 +669,7 @@ if HANDLER_BASE_AVAILABLE:
             handler: Any,
         ) -> Optional[HandlerResult]:
             """Route upload requests."""
-            if path.startswith("/api/upload/status/"):
+            if path.startswith("/api/v1/upload/status/"):
                 upload_id = path.split("/")[-1]
                 return self._get_status(upload_id)
 
@@ -687,10 +687,10 @@ if HANDLER_BASE_AVAILABLE:
         ) -> Optional[HandlerResult]:
             """Handle POST uploads."""
 
-            if path == "/api/upload/smart":
+            if path == "/api/v1/upload/smart":
                 return self._handle_smart_upload(body, handler)
 
-            elif path == "/api/upload/batch":
+            elif path == "/api/v1/upload/batch":
                 return self._handle_batch_upload(body, handler)
 
             return error_response("Not found", 404)

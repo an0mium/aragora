@@ -62,7 +62,7 @@ class SharingNotificationsHandler(BaseHandler):
         if err:
             return err
 
-        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")
+        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
 
         if path == "/api/knowledge/notifications":
             return self._get_notifications(user_id, query_params)
@@ -92,7 +92,7 @@ class SharingNotificationsHandler(BaseHandler):
         if err:
             return err
 
-        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")
+        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
 
         if path == "/api/knowledge/notifications/read-all":
             return self._mark_all_read(user_id)
@@ -130,7 +130,7 @@ class SharingNotificationsHandler(BaseHandler):
         if err:
             return err
 
-        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")
+        user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
 
         if path == "/api/knowledge/notifications/preferences":
             return self._update_preferences(user_id, handler)
@@ -168,12 +168,14 @@ class SharingNotificationsHandler(BaseHandler):
                 offset=offset,
             )
 
-            return json_response({
-                "notifications": [n.to_dict() for n in notifications],
-                "count": len(notifications),
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "notifications": [n.to_dict() for n in notifications],
+                    "count": len(notifications),
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get notifications: {e}")
@@ -240,17 +242,19 @@ class SharingNotificationsHandler(BaseHandler):
             from aragora.knowledge.mound.notifications import get_notification_preferences
 
             prefs = get_notification_preferences(user_id)
-            return json_response({
-                "user_id": prefs.user_id,
-                "email_on_share": prefs.email_on_share,
-                "email_on_unshare": prefs.email_on_unshare,
-                "email_on_permission_change": prefs.email_on_permission_change,
-                "in_app_enabled": prefs.in_app_enabled,
-                "telegram_enabled": prefs.telegram_enabled,
-                "webhook_url": prefs.webhook_url,
-                "quiet_hours_start": prefs.quiet_hours_start,
-                "quiet_hours_end": prefs.quiet_hours_end,
-            })
+            return json_response(
+                {
+                    "user_id": prefs.user_id,
+                    "email_on_share": prefs.email_on_share,
+                    "email_on_unshare": prefs.email_on_unshare,
+                    "email_on_permission_change": prefs.email_on_permission_change,
+                    "in_app_enabled": prefs.in_app_enabled,
+                    "telegram_enabled": prefs.telegram_enabled,
+                    "webhook_url": prefs.webhook_url,
+                    "quiet_hours_start": prefs.quiet_hours_start,
+                    "quiet_hours_end": prefs.quiet_hours_end,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to get preferences: {e}")
@@ -282,10 +286,12 @@ class SharingNotificationsHandler(BaseHandler):
 
             set_notification_preferences(prefs)
 
-            return json_response({
-                "success": True,
-                "message": "Preferences updated",
-            })
+            return json_response(
+                {
+                    "success": True,
+                    "message": "Preferences updated",
+                }
+            )
 
         except Exception as e:
             logger.error(f"Failed to update preferences: {e}")

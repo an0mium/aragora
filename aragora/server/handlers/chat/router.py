@@ -679,14 +679,14 @@ if HANDLER_BASE_AVAILABLE:
         """HTTP handler for chat webhooks."""
 
         ROUTES = [
-            "/api/chat/webhook",
-            "/api/chat/status",
-            "/api/chat/slack/webhook",
-            "/api/chat/teams/webhook",
-            "/api/chat/discord/webhook",
-            "/api/chat/google_chat/webhook",
-            "/api/chat/telegram/webhook",
-            "/api/chat/whatsapp/webhook",
+            "/api/v1/chat/webhook",
+            "/api/v1/chat/status",
+            "/api/v1/chat/slack/webhook",
+            "/api/v1/chat/teams/webhook",
+            "/api/v1/chat/discord/webhook",
+            "/api/v1/chat/google_chat/webhook",
+            "/api/v1/chat/telegram/webhook",
+            "/api/v1/chat/whatsapp/webhook",
         ]
 
         def __init__(self):
@@ -695,7 +695,7 @@ if HANDLER_BASE_AVAILABLE:
 
         def can_handle(self, path: str, method: str = "GET") -> bool:
             """Check if this handler can process the given path."""
-            return path in self.ROUTES or path.startswith("/api/chat/")
+            return path in self.ROUTES or path.startswith("/api/v1/chat/")
 
         def handle(
             self, path: str, query_params: Dict[str, Any], handler: Any
@@ -703,7 +703,7 @@ if HANDLER_BASE_AVAILABLE:
             """Route chat requests."""
             logger.debug(f"Chat request: {path}")
 
-            if path == "/api/chat/status":
+            if path == "/api/v1/chat/status":
                 return self._get_status()
 
             # All webhook endpoints require POST

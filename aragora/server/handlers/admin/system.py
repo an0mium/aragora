@@ -54,37 +54,37 @@ class SystemHandler(BaseHandler):
 
     ROUTES = [
         # Debug endpoint
-        "/api/debug/test",
+        "/api/v1/debug/test",
         # History endpoints
-        "/api/history/cycles",
-        "/api/history/events",
-        "/api/history/debates",
-        "/api/history/summary",
+        "/api/v1/history/cycles",
+        "/api/v1/history/events",
+        "/api/v1/history/debates",
+        "/api/v1/history/summary",
         # System maintenance
-        "/api/system/maintenance",
+        "/api/v1/system/maintenance",
         # Auth stats
-        "/api/auth/stats",
-        "/api/auth/revoke",
+        "/api/v1/auth/stats",
+        "/api/v1/auth/revoke",
         # Resilience monitoring
-        "/api/circuit-breakers",
+        "/api/v1/circuit-breakers",
         # Prometheus metrics
         "/metrics",
     ]
 
     # History endpoints require authentication (can expose debate data)
     HISTORY_ENDPOINTS = [
-        "/api/history/cycles",
-        "/api/history/events",
-        "/api/history/debates",
-        "/api/history/summary",
+        "/api/v1/history/cycles",
+        "/api/v1/history/events",
+        "/api/v1/history/debates",
+        "/api/v1/history/summary",
     ]
 
     # History endpoint configuration: path -> (method_name, default_limit, max_limit)
     _HISTORY_CONFIG: dict[str, tuple[str, int, int]] = {
-        "/api/history/cycles": ("_get_history_cycles", 50, 200),
-        "/api/history/events": ("_get_history_events", 100, 500),
-        "/api/history/debates": ("_get_history_debates", 50, 200),
-        "/api/history/summary": ("_get_history_summary", 0, 0),  # No limit param
+        "/api/v1/history/cycles": ("_get_history_cycles", 50, 200),
+        "/api/v1/history/events": ("_get_history_events", 100, 500),
+        "/api/v1/history/debates": ("_get_history_debates", 50, 200),
+        "/api/v1/history/summary": ("_get_history_summary", 0, 0),  # No limit param
     }
 
     def can_handle(self, path: str) -> bool:
@@ -134,17 +134,17 @@ class SystemHandler(BaseHandler):
         """
         # Simple routes with no parameters
         simple_routes = {
-            "/api/debug/test": lambda: self._handle_debug_test(handler),
-            "/api/auth/stats": self._get_auth_stats,
+            "/api/v1/debug/test": lambda: self._handle_debug_test(handler),
+            "/api/v1/auth/stats": self._get_auth_stats,
             "/metrics": self._get_prometheus_metrics,
-            "/api/circuit-breakers": self._get_circuit_breaker_metrics,
+            "/api/v1/circuit-breakers": self._get_circuit_breaker_metrics,
         }
 
         if path in simple_routes:
             return simple_routes[path]()
 
         # System maintenance
-        if path == "/api/system/maintenance":
+        if path == "/api/v1/system/maintenance":
             return self._handle_maintenance(query_params)
 
         # History endpoints (require auth)
@@ -193,7 +193,7 @@ class SystemHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for auth endpoints."""
-        if path == "/api/auth/revoke":
+        if path == "/api/v1/auth/revoke":
             return self._revoke_token(handler)
         return None
 

@@ -48,9 +48,9 @@ class ReplaysHandler(BaseHandler):
     """Handler for replays and learning evolution endpoints."""
 
     ROUTES = [
-        "/api/replays",
-        "/api/learning/evolution",
-        "/api/meta-learning/stats",
+        "/api/v1/replays",
+        "/api/v1/learning/evolution",
+        "/api/v1/meta-learning/stats",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -58,7 +58,7 @@ class ReplaysHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Dynamic route for specific replay
-        if path.startswith("/api/replays/") and len(path.split("/")) == 4:
+        if path.startswith("/api/v1/replays/") and len(path.split("/")) == 4:
             return True
         return False
 
@@ -72,19 +72,19 @@ class ReplaysHandler(BaseHandler):
 
         nomic_dir = self.ctx.get("nomic_dir")
 
-        if path == "/api/replays":
+        if path == "/api/v1/replays":
             limit = get_int_param(query_params, "limit", 100)
             return self._list_replays(nomic_dir, max(1, min(limit, 500)))
 
-        if path == "/api/learning/evolution":
+        if path == "/api/v1/learning/evolution":
             limit = get_int_param(query_params, "limit", 20)
             return self._get_learning_evolution(nomic_dir, max(1, min(limit, 100)))
 
-        if path == "/api/meta-learning/stats":
+        if path == "/api/v1/meta-learning/stats":
             limit = get_int_param(query_params, "limit", 20)
             return self._get_meta_learning_stats(nomic_dir, max(1, min(limit, 50)))
 
-        if path.startswith("/api/replays/"):
+        if path.startswith("/api/v1/replays/"):
             replay_id, err = self.extract_path_param(path, 2, "replay_id")
             if err:
                 return err

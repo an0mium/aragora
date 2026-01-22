@@ -38,18 +38,18 @@ class HealthHandler(BaseHandler):
     ROUTES = [
         "/healthz",
         "/readyz",
-        "/api/health",
-        "/api/health/detailed",
-        "/api/health/deep",
-        "/api/health/stores",
-        "/api/health/sync",
-        "/api/health/circuits",
-        "/api/health/slow-debates",
-        "/api/health/cross-pollination",
-        "/api/health/knowledge-mound",
-        "/api/health/encryption",
-        "/api/health/platform",
-        "/api/platform/health",
+        "/api/v1/health",
+        "/api/v1/health/detailed",
+        "/api/v1/health/deep",
+        "/api/v1/health/stores",
+        "/api/v1/health/sync",
+        "/api/v1/health/circuits",
+        "/api/v1/health/slow-debates",
+        "/api/v1/health/cross-pollination",
+        "/api/v1/health/knowledge-mound",
+        "/api/v1/health/encryption",
+        "/api/v1/health/platform",
+        "/api/v1/platform/health",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -63,17 +63,17 @@ class HealthHandler(BaseHandler):
         handlers = {
             "/healthz": self._liveness_probe,
             "/readyz": self._readiness_probe,
-            "/api/health": self._health_check,
-            "/api/health/detailed": self._detailed_health_check,
-            "/api/health/deep": self._deep_health_check,
-            "/api/health/stores": self._database_stores_health,
-            "/api/health/sync": self._sync_status,
-            "/api/health/circuits": self._circuit_breakers_status,
-            "/api/health/slow-debates": self._slow_debates_status,
-            "/api/health/cross-pollination": self._cross_pollination_health,
-            "/api/health/knowledge-mound": self._knowledge_mound_health,
-            "/api/health/platform": self._platform_health,
-            "/api/platform/health": self._platform_health,
+            "/api/v1/health": self._health_check,
+            "/api/v1/health/detailed": self._detailed_health_check,
+            "/api/v1/health/deep": self._deep_health_check,
+            "/api/v1/health/stores": self._database_stores_health,
+            "/api/v1/health/sync": self._sync_status,
+            "/api/v1/health/circuits": self._circuit_breakers_status,
+            "/api/v1/health/slow-debates": self._slow_debates_status,
+            "/api/v1/health/cross-pollination": self._cross_pollination_health,
+            "/api/v1/health/knowledge-mound": self._knowledge_mound_health,
+            "/api/v1/health/platform": self._platform_health,
+            "/api/v1/platform/health": self._platform_health,
         }
 
         endpoint_handler = handlers.get(path)
@@ -88,9 +88,28 @@ class HealthHandler(BaseHandler):
         This should be very fast and not check external dependencies.
         Used by k8s to determine if the container should be restarted.
 
+        IMPORTANT: Returns 200 even in degraded mode. The container is alive
+        and shouldn't be restarted just because of misconfiguration. Use
+        /readyz for routing decisions.
+
         Returns:
             {"status": "ok"} with 200 status
         """
+        try:
+            from aragora.server.degraded_mode import is_degraded, get_degraded_reason
+
+            if is_degraded():
+                return json_response(
+                    {
+                        "status": "ok",
+                        "degraded": True,
+                        "degraded_reason": get_degraded_reason()[:100],
+                        "note": "Server alive but degraded. Check /api/health for details.",
+                    }
+                )
+        except ImportError:
+            pass
+
         return json_response({"status": "ok"})
 
     def _readiness_probe(self) -> HandlerResult:
@@ -101,6 +120,7 @@ class HealthHandler(BaseHandler):
         Used by k8s to determine if traffic should be routed to this pod.
 
         Checks:
+        - Degraded mode (server misconfiguration)
         - Storage initialized (if configured)
         - ELO system available (if configured)
         - Redis connectivity (if distributed state required)
@@ -111,6 +131,28 @@ class HealthHandler(BaseHandler):
 
         ready = True
         checks: Dict[str, Any] = {}
+
+        # Check for degraded mode first - return 503 immediately
+        try:
+            from aragora.server.degraded_mode import is_degraded, get_degraded_state
+
+            if is_degraded():
+                state = get_degraded_state()
+                return json_response(
+                    {
+                        "status": "not_ready",
+                        "reason": "Server in degraded mode",
+                        "degraded": {
+                            "error_code": state.error_code.value,
+                            "reason": state.reason,
+                            "recovery_hint": state.recovery_hint,
+                        },
+                        "checks": {"degraded_mode": False},
+                    },
+                    status=503,
+                )
+        except ImportError:
+            pass
 
         # Check storage readiness
         try:
@@ -242,6 +284,7 @@ class HealthHandler(BaseHandler):
         Suitable for kubernetes liveness/readiness probes.
 
         Checks:
+        - degraded_mode: Server configuration and startup status
         - database: Can execute a query
         - storage: Debate storage is initialized
         - elo_system: ELO ranking system is available
@@ -253,6 +296,26 @@ class HealthHandler(BaseHandler):
         checks: Dict[str, Dict[str, Any]] = {}
         all_healthy = True
         start_time = time.time()
+
+        # Check for degraded mode first - this is the most critical check
+        try:
+            from aragora.server.degraded_mode import is_degraded, get_degraded_state
+
+            if is_degraded():
+                state = get_degraded_state()
+                checks["degraded_mode"] = {
+                    "healthy": False,
+                    "status": "degraded",
+                    "reason": state.reason,
+                    "error_code": state.error_code.value,
+                    "recovery_hint": state.recovery_hint,
+                    "degraded_since": state.timestamp,
+                }
+                all_healthy = False
+            else:
+                checks["degraded_mode"] = {"healthy": True, "status": "normal"}
+        except ImportError:
+            checks["degraded_mode"] = {"healthy": True, "status": "module_not_available"}
 
         # Check database connectivity
         db_start = time.time()
@@ -1613,10 +1676,10 @@ class HealthHandler(BaseHandler):
             # Check config
             if hasattr(mound, "config") and mound.config:
                 components["core"]["config"] = {
-                    "enable_staleness_tracking": mound.config.enable_staleness_tracking,
-                    "enable_culture_accumulator": mound.config.enable_culture_accumulator,
-                    "enable_rlm_summaries": mound.config.enable_rlm_summaries,
-                    "default_staleness_hours": mound.config.default_staleness_hours,
+                    "enable_staleness_tracking": mound.config.enable_staleness_tracking,  # type: ignore[attr-defined]
+                    "enable_culture_accumulator": mound.config.enable_culture_accumulator,  # type: ignore[attr-defined]
+                    "enable_rlm_summaries": mound.config.enable_rlm_summaries,  # type: ignore[attr-defined]
+                    "default_staleness_hours": mound.config.default_staleness_hours,  # type: ignore[attr-defined]
                 }
 
         except Exception as e:
@@ -2222,7 +2285,7 @@ class HealthHandler(BaseHandler):
                             "state": cb.state.value
                             if hasattr(cb.state, "value")
                             else str(cb.state),
-                            "failure_count": cb.failure_count,
+                            "failure_count": cb.failure_count,  # type: ignore[attr-defined]
                             "success_count": getattr(cb, "success_count", 0),
                         }
                 except Exception:

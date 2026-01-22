@@ -53,7 +53,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Trending Topics",
         description="Real-time trending topic discovery from social platforms",
         requires=["pulse_manager"],
-        endpoints=["/api/pulse/trending", "/api/pulse/categories", "/api/pulse/stats"],
+        endpoints=["/api/v1/pulse/trending", "/api/v1/pulse/categories", "/api/v1/pulse/stats"],
         install_hint="Requires Twitter/Reddit API keys. Set TWITTER_API_KEY or REDDIT_CLIENT_ID.",
         category="discovery",
     ),
@@ -61,7 +61,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Agent Evolution",
         description="Genetic algorithm for evolving agent prompts and traits",
         requires=["genesis_ledger", "population_manager"],
-        endpoints=["/api/genesis/stats", "/api/genesis/lineage", "/api/genesis/tree"],
+        endpoints=["/api/v1/genesis/stats", "/api/v1/genesis/lineage", "/api/v1/genesis/tree"],
         install_hint="Genesis is enabled by default. Check database connectivity.",
         category="evolution",
     ),
@@ -69,7 +69,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Formal Verification",
         description="Z3/Lean proof generation for mathematical claims",
         requires=["z3_connector"],
-        endpoints=["/api/verification/proofs", "/api/verification/validate"],
+        endpoints=["/api/v1/verification/proofs", "/api/v1/verification/validate"],
         install_hint="Install z3-solver package: pip install z3-solver",
         status="optional",
         category="analysis",
@@ -78,7 +78,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Persona Laboratory",
         description="Agent personality trait detection and analysis",
         requires=["persona_laboratory"],
-        endpoints=["/api/laboratory/emergent-traits", "/api/laboratory/analyze"],
+        endpoints=["/api/v1/laboratory/emergent-traits", "/api/v1/laboratory/analyze"],
         install_hint="Laboratory is enabled by default. Run debates to accumulate data.",
         category="analysis",
     ),
@@ -86,7 +86,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Calibration Tracking",
         description="Agent prediction accuracy measurement over time",
         requires=["calibration_tracker"],
-        endpoints=["/api/calibration/curve", "/api/calibration/history"],
+        endpoints=["/api/v1/calibration/curve", "/api/v1/calibration/history"],
         install_hint="Enable in DebateProtocol: enable_calibration=True",
         category="analysis",
     ),
@@ -94,7 +94,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Prompt Evolution",
         description="Learn from debates to improve agent prompts",
         requires=["prompt_evolver"],
-        endpoints=["/api/evolution/patterns", "/api/evolution/prompts"],
+        endpoints=["/api/v1/evolution/patterns", "/api/v1/evolution/prompts"],
         install_hint="Enable in DebateProtocol: enable_evolution=True",
         category="evolution",
     ),
@@ -102,7 +102,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Red Team Analysis",
         description="Adversarial testing and vulnerability detection",
         requires=["red_team_mode"],
-        endpoints=["/api/auditing/red-team", "/api/auditing/probes"],
+        endpoints=["/api/v1/auditing/red-team", "/api/v1/auditing/probes"],
         install_hint="Available after debates complete. Check auditing handler.",
         category="security",
     ),
@@ -110,7 +110,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Capability Probes",
         description="Test agent capabilities across different domains",
         requires=["probe_runner"],
-        endpoints=["/api/auditing/capability-probes", "/api/auditing/probe-results"],
+        endpoints=["/api/v1/auditing/capability-probes", "/api/v1/auditing/probe-results"],
         install_hint="Run capability probes from the UI or API.",
         category="security",
     ),
@@ -118,7 +118,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Continuum Memory",
         description="Multi-tier learning memory with surprise-based consolidation",
         requires=["continuum_memory"],
-        endpoints=["/api/memory/tiers", "/api/memory/stats", "/api/memory/search"],
+        endpoints=["/api/v1/memory/tiers", "/api/v1/memory/stats", "/api/v1/memory/search"],
         install_hint="Memory is enabled by default. Data accumulates over debates.",
         category="memory",
     ),
@@ -126,7 +126,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Consensus Memory",
         description="Historical debate outcomes and dissenting views",
         requires=["consensus_memory"],
-        endpoints=["/api/consensus/history", "/api/consensus/dissent"],
+        endpoints=["/api/v1/consensus/history", "/api/v1/consensus/dissent"],
         install_hint="Consensus memory is enabled by default.",
         category="memory",
     ),
@@ -134,7 +134,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Debate Insights",
         description="Extract key learnings and patterns from debates",
         requires=["insight_store"],
-        endpoints=["/api/insights/recent", "/api/insights/search"],
+        endpoints=["/api/v1/insights/recent", "/api/v1/insights/search"],
         install_hint="Insights are enabled by default.",
         category="analysis",
     ),
@@ -142,7 +142,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Moment Detection",
         description="Detect significant narrative moments in debates",
         requires=["moment_detector"],
-        endpoints=["/api/agents/network", "/api/moments/recent"],
+        endpoints=["/api/v1/agents/network", "/api/v1/moments/recent"],
         install_hint="Moments are enabled by default.",
         category="analysis",
     ),
@@ -150,7 +150,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Tournaments",
         description="Run structured tournaments between agents",
         requires=["tournament_runner"],
-        endpoints=["/api/tournaments/create", "/api/tournaments/results"],
+        endpoints=["/api/v1/tournaments/create", "/api/v1/tournaments/results"],
         install_hint="Tournaments are enabled by default.",
         category="competition",
     ),
@@ -158,7 +158,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="ELO Rankings",
         description="Agent skill ratings and leaderboards",
         requires=["elo_system"],
-        endpoints=["/api/rankings/leaderboard", "/api/rankings/history"],
+        endpoints=["/api/v1/rankings/leaderboard", "/api/v1/rankings/history"],
         install_hint="ELO is enabled by default.",
         category="competition",
     ),
@@ -166,7 +166,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Crux Analysis",
         description="Identify key points of disagreement in debates",
         requires=["crux_analyzer"],
-        endpoints=["/api/crux/beliefs", "/api/crux/analyze"],
+        endpoints=["/api/v1/crux/beliefs", "/api/v1/crux/analyze"],
         install_hint="Crux analysis requires belief network data.",
         category="analysis",
     ),
@@ -174,7 +174,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Rhetorical Observer",
         description="Detect rhetorical patterns like concession and rebuttal",
         requires=["rhetorical_observer"],
-        endpoints=["/api/debates/{id}/rhetorical"],
+        endpoints=["/api/v1/debates/{id}/rhetorical"],
         install_hint="Enable in DebateProtocol: enable_rhetorical_observer=True",
         category="analysis",
     ),
@@ -182,7 +182,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Hollow Consensus Detection",
         description="Detect and challenge artificial agreement",
         requires=["trickster"],
-        endpoints=["/api/debates/{id}/trickster"],
+        endpoints=["/api/v1/debates/{id}/trickster"],
         install_hint="Enable in DebateProtocol: enable_trickster=True",
         category="analysis",
     ),
@@ -190,7 +190,11 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Plugin System",
         description="Install and manage plugins for extended functionality",
         requires=["plugin_runner"],
-        endpoints=["/api/plugins/available", "/api/plugins/installed", "/api/plugins/install"],
+        endpoints=[
+            "/api/v1/plugins/available",
+            "/api/v1/plugins/installed",
+            "/api/v1/plugins/install",
+        ],
         install_hint="Plugin system is enabled by default.",
         category="system",
     ),
@@ -198,7 +202,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
         name="Memory System",
         description="Multi-tier memory with inspection and exploration",
         requires=["memory_manager"],
-        endpoints=["/api/memory/stats", "/api/memory/search", "/api/memory/tiers"],
+        endpoints=["/api/v1/memory/stats", "/api/v1/memory/search", "/api/v1/memory/tiers"],
         install_hint="Memory system is enabled by default.",
         category="memory",
     ),
@@ -552,14 +556,14 @@ class FeaturesHandler(BaseHandler):
     """Handler for feature availability endpoints."""
 
     ROUTES = {
-        "/api/features": "_get_features_summary",
-        "/api/features/available": "_get_available",
-        "/api/features/all": "_get_all_features",
-        "/api/features/handlers": "_get_handler_stability",
-        "/api/features/config": "_handle_config",  # User preferences
-        "/api/features/discover": "_get_api_discovery",  # Full API catalog
-        "/api/features/endpoints": "_get_all_endpoints",  # All endpoints list
-        "/api/features/{feature_id}": "_get_feature_status",
+        "/api/v1/features": "_get_features_summary",
+        "/api/v1/features/available": "_get_available",
+        "/api/v1/features/all": "_get_all_features",
+        "/api/v1/features/handlers": "_get_handler_stability",
+        "/api/v1/features/config": "_handle_config",  # User preferences
+        "/api/v1/features/discover": "_get_api_discovery",  # Full API catalog
+        "/api/v1/features/endpoints": "_get_all_endpoints",  # All endpoints list
+        "/api/v1/features/{feature_id}": "_get_feature_status",
     }
 
     # Default feature preferences (all toggleable features)
@@ -598,7 +602,7 @@ class FeaturesHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle parameterized routes: /api/features/{feature_id}
-        if path.startswith("/api/features/") and path not in self.ROUTES:
+        if path.startswith("/api/v1/features/") and path not in self.ROUTES:
             # Check it's not a nested path we don't handle
             parts = path.split("/")
             if len(parts) == 4:  # /api/features/{feature_id}
@@ -624,7 +628,7 @@ class FeaturesHandler(BaseHandler):
                 return method()
 
         # Parameterized route: /api/features/{feature_id}
-        if path.startswith("/api/features/"):
+        if path.startswith("/api/v1/features/"):
             parts = path.split("/")
             if len(parts) == 4:
                 feature_id = parts[3]
@@ -829,18 +833,18 @@ class FeaturesHandler(BaseHandler):
 
         # Known frontend-integrated endpoints (based on aragora-js usage)
         frontend_integrated = {
-            "/api/debates",
-            "/api/debates/recent",
-            "/api/debates/live",
-            "/api/agents",
-            "/api/agents/leaderboard",
-            "/api/health",
+            "/api/v1/debates",
+            "/api/v1/debates/recent",
+            "/api/v1/debates/live",
+            "/api/v1/agents",
+            "/api/v1/agents/leaderboard",
+            "/api/v1/health",
             "/healthz",
             "/readyz",
-            "/api/features",
-            "/api/features/all",
-            "/api/consensus/gallery",
-            "/api/analytics/summary",
+            "/api/v1/features",
+            "/api/v1/features/all",
+            "/api/v1/consensus/gallery",
+            "/api/v1/analytics/summary",
         }
 
         catalog: list[dict[str, Any]] = []

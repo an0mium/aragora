@@ -343,9 +343,9 @@ class AuditingHandler(SecureHandler):
     """Handler for security auditing and capability probing endpoints."""
 
     ROUTES = [
-        "/api/debates/capability-probe",
-        "/api/debates/deep-audit",
-        "/api/redteam/attack-types",
+        "/api/v1/debates/capability-probe",
+        "/api/v1/debates/deep-audit",
+        "/api/v1/redteam/attack-types",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -353,7 +353,7 @@ class AuditingHandler(SecureHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/debates/:id/red-team pattern
-        if path.startswith("/api/debates/") and path.endswith("/red-team"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/red-team"):
             return True
         return False
 
@@ -362,16 +362,16 @@ class AuditingHandler(SecureHandler):
 
         Note: These endpoints require POST with request body, which handler provides.
         """
-        if path == "/api/debates/capability-probe":
+        if path == "/api/v1/debates/capability-probe":
             return self._run_capability_probe(handler)
 
-        if path == "/api/debates/deep-audit":
+        if path == "/api/v1/debates/deep-audit":
             return self._run_deep_audit(handler)
 
-        if path == "/api/redteam/attack-types":
+        if path == "/api/v1/redteam/attack-types":
             return self._get_attack_types()
 
-        if path.startswith("/api/debates/") and path.endswith("/red-team"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/red-team"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
@@ -843,9 +843,9 @@ class AuditingHandler(SecureHandler):
 
             pattern = vulnerability_patterns.get(attack_type, {})
             keywords = pattern.get("keywords", [])
-            base_severity = float(pattern.get("base_severity", 0.5) or 0.5)
+            base_severity = float(pattern.get("base_severity", 0.5) or 0.5)  # type: ignore[arg-type]
 
-            matches = sum(1 for kw in keywords if kw in proposal_lower)
+            matches = sum(1 for kw in keywords if kw in proposal_lower)  # type: ignore[misc,attr-defined]
             severity = min(0.9, base_severity + (matches * 0.1))
 
             if matches > 0:

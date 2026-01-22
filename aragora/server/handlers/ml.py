@@ -60,19 +60,19 @@ def _get_ml_component(name: str):
             elif name == "scorer":
                 from aragora.ml import get_quality_scorer
 
-                _ml_components[name] = get_quality_scorer()
+                _ml_components[name] = get_quality_scorer()  # type: ignore[assignment]
             elif name == "predictor":
                 from aragora.ml import get_consensus_predictor
 
-                _ml_components[name] = get_consensus_predictor()
+                _ml_components[name] = get_consensus_predictor()  # type: ignore[assignment]
             elif name == "embeddings":
                 from aragora.ml import get_embedding_service
 
-                _ml_components[name] = get_embedding_service()
+                _ml_components[name] = get_embedding_service()  # type: ignore[assignment]
             elif name == "exporter":
                 from aragora.debate.ml_integration import get_training_exporter
 
-                _ml_components[name] = get_training_exporter()
+                _ml_components[name] = get_training_exporter()  # type: ignore[assignment]
         except ImportError as e:
             logger.warning(f"ML component {name} not available: {e}")
             _ml_components[name] = None
@@ -83,15 +83,15 @@ class MLHandler(BaseHandler):
     """Handler for ML endpoints."""
 
     ROUTES = [
-        "/api/ml/route",
-        "/api/ml/score",
-        "/api/ml/score-batch",
-        "/api/ml/consensus",
-        "/api/ml/export-training",
-        "/api/ml/models",
-        "/api/ml/stats",
-        "/api/ml/embed",
-        "/api/ml/search",
+        "/api/v1/ml/route",
+        "/api/v1/ml/score",
+        "/api/v1/ml/score-batch",
+        "/api/v1/ml/consensus",
+        "/api/v1/ml/export-training",
+        "/api/v1/ml/models",
+        "/api/v1/ml/stats",
+        "/api/v1/ml/embed",
+        "/api/v1/ml/search",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -106,9 +106,9 @@ class MLHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for ML endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/ml/models":
+        if path == "/api/v1/ml/models":
             return self._handle_list_models()
-        elif path == "/api/ml/stats":
+        elif path == "/api/v1/ml/stats":
             return self._handle_stats()
 
         return None
@@ -131,27 +131,29 @@ class MLHandler(BaseHandler):
         user = self.get_current_user(handler)
         if user:
             # Determine required permission based on endpoint
-            if path == "/api/ml/export-training":
+            if path == "/api/v1/ml/export-training":
                 required_permission = "ml:train"
             else:
                 required_permission = "ml:read"
 
-            if not has_permission(user.role if hasattr(user, "role") else None, required_permission):
+            if not has_permission(
+                user.role if hasattr(user, "role") else None, required_permission
+            ):
                 return error_response(f"Permission denied: {required_permission} required", 403)
 
-        if path == "/api/ml/route":
+        if path == "/api/v1/ml/route":
             return self._handle_route(data)
-        elif path == "/api/ml/score":
+        elif path == "/api/v1/ml/score":
             return self._handle_score(data)
-        elif path == "/api/ml/score-batch":
+        elif path == "/api/v1/ml/score-batch":
             return self._handle_score_batch(data)
-        elif path == "/api/ml/consensus":
+        elif path == "/api/v1/ml/consensus":
             return self._handle_consensus(data)
-        elif path == "/api/ml/export-training":
+        elif path == "/api/v1/ml/export-training":
             return self._handle_export_training(data)
-        elif path == "/api/ml/embed":
+        elif path == "/api/v1/ml/embed":
             return self._handle_embed(data)
-        elif path == "/api/ml/search":
+        elif path == "/api/v1/ml/search":
             return self._handle_search(data)
 
         return None

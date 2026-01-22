@@ -62,10 +62,10 @@ class MomentsHandler(BaseHandler):
     """Handler for moments endpoints."""
 
     ROUTES = [
-        "/api/moments/summary",
-        "/api/moments/timeline",
-        "/api/moments/trending",
-        "/api/moments/by-type/*",
+        "/api/v1/moments/summary",
+        "/api/v1/moments/timeline",
+        "/api/v1/moments/trending",
+        "/api/v1/moments/by-type/*",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -73,7 +73,7 @@ class MomentsHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle dynamic route: /api/moments/by-type/{type}
-        if path.startswith("/api/moments/by-type/"):
+        if path.startswith("/api/v1/moments/by-type/"):
             return True
         return False
 
@@ -85,20 +85,20 @@ class MomentsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for moments endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/moments/summary":
+        if path == "/api/v1/moments/summary":
             return self._get_summary()
 
-        if path == "/api/moments/timeline":
+        if path == "/api/v1/moments/timeline":
             limit = get_int_param(query_params, "limit", 50)
             offset = get_int_param(query_params, "offset", 0)
             return self._get_timeline(max(1, min(limit, 200)), max(0, offset))
 
-        if path == "/api/moments/trending":
+        if path == "/api/v1/moments/trending":
             limit = get_int_param(query_params, "limit", 10)
             return self._get_trending(max(1, min(limit, 50)))
 
         # Handle /api/moments/by-type/{type}
-        if path.startswith("/api/moments/by-type/"):
+        if path.startswith("/api/v1/moments/by-type/"):
             moment_type, err = self.extract_path_param(path, 3, "moment_type")
             if err:
                 return err

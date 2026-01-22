@@ -324,8 +324,8 @@ async def execute_workflow(
                 "status": "completed" if result.success else "failed",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
                 "outputs": result.final_output,
-                "steps": [s.__dict__ for s in result.steps],
-                "error": result.error,
+                "steps": [s.__dict__ for s in result.steps],  # type: ignore[misc]
+                "error": result.error,  # type: ignore[dict-item]
                 "duration_ms": result.total_duration_ms,
             }
         )
@@ -871,21 +871,21 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     """
 
     ROUTES = [
-        "/api/workflows",
-        "/api/workflows/*",
-        "/api/workflow-templates",
-        "/api/workflow-approvals",
-        "/api/workflow-approvals/*",
-        "/api/workflow-executions",
+        "/api/v1/workflows",
+        "/api/v1/workflows/*",
+        "/api/v1/workflow-templates",
+        "/api/v1/workflow-approvals",
+        "/api/v1/workflow-approvals/*",
+        "/api/v1/workflow-executions",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return (
-            path.startswith("/api/workflows")
-            or path.startswith("/api/workflow-templates")
-            or path.startswith("/api/workflow-approvals")
-            or path.startswith("/api/workflow-executions")
+            path.startswith("/api/v1/workflows")
+            or path.startswith("/api/v1/workflow-templates")
+            or path.startswith("/api/v1/workflow-approvals")
+            or path.startswith("/api/v1/workflow-executions")
         )
 
     def _get_auth_context(self, handler: Any) -> Optional["AuthorizationContext"]:
@@ -980,15 +980,15 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return None
 
         # GET /api/workflow-executions
-        if path == "/api/workflow-executions":
+        if path == "/api/v1/workflow-executions":
             return self._handle_list_executions(query_params, handler)
 
         # GET /api/workflow-templates
-        if path == "/api/workflow-templates":
+        if path == "/api/v1/workflow-templates":
             return self._handle_list_templates(query_params, handler)
 
         # GET /api/workflow-approvals
-        if path == "/api/workflow-approvals":
+        if path == "/api/v1/workflow-approvals":
             return self._handle_list_approvals(query_params, handler)
 
         # GET /api/workflows/{id}/versions
@@ -1009,7 +1009,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return self._handle_get_workflow(workflow_id, query_params, handler)
 
         # GET /api/workflows
-        if path == "/api/workflows":
+        if path == "/api/v1/workflows":
             return self._handle_list_workflows(query_params, handler)
 
         return None
@@ -1045,7 +1045,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return self._handle_resolve_approval(request_id, body, query_params, handler)
 
         # POST /api/workflows (create)
-        if path == "/api/workflows":
+        if path == "/api/v1/workflows":
             return self._handle_create_workflow(body, query_params, handler)
 
         return None

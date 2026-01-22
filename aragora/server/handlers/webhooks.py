@@ -152,19 +152,19 @@ class WebhookHandler(SecureHandler):
     ]
 
     ROUTES = [
-        "/api/webhooks",
-        "/api/webhooks/events",
-        "/api/webhooks/slo/status",
+        "/api/v1/webhooks",
+        "/api/v1/webhooks/events",
+        "/api/v1/webhooks/slo/status",
     ]
 
     @staticmethod
     def can_handle(path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/webhooks")
+        return path.startswith("/api/v1/webhooks")
 
     def __init__(self, server_context: dict):
         """Initialize with server context."""
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         self._webhook_store: Optional[WebhookStore] = None
 
     def _get_webhook_store(self) -> WebhookStore:
@@ -213,7 +213,7 @@ class WebhookHandler(SecureHandler):
                 f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
                 f"reason={decision.reason}"
             )
-            return error_response(
+            return error_response(  # type: ignore[arg-type]
                 {"error": "Permission denied", "reason": decision.reason},
                 403,
             )
@@ -225,22 +225,22 @@ class WebhookHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Handle GET requests for webhook endpoints."""
         # GET /api/webhooks/events - list available event types
-        if path == "/api/webhooks/events":
+        if path == "/api/v1/webhooks/events":
             return self._handle_list_events()
 
         # GET /api/webhooks/slo/status - get SLO webhook status
-        if path == "/api/webhooks/slo/status":
+        if path == "/api/v1/webhooks/slo/status":
             return self._handle_slo_status()
 
         # GET /api/webhooks/:id
-        if path.startswith("/api/webhooks/") and path.count("/") == 3:
+        if path.startswith("/api/v1/webhooks/") and path.count("/") == 3:
             webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_webhook(webhook_id, handler)
 
         # GET /api/webhooks - list all webhooks
-        if path == "/api/webhooks":
+        if path == "/api/v1/webhooks":
             return self._handle_list_webhooks(query_params, handler)
 
         return None
@@ -250,7 +250,7 @@ class WebhookHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Handle POST requests for webhook endpoints."""
         # POST /api/webhooks/slo/test - send test SLO violation notification
-        if path == "/api/webhooks/slo/test":
+        if path == "/api/v1/webhooks/slo/test":
             return self._handle_slo_test()
 
         # POST /api/webhooks/:id/test
@@ -261,7 +261,7 @@ class WebhookHandler(SecureHandler):
             return self._handle_test_webhook(webhook_id, handler)
 
         # POST /api/webhooks - register new webhook
-        if path == "/api/webhooks":
+        if path == "/api/v1/webhooks":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
@@ -274,7 +274,7 @@ class WebhookHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Handle DELETE requests for webhook endpoints."""
         # DELETE /api/webhooks/:id
-        if path.startswith("/api/webhooks/") and path.count("/") == 3:
+        if path.startswith("/api/v1/webhooks/") and path.count("/") == 3:
             webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
@@ -287,7 +287,7 @@ class WebhookHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Handle PATCH requests for webhook endpoints."""
         # PATCH /api/webhooks/:id
-        if path.startswith("/api/webhooks/") and path.count("/") == 3:
+        if path.startswith("/api/v1/webhooks/") and path.count("/") == 3:
             webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err

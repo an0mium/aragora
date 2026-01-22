@@ -65,77 +65,77 @@ class AgentsHandler(BaseHandler):
     """Handler for agent-related endpoints."""
 
     ROUTES = [
-        "/api/agents",
-        "/api/agents/health",
-        "/api/agents/local",
-        "/api/agents/local/status",
-        "/api/leaderboard",
-        "/api/rankings",
+        "/api/v1/agents",
+        "/api/v1/agents/health",
+        "/api/v1/agents/local",
+        "/api/v1/agents/local/status",
+        "/api/v1/leaderboard",
+        "/api/v1/rankings",
         # Note: /api/calibration/leaderboard handled by CalibrationHandler
-        "/api/matches/recent",
-        "/api/agent/compare",
-        "/api/agent/*/profile",
-        "/api/agent/*/history",
-        "/api/agent/*/calibration",
-        "/api/agent/*/consistency",
-        "/api/agent/*/flips",
-        "/api/agent/*/network",
-        "/api/agent/*/rivals",
-        "/api/agent/*/allies",
-        "/api/agent/*/moments",
-        "/api/agent/*/positions",
-        "/api/agent/*/domains",
-        "/api/agent/*/performance",
-        "/api/agent/*/metadata",
-        "/api/agent/*/head-to-head/*",
-        "/api/agent/*/opponent-briefing/*",
-        "/api/agent/*/introspect",
-        "/api/flips/recent",
-        "/api/flips/summary",
+        "/api/v1/matches/recent",
+        "/api/v1/agent/compare",
+        "/api/v1/agent/*/profile",
+        "/api/v1/agent/*/history",
+        "/api/v1/agent/*/calibration",
+        "/api/v1/agent/*/consistency",
+        "/api/v1/agent/*/flips",
+        "/api/v1/agent/*/network",
+        "/api/v1/agent/*/rivals",
+        "/api/v1/agent/*/allies",
+        "/api/v1/agent/*/moments",
+        "/api/v1/agent/*/positions",
+        "/api/v1/agent/*/domains",
+        "/api/v1/agent/*/performance",
+        "/api/v1/agent/*/metadata",
+        "/api/v1/agent/*/head-to-head/*",
+        "/api/v1/agent/*/opponent-briefing/*",
+        "/api/v1/agent/*/introspect",
+        "/api/v1/flips/recent",
+        "/api/v1/flips/summary",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/agents":
+        if path == "/api/v1/agents":
             return True
-        if path == "/api/agents/health":
+        if path == "/api/v1/agents/health":
             return True
-        if path in ("/api/agents/local", "/api/agents/local/status"):
+        if path in ("/api/v1/agents/local", "/api/v1/agents/local/status"):
             return True
-        if path in ("/api/leaderboard", "/api/rankings"):
+        if path in ("/api/v1/leaderboard", "/api/v1/rankings"):
             return True
-        if path == "/api/matches/recent":
+        if path == "/api/v1/matches/recent":
             return True
-        if path == "/api/agent/compare":
+        if path == "/api/v1/agent/compare":
             return True
-        if path.startswith("/api/agent/"):
+        if path.startswith("/api/v1/agent/"):
             return True
-        if path.startswith("/api/flips/"):
+        if path.startswith("/api/v1/flips/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route agent requests to appropriate methods."""
         # Agent health endpoint (must come before /api/agents check)
-        if path == "/api/agents/health":
+        if path == "/api/v1/agents/health":
             return self._get_agent_health()
 
         # Local LLM endpoints (must come before /api/agents check)
-        if path == "/api/agents/local":
+        if path == "/api/v1/agents/local":
             return self._list_local_agents()
 
-        if path == "/api/agents/local/status":
+        if path == "/api/v1/agents/local/status":
             return self._get_local_status()
 
         # List all agents
-        if path == "/api/agents":
+        if path == "/api/v1/agents":
             include_stats = (
                 get_string_param(query_params, "include_stats", "false").lower() == "true"
             )
             return self._list_agents(include_stats)
 
         # Leaderboard endpoints
-        if path in ("/api/leaderboard", "/api/rankings"):
+        if path in ("/api/v1/leaderboard", "/api/v1/rankings"):
             limit = get_int_param(query_params, "limit", 20)
             domain = get_string_param(query_params, "domain")
             if domain:
@@ -146,7 +146,7 @@ class AgentsHandler(BaseHandler):
 
         # Note: /api/calibration/leaderboard now handled by CalibrationHandler
 
-        if path == "/api/matches/recent":
+        if path == "/api/v1/matches/recent":
             limit = get_int_param(query_params, "limit", 10)
             loop_id = get_string_param(query_params, "loop_id")
             if loop_id:
@@ -156,22 +156,22 @@ class AgentsHandler(BaseHandler):
             return self._get_recent_matches(limit, loop_id)
 
         # Agent comparison
-        if path == "/api/agent/compare":
+        if path == "/api/v1/agent/compare":
             agents = query_params.get("agents", [])
             if isinstance(agents, str):
                 agents = [agents]
             return self._compare_agents(agents)
 
         # Per-agent endpoints
-        if path.startswith("/api/agent/"):
+        if path.startswith("/api/v1/agent/"):
             return self._handle_agent_endpoint(path, query_params)
 
         # Flip endpoints (not per-agent)
-        if path == "/api/flips/recent":
+        if path == "/api/v1/flips/recent":
             limit = get_int_param(query_params, "limit", 20)
             return self._get_recent_flips(limit)
 
-        if path == "/api/flips/summary":
+        if path == "/api/v1/flips/summary":
             return self._get_flip_summary()
 
         return None
@@ -379,7 +379,7 @@ class AgentsHandler(BaseHandler):
         try:
             from aragora.resilience import get_circuit_breaker
 
-            cb = get_circuit_breaker()
+            cb = get_circuit_breaker()  # type: ignore[call-arg]
             if cb:
                 # Get all tracked agents from circuit breaker
                 states = cb.get_all_states() if hasattr(cb, "get_all_states") else {}
@@ -550,7 +550,9 @@ class AgentsHandler(BaseHandler):
                                     "consistency_class": (
                                         "high"
                                         if consistency >= 0.8
-                                        else "medium" if consistency >= 0.6 else "low"
+                                        else "medium"
+                                        if consistency >= 0.6
+                                        else "low"
                                     ),
                                 }
                         except Exception as e:
@@ -1098,7 +1100,7 @@ class AgentsHandler(BaseHandler):
             from aragora.memory.continuum import ContinuumMemory
 
             memory = ContinuumMemory()
-            tier_stats = memory.get_tier_counts()
+            tier_stats = memory.get_tier_counts()  # type: ignore[attr-defined]
             introspection["memory_summary"] = {
                 "tier_counts": tier_stats,
                 "total_memories": sum(tier_stats.values()),

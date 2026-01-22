@@ -41,9 +41,9 @@ class EmailWebhookHandler(BaseHandler):
     """Handler for email inbound webhook endpoints."""
 
     ROUTES = [
-        "/api/bots/email/webhook/sendgrid",
-        "/api/bots/email/webhook/ses",
-        "/api/bots/email/status",
+        "/api/v1/bots/email/webhook/sendgrid",
+        "/api/v1/bots/email/webhook/ses",
+        "/api/v1/bots/email/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -55,7 +55,7 @@ class EmailWebhookHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route email GET requests."""
-        if path == "/api/bots/email/status":
+        if path == "/api/v1/bots/email/status":
             return self._get_status()
         return None
 
@@ -67,9 +67,9 @@ class EmailWebhookHandler(BaseHandler):
         if not EMAIL_INBOUND_ENABLED:
             return error_response("Email inbound processing disabled", 503)
 
-        if path == "/api/bots/email/webhook/sendgrid":
+        if path == "/api/v1/bots/email/webhook/sendgrid":
             return self._handle_sendgrid_webhook(handler)
-        elif path == "/api/bots/email/webhook/ses":
+        elif path == "/api/v1/bots/email/webhook/ses":
             return self._handle_ses_webhook(handler)
 
         return None
@@ -86,11 +86,11 @@ class EmailWebhookHandler(BaseHandler):
                 "providers": {
                     "sendgrid": {
                         "configured": sendgrid_configured,
-                        "webhook_url": "/api/bots/email/webhook/sendgrid",
+                        "webhook_url": "/api/v1/bots/email/webhook/sendgrid",
                     },
                     "ses": {
                         "configured": ses_configured,
-                        "webhook_url": "/api/bots/email/webhook/ses",
+                        "webhook_url": "/api/v1/bots/email/webhook/ses",
                     },
                 },
             }

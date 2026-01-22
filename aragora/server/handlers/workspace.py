@@ -91,16 +91,16 @@ class WorkspaceHandler(SecureHandler):
     RESOURCE_TYPE = "workspace"
 
     ROUTES = [
-        "/api/workspaces",
-        "/api/retention/policies",
-        "/api/retention/expiring",
-        "/api/classify",
-        "/api/audit/entries",
-        "/api/audit/report",
-        "/api/audit/verify",
-        "/api/audit/actor",
-        "/api/audit/resource",
-        "/api/audit/denied",
+        "/api/v1/workspaces",
+        "/api/v1/retention/policies",
+        "/api/v1/retention/expiring",
+        "/api/v1/classify",
+        "/api/v1/audit/entries",
+        "/api/v1/audit/report",
+        "/api/v1/audit/verify",
+        "/api/v1/audit/actor",
+        "/api/v1/audit/resource",
+        "/api/v1/audit/denied",
     ]
 
     def __init__(self, server_context):
@@ -210,19 +210,19 @@ class WorkspaceHandler(SecureHandler):
             method = handler.command
 
         # Workspace endpoints
-        if path.startswith("/api/workspaces"):
+        if path.startswith("/api/v1/workspaces"):
             return self._route_workspace(path, query_params, handler, method)
 
         # Retention endpoints
-        if path.startswith("/api/retention"):
+        if path.startswith("/api/v1/retention"):
             return self._route_retention(path, query_params, handler, method)
 
         # Classification endpoints
-        if path.startswith("/api/classify"):
+        if path.startswith("/api/v1/classify"):
             return self._route_classify(path, query_params, handler, method)
 
         # Audit endpoints
-        if path.startswith("/api/audit"):
+        if path.startswith("/api/v1/audit"):
             return self._route_audit(path, query_params, handler, method)
 
         return None
@@ -250,11 +250,11 @@ class WorkspaceHandler(SecureHandler):
         parts = path.strip("/").split("/")
 
         # POST /api/workspaces - Create workspace
-        if path == "/api/workspaces" and method == "POST":
+        if path == "/api/v1/workspaces" and method == "POST":
             return self._handle_create_workspace(handler)
 
         # GET /api/workspaces - List workspaces
-        if path == "/api/workspaces" and method == "GET":
+        if path == "/api/v1/workspaces" and method == "GET":
             return self._handle_list_workspaces(handler, query_params)
 
         # GET /api/workspaces/{id}
@@ -291,11 +291,11 @@ class WorkspaceHandler(SecureHandler):
         parts = path.strip("/").split("/")
 
         # GET /api/retention/policies - List policies
-        if path == "/api/retention/policies" and method == "GET":
+        if path == "/api/v1/retention/policies" and method == "GET":
             return self._handle_list_policies(handler, query_params)
 
         # POST /api/retention/policies - Create policy
-        if path == "/api/retention/policies" and method == "POST":
+        if path == "/api/v1/retention/policies" and method == "POST":
             return self._handle_create_policy(handler)
 
         # GET /api/retention/policies/{id}
@@ -319,7 +319,7 @@ class WorkspaceHandler(SecureHandler):
             return self._handle_execute_policy(handler, policy_id, query_params)
 
         # GET /api/retention/expiring
-        if path == "/api/retention/expiring" and method == "GET":
+        if path == "/api/v1/retention/expiring" and method == "GET":
             return self._handle_expiring_items(handler, query_params)
 
         return error_response("Not found", 404)
@@ -335,7 +335,7 @@ class WorkspaceHandler(SecureHandler):
         parts = path.strip("/").split("/")
 
         # POST /api/classify - Classify content
-        if path == "/api/classify" and method == "POST":
+        if path == "/api/v1/classify" and method == "POST":
             return self._handle_classify_content(handler)
 
         # GET /api/classify/policy/{level}
@@ -356,15 +356,15 @@ class WorkspaceHandler(SecureHandler):
         parts = path.strip("/").split("/")
 
         # GET /api/audit/entries - Query audit entries
-        if path == "/api/audit/entries" and method == "GET":
+        if path == "/api/v1/audit/entries" and method == "GET":
             return self._handle_query_audit(handler, query_params)
 
         # GET /api/audit/report - Generate compliance report
-        if path == "/api/audit/report" and method == "GET":
+        if path == "/api/v1/audit/report" and method == "GET":
             return self._handle_audit_report(handler, query_params)
 
         # GET /api/audit/verify - Verify integrity
-        if path == "/api/audit/verify" and method == "GET":
+        if path == "/api/v1/audit/verify" and method == "GET":
             return self._handle_verify_integrity(handler, query_params)
 
         # GET /api/audit/actor/{id}/history
@@ -378,7 +378,7 @@ class WorkspaceHandler(SecureHandler):
             return self._handle_resource_history(handler, resource_id, query_params)
 
         # GET /api/audit/denied - Get denied access attempts
-        if path == "/api/audit/denied" and method == "GET":
+        if path == "/api/v1/audit/denied" and method == "GET":
             return self._handle_denied_access(handler, query_params)
 
         return error_response("Not found", 404)

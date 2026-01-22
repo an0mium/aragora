@@ -97,7 +97,7 @@ async def get_auth_context(
             user_email=user_ctx.email,
             org_id=user_ctx.org_id,
             workspace_id=_extract_workspace_id(request),
-            roles=set(user_ctx.roles) if user_ctx.roles else {"member"},
+            roles=set(user_ctx.roles) if user_ctx.roles else {"member"},  # type: ignore[attr-defined]
             permissions=_get_user_permissions(user_ctx),
         )
 
@@ -202,7 +202,7 @@ def require_authenticated(
 
     if func is not None:
         # Called without arguments: @require_authenticated
-        return decorator(func)
+        return decorator(func)  # type: ignore[return-value]
     # Called with arguments: @require_authenticated(...)
     return decorator
 

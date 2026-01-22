@@ -49,11 +49,11 @@ _leaderboard_limiter = RateLimiter(requests_per_minute=60)
 class LeaderboardViewHandler(BaseHandler):
     """Handler for consolidated leaderboard view endpoint."""
 
-    ROUTES = ["/api/leaderboard-view"]
+    ROUTES = ["/api/v1/leaderboard-view"]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path == "/api/leaderboard-view"
+        return path == "/api/v1/leaderboard-view"
 
     def _safe_fetch_section(
         self, data: dict, errors: dict, key: str, fetch_fn, fallback: dict
@@ -85,7 +85,7 @@ class LeaderboardViewHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         logger.debug(f"Leaderboard request: {path} params={query_params}")
-        if path == "/api/leaderboard-view":
+        if path == "/api/v1/leaderboard-view":
             limit = get_int_param(query_params, "limit", 10)
             domain = get_string_param(query_params, "domain")
             if domain:
@@ -211,7 +211,9 @@ class LeaderboardViewHandler(BaseHandler):
                             "consistency_class": (
                                 "high"
                                 if consistency >= 0.8
-                                else "medium" if consistency >= 0.6 else "low"
+                                else "medium"
+                                if consistency >= 0.6
+                                else "low"
                             ),
                         }
         except ImportError:

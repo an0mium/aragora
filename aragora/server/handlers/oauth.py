@@ -451,20 +451,20 @@ class OAuthHandler(SecureHandler):
     RESOURCE_TYPE = "oauth"
 
     ROUTES = [
-        "/api/auth/oauth/google",
-        "/api/auth/oauth/google/callback",
-        "/api/auth/oauth/github",
-        "/api/auth/oauth/github/callback",
-        "/api/auth/oauth/microsoft",
-        "/api/auth/oauth/microsoft/callback",
-        "/api/auth/oauth/apple",
-        "/api/auth/oauth/apple/callback",
-        "/api/auth/oauth/oidc",
-        "/api/auth/oauth/oidc/callback",
-        "/api/auth/oauth/link",
-        "/api/auth/oauth/unlink",
-        "/api/auth/oauth/providers",
-        "/api/user/oauth-providers",
+        "/api/v1/auth/oauth/google",
+        "/api/v1/auth/oauth/google/callback",
+        "/api/v1/auth/oauth/github",
+        "/api/v1/auth/oauth/github/callback",
+        "/api/v1/auth/oauth/microsoft",
+        "/api/v1/auth/oauth/microsoft/callback",
+        "/api/v1/auth/oauth/apple",
+        "/api/v1/auth/oauth/apple/callback",
+        "/api/v1/auth/oauth/oidc",
+        "/api/v1/auth/oauth/oidc/callback",
+        "/api/v1/auth/oauth/link",
+        "/api/v1/auth/oauth/unlink",
+        "/api/v1/auth/oauth/providers",
+        "/api/v1/user/oauth-providers",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -484,46 +484,46 @@ class OAuthHandler(SecureHandler):
         if hasattr(handler, "command"):
             method = handler.command
 
-        if path == "/api/auth/oauth/google" and method == "GET":
+        if path == "/api/v1/auth/oauth/google" and method == "GET":
             return self._handle_google_auth_start(handler, query_params)
 
-        if path == "/api/auth/oauth/google/callback" and method == "GET":
+        if path == "/api/v1/auth/oauth/google/callback" and method == "GET":
             return self._handle_google_callback(handler, query_params)
 
-        if path == "/api/auth/oauth/github" and method == "GET":
+        if path == "/api/v1/auth/oauth/github" and method == "GET":
             return self._handle_github_auth_start(handler, query_params)
 
-        if path == "/api/auth/oauth/github/callback" and method == "GET":
+        if path == "/api/v1/auth/oauth/github/callback" and method == "GET":
             return self._handle_github_callback(handler, query_params)
 
-        if path == "/api/auth/oauth/microsoft" and method == "GET":
+        if path == "/api/v1/auth/oauth/microsoft" and method == "GET":
             return self._handle_microsoft_auth_start(handler, query_params)
 
-        if path == "/api/auth/oauth/microsoft/callback" and method == "GET":
+        if path == "/api/v1/auth/oauth/microsoft/callback" and method == "GET":
             return self._handle_microsoft_callback(handler, query_params)
 
-        if path == "/api/auth/oauth/apple" and method == "GET":
+        if path == "/api/v1/auth/oauth/apple" and method == "GET":
             return self._handle_apple_auth_start(handler, query_params)
 
-        if path == "/api/auth/oauth/apple/callback" and method in ("GET", "POST"):
+        if path == "/api/v1/auth/oauth/apple/callback" and method in ("GET", "POST"):
             return self._handle_apple_callback(handler, query_params)
 
-        if path == "/api/auth/oauth/oidc" and method == "GET":
+        if path == "/api/v1/auth/oauth/oidc" and method == "GET":
             return self._handle_oidc_auth_start(handler, query_params)
 
-        if path == "/api/auth/oauth/oidc/callback" and method == "GET":
+        if path == "/api/v1/auth/oauth/oidc/callback" and method == "GET":
             return self._handle_oidc_callback(handler, query_params)
 
-        if path == "/api/auth/oauth/link" and method == "POST":
+        if path == "/api/v1/auth/oauth/link" and method == "POST":
             return self._handle_link_account(handler)
 
-        if path == "/api/auth/oauth/unlink" and method == "DELETE":
+        if path == "/api/v1/auth/oauth/unlink" and method == "DELETE":
             return self._handle_unlink_account(handler)
 
-        if path == "/api/auth/oauth/providers" and method == "GET":
+        if path == "/api/v1/auth/oauth/providers" and method == "GET":
             return self._handle_list_providers(handler)
 
-        if path == "/api/user/oauth-providers" and method == "GET":
+        if path == "/api/v1/user/oauth-providers" and method == "GET":
             return self._handle_get_user_providers(handler)
 
         return error_response("Method not allowed", 405)
@@ -1651,7 +1651,7 @@ class OAuthHandler(SecureHandler):
                     "id": "google",
                     "name": "Google",
                     "enabled": True,
-                    "auth_url": "/api/auth/oauth/google",
+                    "auth_url": "/api/v1/auth/oauth/google",
                 }
             )
 
@@ -1661,7 +1661,7 @@ class OAuthHandler(SecureHandler):
                     "id": "github",
                     "name": "GitHub",
                     "enabled": True,
-                    "auth_url": "/api/auth/oauth/github",
+                    "auth_url": "/api/v1/auth/oauth/github",
                 }
             )
 
@@ -1671,7 +1671,7 @@ class OAuthHandler(SecureHandler):
                     "id": "microsoft",
                     "name": "Microsoft",
                     "enabled": True,
-                    "auth_url": "/api/auth/oauth/microsoft",
+                    "auth_url": "/api/v1/auth/oauth/microsoft",
                 }
             )
 
@@ -1681,7 +1681,7 @@ class OAuthHandler(SecureHandler):
                     "id": "apple",
                     "name": "Apple",
                     "enabled": True,
-                    "auth_url": "/api/auth/oauth/apple",
+                    "auth_url": "/api/v1/auth/oauth/apple",
                 }
             )
 
@@ -1691,7 +1691,7 @@ class OAuthHandler(SecureHandler):
                     "id": "oidc",
                     "name": "SSO",
                     "enabled": True,
-                    "auth_url": "/api/auth/oauth/oidc",
+                    "auth_url": "/api/v1/auth/oauth/oidc",
                 }
             )
 

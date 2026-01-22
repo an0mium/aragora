@@ -48,27 +48,27 @@ class EvolutionHandler(BaseHandler):
     """Handler for prompt evolution endpoints."""
 
     ROUTES = [
-        "/api/evolution/patterns",
-        "/api/evolution/summary",
-        "/api/evolution/*/history",
-        "/api/evolution/*/prompt",
+        "/api/v1/evolution/patterns",
+        "/api/v1/evolution/summary",
+        "/api/v1/evolution/*/history",
+        "/api/v1/evolution/*/prompt",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/evolution/patterns":
+        if path == "/api/v1/evolution/patterns":
             return True
-        if path == "/api/evolution/summary":
+        if path == "/api/v1/evolution/summary":
             return True
-        if path.startswith("/api/evolution/") and path.endswith("/history"):
+        if path.startswith("/api/v1/evolution/") and path.endswith("/history"):
             return True
-        if path.startswith("/api/evolution/") and path.endswith("/prompt"):
+        if path.startswith("/api/v1/evolution/") and path.endswith("/prompt"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route evolution requests to appropriate methods."""
-        if not path.startswith("/api/evolution/"):
+        if not path.startswith("/api/v1/evolution/"):
             return None
 
         # Rate limit check
@@ -78,14 +78,14 @@ class EvolutionHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Global patterns endpoint
-        if path == "/api/evolution/patterns":
+        if path == "/api/v1/evolution/patterns":
             pattern_type = get_string_param(query_params, "type")
             limit = get_int_param(query_params, "limit", 10)
             limit = min(max(limit, 1), 50)
             return self._get_patterns(pattern_type, limit)
 
         # Summary endpoint
-        if path == "/api/evolution/summary":
+        if path == "/api/v1/evolution/summary":
             return self._get_summary()
 
         # Agent-specific history endpoint

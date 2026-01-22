@@ -183,9 +183,9 @@ def execute_debate_thread(
         if len(agent_list) > MAX_AGENTS_PER_DEBATE:
             with _active_debates_lock:
                 _active_debates[debate_id]["status"] = "error"
-                _active_debates[debate_id][
-                    "error"
-                ] = f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
+                _active_debates[debate_id]["error"] = (
+                    f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
+                )
                 _active_debates[debate_id]["completed_at"] = time.time()
             return
         if len(agent_list) < 2:
@@ -260,12 +260,12 @@ def execute_debate_thread(
             except ImportError:
                 pass
 
-        arena = Arena(
+        arena = Arena(  # type: ignore[redundant-cast]
             env,
             agents,
             cast("DebateProtocolClass", protocol),
             event_hooks=hooks,
-            event_emitter=emitter,
+            event_emitter=emitter,  # type: ignore[arg-type]
             loop_id=debate_id,
             trending_topic=trending_topic,
             user_id=user_id,

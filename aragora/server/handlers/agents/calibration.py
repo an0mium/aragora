@@ -47,19 +47,19 @@ class CalibrationHandler(BaseHandler):
     """Handler for calibration-related endpoints."""
 
     ROUTES = [
-        "/api/agent/*/calibration-curve",
-        "/api/agent/*/calibration-summary",
-        "/api/calibration/leaderboard",
-        "/api/calibration/visualization",
+        "/api/v1/agent/*/calibration-curve",
+        "/api/v1/agent/*/calibration-summary",
+        "/api/v1/calibration/leaderboard",
+        "/api/v1/calibration/visualization",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path.startswith("/api/agent/") and (
+        if path.startswith("/api/v1/agent/") and (
             path.endswith("/calibration-curve") or path.endswith("/calibration-summary")
         ):
             return True
-        if path in ("/api/calibration/leaderboard", "/api/calibration/visualization"):
+        if path in ("/api/v1/calibration/leaderboard", "/api/v1/calibration/visualization"):
             return True
         return False
 
@@ -72,7 +72,7 @@ class CalibrationHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Handle leaderboard endpoint
-        if path == "/api/calibration/leaderboard":
+        if path == "/api/v1/calibration/leaderboard":
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             metric = get_string_param(query_params, "metric") or "brier"
             min_predictions = get_clamped_int_param(
@@ -81,11 +81,11 @@ class CalibrationHandler(BaseHandler):
             return self._get_calibration_leaderboard(limit, metric, min_predictions)
 
         # Handle visualization endpoint
-        if path == "/api/calibration/visualization":
+        if path == "/api/v1/calibration/visualization":
             limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=10)
             return self._get_calibration_visualization(limit)
 
-        if not path.startswith("/api/agent/"):
+        if not path.startswith("/api/v1/agent/"):
             return None
 
         # Extract agent name: /api/agent/{name}/calibration-*

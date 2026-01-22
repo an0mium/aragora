@@ -59,9 +59,9 @@ class ProbesHandler(BaseHandler):
     """Handler for capability probing endpoints."""
 
     ROUTES = [
-        "/api/probes/capability",
-        "/api/probes/run",  # Legacy route
-        "/api/probes/reports",
+        "/api/v1/probes/capability",
+        "/api/v1/probes/run",  # Legacy route
+        "/api/v1/probes/reports",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -69,30 +69,30 @@ class ProbesHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/probes/reports/{id} pattern
-        if path.startswith("/api/probes/reports/"):
+        if path.startswith("/api/v1/probes/reports/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests."""
-        if path == "/api/probes/reports":
+        if path == "/api/v1/probes/reports":
             return self._list_probe_reports(handler, query_params)
-        if path.startswith("/api/probes/reports/"):
-            report_id = path.replace("/api/probes/reports/", "")
+        if path.startswith("/api/v1/probes/reports/"):
+            report_id = path.replace("/api/v1/probes/reports/", "")
             return self._get_probe_report(handler, report_id)
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/probes/capability":
+        if path == "/api/v1/probes/capability":
             return self._run_capability_probe(handler)
-        if path == "/api/probes/run":
+        if path == "/api/v1/probes/run":
             # Legacy endpoint
             return self._run_capability_probe_legacy(handler)
         return None
 
     @deprecated_endpoint(
-        replacement="/api/probes/capability",
+        replacement="/api/v1/probes/capability",
         sunset_date="2026-06-01",
         message="Legacy /api/probes/run endpoint used",
     )

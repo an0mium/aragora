@@ -33,7 +33,7 @@ _dashboard_limiter = RateLimiter(requests_per_minute=60)
 class DashboardHandler(BaseHandler):
     """Handler for dashboard endpoint."""
 
-    ROUTES = ["/api/dashboard/debates", "/api/dashboard/quality-metrics"]
+    ROUTES = ["/api/v1/dashboard/debates", "/api/v1/dashboard/quality-metrics"]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -47,12 +47,12 @@ class DashboardHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for dashboard endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/dashboard/debates":
+        if path == "/api/v1/dashboard/debates":
             domain = query_params.get("domain")
             limit = get_int_param(query_params, "limit", 10)
             hours = get_int_param(query_params, "hours", 24)
             return self._get_debates_dashboard(domain, min(limit, 50), hours)
-        elif path == "/api/dashboard/quality-metrics":
+        elif path == "/api/v1/dashboard/quality-metrics":
             return self._get_quality_metrics()
         return None
 
@@ -709,7 +709,7 @@ class DashboardHandler(BaseHandler):
         try:
             performance_monitor = self.ctx.get("performance_monitor")
             if performance_monitor:
-                insights = performance_monitor.get_performance_insights()
+                insights = performance_monitor.get_performance_insights()  # type: ignore[attr-defined]
                 if insights:
                     metrics["agents"] = insights.get("agents", {})
                     metrics["avg_latency_ms"] = insights.get("avg_latency_ms", 0.0)
@@ -735,7 +735,7 @@ class DashboardHandler(BaseHandler):
                 # Get version counts per agent
                 for agent_name in ["claude", "gemini", "codex", "grok"]:
                     try:
-                        version = prompt_evolver.get_prompt_version(agent_name)
+                        version = prompt_evolver.get_prompt_version(agent_name)  # type: ignore[attr-defined]
                         if version:
                             metrics["agents"][agent_name] = {
                                 "current_version": version.version,
@@ -747,7 +747,7 @@ class DashboardHandler(BaseHandler):
                         logger.debug(f"Skipping agent version with missing data: {e}")
 
                 # Get pattern count
-                patterns = prompt_evolver.get_top_patterns(limit=100)
+                patterns = prompt_evolver.get_top_patterns(limit=100)  # type: ignore[attr-defined]
                 metrics["patterns_extracted"] = len(patterns) if patterns else 0
         except Exception as e:
             logger.warning("Evolution metrics error: %s", e)

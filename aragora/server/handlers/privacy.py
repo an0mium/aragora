@@ -45,10 +45,10 @@ class PrivacyHandler(SecureHandler):
     RESOURCE_TYPE = "privacy"
 
     ROUTES = [
-        "/api/privacy/export",
-        "/api/privacy/data-inventory",
-        "/api/privacy/account",
-        "/api/privacy/preferences",
+        "/api/v1/privacy/export",
+        "/api/v1/privacy/data-inventory",
+        "/api/v1/privacy/account",
+        "/api/v1/privacy/preferences",
         "/api/v2/users/me/export",
         "/api/v2/users/me/data-inventory",
         "/api/v2/users/me",
@@ -66,22 +66,22 @@ class PrivacyHandler(SecureHandler):
             method = handler.command
 
         # Data export
-        if path in ("/api/privacy/export", "/api/v2/users/me/export") and method == "GET":
+        if path in ("/api/v1/privacy/export", "/api/v2/users/me/export") and method == "GET":
             return self._handle_export(handler, query_params)
 
         # Data inventory
         if (
-            path in ("/api/privacy/data-inventory", "/api/v2/users/me/data-inventory")
+            path in ("/api/v1/privacy/data-inventory", "/api/v2/users/me/data-inventory")
             and method == "GET"
         ):
             return self._handle_data_inventory(handler)
 
         # Account deletion
-        if path in ("/api/privacy/account", "/api/v2/users/me") and method == "DELETE":
+        if path in ("/api/v1/privacy/account", "/api/v2/users/me") and method == "DELETE":
             return self._handle_delete_account(handler)
 
         # Privacy preferences
-        if path == "/api/privacy/preferences" and method in ("GET", "POST"):
+        if path == "/api/v1/privacy/preferences" and method in ("GET", "POST"):
             if method == "GET":
                 return self._handle_get_preferences(handler)
             return self._handle_update_preferences(handler)
@@ -185,7 +185,7 @@ class PrivacyHandler(SecureHandler):
         # OAuth provider links
         oauth_providers = user_store.get_user_oauth_providers(user.id)
         if oauth_providers:
-            data["oauth_providers"] = [
+            data["oauth_providers"] = [  # type: ignore[assignment]
                 {
                     "provider": p["provider"],
                     "linked_at": p.get("linked_at"),
@@ -205,7 +205,7 @@ class PrivacyHandler(SecureHandler):
             limit=1000,
         )
         if audit_entries:
-            data["audit_log"] = [
+            data["audit_log"] = [  # type: ignore[assignment]
                 {
                     "timestamp": e["timestamp"],
                     "action": e["action"],
@@ -260,7 +260,7 @@ class PrivacyHandler(SecureHandler):
 
         csv_content = output.getvalue()
 
-        return (
+        return (  # type: ignore[return-value]
             csv_content.encode("utf-8"),
             200,
             {

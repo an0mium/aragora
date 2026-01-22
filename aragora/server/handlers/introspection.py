@@ -55,10 +55,10 @@ class IntrospectionHandler(BaseHandler):
     """Handler for introspection-related endpoints."""
 
     ROUTES = [
-        "/api/introspection/all",
-        "/api/introspection/leaderboard",
-        "/api/introspection/agents",
-        "/api/introspection/agents/*",
+        "/api/v1/introspection/all",
+        "/api/v1/introspection/leaderboard",
+        "/api/v1/introspection/agents",
+        "/api/v1/introspection/agents/*",
     ]
 
     DEFAULT_AGENTS = ["gemini", "claude", "codex", "grok", "deepseek"]
@@ -66,12 +66,12 @@ class IntrospectionHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         if path in (
-            "/api/introspection/all",
-            "/api/introspection/leaderboard",
-            "/api/introspection/agents",
+            "/api/v1/introspection/all",
+            "/api/v1/introspection/leaderboard",
+            "/api/v1/introspection/agents",
         ):
             return True
-        if path.startswith("/api/introspection/agents/"):
+        if path.startswith("/api/v1/introspection/agents/"):
             return True
         return False
 
@@ -83,14 +83,14 @@ class IntrospectionHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for introspection endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/introspection/all":
+        if path == "/api/v1/introspection/all":
             return self._get_all_introspection()
-        elif path == "/api/introspection/leaderboard":
+        elif path == "/api/v1/introspection/leaderboard":
             limit = get_int_param(query_params, "limit", 10)
             return self._get_introspection_leaderboard(min(limit, 50))
-        elif path == "/api/introspection/agents":
+        elif path == "/api/v1/introspection/agents":
             return self._list_agents()
-        elif path.startswith("/api/introspection/agents/"):
+        elif path.startswith("/api/v1/introspection/agents/"):
             # Path: /api/introspection/agents/{name} -> stripped path index 3 is name
             agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
             if err:
@@ -153,12 +153,12 @@ class IntrospectionHandler(BaseHandler):
                     try:
                         reputation = memory.get_agent_reputation(agent)  # type: ignore[union-attr]
                         if reputation:
-                            agent_info["reputation_score"] = getattr(
+                            agent_info["reputation_score"] = getattr(  # type: ignore[arg-type]
                                 reputation, "score", 0.5
-                            )  # type: ignore[arg-type]
-                            agent_info["total_critiques"] = getattr(
+                            )
+                            agent_info["total_critiques"] = getattr(  # type: ignore[arg-type]
                                 reputation, "total_critiques", 0
-                            )  # type: ignore[arg-type]
+                            )
                     except Exception as e:
                         logger.debug(f"Failed to get reputation for {agent}: {e}")
 

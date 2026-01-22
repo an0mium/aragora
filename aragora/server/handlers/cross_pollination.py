@@ -36,7 +36,7 @@ class CrossPollinationStatsHandler(BaseHandler):
     - Enabled status
     """
 
-    ROUTES = ["/api/cross-pollination/stats"]
+    ROUTES = ["/api/v1/cross-pollination/stats"]
 
     async def get(self) -> HandlerResult:
         """Get cross-subscriber statistics."""
@@ -81,7 +81,7 @@ class CrossPollinationSubscribersHandler(BaseHandler):
     Returns list of all registered subscribers with their event types.
     """
 
-    ROUTES = ["/api/cross-pollination/subscribers"]
+    ROUTES = ["/api/v1/cross-pollination/subscribers"]
 
     async def get(self) -> HandlerResult:
         """List all subscribers."""
@@ -128,7 +128,7 @@ class CrossPollinationBridgeHandler(BaseHandler):
     Returns status of the Arena event bridge connection.
     """
 
-    ROUTES = ["/api/cross-pollination/bridge"]
+    ROUTES = ["/api/v1/cross-pollination/bridge"]
 
     async def get(self) -> HandlerResult:
         """Get bridge status."""
@@ -165,7 +165,7 @@ class CrossPollinationMetricsHandler(BaseHandler):
     Returns Prometheus-format metrics for cross-pollination event system.
     """
 
-    ROUTES = ["/api/cross-pollination/metrics"]
+    ROUTES = ["/api/v1/cross-pollination/metrics"]
 
     async def get(self) -> HandlerResult:
         """Get cross-pollination metrics in Prometheus format."""
@@ -201,7 +201,7 @@ class CrossPollinationResetHandler(BaseHandler):
     Resets subscriber statistics (for testing/debugging).
     """
 
-    ROUTES = ["/api/cross-pollination/reset"]
+    ROUTES = ["/api/v1/cross-pollination/reset"]
 
     async def post(self) -> HandlerResult:
         """Reset subscriber statistics."""
@@ -238,7 +238,7 @@ class CrossPollinationKMHandler(BaseHandler):
     - Cross-subsystem handler statistics
     """
 
-    ROUTES = ["/api/cross-pollination/km"]
+    ROUTES = ["/api/v1/cross-pollination/km"]
 
     async def get(self) -> HandlerResult:
         """Get KM bidirectional integration status."""
@@ -329,7 +329,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
     Useful for forcing persistence after important debates or before shutdown.
     """
 
-    ROUTES = ["/api/cross-pollination/km/sync"]
+    ROUTES = ["/api/v1/cross-pollination/km/sync"]
 
     async def post(self) -> HandlerResult:
         """Trigger manual KM adapter sync."""
@@ -439,7 +439,7 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
     Triggers manual staleness check for Knowledge Mound nodes.
     """
 
-    ROUTES = ["/api/cross-pollination/km/staleness-check"]
+    ROUTES = ["/api/v1/cross-pollination/km/staleness-check"]
 
     async def post(self) -> HandlerResult:
         """Trigger manual staleness check."""
@@ -524,7 +524,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
     Returns culture patterns for a workspace.
     """
 
-    ROUTES = ["/api/cross-pollination/km/culture"]
+    ROUTES = ["/api/v1/cross-pollination/km/culture"]
 
     async def get(self) -> HandlerResult:
         """Get culture patterns."""
@@ -606,15 +606,15 @@ def register_routes(router, server_context: Optional[Any] = None) -> None:
     km_culture_handler = CrossPollinationKMCultureHandler(server_context or {})  # type: ignore[arg-type]
 
     routes = [
-        ("GET", "/api/cross-pollination/stats", stats_handler.get),
-        ("GET", "/api/cross-pollination/subscribers", subscribers_handler.get),
-        ("GET", "/api/cross-pollination/bridge", bridge_handler.get),
-        ("GET", "/api/cross-pollination/metrics", metrics_handler.get),
-        ("GET", "/api/cross-pollination/km", km_handler.get),
-        ("POST", "/api/cross-pollination/reset", reset_handler.post),
-        ("POST", "/api/cross-pollination/km/sync", km_sync_handler.post),
-        ("POST", "/api/cross-pollination/km/staleness-check", km_staleness_handler.post),
-        ("GET", "/api/cross-pollination/km/culture", km_culture_handler.get),
+        ("GET", "/api/v1/cross-pollination/stats", stats_handler.get),
+        ("GET", "/api/v1/cross-pollination/subscribers", subscribers_handler.get),
+        ("GET", "/api/v1/cross-pollination/bridge", bridge_handler.get),
+        ("GET", "/api/v1/cross-pollination/metrics", metrics_handler.get),
+        ("GET", "/api/v1/cross-pollination/km", km_handler.get),
+        ("POST", "/api/v1/cross-pollination/reset", reset_handler.post),
+        ("POST", "/api/v1/cross-pollination/km/sync", km_sync_handler.post),
+        ("POST", "/api/v1/cross-pollination/km/staleness-check", km_staleness_handler.post),
+        ("GET", "/api/v1/cross-pollination/km/culture", km_culture_handler.get),
     ]
 
     for method, path, handler in routes:

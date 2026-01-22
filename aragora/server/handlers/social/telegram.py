@@ -94,9 +94,9 @@ class TelegramHandler(BaseHandler):
     """Handler for Telegram Bot integration endpoints."""
 
     ROUTES = [
-        "/api/integrations/telegram/webhook",
-        "/api/integrations/telegram/status",
-        "/api/integrations/telegram/set-webhook",
+        "/api/v1/integrations/telegram/webhook",
+        "/api/v1/integrations/telegram/status",
+        "/api/v1/integrations/telegram/set-webhook",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -109,15 +109,15 @@ class TelegramHandler(BaseHandler):
         """Route Telegram requests to appropriate methods."""
         logger.debug(f"Telegram request: {path}")
 
-        if path == "/api/integrations/telegram/status":
+        if path == "/api/v1/integrations/telegram/status":
             return self._get_status()
 
-        if path == "/api/integrations/telegram/set-webhook":
+        if path == "/api/v1/integrations/telegram/set-webhook":
             if handler.command != "POST":
                 return error_response("Method not allowed", 405)
             return self._set_webhook(handler)
 
-        if path == "/api/integrations/telegram/webhook":
+        if path == "/api/v1/integrations/telegram/webhook":
             if handler.command != "POST":
                 return error_response("Method not allowed", 405)
 
@@ -301,7 +301,7 @@ class TelegramHandler(BaseHandler):
         # Handle regular messages as questions/topics
         if len(text) > 10:
             response = (
-                f"I received: \"{text[:50]}...\"\n\n"
+                f'I received: "{text[:50]}..."\n\n'
                 "To start a debate on this topic, use:\n"
                 f"/debate {text[:100]}"
             )
@@ -593,6 +593,7 @@ class TelegramHandler(BaseHandler):
             if debate_id:
                 try:
                     from aragora.server.debate_origin import mark_result_sent
+
                     mark_result_sent(debate_id)
                 except ImportError:
                     pass
@@ -769,7 +770,9 @@ class TelegramHandler(BaseHandler):
                         statement=statement,
                         verdict="passed" if passed else "failed",
                         confidence=score,
-                        challenges_passed=len([v for v in vulnerabilities if not v.get("critical", False)]),
+                        challenges_passed=len(
+                            [v for v in vulnerabilities if not v.get("critical", False)]
+                        ),
                         challenges_total=len(vulnerabilities) + 1,
                     )
 
@@ -803,7 +806,9 @@ class TelegramHandler(BaseHandler):
         if action == "vote" and len(parts) >= 3:
             debate_id = parts[1]
             vote_option = parts[2]
-            return self._handle_vote(callback_id, chat_id, user_id, username, debate_id, vote_option)
+            return self._handle_vote(
+                callback_id, chat_id, user_id, username, debate_id, vote_option
+            )
         elif action == "details" and len(parts) >= 2:
             debate_id = parts[1]
             return self._handle_view_details(callback_id, chat_id, debate_id)
@@ -1045,7 +1050,9 @@ class TelegramHandler(BaseHandler):
                 ) as response:
                     result = await response.json()
                     if not result.get("ok"):
-                        logger.warning(f"Telegram callback answer failed: {result.get('description')}")
+                        logger.warning(
+                            f"Telegram callback answer failed: {result.get('description')}"
+                        )
                         status = "error"
         except Exception as e:
             logger.error(f"Error answering Telegram callback: {e}")
@@ -1085,7 +1092,9 @@ class TelegramHandler(BaseHandler):
                 ) as response:
                     result = await response.json()
                     if not result.get("ok"):
-                        logger.warning(f"Telegram inline answer failed: {result.get('description')}")
+                        logger.warning(
+                            f"Telegram inline answer failed: {result.get('description')}"
+                        )
                         status = "error"
         except Exception as e:
             logger.error(f"Error answering Telegram inline query: {e}")

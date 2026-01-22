@@ -37,22 +37,22 @@ class VerticalsHandler(BaseHandler):
     """Handler for vertical specialist endpoints."""
 
     ROUTES = [
-        "/api/verticals",
-        "/api/verticals/suggest",
-        "/api/verticals/*",
-        "/api/verticals/*/tools",
-        "/api/verticals/*/compliance",
-        "/api/verticals/*/debate",
-        "/api/verticals/*/agent",
+        "/api/v1/verticals",
+        "/api/v1/verticals/suggest",
+        "/api/v1/verticals/*",
+        "/api/v1/verticals/*/tools",
+        "/api/v1/verticals/*/compliance",
+        "/api/v1/verticals/*/debate",
+        "/api/v1/verticals/*/agent",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
-        if path == "/api/verticals":
+        if path == "/api/v1/verticals":
             return True
-        if path == "/api/verticals/suggest":
+        if path == "/api/v1/verticals/suggest":
             return True
-        if path.startswith("/api/verticals/"):
+        if path.startswith("/api/v1/verticals/"):
             return True
         return False
 
@@ -69,15 +69,15 @@ class VerticalsHandler(BaseHandler):
             query_params = parse_qs(query_str)
 
         # GET /api/verticals - List all verticals
-        if path == "/api/verticals" and method == "GET":
+        if path == "/api/v1/verticals" and method == "GET":
             return self._list_verticals(query_params)
 
         # GET /api/verticals/suggest - Suggest vertical for task
-        if path == "/api/verticals/suggest" and method == "GET":
+        if path == "/api/v1/verticals/suggest" and method == "GET":
             return self._suggest_vertical(query_params)
 
         # Handle specific vertical endpoints
-        if path.startswith("/api/verticals/"):
+        if path.startswith("/api/v1/verticals/"):
             parts = path.split("/")
 
             # GET /api/verticals/:id/tools

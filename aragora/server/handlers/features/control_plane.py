@@ -84,16 +84,16 @@ class AgentDashboardHandler(BaseHandler):
 
     ROUTES = [
         # New canonical routes
-        "/api/agent-dashboard/agents",
-        "/api/agent-dashboard/agents/{agent_id}",
-        "/api/agent-dashboard/agents/{agent_id}/pause",
-        "/api/agent-dashboard/agents/{agent_id}/resume",
-        "/api/agent-dashboard/agents/{agent_id}/metrics",
-        "/api/agent-dashboard/queue",
-        "/api/agent-dashboard/queue/prioritize",
-        "/api/agent-dashboard/metrics",
-        "/api/agent-dashboard/stream",
-        "/api/agent-dashboard/health",
+        "/api/v1/agent-dashboard/agents",
+        "/api/v1/agent-dashboard/agents/{agent_id}",
+        "/api/v1/agent-dashboard/agents/{agent_id}/pause",
+        "/api/v1/agent-dashboard/agents/{agent_id}/resume",
+        "/api/v1/agent-dashboard/agents/{agent_id}/metrics",
+        "/api/v1/agent-dashboard/queue",
+        "/api/v1/agent-dashboard/queue/prioritize",
+        "/api/v1/agent-dashboard/metrics",
+        "/api/v1/agent-dashboard/stream",
+        "/api/v1/agent-dashboard/health",
     ]
 
     async def handle_request(self, request: Any) -> Any:

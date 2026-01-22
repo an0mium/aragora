@@ -30,10 +30,10 @@ class SecurityHandler(SecureHandler):
     """Handler for security-related admin endpoints."""
 
     ROUTES = [
-        "/api/admin/security/status",
-        "/api/admin/security/rotate-key",
-        "/api/admin/security/health",
-        "/api/admin/security/keys",
+        "/api/v1/admin/security/status",
+        "/api/v1/admin/security/rotate-key",
+        "/api/v1/admin/security/health",
+        "/api/v1/admin/security/keys",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -45,9 +45,9 @@ class SecurityHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route security endpoint requests."""
         handlers = {
-            "/api/admin/security/status": self._get_status,
-            "/api/admin/security/health": self._get_health,
-            "/api/admin/security/keys": self._list_keys,
+            "/api/v1/admin/security/status": self._get_status,
+            "/api/v1/admin/security/health": self._get_health,
+            "/api/v1/admin/security/keys": self._list_keys,
         }
 
         # GET endpoints
@@ -58,7 +58,7 @@ class SecurityHandler(SecureHandler):
 
     def handle_post(self, path: str, data: Dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for security endpoints."""
-        if path == "/api/admin/security/rotate-key":
+        if path == "/api/v1/admin/security/rotate-key":
             return self._rotate_key(data, handler)
         return None
 
@@ -311,13 +311,13 @@ class SecurityHandler(SecureHandler):
 
             keys_info = []
             for key in all_keys:
-                age_days = (datetime.now(timezone.utc) - key.created_at).days
+                age_days = (datetime.now(timezone.utc) - key.created_at).days  # type: ignore[attr-defined]
                 keys_info.append(
                     {
-                        "key_id": key.key_id,
-                        "version": key.version,
-                        "is_active": key.key_id == active_key_id,
-                        "created_at": key.created_at.isoformat(),
+                        "key_id": key.key_id,  # type: ignore[attr-defined]
+                        "version": key.version,  # type: ignore[attr-defined]
+                        "is_active": key.key_id == active_key_id,  # type: ignore[attr-defined]
+                        "created_at": key.created_at.isoformat(),  # type: ignore[attr-defined]
                         "age_days": age_days,
                     }
                 )

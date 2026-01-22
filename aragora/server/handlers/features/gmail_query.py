@@ -53,16 +53,16 @@ class GmailQueryHandler(BaseHandler):
     """Handler for Gmail Q&A and priority inbox endpoints."""
 
     ROUTES = [
-        "/api/gmail/query",
-        "/api/gmail/query/voice",
-        "/api/gmail/query/stream",
-        "/api/gmail/inbox/priority",
-        "/api/gmail/inbox/feedback",
+        "/api/v1/gmail/query",
+        "/api/v1/gmail/query/voice",
+        "/api/v1/gmail/query/stream",
+        "/api/v1/gmail/inbox/priority",
+        "/api/v1/gmail/inbox/feedback",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the path."""
-        return path.startswith("/api/gmail/query") or path.startswith("/api/gmail/inbox/")
+        return path.startswith("/api/v1/gmail/query") or path.startswith("/api/v1/gmail/inbox/")
 
     def handle(
         self,
@@ -73,10 +73,10 @@ class GmailQueryHandler(BaseHandler):
         """Route GET requests."""
         user_id = query_params.get("user_id", "default")
 
-        if path == "/api/gmail/inbox/priority":
+        if path == "/api/v1/gmail/inbox/priority":
             return self._get_priority_inbox(user_id, query_params)
 
-        if path == "/api/gmail/query/stream":
+        if path == "/api/v1/gmail/query/stream":
             # Streaming would need WebSocket - return regular response
             return self._handle_query(user_id, {"question": query_params.get("q", "")})
 
@@ -91,13 +91,13 @@ class GmailQueryHandler(BaseHandler):
         """Route POST requests."""
         user_id = body.get("user_id", "default")
 
-        if path == "/api/gmail/query":
+        if path == "/api/v1/gmail/query":
             return self._handle_query(user_id, body)
 
-        if path == "/api/gmail/query/voice":
+        if path == "/api/v1/gmail/query/voice":
             return self._handle_voice_query(user_id, body, handler)
 
-        if path == "/api/gmail/inbox/feedback":
+        if path == "/api/v1/gmail/inbox/feedback":
             return self._record_feedback(user_id, body)
 
         return error_response("Not found", 404)
@@ -106,7 +106,7 @@ class GmailQueryHandler(BaseHandler):
         """Handle natural language query over email content."""
         state = get_user_state(user_id)
 
-        if not state or not state.refresh_token:  # type: ignore[union-attr]
+        if not state or not state.refresh_token:  # type: ignore[union-attr,attr-defined]
             return error_response("Not connected - please authenticate first", 401)
 
         question = body.get("question", body.get("q", ""))
@@ -301,7 +301,7 @@ class GmailQueryHandler(BaseHandler):
         """Handle voice input query."""
         state = get_user_state(user_id)
 
-        if not state or not state.refresh_token:  # type: ignore[union-attr]
+        if not state or not state.refresh_token:  # type: ignore[union-attr,attr-defined]
             return error_response("Not connected - please authenticate first", 401)
 
         # Get audio data
@@ -380,7 +380,7 @@ class GmailQueryHandler(BaseHandler):
         """Get prioritized inbox list."""
         state = get_user_state(user_id)
 
-        if not state or not state.refresh_token:  # type: ignore[union-attr]
+        if not state or not state.refresh_token:  # type: ignore[union-attr,attr-defined]
             return error_response("Not connected - please authenticate first", 401)
 
         limit = int(query_params.get("limit", 20))

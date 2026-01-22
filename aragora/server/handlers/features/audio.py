@@ -49,9 +49,9 @@ try:
     PODCAST_AVAILABLE: bool = True
 except ImportError:
     PODCAST_AVAILABLE = False
-    PodcastFeedGenerator: type[PodcastFeedGeneratorType] | None = None
-    PodcastConfig: type[PodcastConfigType] | None = None
-    PodcastEpisode: type[PodcastEpisodeType] | None = None
+    PodcastFeedGenerator: type[PodcastFeedGeneratorType] | None = None  # type: ignore[name-defined,misc,no-redef]
+    PodcastConfig: type[PodcastConfigType] | None = None  # type: ignore[name-defined,misc,no-redef]
+    PodcastEpisode: type[PodcastEpisodeType] | None = None  # type: ignore[name-defined,misc,no-redef]
 
 
 class AudioHandler(BaseHandler):
@@ -59,15 +59,15 @@ class AudioHandler(BaseHandler):
 
     ROUTES = [
         "/audio/*",
-        "/api/podcast/feed.xml",
-        "/api/podcast/episodes",
+        "/api/v1/podcast/feed.xml",
+        "/api/v1/podcast/episodes",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
         if path.startswith("/audio/") and path.endswith(".mp3"):
             return True
-        if path in ("/api/podcast/feed.xml", "/api/podcast/episodes"):
+        if path in ("/api/v1/podcast/feed.xml", "/api/v1/podcast/episodes"):
             return True
         return False
 
@@ -85,9 +85,9 @@ class AudioHandler(BaseHandler):
             return self._serve_audio(debate_id)
 
         # Podcast endpoints
-        if path == "/api/podcast/feed.xml":
+        if path == "/api/v1/podcast/feed.xml":
             return self._get_podcast_feed(handler)
-        if path == "/api/podcast/episodes":
+        if path == "/api/v1/podcast/episodes":
             limit = get_int_param(query_params, "limit", 50)
             return self._get_podcast_episodes(limit, handler)
 
@@ -268,7 +268,7 @@ class AudioHandler(BaseHandler):
                 {
                     "episodes": episodes,
                     "count": len(episodes),
-                    "feed_url": "/api/podcast/feed.xml",
+                    "feed_url": "/api/v1/podcast/feed.xml",
                 }
             )
 

@@ -46,9 +46,9 @@ class SpeechHandler(BaseHandler):
     """Handler for speech-to-text endpoints."""
 
     ROUTES = [
-        "/api/speech/transcribe",
-        "/api/speech/transcribe-url",
-        "/api/speech/providers",
+        "/api/v1/speech/transcribe",
+        "/api/v1/speech/transcribe-url",
+        "/api/v1/speech/providers",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -57,7 +57,7 @@ class SpeechHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests."""
-        if path == "/api/speech/providers":
+        if path == "/api/v1/speech/providers":
             return self._get_providers()
         return None
 
@@ -69,9 +69,9 @@ class SpeechHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for speech endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/speech/transcribe":
+        if path == "/api/v1/speech/transcribe":
             return self._transcribe_upload(handler, query_params)
-        elif path == "/api/speech/transcribe-url":
+        elif path == "/api/v1/speech/transcribe-url":
             return self._transcribe_from_url(handler, query_params)
         return None
 

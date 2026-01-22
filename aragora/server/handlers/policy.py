@@ -45,23 +45,23 @@ class PolicyHandler(BaseHandler):
     """Handler for policy and compliance endpoints."""
 
     ROUTES = [
-        "/api/policies",
-        "/api/policies/*",
-        "/api/policies/*/toggle",
-        "/api/policies/*/violations",
-        "/api/compliance/violations",
-        "/api/compliance/violations/*",
-        "/api/compliance/check",
-        "/api/compliance/stats",
+        "/api/v1/policies",
+        "/api/v1/policies/*",
+        "/api/v1/policies/*/toggle",
+        "/api/v1/policies/*/violations",
+        "/api/v1/compliance/violations",
+        "/api/v1/compliance/violations/*",
+        "/api/v1/compliance/check",
+        "/api/v1/compliance/stats",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
-        if path == "/api/policies":
+        if path == "/api/v1/policies":
             return True
-        if path.startswith("/api/policies/"):
+        if path.startswith("/api/v1/policies/"):
             return True
-        if path.startswith("/api/compliance/"):
+        if path.startswith("/api/v1/compliance/"):
             return True
         return False
 
@@ -78,14 +78,16 @@ class PolicyHandler(BaseHandler):
         # === Policy endpoints ===
 
         # GET /api/policies - List policies
-        if path == "/api/policies" and method == "GET":
+        if path == "/api/v1/policies" and method == "GET":
             return self._list_policies(query_params)
 
         # POST /api/policies - Create policy
-        if path == "/api/policies" and method == "POST":
+        if path == "/api/v1/policies" and method == "POST":
             return await self._create_policy(handler)
 
-        if path.startswith("/api/policies/") and not path.startswith("/api/policies/compliance"):
+        if path.startswith("/api/v1/policies/") and not path.startswith(
+            "/api/v1/policies/compliance"
+        ):
             parts = path.split("/")
 
             # POST /api/policies/:id/toggle
@@ -131,18 +133,18 @@ class PolicyHandler(BaseHandler):
         # === Compliance endpoints ===
 
         # GET /api/compliance/violations - List violations
-        if path == "/api/compliance/violations" and method == "GET":
+        if path == "/api/v1/compliance/violations" and method == "GET":
             return self._list_violations(query_params)
 
         # POST /api/compliance/check - Run compliance check
-        if path == "/api/compliance/check" and method == "POST":
+        if path == "/api/v1/compliance/check" and method == "POST":
             return await self._check_compliance(handler)
 
         # GET /api/compliance/stats - Get compliance stats
-        if path == "/api/compliance/stats" and method == "GET":
+        if path == "/api/v1/compliance/stats" and method == "GET":
             return self._get_stats(query_params)
 
-        if path.startswith("/api/compliance/violations/"):
+        if path.startswith("/api/v1/compliance/violations/"):
             parts = path.split("/")
 
             # GET /api/compliance/violations/:id - Get violation

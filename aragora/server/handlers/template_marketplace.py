@@ -299,16 +299,16 @@ class TemplateMarketplaceHandler(BaseHandler):
     """Handler for template marketplace API endpoints."""
 
     ROUTES: list[str] = [
-        "/api/marketplace/templates",
-        "/api/marketplace/templates/*",
-        "/api/marketplace/featured",
-        "/api/marketplace/trending",
-        "/api/marketplace/categories",
+        "/api/v1/marketplace/templates",
+        "/api/v1/marketplace/templates/*",
+        "/api/v1/marketplace/featured",
+        "/api/v1/marketplace/trending",
+        "/api/v1/marketplace/categories",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/marketplace/")
+        return path.startswith("/api/v1/marketplace/")
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route marketplace requests."""
@@ -323,19 +323,19 @@ class TemplateMarketplaceHandler(BaseHandler):
         method = handler.command if hasattr(handler, "command") else "GET"
 
         # Featured templates
-        if path == "/api/marketplace/featured":
+        if path == "/api/v1/marketplace/featured":
             return self._get_featured()
 
         # Trending templates
-        if path == "/api/marketplace/trending":
+        if path == "/api/v1/marketplace/trending":
             return self._get_trending(query_params)
 
         # Categories
-        if path == "/api/marketplace/categories":
+        if path == "/api/v1/marketplace/categories":
             return self._get_categories()
 
         # Template list/search
-        if path == "/api/marketplace/templates":
+        if path == "/api/v1/marketplace/templates":
             if method == "GET":
                 return self._list_templates(query_params)
             elif method == "POST":
@@ -344,7 +344,7 @@ class TemplateMarketplaceHandler(BaseHandler):
                 return error_response(f"Method {method} not allowed", 405)
 
         # Specific template operations
-        if path.startswith("/api/marketplace/templates/"):
+        if path.startswith("/api/v1/marketplace/templates/"):
             parts = path.split("/")
             if len(parts) >= 4:
                 template_id = "/".join(parts[4:])

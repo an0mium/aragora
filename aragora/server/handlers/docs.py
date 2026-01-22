@@ -43,14 +43,14 @@ class DocsHandler(BaseHandler):
     """Handler for API documentation endpoints."""
 
     ROUTES = [
-        "/api/openapi",
-        "/api/openapi.json",
-        "/api/openapi.yaml",
-        "/api/postman.json",
-        "/api/docs",
-        "/api/docs/",
-        "/api/redoc",
-        "/api/redoc/",
+        "/api/v1/openapi",
+        "/api/v1/openapi.json",
+        "/api/v1/openapi.yaml",
+        "/api/v1/postman.json",
+        "/api/v1/docs",
+        "/api/v1/docs/",
+        "/api/v1/redoc",
+        "/api/v1/redoc/",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -59,15 +59,15 @@ class DocsHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route documentation endpoint requests."""
-        if path in ("/api/openapi", "/api/openapi.json"):
+        if path in ("/api/v1/openapi", "/api/v1/openapi.json"):
             return self._get_openapi_spec("json")
-        if path == "/api/openapi.yaml":
+        if path == "/api/v1/openapi.yaml":
             return self._get_openapi_spec("yaml")
-        if path == "/api/postman.json":
+        if path == "/api/v1/postman.json":
             return self._get_postman_collection()
-        if path in ("/api/docs", "/api/docs/"):
+        if path in ("/api/v1/docs", "/api/v1/docs/"):
             return self._get_swagger_ui()
-        if path in ("/api/redoc", "/api/redoc/"):
+        if path in ("/api/v1/redoc", "/api/v1/redoc/"):
             return self._get_redoc()
         return None
 
@@ -128,7 +128,7 @@ class DocsHandler(BaseHandler):
     <script>
         window.onload = function() {
             window.ui = SwaggerUIBundle({
-                url: "/api/openapi.json",
+                url: "/api/v1/openapi.json",
                 dom_id: '#swagger-ui',
                 deepLinking: true,
                 presets: [
@@ -204,7 +204,7 @@ class DocsHandler(BaseHandler):
     </style>
 </head>
 <body>
-    <redoc spec-url="/api/openapi.json"
+    <redoc spec-url="/api/v1/openapi.json"
            expand-responses="200,201"
            hide-download-button="false"
            native-scrollbars="true"

@@ -55,21 +55,21 @@ class PersonaHandler(BaseHandler):
     """Handler for persona-related endpoints."""
 
     ROUTES = [
-        "/api/personas",
-        "/api/personas/options",
-        "/api/agent/*/persona",
-        "/api/agent/*/grounded-persona",
-        "/api/agent/*/identity-prompt",
-        "/api/agent/*/performance",
-        "/api/agent/*/domains",
-        "/api/agent/*/accuracy",
+        "/api/v1/personas",
+        "/api/v1/personas/options",
+        "/api/v1/agent/*/persona",
+        "/api/v1/agent/*/grounded-persona",
+        "/api/v1/agent/*/identity-prompt",
+        "/api/v1/agent/*/performance",
+        "/api/v1/agent/*/domains",
+        "/api/v1/agent/*/accuracy",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in ("/api/personas", "/api/personas/options"):
+        if path in ("/api/v1/personas", "/api/v1/personas/options"):
             return True
-        if path.startswith("/api/agent/") and any(
+        if path.startswith("/api/v1/agent/") and any(
             path.endswith(suffix)
             for suffix in (
                 "/persona",
@@ -92,15 +92,15 @@ class PersonaHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # List all personas
-        if path == "/api/personas":
+        if path == "/api/v1/personas":
             return self._get_all_personas()
 
         # Get available traits and expertise domains
-        if path == "/api/personas/options":
+        if path == "/api/v1/personas/options":
             return self._get_persona_options()
 
         # Agent-specific endpoints
-        if path.startswith("/api/agent/"):
+        if path.startswith("/api/v1/agent/"):
             # Extract agent name from path: /api/agent/{name}/endpoint
             agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
             if err:
@@ -361,7 +361,7 @@ class PersonaHandler(BaseHandler):
             return error_response("Rate limit exceeded", 429)
 
         # Create new persona
-        if path == "/api/personas":
+        if path == "/api/v1/personas":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
@@ -429,7 +429,7 @@ class PersonaHandler(BaseHandler):
             return error_response("Rate limit exceeded", 429)
 
         # Update agent persona
-        if path.startswith("/api/agent/") and path.endswith("/persona"):
+        if path.startswith("/api/v1/agent/") and path.endswith("/persona"):
             agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
@@ -496,7 +496,7 @@ class PersonaHandler(BaseHandler):
             return error_response("Rate limit exceeded", 429)
 
         # Delete agent persona
-        if path.startswith("/api/agent/") and path.endswith("/persona"):
+        if path.startswith("/api/v1/agent/") and path.endswith("/persona"):
             agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err

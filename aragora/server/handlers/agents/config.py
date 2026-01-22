@@ -55,33 +55,33 @@ class AgentConfigHandler(BaseHandler):
     """Handler for agent configuration endpoints."""
 
     ROUTES = [
-        "/api/agents/configs",
-        "/api/agents/configs/reload",
-        "/api/agents/configs/search",
-        "/api/agents/configs/*",
-        "/api/agents/configs/*/create",
+        "/api/v1/agents/configs",
+        "/api/v1/agents/configs/reload",
+        "/api/v1/agents/configs/search",
+        "/api/v1/agents/configs/*",
+        "/api/v1/agents/configs/*/create",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/agents/configs")
+        return path.startswith("/api/v1/agents/configs")
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route config requests to appropriate methods."""
         # List all configs
-        if path == "/api/agents/configs":
+        if path == "/api/v1/agents/configs":
             return self._list_configs(query_params)
 
         # Reload configs
-        if path == "/api/agents/configs/reload":
+        if path == "/api/v1/agents/configs/reload":
             return self._reload_configs()
 
         # Search configs
-        if path == "/api/agents/configs/search":
+        if path == "/api/v1/agents/configs/search":
             return self._search_configs(query_params)
 
         # Handle specific config endpoints
-        if path.startswith("/api/agents/configs/"):
+        if path.startswith("/api/v1/agents/configs/"):
             return self._handle_config_endpoint(path, query_params)
 
         return None

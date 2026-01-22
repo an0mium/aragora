@@ -39,6 +39,7 @@ def get_a2a_server():
     global _a2a_server
     if _a2a_server is None:
         from aragora.protocols.a2a import A2AServer
+
         _a2a_server = A2AServer()
     return _a2a_server
 
@@ -48,21 +49,21 @@ class A2AHandler(BaseHandler):
 
     ROUTES = [
         # Discovery
-        "/api/a2a/.well-known/agent.json",
+        "/api/v1/a2a/.well-known/agent.json",
         "/.well-known/agent.json",
         # Agent listing
-        "/api/a2a/agents",
-        "/api/a2a/agents/*",
+        "/api/v1/a2a/agents",
+        "/api/v1/a2a/agents/*",
         # Tasks
-        "/api/a2a/tasks",
-        "/api/a2a/tasks/*",
+        "/api/v1/a2a/tasks",
+        "/api/v1/a2a/tasks/*",
         # OpenAPI spec
-        "/api/a2a/openapi.json",
+        "/api/v1/a2a/openapi.json",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        if path.startswith("/api/a2a/"):
+        if path.startswith("/api/v1/a2a/"):
             return True
         if path == "/.well-known/agent.json":
             return True
@@ -76,15 +77,15 @@ class A2AHandler(BaseHandler):
         method = handler.command if hasattr(handler, "command") else "GET"
 
         # Discovery endpoint
-        if path in ("/.well-known/agent.json", "/api/a2a/.well-known/agent.json"):
+        if path in ("/.well-known/agent.json", "/api/v1/a2a/.well-known/agent.json"):
             return self._handle_discovery()
 
         # OpenAPI spec
-        if path == "/api/a2a/openapi.json":
+        if path == "/api/v1/a2a/openapi.json":
             return self._handle_openapi()
 
         # Remove prefix
-        subpath = path[8:] if path.startswith("/api/a2a") else path
+        subpath = path[8:] if path.startswith("/api/v1/a2a") else path
 
         # Agents
         if subpath == "/agents":
@@ -119,16 +120,18 @@ class A2AHandler(BaseHandler):
             primary = agents[0]
             return json_response(primary.to_dict())
 
-        return json_response({
-            "name": "aragora",
-            "version": "1.0.0",
-            "description": "Aragora multi-agent decision engine",
-            "capabilities": ["debate", "audit", "critique", "research"],
-            "endpoints": {
-                "agents": "/api/a2a/agents",
-                "tasks": "/api/a2a/tasks",
-            },
-        })
+        return json_response(
+            {
+                "name": "aragora",
+                "version": "1.0.0",
+                "description": "Aragora multi-agent decision engine",
+                "capabilities": ["debate", "audit", "critique", "research"],
+                "endpoints": {
+                    "agents": "/api/v1/a2a/agents",
+                    "tasks": "/api/v1/a2a/tasks",
+                },
+            }
+        )
 
     def _handle_openapi(self) -> HandlerResult:
         """Return OpenAPI specification."""
@@ -141,10 +144,12 @@ class A2AHandler(BaseHandler):
         server = get_a2a_server()
         agents = server.list_agents()
 
-        return json_response({
-            "agents": [a.to_dict() for a in agents],
-            "total": len(agents),
-        })
+        return json_response(
+            {
+                "agents": [a.to_dict() for a in agents],
+                "total": len(agents),
+            }
+        )
 
     def _handle_get_agent(self, name: str) -> HandlerResult:
         """Get agent by name."""
@@ -183,13 +188,15 @@ class A2AHandler(BaseHandler):
 
         context = []
         for ctx in data.get("context", []):
-            context.append(ContextItem(
-                type=ctx.get("type", "text"),
-                content=ctx.get("content", ""),
-                metadata=ctx.get("metadata", {}),
-            ))
+            context.append(
+                ContextItem(
+                    type=ctx.get("type", "text"),
+                    content=ctx.get("content", ""),
+                    metadata=ctx.get("metadata", {}),
+                )
+            )
 
-        request = TaskRequest(
+        request = TaskRequest(  # type: ignore[call-arg]
             task_id=task_id,
             instruction=data["instruction"],
             capability=capability,
@@ -252,10 +259,13 @@ class A2AHandler(BaseHandler):
     def _handle_stream_task(self, task_id: str, handler: Any) -> HandlerResult:
         """Handle streaming task request (returns upgrade required)."""
         # Note: Actual streaming requires WebSocket which is handled separately
-        return json_response({
-            "message": "Use WebSocket connection for streaming",
-            "ws_path": f"/ws/a2a/tasks/{task_id}/stream",
-        }, status=426)
+        return json_response(
+            {
+                "message": "Use WebSocket connection for streaming",
+                "ws_path": f"/ws/a2a/tasks/{task_id}/stream",
+            },
+            status=426,
+        )
 
 
 # Handler factory
@@ -268,7 +278,7 @@ def get_a2a_handler(server_context: Optional[Dict] = None) -> "A2AHandler":
     if _a2a_handler is None:
         if server_context is None:
             server_context = {}
-        _a2a_handler = A2AHandler(server_context)
+        _a2a_handler = A2AHandler(server_context)  # type: ignore[arg-type]
     return _a2a_handler
 
 

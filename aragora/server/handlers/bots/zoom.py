@@ -45,8 +45,8 @@ class ZoomHandler(BaseHandler):
     """Handler for Zoom Bot endpoints."""
 
     ROUTES = [
-        "/api/bots/zoom/events",
-        "/api/bots/zoom/status",
+        "/api/v1/bots/zoom/events",
+        "/api/v1/bots/zoom/status",
     ]
 
     def __init__(self):
@@ -90,7 +90,7 @@ class ZoomHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Zoom requests."""
-        if path == "/api/bots/zoom/status":
+        if path == "/api/v1/bots/zoom/status":
             return self._get_status()
 
         return None
@@ -100,7 +100,7 @@ class ZoomHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
-        if path == "/api/bots/zoom/events":
+        if path == "/api/v1/bots/zoom/events":
             return self._handle_events(handler)
 
         return None

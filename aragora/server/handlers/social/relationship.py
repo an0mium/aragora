@@ -187,9 +187,9 @@ class RelationshipHandler(BaseHandler):
     """Handler for relationship endpoints."""
 
     ROUTES = [
-        "/api/relationships/summary",
-        "/api/relationships/graph",
-        "/api/relationships/stats",
+        "/api/v1/relationships/summary",
+        "/api/v1/relationships/graph",
+        "/api/v1/relationships/stats",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -197,7 +197,7 @@ class RelationshipHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle dynamic route: /api/relationship/{agent_a}/{agent_b}
-        if path.startswith("/api/relationship/") and path.count("/") >= 4:
+        if path.startswith("/api/v1/relationship/") and path.count("/") >= 4:
             return True
         return False
 
@@ -212,19 +212,19 @@ class RelationshipHandler(BaseHandler):
         logger.debug(f"Relationship request: {path} params={query_params}")
         nomic_dir = self.ctx.get("nomic_dir")
 
-        if path == "/api/relationships/summary":
+        if path == "/api/v1/relationships/summary":
             return self._get_summary(nomic_dir)
 
-        if path == "/api/relationships/graph":
+        if path == "/api/v1/relationships/graph":
             min_debates = get_int_param(query_params, "min_debates", 3)
             min_score = get_float_param(query_params, "min_score", 0.0)
             return self._get_graph(nomic_dir, min_debates, min_score)
 
-        if path == "/api/relationships/stats":
+        if path == "/api/v1/relationships/stats":
             return self._get_stats(nomic_dir)
 
         # Handle /api/relationship/{agent_a}/{agent_b}
-        if path.startswith("/api/relationship/"):
+        if path.startswith("/api/v1/relationship/"):
             params, err = self.extract_path_params(
                 path,
                 [
@@ -262,7 +262,7 @@ class RelationshipHandler(BaseHandler):
         Returns list of (agent_a, agent_b, debate_count, agreement_count, a_wins, b_wins).
         Returns empty list if table doesn't exist.
         """
-        with get_db_connection(str(tracker.elo_db_path)) as conn:
+        with get_db_connection(str(tracker.elo_db_path)) as conn:  # type: ignore[arg-type,attr-defined]
             cursor = conn.cursor()
             if not table_exists(cursor, "agent_relationships"):
                 return []
@@ -287,7 +287,7 @@ class RelationshipHandler(BaseHandler):
 
             # We need to query the DB directly to get all relationships
             # Use a helper to get all pairs from the database
-            with get_db_connection(str(tracker.elo_db_path)) as conn:
+            with get_db_connection(str(tracker.elo_db_path)) as conn:  # type: ignore[arg-type,attr-defined]
                 cursor = conn.cursor()
 
                 if not table_exists(cursor, "agent_relationships"):

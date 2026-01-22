@@ -38,21 +38,19 @@ class WorkflowTemplatesHandler(BaseHandler):
     """Handler for workflow templates API endpoints."""
 
     ROUTES: list[str] = [
-        "/api/workflow/templates",
-        "/api/workflow/templates/*",
+        "/api/v1/workflow/templates",
+        "/api/v1/workflow/templates/*",
         "/api/v1/workflow/templates",
         "/api/v1/workflow/templates/*",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/workflow/templates") or path.startswith(
+        return path.startswith("/api/v1/workflow/templates") or path.startswith(
             "/api/v1/workflow/templates"
         )
 
-    def handle(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route workflow template requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -64,7 +62,7 @@ class WorkflowTemplatesHandler(BaseHandler):
         method = handler.command if hasattr(handler, "command") else "GET"
 
         # Handle list/search
-        if path in ("/api/workflow/templates", "/api/v1/workflow/templates"):
+        if path in ("/api/v1/workflow/templates", "/api/v1/workflow/templates"):
             if method == "GET":
                 return self._list_templates(query_params)
             elif method == "POST":
@@ -101,9 +99,7 @@ class WorkflowTemplatesHandler(BaseHandler):
         from aragora.workflow.templates import list_templates, WORKFLOW_TEMPLATES
 
         # Get filters
-        category = get_bounded_string_param(
-            query_params, "category", None, max_length=50
-        )
+        category = get_bounded_string_param(query_params, "category", None, max_length=50)
         tag = get_bounded_string_param(query_params, "tag", None, max_length=50)
         search = get_bounded_string_param(query_params, "search", None, max_length=100)
         limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=100)
@@ -139,9 +135,7 @@ class WorkflowTemplatesHandler(BaseHandler):
             enriched.append(
                 {
                     **t,
-                    "steps_count": len(template_def.get("steps", []))
-                    if template_def
-                    else 0,
+                    "steps_count": len(template_def.get("steps", [])) if template_def else 0,
                     "pattern": template_def.get("pattern") if template_def else None,
                     "estimated_duration": template_def.get("estimated_duration")
                     if template_def
@@ -238,7 +232,7 @@ class WorkflowTemplatesHandler(BaseHandler):
         # Execute template
         try:
             engine = WorkflowEngine()
-            result = engine.execute_sync(
+            result = engine.execute_sync(  # type: ignore[attr-defined]
                 workflow=template,
                 inputs=inputs,
                 agents=agents,
@@ -263,9 +257,7 @@ class WorkflowTemplatesHandler(BaseHandler):
             )
 
     @handle_errors("run specific template")
-    def _run_specific_template(
-        self, template_id: str, handler: Any
-    ) -> HandlerResult:
+    def _run_specific_template(self, template_id: str, handler: Any) -> HandlerResult:
         """Run a specific workflow template."""
         from aragora.workflow.templates import get_template
 
@@ -309,16 +301,14 @@ class WorkflowCategoriesHandler(BaseHandler):
     """Handler for workflow template categories."""
 
     ROUTES: list[str] = [
-        "/api/workflow/categories",
+        "/api/v1/workflow/categories",
         "/api/v1/workflow/categories",
     ]
 
     def can_handle(self, path: str) -> bool:
         return path in self.ROUTES
 
-    def handle(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Return available template categories."""
         from aragora.workflow.templates.package import TemplateCategory
         from aragora.workflow.templates import WORKFLOW_TEMPLATES
@@ -347,16 +337,14 @@ class WorkflowPatternsHandler(BaseHandler):
     """Handler for workflow patterns listing."""
 
     ROUTES: list[str] = [
-        "/api/workflow/patterns",
+        "/api/v1/workflow/patterns",
         "/api/v1/workflow/patterns",
     ]
 
     def can_handle(self, path: str) -> bool:
         return path in self.ROUTES
 
-    def handle(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Return available workflow patterns."""
         from aragora.workflow.patterns import PATTERN_REGISTRY
         from aragora.workflow.patterns.base import PatternType
@@ -382,21 +370,19 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
     """Handler for pattern-based workflow template operations."""
 
     ROUTES: list[str] = [
-        "/api/workflow/pattern-templates",
-        "/api/workflow/pattern-templates/*",
+        "/api/v1/workflow/pattern-templates",
+        "/api/v1/workflow/pattern-templates/*",
         "/api/v1/workflow/pattern-templates",
         "/api/v1/workflow/pattern-templates/*",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/workflow/pattern-templates") or path.startswith(
+        return path.startswith("/api/v1/workflow/pattern-templates") or path.startswith(
             "/api/v1/workflow/pattern-templates"
         )
 
-    def handle(
-        self, path: str, query_params: dict, handler: Any
-    ) -> Optional[HandlerResult]:
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route pattern template requests."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -406,7 +392,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
         method = handler.command if hasattr(handler, "command") else "GET"
 
         # List pattern templates
-        if path in ("/api/workflow/pattern-templates", "/api/v1/workflow/pattern-templates"):
+        if path in ("/api/v1/workflow/pattern-templates", "/api/v1/workflow/pattern-templates"):
             if method == "GET":
                 return self._list_pattern_templates()
             else:
@@ -430,10 +416,12 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
 
         templates = list_pattern_templates()
 
-        return json_response({
-            "pattern_templates": templates,
-            "total": len(templates),
-        })
+        return json_response(
+            {
+                "pattern_templates": templates,
+                "total": len(templates),
+            }
+        )
 
     @handle_errors("get pattern template")
     def _get_pattern_template(self, pattern_id: str) -> HandlerResult:
@@ -448,17 +436,19 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
         if not template:
             return error_response(f"Pattern template not found: {pattern_id}", 404)
 
-        return json_response({
-            "id": template.get("id", pattern_id),
-            "name": template.get("name", pattern_id),
-            "description": template.get("description", ""),
-            "pattern": template.get("pattern"),
-            "version": template.get("version", "1.0.0"),
-            "config": template.get("config", {}),
-            "inputs": template.get("inputs", {}),
-            "outputs": template.get("outputs", {}),
-            "tags": template.get("tags", []),
-        })
+        return json_response(
+            {
+                "id": template.get("id", pattern_id),
+                "name": template.get("name", pattern_id),
+                "description": template.get("description", ""),
+                "pattern": template.get("pattern"),
+                "version": template.get("version", "1.0.0"),
+                "config": template.get("config", {}),
+                "inputs": template.get("inputs", {}),
+                "outputs": template.get("outputs", {}),
+                "tags": template.get("tags", []),
+            }
+        )
 
     @handle_errors("instantiate pattern")
     def _instantiate_pattern(self, pattern_id: str, handler: Any) -> HandlerResult:
@@ -490,8 +480,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
         factory = pattern_factories.get(pattern_id)
         if not factory:
             return error_response(
-                f"Unknown pattern: {pattern_id}. Available: {list(pattern_factories.keys())}",
-                404
+                f"Unknown pattern: {pattern_id}. Available: {list(pattern_factories.keys())}", 404
             )
 
         # Extract configuration from request
@@ -503,7 +492,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
         workflow_args = {"name": name, "task": task, **config}
 
         try:
-            workflow = factory(**workflow_args)
+            workflow = factory(**workflow_args)  # type: ignore[misc]
 
             # Convert workflow to serializable dict
             workflow_dict = {
@@ -526,10 +515,13 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
                 "metadata": workflow.metadata,
             }
 
-            return json_response({
-                "status": "created",
-                "workflow": workflow_dict,
-            }, status=201)
+            return json_response(
+                {
+                    "status": "created",
+                    "workflow": workflow_dict,
+                },
+                status=201,
+            )
 
         except Exception as e:
             logger.error(f"Failed to instantiate pattern {pattern_id}: {e}")

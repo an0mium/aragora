@@ -78,18 +78,18 @@ class BillingHandler(SecureHandler):
     RESOURCE_TYPE = "billing"
 
     ROUTES = [
-        "/api/billing/plans",
-        "/api/billing/usage",
-        "/api/billing/subscription",
-        "/api/billing/checkout",
-        "/api/billing/portal",
-        "/api/billing/cancel",
-        "/api/billing/resume",
-        "/api/billing/audit-log",
-        "/api/billing/usage/export",
-        "/api/billing/usage/forecast",
-        "/api/billing/invoices",
-        "/api/webhooks/stripe",
+        "/api/v1/billing/plans",
+        "/api/v1/billing/usage",
+        "/api/v1/billing/subscription",
+        "/api/v1/billing/checkout",
+        "/api/v1/billing/portal",
+        "/api/v1/billing/cancel",
+        "/api/v1/billing/resume",
+        "/api/v1/billing/audit-log",
+        "/api/v1/billing/usage/export",
+        "/api/v1/billing/usage/forecast",
+        "/api/v1/billing/invoices",
+        "/api/v1/webhooks/stripe",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -101,7 +101,7 @@ class BillingHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route billing requests to appropriate methods."""
         # Rate limit check (skip for webhooks - they have their own idempotency)
-        if path != "/api/webhooks/stripe":
+        if path != "/api/v1/webhooks/stripe":
             client_ip = get_client_ip(handler)
             if not _billing_limiter.is_allowed(client_ip):
                 logger.warning(f"Rate limit exceeded for billing endpoint: {client_ip}")
@@ -111,40 +111,40 @@ class BillingHandler(SecureHandler):
         if hasattr(handler, "command"):
             method = handler.command
 
-        if path == "/api/billing/plans" and method == "GET":
+        if path == "/api/v1/billing/plans" and method == "GET":
             return self._get_plans()
 
-        if path == "/api/billing/usage" and method == "GET":
+        if path == "/api/v1/billing/usage" and method == "GET":
             return self._get_usage(handler)
 
-        if path == "/api/billing/subscription" and method == "GET":
+        if path == "/api/v1/billing/subscription" and method == "GET":
             return self._get_subscription(handler)
 
-        if path == "/api/billing/checkout" and method == "POST":
+        if path == "/api/v1/billing/checkout" and method == "POST":
             return self._create_checkout(handler)
 
-        if path == "/api/billing/portal" and method == "POST":
+        if path == "/api/v1/billing/portal" and method == "POST":
             return self._create_portal(handler)
 
-        if path == "/api/billing/cancel" and method == "POST":
+        if path == "/api/v1/billing/cancel" and method == "POST":
             return self._cancel_subscription(handler)
 
-        if path == "/api/billing/resume" and method == "POST":
+        if path == "/api/v1/billing/resume" and method == "POST":
             return self._resume_subscription(handler)
 
-        if path == "/api/billing/audit-log" and method == "GET":
+        if path == "/api/v1/billing/audit-log" and method == "GET":
             return self._get_audit_log(handler)
 
-        if path == "/api/billing/usage/export" and method == "GET":
+        if path == "/api/v1/billing/usage/export" and method == "GET":
             return self._export_usage_csv(handler)
 
-        if path == "/api/billing/usage/forecast" and method == "GET":
+        if path == "/api/v1/billing/usage/forecast" and method == "GET":
             return self._get_usage_forecast(handler)
 
-        if path == "/api/billing/invoices" and method == "GET":
+        if path == "/api/v1/billing/invoices" and method == "GET":
             return self._get_invoices(handler)
 
-        if path == "/api/webhooks/stripe" and method == "POST":
+        if path == "/api/v1/webhooks/stripe" and method == "POST":
             return self._handle_stripe_webhook(handler)
 
         return error_response("Method not allowed", 405)

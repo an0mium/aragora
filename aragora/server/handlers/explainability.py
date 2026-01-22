@@ -284,8 +284,8 @@ class ExplainabilityHandler(BaseHandler):
         # Compare endpoint
         "/api/v1/explainability/compare",
         # Legacy routes (deprecated)
-        "/api/debates/*/explanation",
-        "/api/explain/*",
+        "/api/v1/debates/*/explanation",
+        "/api/v1/explain/*",
     ]
 
     def __init__(self, server_context: Optional[Dict] = None):
@@ -337,9 +337,9 @@ class ExplainabilityHandler(BaseHandler):
             return True
 
         # Legacy routes
-        if path.startswith("/api/debates/") and path.endswith("/explanation"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/explanation"):
             return True
-        if path.startswith("/api/explain/"):
+        if path.startswith("/api/v1/explain/"):
             return True
 
         return False

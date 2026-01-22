@@ -85,9 +85,9 @@ class DocumentHandler(BaseHandler):
     """Handler for document-related endpoints."""
 
     ROUTES = [
-        "/api/documents",
-        "/api/documents/formats",
-        "/api/documents/upload",
+        "/api/v1/documents",
+        "/api/v1/documents/formats",
+        "/api/v1/documents/upload",
     ]
 
     # Upload rate limiting (IP-based with LRU eviction)
@@ -102,19 +102,19 @@ class DocumentHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/documents/{doc_id} pattern
-        if path.startswith("/api/documents/") and path.count("/") == 3:
+        if path.startswith("/api/v1/documents/") and path.count("/") == 3:
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET document requests to appropriate methods."""
-        if path == "/api/documents":
+        if path == "/api/v1/documents":
             return self._list_documents()
 
-        if path == "/api/documents/formats":
+        if path == "/api/v1/documents/formats":
             return self._get_supported_formats()
 
-        if path.startswith("/api/documents/") and not path.endswith("/upload"):
+        if path.startswith("/api/v1/documents/") and not path.endswith("/upload"):
             # Extract doc_id from /api/documents/{doc_id}
             doc_id, err = self.extract_path_param(path, 2, "document_id")
             if err:
@@ -125,7 +125,7 @@ class DocumentHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST document requests to appropriate methods."""
-        if path == "/api/documents/upload":
+        if path == "/api/v1/documents/upload":
             # Extract knowledge processing options from query params
             process_knowledge = query_params.get("process_knowledge", [None])[0]
             if process_knowledge is None:
@@ -144,7 +144,7 @@ class DocumentHandler(BaseHandler):
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE document requests to appropriate methods."""
-        if path.startswith("/api/documents/") and not path.endswith("/upload"):
+        if path.startswith("/api/v1/documents/") and not path.endswith("/upload"):
             # Extract doc_id from /api/documents/{doc_id}
             doc_id, err = self.extract_path_param(path, 2, "document_id")
             if err:

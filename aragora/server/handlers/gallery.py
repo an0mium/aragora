@@ -83,7 +83,7 @@ class GalleryHandler(BaseHandler):
     """Handler for public gallery endpoints."""
 
     ROUTES = [
-        "/api/gallery",
+        "/api/v1/gallery",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -91,7 +91,7 @@ class GalleryHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Dynamic routes for specific debate
-        if path.startswith("/api/gallery/") and len(path.split("/")) >= 4:
+        if path.startswith("/api/v1/gallery/") and len(path.split("/")) >= 4:
             return True
         return False
 
@@ -105,7 +105,7 @@ class GalleryHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for gallery endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/gallery":
+        if path == "/api/v1/gallery":
             return self._list_public_debates(query_params)
 
         # Parse debate_id from path
@@ -177,8 +177,8 @@ class GalleryHandler(BaseHandler):
             "consensus_reached": debate.get("consensus_reached", False),
             "winner": debate.get("winner"),
             "preview": debate.get("preview", "")[:300],
-            "embed_url": f"/api/gallery/{debate_id}/embed",
-            "full_url": f"/api/gallery/{debate_id}",
+            "embed_url": f"/api/v1/gallery/{debate_id}/embed",
+            "full_url": f"/api/v1/gallery/{debate_id}",
         }
 
         return json_response(embed)

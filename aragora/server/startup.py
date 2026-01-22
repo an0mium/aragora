@@ -1155,32 +1155,95 @@ def init_workflow_checkpoint_persistence() -> bool:
     return False
 
 
+def _get_degraded_status() -> dict[str, Any]:
+    """Return a minimal status dict for degraded mode startup.
+
+    This allows the server to start in degraded mode where it can
+    respond to health checks but returns 503 for other endpoints.
+    """
+    return {
+        "degraded": True,
+        "backend_connectivity": {"valid": False, "errors": ["Server in degraded mode"]},
+        "error_monitoring": False,
+        "opentelemetry": False,
+        "prometheus": False,
+        "circuit_breakers": 0,
+        "background_tasks": False,
+        "pulse_scheduler": False,
+        "state_cleanup": False,
+        "watchdog_task": None,
+        "control_plane_coordinator": None,
+        "km_adapters": False,
+        "workflow_checkpoint_persistence": False,
+        "shared_control_plane_state": False,
+        "tts_integration": False,
+        "persistent_task_queue": 0,
+        "webhook_dispatcher": False,
+        "slo_webhooks": False,
+        "gauntlet_runs_recovered": 0,
+        "durable_jobs_recovered": 0,
+        "gauntlet_worker": False,
+        "redis_state_backend": False,
+        "key_rotation_scheduler": False,
+        "rbac_distributed_cache": False,
+    }
+
+
 async def run_startup_sequence(
     nomic_dir: Optional[Path] = None,
     stream_emitter: Optional[Any] = None,
+    graceful_degradation: bool = True,
 ) -> dict:
     """Run the full server startup sequence.
 
     Args:
         nomic_dir: Path to nomic directory
         stream_emitter: Optional event emitter for debates
+        graceful_degradation: If True, enter degraded mode on failure instead of crashing.
+            The server will start but return 503 for most endpoints until the issue is resolved.
+            Defaults to True for production resilience.
 
     Returns:
-        Dictionary with startup status for each component
+        Dictionary with startup status for each component. If graceful_degradation is True
+        and startup fails, returns a minimal status dict with degraded=True.
 
     Raises:
-        RuntimeError: If production requirements are not met
+        RuntimeError: If production requirements are not met AND graceful_degradation is False
     """
     import os
 
     from aragora.control_plane.leader import is_distributed_state_required
+    from aragora.server.degraded_mode import (
+        set_degraded,
+        DegradedErrorCode,
+    )
 
-    # Check production requirements first (fail fast)
+    # Check production requirements first (fail fast or enter degraded mode)
     missing_requirements = check_production_requirements()
     if missing_requirements:
         for req in missing_requirements:
             logger.error(f"Missing production requirement: {req}")
-        raise RuntimeError(f"Production requirements not met: {', '.join(missing_requirements)}")
+
+        error_msg = f"Production requirements not met: {', '.join(missing_requirements)}"
+
+        if graceful_degradation:
+            # Determine the error code based on what's missing
+            error_code = DegradedErrorCode.CONFIG_ERROR
+            if any("ENCRYPTION_KEY" in r for r in missing_requirements):
+                error_code = DegradedErrorCode.ENCRYPTION_KEY_MISSING
+            elif any("REDIS" in r for r in missing_requirements):
+                error_code = DegradedErrorCode.REDIS_UNAVAILABLE
+            elif any("DATABASE" in r for r in missing_requirements):
+                error_code = DegradedErrorCode.DATABASE_UNAVAILABLE
+
+            set_degraded(
+                reason=error_msg,
+                error_code=error_code,
+                details={"missing_requirements": missing_requirements},
+            )
+            return _get_degraded_status()
+
+        raise RuntimeError(error_msg)
 
     # Validate actual backend connectivity (not just config presence)
     env = os.environ.get("ARAGORA_ENV", "development")
@@ -1201,9 +1264,29 @@ async def run_startup_sequence(
     if not connectivity["valid"]:
         for error in connectivity["errors"]:
             logger.error(f"Backend connectivity failure: {error}")
-        raise RuntimeError(
-            f"Backend connectivity validation failed: {'; '.join(connectivity['errors'])}"
-        )
+
+        error_msg = f"Backend connectivity validation failed: {'; '.join(connectivity['errors'])}"
+
+        if graceful_degradation:
+            # Determine error code based on what failed
+            error_code = DegradedErrorCode.BACKEND_CONNECTIVITY
+            if any("Redis" in e for e in connectivity["errors"]):
+                error_code = DegradedErrorCode.REDIS_UNAVAILABLE
+            elif any("PostgreSQL" in e for e in connectivity["errors"]):
+                error_code = DegradedErrorCode.DATABASE_UNAVAILABLE
+
+            set_degraded(
+                reason=error_msg,
+                error_code=error_code,
+                details={
+                    "connectivity": connectivity,
+                    "distributed_required": distributed_required,
+                    "require_database": require_database,
+                },
+            )
+            return _get_degraded_status()
+
+        raise RuntimeError(error_msg)
 
     status: dict[str, Any] = {
         "backend_connectivity": connectivity,

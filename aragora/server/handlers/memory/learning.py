@@ -37,10 +37,10 @@ class LearningHandler(BaseHandler):
     """Handler for cross-cycle learning analytics endpoints."""
 
     ROUTES = [
-        "/api/learning/cycles",
-        "/api/learning/patterns",
-        "/api/learning/agent-evolution",
-        "/api/learning/insights",
+        "/api/v1/learning/cycles",
+        "/api/v1/learning/patterns",
+        "/api/v1/learning/agent-evolution",
+        "/api/v1/learning/insights",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -55,14 +55,14 @@ class LearningHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for learning endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/learning/cycles":
+        if path == "/api/v1/learning/cycles":
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             return self._get_cycle_summaries(limit)
-        if path == "/api/learning/patterns":
+        if path == "/api/v1/learning/patterns":
             return self._get_learned_patterns()
-        if path == "/api/learning/agent-evolution":
+        if path == "/api/v1/learning/agent-evolution":
             return self._get_agent_evolution()
-        if path == "/api/learning/insights":
+        if path == "/api/v1/learning/insights":
             limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)
             return self._get_aggregated_insights(limit)
         return None

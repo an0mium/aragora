@@ -46,8 +46,8 @@ class CheckpointHandler(BaseHandler):
     """Handler for checkpoint management endpoints."""
 
     ROUTES = [
-        "/api/checkpoints",
-        "/api/checkpoints/resumable",
+        "/api/v1/checkpoints",
+        "/api/v1/checkpoints/resumable",
     ]
 
     def __init__(self, context: Optional[Dict[str, Any]] = None):
@@ -65,10 +65,10 @@ class CheckpointHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         return (
-            path == "/api/checkpoints"
-            or path == "/api/checkpoints/resumable"
-            or path.startswith("/api/checkpoints/")
-            or (path.startswith("/api/debates/") and "/checkpoint" in path)
+            path == "/api/v1/checkpoints"
+            or path == "/api/v1/checkpoints/resumable"
+            or path.startswith("/api/v1/checkpoints/")
+            or (path.startswith("/api/v1/debates/") and "/checkpoint" in path)
         )
 
     @handle_errors("checkpoint handling")  # type: ignore[arg-type]
@@ -89,16 +89,16 @@ class CheckpointHandler(BaseHandler):
         method = handler.command
 
         # GET /api/checkpoints
-        if path == "/api/checkpoints" and method == "GET":
+        if path == "/api/v1/checkpoints" and method == "GET":
             return await self.list_checkpoints(query_params)
 
         # GET /api/checkpoints/resumable
-        if path == "/api/checkpoints/resumable" and method == "GET":
+        if path == "/api/v1/checkpoints/resumable" and method == "GET":
             return await self.list_resumable_debates()
 
         # /api/checkpoints/{id}...
-        if path.startswith("/api/checkpoints/") and not path.startswith(
-            "/api/checkpoints/resumable"
+        if path.startswith("/api/v1/checkpoints/") and not path.startswith(
+            "/api/v1/checkpoints/resumable"
         ):
             parts = path.split("/")
             if len(parts) >= 4:
@@ -121,7 +121,7 @@ class CheckpointHandler(BaseHandler):
                     return await self.add_intervention(checkpoint_id, body)
 
         # /api/debates/{id}/checkpoint...
-        if path.startswith("/api/debates/") and "/checkpoint" in path:
+        if path.startswith("/api/v1/debates/") and "/checkpoint" in path:
             parts = path.split("/")
             if len(parts) >= 4:
                 debate_id = parts[3]

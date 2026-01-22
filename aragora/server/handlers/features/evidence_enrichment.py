@@ -45,7 +45,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
     """Handler for evidence enrichment endpoints."""
 
     ROUTES = [
-        "/api/findings/batch-evidence",
+        "/api/v1/findings/batch-evidence",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -53,13 +53,13 @@ class EvidenceEnrichmentHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/findings/{finding_id}/evidence pattern
-        if path.startswith("/api/findings/") and path.endswith("/evidence"):
+        if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
-        if path.startswith("/api/findings/") and path.endswith("/evidence"):
+        if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):
             # Extract finding_id from /api/findings/{finding_id}/evidence
             parts = path.split("/")
             if len(parts) == 5:
@@ -69,10 +69,10 @@ class EvidenceEnrichmentHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/findings/batch-evidence":
+        if path == "/api/v1/findings/batch-evidence":
             return self._batch_enrich(handler)
 
-        if path.startswith("/api/findings/") and path.endswith("/evidence"):
+        if path.startswith("/api/v1/findings/") and path.endswith("/evidence"):
             # Extract finding_id from /api/findings/{finding_id}/evidence
             parts = path.split("/")
             if len(parts) == 5:

@@ -55,20 +55,20 @@ class NomicHandler(BaseHandler):
     """
 
     ROUTES = [
-        "/api/nomic/state",
-        "/api/nomic/health",
-        "/api/nomic/metrics",
-        "/api/nomic/log",
-        "/api/nomic/risk-register",
-        "/api/nomic/control/start",
-        "/api/nomic/control/stop",
-        "/api/nomic/control/pause",
-        "/api/nomic/control/resume",
-        "/api/nomic/control/skip-phase",
-        "/api/nomic/proposals",
-        "/api/nomic/proposals/approve",
-        "/api/nomic/proposals/reject",
-        "/api/modes",
+        "/api/v1/nomic/state",
+        "/api/v1/nomic/health",
+        "/api/v1/nomic/metrics",
+        "/api/v1/nomic/log",
+        "/api/v1/nomic/risk-register",
+        "/api/v1/nomic/control/start",
+        "/api/v1/nomic/control/stop",
+        "/api/v1/nomic/control/pause",
+        "/api/v1/nomic/control/resume",
+        "/api/v1/nomic/control/skip-phase",
+        "/api/v1/nomic/proposals",
+        "/api/v1/nomic/proposals/approve",
+        "/api/v1/nomic/proposals/reject",
+        "/api/v1/modes",
     ]
 
     def __init__(self, server_context: dict):
@@ -77,7 +77,7 @@ class NomicHandler(BaseHandler):
         Args:
             server_context: Server context with shared resources
         """
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         self._stream: Optional["NomicLoopStreamServer"] = None
 
     def set_stream_server(self, stream: "NomicLoopStreamServer") -> None:
@@ -92,7 +92,7 @@ class NomicHandler(BaseHandler):
         """Get the stream server from context or instance."""
         if self._stream:
             return self._stream
-        return self.ctx.get("nomic_loop_stream")
+        return self.ctx.get("nomic_loop_stream")  # type: ignore[return-value]
 
     def _emit_event(
         self,
@@ -145,17 +145,17 @@ class NomicHandler(BaseHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
-        return path in self.ROUTES or path.startswith("/api/nomic/")
+        return path in self.ROUTES or path.startswith("/api/v1/nomic/")
 
     @rate_limit(rpm=30)
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route nomic endpoint requests."""
         handlers = {
-            "/api/nomic/state": self._get_nomic_state,
-            "/api/nomic/health": self._get_nomic_health,
-            "/api/nomic/metrics": self._get_nomic_metrics,
-            "/api/nomic/proposals": self._get_proposals,
-            "/api/modes": self._get_modes,
+            "/api/v1/nomic/state": self._get_nomic_state,
+            "/api/v1/nomic/health": self._get_nomic_health,
+            "/api/v1/nomic/metrics": self._get_nomic_metrics,
+            "/api/v1/nomic/proposals": self._get_proposals,
+            "/api/v1/modes": self._get_modes,
         }
 
         endpoint_handler = handlers.get(path)
@@ -163,12 +163,12 @@ class NomicHandler(BaseHandler):
             return endpoint_handler()
 
         # Endpoints with parameters
-        if path == "/api/nomic/log":
+        if path == "/api/v1/nomic/log":
             lines = get_int_param(query_params, "lines", 100)
             lines = max(1, min(lines, 1000))  # Clamp to valid range
             return self._get_nomic_log(lines)
 
-        if path == "/api/nomic/risk-register":
+        if path == "/api/v1/nomic/risk-register":
             limit = get_int_param(query_params, "limit", 50)
             limit = max(1, min(limit, 200))  # Clamp to valid range
             return self._get_risk_register(limit)
@@ -453,28 +453,28 @@ class NomicHandler(BaseHandler):
     @rate_limit(rpm=30)
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for control operations."""
-        if path == "/api/nomic/control/start":
+        if path == "/api/v1/nomic/control/start":
             body = self.read_json_body(handler) or {}
             return self._start_nomic_loop(body)
 
-        if path == "/api/nomic/control/stop":
+        if path == "/api/v1/nomic/control/stop":
             body = self.read_json_body(handler) or {}
             return self._stop_nomic_loop(body)
 
-        if path == "/api/nomic/control/pause":
+        if path == "/api/v1/nomic/control/pause":
             return self._pause_nomic_loop()
 
-        if path == "/api/nomic/control/resume":
+        if path == "/api/v1/nomic/control/resume":
             return self._resume_nomic_loop()
 
-        if path == "/api/nomic/control/skip-phase":
+        if path == "/api/v1/nomic/control/skip-phase":
             return self._skip_phase()
 
-        if path == "/api/nomic/proposals/approve":
+        if path == "/api/v1/nomic/proposals/approve":
             body = self.read_json_body(handler) or {}
             return self._approve_proposal(body)
 
-        if path == "/api/nomic/proposals/reject":
+        if path == "/api/v1/nomic/proposals/reject":
             body = self.read_json_body(handler) or {}
             return self._reject_proposal(body)
 

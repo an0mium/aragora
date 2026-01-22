@@ -72,8 +72,8 @@ class DiscordHandler(BaseHandler):
     """Handler for Discord Interactions API endpoints."""
 
     ROUTES = [
-        "/api/bots/discord/interactions",
-        "/api/bots/discord/status",
+        "/api/v1/bots/discord/interactions",
+        "/api/v1/bots/discord/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -85,7 +85,7 @@ class DiscordHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Discord requests."""
-        if path == "/api/bots/discord/status":
+        if path == "/api/v1/bots/discord/status":
             return self._get_status()
 
         return None
@@ -95,7 +95,7 @@ class DiscordHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
-        if path == "/api/bots/discord/interactions":
+        if path == "/api/v1/bots/discord/interactions":
             return self._handle_interactions(handler)
 
         return None

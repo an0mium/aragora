@@ -84,6 +84,7 @@ def _get_governance_store():
     if _governance_store is None:
         try:
             from aragora.storage.governance_store import get_governance_store
+
             _governance_store = get_governance_store()
         except ImportError:
             logger.debug("GovernanceStore not available, using in-memory only")
@@ -240,11 +241,11 @@ class FormalVerificationHandler(BaseHandler):
     """Handler for formal verification endpoints."""
 
     ROUTES = [
-        "/api/verify/claim",
-        "/api/verify/batch",
-        "/api/verify/status",
-        "/api/verify/translate",
-        "/api/verify/history",
+        "/api/v1/verify/claim",
+        "/api/v1/verify/batch",
+        "/api/v1/verify/status",
+        "/api/v1/verify/translate",
+        "/api/v1/verify/history",
     ]
 
     def __init__(self, server_context: dict = None):
@@ -262,9 +263,9 @@ class FormalVerificationHandler(BaseHandler):
         """Check if this handler can process the given path."""
         if path in self.ROUTES:
             return True
-        if path.startswith("/api/verify/history/"):
+        if path.startswith("/api/v1/verify/history/"):
             return True
-        return path.startswith("/api/verify/")
+        return path.startswith("/api/v1/verify/")
 
     async def handle_async(
         self,
@@ -275,17 +276,17 @@ class FormalVerificationHandler(BaseHandler):
         query_params: Optional[dict] = None,
     ) -> HandlerResult:
         """Route and handle formal verification requests."""
-        if path == "/api/verify/claim" and method == "POST":
+        if path == "/api/v1/verify/claim" and method == "POST":
             return await self._handle_verify_claim(handler, body)
-        elif path == "/api/verify/batch" and method == "POST":
+        elif path == "/api/v1/verify/batch" and method == "POST":
             return await self._handle_verify_batch(handler, body)
-        elif path == "/api/verify/status" and method == "GET":
+        elif path == "/api/v1/verify/status" and method == "GET":
             return self._handle_verify_status(handler)
-        elif path == "/api/verify/translate" and method == "POST":
+        elif path == "/api/v1/verify/translate" and method == "POST":
             return await self._handle_translate(handler, body)
-        elif path == "/api/verify/history" and method == "GET":
+        elif path == "/api/v1/verify/history" and method == "GET":
             return self._handle_get_history(query_params or {})
-        elif path.startswith("/api/verify/history/") and method == "GET":
+        elif path.startswith("/api/v1/verify/history/") and method == "GET":
             return self._handle_get_history_entry(path)
         else:
             return error_response(f"Unknown path: {path}", 404)
@@ -619,14 +620,18 @@ class FormalVerificationHandler(BaseHandler):
                         claim_type=rec.claim_type,
                         context=rec.context,
                         result=rec.to_dict().get("result", {}),
-                        timestamp=rec.timestamp.timestamp() if hasattr(rec.timestamp, 'timestamp') else time.time(),
+                        timestamp=rec.timestamp.timestamp()
+                        if hasattr(rec.timestamp, "timestamp")
+                        else time.time(),
                         proof_tree=rec.to_dict().get("proof_tree"),
                     )
                     all_entries.append(entry)
 
                 # Apply status filter
                 if status_filter:
-                    all_entries = [e for e in all_entries if e.result.get("status") == status_filter]
+                    all_entries = [
+                        e for e in all_entries if e.result.get("status") == status_filter
+                    ]
 
                 total = len(all_entries)
                 paginated = all_entries[offset : offset + limit]
@@ -641,7 +646,9 @@ class FormalVerificationHandler(BaseHandler):
                     }
                 )
             except Exception as e:
-                logger.warning(f"Failed to load from GovernanceStore, falling back to in-memory: {e}")
+                logger.warning(
+                    f"Failed to load from GovernanceStore, falling back to in-memory: {e}"
+                )
 
         # Fallback to in-memory cache
         all_entries = list(reversed(_verification_history.values()))
@@ -690,7 +697,7 @@ class FormalVerificationHandler(BaseHandler):
         }
         """
         # Parse the path to extract ID and optional /tree suffix
-        parts = path.replace("/api/verify/history/", "").split("/")
+        parts = path.replace("/api/v1/verify/history/", "").split("/")
         entry_id = parts[0]
         is_tree_request = len(parts) > 1 and parts[1] == "tree"
 
@@ -713,7 +720,9 @@ class FormalVerificationHandler(BaseHandler):
                             claim_type=rec.claim_type,
                             context=rec.context,
                             result=rec.to_dict().get("result", {}),
-                            timestamp=rec.timestamp.timestamp() if hasattr(rec.timestamp, 'timestamp') else time.time(),
+                            timestamp=rec.timestamp.timestamp()
+                            if hasattr(rec.timestamp, "timestamp")
+                            else time.time(),
                             proof_tree=rec.to_dict().get("proof_tree"),
                         )
                         # Cache in memory for future lookups

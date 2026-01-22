@@ -39,10 +39,12 @@ def _get_job_store():
     if _job_store is None:
         try:
             from aragora.storage.job_queue_store import get_job_store
+
             _job_store = get_job_store()
         except Exception as e:
             logger.debug(f"Job store not available: {e}")
     return _job_store
+
 
 # Rate limiters (per minute limits)
 _audio_limiter = RateLimiter(requests_per_minute=10)
@@ -87,6 +89,7 @@ def _save_job(job_id: str, job_data: Dict[str, Any]) -> None:
 
             # Use sync wrapper since handler is sync
             import asyncio
+
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
@@ -112,6 +115,7 @@ def _get_job(job_id: str) -> Optional[Dict[str, Any]]:
     if store:
         try:
             import asyncio
+
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
@@ -163,40 +167,40 @@ class TranscriptionHandler(BaseHandler):
     """Handler for audio/video transcription endpoints."""
 
     ROUTES = [
-        "/api/transcription/audio",
-        "/api/transcription/video",
-        "/api/transcription/youtube",
-        "/api/transcription/youtube/info",
-        "/api/transcription/status/*",
-        "/api/transcription/config",
+        "/api/v1/transcription/audio",
+        "/api/v1/transcription/video",
+        "/api/v1/transcription/youtube",
+        "/api/v1/transcription/youtube/info",
+        "/api/v1/transcription/status/*",
+        "/api/v1/transcription/config",
         # Alias routes for frontend compatibility
-        "/api/transcribe/audio",
-        "/api/transcribe/video",
+        "/api/v1/transcribe/audio",
+        "/api/v1/transcribe/video",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
         if path in (
-            "/api/transcription/audio",
-            "/api/transcription/video",
-            "/api/transcription/youtube",
-            "/api/transcription/youtube/info",
-            "/api/transcription/config",
+            "/api/v1/transcription/audio",
+            "/api/v1/transcription/video",
+            "/api/v1/transcription/youtube",
+            "/api/v1/transcription/youtube/info",
+            "/api/v1/transcription/config",
             # Alias routes
-            "/api/transcribe/audio",
-            "/api/transcribe/video",
+            "/api/v1/transcribe/audio",
+            "/api/v1/transcribe/video",
         ):
             return True
-        if path.startswith("/api/transcription/status/"):
+        if path.startswith("/api/v1/transcription/status/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
-        if path == "/api/transcription/config":
+        if path == "/api/v1/transcription/config":
             return self._get_config()
 
-        if path.startswith("/api/transcription/status/"):
+        if path.startswith("/api/v1/transcription/status/"):
             job_id = path.split("/")[-1]
             return self._get_status(job_id)
 
@@ -206,22 +210,22 @@ class TranscriptionHandler(BaseHandler):
         """Handle POST requests."""
         client_ip = get_client_ip(handler)
 
-        if path in ("/api/transcription/audio", "/api/transcribe/audio"):
+        if path in ("/api/v1/transcription/audio", "/api/v1/transcribe/audio"):
             if not _audio_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Try again later.", 429)
             return self._handle_audio_transcription(handler)
 
-        if path in ("/api/transcription/video", "/api/transcribe/video"):
+        if path in ("/api/v1/transcription/video", "/api/v1/transcribe/video"):
             if not _audio_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Try again later.", 429)
             return self._handle_video_transcription(handler)
 
-        if path == "/api/transcription/youtube":
+        if path == "/api/v1/transcription/youtube":
             if not _youtube_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Try again later.", 429)
             return self._handle_youtube_transcription(handler)
 
-        if path == "/api/transcription/youtube/info":
+        if path == "/api/v1/transcription/youtube/info":
             return self._handle_youtube_info(handler)
 
         return None
@@ -319,11 +323,14 @@ class TranscriptionHandler(BaseHandler):
             try:
                 # Create job
                 job_id = str(uuid.uuid4())
-                _save_job(job_id, {
-                    "status": "processing",
-                    "progress": 0,
-                    "filename": filename,
-                })
+                _save_job(
+                    job_id,
+                    {
+                        "status": "processing",
+                        "progress": 0,
+                        "filename": filename,
+                    },
+                )
 
                 # Run transcription (synchronous for now, can be made async with job queue)
                 from aragora.transcription import transcribe_audio
@@ -339,11 +346,14 @@ class TranscriptionHandler(BaseHandler):
                 finally:
                     loop.close()
 
-                _save_job(job_id, {
-                    "status": "completed",
-                    "progress": 100,
-                    "result": result.to_dict(),
-                })
+                _save_job(
+                    job_id,
+                    {
+                        "status": "completed",
+                        "progress": 100,
+                        "result": result.to_dict(),
+                    },
+                )
 
                 return json_response(
                     {
@@ -410,11 +420,14 @@ class TranscriptionHandler(BaseHandler):
 
             try:
                 job_id = str(uuid.uuid4())
-                _save_job(job_id, {
-                    "status": "processing",
-                    "progress": 0,
-                    "filename": filename,
-                })
+                _save_job(
+                    job_id,
+                    {
+                        "status": "processing",
+                        "progress": 0,
+                        "filename": filename,
+                    },
+                )
 
                 from aragora.transcription import transcribe_video
 
@@ -429,11 +442,14 @@ class TranscriptionHandler(BaseHandler):
                 finally:
                     loop.close()
 
-                _save_job(job_id, {
-                    "status": "completed",
-                    "progress": 100,
-                    "result": result.to_dict(),
-                })
+                _save_job(
+                    job_id,
+                    {
+                        "status": "completed",
+                        "progress": 100,
+                        "result": result.to_dict(),
+                    },
+                )
 
                 return json_response(
                     {
@@ -488,11 +504,14 @@ class TranscriptionHandler(BaseHandler):
                 return error_response("Invalid YouTube URL", 400)
 
             job_id = str(uuid.uuid4())
-            _save_job(job_id, {
-                "status": "processing",
-                "progress": 0,
-                "url": url,
-            })
+            _save_job(
+                job_id,
+                {
+                    "status": "processing",
+                    "progress": 0,
+                    "url": url,
+                },
+            )
 
             try:
                 from aragora.transcription import transcribe_youtube
@@ -514,11 +533,14 @@ class TranscriptionHandler(BaseHandler):
                 finally:
                     loop.close()
 
-                _save_job(job_id, {
-                    "status": "completed",
-                    "progress": 100,
-                    "result": result.to_dict(),
-                })
+                _save_job(
+                    job_id,
+                    {
+                        "status": "completed",
+                        "progress": 100,
+                        "result": result.to_dict(),
+                    },
+                )
 
                 return json_response(
                     {
@@ -538,10 +560,13 @@ class TranscriptionHandler(BaseHandler):
 
             except ValueError as e:
                 # Video too long or other validation error
-                _save_job(job_id, {
-                    "status": "failed",
-                    "error": str(e),
-                })
+                _save_job(
+                    job_id,
+                    {
+                        "status": "failed",
+                        "error": str(e),
+                    },
+                )
                 return error_response(str(e), 400)
 
         except (KeyError, TypeError) as e:

@@ -887,20 +887,20 @@ class EmailHandler(BaseHandler):
     """
 
     ROUTES = [
-        "/api/email/prioritize",
-        "/api/email/rank-inbox",
-        "/api/email/feedback",
-        "/api/email/inbox",
-        "/api/email/config",
-        "/api/email/vip",
-        "/api/email/gmail/oauth/url",
-        "/api/email/gmail/oauth/callback",
-        "/api/email/gmail/status",
-        "/api/email/context/boost",
+        "/api/v1/email/prioritize",
+        "/api/v1/email/rank-inbox",
+        "/api/v1/email/feedback",
+        "/api/v1/email/inbox",
+        "/api/v1/email/config",
+        "/api/v1/email/vip",
+        "/api/v1/email/gmail/oauth/url",
+        "/api/v1/email/gmail/oauth/callback",
+        "/api/v1/email/gmail/status",
+        "/api/v1/email/context/boost",
     ]
 
     # Prefix for dynamic routes like /api/email/context/:email_address
-    ROUTE_PREFIXES = ["/api/email/context/"]
+    ROUTE_PREFIXES = ["/api/v1/email/context/"]
 
     def __init__(self, ctx: Dict[str, Any]):
         """Initialize with server context."""

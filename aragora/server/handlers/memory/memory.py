@@ -64,15 +64,15 @@ class MemoryHandler(BaseHandler):
     """Handler for memory-related endpoints."""
 
     ROUTES = [
-        "/api/memory/continuum/retrieve",
-        "/api/memory/continuum/consolidate",
-        "/api/memory/continuum/cleanup",
-        "/api/memory/tier-stats",
-        "/api/memory/archive-stats",
-        "/api/memory/pressure",
-        "/api/memory/tiers",
-        "/api/memory/search",
-        "/api/memory/critiques",
+        "/api/v1/memory/continuum/retrieve",
+        "/api/v1/memory/continuum/consolidate",
+        "/api/v1/memory/continuum/cleanup",
+        "/api/v1/memory/tier-stats",
+        "/api/v1/memory/archive-stats",
+        "/api/v1/memory/pressure",
+        "/api/v1/memory/tiers",
+        "/api/v1/memory/search",
+        "/api/v1/memory/critiques",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -80,7 +80,7 @@ class MemoryHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/memory/continuum/{id} pattern for DELETE
-        if path.startswith("/api/memory/continuum/") and path.count("/") == 4:
+        if path.startswith("/api/v1/memory/continuum/") and path.count("/") == 4:
             # Exclude known routes like /api/memory/continuum/retrieve
             segment = path.split("/")[-1]
             if segment not in ("retrieve", "consolidate", "cleanup"):
@@ -95,51 +95,51 @@ class MemoryHandler(BaseHandler):
         """Route memory requests to appropriate handler methods."""
         client_ip = get_client_ip(handler)
 
-        if path == "/api/memory/continuum/retrieve":
+        if path == "/api/v1/memory/continuum/retrieve":
             # Rate limit: 60/min for retrieve operations
             if not _retrieve_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_continuum_memories(query_params)
 
         # POST-only endpoints - return 405 Method Not Allowed for GET
-        if path in ("/api/memory/continuum/consolidate", "/api/memory/continuum/cleanup"):
+        if path in ("/api/v1/memory/continuum/consolidate", "/api/v1/memory/continuum/cleanup"):
             return error_response(
                 "Use POST method for this endpoint",
                 405,
                 headers={"Allow": "POST"},
             )
 
-        if path == "/api/memory/tier-stats":
+        if path == "/api/v1/memory/tier-stats":
             # Rate limit: 30/min for stats operations
             if not _stats_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_tier_stats()
 
-        if path == "/api/memory/archive-stats":
+        if path == "/api/v1/memory/archive-stats":
             # Rate limit: 30/min for stats operations
             if not _stats_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_archive_stats()
 
-        if path == "/api/memory/pressure":
+        if path == "/api/v1/memory/pressure":
             # Rate limit: 30/min for stats operations
             if not _stats_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_memory_pressure()
 
-        if path == "/api/memory/tiers":
+        if path == "/api/v1/memory/tiers":
             # Rate limit: 30/min for stats operations
             if not _stats_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_all_tiers()
 
-        if path == "/api/memory/search":
+        if path == "/api/v1/memory/search":
             # Rate limit: 60/min for retrieve operations
             if not _retrieve_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._search_memories(query_params)
 
-        if path == "/api/memory/critiques":
+        if path == "/api/v1/memory/critiques":
             # Rate limit: 30/min for stats operations
             if not _stats_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
@@ -153,7 +153,7 @@ class MemoryHandler(BaseHandler):
 
         client_ip = get_client_ip(handler)
 
-        if path == "/api/memory/continuum/consolidate":
+        if path == "/api/v1/memory/continuum/consolidate":
             # Rate limit: 10/min for mutation operations
             if not _mutation_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
@@ -164,7 +164,7 @@ class MemoryHandler(BaseHandler):
                 return error_response("Authentication required", 401)
             return self._trigger_consolidation()
 
-        if path == "/api/memory/continuum/cleanup":
+        if path == "/api/v1/memory/continuum/cleanup":
             # Rate limit: 10/min for mutation operations
             if not _mutation_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
@@ -424,7 +424,7 @@ class MemoryHandler(BaseHandler):
 
         from ..utils.rate_limit import RateLimiter, get_client_ip
 
-        if path.startswith("/api/memory/continuum/"):
+        if path.startswith("/api/v1/memory/continuum/"):
             # Require authentication for state mutation
             user_store = self._get_user_store()
             auth_ctx = extract_user_from_request(handler, user_store)

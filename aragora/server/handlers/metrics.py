@@ -115,13 +115,13 @@ class MetricsHandler(BaseHandler):
     """Handler for operational metrics endpoints."""
 
     ROUTES = [
-        "/api/metrics",
-        "/api/metrics/health",
-        "/api/metrics/cache",
-        "/api/metrics/verification",
-        "/api/metrics/system",
-        "/api/metrics/background",
-        "/api/metrics/debate",
+        "/api/v1/metrics",
+        "/api/v1/metrics/health",
+        "/api/v1/metrics/cache",
+        "/api/v1/metrics/verification",
+        "/api/v1/metrics/system",
+        "/api/v1/metrics/background",
+        "/api/v1/metrics/debate",
         "/metrics",  # Prometheus-format endpoint
     ]
 
@@ -153,25 +153,25 @@ class MetricsHandler(BaseHandler):
                     logger.warning(f"Unauthorized /metrics access attempt from {client_ip}")
                     return error_response("Unauthorized. Provide valid metrics token.", 401)
 
-        if path == "/api/metrics":
+        if path == "/api/v1/metrics":
             return self._get_metrics()
 
-        if path == "/api/metrics/health":
+        if path == "/api/v1/metrics/health":
             return self._get_health()
 
-        if path == "/api/metrics/cache":
+        if path == "/api/v1/metrics/cache":
             return self._get_cache_stats()
 
-        if path == "/api/metrics/verification":
+        if path == "/api/v1/metrics/verification":
             return self._get_verification_stats()
 
-        if path == "/api/metrics/system":
+        if path == "/api/v1/metrics/system":
             return self._get_system_info()
 
-        if path == "/api/metrics/background":
+        if path == "/api/v1/metrics/background":
             return self._get_background_stats()
 
-        if path == "/api/metrics/debate":
+        if path == "/api/v1/metrics/debate":
             debate_id = query_params.get("debate_id", [None])[0]
             return self._get_debate_perf_stats(debate_id)
 

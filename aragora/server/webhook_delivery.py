@@ -495,7 +495,7 @@ class WebhookDeliveryManager:
             recovered = 0
 
             for row in rows:
-                delivery, url, secret = self._persistence._row_to_delivery(row)
+                delivery, url, secret = self._persistence._row_to_delivery(row)  # type: ignore[arg-type]
 
                 # Store URL/secret for retries
                 self._delivery_urls[delivery.delivery_id] = url or ""
@@ -724,8 +724,8 @@ class WebhookDeliveryManager:
                 import httpx
 
                 async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    response = await client.post(url, json=payload, headers=headers)
-                    return response.status_code
+                    response = await client.post(url, json=payload, headers=headers)  # type: ignore[assignment]
+                    return response.status_code  # type: ignore[attr-defined]
             except ImportError:
                 logger.error("No HTTP client available (need aiohttp or httpx)")
                 raise RuntimeError("No HTTP client available")
@@ -901,7 +901,7 @@ class WebhookDeliveryManager:
             rows = self._persistence.load_dead_letter_queue(limit)
             result = []
             for row in rows:
-                delivery, _, _ = self._persistence._row_to_delivery(row)
+                delivery, _, _ = self._persistence._row_to_delivery(row)  # type: ignore[arg-type]
                 result.append(delivery)
                 # Update in-memory cache
                 self._dead_letter_queue[delivery.delivery_id] = delivery

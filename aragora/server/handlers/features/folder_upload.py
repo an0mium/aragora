@@ -113,9 +113,9 @@ class FolderUploadHandler(BaseHandler):
     """Handler for folder upload endpoints."""
 
     ROUTES = [
-        "/api/documents/folder/scan",
-        "/api/documents/folder/upload",
-        "/api/documents/folders",
+        "/api/v1/documents/folder/scan",
+        "/api/v1/documents/folder/upload",
+        "/api/v1/documents/folders",
     ]
 
     # In-memory job storage (would be persisted in production)
@@ -127,25 +127,25 @@ class FolderUploadHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/documents/folder/upload/{folder_id}/status
-        if path.startswith("/api/documents/folder/upload/") and path.endswith("/status"):
+        if path.startswith("/api/v1/documents/folder/upload/") and path.endswith("/status"):
             return True
         # Handle /api/documents/folders/{folder_id}
-        if path.startswith("/api/documents/folders/") and path.count("/") == 4:
+        if path.startswith("/api/v1/documents/folders/") and path.count("/") == 4:
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET folder requests."""
-        if path == "/api/documents/folders":
+        if path == "/api/v1/documents/folders":
             return self._list_folders(query_params)
 
         # GET /api/documents/folder/upload/{folder_id}/status
-        if path.startswith("/api/documents/folder/upload/") and path.endswith("/status"):
+        if path.startswith("/api/v1/documents/folder/upload/") and path.endswith("/status"):
             folder_id = path.split("/")[-2]
             return self._get_upload_status(folder_id)
 
         # GET /api/documents/folders/{folder_id}
-        if path.startswith("/api/documents/folders/"):
+        if path.startswith("/api/v1/documents/folders/"):
             folder_id, err = self.extract_path_param(path, 3, "folder_id")
             if err:
                 return err
@@ -155,17 +155,17 @@ class FolderUploadHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST folder requests."""
-        if path == "/api/documents/folder/scan":
+        if path == "/api/v1/documents/folder/scan":
             return self._scan_folder(handler)
 
-        if path == "/api/documents/folder/upload":
+        if path == "/api/v1/documents/folder/upload":
             return self._start_upload(handler)
 
         return None
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE folder requests."""
-        if path.startswith("/api/documents/folders/"):
+        if path.startswith("/api/v1/documents/folders/"):
             folder_id, err = self.extract_path_param(path, 3, "folder_id")
             if err:
                 return err

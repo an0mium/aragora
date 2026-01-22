@@ -45,8 +45,8 @@ class VerificationHandler(BaseHandler):
     """Handler for formal verification endpoints."""
 
     ROUTES = [
-        "/api/verification/status",
-        "/api/verification/formal-verify",
+        "/api/v1/verification/status",
+        "/api/v1/verification/formal-verify",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -55,13 +55,13 @@ class VerificationHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
-        if path == "/api/verification/status":
+        if path == "/api/v1/verification/status":
             return self._get_status()
         return None
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/verification/formal-verify":
+        if path == "/api/v1/verification/formal-verify":
             return self._verify_claim(handler)
         return None
 

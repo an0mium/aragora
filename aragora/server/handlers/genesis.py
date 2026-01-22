@@ -62,15 +62,15 @@ class GenesisHandler(BaseHandler):
     """Handler for genesis (evolution visibility) endpoints."""
 
     ROUTES = [
-        "/api/genesis/stats",
-        "/api/genesis/events",
-        "/api/genesis/genomes",
-        "/api/genesis/genomes/top",
-        "/api/genesis/genomes/*",
-        "/api/genesis/population",
-        "/api/genesis/lineage/*",
-        "/api/genesis/tree/*",
-        "/api/genesis/descendants/*",
+        "/api/v1/genesis/stats",
+        "/api/v1/genesis/events",
+        "/api/v1/genesis/genomes",
+        "/api/v1/genesis/genomes/top",
+        "/api/v1/genesis/genomes/*",
+        "/api/v1/genesis/population",
+        "/api/v1/genesis/lineage/*",
+        "/api/v1/genesis/tree/*",
+        "/api/v1/genesis/descendants/*",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -78,13 +78,13 @@ class GenesisHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Dynamic routes
-        if path.startswith("/api/genesis/lineage/"):
+        if path.startswith("/api/v1/genesis/lineage/"):
             return True
-        if path.startswith("/api/genesis/tree/"):
+        if path.startswith("/api/v1/genesis/tree/"):
             return True
-        if path.startswith("/api/genesis/genomes/") and path != "/api/genesis/genomes/top":
+        if path.startswith("/api/v1/genesis/genomes/") and path != "/api/v1/genesis/genomes/top":
             return True
-        if path.startswith("/api/genesis/descendants/"):
+        if path.startswith("/api/v1/genesis/descendants/"):
             return True
         return False
 
@@ -98,10 +98,10 @@ class GenesisHandler(BaseHandler):
 
         nomic_dir = self.ctx.get("nomic_dir")
 
-        if path == "/api/genesis/stats":
+        if path == "/api/v1/genesis/stats":
             return self._get_genesis_stats(nomic_dir)
 
-        if path == "/api/genesis/events":
+        if path == "/api/v1/genesis/events":
             limit = get_int_param(query_params, "limit", 20)
             limit = min(limit, 100)
             event_type = query_params.get("event_type")
@@ -109,21 +109,21 @@ class GenesisHandler(BaseHandler):
                 event_type = event_type[0] if event_type else None
             return self._get_genesis_events(nomic_dir, limit, event_type)
 
-        if path == "/api/genesis/genomes":
+        if path == "/api/v1/genesis/genomes":
             limit = get_int_param(query_params, "limit", 50)
             limit = min(limit, 200)
             offset = get_int_param(query_params, "offset", 0)
             return self._get_genomes(nomic_dir, limit, offset)
 
-        if path == "/api/genesis/genomes/top":
+        if path == "/api/v1/genesis/genomes/top":
             limit = get_int_param(query_params, "limit", 10)
             limit = min(limit, 50)
             return self._get_top_genomes(nomic_dir, limit)
 
-        if path == "/api/genesis/population":
+        if path == "/api/v1/genesis/population":
             return self._get_population(nomic_dir)
 
-        if path.startswith("/api/genesis/genomes/"):
+        if path.startswith("/api/v1/genesis/genomes/"):
             # Block path traversal attempts
             if ".." in path:
                 return error_response("Invalid genome ID", 400)
@@ -133,7 +133,7 @@ class GenesisHandler(BaseHandler):
                 return error_response(err, 400)
             return self._get_genome(nomic_dir, genome_id)
 
-        if path.startswith("/api/genesis/lineage/"):
+        if path.startswith("/api/v1/genesis/lineage/"):
             # Block path traversal attempts
             if ".." in path:
                 return error_response("Invalid genome ID", 400)
@@ -145,7 +145,7 @@ class GenesisHandler(BaseHandler):
             max_depth = min(max(max_depth, 1), 50)  # Clamp to 1-50
             return self._get_genome_lineage(nomic_dir, genome_id, max_depth)
 
-        if path.startswith("/api/genesis/tree/"):
+        if path.startswith("/api/v1/genesis/tree/"):
             # Block path traversal attempts
             if ".." in path:
                 return error_response("Invalid debate ID", 400)
@@ -155,7 +155,7 @@ class GenesisHandler(BaseHandler):
                 return error_response(err, 400)
             return self._get_debate_tree(nomic_dir, debate_id)
 
-        if path.startswith("/api/genesis/descendants/"):
+        if path.startswith("/api/v1/genesis/descendants/"):
             # Block path traversal attempts
             if ".." in path:
                 return error_response("Invalid genome ID", 400)

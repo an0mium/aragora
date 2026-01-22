@@ -91,18 +91,18 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for repository indexing endpoints."""
 
     ROUTES = [
-        "/api/repository/index",
-        "/api/repository/incremental",
-        "/api/repository/batch",
-        "/api/repository/*/status",
-        "/api/repository/*/entities",
-        "/api/repository/*/graph",
-        "/api/repository/*",
+        "/api/v1/repository/index",
+        "/api/v1/repository/incremental",
+        "/api/v1/repository/batch",
+        "/api/v1/repository/*/status",
+        "/api/v1/repository/*/entities",
+        "/api/v1/repository/*/graph",
+        "/api/v1/repository/*",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith("/api/repository/"):
+        if path.startswith("/api/v1/repository/"):
             return True
         return False
 
@@ -131,15 +131,15 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                     logger.debug(f"Failed to parse request body: {e}")
 
         # POST /api/repository/index - Start full index
-        if path == "/api/repository/index" and method == "POST":
+        if path == "/api/v1/repository/index" and method == "POST":
             return await self._start_index(body)
 
         # POST /api/repository/incremental - Incremental update
-        if path == "/api/repository/incremental" and method == "POST":
+        if path == "/api/v1/repository/incremental" and method == "POST":
             return await self._incremental_update(body)
 
         # POST /api/repository/batch - Batch index multiple repos
-        if path == "/api/repository/batch" and method == "POST":
+        if path == "/api/v1/repository/batch" and method == "POST":
             return await self._batch_index(body)
 
         # Handle repository-specific routes

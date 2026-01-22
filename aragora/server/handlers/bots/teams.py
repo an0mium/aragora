@@ -51,8 +51,8 @@ class TeamsHandler(BaseHandler):
     """Handler for Microsoft Teams Bot endpoints."""
 
     ROUTES = [
-        "/api/bots/teams/messages",
-        "/api/bots/teams/status",
+        "/api/v1/bots/teams/messages",
+        "/api/v1/bots/teams/status",
     ]
 
     def __init__(self):
@@ -110,7 +110,7 @@ class TeamsHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Teams requests."""
-        if path == "/api/bots/teams/status":
+        if path == "/api/v1/bots/teams/status":
             return self._get_status()
 
         return None
@@ -120,7 +120,7 @@ class TeamsHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
-        if path == "/api/bots/teams/messages":
+        if path == "/api/v1/bots/teams/messages":
             return self._handle_messages(handler)
 
         return None

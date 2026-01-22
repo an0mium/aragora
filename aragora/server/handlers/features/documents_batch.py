@@ -46,9 +46,9 @@ class DocumentBatchHandler(BaseHandler):
     """Handler for batch document upload and processing endpoints."""
 
     ROUTES = [
-        "/api/documents/batch",
-        "/api/documents/processing/stats",
-        "/api/knowledge/jobs",
+        "/api/v1/documents/batch",
+        "/api/v1/documents/processing/stats",
+        "/api/v1/knowledge/jobs",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -56,38 +56,38 @@ class DocumentBatchHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/documents/batch/{job_id} patterns
-        if path.startswith("/api/documents/batch/") and path.count("/") >= 4:
+        if path.startswith("/api/v1/documents/batch/") and path.count("/") >= 4:
             return True
         # Handle /api/documents/{doc_id}/chunks and /api/documents/{doc_id}/context
-        if path.startswith("/api/documents/") and path.count("/") == 4:
+        if path.startswith("/api/v1/documents/") and path.count("/") == 4:
             if path.endswith("/chunks") or path.endswith("/context"):
                 return True
         # Handle /api/knowledge/jobs/{job_id}
-        if path.startswith("/api/knowledge/jobs/"):
+        if path.startswith("/api/v1/knowledge/jobs/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests."""
-        if path == "/api/documents/processing/stats":
+        if path == "/api/v1/documents/processing/stats":
             return self._get_processing_stats()
 
         # GET /api/knowledge/jobs - list all knowledge processing jobs
-        if path == "/api/knowledge/jobs":
+        if path == "/api/v1/knowledge/jobs":
             workspace_id = query_params.get("workspace_id", [None])[0]
             status = query_params.get("status", [None])[0]
             limit = int(query_params.get("limit", ["100"])[0])
             return self._list_knowledge_jobs(workspace_id, status, limit)
 
         # GET /api/knowledge/jobs/{job_id} - get specific job status
-        if path.startswith("/api/knowledge/jobs/"):
+        if path.startswith("/api/v1/knowledge/jobs/"):
             parts = path.split("/")
             if len(parts) == 5:
                 job_id = parts[4]
                 return self._get_knowledge_job_status(job_id)
 
         # GET /api/documents/batch/{job_id}
-        if path.startswith("/api/documents/batch/"):
+        if path.startswith("/api/v1/documents/batch/"):
             parts = path.split("/")
             if len(parts) == 5:  # /api/documents/batch/{job_id}
                 job_id = parts[4]
@@ -118,13 +118,13 @@ class DocumentBatchHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests."""
-        if path == "/api/documents/batch":
+        if path == "/api/v1/documents/batch":
             return self._upload_batch(handler)
         return None
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE requests."""
-        if path.startswith("/api/documents/batch/"):
+        if path.startswith("/api/v1/documents/batch/"):
             parts = path.split("/")
             if len(parts) == 5:
                 job_id = parts[4]

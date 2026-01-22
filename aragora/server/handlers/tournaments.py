@@ -61,20 +61,20 @@ class TournamentHandler(BaseHandler):
     """Handler for tournament-related endpoints."""
 
     ROUTES = [
-        "/api/tournaments",
-        "/api/tournaments/*",
-        "/api/tournaments/*/standings",
-        "/api/tournaments/*/bracket",
-        "/api/tournaments/*/matches",
-        "/api/tournaments/*/advance",
-        "/api/tournaments/*/matches/*/result",
+        "/api/v1/tournaments",
+        "/api/v1/tournaments/*",
+        "/api/v1/tournaments/*/standings",
+        "/api/v1/tournaments/*/bracket",
+        "/api/v1/tournaments/*/matches",
+        "/api/v1/tournaments/*/advance",
+        "/api/v1/tournaments/*/matches/*/result",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/tournaments":
+        if path == "/api/v1/tournaments":
             return True
-        if not path.startswith("/api/tournaments/"):
+        if not path.startswith("/api/v1/tournaments/"):
             return False
 
         # Parse path segments
@@ -106,7 +106,7 @@ class TournamentHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for tournament endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/tournaments":
+        if path == "/api/v1/tournaments":
             return self._list_tournaments()
 
         parts = path.split("/")
@@ -154,7 +154,7 @@ class TournamentHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # POST /api/tournaments - Create tournament
-        if path == "/api/tournaments":
+        if path == "/api/v1/tournaments":
             return self._create_tournament(body)
 
         parts = path.split("/")

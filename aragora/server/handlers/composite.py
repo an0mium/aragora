@@ -28,21 +28,21 @@ class CompositeHandler(BaseHandler):
     """
 
     ROUTES = [
-        "/api/debates/*/full-context",
-        "/api/agents/*/reliability",
-        "/api/debates/*/compression-analysis",
+        "/api/v1/debates/*/full-context",
+        "/api/v1/agents/*/reliability",
+        "/api/v1/debates/*/compression-analysis",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         # Match /api/debates/{id}/full-context
-        if path.startswith("/api/debates/") and path.endswith("/full-context"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/full-context"):
             return True
         # Match /api/agents/{id}/reliability
-        if path.startswith("/api/agents/") and path.endswith("/reliability"):
+        if path.startswith("/api/v1/agents/") and path.endswith("/reliability"):
             return True
         # Match /api/debates/{id}/compression-analysis
-        if path.startswith("/api/debates/") and path.endswith("/compression-analysis"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/compression-analysis"):
             return True
         return False
 
@@ -51,13 +51,13 @@ class CompositeHandler(BaseHandler):
     ) -> Optional[HandlerResult]:
         """Route to appropriate handler method."""
         if path.endswith("/full-context"):
-            debate_id = self._extract_id(path, "/api/debates/", "/full-context")
+            debate_id = self._extract_id(path, "/api/v1/debates/", "/full-context")
             return self._handle_full_context(debate_id, query_params)
         elif path.endswith("/reliability"):
-            agent_id = self._extract_id(path, "/api/agents/", "/reliability")
+            agent_id = self._extract_id(path, "/api/v1/agents/", "/reliability")
             return self._handle_reliability(agent_id, query_params)
         elif path.endswith("/compression-analysis"):
-            debate_id = self._extract_id(path, "/api/debates/", "/compression-analysis")
+            debate_id = self._extract_id(path, "/api/v1/debates/", "/compression-analysis")
             return self._handle_compression_analysis(debate_id, query_params)
         return None
 
@@ -269,7 +269,7 @@ class CompositeHandler(BaseHandler):
             from aragora.memory.continuum import ContinuumMemory
 
             # Check if continuum memory is available in context
-            continuum = self.context.get("continuum_memory")
+            continuum = self.context.get("continuum_memory")  # type: ignore[attr-defined]
             if continuum and isinstance(continuum, ContinuumMemory):
                 # Get related memories
                 memories = continuum.recall(debate_id, limit=5)
@@ -291,7 +291,7 @@ class CompositeHandler(BaseHandler):
 
         try:
             # Check for knowledge mound in context
-            knowledge_mound = self.context.get("knowledge_mound")
+            knowledge_mound = self.context.get("knowledge_mound")  # type: ignore[attr-defined]
             if knowledge_mound:
                 # Get related knowledge items
                 items = knowledge_mound.query(debate_id, limit=10)
@@ -315,7 +315,7 @@ class CompositeHandler(BaseHandler):
 
         try:
             # Check for belief-related stores
-            dissent_retriever = self.context.get("dissent_retriever")
+            dissent_retriever = self.context.get("dissent_retriever")  # type: ignore[attr-defined]
             if dissent_retriever:
                 cruxes = dissent_retriever.get_cruxes(debate_id, limit=5)
                 belief_data["cruxes"] = cruxes

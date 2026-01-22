@@ -102,8 +102,8 @@ class WhatsAppHandler(BaseHandler):
     """Handler for WhatsApp Business API integration endpoints."""
 
     ROUTES = [
-        "/api/integrations/whatsapp/webhook",
-        "/api/integrations/whatsapp/status",
+        "/api/v1/integrations/whatsapp/webhook",
+        "/api/v1/integrations/whatsapp/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -116,10 +116,10 @@ class WhatsAppHandler(BaseHandler):
         """Route WhatsApp requests to appropriate methods."""
         logger.debug(f"WhatsApp request: {path} {handler.command}")
 
-        if path == "/api/integrations/whatsapp/status":
+        if path == "/api/v1/integrations/whatsapp/status":
             return self._get_status()
 
-        if path == "/api/integrations/whatsapp/webhook":
+        if path == "/api/v1/integrations/whatsapp/webhook":
             if handler.command == "GET":
                 # Webhook verification from Meta
                 return self._verify_webhook(query_params)
@@ -211,7 +211,7 @@ class WhatsAppHandler(BaseHandler):
         if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
             logger.info("WhatsApp webhook verified successfully")
             # Return challenge as plain text
-            return {
+            return {  # type: ignore[return-value]
                 "status": 200,
                 "headers": {"Content-Type": "text/plain"},
                 "body": challenge,
@@ -1146,7 +1146,7 @@ def get_whatsapp_handler(server_context: Optional[Dict] = None) -> "WhatsAppHand
     if _whatsapp_handler is None:
         if server_context is None:
             server_context = {}
-        _whatsapp_handler = WhatsAppHandler(server_context)
+        _whatsapp_handler = WhatsAppHandler(server_context)  # type: ignore[arg-type]
     return _whatsapp_handler
 
 

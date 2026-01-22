@@ -113,24 +113,24 @@ class ExternalIntegrationsHandler(SecureHandler):
     ]
 
     ROUTES = [
-        "/api/integrations/zapier/apps",
-        "/api/integrations/zapier/triggers",
-        "/api/integrations/make/connections",
-        "/api/integrations/make/webhooks",
-        "/api/integrations/make/modules",
-        "/api/integrations/n8n/credentials",
-        "/api/integrations/n8n/webhooks",
-        "/api/integrations/n8n/nodes",
+        "/api/v1/integrations/zapier/apps",
+        "/api/v1/integrations/zapier/triggers",
+        "/api/v1/integrations/make/connections",
+        "/api/v1/integrations/make/webhooks",
+        "/api/v1/integrations/make/modules",
+        "/api/v1/integrations/n8n/credentials",
+        "/api/v1/integrations/n8n/webhooks",
+        "/api/v1/integrations/n8n/nodes",
     ]
 
     @staticmethod
     def can_handle(path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/integrations/")
+        return path.startswith("/api/v1/integrations/")
 
     def __init__(self, server_context: dict):
         """Initialize with server context."""
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         self._zapier: Optional[ZapierIntegration] = None
         self._make: Optional[MakeIntegration] = None
         self._n8n: Optional[N8nIntegration] = None
@@ -150,10 +150,10 @@ class ExternalIntegrationsHandler(SecureHandler):
             if not user_info:
                 return None
 
-            return AuthorizationContext(
-                user_id=user_info.get("user_id", "anonymous"),
-                roles=user_info.get("roles", []),
-                org_id=user_info.get("org_id") or user_info.get("tenant_id"),
+            return AuthorizationContext(  # type: ignore[call-arg]
+                user_id=user_info.get("user_id", "anonymous"),  # type: ignore[arg-type,attr-defined]
+                roles=user_info.get("roles", []),  # type: ignore[arg-type,attr-defined]
+                org_id=user_info.get("org_id") or user_info.get("tenant_id"),  # type: ignore[arg-type,attr-defined]
             )
         except Exception as e:
             logger.debug(f"Could not extract auth context: {e}")
@@ -228,21 +228,21 @@ class ExternalIntegrationsHandler(SecureHandler):
         """Handle GET requests for external integrations endpoints."""
 
         # Zapier endpoints
-        if path == "/api/integrations/zapier/apps":
+        if path == "/api/v1/integrations/zapier/apps":
             return self._handle_list_zapier_apps(query_params, handler)
-        if path == "/api/integrations/zapier/triggers":
+        if path == "/api/v1/integrations/zapier/triggers":
             return self._handle_list_zapier_trigger_types()
 
         # Make endpoints
-        if path == "/api/integrations/make/connections":
+        if path == "/api/v1/integrations/make/connections":
             return self._handle_list_make_connections(query_params, handler)
-        if path == "/api/integrations/make/modules":
+        if path == "/api/v1/integrations/make/modules":
             return self._handle_list_make_modules()
 
         # n8n endpoints
-        if path == "/api/integrations/n8n/credentials":
+        if path == "/api/v1/integrations/n8n/credentials":
             return self._handle_list_n8n_credentials(query_params, handler)
-        if path == "/api/integrations/n8n/nodes":
+        if path == "/api/v1/integrations/n8n/nodes":
             return self._handle_get_n8n_nodes()
 
         return None
@@ -257,39 +257,39 @@ class ExternalIntegrationsHandler(SecureHandler):
         """Handle POST requests for external integrations endpoints."""
 
         # Zapier endpoints
-        if path == "/api/integrations/zapier/apps":
+        if path == "/api/v1/integrations/zapier/apps":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_create_zapier_app(body, handler)
 
-        if path == "/api/integrations/zapier/triggers":
+        if path == "/api/v1/integrations/zapier/triggers":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_subscribe_zapier_trigger(body, handler)
 
         # Make endpoints
-        if path == "/api/integrations/make/connections":
+        if path == "/api/v1/integrations/make/connections":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_create_make_connection(body, handler)
 
-        if path == "/api/integrations/make/webhooks":
+        if path == "/api/v1/integrations/make/webhooks":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_register_make_webhook(body, handler)
 
         # n8n endpoints
-        if path == "/api/integrations/n8n/credentials":
+        if path == "/api/v1/integrations/n8n/credentials":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_create_n8n_credential(body, handler)
 
-        if path == "/api/integrations/n8n/webhooks":
+        if path == "/api/v1/integrations/n8n/webhooks":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
@@ -314,14 +314,14 @@ class ExternalIntegrationsHandler(SecureHandler):
         """Handle DELETE requests for external integrations endpoints."""
 
         # Zapier app deletion
-        if path.startswith("/api/integrations/zapier/apps/"):
+        if path.startswith("/api/v1/integrations/zapier/apps/"):
             app_id, err = self.extract_path_param(path, 4, "app_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_zapier_app(app_id, handler)
 
         # Zapier trigger unsubscribe
-        if path.startswith("/api/integrations/zapier/triggers/"):
+        if path.startswith("/api/v1/integrations/zapier/triggers/"):
             parts = path.split("/")
             if len(parts) >= 5:
                 trigger_id = parts[4]
@@ -329,14 +329,14 @@ class ExternalIntegrationsHandler(SecureHandler):
                 return self._handle_unsubscribe_zapier_trigger(app_id, trigger_id, handler)
 
         # Make connection deletion
-        if path.startswith("/api/integrations/make/connections/"):
+        if path.startswith("/api/v1/integrations/make/connections/"):
             conn_id, err = self.extract_path_param(path, 4, "conn_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_make_connection(conn_id, handler)
 
         # Make webhook unregister
-        if path.startswith("/api/integrations/make/webhooks/"):
+        if path.startswith("/api/v1/integrations/make/webhooks/"):
             parts = path.split("/")
             if len(parts) >= 5:
                 webhook_id = parts[4]
@@ -344,14 +344,14 @@ class ExternalIntegrationsHandler(SecureHandler):
                 return self._handle_unregister_make_webhook(conn_id, webhook_id, handler)
 
         # n8n credential deletion
-        if path.startswith("/api/integrations/n8n/credentials/"):
+        if path.startswith("/api/v1/integrations/n8n/credentials/"):
             cred_id, err = self.extract_path_param(path, 4, "cred_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_n8n_credential(cred_id, handler)
 
         # n8n webhook unregister
-        if path.startswith("/api/integrations/n8n/webhooks/"):
+        if path.startswith("/api/v1/integrations/n8n/webhooks/"):
             parts = path.split("/")
             if len(parts) >= 5:
                 webhook_id = parts[4]

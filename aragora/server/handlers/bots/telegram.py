@@ -70,8 +70,8 @@ class TelegramHandler(BaseHandler):
     """Handler for Telegram Bot API webhook endpoints."""
 
     ROUTES = [
-        "/api/bots/telegram/webhook",
-        "/api/bots/telegram/status",
+        "/api/v1/bots/telegram/webhook",
+        "/api/v1/bots/telegram/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -79,7 +79,7 @@ class TelegramHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Also handle /api/bots/telegram/webhook/{token}
-        if path.startswith("/api/bots/telegram/webhook/"):
+        if path.startswith("/api/v1/bots/telegram/webhook/"):
             return True
         return False
 
@@ -88,7 +88,7 @@ class TelegramHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Telegram GET requests."""
-        if path == "/api/bots/telegram/status":
+        if path == "/api/v1/bots/telegram/status":
             return self._get_status()
 
         return None
@@ -98,11 +98,11 @@ class TelegramHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests (webhook updates)."""
-        if path == "/api/bots/telegram/webhook":
+        if path == "/api/v1/bots/telegram/webhook":
             return self._handle_webhook(handler)
 
         # Handle /api/bots/telegram/webhook/{token}
-        if path.startswith("/api/bots/telegram/webhook/"):
+        if path.startswith("/api/v1/bots/telegram/webhook/"):
             token = path.split("/")[-1]
             if not _verify_webhook_token(token):
                 logger.warning("Telegram webhook token verification failed")
@@ -475,8 +475,8 @@ class TelegramHandler(BaseHandler):
 
             queue = await create_redis_queue()
             await queue.enqueue(job)
-            logger.info(f"Debate job enqueued via fallback: {job.job_id}")
-            return job.job_id
+            logger.info(f"Debate job enqueued via fallback: {job.job_id}")  # type: ignore[attr-defined]
+            return job.job_id  # type: ignore[attr-defined]
 
         except ImportError:
             logger.warning("Queue system not available, using direct execution")

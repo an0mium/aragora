@@ -102,25 +102,25 @@ class DecisionHandler(BaseHandler):
     """
 
     ROUTES = [
-        "/api/decisions",
-        "/api/decisions/*",
+        "/api/v1/decisions",
+        "/api/v1/decisions/*",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
-        if path == "/api/decisions":
+        if path == "/api/v1/decisions":
             return True
-        if path.startswith("/api/decisions/"):
+        if path.startswith("/api/v1/decisions/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
-        if path == "/api/decisions":
+        if path == "/api/v1/decisions":
             # List recent decisions (optional)
             return self._list_decisions(query_params)
 
-        if path.startswith("/api/decisions/"):
+        if path.startswith("/api/v1/decisions/"):
             parts = path.split("/")
             if len(parts) >= 4:
                 request_id = parts[3]
@@ -132,7 +132,7 @@ class DecisionHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle POST requests."""
-        if path == "/api/decisions":
+        if path == "/api/v1/decisions":
             return self._create_decision(handler)
         return None
 
@@ -213,13 +213,13 @@ class DecisionHandler(BaseHandler):
                 )
 
                 enforcer = RBACEnforcer()
-                ctx = IsolationContext(
+                ctx = IsolationContext(  # type: ignore[call-arg]
                     workspace_id=request.context.workspace_id,
                     user_id=request.context.user_id,
                 )
                 enforcer.require(  # type: ignore[unused-coroutine]
                     auth_ctx.user_id,
-                    ResourceType.DECISION
+                    ResourceType.DECISION  # type: ignore[attr-defined]
                     if hasattr(ResourceType, "DECISION")
                     else ResourceType.DEBATE,
                     Action.CREATE,

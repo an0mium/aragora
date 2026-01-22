@@ -40,8 +40,8 @@ class CoordinatorHandler(BaseHandler):
     """Handler for memory coordinator endpoints."""
 
     ROUTES = [
-        "/api/memory/coordinator/metrics",
-        "/api/memory/coordinator/config",
+        "/api/v1/memory/coordinator/metrics",
+        "/api/v1/memory/coordinator/config",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -63,9 +63,9 @@ class CoordinatorHandler(BaseHandler):
                 501,
             )
 
-        if path == "/api/memory/coordinator/metrics":
+        if path == "/api/v1/memory/coordinator/metrics":
             return self._get_metrics()
-        if path == "/api/memory/coordinator/config":
+        if path == "/api/v1/memory/coordinator/config":
             return self._get_config()
 
         return None

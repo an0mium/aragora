@@ -67,8 +67,8 @@ class BroadcastHandler(BaseHandler):
     """Handler for broadcast generation endpoints."""
 
     ROUTES = [
-        "/api/debates/*/broadcast",
-        "/api/debates/*/broadcast/full",
+        "/api/v1/debates/*/broadcast",
+        "/api/v1/debates/*/broadcast/full",
         # Note: /api/podcast/feed.xml is handled by AudioHandler
     ]
 
@@ -77,7 +77,7 @@ class BroadcastHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith("/api/debates/") and "/broadcast" in path:
+        if path.startswith("/api/v1/debates/") and "/broadcast" in path:
             return True
         return False
 
@@ -88,14 +88,14 @@ class BroadcastHandler(BaseHandler):
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests."""
         # Full pipeline
-        if path.startswith("/api/debates/") and path.endswith("/broadcast/full"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/broadcast/full"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._run_full_pipeline(debate_id, query_params, handler)
 
         # Basic broadcast generation
-        if path.startswith("/api/debates/") and path.endswith("/broadcast"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/broadcast"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err

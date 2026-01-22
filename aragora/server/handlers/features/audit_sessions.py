@@ -54,16 +54,16 @@ class AuditSessionsHandler(BaseHandler):
     """
 
     ROUTES = [
-        "/api/audit/sessions",
-        "/api/audit/sessions/{session_id}",
-        "/api/audit/sessions/{session_id}/start",
-        "/api/audit/sessions/{session_id}/pause",
-        "/api/audit/sessions/{session_id}/resume",
-        "/api/audit/sessions/{session_id}/cancel",
-        "/api/audit/sessions/{session_id}/findings",
-        "/api/audit/sessions/{session_id}/events",
-        "/api/audit/sessions/{session_id}/intervene",
-        "/api/audit/sessions/{session_id}/report",
+        "/api/v1/audit/sessions",
+        "/api/v1/audit/sessions/{session_id}",
+        "/api/v1/audit/sessions/{session_id}/start",
+        "/api/v1/audit/sessions/{session_id}/pause",
+        "/api/v1/audit/sessions/{session_id}/resume",
+        "/api/v1/audit/sessions/{session_id}/cancel",
+        "/api/v1/audit/sessions/{session_id}/findings",
+        "/api/v1/audit/sessions/{session_id}/events",
+        "/api/v1/audit/sessions/{session_id}/intervene",
+        "/api/v1/audit/sessions/{session_id}/report",
     ]
 
     async def handle_request(self, request: Any) -> Any:

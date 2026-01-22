@@ -135,8 +135,8 @@ class TranscriptionHandler(BaseHandler):
     """Handler for audio/video transcription endpoints."""
 
     ROUTES = [
-        "/api/transcription/upload",
-        "/api/transcription/formats",
+        "/api/v1/transcription/upload",
+        "/api/v1/transcription/formats",
     ]
 
     # Rate limiting (stricter than documents due to API cost)
@@ -156,16 +156,16 @@ class TranscriptionHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/transcription/{job_id} and /api/transcription/{job_id}/segments
-        if path.startswith("/api/transcription/") and path.count("/") >= 3:
+        if path.startswith("/api/v1/transcription/") and path.count("/") >= 3:
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
-        if path == "/api/transcription/formats":
+        if path == "/api/v1/transcription/formats":
             return self._get_supported_formats()
 
-        if path.startswith("/api/transcription/"):
+        if path.startswith("/api/v1/transcription/"):
             parts = path.split("/")
             if len(parts) >= 4 and parts[3] != "upload":
                 job_id = parts[3]
@@ -179,13 +179,13 @@ class TranscriptionHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/transcription/upload":
+        if path == "/api/v1/transcription/upload":
             return self._upload_and_transcribe(handler)
         return None
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE requests to appropriate methods."""
-        if path.startswith("/api/transcription/"):
+        if path.startswith("/api/v1/transcription/"):
             parts = path.split("/")
             if len(parts) == 4 and parts[3] != "upload":
                 job_id = parts[3]

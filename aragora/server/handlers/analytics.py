@@ -54,17 +54,17 @@ class AnalyticsHandler(BaseHandler):
     """Handler for analytics and metrics endpoints."""
 
     ROUTES = [
-        "/api/analytics/disagreements",
-        "/api/analytics/role-rotation",
-        "/api/analytics/early-stops",
-        "/api/analytics/consensus-quality",
-        "/api/ranking/stats",
-        "/api/memory/stats",
+        "/api/v1/analytics/disagreements",
+        "/api/v1/analytics/role-rotation",
+        "/api/v1/analytics/early-stops",
+        "/api/v1/analytics/consensus-quality",
+        "/api/v1/ranking/stats",
+        "/api/v1/memory/stats",
         # Cross-pollination stats
-        "/api/analytics/cross-pollination",
-        "/api/analytics/learning-efficiency",
-        "/api/analytics/voting-accuracy",
-        "/api/analytics/calibration",
+        "/api/v1/analytics/cross-pollination",
+        "/api/v1/analytics/learning-efficiency",
+        "/api/v1/analytics/voting-accuracy",
+        "/api/v1/analytics/calibration",
         # Note: /api/memory/tier-stats moved to MemoryHandler for more specific handling
     ]
 
@@ -82,35 +82,35 @@ class AnalyticsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for analytics endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/analytics/disagreements":
+        if path == "/api/v1/analytics/disagreements":
             return self._get_disagreement_stats()
 
-        if path == "/api/analytics/role-rotation":
+        if path == "/api/v1/analytics/role-rotation":
             return self._get_role_rotation_stats()
 
-        if path == "/api/analytics/early-stops":
+        if path == "/api/v1/analytics/early-stops":
             return self._get_early_stop_stats()
 
-        if path == "/api/analytics/consensus-quality":
+        if path == "/api/v1/analytics/consensus-quality":
             return self._get_consensus_quality()
 
-        if path == "/api/ranking/stats":
+        if path == "/api/v1/ranking/stats":
             return self._get_ranking_stats()
 
-        if path == "/api/memory/stats":
+        if path == "/api/v1/memory/stats":
             return self._get_memory_stats()
 
         # Cross-pollination endpoints
-        if path == "/api/analytics/cross-pollination":
+        if path == "/api/v1/analytics/cross-pollination":
             return self._get_cross_pollination_stats()
 
-        if path == "/api/analytics/learning-efficiency":
+        if path == "/api/v1/analytics/learning-efficiency":
             return self._get_learning_efficiency_stats(query_params)
 
-        if path == "/api/analytics/voting-accuracy":
+        if path == "/api/v1/analytics/voting-accuracy":
             return self._get_voting_accuracy_stats(query_params)
 
-        if path == "/api/analytics/calibration":
+        if path == "/api/v1/analytics/calibration":
             return self._get_calibration_stats(query_params)
 
         return None
@@ -491,7 +491,7 @@ class AnalyticsHandler(BaseHandler):
         leaderboard = elo.get_leaderboard(limit=limit)
         agents_data = []
         for entry in leaderboard:
-            name = entry.get("agent_name", "")
+            name = entry.get("agent_name", "")  # type: ignore[attr-defined]
             efficiency = elo.get_learning_efficiency(name, domain=domain)
             agents_data.append({"agent": name, "efficiency": efficiency})
 
@@ -523,7 +523,7 @@ class AnalyticsHandler(BaseHandler):
         leaderboard = elo.get_leaderboard(limit=limit)
         agents_data = []
         for entry in leaderboard:
-            name = entry.get("agent_name", "")
+            name = entry.get("agent_name", "")  # type: ignore[attr-defined]
             accuracy = elo.get_voting_accuracy(name)
             agents_data.append({"agent": name, "accuracy": accuracy})
 
@@ -576,7 +576,7 @@ class AnalyticsHandler(BaseHandler):
         leaderboard = elo.get_leaderboard(limit=limit)
         agents_data = []
         for entry in leaderboard:
-            name = entry.get("agent_name", "")
+            name = entry.get("agent_name", "")  # type: ignore[attr-defined]
             cal_data = None
             if tracker:
                 summary = tracker.get_calibration_summary(name)

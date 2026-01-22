@@ -45,8 +45,8 @@ class LaboratoryHandler(BaseHandler):
     """Handler for persona laboratory endpoints."""
 
     ROUTES = [
-        "/api/laboratory/emergent-traits",
-        "/api/laboratory/cross-pollinations/suggest",
+        "/api/v1/laboratory/emergent-traits",
+        "/api/v1/laboratory/cross-pollinations/suggest",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -61,7 +61,7 @@ class LaboratoryHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for laboratory endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/laboratory/emergent-traits":
+        if path == "/api/v1/laboratory/emergent-traits":
             min_confidence = get_bounded_float_param(
                 query_params, "min_confidence", 0.5, min_val=0.0, max_val=1.0
             )
@@ -79,7 +79,7 @@ class LaboratoryHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for laboratory POST endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/laboratory/cross-pollinations/suggest":
+        if path == "/api/v1/laboratory/cross-pollinations/suggest":
             # Require authentication for computationally expensive operations
             # Dev mode: skip auth if user_store not configured
             user_store = self.ctx.get("user_store")

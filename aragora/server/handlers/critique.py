@@ -45,9 +45,9 @@ class CritiqueHandler(BaseHandler):
     """Handler for critique pattern and reputation endpoints."""
 
     ROUTES = [
-        "/api/critiques/patterns",
-        "/api/critiques/archive",
-        "/api/reputation/all",
+        "/api/v1/critiques/patterns",
+        "/api/v1/critiques/archive",
+        "/api/v1/reputation/all",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -55,7 +55,7 @@ class CritiqueHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Dynamic route for agent reputation
-        if path.startswith("/api/agent/") and path.endswith("/reputation"):
+        if path.startswith("/api/v1/agent/") and path.endswith("/reputation"):
             return True
         return False
 
@@ -69,20 +69,20 @@ class CritiqueHandler(BaseHandler):
 
         nomic_dir = self.ctx.get("nomic_dir")
 
-        if path == "/api/critiques/patterns":
+        if path == "/api/v1/critiques/patterns":
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             min_success = get_bounded_float_param(
                 query_params, "min_success", 0.5, min_val=0.0, max_val=1.0
             )
             return self._get_critique_patterns(nomic_dir, limit, min_success)
 
-        if path == "/api/critiques/archive":
+        if path == "/api/v1/critiques/archive":
             return self._get_archive_stats(nomic_dir)
 
-        if path == "/api/reputation/all":
+        if path == "/api/v1/reputation/all":
             return self._get_all_reputations(nomic_dir)
 
-        if path.startswith("/api/agent/") and path.endswith("/reputation"):
+        if path.startswith("/api/v1/agent/") and path.endswith("/reputation"):
             agent = self._extract_agent_name(path)
             if agent is None:
                 return error_response("Invalid agent name", 400)

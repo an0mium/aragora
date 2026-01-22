@@ -68,12 +68,12 @@ class ConfidenceDecayOperationsMixin:
             return error_response("workspace_id is required", status=400)
 
         try:
-            report = await mound.apply_confidence_decay(
+            report = await mound.apply_confidence_decay(  # type: ignore[call-arg]
                 workspace_id=workspace_id,
                 force=force,
             )
 
-            return json_response(report.to_dict())
+            return json_response(report.to_dict())  # type: ignore[attr-defined]
         except Exception as e:
             logger.error(f"Error applying confidence decay: {e}")
             return error_response(safe_error_message(e), status=500)

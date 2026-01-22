@@ -63,14 +63,14 @@ class ConsensusHandler(BaseHandler):
     """Handler for consensus memory endpoints."""
 
     ROUTES = [
-        "/api/consensus/similar",
-        "/api/consensus/settled",
-        "/api/consensus/stats",
-        "/api/consensus/dissents",
-        "/api/consensus/contrarian-views",
-        "/api/consensus/risk-warnings",
-        "/api/consensus/seed-demo",
-        "/api/consensus/domain/*",
+        "/api/v1/consensus/similar",
+        "/api/v1/consensus/settled",
+        "/api/v1/consensus/stats",
+        "/api/v1/consensus/dissents",
+        "/api/v1/consensus/contrarian-views",
+        "/api/v1/consensus/risk-warnings",
+        "/api/v1/consensus/seed-demo",
+        "/api/v1/consensus/domain/*",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -78,7 +78,7 @@ class ConsensusHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/consensus/domain/:domain pattern
-        if path.startswith("/api/consensus/domain/"):
+        if path.startswith("/api/v1/consensus/domain/"):
             return True
         return False
 
@@ -90,7 +90,7 @@ class ConsensusHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for consensus endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/consensus/similar":
+        if path == "/api/v1/consensus/similar":
             # Validate raw topic length before truncation
             raw_topic = query_params.get("topic", "")
             if isinstance(raw_topic, list):
@@ -103,38 +103,38 @@ class ConsensusHandler(BaseHandler):
             limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
             return self._get_similar_debates(topic.strip(), limit)
 
-        if path == "/api/consensus/settled":
+        if path == "/api/v1/consensus/settled":
             min_confidence = get_bounded_float_param(
                 query_params, "min_confidence", 0.8, min_val=0.0, max_val=1.0
             )
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             return self._get_settled_topics(min_confidence, limit)
 
-        if path == "/api/consensus/stats":
+        if path == "/api/v1/consensus/stats":
             return self._get_consensus_stats()
 
-        if path == "/api/consensus/dissents":
+        if path == "/api/v1/consensus/dissents":
             topic = get_bounded_string_param(query_params, "topic", "", max_length=500)
             domain = get_bounded_string_param(query_params, "domain", None, max_length=100)
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_recent_dissents(topic.strip() if topic else None, domain, limit)
 
-        if path == "/api/consensus/contrarian-views":
+        if path == "/api/v1/consensus/contrarian-views":
             topic = get_bounded_string_param(query_params, "topic", "", max_length=500)
             domain = get_bounded_string_param(query_params, "domain", None, max_length=100)
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_contrarian_views(topic.strip() if topic else None, domain, limit)
 
-        if path == "/api/consensus/risk-warnings":
+        if path == "/api/v1/consensus/risk-warnings":
             topic = get_bounded_string_param(query_params, "topic", "", max_length=500)
             domain = get_bounded_string_param(query_params, "domain", None, max_length=100)
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_risk_warnings(topic.strip() if topic else None, domain, limit)
 
-        if path == "/api/consensus/seed-demo":
+        if path == "/api/v1/consensus/seed-demo":
             return self._seed_demo_data()
 
-        if path.startswith("/api/consensus/domain/"):
+        if path.startswith("/api/v1/consensus/domain/"):
             domain, err = self.extract_path_param(path, 3, "domain")
             if err:
                 return err

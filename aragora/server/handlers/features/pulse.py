@@ -172,17 +172,17 @@ class PulseHandler(BaseHandler):
     """Handler for pulse/trending topic endpoints."""
 
     ROUTES = [
-        "/api/pulse/trending",
-        "/api/pulse/suggest",
-        "/api/pulse/analytics",
-        "/api/pulse/debate-topic",
-        "/api/pulse/scheduler/status",
-        "/api/pulse/scheduler/start",
-        "/api/pulse/scheduler/stop",
-        "/api/pulse/scheduler/pause",
-        "/api/pulse/scheduler/resume",
-        "/api/pulse/scheduler/config",
-        "/api/pulse/scheduler/history",
+        "/api/v1/pulse/trending",
+        "/api/v1/pulse/suggest",
+        "/api/v1/pulse/analytics",
+        "/api/v1/pulse/debate-topic",
+        "/api/v1/pulse/scheduler/status",
+        "/api/v1/pulse/scheduler/start",
+        "/api/v1/pulse/scheduler/stop",
+        "/api/v1/pulse/scheduler/pause",
+        "/api/v1/pulse/scheduler/resume",
+        "/api/v1/pulse/scheduler/config",
+        "/api/v1/pulse/scheduler/history",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -192,11 +192,11 @@ class PulseHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route pulse requests to appropriate methods."""
         logger.debug(f"Pulse request: {path} params={query_params}")
-        if path == "/api/pulse/trending":
+        if path == "/api/v1/pulse/trending":
             limit = get_int_param(query_params, "limit", 10)
             return self._get_trending_topics(min(limit, 50))
 
-        if path == "/api/pulse/suggest":
+        if path == "/api/v1/pulse/suggest":
             category = get_string_param(query_params, "category")
             if category:
                 is_valid, err = validate_path_segment(category, "category", SAFE_ID_PATTERN)
@@ -204,13 +204,13 @@ class PulseHandler(BaseHandler):
                     return error_response(err, 400)
             return self._suggest_debate_topic(category)
 
-        if path == "/api/pulse/analytics":
+        if path == "/api/v1/pulse/analytics":
             return self._get_analytics()
 
-        if path == "/api/pulse/scheduler/status":
+        if path == "/api/v1/pulse/scheduler/status":
             return self._get_scheduler_status()
 
-        if path == "/api/pulse/scheduler/history":
+        if path == "/api/v1/pulse/scheduler/history":
             limit = get_int_param(query_params, "limit", 50)
             offset = get_int_param(query_params, "offset", 0)
             platform = get_string_param(query_params, "platform")
@@ -387,21 +387,21 @@ class PulseHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests for pulse endpoints."""
-        if path == "/api/pulse/debate-topic":
+        if path == "/api/v1/pulse/debate-topic":
             return self._start_debate_on_topic(handler)
-        if path == "/api/pulse/scheduler/start":
+        if path == "/api/v1/pulse/scheduler/start":
             return self._start_scheduler(handler)
-        if path == "/api/pulse/scheduler/stop":
+        if path == "/api/v1/pulse/scheduler/stop":
             return self._stop_scheduler(handler)
-        if path == "/api/pulse/scheduler/pause":
+        if path == "/api/v1/pulse/scheduler/pause":
             return self._pause_scheduler(handler)
-        if path == "/api/pulse/scheduler/resume":
+        if path == "/api/v1/pulse/scheduler/resume":
             return self._resume_scheduler(handler)
         return None
 
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle PATCH requests for pulse endpoints."""
-        if path == "/api/pulse/scheduler/config":
+        if path == "/api/v1/pulse/scheduler/config":
             return self._update_scheduler_config(handler)
         return None
 

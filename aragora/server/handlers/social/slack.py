@@ -99,10 +99,10 @@ class SlackHandler(BaseHandler):
     """Handler for Slack integration endpoints."""
 
     ROUTES = [
-        "/api/integrations/slack/commands",
-        "/api/integrations/slack/interactive",
-        "/api/integrations/slack/events",
-        "/api/integrations/slack/status",
+        "/api/v1/integrations/slack/commands",
+        "/api/v1/integrations/slack/interactive",
+        "/api/v1/integrations/slack/events",
+        "/api/v1/integrations/slack/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -115,7 +115,7 @@ class SlackHandler(BaseHandler):
         """Route Slack requests to appropriate methods."""
         logger.debug(f"Slack request: {path}")
 
-        if path == "/api/integrations/slack/status":
+        if path == "/api/v1/integrations/slack/status":
             return self._get_status()
 
         # All other endpoints require POST
@@ -127,11 +127,11 @@ class SlackHandler(BaseHandler):
             logger.warning("Slack signature verification failed")
             return error_response("Invalid signature", 401)
 
-        if path == "/api/integrations/slack/commands":
+        if path == "/api/v1/integrations/slack/commands":
             return self._handle_slash_command(handler)
-        elif path == "/api/integrations/slack/interactive":
+        elif path == "/api/v1/integrations/slack/interactive":
             return self._handle_interactive(handler)
-        elif path == "/api/integrations/slack/events":
+        elif path == "/api/v1/integrations/slack/events":
             return self._handle_events(handler)
 
         return error_response("Not found", 404)

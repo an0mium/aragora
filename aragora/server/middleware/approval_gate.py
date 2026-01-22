@@ -387,7 +387,7 @@ def require_approval(
                     f"Auto-approved {operation} for {auth_context.user_id} "  # type: ignore[attr-defined]
                     f"(roles: {auth_context.roles})"  # type: ignore[attr-defined]
                 )
-                return await func(*args, **kwargs)  # type: ignore[assignment]
+                return await func(*args, **kwargs)  # type: ignore[assignment,misc]
 
             # Check for existing approval token in kwargs
             approval_id = kwargs.pop("_approval_id", None)
@@ -400,7 +400,7 @@ def require_approval(
                     logger.info(
                         f"Executing approved operation {operation} (approval: {approval_id})"
                     )
-                    return await func(*args, **kwargs)  # type: ignore[assignment]
+                    return await func(*args, **kwargs)  # type: ignore[assignment,misc]
                 elif request and request.state == ApprovalState.REJECTED:
                     raise ApprovalDeniedError(request, request.rejection_reason or "")
                 elif request and request.state == ApprovalState.EXPIRED:
@@ -418,7 +418,7 @@ def require_approval(
             approval_request = await create_approval_request(  # type: ignore[arg-type]
                 operation=operation,
                 risk_level=risk_level,
-                auth_context=auth_context,
+                auth_context=auth_context,  # type: ignore[arg-type]
                 resource_type=resource_type,
                 resource_id=str(resource_id) if resource_id else "",
                 description=description or f"Approval required for {operation}",
@@ -452,7 +452,7 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
         from aragora.storage.governance_store import get_governance_store
 
         store = get_governance_store()
-        await store.save_approval(  # type: ignore[assignment]
+        await store.save_approval(  # type: ignore[assignment,misc]
             approval_id=request.id,
             title=f"{request.operation}: {request.description}",
             description=request.description,
@@ -526,7 +526,7 @@ async def _recover_approval_request(request_id: str) -> Optional[OperationApprov
             checklist=checklist,
             context=metadata.get("context", {}),
             state=ApprovalState(record.status),
-            created_at=record.created_at,
+            created_at=record.created_at,  # type: ignore[attr-defined]
             expires_at=record.created_at + timedelta(seconds=record.timeout_seconds)  # type: ignore[attr-defined]
             if record.timeout_seconds  # type: ignore[attr-defined]
             else None,

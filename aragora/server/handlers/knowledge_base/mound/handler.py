@@ -191,76 +191,76 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     """
 
     ROUTES = [
-        "/api/knowledge/mound/query",
-        "/api/knowledge/mound/nodes",
-        "/api/knowledge/mound/relationships",
-        "/api/knowledge/mound/stats",
-        "/api/knowledge/mound/culture",
-        "/api/knowledge/mound/culture/*",
-        "/api/knowledge/mound/stale",
-        "/api/knowledge/mound/revalidate/*",
-        "/api/knowledge/mound/schedule-revalidation",
-        "/api/knowledge/mound/sync/*",
-        "/api/knowledge/mound/graph/*/lineage",
-        "/api/knowledge/mound/graph/*/related",
-        "/api/knowledge/mound/export/d3",
-        "/api/knowledge/mound/export/graphml",
+        "/api/v1/knowledge/mound/query",
+        "/api/v1/knowledge/mound/nodes",
+        "/api/v1/knowledge/mound/relationships",
+        "/api/v1/knowledge/mound/stats",
+        "/api/v1/knowledge/mound/culture",
+        "/api/v1/knowledge/mound/culture/*",
+        "/api/v1/knowledge/mound/stale",
+        "/api/v1/knowledge/mound/revalidate/*",
+        "/api/v1/knowledge/mound/schedule-revalidation",
+        "/api/v1/knowledge/mound/sync/*",
+        "/api/v1/knowledge/mound/graph/*/lineage",
+        "/api/v1/knowledge/mound/graph/*/related",
+        "/api/v1/knowledge/mound/export/d3",
+        "/api/v1/knowledge/mound/export/graphml",
         # Deduplication
-        "/api/knowledge/mound/dedup/clusters",
-        "/api/knowledge/mound/dedup/report",
-        "/api/knowledge/mound/dedup/merge",
-        "/api/knowledge/mound/dedup/auto-merge",
+        "/api/v1/knowledge/mound/dedup/clusters",
+        "/api/v1/knowledge/mound/dedup/report",
+        "/api/v1/knowledge/mound/dedup/merge",
+        "/api/v1/knowledge/mound/dedup/auto-merge",
         # Pruning
-        "/api/knowledge/mound/pruning/items",
-        "/api/knowledge/mound/pruning/execute",
-        "/api/knowledge/mound/pruning/auto",
-        "/api/knowledge/mound/pruning/history",
-        "/api/knowledge/mound/pruning/restore",
-        "/api/knowledge/mound/pruning/decay",
+        "/api/v1/knowledge/mound/pruning/items",
+        "/api/v1/knowledge/mound/pruning/execute",
+        "/api/v1/knowledge/mound/pruning/auto",
+        "/api/v1/knowledge/mound/pruning/history",
+        "/api/v1/knowledge/mound/pruning/restore",
+        "/api/v1/knowledge/mound/pruning/decay",
         # Dashboard and metrics
-        "/api/knowledge/mound/dashboard/health",
-        "/api/knowledge/mound/dashboard/metrics",
-        "/api/knowledge/mound/dashboard/metrics/reset",
-        "/api/knowledge/mound/dashboard/adapters",
-        "/api/knowledge/mound/dashboard/queries",
-        "/api/knowledge/mound/dashboard/batcher",
+        "/api/v1/knowledge/mound/dashboard/health",
+        "/api/v1/knowledge/mound/dashboard/metrics",
+        "/api/v1/knowledge/mound/dashboard/metrics/reset",
+        "/api/v1/knowledge/mound/dashboard/adapters",
+        "/api/v1/knowledge/mound/dashboard/queries",
+        "/api/v1/knowledge/mound/dashboard/batcher",
         # Auto-curation (Phase 4)
-        "/api/knowledge/mound/curation/policy",
-        "/api/knowledge/mound/curation/status",
-        "/api/knowledge/mound/curation/run",
-        "/api/knowledge/mound/curation/history",
-        "/api/knowledge/mound/curation/scores",
-        "/api/knowledge/mound/curation/tiers",
+        "/api/v1/knowledge/mound/curation/policy",
+        "/api/v1/knowledge/mound/curation/status",
+        "/api/v1/knowledge/mound/curation/run",
+        "/api/v1/knowledge/mound/curation/history",
+        "/api/v1/knowledge/mound/curation/scores",
+        "/api/v1/knowledge/mound/curation/tiers",
         # Phase A2 - Contradiction detection
-        "/api/knowledge/mound/contradictions/detect",
-        "/api/knowledge/mound/contradictions",
-        "/api/knowledge/mound/contradictions/*/resolve",
-        "/api/knowledge/mound/contradictions/stats",
+        "/api/v1/knowledge/mound/contradictions/detect",
+        "/api/v1/knowledge/mound/contradictions",
+        "/api/v1/knowledge/mound/contradictions/*/resolve",
+        "/api/v1/knowledge/mound/contradictions/stats",
         # Phase A2 - Governance (RBAC + Audit)
-        "/api/knowledge/mound/governance/roles",
-        "/api/knowledge/mound/governance/roles/assign",
-        "/api/knowledge/mound/governance/roles/revoke",
-        "/api/knowledge/mound/governance/permissions/*",
-        "/api/knowledge/mound/governance/permissions/check",
-        "/api/knowledge/mound/governance/audit",
-        "/api/knowledge/mound/governance/audit/user/*",
-        "/api/knowledge/mound/governance/stats",
+        "/api/v1/knowledge/mound/governance/roles",
+        "/api/v1/knowledge/mound/governance/roles/assign",
+        "/api/v1/knowledge/mound/governance/roles/revoke",
+        "/api/v1/knowledge/mound/governance/permissions/*",
+        "/api/v1/knowledge/mound/governance/permissions/check",
+        "/api/v1/knowledge/mound/governance/audit",
+        "/api/v1/knowledge/mound/governance/audit/user/*",
+        "/api/v1/knowledge/mound/governance/stats",
         # Phase A2 - Analytics
-        "/api/knowledge/mound/analytics/coverage",
-        "/api/knowledge/mound/analytics/usage",
-        "/api/knowledge/mound/analytics/usage/record",
-        "/api/knowledge/mound/analytics/quality/snapshot",
-        "/api/knowledge/mound/analytics/quality/trend",
-        "/api/knowledge/mound/analytics/stats",
+        "/api/v1/knowledge/mound/analytics/coverage",
+        "/api/v1/knowledge/mound/analytics/usage",
+        "/api/v1/knowledge/mound/analytics/usage/record",
+        "/api/v1/knowledge/mound/analytics/quality/snapshot",
+        "/api/v1/knowledge/mound/analytics/quality/trend",
+        "/api/v1/knowledge/mound/analytics/stats",
         # Phase A2 - Extraction
-        "/api/knowledge/mound/extraction/debate",
-        "/api/knowledge/mound/extraction/promote",
-        "/api/knowledge/mound/extraction/stats",
+        "/api/v1/knowledge/mound/extraction/debate",
+        "/api/v1/knowledge/mound/extraction/promote",
+        "/api/v1/knowledge/mound/extraction/stats",
         # Phase A2 - Confidence decay
-        "/api/knowledge/mound/confidence/decay",
-        "/api/knowledge/mound/confidence/event",
-        "/api/knowledge/mound/confidence/history",
-        "/api/knowledge/mound/confidence/stats",
+        "/api/v1/knowledge/mound/confidence/decay",
+        "/api/v1/knowledge/mound/confidence/event",
+        "/api/v1/knowledge/mound/confidence/history",
+        "/api/v1/knowledge/mound/confidence/stats",
     ]
 
     def __init__(self, server_context: dict):
@@ -285,7 +285,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/knowledge/mound/")
+        return path.startswith("/api/v1/knowledge/mound/")
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route knowledge mound requests to appropriate methods."""
@@ -296,82 +296,82 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Semantic query
-        if path == "/api/knowledge/mound/query":
+        if path == "/api/v1/knowledge/mound/query":
             return self._handle_mound_query(handler)
 
         # Nodes listing/creation
-        if path == "/api/knowledge/mound/nodes":
+        if path == "/api/v1/knowledge/mound/nodes":
             method = getattr(handler, "command", "GET")
             if method == "POST":
                 return self._handle_create_node(handler)
             return self._handle_list_nodes(query_params)
 
         # Relationships
-        if path == "/api/knowledge/mound/relationships":
+        if path == "/api/v1/knowledge/mound/relationships":
             return self._handle_create_relationship(handler)
 
         # Statistics
-        if path == "/api/knowledge/mound/stats":
+        if path == "/api/v1/knowledge/mound/stats":
             return self._handle_mound_stats(query_params)
 
         # Dynamic routes
-        if path.startswith("/api/knowledge/mound/nodes/"):
+        if path.startswith("/api/v1/knowledge/mound/nodes/"):
             return self._handle_node_routes(path, query_params, handler)
 
-        if path.startswith("/api/knowledge/mound/graph/"):
+        if path.startswith("/api/v1/knowledge/mound/graph/"):
             if "/lineage" in path:
                 return self._handle_graph_lineage(path, query_params)
             if "/related" in path:
                 return self._handle_graph_related(path, query_params)
             return self._handle_graph_traversal(path, query_params)
 
-        if path == "/api/knowledge/mound/index/repository":
+        if path == "/api/v1/knowledge/mound/index/repository":
             return self._handle_index_repository(handler)
 
         # Culture endpoints
-        if path == "/api/knowledge/mound/culture":
+        if path == "/api/v1/knowledge/mound/culture":
             return self._handle_get_culture(query_params)
 
-        if path == "/api/knowledge/mound/culture/documents":
+        if path == "/api/v1/knowledge/mound/culture/documents":
             return self._handle_add_culture_document(handler)
 
-        if path == "/api/knowledge/mound/culture/promote":
+        if path == "/api/v1/knowledge/mound/culture/promote":
             return self._handle_promote_to_culture(handler)
 
         # Staleness endpoints
-        if path == "/api/knowledge/mound/stale":
+        if path == "/api/v1/knowledge/mound/stale":
             return self._handle_get_stale(query_params)
 
-        if path.startswith("/api/knowledge/mound/revalidate/"):
+        if path.startswith("/api/v1/knowledge/mound/revalidate/"):
             node_id = path.split("/")[-1]
             return self._handle_revalidate_node(node_id, handler)
 
-        if path == "/api/knowledge/mound/schedule-revalidation":
+        if path == "/api/v1/knowledge/mound/schedule-revalidation":
             return self._handle_schedule_revalidation(handler)
 
         # Auto-curation endpoints (Phase 4)
-        if path.startswith("/api/knowledge/mound/curation/"):
+        if path.startswith("/api/v1/knowledge/mound/curation/"):
             return self._handle_curation_routes(path, query_params, handler)
 
         # Sync endpoints
-        if path == "/api/knowledge/mound/sync/continuum":
+        if path == "/api/v1/knowledge/mound/sync/continuum":
             return self._handle_sync_continuum(handler)
 
-        if path == "/api/knowledge/mound/sync/consensus":
+        if path == "/api/v1/knowledge/mound/sync/consensus":
             return self._handle_sync_consensus(handler)
 
-        if path == "/api/knowledge/mound/sync/facts":
+        if path == "/api/v1/knowledge/mound/sync/facts":
             return self._handle_sync_facts(handler)
 
         # Graph export endpoints
-        if path == "/api/knowledge/mound/export/d3":
+        if path == "/api/v1/knowledge/mound/export/d3":
             return self._handle_export_d3(query_params)
 
-        if path == "/api/knowledge/mound/export/graphml":
+        if path == "/api/v1/knowledge/mound/export/graphml":
             return self._handle_export_graphml(query_params)
 
         # Sharing endpoints
-        if path == "/api/knowledge/mound/share":
+        if path == "/api/v1/knowledge/mound/share":
             method = getattr(handler, "command", "POST")
             if method == "POST":
                 return self._handle_share_item(handler)
@@ -380,188 +380,188 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
             elif method == "PATCH":
                 return self._handle_update_share(handler)
 
-        if path == "/api/knowledge/mound/shared-with-me":
+        if path == "/api/v1/knowledge/mound/shared-with-me":
             return self._handle_shared_with_me(query_params, handler)
 
-        if path == "/api/knowledge/mound/my-shares":
+        if path == "/api/v1/knowledge/mound/my-shares":
             return self._handle_my_shares(query_params, handler)
 
         # Global knowledge endpoints
-        if path == "/api/knowledge/mound/global":
+        if path == "/api/v1/knowledge/mound/global":
             method = getattr(handler, "command", "GET")
             if method == "POST":
                 return self._handle_store_verified_fact(handler)
             return self._handle_query_global(query_params)
 
-        if path == "/api/knowledge/mound/global/promote":
+        if path == "/api/v1/knowledge/mound/global/promote":
             return self._handle_promote_to_global(handler)
 
-        if path == "/api/knowledge/mound/global/facts":
+        if path == "/api/v1/knowledge/mound/global/facts":
             return self._handle_get_system_facts(query_params)
 
-        if path == "/api/knowledge/mound/global/workspace-id":
+        if path == "/api/v1/knowledge/mound/global/workspace-id":
             return self._handle_get_system_workspace_id()
 
         # Federation endpoints
-        if path == "/api/knowledge/mound/federation/regions":
+        if path == "/api/v1/knowledge/mound/federation/regions":
             method = getattr(handler, "command", "GET")
             if method == "POST":
                 return self._handle_register_region(handler)
             return self._handle_list_regions(query_params)
 
-        if path.startswith("/api/knowledge/mound/federation/regions/"):
+        if path.startswith("/api/v1/knowledge/mound/federation/regions/"):
             region_id = path.split("/")[-1]
             method = getattr(handler, "command", "DELETE")
             if method == "DELETE":
                 return self._handle_unregister_region(region_id, handler)
 
-        if path == "/api/knowledge/mound/federation/sync/push":
+        if path == "/api/v1/knowledge/mound/federation/sync/push":
             return self._handle_sync_to_region(handler)
 
-        if path == "/api/knowledge/mound/federation/sync/pull":
+        if path == "/api/v1/knowledge/mound/federation/sync/pull":
             return self._handle_pull_from_region(handler)
 
-        if path == "/api/knowledge/mound/federation/sync/all":
+        if path == "/api/v1/knowledge/mound/federation/sync/all":
             return self._handle_sync_all_regions(handler)
 
-        if path == "/api/knowledge/mound/federation/status":
+        if path == "/api/v1/knowledge/mound/federation/status":
             return self._handle_get_federation_status(query_params)
 
         # Deduplication endpoints
-        if path == "/api/knowledge/mound/dedup/clusters":
+        if path == "/api/v1/knowledge/mound/dedup/clusters":
             return self._handle_get_duplicate_clusters(query_params)
 
-        if path == "/api/knowledge/mound/dedup/report":
+        if path == "/api/v1/knowledge/mound/dedup/report":
             return self._handle_get_dedup_report(query_params)
 
-        if path == "/api/knowledge/mound/dedup/merge":
+        if path == "/api/v1/knowledge/mound/dedup/merge":
             return self._handle_merge_duplicate_cluster(handler)
 
-        if path == "/api/knowledge/mound/dedup/auto-merge":
+        if path == "/api/v1/knowledge/mound/dedup/auto-merge":
             return self._handle_auto_merge_exact_duplicates(handler)
 
         # Pruning endpoints
-        if path == "/api/knowledge/mound/pruning/items":
+        if path == "/api/v1/knowledge/mound/pruning/items":
             return self._handle_get_prunable_items(query_params)
 
-        if path == "/api/knowledge/mound/pruning/execute":
+        if path == "/api/v1/knowledge/mound/pruning/execute":
             return self._handle_execute_prune(handler)
 
-        if path == "/api/knowledge/mound/pruning/auto":
+        if path == "/api/v1/knowledge/mound/pruning/auto":
             return self._handle_auto_prune(handler)
 
-        if path == "/api/knowledge/mound/pruning/history":
+        if path == "/api/v1/knowledge/mound/pruning/history":
             return self._handle_get_prune_history(query_params)
 
-        if path == "/api/knowledge/mound/pruning/restore":
+        if path == "/api/v1/knowledge/mound/pruning/restore":
             return self._handle_restore_pruned_item(handler)
 
-        if path == "/api/knowledge/mound/pruning/decay":
+        if path == "/api/v1/knowledge/mound/pruning/decay":
             return self._handle_apply_confidence_decay(handler)
 
         # Dashboard and metrics endpoints
-        if path == "/api/knowledge/mound/dashboard/health":
+        if path == "/api/v1/knowledge/mound/dashboard/health":
             return _run_async(self.handle_dashboard_health(handler.request))
 
-        if path == "/api/knowledge/mound/dashboard/metrics":
+        if path == "/api/v1/knowledge/mound/dashboard/metrics":
             return _run_async(self.handle_dashboard_metrics(handler.request))
 
-        if path == "/api/knowledge/mound/dashboard/metrics/reset":
+        if path == "/api/v1/knowledge/mound/dashboard/metrics/reset":
             return _run_async(self.handle_dashboard_metrics_reset(handler.request))
 
-        if path == "/api/knowledge/mound/dashboard/adapters":
+        if path == "/api/v1/knowledge/mound/dashboard/adapters":
             return _run_async(self.handle_dashboard_adapters(handler.request))
 
-        if path == "/api/knowledge/mound/dashboard/queries":
+        if path == "/api/v1/knowledge/mound/dashboard/queries":
             return _run_async(self.handle_dashboard_queries(handler.request))
 
-        if path == "/api/knowledge/mound/dashboard/batcher":
+        if path == "/api/v1/knowledge/mound/dashboard/batcher":
             return _run_async(self.handle_dashboard_batcher_stats(handler.request))
 
         # Phase A2 - Contradiction detection endpoints
-        if path == "/api/knowledge/mound/contradictions/detect":
+        if path == "/api/v1/knowledge/mound/contradictions/detect":
             return self._handle_detect_contradictions(handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/contradictions":
+        if path == "/api/v1/knowledge/mound/contradictions":
             return self._handle_list_contradictions(query_params)  # type: ignore[attr-defined]
 
-        if path.startswith("/api/knowledge/mound/contradictions/") and path.endswith("/resolve"):
+        if path.startswith("/api/v1/knowledge/mound/contradictions/") and path.endswith("/resolve"):
             contradiction_id = path.split("/")[-2]
             return self._handle_resolve_contradiction(contradiction_id, handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/contradictions/stats":
+        if path == "/api/v1/knowledge/mound/contradictions/stats":
             return _run_async(self.get_contradiction_stats())
 
         # Phase A2 - Governance endpoints
-        if path == "/api/knowledge/mound/governance/roles":
+        if path == "/api/v1/knowledge/mound/governance/roles":
             method = getattr(handler, "command", "GET")
             if method == "POST":
                 return self._handle_create_role(handler)  # type: ignore[attr-defined]
             # GET would list roles - not implemented yet
 
-        if path == "/api/knowledge/mound/governance/roles/assign":
+        if path == "/api/v1/knowledge/mound/governance/roles/assign":
             return self._handle_assign_role(handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/governance/roles/revoke":
+        if path == "/api/v1/knowledge/mound/governance/roles/revoke":
             return self._handle_revoke_role(handler)  # type: ignore[attr-defined]
 
-        if path.startswith("/api/knowledge/mound/governance/permissions/"):
-            if path == "/api/knowledge/mound/governance/permissions/check":
+        if path.startswith("/api/v1/knowledge/mound/governance/permissions/"):
+            if path == "/api/v1/knowledge/mound/governance/permissions/check":
                 return self._handle_check_permission(handler)  # type: ignore[attr-defined]
             else:
                 user_id = path.split("/")[-1]
                 return self._handle_get_user_permissions(user_id, query_params)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/governance/audit":
+        if path == "/api/v1/knowledge/mound/governance/audit":
             return self._handle_query_audit(query_params)  # type: ignore[attr-defined]
 
-        if path.startswith("/api/knowledge/mound/governance/audit/user/"):
+        if path.startswith("/api/v1/knowledge/mound/governance/audit/user/"):
             user_id = path.split("/")[-1]
             return self._handle_get_user_activity(user_id, query_params)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/governance/stats":
+        if path == "/api/v1/knowledge/mound/governance/stats":
             return _run_async(self.get_governance_stats())
 
         # Phase A2 - Analytics endpoints
-        if path == "/api/knowledge/mound/analytics/coverage":
+        if path == "/api/v1/knowledge/mound/analytics/coverage":
             return self._handle_analyze_coverage(query_params)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/analytics/usage":
+        if path == "/api/v1/knowledge/mound/analytics/usage":
             return self._handle_analyze_usage(query_params)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/analytics/usage/record":
+        if path == "/api/v1/knowledge/mound/analytics/usage/record":
             return self._handle_record_usage_event(handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/analytics/quality/snapshot":
+        if path == "/api/v1/knowledge/mound/analytics/quality/snapshot":
             return self._handle_capture_quality_snapshot(handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/analytics/quality/trend":
+        if path == "/api/v1/knowledge/mound/analytics/quality/trend":
             return self._handle_get_quality_trend(query_params)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/analytics/stats":
+        if path == "/api/v1/knowledge/mound/analytics/stats":
             return _run_async(self.get_analytics_stats())
 
         # Phase A2 - Extraction endpoints
-        if path == "/api/knowledge/mound/extraction/debate":
+        if path == "/api/v1/knowledge/mound/extraction/debate":
             return self._handle_extract_from_debate(handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/extraction/promote":
+        if path == "/api/v1/knowledge/mound/extraction/promote":
             return self._handle_promote_extracted(handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/extraction/stats":
+        if path == "/api/v1/knowledge/mound/extraction/stats":
             return _run_async(self.get_extraction_stats())
 
         # Phase A2 - Confidence decay endpoints
-        if path == "/api/knowledge/mound/confidence/decay":
+        if path == "/api/v1/knowledge/mound/confidence/decay":
             return self._handle_apply_confidence_decay_new(handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/confidence/event":
+        if path == "/api/v1/knowledge/mound/confidence/event":
             return self._handle_record_confidence_event(handler)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/confidence/history":
+        if path == "/api/v1/knowledge/mound/confidence/history":
             return self._handle_get_confidence_history(query_params)  # type: ignore[attr-defined]
 
-        if path == "/api/knowledge/mound/confidence/stats":
+        if path == "/api/v1/knowledge/mound/confidence/stats":
             return _run_async(self.get_decay_stats())
 
         return None

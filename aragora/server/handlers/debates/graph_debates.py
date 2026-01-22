@@ -42,17 +42,17 @@ class GraphDebatesHandler(BaseHandler):
     """Handler for graph debate endpoints."""
 
     ROUTES = [
-        "/api/debates/graph",
-        "/api/debates/graph/",
+        "/api/v1/debates/graph",
+        "/api/v1/debates/graph/",
     ]
 
     AUTH_REQUIRED_ENDPOINTS = [
-        "/api/debates/graph",
+        "/api/v1/debates/graph",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/debates/graph")
+        return path.startswith("/api/v1/debates/graph")
 
     @handle_errors("graph debates GET")
     async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:

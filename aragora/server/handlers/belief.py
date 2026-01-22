@@ -61,18 +61,18 @@ class BeliefHandler(BaseHandler):
     """Handler for belief network and reasoning endpoints."""
 
     ROUTES: list[str] = [
-        "/api/belief-network/*/cruxes",
-        "/api/belief-network/*/load-bearing-claims",
-        "/api/belief-network/*/graph",
-        "/api/belief-network/*/export",
-        "/api/provenance/*/claims/*/support",
-        "/api/debate/*/graph-stats",
+        "/api/v1/belief-network/*/cruxes",
+        "/api/v1/belief-network/*/load-bearing-claims",
+        "/api/v1/belief-network/*/graph",
+        "/api/v1/belief-network/*/export",
+        "/api/v1/provenance/*/claims/*/support",
+        "/api/v1/debate/*/graph-stats",
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
     ]
 
     def __init__(self, server_context: dict):
         """Initialize with server context."""
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         self._km_adapter: Optional["BeliefAdapter"] = None
 
     def _emit_km_event(self, event_emitter: Any, event_type: str, data: dict) -> None:
@@ -110,7 +110,7 @@ class BeliefHandler(BaseHandler):
 
         # Check if adapter exists in context
         if "belief_km_adapter" in self.ctx:
-            self._km_adapter = self.ctx["belief_km_adapter"]
+            self._km_adapter = self.ctx["belief_km_adapter"]  # type: ignore[typeddict-item]
             return self._km_adapter
 
         # Try to create adapter if KM is available
@@ -129,7 +129,7 @@ class BeliefHandler(BaseHandler):
                 )
 
             # Store in context for sharing
-            self.ctx["belief_km_adapter"] = self._km_adapter
+            self.ctx["belief_km_adapter"] = self._km_adapter  # type: ignore[typeddict-item]
             logger.info("Belief KM adapter initialized")
             return self._km_adapter
 
@@ -178,17 +178,17 @@ class BeliefHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle dynamic routes
-        if path.startswith("/api/belief-network/") and path.endswith("/cruxes"):
+        if path.startswith("/api/v1/belief-network/") and path.endswith("/cruxes"):
             return True
-        if path.startswith("/api/belief-network/") and path.endswith("/load-bearing-claims"):
+        if path.startswith("/api/v1/belief-network/") and path.endswith("/load-bearing-claims"):
             return True
-        if path.startswith("/api/belief-network/") and path.endswith("/graph"):
+        if path.startswith("/api/v1/belief-network/") and path.endswith("/graph"):
             return True
-        if path.startswith("/api/belief-network/") and path.endswith("/export"):
+        if path.startswith("/api/v1/belief-network/") and path.endswith("/export"):
             return True
         if "/claims/" in path and path.endswith("/support"):
             return True
-        if path.startswith("/api/debate/") and path.endswith("/graph-stats"):
+        if path.startswith("/api/v1/debate/") and path.endswith("/graph-stats"):
             return True
         return False
 
@@ -204,28 +204,28 @@ class BeliefHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
         # Note: /api/laboratory/emergent-traits handled by LaboratoryHandler
 
-        if path.startswith("/api/belief-network/") and path.endswith("/cruxes"):
+        if path.startswith("/api/v1/belief-network/") and path.endswith("/cruxes"):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             top_k = get_clamped_int_param(query_params, "top_k", 3, min_val=1, max_val=10)
             return self._get_debate_cruxes(nomic_dir, debate_id, top_k)
 
-        if path.startswith("/api/belief-network/") and path.endswith("/load-bearing-claims"):
+        if path.startswith("/api/v1/belief-network/") and path.endswith("/load-bearing-claims"):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
             return self._get_load_bearing_claims(nomic_dir, debate_id, limit)
 
-        if path.startswith("/api/belief-network/") and path.endswith("/graph"):
+        if path.startswith("/api/v1/belief-network/") and path.endswith("/graph"):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             include_cruxes = query_params.get("include_cruxes", ["true"])[0].lower() == "true"
             return self._get_belief_network_graph(nomic_dir, debate_id, include_cruxes)
 
-        if path.startswith("/api/belief-network/") and path.endswith("/export"):
+        if path.startswith("/api/v1/belief-network/") and path.endswith("/export"):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
@@ -245,7 +245,7 @@ class BeliefHandler(BaseHandler):
                 return self._get_claim_support(nomic_dir, debate_id, claim_id)
             return error_response("Invalid path format", 400)
 
-        if path.startswith("/api/debate/") and path.endswith("/graph-stats"):
+        if path.startswith("/api/v1/debate/") and path.endswith("/graph-stats"):
             debate_id = self._extract_debate_id(path, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)

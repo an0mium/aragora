@@ -39,11 +39,11 @@ class SchedulerHandler(BaseHandler):
     """Handler for audit scheduler endpoints."""
 
     BASE_ROUTES = [
-        "/api/scheduler/jobs",
-        "/api/scheduler/webhooks",
-        "/api/scheduler/events/git-push",
-        "/api/scheduler/events/file-upload",
-        "/api/scheduler/status",
+        "/api/v1/scheduler/jobs",
+        "/api/v1/scheduler/webhooks",
+        "/api/v1/scheduler/events/git-push",
+        "/api/v1/scheduler/events/file-upload",
+        "/api/v1/scheduler/status",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -51,21 +51,21 @@ class SchedulerHandler(BaseHandler):
         if path in self.BASE_ROUTES:
             return True
         # Handle dynamic routes
-        if path.startswith("/api/scheduler/jobs/"):
+        if path.startswith("/api/v1/scheduler/jobs/"):
             return True
-        if path.startswith("/api/scheduler/webhooks/"):
+        if path.startswith("/api/v1/scheduler/webhooks/"):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
-        if path == "/api/scheduler/jobs":
+        if path == "/api/v1/scheduler/jobs":
             return self._list_jobs(query_params)
 
-        if path == "/api/scheduler/status":
+        if path == "/api/v1/scheduler/status":
             return self._get_scheduler_status()
 
-        if path.startswith("/api/scheduler/jobs/"):
+        if path.startswith("/api/v1/scheduler/jobs/"):
             parts = path.split("/")
             if len(parts) == 5:
                 # /api/scheduler/jobs/{job_id}
@@ -81,23 +81,23 @@ class SchedulerHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/scheduler/jobs":
+        if path == "/api/v1/scheduler/jobs":
             return self._create_job(handler)
 
-        if path == "/api/scheduler/events/git-push":
+        if path == "/api/v1/scheduler/events/git-push":
             return self._handle_git_push(handler)
 
-        if path == "/api/scheduler/events/file-upload":
+        if path == "/api/v1/scheduler/events/file-upload":
             return self._handle_file_upload(handler)
 
-        if path.startswith("/api/scheduler/webhooks/"):
+        if path.startswith("/api/v1/scheduler/webhooks/"):
             # /api/scheduler/webhooks/{webhook_id}
             parts = path.split("/")
             if len(parts) == 5:
                 webhook_id = parts[4]
                 return self._handle_webhook(handler, webhook_id)
 
-        if path.startswith("/api/scheduler/jobs/"):
+        if path.startswith("/api/v1/scheduler/jobs/"):
             parts = path.split("/")
             if len(parts) == 6:
                 job_id = parts[4]
@@ -113,7 +113,7 @@ class SchedulerHandler(BaseHandler):
 
     def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route DELETE requests to appropriate methods."""
-        if path.startswith("/api/scheduler/jobs/"):
+        if path.startswith("/api/v1/scheduler/jobs/"):
             parts = path.split("/")
             if len(parts) == 5:
                 job_id = parts[4]

@@ -72,19 +72,19 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     # Static routes for exact matching
     ROUTES = [
-        "/api/evidence",
-        "/api/evidence/statistics",
-        "/api/evidence/search",
-        "/api/evidence/collect",
+        "/api/v1/evidence",
+        "/api/v1/evidence/statistics",
+        "/api/v1/evidence/search",
+        "/api/v1/evidence/collect",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/evidence")
+        return path.startswith("/api/v1/evidence")
 
     def __init__(self, server_context: dict):
         """Initialize with server context."""
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         self._evidence_store: Optional[EvidenceStore] = None
         self._evidence_collector: Optional[EvidenceCollector] = None
         self._km_adapter: Optional["EvidenceAdapter"] = None
@@ -121,7 +121,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         # Check if adapter exists in context
         if "evidence_km_adapter" in self.ctx:
-            self._km_adapter = self.ctx["evidence_km_adapter"]
+            self._km_adapter = self.ctx["evidence_km_adapter"]  # type: ignore[typeddict-item]
             return self._km_adapter
 
         # Try to create adapter if KM is available
@@ -148,7 +148,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             store.set_km_adapter(self._km_adapter)
 
             # Store in context for sharing
-            self.ctx["evidence_km_adapter"] = self._km_adapter
+            self.ctx["evidence_km_adapter"] = self._km_adapter  # type: ignore[typeddict-item]
             logger.info("Evidence KM adapter initialized")
             return self._km_adapter
 
@@ -212,25 +212,25 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # GET /api/evidence/statistics
-        if path == "/api/evidence/statistics":
+        if path == "/api/v1/evidence/statistics":
             return self._handle_statistics()
 
         # GET /api/evidence/debate/:debate_id
-        if path.startswith("/api/evidence/debate/"):
+        if path.startswith("/api/v1/evidence/debate/"):
             debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_debate_evidence(debate_id, query_params)
 
         # GET /api/evidence/:id
-        if path.startswith("/api/evidence/") and path.count("/") == 3:
+        if path.startswith("/api/v1/evidence/") and path.count("/") == 3:
             evidence_id, err = self.extract_path_param(path, 2, "evidence_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_evidence(evidence_id)
 
         # GET /api/evidence - list all
-        if path == "/api/evidence":
+        if path == "/api/v1/evidence":
             return self._handle_list_evidence(query_params)
 
         return None
@@ -246,21 +246,21 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # POST /api/evidence/search
-        if path == "/api/evidence/search":
+        if path == "/api/v1/evidence/search":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_search(body)
 
         # POST /api/evidence/collect
-        if path == "/api/evidence/collect":
+        if path == "/api/v1/evidence/collect":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_collect(body)
 
         # POST /api/evidence/debate/:debate_id
-        if path.startswith("/api/evidence/debate/"):
+        if path.startswith("/api/v1/evidence/debate/"):
             debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
@@ -282,7 +282,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # DELETE /api/evidence/:id
-        if path.startswith("/api/evidence/") and path.count("/") == 3:
+        if path.startswith("/api/v1/evidence/") and path.count("/") == 3:
             evidence_id, err = self.extract_path_param(path, 2, "evidence_id", SAFE_ID_PATTERN)
             if err:
                 return err

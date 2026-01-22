@@ -91,14 +91,14 @@ class DecisionExplainHandler(BaseHandler):
     """Handler for decision explainability endpoints."""
 
     ROUTES: list[str] = [
-        "/api/decisions/*/explain",
+        "/api/v1/decisions/*/explain",
         "/api/v1/decisions/*/explain",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         # Handle /api/decisions/:request_id/explain pattern
-        if path.startswith("/api/decisions/") and path.endswith("/explain"):
+        if path.startswith("/api/v1/decisions/") and path.endswith("/explain"):
             return True
         if path.startswith("/api/v1/decisions/") and path.endswith("/explain"):
             return True
@@ -327,11 +327,11 @@ class DecisionExplainHandler(BaseHandler):
             total_severity = 0.0
             for record in dissent_records:
                 reasons = getattr(record, "reasons", [])
-                dissent["reasons"].extend(reasons)
+                dissent["reasons"].extend(reasons)  # type: ignore[attr-defined]
 
                 alt_view = getattr(record, "alternative_view", None)
                 if alt_view:
-                    dissent["alternative_views"].append(
+                    dissent["alternative_views"].append(  # type: ignore[attr-defined]
                         {
                             "agent": getattr(record, "agent", "unknown"),
                             "view": alt_view,
@@ -566,7 +566,7 @@ class DecisionExplainHandler(BaseHandler):
             lines.append(f"- **Checksum:** {audit['checksum']}")
 
         content = "\n".join(lines)
-        return HandlerResult(
+        return HandlerResult(  # type: ignore[call-arg]
             status=200,
             body=content.encode("utf-8"),
             headers={"Content-Type": "text/markdown; charset=utf-8"},
@@ -681,7 +681,7 @@ class DecisionExplainHandler(BaseHandler):
 </html>
 """
 
-        return HandlerResult(
+        return HandlerResult(  # type: ignore[call-arg]
             status=200,
             body=html.encode("utf-8"),
             headers={"Content-Type": "text/html; charset=utf-8"},

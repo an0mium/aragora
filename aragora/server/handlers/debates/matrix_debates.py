@@ -82,17 +82,17 @@ class MatrixDebatesHandler(BaseHandler):
     """Handler for matrix debate endpoints (parallel scenario exploration)."""
 
     ROUTES = [
-        "/api/debates/matrix",
-        "/api/debates/matrix/",
+        "/api/v1/debates/matrix",
+        "/api/v1/debates/matrix/",
     ]
 
     AUTH_REQUIRED_ENDPOINTS = [
-        "/api/debates/matrix",
+        "/api/v1/debates/matrix",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/debates/matrix")
+        return path.startswith("/api/v1/debates/matrix")
 
     @handle_errors("matrix debates GET")
     async def handle_get(

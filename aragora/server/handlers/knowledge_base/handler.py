@@ -67,10 +67,10 @@ class KnowledgeHandler(
     """
 
     ROUTES = [
-        "/api/knowledge/query",
-        "/api/knowledge/facts",
-        "/api/knowledge/search",
-        "/api/knowledge/stats",
+        "/api/v1/knowledge/query",
+        "/api/v1/knowledge/facts",
+        "/api/v1/knowledge/search",
+        "/api/v1/knowledge/stats",
     ]
 
     def __init__(self, server_context: dict):
@@ -79,7 +79,7 @@ class KnowledgeHandler(
         Args:
             server_context: Server context with shared resources
         """
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         self._fact_store: Optional[FactStore | InMemoryFactStore] = None
         self._query_engine: Optional[DatasetQueryEngine | SimpleQueryEngine] = None
 
@@ -108,7 +108,7 @@ class KnowledgeHandler(
         """Check if this handler can process the given path."""
         if path in self.ROUTES:
             return True
-        if path.startswith("/api/knowledge/facts/"):
+        if path.startswith("/api/v1/knowledge/facts/"):
             return True
         return False
 
@@ -121,29 +121,29 @@ class KnowledgeHandler(
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Query endpoint (POST)
-        if path == "/api/knowledge/query":
+        if path == "/api/v1/knowledge/query":
             return self._handle_query(query_params, handler)
 
         # Facts listing (GET) or creation (POST)
-        if path == "/api/knowledge/facts":
+        if path == "/api/v1/knowledge/facts":
             method = getattr(handler, "command", "GET")
             if method == "POST":
                 return self._handle_create_fact(handler)
             return self._handle_list_facts(query_params)
 
         # Search chunks
-        if path == "/api/knowledge/search":
+        if path == "/api/v1/knowledge/search":
             return self._handle_search(query_params)
 
         # Statistics
-        if path == "/api/knowledge/stats":
+        if path == "/api/v1/knowledge/stats":
             workspace_id = get_bounded_string_param(
                 query_params, "workspace_id", None, max_length=100
             )
             return self._handle_stats(workspace_id)
 
         # Dynamic fact routes
-        if path.startswith("/api/knowledge/facts/"):
+        if path.startswith("/api/v1/knowledge/facts/"):
             return self._handle_fact_routes(path, query_params, handler)
 
         return None

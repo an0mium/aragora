@@ -47,21 +47,21 @@ class RLMContextHandler(BaseHandler):
     """
 
     ROUTES = {
-        "/api/rlm/stats": "handle_stats",
-        "/api/rlm/strategies": "handle_strategies",
-        "/api/rlm/compress": "handle_compress",
-        "/api/rlm/query": "handle_query",
-        "/api/rlm/contexts": "handle_list_contexts",
-        "/api/rlm/stream": "handle_stream",
-        "/api/rlm/stream/modes": "handle_stream_modes",
+        "/api/v1/rlm/stats": "handle_stats",
+        "/api/v1/rlm/strategies": "handle_strategies",
+        "/api/v1/rlm/compress": "handle_compress",
+        "/api/v1/rlm/query": "handle_query",
+        "/api/v1/rlm/contexts": "handle_list_contexts",
+        "/api/v1/rlm/stream": "handle_stream",
+        "/api/v1/rlm/stream/modes": "handle_stream_modes",
     }
 
     # Dynamic routes for context operations
-    CONTEXT_ROUTE_PREFIX = "/api/rlm/context/"
+    CONTEXT_ROUTE_PREFIX = "/api/v1/rlm/context/"
 
     def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
-        super().__init__(ctx)
+        super().__init__(ctx)  # type: ignore[arg-type]
         # In-memory context storage (could be backed by a store in production)
         self._contexts: dict[str, dict[str, Any]] = {}
         self._compressor: Optional[Any] = None
@@ -114,13 +114,13 @@ class RLMContextHandler(BaseHandler):
     ) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         # Check static routes first (GET-only routes)
-        if path == "/api/rlm/stats":
+        if path == "/api/v1/rlm/stats":
             return self.handle_stats(path, query_params, handler)
-        elif path == "/api/rlm/strategies":
+        elif path == "/api/v1/rlm/strategies":
             return self.handle_strategies(path, query_params, handler)
-        elif path == "/api/rlm/contexts":
+        elif path == "/api/v1/rlm/contexts":
             return self.handle_list_contexts(path, query_params, handler)
-        elif path == "/api/rlm/stream/modes":
+        elif path == "/api/v1/rlm/stream/modes":
             return self.handle_stream_modes(path, query_params, handler)
 
         # Handle context-specific routes (GET)
@@ -136,11 +136,11 @@ class RLMContextHandler(BaseHandler):
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/rlm/compress":
+        if path == "/api/v1/rlm/compress":
             return self.handle_compress(path, query_params, handler)
-        elif path == "/api/rlm/query":
+        elif path == "/api/v1/rlm/query":
             return self.handle_query(path, query_params, handler)
-        elif path == "/api/rlm/stream":
+        elif path == "/api/v1/rlm/stream":
             return self.handle_stream(path, query_params, handler)
 
         return None
@@ -419,7 +419,7 @@ class RLMContextHandler(BaseHandler):
 
         except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError) as e:
             logger.exception("Compression async operation failed: %s", e)
-            return error_response(safe_error_message(e, "compression"), 500)
+            return error_response(safe_error_message(e, "compression"), 500)  # type: ignore[arg-type]
         except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.warning("Compression data processing error: %s", e)
             return error_response(safe_error_message(e, "compression"), 500)
@@ -533,7 +533,7 @@ class RLMContextHandler(BaseHandler):
 
         except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError) as e:
             logger.exception("Query async operation failed: %s", e)
-            return error_response(safe_error_message(e, "query"), 500)
+            return error_response(safe_error_message(e, "query"), 500)  # type: ignore[arg-type]
         except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.warning("Query data processing error: %s", e)
             return error_response(safe_error_message(e, "query"), 500)

@@ -210,11 +210,11 @@ class SocialMediaHandler(BaseHandler):
     """Handler for social media publishing (Twitter, YouTube) endpoints."""
 
     ROUTES = [
-        "/api/youtube/auth",
-        "/api/youtube/callback",
-        "/api/youtube/status",
-        "/api/debates/*/publish/twitter",
-        "/api/debates/*/publish/youtube",
+        "/api/v1/youtube/auth",
+        "/api/v1/youtube/callback",
+        "/api/v1/youtube/status",
+        "/api/v1/debates/*/publish/twitter",
+        "/api/v1/debates/*/publish/youtube",
     ]
 
     # === Typed Accessor Methods ===
@@ -249,22 +249,22 @@ class SocialMediaHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
-        if path.startswith("/api/youtube/"):
+        if path.startswith("/api/v1/youtube/"):
             return True
-        if path.startswith("/api/debates/") and "/publish/" in path:
+        if path.startswith("/api/v1/debates/") and "/publish/" in path:
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
         # YouTube OAuth endpoints
-        if path == "/api/youtube/auth":
+        if path == "/api/v1/youtube/auth":
             return self._get_youtube_auth_url(handler)
-        if path == "/api/youtube/callback":
+        if path == "/api/v1/youtube/callback":
             code = query_params.get("code")
             state = query_params.get("state")
             return self._handle_youtube_callback(code, state, handler)
-        if path == "/api/youtube/status":
+        if path == "/api/v1/youtube/status":
             return self._get_youtube_status()
 
         return None
@@ -272,14 +272,14 @@ class SocialMediaHandler(BaseHandler):
     def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle POST requests."""
         # Twitter publishing
-        if path.startswith("/api/debates/") and path.endswith("/publish/twitter"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/publish/twitter"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._publish_to_twitter(debate_id, handler)
 
         # YouTube publishing
-        if path.startswith("/api/debates/") and path.endswith("/publish/youtube"):
+        if path.startswith("/api/v1/debates/") and path.endswith("/publish/youtube"):
             debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err

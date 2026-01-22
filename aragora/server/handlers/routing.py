@@ -56,11 +56,11 @@ class RoutingHandler(BaseHandler):
     """Handler for agent routing endpoints."""
 
     ROUTES = [
-        "/api/routing/best-teams",
-        "/api/routing/recommendations",
-        "/api/routing/auto-route",
-        "/api/routing/detect-domain",
-        "/api/routing/domain-leaderboard",
+        "/api/v1/routing/best-teams",
+        "/api/v1/routing/recommendations",
+        "/api/v1/routing/auto-route",
+        "/api/v1/routing/detect-domain",
+        "/api/v1/routing/domain-leaderboard",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -75,13 +75,13 @@ class RoutingHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for routing endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/routing/best-teams":
+        if path == "/api/v1/routing/best-teams":
             min_debates = get_clamped_int_param(
                 query_params, "min_debates", 3, min_val=1, max_val=20
             )
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_best_team_combinations(min_debates, limit)
-        if path == "/api/routing/domain-leaderboard":
+        if path == "/api/v1/routing/domain-leaderboard":
             domain = query_params.get("domain", ["general"])[0]
             limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
             return self._get_domain_leaderboard(domain, limit)
@@ -89,11 +89,11 @@ class RoutingHandler(BaseHandler):
 
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        if path == "/api/routing/recommendations":
+        if path == "/api/v1/routing/recommendations":
             return self._get_recommendations(handler)
-        if path == "/api/routing/auto-route":
+        if path == "/api/v1/routing/auto-route":
             return self._auto_route(handler)
-        if path == "/api/routing/detect-domain":
+        if path == "/api/v1/routing/detect-domain":
             return self._detect_domain(handler)
         return None
 

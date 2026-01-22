@@ -83,8 +83,8 @@ class GoogleChatHandler(BaseHandler):
     """Handler for Google Chat App webhook endpoints."""
 
     ROUTES = [
-        "/api/bots/google-chat/webhook",
-        "/api/bots/google-chat/status",
+        "/api/v1/bots/google-chat/webhook",
+        "/api/v1/bots/google-chat/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -96,7 +96,7 @@ class GoogleChatHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Google Chat GET requests."""
-        if path == "/api/bots/google-chat/status":
+        if path == "/api/v1/bots/google-chat/status":
             return self._get_status()
 
         return None
@@ -106,7 +106,7 @@ class GoogleChatHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests (webhook events)."""
-        if path == "/api/bots/google-chat/webhook":
+        if path == "/api/v1/bots/google-chat/webhook":
             return self._handle_webhook(handler)
 
         return None
@@ -578,7 +578,7 @@ class GoogleChatHandler(BaseHandler):
             router = get_decision_router()
             result = await router.route(request)
             if result and result.success:
-                logger.info(f"DecisionRouter completed debate for Google Chat: {result.debate_id}")
+                logger.info(f"DecisionRouter completed debate for Google Chat: {result.debate_id}")  # type: ignore[attr-defined]
                 return  # Response handler will post the result
             else:
                 logger.warning("DecisionRouter returned unsuccessful result, falling back")
@@ -809,7 +809,7 @@ def get_google_chat_handler(server_context: Optional[Dict] = None) -> "GoogleCha
     if _google_chat_handler is None:
         if server_context is None:
             server_context = {}
-        _google_chat_handler = GoogleChatHandler(server_context)
+        _google_chat_handler = GoogleChatHandler(server_context)  # type: ignore[arg-type]
     return _google_chat_handler
 
 
