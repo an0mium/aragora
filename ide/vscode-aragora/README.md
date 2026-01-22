@@ -1,0 +1,95 @@
+# Aragora VS Code Extension
+
+Multi-agent AI debate framework integration for Visual Studio Code.
+
+## Features
+
+- **Run Debates**: Start AI debates directly from VS Code
+- **Run Gauntlet**: Stress-test selected code through adversarial analysis
+- **List Agents**: View available AI agents and their capabilities
+- **View Results**: Browse recent debate results in the sidebar
+- **Quick Configuration**: Easy API setup through the command palette
+
+## Installation
+
+### From VS Code Marketplace
+
+Search for "Aragora" in the Extensions view (`Ctrl+Shift+X`).
+
+### From VSIX
+
+1. Download the `.vsix` file from releases
+2. Open VS Code
+3. Press `Ctrl+Shift+P` and run "Extensions: Install from VSIX..."
+4. Select the downloaded file
+
+### Build from Source
+
+```bash
+cd ide/vscode-aragora
+npm install
+npm run compile
+npm run package
+```
+
+## Configuration
+
+Open Settings (`Ctrl+,`) and search for "Aragora":
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `aragora.apiUrl` | Aragora API URL | `https://api.aragora.ai` |
+| `aragora.apiKey` | Your API key | (empty) |
+| `aragora.defaultAgents` | Default agents for debates | `claude,gpt-4` |
+| `aragora.defaultRounds` | Default number of rounds | `3` |
+
+Or use the command `Aragora: Configure API` from the command palette.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `Aragora: Run Debate` | Start a new multi-agent debate |
+| `Aragora: Run Gauntlet on Selection` | Stress-test selected code |
+| `Aragora: List Available Agents` | Show available AI agents |
+| `Aragora: Show Recent Results` | Open the Aragora sidebar |
+| `Aragora: Configure API` | Quick configuration wizard |
+
+## Usage
+
+### Running a Debate
+
+1. Press `Ctrl+Shift+P` to open command palette
+2. Type "Aragora: Run Debate"
+3. Enter your question or topic
+4. Select agents (or use defaults)
+5. Wait for the debate to complete
+6. View or copy the consensus answer
+
+### Running Gauntlet on Code
+
+1. Select code in the editor
+2. Right-click and select "Aragora: Run Gauntlet on Selection"
+3. Or press `Ctrl+Shift+P` and type "Aragora: Run Gauntlet"
+
+### Sidebar Views
+
+The Aragora sidebar shows:
+
+- **Recent Debates**: Browse your recent debate results
+- **Agents**: View available AI agents and their status
+
+## Requirements
+
+- VS Code 1.85.0 or higher
+- Aragora API key (get one at https://aragora.ai)
+
+## Support
+
+- [Documentation](https://docs.aragora.ai)
+- [GitHub Issues](https://github.com/aragora/aragora/issues)
+- [Discord Community](https://discord.gg/aragora)
+
+## License
+
+MIT

@@ -1,0 +1,133 @@
+{
+  "name": "aragora",
+  "displayName": "Aragora",
+  "description": "Multi-agent AI debate framework for VS Code",
+  "version": "0.1.0",
+  "publisher": "aragora",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "ai",
+    "debate",
+    "multi-agent",
+    "llm",
+    "claude",
+    "gpt"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aragora.runDebate",
+        "title": "Aragora: Run Debate",
+        "category": "Aragora"
+      },
+      {
+        "command": "aragora.runGauntlet",
+        "title": "Aragora: Run Gauntlet on Selection",
+        "category": "Aragora"
+      },
+      {
+        "command": "aragora.listAgents",
+        "title": "Aragora: List Available Agents",
+        "category": "Aragora"
+      },
+      {
+        "command": "aragora.showResults",
+        "title": "Aragora: Show Recent Results",
+        "category": "Aragora"
+      },
+      {
+        "command": "aragora.configure",
+        "title": "Aragora: Configure API",
+        "category": "Aragora"
+      }
+    ],
+    "configuration": {
+      "title": "Aragora",
+      "properties": {
+        "aragora.apiUrl": {
+          "type": "string",
+          "default": "https://api.aragora.ai",
+          "description": "Aragora API URL"
+        },
+        "aragora.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Aragora API Key"
+        },
+        "aragora.defaultAgents": {
+          "type": "string",
+          "default": "claude,gpt-4",
+          "description": "Default agents for debates (comma-separated)"
+        },
+        "aragora.defaultRounds": {
+          "type": "number",
+          "default": 3,
+          "description": "Default number of debate rounds"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aragora",
+          "title": "Aragora",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aragora": [
+        {
+          "id": "aragora.debates",
+          "name": "Recent Debates"
+        },
+        {
+          "id": "aragora.agents",
+          "name": "Agents"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "aragora.runGauntlet",
+          "when": "editorHasSelection",
+          "group": "aragora"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aragora/aragora"
+  },
+  "license": "MIT"
+}
