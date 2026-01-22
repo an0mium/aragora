@@ -88,7 +88,7 @@ export function AdaptiveModeProvider({ children }: { children: ReactNode }) {
 
   // Check if a specific advanced feature is visible
   const isFeatureEnabled = useCallback(
-    (feature: AdvancedFeature) => {
+    (_feature: AdvancedFeature) => {
       return mode === 'advanced';
     },
     [mode]
