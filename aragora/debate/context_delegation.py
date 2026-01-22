@@ -12,7 +12,7 @@ for gathering, caching, and managing debate context including:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
     from aragora.debate.context_gatherer import ContextGatherer
@@ -50,7 +50,7 @@ class ContextDelegator:
         evidence_grounder: Optional["EvidenceGrounder"] = None,
         continuum_memory=None,
         env=None,
-        extract_domain_fn: Optional[callable] = None,
+        extract_domain_fn: Optional[Callable[..., Any]] = None,
     ) -> None:
         self.context_gatherer = context_gatherer
         self.memory_manager = memory_manager

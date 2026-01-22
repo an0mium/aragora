@@ -23,7 +23,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from aragora.connectors.chat import (
     ChatPlatformConnector,
@@ -117,8 +117,8 @@ class ChatWebhookRouter:
 
     def __init__(
         self,
-        event_handler: Optional[callable] = None,
-        debate_starter: Optional[callable] = None,
+        event_handler: Optional[Callable[..., Any]] = None,
+        debate_starter: Optional[Callable[..., Any]] = None,
         decision_router: Optional[Any] = None,
     ):
         """
@@ -891,8 +891,8 @@ def _create_decision_router_debate_starter():
 
 
 def get_webhook_router(
-    event_handler: Optional[callable] = None,
-    debate_starter: Optional[callable] = None,
+    event_handler: Optional[Callable[..., Any]] = None,
+    debate_starter: Optional[Callable[..., Any]] = None,
     use_decision_router: bool = True,
 ) -> ChatWebhookRouter:
     """

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from datetime import datetime, timezone
 
 from aragora.rlm.training.buffer import ExperienceBuffer, Step, Trajectory
@@ -295,7 +295,7 @@ def reset_debate_trajectory_collector() -> None:
     _global_collector = None
 
 
-def create_training_hook() -> callable:
+def create_training_hook() -> Callable[..., Any]:
     """
     Create a post-debate hook for automatic trajectory collection.
 

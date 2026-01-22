@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 
@@ -56,7 +56,7 @@ class PromptContextBuilder:
         prompt_builder: Optional["PromptBuilder"] = None,
         audience_manager: Optional["AudienceManager"] = None,
         spectator: Optional["SpectatorStream"] = None,
-        notify_callback: Optional[callable] = None,
+        notify_callback: Optional[Callable[..., Any]] = None,
     ) -> None:
         """Initialize prompt context builder.
 
