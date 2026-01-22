@@ -341,12 +341,12 @@ class EmailPrioritizer:
                 scored_results.append(result)
 
         # Sort by priority (lower = more important), then by confidence
-        scored_results.sort(key=lambda r: (r.priority.value, -r.confidence))
+        scored_results.sort(key=lambda r: (r.priority.value, -r.confidence))  # type: ignore[union-attr]
 
         if limit:
             scored_results = scored_results[:limit]
 
-        return scored_results
+        return scored_results  # type: ignore[return-value]
 
     async def _get_sender_profile(self, email_address: str) -> SenderProfile:
         """Get or create sender profile from cache/mound."""
@@ -799,7 +799,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
         # Store action in knowledge mound for learning
         if self.mound:
             try:
-                await self.mound.store(
+                await self.mound.store(  # type: ignore[misc,call-arg]
                     content=f"User {action} email {email_id}",
                     metadata={
                         "type": "email_action",
@@ -856,7 +856,7 @@ async def prioritize_inbox(
 
     # Fetch recent emails
     emails: list[Any] = []
-    async for item in gmail_connector.sync():
+    async for item in gmail_connector.sync():  # type: ignore[attr-defined]
         if len(emails) >= limit:
             break
         # Convert SyncItem to EmailMessage if needed

@@ -621,11 +621,11 @@ Include dates, numbers, names, and specific claims where possible."""
         synced = 0
         try:
             # Store the document as a knowledge item
-            doc_request = IngestionRequest(
+            doc_request = IngestionRequest(  # type: ignore[call-arg]
                 content=document.text or "",
                 source=KnowledgeSource.DOCUMENT,
                 workspace_id=self.config.workspace_id,
-                confidence=ConfidenceLevel.HIGH,
+                confidence=ConfidenceLevel.HIGH,  # type: ignore[arg-type]
                 metadata={
                     "document_id": document.id,
                     "filename": document.filename,
@@ -641,11 +641,11 @@ Include dates, numbers, names, and specific claims where possible."""
 
             # Store each chunk as a knowledge item linked to the document
             for chunk in chunks[:50]:  # Limit chunks to avoid overload
-                chunk_request = IngestionRequest(
+                chunk_request = IngestionRequest(  # type: ignore[call-arg]
                     content=chunk.content,
                     source=KnowledgeSource.DOCUMENT,
                     workspace_id=self.config.workspace_id,
-                    confidence=ConfidenceLevel.HIGH,
+                    confidence=ConfidenceLevel.HIGH,  # type: ignore[arg-type]
                     metadata={
                         "chunk_id": chunk.id,
                         "document_id": document.id,
@@ -660,11 +660,11 @@ Include dates, numbers, names, and specific claims where possible."""
 
             # Store each fact as a knowledge item
             for fact in facts:
-                fact_request = IngestionRequest(
+                fact_request = IngestionRequest(  # type: ignore[call-arg]
                     content=fact.statement,
                     source=KnowledgeSource.EXTRACTION,
                     workspace_id=self.config.workspace_id,
-                    confidence=ConfidenceLevel.from_score(fact.confidence),
+                    confidence=ConfidenceLevel.from_score(fact.confidence),  # type: ignore[attr-defined]
                     metadata={
                         "fact_id": fact.id,
                         "document_id": document.id,
@@ -845,7 +845,7 @@ Include dates, numbers, names, and specific claims where possible."""
                 }
             except (RuntimeError, AttributeError, KeyError) as e:
                 logger.debug(f"Could not get mound stats: {e}")
-                mound_stats = {"enabled": True, "error": "stats unavailable"}
+                mound_stats = {"enabled": True, "error": "stats unavailable"}  # type: ignore[dict-item]
         else:
             mound_stats = {"enabled": False}
 

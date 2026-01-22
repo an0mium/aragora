@@ -157,15 +157,16 @@ class SAMLProvider(SSOProvider):
                 f"Invalid SAML configuration: {', '.join(errors)}", {"errors": errors}
             )
 
-        # SECURITY: Warn about simplified parser in production
+        # SECURITY: Warn about simplified parser in production/staging
         if not HAS_SAML_LIB and config.idp_certificate:
             logger.warning(
                 "SECURITY WARNING: Using simplified SAML parser without signature validation. "
                 "Install python3-saml for production: pip install python3-saml"
             )
-            if os.getenv("ARAGORA_ENV") == "production":
+            env = os.getenv("ARAGORA_ENV", "").lower()
+            if env in ("production", "prod", "staging", "stage"):
                 raise SSOConfigurationError(
-                    "python3-saml required for production SAML. "
+                    "python3-saml required for SAML in production/staging. "
                     "Install with: pip install python3-saml",
                     {"code": "MISSING_SAML_LIBRARY"},
                 )
