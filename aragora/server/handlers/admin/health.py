@@ -1483,7 +1483,7 @@ class HealthHandler(BaseHandler):
 
         # Check Knowledge Mound
         try:
-            from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats
+            from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats  # type: ignore[attr-defined]
 
             km_stats = get_knowledge_mound_stats()
             features["knowledge_mound"] = {
@@ -1507,7 +1507,7 @@ class HealthHandler(BaseHandler):
 
         # Check trending topics (Pulse)
         try:
-            from aragora.pulse import get_pulse_stats
+            from aragora.pulse import get_pulse_stats  # type: ignore[attr-defined]
 
             pulse_stats = get_pulse_stats()
             features["trending_topics"] = {
@@ -1745,7 +1745,7 @@ class HealthHandler(BaseHandler):
 
         # 7. Check debate integration via knowledge_mound_ops
         try:
-            from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats
+            from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats  # type: ignore[attr-defined]
 
             km_stats = get_knowledge_mound_stats()
             components["debate_integration"] = {
@@ -1774,7 +1774,7 @@ class HealthHandler(BaseHandler):
 
             redis_url = os.environ.get("KNOWLEDGE_MOUND_REDIS_URL") or os.environ.get("REDIS_URL")
             if redis_url:
-                from aragora.knowledge.mound.redis_cache import KnowledgeMoundCache
+                from aragora.knowledge.mound.redis_cache import KnowledgeMoundCache  # type: ignore[attr-defined]
 
                 cache = KnowledgeMoundCache(redis_url=redis_url)
                 components["redis_cache"] = {

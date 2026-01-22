@@ -23,6 +23,100 @@ if TYPE_CHECKING:
 
 
 # ============================================================================
+# Optional Dependency Skip Markers
+# ============================================================================
+# These markers can be used to skip tests requiring optional dependencies.
+# Usage: @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
+
+
+def _check_import(module_name: str) -> bool:
+    """Check if a module can be imported."""
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
+        return False
+
+
+# Z3 solver for formal verification
+HAS_Z3 = _check_import("z3")
+REQUIRES_Z3 = "z3-solver not installed (pip install z3-solver)"
+requires_z3 = not HAS_Z3
+
+# Redis for caching and pub/sub
+HAS_REDIS = _check_import("redis")
+REQUIRES_REDIS = "redis not installed (pip install redis)"
+requires_redis = not HAS_REDIS
+
+# PostgreSQL async driver
+HAS_ASYNCPG = _check_import("asyncpg")
+REQUIRES_ASYNCPG = "asyncpg not installed (pip install asyncpg)"
+requires_asyncpg = not HAS_ASYNCPG
+
+# Supabase client
+HAS_SUPABASE = _check_import("supabase")
+REQUIRES_SUPABASE = "supabase not installed (pip install supabase)"
+requires_supabase = not HAS_SUPABASE
+
+# HTTPX async client
+HAS_HTTPX = _check_import("httpx")
+REQUIRES_HTTPX = "httpx not installed (pip install httpx)"
+requires_httpx = not HAS_HTTPX
+
+# WebSockets
+HAS_WEBSOCKETS = _check_import("websockets")
+REQUIRES_WEBSOCKETS = "websockets not installed (pip install websockets)"
+requires_websockets = not HAS_WEBSOCKETS
+
+# PyJWT
+HAS_PYJWT = _check_import("jwt")
+REQUIRES_PYJWT = "PyJWT not installed (pip install PyJWT)"
+requires_pyjwt = not HAS_PYJWT
+
+# Scikit-learn for ML features
+HAS_SKLEARN = _check_import("sklearn")
+REQUIRES_SKLEARN = "scikit-learn not installed (pip install scikit-learn)"
+requires_sklearn = not HAS_SKLEARN
+
+# SentenceTransformers for embeddings
+HAS_SENTENCE_TRANSFORMERS = _check_import("sentence_transformers")
+REQUIRES_SENTENCE_TRANSFORMERS = "sentence-transformers not installed"
+requires_sentence_transformers = not HAS_SENTENCE_TRANSFORMERS
+
+# MCP (Model Context Protocol)
+HAS_MCP = _check_import("mcp")
+REQUIRES_MCP = "mcp not installed (pip install mcp)"
+requires_mcp = not HAS_MCP
+
+
+def _check_aragora_module(module_path: str) -> bool:
+    """Check if an Aragora module can be imported."""
+    try:
+        __import__(module_path)
+        return True
+    except (ImportError, AttributeError):
+        return False
+
+
+# Aragora optional modules
+HAS_RLM = _check_aragora_module("aragora.rlm")
+REQUIRES_RLM = "RLM module not available"
+requires_rlm = not HAS_RLM
+
+HAS_RBAC = _check_aragora_module("aragora.rbac")
+REQUIRES_RBAC = "RBAC module not available"
+requires_rbac = not HAS_RBAC
+
+HAS_TRICKSTER = _check_aragora_module("aragora.debate.trickster")
+REQUIRES_TRICKSTER = "Trickster module not available"
+requires_trickster = not HAS_TRICKSTER
+
+HAS_PLUGINS = _check_aragora_module("aragora.plugins")
+REQUIRES_PLUGINS = "Plugins module not available"
+requires_plugins = not HAS_PLUGINS
+
+
+# ============================================================================
 # Test Tier Configuration
 # ============================================================================
 

@@ -20,7 +20,7 @@ from aragora.training.specialist_models import (
 )
 
 if TYPE_CHECKING:
-    from aragora.agents.base import BaseAgent
+    from aragora.agents.base import BaseAgent  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 

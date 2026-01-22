@@ -20,22 +20,23 @@ from aragora.verification.formal import (
     FormalLanguage,
 )
 
+# Import centralized skip markers
+from tests.conftest import requires_z3, REQUIRES_Z3
+
 
 # ============================================================================
 # Z3Backend Tests
 # ============================================================================
 
 
+@pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
 class TestZ3BackendCanVerify:
     """Tests for Z3Backend.can_verify() method."""
 
     @pytest.fixture
     def backend(self):
-        """Create a Z3Backend instance, skip if Z3 unavailable."""
-        backend = Z3Backend()
-        if not backend.is_available:
-            pytest.skip("Z3 not available")
-        return backend
+        """Create a Z3Backend instance."""
+        return Z3Backend()
 
     def test_can_verify_smtlib2_format(self, backend):
         """Should accept SMT-LIB2 format claims."""
