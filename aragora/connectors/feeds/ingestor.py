@@ -82,6 +82,7 @@ class FeedSource:
         if not self.name:
             # Extract name from URL
             from urllib.parse import urlparse
+
             parsed = urlparse(self.url)
             self.name = parsed.netloc or self.url[:30]
 
@@ -182,18 +183,14 @@ class FeedIngestor:
                     )
 
                     cb.record_success()
-                    logger.debug(
-                        f"Fetched {len(entries)} entries from {source.name}"
-                    )
-                    return entries[:source.max_entries]
+                    logger.debug(f"Fetched {len(entries)} entries from {source.name}")
+                    return entries[: source.max_entries]
 
                 except httpx.HTTPStatusError as e:
-                    logger.warning(
-                        f"HTTP error fetching {source.name}: {e.response.status_code}"
-                    )
+                    logger.warning(f"HTTP error fetching {source.name}: {e.response.status_code}")
                     if e.response.status_code >= 500:
                         # Server error, retry with backoff
-                        delay = self.base_retry_delay * (2 ** attempt)
+                        delay = self.base_retry_delay * (2**attempt)
                         await asyncio.sleep(delay)
                     else:
                         # Client error, don't retry
@@ -202,7 +199,7 @@ class FeedIngestor:
 
                 except httpx.RequestError as e:
                     logger.warning(f"Request error fetching {source.name}: {e}")
-                    delay = self.base_retry_delay * (2 ** attempt)
+                    delay = self.base_retry_delay * (2**attempt)
                     await asyncio.sleep(delay)
 
                 except ET.ParseError as e:
@@ -232,7 +229,7 @@ class FeedIngestor:
 
     def _parse_rss(self, root: ET.Element, source: FeedSource) -> List[FeedEntry]:
         """Parse RSS 2.0 feed."""
-        entries = []
+        entries: list[FeedEntry] = []
         channel = root.find("channel")
         if channel is None:
             return entries
@@ -243,18 +240,15 @@ class FeedIngestor:
                 title=self._get_text(item, "title") or "",
                 link=self._get_text(item, "link") or "",
                 summary=self._get_text(item, "description") or "",
-                content=self._get_text(
-                    item, "{http://purl.org/rss/1.0/modules/content/}encoded"
-                ) or "",
+                content=self._get_text(item, "{http://purl.org/rss/1.0/modules/content/}encoded")
+                or "",
                 author=self._get_text(item, "author")
-                    or self._get_text(item, "{http://purl.org/dc/elements/1.1/}creator")
-                    or "",
+                or self._get_text(item, "{http://purl.org/dc/elements/1.1/}creator")
+                or "",
                 published=self._get_text(item, "pubDate") or "",
                 source_url=source.url,
                 source_name=source.name,
-                categories=[
-                    cat.text for cat in item.findall("category") if cat.text
-                ],
+                categories=[cat.text for cat in item.findall("category") if cat.text],
             )
             entries.append(entry)
 
@@ -278,11 +272,19 @@ class FeedIngestor:
                 id=self._get_text(item, "atom:id", ns) or self._get_text(item, "id") or "",
                 title=self._get_text(item, "atom:title", ns) or self._get_text(item, "title") or "",
                 link=self._get_atom_link(item, ns),
-                summary=self._get_text(item, "atom:summary", ns) or self._get_text(item, "summary") or "",
-                content=self._get_text(item, "atom:content", ns) or self._get_text(item, "content") or "",
+                summary=self._get_text(item, "atom:summary", ns)
+                or self._get_text(item, "summary")
+                or "",
+                content=self._get_text(item, "atom:content", ns)
+                or self._get_text(item, "content")
+                or "",
                 author=self._get_atom_author(item, ns),
-                published=self._get_text(item, "atom:published", ns) or self._get_text(item, "published") or "",
-                updated=self._get_text(item, "atom:updated", ns) or self._get_text(item, "updated") or "",
+                published=self._get_text(item, "atom:published", ns)
+                or self._get_text(item, "published")
+                or "",
+                updated=self._get_text(item, "atom:updated", ns)
+                or self._get_text(item, "updated")
+                or "",
                 source_url=source.url,
                 source_name=source.name,
                 categories=[

@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 class AccountType(Enum):
     """Type of email account for context-aware prioritization."""
+
     PERSONAL = "personal"
     WORK = "work"
     BUSINESS = "business"
@@ -187,7 +188,9 @@ class CrossAccountSenderProfile:
         if len(self.replied_from_accounts) > 1:
             reply_bonus = min(0.4, len(self.replied_from_accounts) * 0.2)
             score += reply_bonus
-            reasons.append(f"Replied from {len(self.replied_from_accounts)} accounts (+{reply_bonus:.2f})")
+            reasons.append(
+                f"Replied from {len(self.replied_from_accounts)} accounts (+{reply_bonus:.2f})"
+            )
         elif len(self.replied_from_accounts) == 1:
             score += 0.15
             reasons.append("Replied from 1 account (+0.15)")
@@ -455,9 +458,15 @@ class MultiInboxManager:
                         email=full_msg,
                         account_id=account_id,
                         account_type=account.account_type,
-                        sender_seen_in_accounts=list(sender_profile.seen_in_accounts) if sender_profile else [],
-                        sender_replied_from_accounts=list(sender_profile.replied_from_accounts) if sender_profile else [],
-                        is_cross_account_important=sender_profile.cross_account_importance > 0.3 if sender_profile else False,
+                        sender_seen_in_accounts=list(sender_profile.seen_in_accounts)
+                        if sender_profile
+                        else [],
+                        sender_replied_from_accounts=list(sender_profile.replied_from_accounts)
+                        if sender_profile
+                        else [],
+                        is_cross_account_important=sender_profile.cross_account_importance > 0.3
+                        if sender_profile
+                        else False,
                     )
 
                     all_emails.append(unified)
@@ -634,7 +643,7 @@ class MultiInboxManager:
                 profile.account_stats[account_id]["received"] += 1
 
                 # Check for starred
-                labels = []
+                labels: list[str] = []
                 if hasattr(msg, "labels"):
                     labels = msg.labels or []
                 elif hasattr(msg, "metadata") and msg.metadata:
@@ -721,8 +730,7 @@ class MultiInboxManager:
             "accounts": [a.to_dict() for a in self._accounts.values()],
             "known_senders": len(self._sender_profiles),
             "cross_account_senders": sum(
-                1 for p in self._sender_profiles.values()
-                if p.account_count > 1
+                1 for p in self._sender_profiles.values() if p.account_count > 1
             ),
         }
 
@@ -747,6 +755,7 @@ async def create_multi_inbox_manager(
     prioritizer = None
     try:
         from aragora.services.email_prioritization import EmailPrioritizer
+
         prioritizer = EmailPrioritizer()
     except ImportError:
         pass
@@ -755,6 +764,7 @@ async def create_multi_inbox_manager(
     sender_history = None
     try:
         from aragora.services.sender_history import SenderHistoryService
+
         sender_history = SenderHistoryService()
         await sender_history.initialize()
     except ImportError:

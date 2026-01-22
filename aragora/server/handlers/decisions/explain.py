@@ -359,7 +359,7 @@ class DecisionExplainHandler(BaseHandler):
 
     def _build_audit_trail(self, result: Any) -> dict[str, Any]:
         """Build audit trail section."""
-        audit = {
+        audit: dict[str, Any] = {
             "created_at": None,
             "duration_seconds": getattr(result, "duration_seconds", 0.0),
             "rounds_completed": getattr(result, "rounds_used", 0),

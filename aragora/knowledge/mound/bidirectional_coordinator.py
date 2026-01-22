@@ -455,7 +455,7 @@ class BidirectionalCoordinator:
         Returns:
             List of SyncResult for each adapter
         """
-        results = []
+        results: list[SyncResult] = []
 
         # Get KM items if not provided
         if km_items is None:

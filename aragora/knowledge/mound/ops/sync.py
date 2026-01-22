@@ -209,8 +209,8 @@ class SyncOperationsMixin:
                         # Parse JSON fields
                         from aragora.utils.json_helpers import safe_json_loads
 
-                        tags = safe_json_loads(tags_json, [])
-                        metadata = safe_json_loads(metadata_json, {})
+                        tags: list[str] = safe_json_loads(tags_json, [])
+                        metadata: dict[str, Any] = safe_json_loads(metadata_json, {})
 
                         # Create ingestion request
                         request = IngestionRequest(
@@ -762,8 +762,8 @@ class SyncOperationsMixin:
                         supersedes = row[10]
                         metadata_json = row[11]
 
-                        tags = safe_json_loads(tags_json, [])
-                        metadata = safe_json_loads(metadata_json, {})
+                        tags: list[str] = safe_json_loads(tags_json, [])
+                        metadata: dict[str, Any] = safe_json_loads(metadata_json, {})
 
                         request = IngestionRequest(
                             content=f"{topic}: {conclusion}",

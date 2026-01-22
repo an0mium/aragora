@@ -281,7 +281,7 @@ class PerformanceEloIntegrator:
         Returns:
             List of agent names with composite score below threshold
         """
-        degraded = []
+        degraded: list[str] = []
 
         if self.performance_monitor is None:
             return degraded

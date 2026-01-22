@@ -195,7 +195,7 @@ class ContinuumGlacialMixin:
             )
             tag_counts: Dict[str, int] = {}
             for (metadata_json,) in cursor.fetchall():
-                metadata = safe_json_loads(metadata_json, {})
+                metadata: dict[str, Any] = safe_json_loads(metadata_json, {})
                 for tag in metadata.get("tags", []):
                     tag_counts[tag] = tag_counts.get(tag, 0) + 1
 

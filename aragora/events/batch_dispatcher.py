@@ -112,8 +112,8 @@ class EventBatch:
             return {}
 
         # Count by operation (for SLO events)
-        by_operation = defaultdict(int)
-        by_severity = defaultdict(int)
+        by_operation: defaultdict[str, int] = defaultdict(int)
+        by_severity: defaultdict[str, int] = defaultdict(int)
 
         for event in self.events:
             if "operation" in event.data:
@@ -177,9 +177,7 @@ class BatchWebhookDispatcher:
         self._batches_sent = 0
         self._priority_sent = 0
 
-    def set_delivery_callback(
-        self, callback: Callable[[str, Dict], None]
-    ) -> None:
+    def set_delivery_callback(self, callback: Callable[[str, Dict], None]) -> None:
         """
         Set the callback for delivering batched events.
 
@@ -308,9 +306,7 @@ class BatchWebhookDispatcher:
     def get_stats(self) -> Dict[str, Any]:
         """Get dispatcher statistics."""
         with self._lock:
-            pending_events = sum(
-                len(b.events) for b in self._batches.values()
-            )
+            pending_events = sum(len(b.events) for b in self._batches.values())
 
             return {
                 "events_queued": self._events_queued,

@@ -52,15 +52,17 @@ logger = logging.getLogger(__name__)
 
 class EmailPriority(Enum):
     """Email priority levels."""
+
     CRITICAL = 1  # Immediate attention required
-    HIGH = 2      # Important, respond today
-    MEDIUM = 3    # Standard priority
-    LOW = 4       # Can wait, review when time allows
-    DEFER = 5     # Archive or auto-file
+    HIGH = 2  # Important, respond today
+    MEDIUM = 3  # Standard priority
+    LOW = 4  # Can wait, review when time allows
+    DEFER = 5  # Archive or auto-file
 
 
 class ScoringTier(Enum):
     """Which scoring tier was used."""
+
     TIER_1_RULES = "tier_1_rules"
     TIER_2_LIGHTWEIGHT = "tier_2_lightweight"
     TIER_3_DEBATE = "tier_3_debate"
@@ -69,6 +71,7 @@ class ScoringTier(Enum):
 @dataclass
 class SenderProfile:
     """Profile of an email sender for reputation scoring."""
+
     email: str
     domain: str
     is_vip: bool = False
@@ -108,6 +111,7 @@ class SenderProfile:
 @dataclass
 class EmailPriorityResult:
     """Result of email prioritization."""
+
     email_id: str
     priority: EmailPriority
     confidence: float
@@ -175,19 +179,31 @@ class EmailPrioritizationConfig:
 
     # Auto-archive patterns
     auto_archive_senders: Set[str] = field(default_factory=set)
-    newsletter_patterns: List[str] = field(default_factory=lambda: [
-        r"unsubscribe",
-        r"email preferences",
-        r"opt.out",
-        r"newsletter",
-        r"no.?reply",
-    ])
+    newsletter_patterns: List[str] = field(
+        default_factory=lambda: [
+            r"unsubscribe",
+            r"email preferences",
+            r"opt.out",
+            r"newsletter",
+            r"no.?reply",
+        ]
+    )
 
     # Urgency keywords
-    urgent_keywords: List[str] = field(default_factory=lambda: [
-        "urgent", "asap", "immediately", "critical", "emergency",
-        "deadline", "today", "eod", "end of day", "time-sensitive",
-    ])
+    urgent_keywords: List[str] = field(
+        default_factory=lambda: [
+            "urgent",
+            "asap",
+            "immediately",
+            "critical",
+            "emergency",
+            "deadline",
+            "today",
+            "eod",
+            "end of day",
+            "time-sensitive",
+        ]
+    )
 
     # Cross-channel integration
     enable_slack_signals: bool = True
@@ -243,17 +259,12 @@ class EmailPrioritizer:
 
         # Compile patterns
         self._newsletter_patterns = [
-            re.compile(p, re.IGNORECASE)
-            for p in self.config.newsletter_patterns
+            re.compile(p, re.IGNORECASE) for p in self.config.newsletter_patterns
         ]
         self._urgent_patterns = [
-            re.compile(rf"\b{kw}\b", re.IGNORECASE)
-            for kw in self.config.urgent_keywords
+            re.compile(rf"\b{kw}\b", re.IGNORECASE) for kw in self.config.urgent_keywords
         ]
-        self._deadline_patterns = [
-            re.compile(p, re.IGNORECASE)
-            for p in DEADLINE_PATTERNS
-        ]
+        self._deadline_patterns = [re.compile(p, re.IGNORECASE) for p in DEADLINE_PATTERNS]
 
     async def score_email(
         self,
@@ -451,10 +462,7 @@ class EmailPrioritizer:
 
         # Urgency keyword detection
         text = f"{email.subject} {email.body_text or ''}"
-        urgency_matches = sum(
-            1 for pattern in self._urgent_patterns
-            if pattern.search(text)
-        )
+        urgency_matches = sum(1 for pattern in self._urgent_patterns if pattern.search(text))
         if urgency_matches > 0:
             scores["content_urgency"] += min(0.4, urgency_matches * 0.15)
             rationale_parts.append(f"Urgency keywords detected ({urgency_matches})")
@@ -482,10 +490,7 @@ class EmailPrioritizer:
             "time_sensitivity": 0.15,
         }
 
-        priority_score = sum(
-            scores[k] * weights[k]
-            for k in weights
-        )
+        priority_score = sum(scores[k] * weights[k] for k in weights)
 
         # Map score to priority
         if priority_score >= 0.75:
@@ -660,7 +665,9 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                 else:
                     priority = tier_2_result.priority
 
-                confidence = float(confidence_match.group(1)) if confidence_match else result.confidence
+                confidence = (
+                    float(confidence_match.group(1)) if confidence_match else result.confidence
+                )
 
                 return EmailPriorityResult(
                     email_id=email.id,
@@ -848,7 +855,7 @@ async def prioritize_inbox(
     )
 
     # Fetch recent emails
-    emails = []
+    emails: list[Any] = []
     async for item in gmail_connector.sync():
         if len(emails) >= limit:
             break

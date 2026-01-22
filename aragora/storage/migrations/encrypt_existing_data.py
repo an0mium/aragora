@@ -344,7 +344,7 @@ async def migrate_all(dry_run: bool = True) -> List[MigrationResult]:
     Returns:
         List of MigrationResult for each store
     """
-    results = []
+    results: list[MigrationResult] = []
 
     logger.info(f"Starting data encryption migration (dry_run={dry_run})")
 

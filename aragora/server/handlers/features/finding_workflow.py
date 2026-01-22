@@ -893,7 +893,7 @@ class FindingWorkflowHandler(BaseHandler):
         user_id, user_name = self._get_user_from_request(request)
 
         store = get_finding_workflow_store()
-        results = {"success": [], "failed": []}
+        results: dict[str, list[str]] = {"success": [], "failed": []}
 
         for fid in finding_ids:
             try:
