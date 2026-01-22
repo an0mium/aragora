@@ -772,31 +772,37 @@ async def handle_add_vip(
     global _prioritizer
 
     try:
-        if user_id not in _user_configs:
-            _user_configs[user_id] = {}
+        # Thread-safe config update
+        with _user_configs_lock:
+            if user_id not in _user_configs:
+                _user_configs[user_id] = {}
 
-        config = _user_configs[user_id]
+            config = _user_configs[user_id]
 
-        if email:
-            if "vip_addresses" not in config:
-                config["vip_addresses"] = []
-            if email not in config["vip_addresses"]:
-                config["vip_addresses"].append(email)
+            if email:
+                if "vip_addresses" not in config:
+                    config["vip_addresses"] = []
+                if email not in config["vip_addresses"]:
+                    config["vip_addresses"].append(email)
 
-        if domain:
-            if "vip_domains" not in config:
-                config["vip_domains"] = []
-            if domain not in config["vip_domains"]:
-                config["vip_domains"].append(domain)
+            if domain:
+                if "vip_domains" not in config:
+                    config["vip_domains"] = []
+                if domain not in config["vip_domains"]:
+                    config["vip_domains"].append(domain)
 
-        # Reset prioritizer
-        _prioritizer = None
+            result_addresses = list(config.get("vip_addresses", []))
+            result_domains = list(config.get("vip_domains", []))
+
+        # Reset prioritizer (thread-safe)
+        with _prioritizer_lock:
+            _prioritizer = None
 
         return {
             "success": True,
             "added": {"email": email, "domain": domain},
-            "vip_addresses": config.get("vip_addresses", []),
-            "vip_domains": config.get("vip_domains", []),
+            "vip_addresses": result_addresses,
+            "vip_domains": result_domains,
         }
 
     except Exception as e:

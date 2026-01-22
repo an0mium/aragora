@@ -234,6 +234,146 @@ class ChatPlatformConnector(ABC):
         # 504 Gateway Timeout - upstream timeout
         return status_code in {429, 500, 502, 503, 504}
 
+    async def _http_request(
+        self,
+        method: str,
+        url: str,
+        headers: Optional[dict[str, str]] = None,
+        json: Optional[dict[str, Any]] = None,
+        data: Optional[Any] = None,
+        files: Optional[dict[str, Any]] = None,
+        max_retries: int = 3,
+        base_delay: float = 1.0,
+        operation: str = "http_request",
+    ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+        """
+        Make an HTTP request with retry, timeout, and circuit breaker support.
+
+        This is the recommended method for all HTTP operations in chat connectors.
+        Provides consistent error handling, logging, and resilience patterns.
+
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE, PATCH)
+            url: Request URL
+            headers: Optional request headers
+            json: Optional JSON body
+            data: Optional form data
+            files: Optional file uploads
+            max_retries: Maximum retry attempts (default 3)
+            base_delay: Initial retry delay in seconds (default 1.0)
+            operation: Operation name for logging
+
+        Returns:
+            Tuple of (success: bool, response_json: Optional[dict], error: Optional[str])
+        """
+        import asyncio
+        import random
+
+        # Check circuit breaker first
+        can_proceed, error_msg = self._check_circuit_breaker()
+        if not can_proceed:
+            return False, None, error_msg
+
+        # Try to import httpx
+        try:
+            import httpx
+        except ImportError:
+            return False, None, "httpx not available"
+
+        last_error: Optional[str] = None
+
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                    response = await client.request(
+                        method=method,
+                        url=url,
+                        headers=headers,
+                        json=json,
+                        data=data,
+                        files=files,
+                    )
+
+                    # Check for retryable status codes
+                    if self._is_retryable_status_code(response.status_code):
+                        last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+                        self._record_failure()
+
+                        if attempt < max_retries - 1:
+                            # Calculate delay with exponential backoff and jitter
+                            delay = min(base_delay * (2**attempt), 30.0)
+                            jitter = random.uniform(0, delay * 0.1)
+                            total_delay = delay + jitter
+
+                            logger.warning(
+                                f"{self.platform_name} {operation} got {response.status_code} "
+                                f"(attempt {attempt + 1}/{max_retries}). Retrying in {total_delay:.1f}s"
+                            )
+                            await asyncio.sleep(total_delay)
+                            continue
+                        else:
+                            logger.error(
+                                f"{self.platform_name} {operation} failed after {max_retries} "
+                                f"attempts with status {response.status_code}"
+                            )
+                            return False, None, last_error
+
+                    # Non-retryable error
+                    if response.status_code >= 400:
+                        self._record_failure()
+                        error = f"HTTP {response.status_code}: {response.text[:200]}"
+                        logger.warning(f"{self.platform_name} {operation} failed: {error}")
+                        return False, None, error
+
+                    # Success
+                    self._record_success()
+                    try:
+                        return True, response.json(), None
+                    except Exception:
+                        # Response may not be JSON
+                        return True, {"status": "ok", "text": response.text}, None
+
+            except httpx.TimeoutException as e:
+                last_error = f"Timeout after {self._request_timeout}s: {e}"
+                self._record_failure()
+
+                if attempt < max_retries - 1:
+                    delay = min(base_delay * (2**attempt), 30.0)
+                    logger.warning(
+                        f"{self.platform_name} {operation} timed out "
+                        f"(attempt {attempt + 1}/{max_retries}). Retrying in {delay:.1f}s"
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        f"{self.platform_name} {operation} timed out after {max_retries} attempts"
+                    )
+
+            except httpx.ConnectError as e:
+                last_error = f"Connection error: {e}"
+                self._record_failure()
+
+                if attempt < max_retries - 1:
+                    delay = min(base_delay * (2**attempt), 30.0)
+                    logger.warning(
+                        f"{self.platform_name} {operation} connection failed "
+                        f"(attempt {attempt + 1}/{max_retries}). Retrying in {delay:.1f}s"
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        f"{self.platform_name} {operation} connection failed after {max_retries} attempts"
+                    )
+
+            except Exception as e:
+                last_error = f"Unexpected error: {e}"
+                self._record_failure()
+                logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
+                # Don't retry on unexpected errors
+                break
+
+        return False, None, last_error
+
     @property
     @abstractmethod
     def platform_name(self) -> str:
