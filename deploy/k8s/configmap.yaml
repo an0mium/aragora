@@ -4,8 +4,38 @@ kind: ConfigMap
 metadata:
   name: aragora-config
   namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: config
 data:
+  # Application settings
+  ARAGORA_ENVIRONMENT: "production"
   ARAGORA_LOG_LEVEL: "INFO"
-  ARAGORA_ALLOWED_ORIGINS: "https://aragora.example.com"
+  ARAGORA_LOG_FORMAT: "json"
+
+  # CORS and API URLs
+  ARAGORA_ALLOWED_ORIGINS: "https://aragora.example.com,https://www.aragora.example.com"
   NEXT_PUBLIC_API_URL: "https://api.aragora.example.com"
   NEXT_PUBLIC_WS_URL: "wss://api.aragora.example.com"
+
+  # Database backend (use postgresql for multi-instance)
+  ARAGORA_DB_BACKEND: "postgresql"
+  ARAGORA_DB_POOL_SIZE: "20"
+
+  # Redis for shared state (required for multi-instance)
+  ARAGORA_STATE_BACKEND: "redis"
+
+  # Metrics and observability
+  METRICS_ENABLED: "true"
+  TRACING_ENABLED: "true"
+  OTEL_SERVICE_NAME: "aragora"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "prometheus"
+
+  # Rate limiting
+  ARAGORA_RATE_LIMIT_ENABLED: "true"
+  ARAGORA_RATE_LIMIT_REQUESTS_PER_MINUTE: "60"
+
+  # Debate settings
+  ARAGORA_MAX_CONCURRENT_DEBATES: "10"
+  ARAGORA_DEFAULT_TIMEOUT_SECONDS: "300"

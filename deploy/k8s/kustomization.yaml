@@ -10,10 +10,15 @@ resources:
   - cert-manager.yaml      # ClusterIssuers for TLS certificates
   - configmap.yaml
   - secret.yaml
+  - secrets.yaml           # Application secrets template
   - network-policy.yaml    # Zero-trust network segmentation
+  # Database (use managed service in production)
+  - postgres-statefulset.yaml  # Self-hosted PostgreSQL (dev/small deployments)
+  # Redis for shared state and caching
   - redis/statefulset.yaml
   - redis/service.yaml
   # - redis/cluster.yaml   # Uncomment for Redis Cluster deployment
+  # Application
   - deployment.yaml
   - service.yaml
   - ingress.yaml

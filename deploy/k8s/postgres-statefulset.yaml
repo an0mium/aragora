@@ -1,0 +1,171 @@
+# PostgreSQL StatefulSet for Development/Testing
+# For production, consider using:
+# - AWS RDS for PostgreSQL
+# - Google Cloud SQL
+# - Azure Database for PostgreSQL
+# - Supabase
+# - CloudNativePG operator
+#
+# This manifest is for development or small-scale deployments only.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/component: database
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_USER
+              value: "aragora"
+            - name: POSTGRES_DB
+              value: "aragora"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - aragora
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - aragora
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: postgres-init-scripts
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+        labels:
+          app.kubernetes.io/name: postgres
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard  # Adjust for your cluster
+        resources:
+          requests:
+            storage: 20Gi
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-primary
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: postgres
+      protocol: TCP
+      name: postgres
+  selector:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+---
+# PostgreSQL Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secrets
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: postgres
+type: Opaque
+stringData:
+  # IMPORTANT: Replace with a strong password in production
+  POSTGRES_PASSWORD: "change-me-in-production"
+---
+# PostgreSQL Init Scripts ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: postgres
+data:
+  01-init-schema.sql: |
+    -- Create aragora schema
+    CREATE SCHEMA IF NOT EXISTS aragora;
+    SET search_path TO aragora, public;
+
+    -- Schema version tracking
+    CREATE TABLE IF NOT EXISTS _schema_versions (
+        module TEXT PRIMARY KEY,
+        version INTEGER NOT NULL DEFAULT 1,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Core tables (abbreviated - see full schema in aragora/db/schema/postgres_schema.sql)
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        password_salt TEXT NOT NULL,
+        name TEXT DEFAULT '',
+        org_id TEXT,
+        role TEXT DEFAULT 'member',
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+    -- Insert initial schema version
+    INSERT INTO _schema_versions (module, version, updated_at)
+    VALUES ('users', 1, NOW())
+    ON CONFLICT (module) DO NOTHING;

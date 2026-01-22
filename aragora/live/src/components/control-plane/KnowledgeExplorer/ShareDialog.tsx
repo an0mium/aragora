@@ -119,10 +119,15 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
       />
 
       {/* Dialog */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-dialog-title"
+        className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Share Knowledge Item</h2>
+          <h2 id="share-dialog-title" className="text-lg font-semibold text-gray-900">Share Knowledge Item</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"

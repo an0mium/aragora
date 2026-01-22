@@ -331,9 +331,53 @@ If migration fails mid-way:
 3. **Add indexes** for frequent query patterns
 4. **Enable connection timeout** to prevent hung connections
 
+## Unified Schema File
+
+For production deployments, use the consolidated schema file that includes all tables:
+
+```bash
+# Initialize database with full schema
+psql -U postgres -d aragora -f aragora/db/schema/postgres_schema.sql
+
+# Or use the init script
+python scripts/init_postgres_db.py
+```
+
+The schema file includes:
+- Users and organizations
+- Audit and security tables
+- Governance and approvals
+- Integrations and webhooks
+- Marketplace
+- Job queue
+- Federation
+- Gauntlet testing
+- Finding workflows
+- Notifications
+- Sharing
+- Decision results
+
+## Docker Deployment
+
+```bash
+# Start PostgreSQL with docker-compose
+docker compose --profile postgres up -d postgres
+
+# Wait for PostgreSQL to be ready
+docker compose --profile postgres exec postgres pg_isready -U aragora
+
+# Initialize schema
+docker compose exec aragora python scripts/init_postgres_db.py
+
+# Or start everything together
+docker compose --profile postgres up
+```
+
 ## Next Steps
 
 - [x] Migrate EloSystem to PostgreSQL (`PostgresEloDatabase`)
 - [x] Migrate ContinuumMemory to PostgreSQL (`PostgresContinuumMemory`)
+- [x] Unified schema file created (`aragora/db/schema/postgres_schema.sql`)
+- [x] Database initialization script (`scripts/init_postgres_db.py`)
 - [ ] Add PostgreSQL support to remaining stores
 - [ ] Implement read replicas for scaling reads

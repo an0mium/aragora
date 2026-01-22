@@ -20,6 +20,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-aragora}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Mount schema file for initialization
+      - ./aragora/db/schema/postgres_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aragora}"]
       interval: 10s
@@ -80,8 +82,10 @@ services:
       # Redis (for OAuth state, session management, and caching)
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       # Database (PostgreSQL for production, SQLite for development)
-      # When using postgres profile, set DATABASE_URL to use PostgreSQL
+      # When using postgres profile, set ARAGORA_POSTGRES_DSN to use PostgreSQL
       - DATABASE_URL=${DATABASE_URL:-}
+      - ARAGORA_POSTGRES_DSN=${ARAGORA_POSTGRES_DSN:-postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD:-aragora_dev_password}@postgres:5432/${POSTGRES_DB:-aragora}}
+      - ARAGORA_DB_BACKEND=${ARAGORA_DB_BACKEND:-sqlite}
       - ARAGORA_DB_MODE=${ARAGORA_DB_MODE:-legacy}
       # Stripe billing (use Secrets Manager in production)
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}

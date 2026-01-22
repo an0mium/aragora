@@ -182,7 +182,46 @@ kubectl -n aragora get challenges
 2. **Rate limited**: Switch to `letsencrypt-staging` while testing
 3. **Webhook timeout**: Restart cert-manager pods
 
-### 7. Database Migrations
+### 7. PostgreSQL Configuration (Multi-Instance Required)
+
+For production multi-instance deployments, PostgreSQL is required instead of SQLite.
+
+#### Deploy PostgreSQL StatefulSet
+
+```bash
+# Apply PostgreSQL resources
+kubectl apply -f deploy/k8s/postgres-statefulset.yaml
+
+# Wait for PostgreSQL to be ready
+kubectl -n aragora wait --for=condition=ready pod postgres-0 --timeout=120s
+```
+
+#### Or Use Managed PostgreSQL
+
+For production, consider managed services:
+- **AWS RDS**: `postgresql://user:pass@rds-instance.region.rds.amazonaws.com:5432/aragora?sslmode=require`
+- **Google Cloud SQL**: Use Cloud SQL Auth Proxy
+- **Supabase**: `postgresql://postgres.project-ref:password@aws-0-region.pooler.supabase.com:6543/postgres`
+
+Configure via secrets:
+
+```yaml
+# In aragora-secrets
+stringData:
+  ARAGORA_POSTGRES_DSN: "postgresql://aragora:password@postgres-primary:5432/aragora?sslmode=require"
+```
+
+#### Initialize Schema
+
+```bash
+# Run schema initialization
+kubectl -n aragora exec -it deploy/aragora -- python scripts/init_postgres_db.py
+
+# Verify tables
+kubectl -n aragora exec -it deploy/aragora -- python scripts/init_postgres_db.py --verify
+```
+
+### 9. Database Migrations
 
 For PostgreSQL deployments, run migrations before starting the application:
 
@@ -201,7 +240,7 @@ kubectl apply -f deploy/k8s/migration-job.yaml --dry-run=client -o yaml | \
 kubectl -n aragora logs job/aragora-migrate-status
 ```
 
-For more database setup details, see [DATABASE_SETUP.md](DATABASE_SETUP.md).
+For more database setup details, see [POSTGRESQL_MIGRATION.md](POSTGRESQL_MIGRATION.md).
 
 ## Environment Variables
 
