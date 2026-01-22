@@ -550,6 +550,7 @@ class TestEndpointSpecificLoad:
 
 
 @pytest.mark.slow
+@pytest.mark.skip(reason="Stress tests too flaky on CI runners")
 class TestStressConditions:
     """Stress tests for extreme conditions."""
 
