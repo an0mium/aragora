@@ -86,7 +86,7 @@ export default function InboxPage() {
           setStatus(data);
         }
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch Gmail status');
     } finally {
       setLoading(false);
@@ -105,7 +105,7 @@ export default function InboxPage() {
         const data = await response.json();
         setSyncStatus(data);
       }
-    } catch (err) {
+    } catch {
       // Silently fail for sync status
     }
   }, [backendConfig.api, userId, tokens?.access_token]);
@@ -168,7 +168,7 @@ export default function InboxPage() {
           setError('Failed to start connection. Please try again.');
         }
       }
-    } catch (err) {
+    } catch {
       setError('Failed to connect to Gmail. Please check your connection and try again.');
     }
   }, [backendConfig.api, userId, tokens?.access_token]);
@@ -188,7 +188,7 @@ export default function InboxPage() {
         setStatus({ connected: false, configured: status?.configured || false });
         setSyncStatus(null);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to disconnect');
     }
   }, [backendConfig.api, userId, tokens?.access_token, status?.configured]);
@@ -212,7 +212,7 @@ export default function InboxPage() {
       if (response.ok) {
         fetchSyncStatus();
       }
-    } catch (err) {
+    } catch {
       setError('Failed to start sync');
     }
   }, [backendConfig.api, userId, tokens?.access_token, fetchSyncStatus]);
@@ -239,7 +239,7 @@ export default function InboxPage() {
         } : null);
         setNewVip('');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to add VIP sender');
     }
   }, [backendConfig.api, userId, tokens?.access_token, newVip]);
@@ -264,7 +264,7 @@ export default function InboxPage() {
           vip_senders: prev.vip_senders.filter(s => s !== senderEmail),
         } : null);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to remove VIP sender');
     }
   }, [backendConfig.api, userId, tokens?.access_token]);

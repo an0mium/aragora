@@ -17,7 +17,7 @@ const InsightsPanel = dynamic(
 );
 
 export default function InsightsPage() {
-  const { config: backendConfig } = useBackend();
+  useBackend();
 
   return (
     <>

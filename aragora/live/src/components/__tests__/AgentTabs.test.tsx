@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AgentTabs } from '../AgentTabs';
 import type { StreamEvent } from '@/types/events';
@@ -287,7 +287,7 @@ describe('AgentTabs', () => {
 
   describe('scrolling behavior', () => {
     it('shows jump to latest button when auto-scroll is disabled', async () => {
-      const user = userEvent.setup();
+      userEvent.setup();
       const events: StreamEvent[] = Array.from({ length: 20 }, (_, i) =>
         createAgentMessageEvent('claude', `Message ${i}`, { timestamp: 1000 + i })
       );

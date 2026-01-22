@@ -396,7 +396,7 @@ describe('useDebounce', () => {
 
   it('should clean up timeout on unmount', () => {
     let value = 'initial';
-    const { result, unmount, rerender } = renderHook(() => useDebounce(value, 500));
+    const { unmount, rerender } = renderHook(() => useDebounce(value, 500));
 
     value = 'changed';
     rerender();

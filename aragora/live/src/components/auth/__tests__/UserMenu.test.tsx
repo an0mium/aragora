@@ -4,6 +4,7 @@ import { UserMenu } from '../UserMenu';
 
 // Mock next/link with forwardRef and onClick support
 jest.mock('next/link', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react');
   return React.forwardRef(function MockLink(
     { children, href, onClick, ...props }: { children: React.ReactNode; href: string; onClick?: () => void },

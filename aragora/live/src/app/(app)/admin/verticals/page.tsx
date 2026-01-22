@@ -366,7 +366,7 @@ export default function VerticalsAdminPage() {
           text: 'Configuration changes stored locally. Backend endpoint not yet implemented.',
         });
       }
-    } catch (error) {
+    } catch {
       setSaveMessage({
         type: 'error',
         text: 'Failed to save configuration',

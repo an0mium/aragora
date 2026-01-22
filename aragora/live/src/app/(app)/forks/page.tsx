@@ -82,7 +82,7 @@ export default function ForksPage() {
 
       setFamilies(Array.from(familyMap.values()));
       setError(null);
-    } catch (e) {
+    } catch {
       setError('Network error loading forks');
     } finally {
       setLoading(false);
@@ -230,7 +230,7 @@ export default function ForksPage() {
                         </div>
 
                         {/* Fork nodes */}
-                        {family.forks.map((fork, index) => (
+                        {family.forks.map((fork) => (
                           <div
                             key={fork.id}
                             className="ml-4 flex items-start gap-2 text-xs font-mono border-l border-acid-green/30 pl-4"

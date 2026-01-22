@@ -33,7 +33,7 @@ function NewAuditContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { config: backendConfig } = useBackend();
-  const { user, tokens } = useAuth();
+  const { tokens } = useAuth();
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
@@ -60,7 +60,7 @@ function NewAuditContent() {
         const data = await response.json();
         setDocuments((data.documents || []).filter((d: Document) => d.status === 'completed'));
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch documents');
     } finally {
       setLoading(false);
@@ -186,7 +186,11 @@ function NewAuditContent() {
                     checked={selectedDocs.has(doc.id)}
                     onChange={(e) => {
                       const next = new Set(selectedDocs);
-                      e.target.checked ? next.add(doc.id) : next.delete(doc.id);
+                      if (e.target.checked) {
+                        next.add(doc.id);
+                      } else {
+                        next.delete(doc.id);
+                      }
                       setSelectedDocs(next);
                     }}
                     className="rounded"
@@ -212,7 +216,11 @@ function NewAuditContent() {
                   checked={selectedTypes.has(type.id)}
                   onChange={(e) => {
                     const next = new Set(selectedTypes);
-                    e.target.checked ? next.add(type.id) : next.delete(type.id);
+                    if (e.target.checked) {
+                      next.add(type.id);
+                    } else {
+                      next.delete(type.id);
+                    }
                     setSelectedTypes(next);
                   }}
                   className="mt-1 rounded"

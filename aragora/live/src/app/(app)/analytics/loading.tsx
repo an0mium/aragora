@@ -1,6 +1,6 @@
 'use client';
 
-import { Skeleton, CardSkeleton, StatsSkeleton } from '@/components/Skeleton';
+import { Skeleton, StatsSkeleton } from '@/components/Skeleton';
 
 export default function AnalyticsLoading() {
   return (

@@ -133,7 +133,7 @@ export default function RepositoryPage() {
   }, [fetchRepositories]);
 
   // Poll for indexing progress
-  const pollProgress = useCallback(async (repoId: string) => {
+  const _pollProgress = useCallback(async (repoId: string) => {
     try {
       const res = await fetch(`${backendConfig.api}/api/repository/${encodeURIComponent(repoId)}/status`);
       if (res.ok) {

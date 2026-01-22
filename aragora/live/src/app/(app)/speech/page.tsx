@@ -106,7 +106,7 @@ export default function SpeechPage() {
     }
   }, [activeTab, fetchEpisodes]);
 
-  const handleRecordingComplete = useCallback((blob: Blob, duration: number) => {
+  const handleRecordingComplete = useCallback((blob: Blob, _duration: number) => {
     setAudioFile(blob);
     setError(null);
   }, []);

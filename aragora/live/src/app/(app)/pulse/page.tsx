@@ -23,7 +23,7 @@ export default function PulsePage() {
     setIsDrawerOpen(true);
   }, []);
 
-  const handleDebateConfigured = useCallback((topic: TrendingTopic, config: DebateConfig) => {
+  const handleDebateConfigured = useCallback((topic: TrendingTopic, _config: DebateConfig) => {
     setDebateStarted(topic.topic);
     setIsDrawerOpen(false);
     setSelectedTopic(null);

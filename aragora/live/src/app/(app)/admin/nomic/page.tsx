@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
@@ -67,12 +66,6 @@ function CircuitBreakerBadge({ state }: { state: string }) {
       {state.toUpperCase().replace('_', '-')}
     </span>
   );
-}
-
-function formatTime(isoString?: string): string {
-  if (!isoString) return 'Never';
-  const date = new Date(isoString);
-  return date.toLocaleString();
 }
 
 function formatTimeAgo(isoString?: string): string {

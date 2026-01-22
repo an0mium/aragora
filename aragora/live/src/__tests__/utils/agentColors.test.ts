@@ -6,7 +6,6 @@ import {
   AGENT_COLORS,
   getAgentColors,
   getAgentTextColor,
-  type AgentColorScheme,
 } from '@/utils/agentColors';
 
 describe('agentColors utilities', () => {

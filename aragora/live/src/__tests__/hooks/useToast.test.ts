@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useToast, Toast, ToastType } from '@/hooks/useToast';
+import { useToast, ToastType } from '@/hooks/useToast';
 
 describe('useToast', () => {
   beforeEach(() => {

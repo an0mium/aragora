@@ -1,11 +1,11 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AgentPanel } from '../AgentPanel';
 import type { StreamEvent } from '@/types/events';
 
 // Mock the agent colors utility
 jest.mock('@/utils/agentColors', () => ({
-  getAgentColors: (agent: string) => ({
+  getAgentColors: (_agent: string) => ({
     bg: 'bg-surface',
     border: 'border-acid-green/30',
     text: 'text-acid-green',

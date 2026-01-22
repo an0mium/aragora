@@ -49,7 +49,7 @@ interface DailyUsage {
 }
 
 export default function DeveloperPortal() {
-  const { isAuthenticated, tokens, user } = useAuth();
+  const { isAuthenticated, tokens } = useAuth();
   const [apiKeyInfo, setApiKeyInfo] = useState<ApiKeyInfo | null>(null);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
@@ -165,7 +165,7 @@ export default function DeveloperPortal() {
       } else {
         setError(data.error || 'Failed to generate API key');
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.');
     } finally {
       setGenerating(false);
@@ -197,7 +197,7 @@ export default function DeveloperPortal() {
         const data = await res.json();
         setError(data.error || 'Failed to revoke API key');
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.');
     } finally {
       setRevoking(false);

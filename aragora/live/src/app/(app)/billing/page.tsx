@@ -8,7 +8,6 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { API_BASE_URL } from '@/config';
 import {
-  getClient,
   BillingPlan,
   BillingUsage,
   BillingSubscription,
@@ -25,7 +24,7 @@ type Invoice = BillingInvoice;
 type UsageForecast = ForecastType;
 
 export default function BillingPage() {
-  const { user, isAuthenticated, tokens, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, tokens, isLoading: authLoading } = useAuth();
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -77,7 +76,7 @@ export default function BillingPage() {
         const plansData = await plansRes.json();
         setPlans(plansData.plans || []);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load billing data');
     } finally {
       setLoading(false);
@@ -110,7 +109,7 @@ export default function BillingPage() {
       if (data.portal?.url) {
         window.location.href = data.portal.url;
       }
-    } catch (err) {
+    } catch {
       setError('Failed to open billing portal');
     } finally {
       setPortalLoading(false);
@@ -139,7 +138,7 @@ export default function BillingPage() {
       } else {
         setError('Failed to start checkout');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to start checkout');
     } finally {
       setUpgradeLoading(null);

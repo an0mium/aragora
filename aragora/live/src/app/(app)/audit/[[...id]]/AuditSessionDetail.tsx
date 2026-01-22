@@ -280,7 +280,7 @@ export default function AuditSessionDetail() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       setError('Failed to export report');
     } finally {
       setExporting(false);

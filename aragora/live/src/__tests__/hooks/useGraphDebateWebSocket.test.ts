@@ -152,7 +152,7 @@ describe('useGraphDebateWebSocket', () => {
     });
 
     it('sets connected status on successful connection', async () => {
-      const { result } = renderHook(() =>
+      renderHook(() =>
         useGraphDebateWebSocket({ debateId, wsUrl: 'wss://test.com/ws' })
       );
 
@@ -497,7 +497,7 @@ describe('useGraphDebateWebSocket', () => {
         ws.simulateOpen();
       });
 
-      const instanceCountAfterOpen = MockWebSocket.instances.length;
+      // Track instance count after open (used to verify no new connections)
 
       await act(async () => {
         ws.simulateClose(1006, 'Abnormal closure');

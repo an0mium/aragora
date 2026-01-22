@@ -50,7 +50,7 @@ function transformToGraphNode(node: KnowledgeNode, index: number): GraphNode {
 /**
  * Transform relationship to graph edge format.
  */
-function transformToGraphEdge(rel: KnowledgeRelationship): GraphEdge {
+function _transformToGraphEdge(rel: KnowledgeRelationship): GraphEdge {
   // Map relationship types to valid GraphEdge types
   const typeMap: Record<string, RelationshipType> = {
     supports: 'supports',

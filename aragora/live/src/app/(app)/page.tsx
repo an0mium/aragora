@@ -115,11 +115,11 @@ export default function Home() {
 
   // Onboarding wizard state
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [, setPendingPrompt] = useState<string | null>(null);
 
   // Layout context for responsive behavior
-  const { isMobile } = useLayout();
-  const { setContext: setRightSidebarContext, clearContext: clearRightSidebarContext } = useRightSidebar();
+  useLayout();
+  useRightSidebar();
 
   // Boot sequence state - disabled by default for cleaner UX
   const [showBoot, setShowBoot] = useState(false);
@@ -146,14 +146,14 @@ export default function Home() {
   const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(wsUrl);
 
   // Handler to navigate to landing page
-  const handleGoToLanding = useCallback(() => {
+  const _handleGoToLanding = useCallback(() => {
     router.push('/landing');
   }, [router]);
 
   // Handle debate started from landing page - navigate to debate viewer
-  const handleDebateStarted = useCallback((debateId: string) => {
+  const _handleDebateStarted = useCallback((_debateId: string) => {
     // Navigate to the dedicated debate viewer page
-    router.push(`/debate/${debateId}`);
+    router.push(`/debate/${_debateId}`);
   }, [router]);
 
   // Handle starting a debate from a trending topic
@@ -295,7 +295,7 @@ export default function Home() {
   }, [events]);
 
   // Export modal handlers
-  const handleExportDebate = useCallback((debateId: string) => {
+  const _handleExportDebate = useCallback((debateId: string) => {
     setExportDebateId(debateId);
     setShowExportModal(true);
   }, []);

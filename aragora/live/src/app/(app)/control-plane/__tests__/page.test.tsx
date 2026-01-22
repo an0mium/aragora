@@ -11,7 +11,7 @@ jest.mock('next/link', () => {
 
 // Mock next/dynamic
 jest.mock('next/dynamic', () => {
-  return function mockDynamic(loader: () => Promise<{ default: React.ComponentType }>) {
+  return function mockDynamic(_loader: () => Promise<{ default: React.ComponentType }>) {
     // Return a placeholder for dynamically loaded components
     return function DynamicComponent() {
       return <div data-testid="dynamic-component">Dynamic Component</div>;
@@ -62,33 +62,33 @@ jest.mock('@/hooks/useControlPlaneWebSocket', () => ({
 
 // Mock control-plane components
 jest.mock('@/components/control-plane', () => ({
-  AgentCatalog: ({ onSelectAgent, onConfigureAgent }: { onSelectAgent: () => void; onConfigureAgent: () => void }) => (
+  AgentCatalog: ({ onSelectAgent: _onSelectAgent, onConfigureAgent: _onConfigureAgent }: { onSelectAgent: () => void; onConfigureAgent: () => void }) => (
     <div data-testid="agent-catalog">Agent Catalog</div>
   ),
-  WorkflowBuilder: ({ onSave, onExecute }: { onSave: () => void; onExecute: () => void }) => (
+  WorkflowBuilder: ({ onSave: _onSave, onExecute: _onExecute }: { onSave: () => void; onExecute: () => void }) => (
     <div data-testid="workflow-builder">Workflow Builder</div>
   ),
-  KnowledgeExplorer: ({ onSelectNode }: { onSelectNode: () => void }) => (
+  KnowledgeExplorer: ({ onSelectNode: _onSelectNode }: { onSelectNode: () => void }) => (
     <div data-testid="knowledge-explorer">Knowledge Explorer</div>
   ),
-  ExecutionMonitor: ({ onSelectExecution }: { onSelectExecution: () => void }) => (
+  ExecutionMonitor: ({ onSelectExecution: _onSelectExecution }: { onSelectExecution: () => void }) => (
     <div data-testid="execution-monitor">Execution Monitor</div>
   ),
   PolicyDashboard: () => <div data-testid="policy-dashboard">Policy Dashboard</div>,
-  WorkspaceManager: ({ onWorkspaceSelect, onWorkspaceUpdate }: { onWorkspaceSelect: () => void; onWorkspaceUpdate: () => void }) => (
+  WorkspaceManager: ({ onWorkspaceSelect: _onWorkspaceSelect, onWorkspaceUpdate: _onWorkspaceUpdate }: { onWorkspaceSelect: () => void; onWorkspaceUpdate: () => void }) => (
     <div data-testid="workspace-manager">Workspace Manager</div>
   ),
-  ConnectorDashboard: ({ onSelectConnector }: { onSelectConnector: () => void }) => (
+  ConnectorDashboard: ({ onSelectConnector: _onSelectConnector }: { onSelectConnector: () => void }) => (
     <div data-testid="connector-dashboard">Connector Dashboard</div>
   ),
 }));
 
 // Mock verticals components
 jest.mock('@/components/verticals', () => ({
-  VerticalSelector: ({ selectedVertical, onSelect, verticals }: { selectedVertical?: string; onSelect: () => void; verticals: unknown[] }) => (
+  VerticalSelector: ({ selectedVertical: _selectedVertical, onSelect: _onSelect, verticals: _verticals }: { selectedVertical?: string; onSelect: () => void; verticals: unknown[] }) => (
     <div data-testid="vertical-selector">Vertical Selector</div>
   ),
-  KnowledgeExplorer: ({ selectedVertical }: { selectedVertical?: string }) => (
+  KnowledgeExplorer: ({ selectedVertical: _selectedVertical }: { selectedVertical?: string }) => (
     <div data-testid="vertical-knowledge-explorer">Vertical Knowledge Explorer</div>
   ),
   ExecutionMonitor: () => <div data-testid="vertical-execution-monitor">Vertical Execution Monitor</div>,

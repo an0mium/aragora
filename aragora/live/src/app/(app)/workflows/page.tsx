@@ -120,7 +120,7 @@ const useCaseDescriptions: Record<string, { problem: string; solution: string; b
 export default function WorkflowsPage() {
   const { isFeatureVisible } = useProgressiveMode();
   const [templates, setTemplates] = useState<WorkflowSummary[]>([]);
-  const [userWorkflows, setUserWorkflows] = useState<WorkflowSummary[]>([]);
+  const [userWorkflows] = useState<WorkflowSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');

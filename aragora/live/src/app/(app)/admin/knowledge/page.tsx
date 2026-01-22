@@ -6,7 +6,6 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
-import { PanelTemplate } from '@/components/shared/PanelTemplate';
 import { useAuth } from '@/context/AuthContext';
 import { FederationStatus, RegionDialog, type FederatedRegion, type RegionFormData } from '@/components/control-plane/KnowledgeExplorer';
 import { useFederation } from '@/hooks/useFederation';

@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
-import { UseCaseSelector, QuickStartCards, USE_CASES } from '@/components/landing';
-import { AdaptiveModeToggle, AdaptiveModeBadge } from '@/components/ui/AdaptiveModeToggle';
+import { useBackend } from '@/components/BackendSelector';
+import { UseCaseSelector, QuickStartCards } from '@/components/landing';
+import { AdaptiveModeToggle } from '@/components/ui/AdaptiveModeToggle';
 import { useAdaptiveMode } from '@/context/AdaptiveModeContext';
 
 interface LiveDebate {
@@ -21,7 +19,6 @@ interface LiveDebate {
 }
 
 export default function PortalPage() {
-  const router = useRouter();
   const { config } = useBackend();
   const { mode } = useAdaptiveMode();
   const [liveDebates, setLiveDebates] = useState<LiveDebate[]>([]);

@@ -134,7 +134,7 @@ export default function BroadcastPage() {
       } else {
         setError('Failed to load episodes');
       }
-    } catch (e) {
+    } catch {
       setError('Network error loading episodes');
     } finally {
       setLoading(false);

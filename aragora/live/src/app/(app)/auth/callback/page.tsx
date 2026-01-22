@@ -47,7 +47,7 @@ function OAuthCallbackContent() {
           // Clear the hash from URL for security
           window.history.replaceState(null, '', window.location.pathname);
           setTimeout(() => router.push('/'), 1500);
-        } catch (err) {
+        } catch {
           setStatus('error');
           setMessage('Failed to store authentication tokens');
         }

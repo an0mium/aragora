@@ -110,7 +110,7 @@ const plans: Plan[] = [
 ];
 
 export default function PricingPage() {
-  const { user, isAuthenticated, tokens } = useAuth();
+  const { isAuthenticated, tokens } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);

@@ -41,7 +41,7 @@ function templateToNodes(template: WorkflowTemplate): { nodes: WorkflowNode[]; e
   let yOffset = 50;
   const xCenter = 400;
 
-  template.steps.forEach((step, index) => {
+  template.steps.forEach((step, _index) => {
     const position = { x: xCenter - 90, y: yOffset };
     stepPositions[step.id] = position;
 
@@ -155,7 +155,7 @@ export default function WorkflowBuilderPage() {
         logger.debug('Saving workflow:', workflow);
 
         showToast('Workflow saved successfully', 'success');
-      } catch (error) {
+      } catch {
         showToast('Failed to save workflow', 'error');
       }
     },
@@ -173,7 +173,7 @@ export default function WorkflowBuilderPage() {
 
   // Execute the current workflow
   const [isExecuting, setIsExecuting] = useState(false);
-  const [savedWorkflowId, setSavedWorkflowId] = useState<string | null>(null);
+  const [, setSavedWorkflowId] = useState<string | null>(null);
 
   const handleSaveAndExecute = useCallback(
     async (nodes: WorkflowNode[], edges: WorkflowEdge[]) => {

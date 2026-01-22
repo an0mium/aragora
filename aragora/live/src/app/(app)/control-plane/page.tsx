@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
@@ -48,9 +47,9 @@ export default function ControlPlanePage() {
   const [jobs, setJobs] = useState<ProcessingJob[]>([]);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh] = useState(true);
   const [usingMockData, setUsingMockData] = useState(false);
-  const [useWebSocket, setUseWebSocket] = useState(true);
+  const [useWebSocket] = useState(true);
   const [selectedVertical, setSelectedVertical] = useState<string | null>(null);
   const [verticalsData, setVerticalsData] = useState<Array<{
     vertical_id: string;
@@ -68,7 +67,6 @@ export default function ControlPlanePage() {
     tasks: wsTasksMap,
     schedulerStats,
     recentEvents,
-    reconnect: wsReconnect,
   } = useControlPlaneWebSocket({
     enabled: useWebSocket,
     autoReconnect: true,
@@ -268,7 +266,7 @@ export default function ControlPlanePage() {
     }
   };
 
-  const resumeJob = async (jobId: string) => {
+  const resumeJob = async (_jobId: string) => {
     try {
       // To "resume" we would resubmit the task - for now just refresh
       // A true pause/resume would need additional API support

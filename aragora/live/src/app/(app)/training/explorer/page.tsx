@@ -60,7 +60,7 @@ export default function TrainingExplorerPage() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.7);
-  const [previewLimit, setPreviewLimit] = useState(10);
+  const [previewLimit] = useState(10);
 
   const fetchStats = useCallback(async () => {
     try {

@@ -15,7 +15,7 @@ export default function ArenaPage() {
   const { setContext, clearContext } = useRightSidebar();
 
   // Handle debate started - navigate to debate viewer
-  const handleDebateStarted = useCallback((debateId: string, question: string) => {
+  const handleDebateStarted = useCallback((debateId: string, _question: string) => {
     router.push(`/debate/${debateId}`);
   }, [router]);
 

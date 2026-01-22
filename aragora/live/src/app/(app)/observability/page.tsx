@@ -178,7 +178,7 @@ export default function ObservabilityPage() {
         { url: '/api/dashboard/debates', setter: setDashboard },
       ];
 
-      const results = await Promise.allSettled(
+      await Promise.allSettled(
         endpoints.map(async ({ url, setter }) => {
           const response = await fetch(`${backendConfig.api}${url}`);
           if (response.ok) {

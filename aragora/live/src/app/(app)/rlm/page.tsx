@@ -195,7 +195,7 @@ export default function RLMDashboard() {
   const { config: backendConfig } = useBackend();
   const [status, setStatus] = useState<RLMStatus | null>(null);
   const [metrics, setMetrics] = useState<RLMMetrics | null>(null);
-  const [activeQueries, setActiveQueries] = useState<ActiveQuery[]>([]);
+  const [activeQueries] = useState<ActiveQuery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);

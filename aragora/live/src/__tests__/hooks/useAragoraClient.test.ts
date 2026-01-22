@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useAragoraClient, useClientCleanup, useClientAuth } from '@/hooks/useAragoraClient';
 
 // Mock the dependencies

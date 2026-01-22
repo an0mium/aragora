@@ -64,7 +64,6 @@ export default function NomicControlPage() {
     isConnected: wsConnected,
     loopState: wsLoopState,
     proposals: wsProposals,
-    logMessages: wsLogMessages,
   } = useNomicLoopWebSocket({
     enabled: true,
     autoReconnect: true,

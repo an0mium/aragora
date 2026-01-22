@@ -1,6 +1,6 @@
 'use client';
 
-import { Skeleton, TableSkeleton, CardSkeleton, BadgeSkeleton } from '@/components/Skeleton';
+import { Skeleton, TableSkeleton, BadgeSkeleton } from '@/components/Skeleton';
 
 export default function MLLoading() {
   return (

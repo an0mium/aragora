@@ -70,7 +70,7 @@ export default function AuditTemplatesPage() {
         const data = await typesRes.json();
         setAuditTypes(data.audit_types || []);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch audit configuration');
     } finally {
       setLoading(false);

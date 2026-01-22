@@ -8,7 +8,6 @@ import {
   type ConnectorDetails,
   type SchedulerStats,
   type SyncHistoryEntry,
-  type ConnectorType,
   CONNECTOR_TYPE_ICONS,
   CONNECTOR_TYPE_COLORS,
   CONNECTOR_CATEGORIES,
@@ -760,7 +759,7 @@ export default function ConnectorsPage() {
         const data = await historyRes.json();
         setHistory(data.history || []);
       }
-    } catch (error) {
+    } catch {
       showToast('Failed to load connector data', 'error');
     } finally {
       setLoading(false);
@@ -784,7 +783,7 @@ export default function ConnectorsPage() {
       showToast('Connector added successfully', 'success');
       setShowAddModal(false);
       fetchData();
-    } catch (error) {
+    } catch {
       showToast('Failed to add connector', 'error');
     }
   };
@@ -806,7 +805,7 @@ export default function ConnectorsPage() {
 
       showToast('Sync started', 'success');
       setTimeout(fetchData, 2000); // Refresh after 2s
-    } catch (error) {
+    } catch {
       showToast('Failed to trigger sync', 'error');
     } finally {
       setSyncingConnectors((prev) => {
@@ -830,7 +829,7 @@ export default function ConnectorsPage() {
 
       showToast('Connector deleted', 'success');
       fetchData();
-    } catch (error) {
+    } catch {
       showToast('Failed to delete connector', 'error');
     }
   };
@@ -854,7 +853,7 @@ export default function ConnectorsPage() {
       showToast('Connector updated successfully', 'success');
       setEditingConnector(null);
       fetchData();
-    } catch (error) {
+    } catch {
       showToast('Failed to update connector', 'error');
     }
   };
@@ -870,7 +869,7 @@ export default function ConnectorsPage() {
 
       showToast('Sync cancelled', 'success');
       fetchData();
-    } catch (error) {
+    } catch {
       showToast('Failed to cancel sync', 'error');
     }
   };

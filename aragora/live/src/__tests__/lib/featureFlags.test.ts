@@ -12,7 +12,6 @@ import {
   disableFeature,
   resetFeature,
   resetAllFeatures,
-  type FeatureName,
 } from '@/lib/featureFlags';
 
 describe('featureFlags', () => {
@@ -53,7 +52,7 @@ describe('featureFlags', () => {
     });
 
     it('all features have required properties', () => {
-      Object.entries(FEATURES).forEach(([name, flag]) => {
+      Object.entries(FEATURES).forEach(([_name, flag]) => {
         expect(flag).toHaveProperty('enabled');
         expect(flag).toHaveProperty('label');
         expect(flag).toHaveProperty('status');

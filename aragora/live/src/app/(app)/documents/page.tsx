@@ -19,13 +19,6 @@ interface Document {
   created_at: string;
 }
 
-interface BatchJob {
-  id: string;
-  document_count: number;
-  status: string;
-  progress: number;
-  created_at: string;
-}
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -53,10 +46,10 @@ function formatDate(dateStr: string): string {
 
 export default function DocumentsPage() {
   const { config: backendConfig } = useBackend();
-  const { user, tokens, isAuthenticated } = useAuth();
+  const { tokens } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
@@ -101,7 +94,7 @@ export default function DocumentsPage() {
         }
       }
       fetchDocuments();
-    } catch (err) {
+    } catch {
       setError('Failed to import files from cloud storage');
     } finally {
       setUploading(false);
@@ -118,7 +111,7 @@ export default function DocumentsPage() {
         const data = await response.json();
         setDocuments(data.documents || []);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch documents');
     } finally {
       setLoading(false);
@@ -269,7 +262,7 @@ export default function DocumentsPage() {
                 <tbody>
                   {filteredDocuments.map((doc) => (
                     <tr key={doc.id} className="border-b border-border hover:bg-surface/50">
-                      <td className="p-3"><input type="checkbox" checked={selectedDocs.has(doc.id)} onChange={(e) => { const n = new Set(selectedDocs); e.target.checked ? n.add(doc.id) : n.delete(doc.id); setSelectedDocs(n); }} /></td>
+                      <td className="p-3"><input type="checkbox" checked={selectedDocs.has(doc.id)} onChange={(e) => { const n = new Set(selectedDocs); if (e.target.checked) { n.add(doc.id); } else { n.delete(doc.id); } setSelectedDocs(n); }} /></td>
                       <td className="p-3 font-mono text-sm">{doc.filename}</td>
                       <td className="p-3"><StatusBadge status={doc.status} /></td>
                       <td className="p-3 font-mono text-sm">{formatFileSize(doc.size_bytes)}</td>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useCallback } from 'react';
-import { useBackend, BACKENDS } from '@/components/BackendSelector';
+import { useBackend } from '@/components/BackendSelector';
 
 interface UseCaseCard {
   id: string;

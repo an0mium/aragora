@@ -94,7 +94,7 @@ export default function WebhooksPage() {
   const [creating, setCreating] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [_expandedEvent, _setExpandedEvent] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {

@@ -138,8 +138,6 @@ export default function ReceiptsPage() {
       const response = await fetch(`${backendUrl}/api/gauntlet/${selectedId}/receipt?format=${format}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const contentType = response.headers.get('content-type') || '';
-      const isText = contentType.includes('text') || contentType.includes('json');
       const blob = await response.blob();
 
       const ext = format === 'markdown' ? 'md' : format;

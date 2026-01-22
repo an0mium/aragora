@@ -211,7 +211,7 @@ export default function TranscribePage() {
     }
   }, [selectedFile, selectedBackend, selectedLanguage]);
 
-  const handleYouTubeSubmit = useCallback(async (url: string, videoInfo: YouTubeVideoInfo) => {
+  const handleYouTubeSubmit = useCallback(async (url: string, _videoInfo: YouTubeVideoInfo) => {
     setState('processing');
     setProgress(0);
     setError(null);
@@ -267,7 +267,7 @@ export default function TranscribePage() {
     if (!result) return;
 
     let content = '';
-    let filename = `transcript.${format}`;
+    const filename = `transcript.${format}`;
     let mimeType = 'text/plain';
 
     if (format === 'txt') {
