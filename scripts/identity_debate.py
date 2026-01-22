@@ -83,11 +83,11 @@ ARAGORA_SELF_KNOWLEDGE = """
    - **Cross-Session Learning**: Agents remember outcomes from previous debates
 
 ### 4. LONG CONTEXT MASTERY (88% mature) - CRITICAL CAPABILITY
-   - **RLM (Recursive Language Model)**: Hierarchical context compression via arXiv:2512.24601
+   - **RLM (Recursive Language Model)**: Programmatic context navigation (NOT compression)
+   - **REPL-like Interface**: Register, summarize, drill-down, query documents interactively
    - **Context Windows**: Up to 2M tokens with Gemini 3 Pro
-   - **Intelligent Chunking**: Preserves semantic boundaries during compression
-   - **REPL Navigation**: Interactive drilling into compressed context
-   - **Evidence Grounding**: Citations and provenance tracked across compressions
+   - **Intelligent Navigation**: Hierarchical traversal of large documents
+   - **Evidence Grounding**: Citations and provenance tracked across queries
 
 ### 5. DEBATE ENGINE (95% mature)
    - Arena orchestrator with 9-round Hegelian protocol (Thesis->Antithesis->Synthesis)
@@ -173,8 +173,8 @@ institutional learning and autonomously improves through a self-governing Nomic 
    cross-session learning means Aragora ACCUMULATES organizational knowledge. This is
    fundamentally different from stateless chat tools.
 
-4. **Very Long Context** - RLM compression enables million-token contexts with intelligent
-   navigation. This enables comprehensive document analysis that other tools cannot match.
+4. **Very Long Context** - RLM provides programmatic REPL-like navigation of million-token
+   contexts. This enables comprehensive document analysis that other tools cannot match.
 
 Please address these gaps in your proposals. The ideal tagline and description should
 capture ALL of these capabilities, not just the debate mechanism.
@@ -193,7 +193,7 @@ Your task is to improve upon it.
 2. **Institutional Memory**: 4-tier memory, surprise-based retention, Knowledge Mound, cross-session learning
 3. **Bidirectional Communication**: Receives queries AND sends results to Slack, Discord, Teams, Telegram, WhatsApp, voice
 4. **Debate & Synthesis**: Hegelian dialectics (Thesis->Antithesis->Synthesis), multi-agent consensus
-5. **Long Context Mastery**: RLM compression, million-token contexts, intelligent navigation
+5. **Long Context Mastery**: RLM programmatic navigation, million-token contexts, REPL-like interface
 6. **Self-Improvement**: Nomic Loop (debate->design->implement->verify with constitutional constraints)
 
 ## What Makes Aragora Unique (vs ChatGPT/Copilot)

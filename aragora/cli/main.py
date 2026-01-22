@@ -449,6 +449,106 @@ def cmd_agents(args: argparse.Namespace) -> None:
     agents_main(args)
 
 
+def cmd_control_plane(args: argparse.Namespace) -> None:
+    """Handle 'control-plane' command - show control plane status and management."""
+    import urllib.request
+    import json
+
+    server_url = getattr(args, "server", DEFAULT_API_URL)
+    subcommand = getattr(args, "subcommand", "status")
+
+    print("\n" + "=" * 60)
+    print("ARAGORA CONTROL PLANE")
+    print("=" * 60)
+
+    if subcommand in (None, "status"):
+        # Get control plane metrics
+        try:
+            req = urllib.request.Request(
+                f"{server_url}/api/v1/control-plane/metrics",
+                method="GET",
+                headers={"Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+
+            print("\nControl Plane Status: ONLINE")
+            print("\nAgents:")
+            print(f"  Total:     {data.get('total_agents', 0)}")
+            print(f"  Available: {data.get('agents_available', 0)}")
+            print(f"  Busy:      {data.get('agents_busy', 0)}")
+
+            print("\nJobs:")
+            print(f"  Active:    {data.get('active_jobs', 0)}")
+            print(f"  Queued:    {data.get('queued_jobs', 0)}")
+            print(f"  Completed: {data.get('completed_jobs', 0)}")
+
+            print("\nActivity (24h):")
+            print(f"  Documents: {data.get('documents_processed_today', 0)}")
+            print(f"  Audits:    {data.get('audits_completed_today', 0)}")
+
+        except (OSError, TimeoutError) as e:
+            print("\nControl Plane Status: OFFLINE")
+            print(f"  Server not reachable at {server_url}")
+            print(f"  Error: {e}")
+            print("\n  Start the server with: aragora serve")
+
+    elif subcommand == "agents":
+        # List registered agents
+        try:
+            req = urllib.request.Request(
+                f"{server_url}/api/v1/control-plane/agents",
+                method="GET",
+                headers={"Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+
+            agents = data.get("agents", [])
+            print(f"\nRegistered Agents: {len(agents)}")
+            print("-" * 40)
+            for agent in agents:
+                status = agent.get("status", "unknown")
+                status_icon = "+" if status == "idle" else ("*" if status == "busy" else "-")
+                print(f"  [{status_icon}] {agent.get('id', 'unknown')}")
+                print(f"      Type: {agent.get('type', 'unknown')}")
+                print(f"      Status: {status}")
+
+        except (OSError, TimeoutError) as e:
+            print(f"\nCannot reach control plane at {server_url}")
+            print(f"  Error: {e}")
+
+    elif subcommand == "channels":
+        # List connected channels
+        try:
+            req = urllib.request.Request(
+                f"{server_url}/api/v1/integrations/status",
+                method="GET",
+                headers={"Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+
+            print("\nConnected Channels:")
+            print("-" * 40)
+            channels = data.get("channels", data.get("integrations", []))
+            if channels:
+                for channel in channels:
+                    name = channel.get("name", channel.get("type", "unknown"))
+                    status = channel.get("status", "unknown")
+                    icon = "+" if status in ("connected", "healthy", "ok") else "-"
+                    print(f"  [{icon}] {name}: {status}")
+            else:
+                print("  No channels configured")
+                print("  Configure in: CLAUDE.md or via API")
+
+        except (OSError, TimeoutError) as e:
+            print(f"\nCannot reach control plane at {server_url}")
+            print(f"  Error: {e}")
+
+    print("\n" + "=" * 60)
+
+
 def cmd_modes(args: argparse.Namespace) -> None:
     """Handle 'modes' command - list available operational modes."""
     modes = ModeRegistry.get_all()
@@ -1335,7 +1435,7 @@ def get_version() -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Aragora - Omnivorous Multi Agent Decision Making Engine",
+        description="Aragora - Control plane for multi-agent deliberation across org knowledge and channels",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -1817,6 +1917,36 @@ Configure in claude_desktop_config.json:
         help="Subcommand arguments",
     )
     marketplace_parser.set_defaults(func=cmd_marketplace)
+
+    # Control Plane command
+    cp_parser = subparsers.add_parser(
+        "control-plane",
+        help="Control plane status and management",
+        description="""
+Aragora Control Plane - orchestrate multi-agent deliberation.
+
+Show control plane status, list registered agents, and view connected channels.
+
+Subcommands:
+  status   - Show control plane overview (default)
+  agents   - List registered agents and their status
+  channels - List connected communication channels
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    cp_parser.add_argument(
+        "subcommand",
+        nargs="?",
+        default="status",
+        choices=["status", "agents", "channels"],
+        help="Subcommand (default: status)",
+    )
+    cp_parser.add_argument(
+        "--server",
+        default=DEFAULT_API_URL,
+        help=f"API server URL (default: {DEFAULT_API_URL})",
+    )
+    cp_parser.set_defaults(func=cmd_control_plane)
 
     args = parser.parse_args()
 
