@@ -149,6 +149,7 @@ class ConnectorsHandler(SecureHandler):
         "/api/connectors/test",
         "/api/connectors/sync-history",
         "/api/connectors/stats",
+        "/api/connectors/health",
         "/api/connectors/types",
     ]
 
@@ -179,7 +180,7 @@ class ConnectorsHandler(SecureHandler):
             if len(parts) > 1:
                 remaining = parts[1].split("/")
                 # First segment after /connectors/ is the connector_id (unless it's a special route)
-                if remaining[0] not in ("sync-history", "stats", "test", "types", "sync"):
+                if remaining[0] not in ("sync-history", "stats", "health", "test", "types", "sync"):
                     connector_id = remaining[0]
 
         # For sync cancel operations, parse sync_id from /sync/{sync_id}/cancel
@@ -209,6 +210,10 @@ class ConnectorsHandler(SecureHandler):
             if err := self._check_permission(request, "connectors:read"):
                 return err
             return await self._get_stats(request)
+        elif path.endswith("/health"):
+            if err := self._check_permission(request, "connectors:read"):
+                return err
+            return await self._get_health(request)
         elif path.endswith("/test") and method == "POST":
             if err := self._check_permission(request, "connectors:configure"):
                 return err
@@ -693,7 +698,7 @@ class ConnectorsHandler(SecureHandler):
         # Fallback to in-memory
         connectors = list(_connectors.values())
 
-        total_items = sum(c.get("items_synced", 0) for c in connectors)
+        total_items = sum(c.get("items_synced", 0) for c in connectors)  # type: ignore[misc]
         connected = sum(1 for c in connectors if c["status"] in ("connected", "syncing"))
         syncing = sum(1 for c in connectors if c["status"] == "syncing")
         errors = sum(1 for c in connectors if c["status"] == "error")
@@ -726,12 +731,197 @@ class ConnectorsHandler(SecureHandler):
             },
         )
 
+    async def _get_health(self, request: Any) -> Dict[str, Any]:
+        """
+        Get health scores for all connectors.
+
+        Health score is calculated based on:
+        - Success rate (60% weight): Percentage of successful syncs
+        - Latency score (40% weight): Based on sync duration vs. expected
+
+        Response:
+        {
+            "connectors": [
+                {
+                    "connector_id": "...",
+                    "connector_type": "sharepoint",
+                    "health_score": 0.85,
+                    "status": "healthy",
+                    "metrics": {
+                        "success_rate": 0.95,
+                        "avg_duration_seconds": 45.2,
+                        "syncs_24h": 12,
+                        "failures_24h": 1,
+                        "last_sync": "2026-01-21T10:30:00Z",
+                        "items_synced": 15000
+                    },
+                    "issues": []
+                }
+            ],
+            "summary": {
+                "total": 5,
+                "healthy": 4,
+                "degraded": 1,
+                "unhealthy": 0,
+                "overall_score": 0.92
+            }
+        }
+        """
+        store = await _get_store()
+        connectors_health = []
+
+        if store:
+            connector_configs = await store.list_connectors()
+
+            for config in connector_configs:
+                # Get per-connector stats
+                stats = await store.get_sync_stats(connector_id=config.id)
+                history = await store.get_sync_history(connector_id=config.id, limit=100)
+
+                # Calculate success rate
+                total_syncs = stats.get("total_syncs", 0)
+                successful = stats.get("successful_syncs", 0)
+                success_rate = successful / total_syncs if total_syncs > 0 else 1.0
+
+                # Calculate latency score (lower is better, normalized to 0-1)
+                avg_duration = stats.get("avg_duration_seconds", 0) or 0
+                expected_duration = CONNECTOR_TYPES.get(config.connector_type, {}).get(
+                    "expected_sync_duration", 60
+                )
+                if avg_duration <= expected_duration:
+                    latency_score = 1.0
+                else:
+                    # Degrade linearly, floor at 0.3
+                    latency_score = max(
+                        0.3, 1.0 - (avg_duration - expected_duration) / expected_duration
+                    )
+
+                # Calculate overall health score
+                health_score = (success_rate * 0.6) + (latency_score * 0.4)
+
+                # Determine status
+                if health_score >= 0.9:
+                    status = "healthy"
+                elif health_score >= 0.7:
+                    status = "degraded"
+                else:
+                    status = "unhealthy"
+
+                # Identify issues
+                issues = []
+                if success_rate < 0.9:
+                    issues.append(f"Low success rate: {success_rate*100:.1f}%")
+                if avg_duration > expected_duration * 2:
+                    issues.append(
+                        f"High sync duration: {avg_duration:.0f}s (expected: {expected_duration}s)"
+                    )
+                if config.status == "error":
+                    issues.append("Connector in error state")
+                if total_syncs == 0:
+                    issues.append("No syncs recorded")
+
+                # Get last sync time
+                last_sync = None
+                if history:
+                    last_sync = history[0].completed_at or history[0].started_at
+                    last_sync = last_sync.isoformat() if last_sync else None
+
+                # Syncs in last 24 hours
+                from datetime import timedelta
+
+                one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+                syncs_24h = sum(1 for h in history if h.started_at and h.started_at >= one_day_ago)
+                failures_24h = sum(
+                    1
+                    for h in history
+                    if h.started_at and h.started_at >= one_day_ago and h.status == "failed"
+                )
+
+                connectors_health.append(
+                    {
+                        "connector_id": config.id,
+                        "connector_type": config.connector_type,
+                        "name": config.name or config.id,
+                        "health_score": round(health_score, 3),
+                        "status": status,
+                        "metrics": {
+                            "success_rate": round(success_rate, 3),
+                            "avg_duration_seconds": round(avg_duration, 1),
+                            "total_syncs": total_syncs,
+                            "syncs_24h": syncs_24h,
+                            "failures_24h": failures_24h,
+                            "last_sync": last_sync,
+                            "items_synced": config.items_indexed,
+                        },
+                        "issues": issues,
+                    }
+                )
+
+        else:
+            # Fallback to in-memory
+            for connector_id, config in _connectors.items():
+                connector_history = [
+                    h for h in _sync_history if h.get("connector_id") == connector_id
+                ]
+                total_syncs = len(connector_history)
+                successful = sum(1 for h in connector_history if h.get("status") == "completed")
+                success_rate = successful / total_syncs if total_syncs > 0 else 1.0
+                health_score = success_rate  # Simplified for in-memory
+
+                status = (
+                    "healthy"
+                    if health_score >= 0.9
+                    else ("degraded" if health_score >= 0.7 else "unhealthy")
+                )
+
+                connectors_health.append(
+                    {
+                        "connector_id": connector_id,
+                        "connector_type": config.get("type", "unknown"),
+                        "name": config.get("name", connector_id),
+                        "health_score": round(health_score, 3),
+                        "status": status,
+                        "metrics": {
+                            "success_rate": round(success_rate, 3),
+                            "total_syncs": total_syncs,
+                            "items_synced": config.get("items_synced", 0),
+                        },
+                        "issues": [],
+                    }
+                )
+
+        # Calculate summary
+        total = len(connectors_health)
+        healthy = sum(1 for c in connectors_health if c["status"] == "healthy")
+        degraded = sum(1 for c in connectors_health if c["status"] == "degraded")
+        unhealthy = sum(1 for c in connectors_health if c["status"] == "unhealthy")
+        overall_score = (
+            sum(c["health_score"] for c in connectors_health) / total if total > 0 else 1.0
+        )
+
+        # Sort by health score (worst first for quick visibility)
+        connectors_health.sort(key=lambda c: c["health_score"])
+
+        return self._json_response(
+            200,
+            {
+                "connectors": connectors_health,
+                "summary": {
+                    "total": total,
+                    "healthy": healthy,
+                    "degraded": degraded,
+                    "unhealthy": unhealthy,
+                    "overall_score": round(overall_score, 3),
+                },
+            },
+        )
+
     async def _list_types(self, request: Any) -> Dict[str, Any]:
         """List all available connector types."""
         types = [
             {
                 "type": type_id,
-                **type_meta,
+                **type_meta,  # type: ignore[misc]
             }
             for type_id, type_meta in CONNECTOR_TYPES.items()
         ]
@@ -742,7 +932,7 @@ class ConnectorsHandler(SecureHandler):
         """Count connectors by category."""
         counts: Dict[str, int] = {}
         for connector in connectors:
-            category = CONNECTOR_TYPES.get(connector["type"], {}).get("category", "other")
+            category = CONNECTOR_TYPES.get(connector["type"], {}).get("category", "other")  # type: ignore[call-overload,attr-defined]
             counts[category] = counts.get(category, 0) + 1
         return counts
 
