@@ -308,7 +308,7 @@ class TestSyncItems:
 
         with patch.object(connector, "_get_spreadsheet", return_value=mock_spreadsheet):
             # Set cursor to after the spreadsheet's modified time
-            state = SyncState(cursor="2024-01-15T00:00:00+00:00")
+            state = SyncState(connector_id="gsheets", cursor="2024-01-15T00:00:00+00:00")
             items = []
             async for item in connector.sync_items(state):
                 items.append(item)
