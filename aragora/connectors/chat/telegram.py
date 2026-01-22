@@ -1023,5 +1023,655 @@ class TelegramConnector(ChatPlatformConnector):
 
         return True
 
+    # =========================================================================
+    # Rich Media Support
+    # =========================================================================
+
+    async def send_photo(
+        self,
+        channel_id: str,
+        photo: str | bytes,
+        caption: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        blocks: Optional[list[dict]] = None,
+        **kwargs: Any,
+    ) -> SendMessageResponse:
+        """Send a photo to a Telegram chat.
+
+        Args:
+            channel_id: Target chat ID
+            photo: File path, URL, or bytes of the photo
+            caption: Optional caption for the photo
+            thread_id: Reply to specific message
+            blocks: Inline keyboard buttons
+            **kwargs: Additional parameters
+
+        Returns:
+            SendMessageResponse with success status
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                data: dict[str, Any] = {"chat_id": channel_id}
+
+                if caption:
+                    data["caption"] = (
+                        self._escape_markdown(caption)
+                        if self.parse_mode.startswith("Markdown")
+                        else caption
+                    )
+                    data["parse_mode"] = self.parse_mode
+
+                if thread_id:
+                    data["reply_to_message_id"] = int(thread_id)
+
+                if blocks:
+                    keyboard = self._blocks_to_keyboard(blocks)
+                    if keyboard:
+                        data["reply_markup"] = json.dumps(keyboard)
+
+                # Determine how to send the photo
+                if isinstance(photo, bytes):
+                    files = {"photo": ("photo.jpg", photo, "image/jpeg")}
+                    response = await client.post(
+                        f"{self._api_base}/sendPhoto",
+                        data=data,
+                        files=files,
+                    )
+                elif photo.startswith(("http://", "https://")):
+                    data["photo"] = photo
+                    response = await client.post(
+                        f"{self._api_base}/sendPhoto",
+                        json=data,
+                    )
+                else:
+                    # Assume file_id
+                    data["photo"] = photo
+                    response = await client.post(
+                        f"{self._api_base}/sendPhoto",
+                        json=data,
+                    )
+
+                result = response.json()
+
+                if result.get("error_code") == 429:
+                    self._record_failure(Exception("Rate limit exceeded (429)"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=result.get("description", "Rate limit exceeded"),
+                    )
+
+                if not result.get("ok"):
+                    self._record_failure(Exception(result.get("description", "Unknown error")))
+                    return SendMessageResponse(
+                        success=False,
+                        error=result.get("description", "Unknown error"),
+                    )
+
+                self._record_success()
+                msg = result.get("result", {})
+                return SendMessageResponse(
+                    success=True,
+                    message_id=str(msg.get("message_id")),
+                    channel_id=str(msg.get("chat", {}).get("id")),
+                    timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
+                )
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
+    async def send_video(
+        self,
+        channel_id: str,
+        video: str | bytes,
+        caption: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        duration: Optional[int] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        supports_streaming: bool = True,
+        blocks: Optional[list[dict]] = None,
+        **kwargs: Any,
+    ) -> SendMessageResponse:
+        """Send a video to a Telegram chat.
+
+        Args:
+            channel_id: Target chat ID
+            video: File path, URL, or bytes of the video
+            caption: Optional caption for the video
+            thread_id: Reply to specific message
+            duration: Video duration in seconds
+            width: Video width
+            height: Video height
+            supports_streaming: Whether the video supports streaming
+            blocks: Inline keyboard buttons
+            **kwargs: Additional parameters
+
+        Returns:
+            SendMessageResponse with success status
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                data: dict[str, Any] = {
+                    "chat_id": channel_id,
+                    "supports_streaming": supports_streaming,
+                }
+
+                if caption:
+                    data["caption"] = (
+                        self._escape_markdown(caption)
+                        if self.parse_mode.startswith("Markdown")
+                        else caption
+                    )
+                    data["parse_mode"] = self.parse_mode
+
+                if thread_id:
+                    data["reply_to_message_id"] = int(thread_id)
+                if duration:
+                    data["duration"] = duration
+                if width:
+                    data["width"] = width
+                if height:
+                    data["height"] = height
+
+                if blocks:
+                    keyboard = self._blocks_to_keyboard(blocks)
+                    if keyboard:
+                        data["reply_markup"] = json.dumps(keyboard)
+
+                # Determine how to send the video
+                if isinstance(video, bytes):
+                    files = {"video": ("video.mp4", video, "video/mp4")}
+                    response = await client.post(
+                        f"{self._api_base}/sendVideo",
+                        data=data,
+                        files=files,
+                    )
+                elif video.startswith(("http://", "https://")):
+                    data["video"] = video
+                    response = await client.post(
+                        f"{self._api_base}/sendVideo",
+                        json=data,
+                    )
+                else:
+                    # Assume file_id
+                    data["video"] = video
+                    response = await client.post(
+                        f"{self._api_base}/sendVideo",
+                        json=data,
+                    )
+
+                result = response.json()
+
+                if result.get("error_code") == 429:
+                    self._record_failure(Exception("Rate limit exceeded (429)"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=result.get("description", "Rate limit exceeded"),
+                    )
+
+                if not result.get("ok"):
+                    self._record_failure(Exception(result.get("description", "Unknown error")))
+                    return SendMessageResponse(
+                        success=False,
+                        error=result.get("description", "Unknown error"),
+                    )
+
+                self._record_success()
+                msg = result.get("result", {})
+                return SendMessageResponse(
+                    success=True,
+                    message_id=str(msg.get("message_id")),
+                    channel_id=str(msg.get("chat", {}).get("id")),
+                    timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
+                )
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
+    async def send_animation(
+        self,
+        channel_id: str,
+        animation: str | bytes,
+        caption: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        blocks: Optional[list[dict]] = None,
+        **kwargs: Any,
+    ) -> SendMessageResponse:
+        """Send an animation (GIF) to a Telegram chat.
+
+        Args:
+            channel_id: Target chat ID
+            animation: File path, URL, or bytes of the animation
+            caption: Optional caption
+            thread_id: Reply to specific message
+            blocks: Inline keyboard buttons
+            **kwargs: Additional parameters
+
+        Returns:
+            SendMessageResponse with success status
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return SendMessageResponse(success=False, error=cb_error)
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                data: dict[str, Any] = {"chat_id": channel_id}
+
+                if caption:
+                    data["caption"] = (
+                        self._escape_markdown(caption)
+                        if self.parse_mode.startswith("Markdown")
+                        else caption
+                    )
+                    data["parse_mode"] = self.parse_mode
+
+                if thread_id:
+                    data["reply_to_message_id"] = int(thread_id)
+
+                if blocks:
+                    keyboard = self._blocks_to_keyboard(blocks)
+                    if keyboard:
+                        data["reply_markup"] = json.dumps(keyboard)
+
+                if isinstance(animation, bytes):
+                    files = {"animation": ("animation.gif", animation, "image/gif")}
+                    response = await client.post(
+                        f"{self._api_base}/sendAnimation",
+                        data=data,
+                        files=files,
+                    )
+                elif animation.startswith(("http://", "https://")):
+                    data["animation"] = animation
+                    response = await client.post(
+                        f"{self._api_base}/sendAnimation",
+                        json=data,
+                    )
+                else:
+                    data["animation"] = animation
+                    response = await client.post(
+                        f"{self._api_base}/sendAnimation",
+                        json=data,
+                    )
+
+                result = response.json()
+
+                if result.get("error_code") == 429:
+                    self._record_failure(Exception("Rate limit exceeded (429)"))
+                    return SendMessageResponse(
+                        success=False,
+                        error=result.get("description", "Rate limit exceeded"),
+                    )
+
+                if not result.get("ok"):
+                    self._record_failure(Exception(result.get("description", "Unknown error")))
+                    return SendMessageResponse(
+                        success=False,
+                        error=result.get("description", "Unknown error"),
+                    )
+
+                self._record_success()
+                msg = result.get("result", {})
+                return SendMessageResponse(
+                    success=True,
+                    message_id=str(msg.get("message_id")),
+                    channel_id=str(msg.get("chat", {}).get("id")),
+                    timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
+                )
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
+    async def send_media_group(
+        self,
+        channel_id: str,
+        media: list[dict[str, Any]],
+        thread_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> list[SendMessageResponse]:
+        """Send a group of photos or videos as an album.
+
+        Args:
+            channel_id: Target chat ID
+            media: List of media items, each with:
+                - type: "photo" or "video"
+                - media: URL or file_id
+                - caption: Optional caption (only first item shown)
+            thread_id: Reply to specific message
+            **kwargs: Additional parameters
+
+        Returns:
+            List of SendMessageResponse for each sent message
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return [SendMessageResponse(success=False, error=cb_error)]
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                # Format media for API
+                formatted_media = []
+                for item in media:
+                    media_item = {
+                        "type": item.get("type", "photo"),
+                        "media": item.get("media"),
+                    }
+                    if "caption" in item:
+                        caption = item["caption"]
+                        media_item["caption"] = (
+                            self._escape_markdown(caption)
+                            if self.parse_mode.startswith("Markdown")
+                            else caption
+                        )
+                        media_item["parse_mode"] = self.parse_mode
+                    formatted_media.append(media_item)
+
+                data: dict[str, Any] = {
+                    "chat_id": channel_id,
+                    "media": json.dumps(formatted_media),
+                }
+
+                if thread_id:
+                    data["reply_to_message_id"] = int(thread_id)
+
+                response = await client.post(
+                    f"{self._api_base}/sendMediaGroup",
+                    data=data,
+                )
+                result = response.json()
+
+                if result.get("error_code") == 429:
+                    self._record_failure(Exception("Rate limit exceeded (429)"))
+                    return [
+                        SendMessageResponse(
+                            success=False,
+                            error=result.get("description", "Rate limit exceeded"),
+                        )
+                    ]
+
+                if not result.get("ok"):
+                    self._record_failure(Exception(result.get("description", "Unknown error")))
+                    return [
+                        SendMessageResponse(
+                            success=False,
+                            error=result.get("description", "Unknown error"),
+                        )
+                    ]
+
+                self._record_success()
+                messages = result.get("result", [])
+                return [
+                    SendMessageResponse(
+                        success=True,
+                        message_id=str(msg.get("message_id")),
+                        channel_id=str(msg.get("chat", {}).get("id")),
+                        timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
+                    )
+                    for msg in messages
+                ]
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
+    # =========================================================================
+    # Inline Query Support
+    # =========================================================================
+
+    async def answer_inline_query(
+        self,
+        inline_query_id: str,
+        results: list[dict[str, Any]],
+        cache_time: int = 300,
+        is_personal: bool = False,
+        next_offset: Optional[str] = None,
+        button: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> bool:
+        """Answer an inline query with results.
+
+        Args:
+            inline_query_id: Unique identifier for the inline query
+            results: List of InlineQueryResult objects. Each should have:
+                - type: "article", "photo", "video", etc.
+                - id: Unique identifier
+                - title: Title of the result
+                - input_message_content: Content to send when selected
+            cache_time: Time in seconds to cache results (default 300)
+            is_personal: Whether results are personalized per user
+            next_offset: Offset for pagination
+            button: Button to show above results
+            **kwargs: Additional parameters
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.error(f"Circuit breaker open: {cb_error}")
+            return False
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                payload: dict[str, Any] = {
+                    "inline_query_id": inline_query_id,
+                    "results": json.dumps(results),
+                    "cache_time": cache_time,
+                    "is_personal": is_personal,
+                }
+
+                if next_offset:
+                    payload["next_offset"] = next_offset
+                if button:
+                    payload["button"] = json.dumps(button)
+
+                response = await client.post(
+                    f"{self._api_base}/answerInlineQuery",
+                    json=payload,
+                )
+                result = response.json()
+
+                if result.get("error_code") == 429:
+                    self._record_failure(Exception("Rate limit exceeded (429)"))
+                    return False
+
+                if not result.get("ok"):
+                    self._record_failure(Exception(result.get("description", "Unknown error")))
+                    logger.error(f"Failed to answer inline query: {result.get('description')}")
+                    return False
+
+                self._record_success()
+                return True
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
+    def build_inline_article_result(
+        self,
+        result_id: str,
+        title: str,
+        message_text: str,
+        description: Optional[str] = None,
+        url: Optional[str] = None,
+        thumb_url: Optional[str] = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Build an InlineQueryResultArticle for use with answer_inline_query.
+
+        Args:
+            result_id: Unique identifier for this result
+            title: Title of the result
+            message_text: Text to send when selected
+            description: Short description
+            url: URL to associate with the result
+            thumb_url: Thumbnail URL
+            **kwargs: Additional fields
+
+        Returns:
+            Dict formatted as InlineQueryResultArticle
+        """
+        result: dict[str, Any] = {
+            "type": "article",
+            "id": result_id,
+            "title": title,
+            "input_message_content": {
+                "message_text": message_text,
+                "parse_mode": self.parse_mode,
+            },
+        }
+
+        if description:
+            result["description"] = description
+        if url:
+            result["url"] = url
+        if thumb_url:
+            result["thumb_url"] = thumb_url
+
+        result.update(kwargs)
+        return result
+
+    # =========================================================================
+    # Bot Management
+    # =========================================================================
+
+    async def set_my_commands(
+        self,
+        commands: list[dict[str, str]],
+        scope: Optional[dict[str, Any]] = None,
+        language_code: Optional[str] = None,
+        **kwargs: Any,
+    ) -> bool:
+        """Set the list of the bot's commands.
+
+        Args:
+            commands: List of command dicts with 'command' and 'description' keys
+            scope: Scope for which commands apply (all users, specific chat, etc.)
+            language_code: Language code for commands
+            **kwargs: Additional parameters
+
+        Returns:
+            True if successful
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.error(f"Circuit breaker open: {cb_error}")
+            return False
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                payload: dict[str, Any] = {
+                    "commands": json.dumps(commands),
+                }
+
+                if scope:
+                    payload["scope"] = json.dumps(scope)
+                if language_code:
+                    payload["language_code"] = language_code
+
+                response = await client.post(
+                    f"{self._api_base}/setMyCommands",
+                    json=payload,
+                )
+                result = response.json()
+
+                if not result.get("ok"):
+                    self._record_failure(Exception(result.get("description", "Unknown error")))
+                    return False
+
+                self._record_success()
+                return True
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
+    async def get_me(self) -> Optional[dict[str, Any]]:
+        """Get basic information about the bot.
+
+        Returns:
+            Bot user object with id, username, first_name, etc.
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.error(f"Circuit breaker open: {cb_error}")
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.get(f"{self._api_base}/getMe")
+                result = response.json()
+
+                if not result.get("ok"):
+                    self._record_failure(Exception(result.get("description", "Unknown error")))
+                    return None
+
+                self._record_success()
+                return result.get("result")
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
+    async def get_chat_member_count(self, channel_id: str) -> Optional[int]:
+        """Get the number of members in a chat.
+
+        Args:
+            channel_id: Target chat ID
+
+        Returns:
+            Number of members or None if failed
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Telegram connector")
+
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.error(f"Circuit breaker open: {cb_error}")
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.post(
+                    f"{self._api_base}/getChatMemberCount",
+                    json={"chat_id": channel_id},
+                )
+                result = response.json()
+
+                if not result.get("ok"):
+                    self._record_failure(Exception(result.get("description", "Unknown error")))
+                    return None
+
+                self._record_success()
+                return result.get("result")
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
 
 __all__ = ["TelegramConnector"]

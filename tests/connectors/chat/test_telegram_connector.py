@@ -574,3 +574,288 @@ class TestHttpxRequirement:
 
             with pytest.raises(RuntimeError, match="httpx is required"):
                 await connector.download_file("file_123")
+
+
+class TestRichMediaOperations:
+    """Tests for rich media operations (photo, video, animation)."""
+
+    @pytest.mark.asyncio
+    async def test_send_photo_with_url(self, connector, mock_httpx_response):
+        """Test sending photo with URL."""
+        mock_response = mock_httpx_response(
+            {
+                "ok": True,
+                "result": {
+                    "message_id": 123,
+                    "date": 1640000000,
+                    "chat": {"id": -1001234567890},
+                    "photo": [{"file_id": "photo123"}],
+                },
+            }
+        )
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.send_photo(
+                channel_id="-1001234567890",
+                photo="https://example.com/photo.jpg",
+                caption="Test caption",
+            )
+
+            assert result.success is True
+            assert result.message_id == "123"
+
+    @pytest.mark.asyncio
+    async def test_send_photo_with_bytes(self, connector, mock_httpx_response):
+        """Test sending photo with bytes."""
+        mock_response = mock_httpx_response(
+            {
+                "ok": True,
+                "result": {
+                    "message_id": 124,
+                    "date": 1640000000,
+                    "chat": {"id": -1001234567890},
+                    "photo": [{"file_id": "photo124"}],
+                },
+            }
+        )
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.send_photo(
+                channel_id="-1001234567890",
+                photo=b"\x89PNG\r\n\x1a\n...",  # Fake PNG bytes
+            )
+
+            assert result.success is True
+            mock_client.post.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_send_video_success(self, connector, mock_httpx_response):
+        """Test sending video."""
+        mock_response = mock_httpx_response(
+            {
+                "ok": True,
+                "result": {
+                    "message_id": 125,
+                    "date": 1640000000,
+                    "chat": {"id": -1001234567890},
+                    "video": {"file_id": "video125"},
+                },
+            }
+        )
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.send_video(
+                channel_id="-1001234567890",
+                video="https://example.com/video.mp4",
+                caption="Test video",
+                duration=30,
+                width=1920,
+                height=1080,
+            )
+
+            assert result.success is True
+            assert result.message_id == "125"
+
+    @pytest.mark.asyncio
+    async def test_send_animation_success(self, connector, mock_httpx_response):
+        """Test sending animation (GIF)."""
+        mock_response = mock_httpx_response(
+            {
+                "ok": True,
+                "result": {
+                    "message_id": 126,
+                    "date": 1640000000,
+                    "chat": {"id": -1001234567890},
+                    "animation": {"file_id": "anim126"},
+                },
+            }
+        )
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.send_animation(
+                channel_id="-1001234567890",
+                animation="https://example.com/animation.gif",
+            )
+
+            assert result.success is True
+            assert result.message_id == "126"
+
+    @pytest.mark.asyncio
+    async def test_send_media_group_success(self, connector, mock_httpx_response):
+        """Test sending media group (album)."""
+        mock_response = mock_httpx_response(
+            {
+                "ok": True,
+                "result": [
+                    {"message_id": 127, "date": 1640000000, "chat": {"id": -1001234567890}},
+                    {"message_id": 128, "date": 1640000001, "chat": {"id": -1001234567890}},
+                ],
+            }
+        )
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            results = await connector.send_media_group(
+                channel_id="-1001234567890",
+                media=[
+                    {
+                        "type": "photo",
+                        "media": "https://example.com/photo1.jpg",
+                        "caption": "First",
+                    },
+                    {"type": "photo", "media": "https://example.com/photo2.jpg"},
+                ],
+            )
+
+            assert len(results) == 2
+            assert results[0].success is True
+            assert results[0].message_id == "127"
+            assert results[1].message_id == "128"
+
+
+class TestInlineQuerySupport:
+    """Tests for inline query support."""
+
+    @pytest.mark.asyncio
+    async def test_answer_inline_query_success(self, connector, mock_httpx_response):
+        """Test answering inline query."""
+        mock_response = mock_httpx_response({"ok": True, "result": True})
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            results = [
+                connector.build_inline_article_result(
+                    result_id="1",
+                    title="Test Result",
+                    message_text="Selected test result",
+                    description="A test result",
+                )
+            ]
+
+            success = await connector.answer_inline_query(
+                inline_query_id="query123",
+                results=results,
+                cache_time=60,
+            )
+
+            assert success is True
+
+    @pytest.mark.asyncio
+    async def test_answer_inline_query_failure(self, connector, mock_httpx_response):
+        """Test inline query failure handling."""
+        mock_response = mock_httpx_response({"ok": False, "description": "QUERY_ID_INVALID"})
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            success = await connector.answer_inline_query(
+                inline_query_id="invalid",
+                results=[],
+            )
+
+            assert success is False
+
+    def test_build_inline_article_result(self, connector):
+        """Test building inline article result."""
+        result = connector.build_inline_article_result(
+            result_id="test-123",
+            title="Test Article",
+            message_text="This is the message content",
+            description="Short description",
+            url="https://example.com",
+            thumb_url="https://example.com/thumb.jpg",
+        )
+
+        assert result["type"] == "article"
+        assert result["id"] == "test-123"
+        assert result["title"] == "Test Article"
+        assert result["description"] == "Short description"
+        assert result["url"] == "https://example.com"
+        assert result["input_message_content"]["message_text"] == "This is the message content"
+
+
+class TestBotManagement:
+    """Tests for bot management operations."""
+
+    @pytest.mark.asyncio
+    async def test_set_my_commands_success(self, connector, mock_httpx_response):
+        """Test setting bot commands."""
+        mock_response = mock_httpx_response({"ok": True, "result": True})
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            success = await connector.set_my_commands(
+                commands=[
+                    {"command": "start", "description": "Start the bot"},
+                    {"command": "help", "description": "Get help"},
+                ]
+            )
+
+            assert success is True
+
+    @pytest.mark.asyncio
+    async def test_get_me_success(self, connector, mock_httpx_response):
+        """Test getting bot info."""
+        mock_response = mock_httpx_response(
+            {
+                "ok": True,
+                "result": {
+                    "id": 123456789,
+                    "is_bot": True,
+                    "first_name": "TestBot",
+                    "username": "test_bot",
+                },
+            }
+        )
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.get_me()
+
+            assert result is not None
+            assert result["id"] == 123456789
+            assert result["username"] == "test_bot"
+
+    @pytest.mark.asyncio
+    async def test_get_chat_member_count_success(self, connector, mock_httpx_response):
+        """Test getting chat member count."""
+        mock_response = mock_httpx_response({"ok": True, "result": 42})
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            count = await connector.get_chat_member_count("-1001234567890")
+
+            assert count == 42
