@@ -121,12 +121,13 @@ class TestTeamsSendMessage:
         connector._token_expires = 9999999999
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"id": "msg-123"}
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
             result = await connector.send_message(
                 channel_id="conv-456",
@@ -146,16 +147,15 @@ class TestTeamsSendMessage:
         connector._token_expires = 9999999999
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"id": "msg-123"}
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
-            blocks = [
-                {"type": "TextBlock", "text": "Debate Result", "weight": "Bolder"}
-            ]
+            blocks = [{"type": "TextBlock", "text": "Debate Result", "weight": "Bolder"}]
 
             result = await connector.send_message(
                 channel_id="conv-456",
@@ -164,7 +164,7 @@ class TestTeamsSendMessage:
             )
 
             # Verify adaptive card was included
-            call_kwargs = mock_instance.post.call_args[1]
+            call_kwargs = mock_instance.request.call_args[1]
             payload = call_kwargs["json"]
             assert "attachments" in payload
 
@@ -180,12 +180,13 @@ class TestTeamsSendMessage:
         connector._token_expires = 9999999999
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"id": "msg-789"}
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
             result = await connector.send_message(
                 channel_id="conv-456",
@@ -194,7 +195,7 @@ class TestTeamsSendMessage:
             )
 
             # Verify replyToId was included
-            call_kwargs = mock_instance.post.call_args[1]
+            call_kwargs = mock_instance.request.call_args[1]
             payload = call_kwargs["json"]
             assert payload.get("replyToId") == "msg-parent"
 
@@ -210,7 +211,7 @@ class TestTeamsSendMessage:
         connector._token_expires = 9999999999
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+            mock_client.return_value.__aenter__.return_value.request = AsyncMock(
                 side_effect=Exception("Conversation not found")
             )
 
@@ -236,12 +237,13 @@ class TestTeamsUpdateMessage:
         connector._token_expires = 9999999999
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"id": "msg-123"}
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.put = AsyncMock(return_value=mock_response)
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
             result = await connector.update_message(
                 channel_id="conv-456",
@@ -249,8 +251,10 @@ class TestTeamsUpdateMessage:
                 text="Updated text",
             )
 
-            # Verify PUT request
-            assert mock_instance.put.called
+            # Verify request was called with PUT method
+            assert mock_instance.request.called
+            call_kwargs = mock_instance.request.call_args[1]
+            assert call_kwargs["method"] == "PUT"
 
         assert result.success is True
 
