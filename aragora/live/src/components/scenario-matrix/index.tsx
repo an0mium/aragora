@@ -6,7 +6,6 @@ import type { StreamEvent } from '@/types/events';
 import { API_BASE_URL } from '@/config';
 
 import type {
-  ScenarioResult,
   MatrixDebateResult,
   ScenarioInput,
   FilterState,
@@ -362,7 +361,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                 />
               ) : (
                 <div className="space-y-3" role="list" aria-label="Scenario results">
-                  {filteredResults.map((scenarioResult, i) => {
+                  {filteredResults.map((scenarioResult) => {
                     const originalIdx = result.results.indexOf(scenarioResult);
                     return (
                       <ScenarioCard

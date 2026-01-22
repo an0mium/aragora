@@ -290,7 +290,7 @@ export function usePolicies(options: UsePoliciesOptions = {}): UsePoliciesReturn
 
       const data = await response.json();
       setState((s) => ({ ...s, stats: data }));
-    } catch (e) {
+    } catch {
       // Stats are optional, don't set error
     }
   }, []);

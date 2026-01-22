@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ToastProvider, useToastContext } from '../ToastContext';
 
 // Mock the useToast hook
@@ -20,7 +20,7 @@ jest.mock('@/hooks/useToast', () => ({
 
 // Mock ToastContainer
 jest.mock('@/components/ToastContainer', () => ({
-  ToastContainer: ({ toasts, onRemove }: { toasts: unknown[]; onRemove: (id: string) => void }) => (
+  ToastContainer: ({ toasts, onRemove: _onRemove }: { toasts: unknown[]; onRemove: (id: string) => void }) => (
     <div data-testid="toast-container">
       {toasts && (toasts as { id: string; message: string }[]).map((t) => (
         <div key={t.id}>{t.message}</div>

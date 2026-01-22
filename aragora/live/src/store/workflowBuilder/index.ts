@@ -9,8 +9,6 @@ import { devtools, subscribeWithSelector, persist } from 'zustand/middleware';
 
 // Import types
 import type {
-  StepType,
-  Position,
   StepDefinition,
   TransitionRule,
   WorkflowDefinition,

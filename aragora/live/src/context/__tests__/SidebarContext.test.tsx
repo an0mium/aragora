@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { SidebarProvider, useSidebar } from '../SidebarContext';
 
 // Test component that uses the sidebar context

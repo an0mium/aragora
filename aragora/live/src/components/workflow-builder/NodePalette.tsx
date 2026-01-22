@@ -45,16 +45,6 @@ const PaletteItem = memo(function PaletteItem({ type, onDragStart }: PaletteItem
 });
 
 export function NodePalette({ onDragStart }: NodePaletteProps) {
-  const nodeTypes: WorkflowStepType[] = [
-    'debate',
-    'task',
-    'decision',
-    'human_checkpoint',
-    'memory_read',
-    'memory_write',
-    'parallel',
-    'loop',
-  ];
 
   return (
     <div className="h-full overflow-y-auto p-4 bg-surface border-r border-border">

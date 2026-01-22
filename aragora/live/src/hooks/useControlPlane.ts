@@ -283,7 +283,7 @@ export function useControlPlane({
     try {
       const response = await client.controlPlane.health();
       setHealth(response.health);
-    } catch (err) {
+    } catch {
       setHealth(null);
     }
   }, [client, setHealth, setHealthLoading]);
@@ -310,7 +310,7 @@ export function useControlPlane({
         queue_size: 0,
         uptime_seconds: health.uptime_seconds,
       });
-    } catch (err) {
+    } catch {
       setStats(null);
     }
   }, [client, setStats, setStatsLoading]);

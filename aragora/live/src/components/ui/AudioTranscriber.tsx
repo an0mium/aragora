@@ -126,7 +126,7 @@ export function AudioTranscriber({
 
     let content = '';
     let mimeType = 'text/plain';
-    let extension = format;
+    const extension = format;
 
     switch (format) {
       case 'txt':

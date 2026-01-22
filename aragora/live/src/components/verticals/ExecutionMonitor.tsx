@@ -142,10 +142,10 @@ export function ExecutionMonitor({
   onTaskClick,
 }: ExecutionMonitorProps) {
   const [expandedWorkflowId, setExpandedWorkflowId] = useState<string | null>(
-    selectedWorkflowId || (workflows.length > 0 ? workflows[0].id : null)
+    workflows.length > 0 ? workflows[0].id : null
   );
 
-  const selectedWorkflow = useMemo(() => {
+  const _selectedWorkflow = useMemo(() => {
     return workflows.find((w) => w.id === expandedWorkflowId);
   }, [workflows, expandedWorkflowId]);
 

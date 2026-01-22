@@ -121,7 +121,7 @@ export interface UseKnowledgeQueryReturn {
  */
 export function useKnowledgeQuery({
   autoLoadStats = true,
-  searchDebounce = 300,
+  searchDebounce: _searchDebounce = 300,
 }: UseKnowledgeQueryOptions = {}): UseKnowledgeQueryReturn {
   const { config: backendConfig } = useBackend();
   const api = useApi(backendConfig?.api);
@@ -300,7 +300,7 @@ export function useKnowledgeQuery({
         ) as { nodes: GraphNode[]; edges: GraphEdge[] };
 
         // Process nodes to ensure they have position data for D3
-        const processedNodes = (response.nodes || []).map((node, index) => ({
+        const processedNodes = (response.nodes || []).map((node) => ({
           ...node,
           // Initial positions will be set by D3 force simulation
           x: node.x ?? 0,

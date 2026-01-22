@@ -140,7 +140,7 @@ export function CloudStoragePicker({
           }
         }, 1000);
       }
-    } catch (err) {
+    } catch {
       setError(`Failed to connect to ${provider}`);
     }
   };
@@ -198,7 +198,7 @@ export function CloudStoragePicker({
           path: '/' + parts.slice(0, i + 1).join('/'),
         })),
       ]);
-    } catch (err) {
+    } catch {
       setError('Failed to load files');
     } finally {
       setLoading(false);

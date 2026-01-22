@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdaptiveMode } from '@/context/AdaptiveModeContext';

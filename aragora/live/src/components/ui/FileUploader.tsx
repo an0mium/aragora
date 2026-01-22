@@ -1,5 +1,6 @@
 'use client';
 
+import type { DragEvent as ReactDragEvent } from 'react';
 import { useState, useRef, useCallback } from 'react';
 
 export interface UploadFile {
@@ -137,7 +138,7 @@ export function FileUploader({
     }
   }, [files.length, maxFiles, onUpload, validateFile]);
 
-  const handleDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleDragEnter = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     dragCountRef.current++;
@@ -146,7 +147,7 @@ export function FileUploader({
     }
   }, []);
 
-  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     dragCountRef.current--;
@@ -155,12 +156,12 @@ export function FileUploader({
     }
   }, []);
 
-  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     dragCountRef.current = 0;
@@ -358,12 +359,11 @@ function FileItem({
 export function FileUploadButton({
   onUpload,
   accept = DEFAULT_ACCEPT,
-  maxSize = 100 * 1024 * 1024,
   multiple = false,
   disabled = false,
   className = '',
   children = 'Upload',
-}: Omit<FileUploaderProps, 'folderUpload' | 'maxFiles'> & {
+}: Omit<FileUploaderProps, 'folderUpload' | 'maxFiles' | 'maxSize'> & {
   children?: React.ReactNode;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);

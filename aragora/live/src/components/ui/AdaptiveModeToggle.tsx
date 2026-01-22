@@ -22,7 +22,7 @@ export function AdaptiveModeToggle({
   compact = false,
   className = '',
 }: AdaptiveModeToggleProps) {
-  const { mode, toggleMode, isAdvanced, modeDescription } = useAdaptiveMode();
+  const { toggleMode, isAdvanced, modeDescription } = useAdaptiveMode();
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -96,7 +96,7 @@ export function AdaptiveModeToggle({
  * Shows current mode as a badge that can be clicked to toggle
  */
 export function AdaptiveModeBadge({ className = '' }: { className?: string }) {
-  const { mode, toggleMode, isAdvanced, modeLabel } = useAdaptiveMode();
+  const { toggleMode, isAdvanced, modeLabel } = useAdaptiveMode();
 
   return (
     <button
@@ -127,7 +127,7 @@ export function AdaptiveModeBadge({ className = '' }: { className?: string }) {
  * For settings pages or initial setup
  */
 export function AdaptiveModeCard({ className = '' }: { className?: string }) {
-  const { mode, setMode, isSimple, isAdvanced } = useAdaptiveMode();
+  const { setMode, isSimple, isAdvanced } = useAdaptiveMode();
 
   return (
     <div className={`border border-acid-green/30 bg-surface ${className}`}>

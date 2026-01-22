@@ -46,7 +46,7 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
   isOpen,
   onClose,
   onShare,
-  _itemId,
+  itemId: _itemId,
   itemTitle,
   availableWorkspaces = [],
   availableUsers = [],

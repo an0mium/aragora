@@ -161,7 +161,7 @@ export function WorkflowBuilder({
         </div>
 
         {/* Right sidebar: Configuration */}
-        {showConfig && configPanel.isOpen && selectedNode && (
+        {configPanel.isOpen && selectedNode && (
           <div className="w-80 border-l border-border overflow-y-auto bg-surface/50">
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">

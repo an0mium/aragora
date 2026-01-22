@@ -13,8 +13,6 @@ export function CompareView({
   right,
   onClose,
 }: CompareViewProps) {
-  const leftColors = left.winner ? getAgentColors(left.winner) : null;
-  const rightColors = right.winner ? getAgentColors(right.winner) : null;
 
   const renderDiff = (label: string, leftVal: string | number, rightVal: string | number) => {
     const isDifferent = leftVal !== rightVal;

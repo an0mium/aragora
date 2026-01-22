@@ -151,7 +151,7 @@ export function WorkflowCanvas({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [draggedType, setDraggedType] = useState<WorkflowStepType | null>(null);
+  const [, setDraggedType] = useState<WorkflowStepType | null>(null);
 
   // Get selected node data
   const selectedNode = useMemo((): WorkflowNodeData | null => {

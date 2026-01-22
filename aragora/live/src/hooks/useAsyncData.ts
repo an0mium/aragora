@@ -108,7 +108,7 @@ export function useAsyncData<T>(
     }
 
     try {
-      let result = await fetcher(signal);
+      const result = await fetcher(signal);
 
       // Check if component unmounted or request was aborted
       if (!mountedRef.current || signal.aborted) {

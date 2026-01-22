@@ -17,7 +17,7 @@ jest.mock('@/context/ToastContext', () => ({
 }));
 
 // Wrapper for hooks that need context
-const wrapper = ({ children }: { children: React.ReactNode }) => (
+const _wrapper = ({ children }: { children: React.ReactNode }) => (
   <ToastProvider>{children}</ToastProvider>
 );
 

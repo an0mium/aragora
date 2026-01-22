@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';

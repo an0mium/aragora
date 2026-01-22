@@ -65,7 +65,6 @@ export function useDebateWebSocketStore({
     clearStreamEvents,
     setHasCitations,
     updateSequence,
-    resetCurrent,
   } = store;
 
   // Refs

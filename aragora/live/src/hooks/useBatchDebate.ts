@@ -305,7 +305,7 @@ export function useBatchDebate() {
       }));
       return data;
 
-    } catch (e) {
+    } catch {
       setState(s => ({ ...s, queueLoading: false }));
       return null;
     }

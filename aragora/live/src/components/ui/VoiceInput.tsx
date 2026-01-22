@@ -28,7 +28,6 @@ type RecordingState = 'idle' | 'requesting' | 'recording' | 'processing';
  */
 export function VoiceInput({
   onTranscript,
-  onInterimResult,
   onRecordingStart,
   onRecordingStop,
   onError,

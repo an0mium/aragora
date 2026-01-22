@@ -141,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       return { success: true };
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Network error. Please try again.' };
     }
   }, []);
@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       return { success: true };
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Network error. Please try again.' };
     }
   }, []);
@@ -289,7 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearAuth();
         throw new Error('Failed to fetch user profile');
       }
-    } catch (error) {
+    } catch {
       // If user fetch fails, still store tokens but mark as loading
       // The user might be created but profile endpoint doesn't exist
       setState(prev => ({

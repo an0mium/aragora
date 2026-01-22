@@ -37,7 +37,7 @@ export function FeatureCard({
   className = '',
   defaultExpanded = false,
 }: FeatureCardProps) {
-  const { mode, isFeatureVisible } = useProgressiveMode();
+  const { isFeatureVisible } = useProgressiveMode();
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   // Don't render card if user's mode is below minMode
