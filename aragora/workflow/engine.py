@@ -40,7 +40,11 @@ from aragora.workflow.step import (
     ConditionalStep,
     LoopStep,
 )
-from aragora.workflow.checkpoint_store import CheckpointStore, get_checkpoint_store
+from aragora.workflow.checkpoint_store import (
+    CheckpointStore,
+    get_checkpoint_store,
+    LRUCheckpointCache,
+)
 
 # Observability
 from aragora.observability import get_logger, create_span, add_span_attributes
@@ -96,8 +100,12 @@ class WorkflowEngine:
 
         # Checkpoint storage - use provided store or fall back to file-based
         self._checkpoint_store: CheckpointStore = checkpoint_store or get_checkpoint_store()
-        # In-memory cache for fast lookups during execution
-        self._checkpoints_cache: Dict[str, WorkflowCheckpoint] = {}
+        # LRU cache for fast lookups during execution (bounded to prevent memory growth)
+        self._checkpoints_cache: LRUCheckpointCache = LRUCheckpointCache(max_size=100)
+
+        # Timeout tracking for progressive warnings
+        self._timeout_warning_thresholds = [0.5, 0.8, 0.9]  # Warn at 50%, 80%, 90%
+        self._timeout_warnings_issued: set = set()
 
     def _register_default_step_types(self) -> None:
         """Register built-in step types."""
@@ -140,6 +148,41 @@ class WorkflowEngine:
         """
         self._step_types[type_name] = step_class
         logger.debug(f"Registered step type: {type_name}")
+
+    def _check_timeout_progress(
+        self,
+        start_time: float,
+        total_timeout: float,
+        workflow_id: str,
+    ) -> None:
+        """
+        Check workflow execution progress and issue timeout warnings.
+
+        Issues warnings at configured thresholds (50%, 80%, 90%) to allow
+        for proactive monitoring and intervention.
+        """
+        if total_timeout <= 0:
+            return
+
+        elapsed = time.time() - start_time
+        progress = elapsed / total_timeout
+
+        for threshold in self._timeout_warning_thresholds:
+            if progress >= threshold and threshold not in self._timeout_warnings_issued:
+                self._timeout_warnings_issued.add(threshold)
+                remaining = total_timeout - elapsed
+                logger.warning(
+                    "workflow_timeout_warning",
+                    workflow_id=workflow_id,
+                    progress_pct=int(progress * 100),
+                    elapsed_seconds=round(elapsed, 1),
+                    remaining_seconds=round(remaining, 1),
+                    threshold_pct=int(threshold * 100),
+                )
+
+    def get_checkpoint_cache_stats(self) -> Dict[str, Any]:
+        """Get statistics about the checkpoint cache."""
+        return self._checkpoints_cache.stats
 
     # =========================================================================
     # Main Execution
@@ -291,7 +334,10 @@ class WorkflowEngine:
             # Execute remaining steps
             final_output = await asyncio.wait_for(
                 self._execute_from_step(
-                    definition, context, checkpoint.current_step, checkpoint.completed_steps
+                    definition,
+                    context,
+                    checkpoint.current_step,
+                    checkpoint.completed_steps,  # type: ignore[arg-type]
                 ),
                 timeout=self._config.total_timeout_seconds,
             )
@@ -347,8 +393,18 @@ class WorkflowEngine:
         current_step_id = start_step
         final_output = None
         step_count = 0
+        workflow_start_time = time.time()
+
+        # Reset timeout warnings for this execution
+        self._timeout_warnings_issued = set()
 
         while current_step_id and not self._should_terminate:
+            # Check for progressive timeout warnings
+            self._check_timeout_progress(
+                workflow_start_time,
+                self._config.total_timeout_seconds,
+                context.workflow_id,
+            )
             step_def = definition.get_step(current_step_id)
             if not step_def:
                 logger.error(f"Step '{current_step_id}' not found in definition")
@@ -655,21 +711,22 @@ class WorkflowEngine:
             logger.warning(f"Failed to persist checkpoint {checkpoint_id}: {e}")
 
         # Also cache in memory for fast access during execution
-        self._checkpoints_cache[checkpoint_id] = checkpoint
+        self._checkpoints_cache.put(checkpoint_id, checkpoint)
 
         return checkpoint
 
     async def get_checkpoint(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
         """Get a checkpoint by ID."""
         # Check cache first
-        if checkpoint_id in self._checkpoints_cache:
-            return self._checkpoints_cache[checkpoint_id]
+        cached = self._checkpoints_cache.get(checkpoint_id)
+        if cached is not None:
+            return cached
 
         # Load from persistent storage
         try:
             checkpoint = await self._checkpoint_store.load(checkpoint_id)
             if checkpoint:
-                self._checkpoints_cache[checkpoint_id] = checkpoint
+                self._checkpoints_cache.put(checkpoint_id, checkpoint)
             return checkpoint
         except Exception as e:
             logger.warning(f"Failed to load checkpoint {checkpoint_id}: {e}")
@@ -695,7 +752,7 @@ class WorkflowEngine:
         """Delete a checkpoint."""
         try:
             # Remove from cache
-            self._checkpoints_cache.pop(checkpoint_id, None)
+            self._checkpoints_cache.remove(checkpoint_id)
             # Remove from persistent storage
             return await self._checkpoint_store.delete(checkpoint_id)
         except Exception as e:

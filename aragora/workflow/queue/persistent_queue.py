@@ -144,6 +144,49 @@ class PersistentTaskQueue(TaskQueue):
 
         logger.info(f"PersistentTaskQueue initialized: {self._db_path}")
 
+        # Auto-recovery configuration
+        self._auto_recover = True
+        self._recovery_tenant_id: Optional[str] = None
+
+    async def start(self, auto_recover: bool = True, tenant_id: Optional[str] = None) -> None:
+        """
+        Start the queue processor with automatic task recovery.
+
+        On startup, this will:
+        1. Recover any pending/ready/running tasks from the database
+        2. Reset running tasks to ready (they were interrupted)
+        3. Start the background processor
+
+        Args:
+            auto_recover: Whether to automatically recover persisted tasks (default True)
+            tenant_id: Optional tenant filter for recovery
+
+        Usage:
+            queue = PersistentTaskQueue()
+            await queue.start()  # Recovers tasks automatically
+
+            # Or with tenant filter
+            await queue.start(tenant_id="tenant_123")
+
+            # Or skip recovery (e.g., for fresh start)
+            await queue.start(auto_recover=False)
+        """
+        # Start the base queue first
+        await super().start()
+
+        # Automatically recover persisted tasks
+        if auto_recover:
+            try:
+                recovered_count = await self.recover_tasks(tenant_id)
+                if recovered_count > 0:
+                    logger.info(
+                        f"Auto-recovered {recovered_count} tasks on queue start",
+                        extra={"tenant_id": tenant_id, "recovered_count": recovered_count},
+                    )
+            except Exception as e:
+                logger.error(f"Failed to auto-recover tasks on start: {e}")
+                # Don't fail start if recovery fails - queue is still functional
+
     def _get_conn(self) -> sqlite3.Connection:
         """Get thread-local database connection."""
         if not hasattr(self._local, "conn"):

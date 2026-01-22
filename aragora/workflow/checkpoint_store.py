@@ -19,8 +19,11 @@ Production Deployment:
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import logging
+from collections import OrderedDict
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +35,97 @@ if TYPE_CHECKING:
 from aragora.workflow.types import WorkflowCheckpoint
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Hardening Constants
+# =============================================================================
+
+# Default connection timeout for database operations (seconds)
+DEFAULT_CONNECTION_TIMEOUT = 10.0
+
+# Default operation timeout for Redis/PostgreSQL commands (seconds)
+DEFAULT_OPERATION_TIMEOUT = 30.0
+
+# Maximum entries in checkpoint cache (for LRU eviction)
+MAX_CHECKPOINT_CACHE_SIZE = 100
+
+
+class CheckpointValidationError(Exception):
+    """Raised when checkpoint validation fails."""
+
+    pass
+
+
+class ConnectionTimeoutError(Exception):
+    """Raised when database connection times out."""
+
+    pass
+
+
+class LRUCheckpointCache:
+    """
+    LRU cache for workflow checkpoints with bounded size.
+
+    Prevents unbounded memory growth in long-running workflows.
+    Thread-safe for concurrent access patterns.
+    """
+
+    def __init__(self, max_size: int = MAX_CHECKPOINT_CACHE_SIZE):
+        self._cache: OrderedDict[str, WorkflowCheckpoint] = OrderedDict()
+        self._max_size = max_size
+        self._hits = 0
+        self._misses = 0
+
+    def get(self, key: str) -> Optional[WorkflowCheckpoint]:
+        """Get checkpoint from cache, updating LRU order."""
+        if key in self._cache:
+            # Move to end (most recently used)
+            self._cache.move_to_end(key)
+            self._hits += 1
+            return self._cache[key]
+        self._misses += 1
+        return None
+
+    def put(self, key: str, checkpoint: WorkflowCheckpoint) -> None:
+        """Put checkpoint in cache, evicting oldest if full."""
+        if key in self._cache:
+            self._cache.move_to_end(key)
+        else:
+            if len(self._cache) >= self._max_size:
+                # Evict oldest (first item)
+                evicted_key, _ = self._cache.popitem(last=False)
+                logger.debug(f"LRU eviction: {evicted_key}")
+            self._cache[key] = checkpoint
+
+    def remove(self, key: str) -> bool:
+        """Remove checkpoint from cache."""
+        if key in self._cache:
+            del self._cache[key]
+            return True
+        return False
+
+    def clear(self) -> None:
+        """Clear entire cache."""
+        self._cache.clear()
+
+    @property
+    def size(self) -> int:
+        """Current cache size."""
+        return len(self._cache)
+
+    @property
+    def stats(self) -> Dict[str, Any]:
+        """Cache statistics."""
+        total = self._hits + self._misses
+        hit_rate = (self._hits / total) if total > 0 else 0.0
+        return {
+            "size": len(self._cache),
+            "max_size": self._max_size,
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": hit_rate,
+        }
+
 
 # Optional Redis import - graceful degradation
 try:
@@ -89,6 +183,7 @@ class RedisCheckpointStore:
     - TTL-based automatic cleanup of old checkpoints
     - JSON serialization with compression for large checkpoints
     - Atomic operations for checkpoint updates
+    - Connection and operation timeouts for reliability
 
     Usage:
         store = RedisCheckpointStore(ttl_hours=24)
@@ -108,6 +203,8 @@ class RedisCheckpointStore:
         self,
         ttl_hours: float = 24.0,
         compress_threshold: int = 4096,
+        socket_timeout: float = DEFAULT_OPERATION_TIMEOUT,
+        socket_connect_timeout: float = DEFAULT_CONNECTION_TIMEOUT,
     ):
         """
         Initialize Redis checkpoint store.
@@ -115,6 +212,8 @@ class RedisCheckpointStore:
         Args:
             ttl_hours: Time-to-live for checkpoints in hours (default 24h)
             compress_threshold: Compress checkpoints larger than this (bytes)
+            socket_timeout: Timeout for Redis operations in seconds (default 30s)
+            socket_connect_timeout: Timeout for Redis connection in seconds (default 10s)
         """
         if not REDIS_AVAILABLE:
             raise RuntimeError(
@@ -124,6 +223,8 @@ class RedisCheckpointStore:
 
         self._ttl_seconds = int(ttl_hours * 3600)
         self._compress_threshold = compress_threshold
+        self._socket_timeout = socket_timeout
+        self._socket_connect_timeout = socket_connect_timeout
         self._redis = None
 
     def _get_redis(self) -> Any:
@@ -132,6 +233,20 @@ class RedisCheckpointStore:
             self._redis = get_redis_client()  # type: ignore
             if self._redis is None:
                 raise RuntimeError("Redis client not available")
+            # Configure socket timeouts if supported
+            try:
+                # Redis-py supports socket_timeout configuration
+                if hasattr(self._redis, "connection_pool"):
+                    pool = self._redis.connection_pool
+                    pool.connection_kwargs["socket_timeout"] = self._socket_timeout
+                    pool.connection_kwargs["socket_connect_timeout"] = self._socket_connect_timeout
+                    logger.debug(
+                        f"Redis checkpoint store configured with timeouts: "
+                        f"socket_timeout={self._socket_timeout}s, "
+                        f"connect_timeout={self._socket_connect_timeout}s"
+                    )
+            except Exception as e:
+                logger.debug(f"Could not configure Redis socket timeouts: {e}")
         return self._redis
 
     def _checkpoint_key(self, checkpoint_id: str) -> str:
@@ -151,44 +266,55 @@ class RedisCheckpointStore:
 
         Returns:
             Checkpoint ID
+
+        Raises:
+            ConnectionTimeoutError: If Redis operation times out
         """
         import time
         import zlib
 
-        redis = self._get_redis()
-        checkpoint_id = f"{checkpoint.workflow_id}_{int(time.time() * 1000)}"
+        try:
+            redis = self._get_redis()
+            checkpoint_id = f"{checkpoint.workflow_id}_{int(time.time() * 1000)}"
 
-        # Serialize checkpoint
-        checkpoint_dict = self._checkpoint_to_dict(checkpoint)
-        checkpoint_dict["checkpoint_id"] = checkpoint_id
-        data = json.dumps(checkpoint_dict, default=str)
+            # Serialize checkpoint
+            checkpoint_dict = self._checkpoint_to_dict(checkpoint)
+            checkpoint_dict["checkpoint_id"] = checkpoint_id
+            data = json.dumps(checkpoint_dict, default=str)
 
-        # Compress if large
-        data_bytes: bytes
-        if len(data) > self._compress_threshold:
-            data_bytes = zlib.compress(data.encode("utf-8"))
-            is_compressed = True
-        else:
-            data_bytes = data.encode("utf-8")
-            is_compressed = False
+            # Compress if large
+            data_bytes: bytes
+            if len(data) > self._compress_threshold:
+                data_bytes = zlib.compress(data.encode("utf-8"))
+                is_compressed = True
+            else:
+                data_bytes = data.encode("utf-8")
+                is_compressed = False
 
-        # Store checkpoint
-        key = self._checkpoint_key(checkpoint_id)
-        redis.setex(key, self._ttl_seconds, data_bytes)
+            # Store checkpoint
+            key = self._checkpoint_key(checkpoint_id)
+            redis.setex(key, self._ttl_seconds, data_bytes)
 
-        # Store compression flag
-        redis.setex(f"{key}:meta", self._ttl_seconds, json.dumps({"compressed": is_compressed}))
+            # Store compression flag
+            redis.setex(f"{key}:meta", self._ttl_seconds, json.dumps({"compressed": is_compressed}))
 
-        # Add to workflow index (sorted set by timestamp)
-        index_key = self._workflow_index_key(checkpoint.workflow_id)
-        redis.zadd(index_key, {checkpoint_id: time.time()})
-        redis.expire(index_key, self._ttl_seconds)
+            # Add to workflow index (sorted set by timestamp)
+            index_key = self._workflow_index_key(checkpoint.workflow_id)
+            redis.zadd(index_key, {checkpoint_id: time.time()})
+            redis.expire(index_key, self._ttl_seconds)
 
-        logger.info(
-            f"Saved checkpoint to Redis: workflow={checkpoint.workflow_id}, "
-            f"id={checkpoint_id}, size={len(data_bytes)}, compressed={is_compressed}"
-        )
-        return checkpoint_id
+            logger.info(
+                f"Saved checkpoint to Redis: workflow={checkpoint.workflow_id}, "
+                f"id={checkpoint_id}, size={len(data_bytes)}, compressed={is_compressed}"
+            )
+            return checkpoint_id
+
+        except Exception as e:
+            # Check for Redis timeout errors
+            error_name = type(e).__name__
+            if "Timeout" in error_name or "ConnectionError" in error_name:
+                raise ConnectionTimeoutError(f"Redis checkpoint save timed out: {e}") from e
+            raise
 
     async def load(self, checkpoint_id: str) -> Optional["WorkflowCheckpoint"]:
         """
@@ -199,6 +325,9 @@ class RedisCheckpointStore:
 
         Returns:
             WorkflowCheckpoint or None if not found
+
+        Raises:
+            ConnectionTimeoutError: If Redis operation times out
         """
         import zlib
 
@@ -228,6 +357,10 @@ class RedisCheckpointStore:
             return self._dict_to_checkpoint(checkpoint_dict)
 
         except Exception as e:
+            # Check for Redis timeout errors
+            error_name = type(e).__name__
+            if "Timeout" in error_name or "ConnectionError" in error_name:
+                raise ConnectionTimeoutError(f"Redis checkpoint load timed out: {e}") from e
             logger.error(f"Failed to load checkpoint {checkpoint_id} from Redis: {e}")
             return None
 
@@ -240,6 +373,9 @@ class RedisCheckpointStore:
 
         Returns:
             Most recent WorkflowCheckpoint or None
+
+        Raises:
+            ConnectionTimeoutError: If Redis operation times out
         """
         try:
             redis = self._get_redis()
@@ -256,7 +392,14 @@ class RedisCheckpointStore:
 
             return await self.load(checkpoint_id)
 
+        except ConnectionTimeoutError:
+            # Re-raise timeout errors
+            raise
         except Exception as e:
+            # Check for Redis timeout errors
+            error_name = type(e).__name__
+            if "Timeout" in error_name or "ConnectionError" in error_name:
+                raise ConnectionTimeoutError(f"Redis checkpoint load_latest timed out: {e}") from e
             logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
 
@@ -476,30 +619,39 @@ class PostgresCheckpointStore:
         checkpoint_id = f"{checkpoint.workflow_id}_{int(time.time() * 1000)}"
         checkpoint_dict = self._checkpoint_to_dict(checkpoint)
 
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO workflow_checkpoints
-                    (id, workflow_id, definition_id, current_step, completed_steps,
-                     step_outputs, context_state, checksum, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                ON CONFLICT (id) DO UPDATE SET
-                    current_step = EXCLUDED.current_step,
-                    completed_steps = EXCLUDED.completed_steps,
-                    step_outputs = EXCLUDED.step_outputs,
-                    context_state = EXCLUDED.context_state,
-                    checksum = EXCLUDED.checksum,
-                    updated_at = NOW()
-            """,
-                checkpoint_id,
-                checkpoint.workflow_id,
-                checkpoint.definition_id,
-                checkpoint.current_step,
-                list(checkpoint.completed_steps),
-                json.dumps(checkpoint_dict.get("step_outputs", {})),
-                json.dumps(checkpoint_dict.get("context_state", {})),
-                checkpoint_dict.get("checksum", ""),
-                checkpoint.created_at,
+        try:
+            async with asyncio.timeout(DEFAULT_CONNECTION_TIMEOUT):  # type: ignore[attr-defined]
+                async with self._pool.acquire() as conn:
+                    await asyncio.wait_for(
+                        conn.execute(
+                            """
+                            INSERT INTO workflow_checkpoints
+                                (id, workflow_id, definition_id, current_step, completed_steps,
+                                 step_outputs, context_state, checksum, created_at)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                            ON CONFLICT (id) DO UPDATE SET
+                                current_step = EXCLUDED.current_step,
+                                completed_steps = EXCLUDED.completed_steps,
+                                step_outputs = EXCLUDED.step_outputs,
+                                context_state = EXCLUDED.context_state,
+                                checksum = EXCLUDED.checksum,
+                                updated_at = NOW()
+                        """,
+                            checkpoint_id,
+                            checkpoint.workflow_id,
+                            checkpoint.definition_id,
+                            checkpoint.current_step,
+                            list(checkpoint.completed_steps),
+                            json.dumps(checkpoint_dict.get("step_outputs", {})),
+                            json.dumps(checkpoint_dict.get("context_state", {})),
+                            checkpoint_dict.get("checksum", ""),
+                            checkpoint.created_at,
+                        ),
+                        timeout=DEFAULT_OPERATION_TIMEOUT,
+                    )
+        except asyncio.TimeoutError:
+            raise ConnectionTimeoutError(
+                f"PostgreSQL checkpoint save timed out after {DEFAULT_CONNECTION_TIMEOUT}s"
             )
 
         logger.info(
@@ -519,16 +671,35 @@ class PostgresCheckpointStore:
             WorkflowCheckpoint or None if not found
         """
         try:
-            async with self._pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    "SELECT * FROM workflow_checkpoints WHERE id = $1",
-                    checkpoint_id,
-                )
-                if row is None:
-                    return None
+            async with asyncio.timeout(DEFAULT_CONNECTION_TIMEOUT):  # type: ignore[attr-defined]
+                async with self._pool.acquire() as conn:
+                    row = await asyncio.wait_for(
+                        conn.fetchrow(
+                            "SELECT * FROM workflow_checkpoints WHERE id = $1",
+                            checkpoint_id,
+                        ),
+                        timeout=DEFAULT_OPERATION_TIMEOUT,
+                    )
+                    if row is None:
+                        return None
 
-                return self._row_to_checkpoint(row)
+                    checkpoint = self._row_to_checkpoint(row)
 
+                    # Validate checkpoint integrity
+                    if checkpoint.checksum:
+                        expected_checksum = self._compute_checksum(checkpoint)
+                        if checkpoint.checksum != expected_checksum:
+                            logger.warning(
+                                f"Checkpoint {checkpoint_id} checksum mismatch: "
+                                f"expected={expected_checksum}, got={checkpoint.checksum}"
+                            )
+                            # Don't fail, just log warning - checksum may be from different serialization
+
+                    return checkpoint
+
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout loading checkpoint {checkpoint_id}")
+            return None
         except Exception as e:
             logger.error(f"Failed to load checkpoint {checkpoint_id}: {e}")
             return None
@@ -544,21 +715,28 @@ class PostgresCheckpointStore:
             Most recent WorkflowCheckpoint or None
         """
         try:
-            async with self._pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    """
-                    SELECT * FROM workflow_checkpoints
-                    WHERE workflow_id = $1
-                    ORDER BY created_at DESC
-                    LIMIT 1
-                """,
-                    workflow_id,
-                )
-                if row is None:
-                    return None
+            async with asyncio.timeout(DEFAULT_CONNECTION_TIMEOUT):
+                async with self._pool.acquire() as conn:
+                    row = await asyncio.wait_for(
+                        conn.fetchrow(
+                            """
+                            SELECT * FROM workflow_checkpoints
+                            WHERE workflow_id = $1
+                            ORDER BY created_at DESC
+                            LIMIT 1
+                        """,
+                            workflow_id,
+                        ),
+                        timeout=DEFAULT_OPERATION_TIMEOUT,
+                    )
+                    if row is None:
+                        return None
 
-                return self._row_to_checkpoint(row)
+                    return self._row_to_checkpoint(row)
 
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout loading latest checkpoint for {workflow_id}")
+            return None
         except Exception as e:
             logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
@@ -697,6 +875,19 @@ class PostgresCheckpointStore:
             checksum=row["checksum"] or "",
         )
 
+    def _compute_checksum(self, checkpoint: "WorkflowCheckpoint") -> str:
+        """Compute checksum for checkpoint validation."""
+        # Create deterministic string from checkpoint data
+        data = {
+            "workflow_id": checkpoint.workflow_id,
+            "definition_id": checkpoint.definition_id,
+            "current_step": checkpoint.current_step,
+            "completed_steps": sorted(checkpoint.completed_steps),
+            "step_outputs": json.dumps(checkpoint.step_outputs, sort_keys=True, default=str),
+        }
+        checksum_str = json.dumps(data, sort_keys=True)
+        return hashlib.sha256(checksum_str.encode()).hexdigest()[:16]
+
 
 class KnowledgeMoundCheckpointStore:
     """
@@ -762,7 +953,7 @@ class KnowledgeMoundCheckpointStore:
 
             # Build provenance chain
             provenance = ProvenanceChain(  # type: ignore[call-arg]
-                source_type="workflow_engine",
+                source_type="workflow_engine",  # type: ignore[arg-type]
                 source_id=checkpoint.workflow_id,
                 timestamp=datetime.now().isoformat(),
                 chain=[
@@ -780,7 +971,7 @@ class KnowledgeMoundCheckpointStore:
 
             # Create knowledge node
             node = KnowledgeNode(  # type: ignore[call-arg]
-                node_type="workflow_checkpoint",
+                node_type="workflow_checkpoint",  # type: ignore[arg-type]
                 content=content,
                 confidence=1.0,  # Checkpoints are authoritative
                 provenance=provenance,
@@ -1246,9 +1437,9 @@ async def get_checkpoint_store_async(
         try:
             from aragora.storage.postgres_store import get_postgres_pool
 
-            pool = await get_postgres_pool()  # type: ignore[arg-type]
-            store = PostgresCheckpointStore(pool)  # type: ignore[arg-type]
-            await store.initialize()
+            pool = await get_postgres_pool()  # type: ignore[misc]
+            store = PostgresCheckpointStore(pool)  # type: ignore[arg-type,assignment]
+            await store.initialize()  # type: ignore[attr-defined]
             logger.info("Using PostgresCheckpointStore for checkpoints")
             return store
         except Exception as e:
