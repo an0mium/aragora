@@ -244,7 +244,6 @@ class TestBasicDebateLifecycle:
     """Tests for basic debate execution lifecycle."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="TODO: investigate Arena env kwarg issue in CI")
     async def test_simple_debate_completes(
         self,
         basic_env: Environment,
