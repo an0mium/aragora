@@ -62,12 +62,14 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// In production, use relative URLs (Next.js rewrites proxy to backend)
+// In production, use explicit API URL (static exports don't support rewrites)
 // In development, default to localhost:8080
-export const API_BASE_URL = _API_BASE_URL ?? (typeof window !== 'undefined' && isProductionEnvironment() ? '' : 'http://localhost:8080');
-export const WS_URL = _WS_URL || 'ws://localhost:8765/ws';
-export const CONTROL_PLANE_WS_URL = _CONTROL_PLANE_WS_URL || 'ws://localhost:8766/api/control-plane/stream';
-export const NOMIC_LOOP_WS_URL = _NOMIC_LOOP_WS_URL || 'ws://localhost:8767/api/nomic/stream';
+export const API_BASE_URL = _API_BASE_URL ?? (typeof window !== 'undefined' && isProductionEnvironment() ? 'https://api.aragora.ai' : 'http://localhost:8080');
+// WebSocket URLs - production uses wss://api.aragora.ai, dev uses localhost
+const _isProduction = typeof window !== 'undefined' && isProductionEnvironment();
+export const WS_URL = _WS_URL || (_isProduction ? 'wss://api.aragora.ai/ws' : 'ws://localhost:8765/ws');
+export const CONTROL_PLANE_WS_URL = _CONTROL_PLANE_WS_URL || (_isProduction ? 'wss://api.aragora.ai/api/control-plane/stream' : 'ws://localhost:8766/api/control-plane/stream');
+export const NOMIC_LOOP_WS_URL = _NOMIC_LOOP_WS_URL || (_isProduction ? 'wss://api.aragora.ai/api/nomic/stream' : 'ws://localhost:8767/api/nomic/stream');
 
 // Helper to detect dev/localhost mode (useful for conditional behavior)
 export const IS_DEV_MODE = !_API_BASE_URL || API_BASE_URL.includes('localhost');

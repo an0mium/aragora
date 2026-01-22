@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAragoraClient } from '@/hooks/useAragoraClient';
 import { GalleryEntry } from '@/lib/aragora-client';
+import { sanitizeHtml } from '@/utils/sanitize';
 
 type FilterMode = 'all' | 'featured' | 'consensus' | 'no-consensus';
 
@@ -722,7 +723,7 @@ export function PublicGallery() {
                     <h3>Preview</h3>
                     <div
                       className="preview-frame"
-                      dangerouslySetInnerHTML={{ __html: embedData.embed_html }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(embedData.embed_html) }}
                     />
                   </div>
                 </>

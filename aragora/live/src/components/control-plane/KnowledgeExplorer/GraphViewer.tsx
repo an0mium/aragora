@@ -355,7 +355,7 @@ export function GraphViewer({
           onClick={() => {
             const svg = d3Selection.select<SVGSVGElement, unknown>(svgRef.current!);
             const zoom = d3Zoom.zoom<SVGSVGElement, unknown>();
-            svg.transition().duration(300).call(zoom.transform, d3Zoom.zoomIdentity);
+            svg.call(zoom.transform, d3Zoom.zoomIdentity);
           }}
           className="px-2 py-1 text-xs bg-surface border border-border rounded hover:border-text-muted transition-colors"
           title="Reset zoom"

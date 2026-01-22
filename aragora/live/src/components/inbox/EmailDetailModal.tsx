@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { sanitizeHtml } from '@/utils/sanitize';
 
 type EmailPriority = 'critical' | 'high' | 'medium' | 'low' | 'defer';
 
@@ -340,7 +341,7 @@ export function EmailDetailModal({
           {showHtml && email.body_html ? (
             <div
               className="text-sm text-text prose prose-invert prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: email.body_html }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.body_html) }}
             />
           ) : (
             <pre className="text-sm text-text font-mono whitespace-pre-wrap">

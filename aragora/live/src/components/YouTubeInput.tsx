@@ -250,7 +250,6 @@ export function YouTubeInput({
           {/* Thumbnail */}
           {videoInfo.thumbnail_url ? (
             <div className="w-32 h-20 flex-shrink-0 bg-surface-elevated relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={videoInfo.thumbnail_url}
                 alt={videoInfo.title}
