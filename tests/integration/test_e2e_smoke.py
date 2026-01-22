@@ -107,7 +107,7 @@ class TestHandlerSmoke:
     def test_health_handler_responds(self, handler_context, mock_http_handler):
         """Verify health endpoint responds."""
         handler = HealthHandler(handler_context)
-        result = handler.handle("/api/health", {}, mock_http_handler)
+        result = handler.handle("/api/v1/health", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -118,12 +118,12 @@ class TestHandlerSmoke:
         """Verify RLM handler can be initialized."""
         handler = RLMContextHandler(handler_context)
         assert handler is not None
-        assert handler.can_handle("/api/rlm/stats")
+        assert handler.can_handle("/api/v1/rlm/stats")
 
     def test_rlm_strategies_endpoint(self, handler_context, mock_http_handler):
         """Verify RLM strategies endpoint works."""
         handler = RLMContextHandler(handler_context)
-        result = handler.handle("/api/rlm/strategies", {}, mock_http_handler)
+        result = handler.handle("/api/v1/rlm/strategies", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200

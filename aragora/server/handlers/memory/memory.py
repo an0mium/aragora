@@ -80,7 +80,7 @@ class MemoryHandler(BaseHandler):
         if path in self.ROUTES:
             return True
         # Handle /api/memory/continuum/{id} pattern for DELETE
-        if path.startswith("/api/v1/memory/continuum/") and path.count("/") == 4:
+        if path.startswith("/api/v1/memory/continuum/") and path.count("/") == 5:
             # Exclude known routes like /api/memory/continuum/retrieve
             segment = path.split("/")[-1]
             if segment not in ("retrieve", "consolidate", "cleanup"):
@@ -438,8 +438,10 @@ class MemoryHandler(BaseHandler):
             if not self._delete_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
 
-            # Extract memory_id from /api/memory/continuum/{id}
-            memory_id, err = self.extract_path_param(path, 3, "memory_id")
+            # Extract memory_id from /api/v1/memory/continuum/{id}
+            # After strip().split("/") = ["api", "v1", "memory", "continuum", "{id}"]
+            # memory_id is at index 4
+            memory_id, err = self.extract_path_param(path, 4, "memory_id")
             if err:
                 return err
             return self._delete_memory(memory_id)

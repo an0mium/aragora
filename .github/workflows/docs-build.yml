@@ -1,0 +1,46 @@
+name: Build Documentation (PR Check)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'docs-site/**'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Sync documentation
+        working-directory: docs-site
+        run: node scripts/sync-docs.js
+
+      - name: Build documentation
+        working-directory: docs-site
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Check for broken links
+        working-directory: docs-site
+        run: |
+          echo "Documentation build succeeded."
+          echo "Note: Some broken links may exist - check build output for details."

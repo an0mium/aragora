@@ -172,6 +172,56 @@ const DOC_MAP = {
   'DEPRECATION_POLICY.md': 'contributing/deprecation.md',
   'STATUS.md': 'contributing/status.md',
   'DEPENDENCIES.md': 'contributing/dependencies.md',
+
+  // =========================================================================
+  // Additional Missing Files (commonly referenced)
+  // =========================================================================
+  // Core
+  'OBSERVABILITY.md': 'deployment/observability-setup.md',
+  'TROUBLESHOOTING.md': 'operations/troubleshooting.md',
+  'QUEUE.md': 'guides/queue.md',
+  'RATE_LIMITING.md': 'api/rate-limits.md',
+  'SECRETS_MANAGEMENT.md': 'deployment/secrets-management.md',
+  'MEMORY.md': 'core-concepts/memory.md',
+  'MEMORY_ANALYTICS.md': 'core-concepts/memory-analytics.md',
+
+  // API
+  'MCP_INTEGRATION.md': 'guides/mcp-integration.md',
+  'MCP_ADVANCED.md': 'guides/mcp-advanced.md',
+
+  // Operations
+  'PERFORMANCE_TARGETS.md': 'operations/performance-targets.md',
+  'PRODUCTION_READINESS.md': 'operations/production-readiness.md',
+  'SRE.md': 'operations/sre.md',
+
+  // Advanced
+  'RLM.md': 'advanced/rlm.md',
+  'SEMANTIC_ROUTER.md': 'advanced/semantic-router.md',
+  'INTROSPECTION.md': 'advanced/introspection.md',
+  'GENESIS.md': 'advanced/genesis.md',
+  'EVOLUTION_PATTERNS.md': 'advanced/evolution-patterns.md',
+
+  // Admin
+  'TRAINING_MODE.md': 'admin/training-mode.md',
+  'FEATURE_FLAGS.md': 'admin/feature-flags.md',
+
+  // Security
+  'THREAT_MODEL.md': 'security/threat-model.md',
+  'TRUST_SAFETY.md': 'security/trust-safety.md',
+
+  // Integration / Enterprise
+  'KNOWLEDGE_FEDERATION.md': 'enterprise/knowledge-federation.md',
+  'POSTGRESQL_MIGRATION.md': 'deployment/postgresql-migration.md',
+
+  // Algorithms
+  'algorithms/CONVERGENCE.md': 'core-concepts/convergence-algorithm.md',
+  'algorithms/ELO_CALIBRATION.md': 'core-concepts/elo-calibration.md',
+
+  // Documents
+  'DOCUMENTS.md': 'guides/documents.md',
+  'FEATURES.md': 'guides/features.md',
+  'VERTICALS.md': 'guides/verticals.md',
+  'OPERATIONS.md': 'operations/overview.md',
 };
 
 // Add frontmatter to markdown files
@@ -209,8 +259,22 @@ function extractTitle(content) {
   return match ? match[1].replace(/[`*_]/g, '') : 'Documentation';
 }
 
+// Build reverse lookup from source file to destination path
+const REVERSE_LOOKUP = {};
+for (const [src, dest] of Object.entries(DOC_MAP)) {
+  // Normalize source path variations
+  const srcBase = src.replace(/^\.\//, '').replace(/^\//, '');
+  const srcName = path.basename(srcBase);
+
+  // Store both with and without .md extension
+  REVERSE_LOOKUP[srcBase] = dest;
+  REVERSE_LOOKUP[srcName] = dest;
+  REVERSE_LOOKUP[srcBase.replace('.md', '')] = dest.replace('.md', '');
+  REVERSE_LOOKUP[srcName.replace('.md', '')] = dest.replace('.md', '');
+}
+
 // Fix content for Docusaurus compatibility
-function fixContent(content) {
+function fixContent(content, destPath) {
   // Fix escaped backticks (common in generated docs)
   content = content.replace(/\\`\\`\\`/g, '```');
   content = content.replace(/\\`([^`\\]+)\\`/g, '`$1`');
@@ -222,16 +286,61 @@ function fixContent(content) {
   // Escape angle brackets in comparisons (e.g., <0.3 -> &lt;0.3)
   content = content.replace(/<(\d)/g, '&lt;$1');
 
-  // Fix relative links to other docs
+  // Get the current doc's directory for relative path calculation
+  const currentDir = path.dirname(destPath);
+
+  // Transform internal doc links to Docusaurus paths
+  // Match links like [text](./FILE.md), [text](../FILE.md), [text](FILE.md)
   content = content.replace(
-    /\]\(\.\.\/([^)]+)\)/g,
-    ']($1)'
+    /\]\((?:\.\.\/|\.\/)?([A-Z_\/]+\.md)(#[^)]+)?\)/gi,
+    (match, filePath, anchor) => {
+      // Try to find the destination path in our mapping
+      const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
+      const newPath = REVERSE_LOOKUP[normalized] || REVERSE_LOOKUP[path.basename(normalized)];
+
+      if (newPath) {
+        // Calculate relative path from current doc to target doc
+        const targetDir = path.dirname(newPath);
+        const targetFile = path.basename(newPath, '.md');
+
+        // If same directory, use just the filename
+        if (targetDir === currentDir) {
+          return `](./${targetFile}${anchor || ''})`;
+        }
+
+        // Calculate relative path
+        const relativePath = path.relative(currentDir, targetDir);
+        const relativeLink = relativePath ? `${relativePath}/${targetFile}` : targetFile;
+        return `](${relativeLink}${anchor || ''})`;
+      }
+
+      // If not found, keep original but log it
+      return match;
+    }
   );
 
-  // Fix links to other docs in same directory
+  // Also fix links without .md extension
   content = content.replace(
-    /\]\(([A-Z_]+\.md)\)/g,
-    '](../$1)'
+    /\]\((?:\.\.\/|\.\/)?([A-Z_\/]+)(#[^)]+)?\)(?!\.md)/gi,
+    (match, filePath, anchor) => {
+      // Check if this looks like an internal doc link
+      if (!filePath.includes('/') && filePath === filePath.toUpperCase() && filePath.length > 3) {
+        const newPath = REVERSE_LOOKUP[filePath] || REVERSE_LOOKUP[filePath + '.md'];
+        if (newPath) {
+          const targetDir = path.dirname(newPath);
+          const targetFile = path.basename(newPath, '.md');
+
+          if (targetDir === currentDir) {
+            return `](./${targetFile}${anchor || ''})`;
+          }
+
+          const relativePath = path.relative(currentDir, targetDir);
+          const relativeLink = relativePath ? `${relativePath}/${targetFile}` : targetFile;
+          return `](${relativeLink}${anchor || ''})`;
+        }
+      }
+      return match;
+    }
   );
 
   return content;
@@ -250,8 +359,9 @@ function processFile(srcPath, destPath) {
   // Add frontmatter
   content = addFrontmatter(content, title);
 
-  // Fix content for compatibility
-  content = fixContent(content);
+  // Fix content for compatibility (pass relative dest path)
+  const relDestPath = destPath.replace(DEST_DIR + '/', '');
+  content = fixContent(content, relDestPath);
 
   // Ensure destination directory exists
   const destDir = path.dirname(destPath);

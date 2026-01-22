@@ -240,7 +240,7 @@ class TestHandlerCoordination:
         handler = DebatesHandler(handler_context)
 
         # Test list debates endpoint
-        result = handler.handle("/api/debates", {}, mock_request)
+        result = handler.handle("/api/v1/debates", {}, mock_request)
 
         if result:
             # HandlerResult is a dataclass with status_code attribute
@@ -253,7 +253,7 @@ class TestHandlerCoordination:
 
         handler = HealthHandler(handler_context)
 
-        result = handler.handle("/api/health", {}, mock_request)
+        result = handler.handle("/api/v1/health", {}, mock_request)
 
         assert result is not None
         # HandlerResult is a dataclass with status_code attribute
@@ -265,7 +265,7 @@ class TestHandlerCoordination:
         from aragora.server.handlers import HealthHandler
 
         handler = HealthHandler(handler_context)
-        result = handler.handle("/api/health", {}, mock_request)
+        result = handler.handle("/api/v1/health", {}, mock_request)
 
         assert result is not None
         assert result.content_type == "application/json"
