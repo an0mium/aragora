@@ -320,7 +320,7 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
                             else str(finding.severity)
                         ),
                         description=finding.description[:200],  # Truncate
-                        file_path=finding.file_path,
+                        file_path=finding.file_path,  # type: ignore[attr-defined]
                     )
                 )
 

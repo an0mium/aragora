@@ -299,7 +299,7 @@ class RLMOperationsMixin:
             try:
                 result = await rlm.query(
                     query=query,
-                    context=full_content,
+                    context=full_content,  # type: ignore[arg-type]
                     strategy="auto",
                 )
 

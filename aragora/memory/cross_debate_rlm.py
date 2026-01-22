@@ -245,7 +245,7 @@ class CrossDebateMemory:
 
         if self._rlm is None:
             try:
-                self._rlm = get_rlm()
+                self._rlm = get_rlm()  # type: ignore[assignment]
                 if HAS_OFFICIAL_RLM:
                     logger.info(
                         "[CrossDebateMemory] TRUE RLM initialized via factory "

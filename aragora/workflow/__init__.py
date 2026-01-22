@@ -85,6 +85,21 @@ from aragora.workflow.schema import (
     ValidationMessage,
     WorkflowValidator,
 )
+from aragora.workflow.coverage_tracker import (
+    WorkflowCoverageTracker,
+    CoverageReport,
+    get_tracker as get_coverage_tracker,
+    get_coverage_report,
+    track_step,
+    track_pattern,
+    track_template,
+    track_config,
+    print_coverage_summary,
+    KNOWN_STEP_TYPES,
+    KNOWN_PATTERNS,
+    KNOWN_TEMPLATES,
+    KNOWN_CONFIG_DIMENSIONS,
+)
 
 __all__ = [
     # Engines
@@ -122,4 +137,18 @@ __all__ = [
     "ParallelStep",
     "ConditionalStep",
     "LoopStep",
+    # Coverage tracking
+    "WorkflowCoverageTracker",
+    "CoverageReport",
+    "get_coverage_tracker",
+    "get_coverage_report",
+    "track_step",
+    "track_pattern",
+    "track_template",
+    "track_config",
+    "print_coverage_summary",
+    "KNOWN_STEP_TYPES",
+    "KNOWN_PATTERNS",
+    "KNOWN_TEMPLATES",
+    "KNOWN_CONFIG_DIMENSIONS",
 ]

@@ -25,9 +25,12 @@ from aragora.ranking.relationships import (
 )
 from aragora.ranking.tournaments import (
     Tournament,
+    TournamentEvent,
+    TournamentHistoryEntry,
     TournamentManager,
     TournamentMatch,
     TournamentStanding,
+    TournamentStatus,
 )
 from aragora.ranking.km_elo_bridge import (
     KMEloBridge,
@@ -64,8 +67,11 @@ __all__ = [
     # Tournaments
     "TournamentManager",
     "Tournament",
+    "TournamentEvent",
+    "TournamentHistoryEntry",
     "TournamentMatch",
     "TournamentStanding",
+    "TournamentStatus",
     # Knowledge Mound Bridge
     "KMEloBridge",
     "KMEloBridgeConfig",

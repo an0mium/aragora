@@ -311,7 +311,7 @@ class HookManager:
 
                 # Await if coroutine
                 if asyncio.iscoroutine(result):
-                    result = await result
+                    result = await result  # type: ignore[func-returns-value]
 
                 results.append(result)
 

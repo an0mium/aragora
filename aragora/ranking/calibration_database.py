@@ -94,7 +94,9 @@ class CalibrationDatabase:
         """
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
-            return cursor.fetchone()
+            row = cursor.fetchone()
+            # Convert sqlite3.Row to tuple for consistent return type
+            return tuple(row) if row is not None else None
 
     def fetch_all(self, sql: str, params: tuple = ()) -> list[tuple]:
         """Execute query and fetch all rows.
@@ -108,7 +110,8 @@ class CalibrationDatabase:
         """
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
-            return cursor.fetchall()
+            # Convert sqlite3.Row objects to tuples for consistent return type
+            return [tuple(row) for row in cursor.fetchall()]
 
     def execute_write(self, sql: str, params: tuple = ()) -> None:
         """Execute a write operation with auto-commit.

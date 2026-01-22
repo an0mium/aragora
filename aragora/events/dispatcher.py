@@ -63,7 +63,9 @@ REQUEST_TIMEOUT = float(os.environ.get("ARAGORA_WEBHOOK_TIMEOUT", "30.0"))
 USER_AGENT = "Aragora-Webhooks/1.0"
 
 # Event rate limiting configuration
-EVENT_RATE_LIMIT_ENABLED = os.environ.get("ARAGORA_EVENT_RATE_LIMIT_ENABLED", "true").lower() == "true"
+EVENT_RATE_LIMIT_ENABLED = (
+    os.environ.get("ARAGORA_EVENT_RATE_LIMIT_ENABLED", "true").lower() == "true"
+)
 EVENT_RATE_LIMIT_PER_SECOND = float(os.environ.get("ARAGORA_EVENT_RATE_LIMIT_PER_SECOND", "100.0"))
 EVENT_RATE_LIMIT_BURST = int(os.environ.get("ARAGORA_EVENT_RATE_LIMIT_BURST", "200"))
 
@@ -318,8 +320,16 @@ def dispatch_webhook_with_retry(
             correlation_id=correlation_id,
         ) as span:
             result = _dispatch_with_retry_impl(
-                webhook, payload, max_retries, initial_delay, max_delay,
-                start_time, delay, event_type, record_webhook_retry, span
+                webhook,
+                payload,
+                max_retries,
+                initial_delay,
+                max_delay,
+                start_time,
+                delay,
+                event_type,
+                record_webhook_retry,
+                span,
             )
             # Add result attributes to span
             span.set_attribute("webhook.success", result.success)
@@ -331,8 +341,16 @@ def dispatch_webhook_with_retry(
             return result
     else:
         return _dispatch_with_retry_impl(
-            webhook, payload, max_retries, initial_delay, max_delay,
-            start_time, delay, event_type, record_webhook_retry, None
+            webhook,
+            payload,
+            max_retries,
+            initial_delay,
+            max_delay,
+            start_time,
+            delay,
+            event_type,
+            record_webhook_retry,
+            None,
         )
 
 
@@ -378,10 +396,7 @@ def _dispatch_with_retry_impl(
 
             # Add retry event to span
             if span:
-                span.add_event(
-                    "retry",
-                    {"attempt": attempt + 1, "delay_seconds": delay}
-                )
+                span.add_event("retry", {"attempt": attempt + 1, "delay_seconds": delay})
 
             logger.info(
                 f"Retrying webhook {webhook.id} in {delay:.1f}s "
@@ -548,7 +563,7 @@ class WebhookDispatcher:
         # Add rate limiter stats if enabled
         rate_limiter = get_event_rate_limiter()
         if rate_limiter:
-            stats["rate_limiter"] = rate_limiter.get_stats()
+            stats["rate_limiter"] = rate_limiter.get_stats()  # type: ignore[assignment]
 
         return stats
 

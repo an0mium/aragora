@@ -905,7 +905,7 @@ class ContextInitializer:
 
             # Store summary in context
             if compression_result and compression_result.answer:
-                ctx.rlm_compressed_context = compression_result.answer
+                ctx.rlm_compressed_context = compression_result.answer  # type: ignore[attr-defined]
 
                 # Log which approach was used
                 if compression_result.used_true_rlm:

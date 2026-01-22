@@ -7,7 +7,7 @@ consistent interface.
 
 import logging
 import struct
-from typing import Optional
+from typing import Callable, Optional
 
 from aragora.core.embeddings.types import CacheStats, EmbeddingConfig, EmbeddingResult
 from aragora.core.embeddings.cache import EmbeddingCache, get_global_cache, get_scoped_cache
@@ -72,7 +72,7 @@ class UnifiedEmbeddingService:
 
         if provider:
             # Explicit provider specified
-            backends = {
+            backends: dict[str, Callable[[EmbeddingConfig], EmbeddingBackend]] = {
                 "openai": OpenAIBackend,
                 "gemini": GeminiBackend,
                 "ollama": OllamaBackend,
@@ -84,7 +84,13 @@ class UnifiedEmbeddingService:
             return backend_class(self.config)
 
         # Auto-detect best available provider
-        for backend_class in [OpenAIBackend, GeminiBackend, OllamaBackend, HashBackend]:
+        backend_classes: list[Callable[[EmbeddingConfig], EmbeddingBackend]] = [
+            OpenAIBackend,
+            GeminiBackend,
+            OllamaBackend,
+            HashBackend,
+        ]
+        for backend_class in backend_classes:
             backend = backend_class(self.config)
             if backend.is_available():
                 logger.info(f"Using {backend.provider_name} embedding provider")

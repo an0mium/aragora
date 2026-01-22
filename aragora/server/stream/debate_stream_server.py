@@ -151,6 +151,9 @@ class DebateStreamServer(ServerBase):
         # SECURITY: Prevents data leakage between concurrent debates
         self._client_subscriptions: dict[int, str] = {}
 
+        # Stop event for graceful shutdown
+        self._stop_event: Optional[asyncio.Event] = None
+
     def _cleanup_stale_rate_limiters(self) -> None:
         """Remove rate limiters not accessed within TTL period."""
         self.cleanup_rate_limiters()
@@ -1224,6 +1227,8 @@ class DebateStreamServer(ServerBase):
             raise ImportError("websockets package required. Install with: pip install websockets")
 
         self._running = True
+        # Create stop event for graceful shutdown
+        self._stop_event = asyncio.Event()
         # Store task reference and add error callback to prevent silent failures
         self._drain_task = asyncio.create_task(self._drain_loop())
         self._drain_task.add_done_callback(self._handle_drain_task_error)
@@ -1240,7 +1245,7 @@ class DebateStreamServer(ServerBase):
             logger.info(
                 f"WebSocket server: ws://{self.host}:{self.port} (max message size: {WS_MAX_MESSAGE_SIZE} bytes)"
             )
-            await asyncio.Future()  # Run forever
+            await self._stop_event.wait()  # Run until shutdown signal
 
     def stop(self) -> None:
         """Stop the server."""
@@ -1256,8 +1261,11 @@ class DebateStreamServer(ServerBase):
             pass  # Task was cancelled, not an error
 
     async def graceful_shutdown(self) -> None:
-        """Gracefully close all client connections."""
+        """Gracefully close all client connections and stop the server."""
         self._running = False
+        # Signal the server to stop
+        if self._stop_event:
+            self._stop_event.set()
         # Close all connected clients under lock
         async with self._clients_lock:
             if self.clients:

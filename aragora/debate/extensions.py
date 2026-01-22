@@ -328,7 +328,6 @@ class ArenaExtensions:
             result: The final debate result
         """
         try:
-
             workspace_id = self.workspace_id or "default"
 
             # Get cross-subscriber manager to access adapter instances
@@ -343,7 +342,7 @@ class ArenaExtensions:
                 ranking_adapter = getattr(manager, "_ranking_adapter", None)
                 if ranking_adapter is None:
                     ranking_adapter = RankingAdapter()
-                    manager._ranking_adapter = ranking_adapter
+                    manager._ranking_adapter = ranking_adapter  # type: ignore[attr-defined]
 
                 stats = ranking_adapter.get_stats()
                 if stats.get("total_expertise_records", 0) > 0:
@@ -361,7 +360,7 @@ class ArenaExtensions:
                 rlm_adapter = getattr(manager, "_rlm_adapter", None)
                 if rlm_adapter is None:
                     rlm_adapter = RlmAdapter()
-                    manager._rlm_adapter = rlm_adapter
+                    manager._rlm_adapter = rlm_adapter  # type: ignore[attr-defined]
 
                 stats = rlm_adapter.get_stats()
                 if stats.get("total_patterns", 0) > 0:

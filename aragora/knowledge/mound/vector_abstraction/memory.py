@@ -473,8 +473,8 @@ class InMemoryVectorStore(BaseVectorStore):
         else:
             # Pure Python fallback
             dot = sum(x * y for x, y in zip(a, b))
-            norm_a = math.sqrt(sum(x * x for x in a))  # type: ignore[arg-type]
-            norm_b = math.sqrt(sum(x * x for x in b))  # type: ignore[arg-type]
+            norm_a = math.sqrt(sum(x * x for x in a))  # type: ignore[arg-type,assignment]
+            norm_b = math.sqrt(sum(x * x for x in b))  # type: ignore[arg-type,assignment]
             if norm_a == 0 or norm_b == 0:
                 return 0.0
             return dot / (norm_a * norm_b)

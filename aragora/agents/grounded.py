@@ -160,8 +160,8 @@ class PersonaSynthesizer:
         # Relationships
         if self.relationship_tracker:
             try:
-                persona.rivals = self.relationship_tracker.get_rivals(agent_name)
-                persona.allies = self.relationship_tracker.get_allies(agent_name)
+                persona.rivals = self.relationship_tracker.get_rivals(agent_name)  # type: ignore[assignment]
+                persona.allies = self.relationship_tracker.get_allies(agent_name)  # type: ignore[assignment]
                 influence = self.relationship_tracker.get_influence_network(agent_name)
                 persona.influences = influence.get("influences", [])
                 persona.influenced_by = influence.get("influenced_by", [])

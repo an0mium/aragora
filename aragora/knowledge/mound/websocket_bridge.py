@@ -392,13 +392,13 @@ class KMWebSocketBridge:
                     event_enum = StreamEventType.KM_BATCH
 
             # Create stream event
-            stream_event = StreamEvent(event_type=event_enum, data=data)
+            stream_event = StreamEvent(event_type=event_enum, data=data)  # type: ignore[arg-type]
 
             # Schedule async broadcast
             if self._loop and self._loop.is_running():
                 asyncio.ensure_future(
                     self._broadcaster.broadcast(stream_event),
-                    loop=self._loop,
+                    loop=self._loop,  # type: ignore[arg-type]
                 )
 
                 # Record Prometheus metric

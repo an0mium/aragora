@@ -341,7 +341,7 @@ class TeamsIntegration:
 
         card = AdaptiveCard(
             title="Consensus Reached",
-            body=body,
+            body=body,  # type: ignore[arg-type]
             accent_color="good",
             actions=[
                 {

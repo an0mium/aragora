@@ -275,7 +275,7 @@ class GauntletHandler(BaseHandler):
     ]
 
     def __init__(self, server_context: dict):
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         emitter = server_context.get("stream_emitter")
         if emitter and hasattr(emitter, "emit"):
             set_gauntlet_broadcast_fn(emitter.emit)

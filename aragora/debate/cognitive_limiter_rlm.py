@@ -430,7 +430,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         for level in result.abstraction_levels:
             self.stats["abstraction_levels_used"][level] = (  # type: ignore[index]
-                self.stats["abstraction_levels_used"].get(level, 0) + 1  # type: ignore[union-attr]
+                self.stats["abstraction_levels_used"].get(level, 0) + 1  # type: ignore[union-attr,attr-defined]
             )
 
         logger.info(

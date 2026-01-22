@@ -537,7 +537,7 @@ class FederatedQueryAggregator:
             record_km_federated_query(len(result.sources_queried), success)
             set_km_active_adapters(len([r for r in self._adapters.values() if r.enabled]))
         except ImportError:
-            pass
+            logger.debug("Prometheus metrics not available for federated query")
         except (TypeError, ValueError, RuntimeError) as e:
             logger.debug(f"Failed to record Prometheus metrics: {e}")
 
@@ -549,11 +549,11 @@ class FederatedQueryAggregator:
         **kwargs,
     ) -> Dict[QuerySource, Tuple[List[Any], Optional[str]]]:
         """Query adapters in parallel."""
-        tasks = {}
+        tasks: Dict[QuerySource, asyncio.Task[List[Any]]] = {}
         for source in sources:
             tasks[source] = asyncio.create_task(self._query_single(source, query, limit, **kwargs))
 
-        results = {}
+        results: Dict[QuerySource, Tuple[List[Any], Optional[str]]] = {}
         for source, task in tasks.items():
             try:
                 items = await asyncio.wait_for(task, timeout=self._timeout_seconds)
@@ -577,7 +577,7 @@ class FederatedQueryAggregator:
         **kwargs,
     ) -> Dict[QuerySource, Tuple[List[Any], Optional[str]]]:
         """Query adapters sequentially."""
-        results = {}
+        results: Dict[QuerySource, Tuple[List[Any], Optional[str]]] = {}
         for source in sources:
             try:
                 items = await self._query_single(source, query, limit, **kwargs)

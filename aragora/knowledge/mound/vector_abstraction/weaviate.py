@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 try:
     import weaviate
     from weaviate.classes.config import Configure, DataType, Property
-    from weaviate.classes.data import DataObject
+    from weaviate.classes.data import DataObject  # noqa: F401
     from weaviate.classes.query import Filter, MetadataQuery
 
     WEAVIATE_AVAILABLE = True
@@ -84,7 +84,7 @@ class WeaviateVectorStore(BaseVectorStore):
             # Parse URL for connection
             if self.config.api_key:
                 # Cloud or authenticated connection
-                self._client = weaviate.connect_to_custom(
+                self._client = weaviate.connect_to_custom(  # type: ignore[call-arg]
                     http_host=url.replace("http://", "").replace("https://", "").split(":")[0],
                     http_port=int(url.split(":")[-1]) if ":" in url.split("/")[-1] else 8080,
                     http_secure=url.startswith("https"),

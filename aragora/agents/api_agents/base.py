@@ -35,7 +35,7 @@ class APIAgent(CritiqueMixin, Agent):
         top_p: float | None = None,
         frequency_penalty: float | None = None,
     ):
-        super().__init__(name, model, role)
+        super().__init__(name, model, role)  # type: ignore[arg-type]
         self.timeout = timeout
         self.api_key = api_key
         self.base_url = base_url

@@ -503,7 +503,7 @@ Summary:"""
                     source_type=registered.content_type,
                 )
                 summary = (
-                    result.context.get_at_level(  # type: ignore[attr-defined]
+                    result.context.get_at_level(  # type: ignore[attr-defined,union-attr]
                         result.context.abstraction_levels.get("summary", "SUMMARY")
                     )
                     if hasattr(result, "context")

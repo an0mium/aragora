@@ -118,9 +118,6 @@ class TopicSearchResult:
     topic: Dict[str, Any]
     relevance_score: float = 0.0
 
-    def __post_init__(self) -> None:
-        pass
-
 
 class PulseAdapter:
     """
@@ -539,7 +536,7 @@ class PulseAdapter:
             if count >= min_occurrences
         ]
 
-        patterns.sort(key=lambda x: x["occurrence_count"], reverse=True)
+        patterns.sort(key=lambda x: x["occurrence_count"], reverse=True)  # type: ignore[arg-type,return-value]
 
         return patterns[:limit]
 

@@ -579,8 +579,8 @@ class QueryOperationsMixin:
         limit = min(limit, self.config.max_query_limit)
 
         # First, get regular query results
-        result = await self.query(  # type: ignore[arg-type]
-            query, sources, filters, limit * 2, ws_id
+        result = await self.query(
+            query, sources, filters, limit=limit * 2, workspace_id=ws_id
         )  # Get extra for filtering
 
         # Filter by visibility

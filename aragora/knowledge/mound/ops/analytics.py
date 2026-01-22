@@ -681,8 +681,10 @@ class AnalyticsMixin:
         stale_threshold_days: int = 90,
     ) -> CoverageReport:
         """Analyze domain coverage."""
-        return await self._get_analytics().analyze_coverage(  # type: ignore[arg-type]
-            self, workspace_id, stale_threshold_days
+        return await self._get_analytics().analyze_coverage(  # type: ignore[arg-type,call-arg]
+            self,
+            workspace_id,
+            stale_threshold_days,  # type: ignore[arg-type]
         )
 
     async def analyze_usage(

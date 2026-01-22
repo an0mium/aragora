@@ -46,9 +46,6 @@ class AlertSearchResult:
     alert: Dict[str, Any]
     relevance_score: float = 0.0
 
-    def __post_init__(self) -> None:
-        pass
-
 
 @dataclass
 class CostAnomaly:

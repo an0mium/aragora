@@ -212,7 +212,7 @@ class QueenOrchestrator:
                 id=f"{session.id}:{chunk_id}",
                 chunk_id=chunk_id,
                 chunk_content=chunk_content,
-                audit_types=audit_types,
+                audit_types=audit_types,  # type: ignore[arg-type]
                 priority=priority,
                 metadata={"session_id": session.id, "chunk_index": i},
             )

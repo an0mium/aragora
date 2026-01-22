@@ -139,7 +139,7 @@ class KnowledgeMoundCore:
         if self.config.enable_staleness_detection:
             from aragora.knowledge.mound.staleness import StalenessDetector
 
-            self._staleness_detector = StalenessDetector(  # type: ignore[arg-type]
+            self._staleness_detector = StalenessDetector(  # type: ignore[arg-type,call-arg]
                 mound=self,
                 age_threshold=self.config.staleness_age_threshold,
             )

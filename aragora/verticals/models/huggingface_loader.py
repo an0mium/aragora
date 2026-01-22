@@ -214,7 +214,7 @@ class HuggingFaceSpecialistLoader:
     def _check_torch(self) -> bool:
         """Check if PyTorch is available."""
         try:
-            import torch
+            import torch  # noqa: F401
 
             return True
         except ImportError:
@@ -224,7 +224,7 @@ class HuggingFaceSpecialistLoader:
     def _check_transformers(self) -> bool:
         """Check if transformers is available."""
         try:
-            import transformers
+            import transformers  # noqa: F401
 
             return True
         except ImportError:
@@ -381,7 +381,7 @@ class HuggingFaceSpecialistLoader:
 
             # Move to device if not using device_map
             if "device_map" not in load_kwargs and device != "cpu":
-                model = model.to(device)
+                model = model.to(device)  # type: ignore[arg-type]
 
             # Set evaluation mode
             model.eval()

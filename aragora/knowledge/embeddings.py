@@ -22,7 +22,7 @@ try:
 except ImportError:
     WEAVIATE_AVAILABLE = False
     weaviate = None
-    WeaviateConnectionError = Exception
+    WeaviateConnectionError = Exception  # type: ignore[misc,assignment]
 
 
 @dataclass

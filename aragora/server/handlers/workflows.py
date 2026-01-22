@@ -326,7 +326,7 @@ async def execute_workflow(
                 "outputs": result.final_output,
                 "steps": [s.__dict__ for s in result.steps],  # type: ignore[misc]
                 "error": result.error,  # type: ignore[dict-item]
-                "duration_ms": result.total_duration_ms,
+                "duration_ms": result.total_duration_ms,  # type: ignore[dict-item]
             }
         )
         store.save_execution(execution)

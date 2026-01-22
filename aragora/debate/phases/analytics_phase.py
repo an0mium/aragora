@@ -456,14 +456,14 @@ class AnalyticsPhase:
             try:
                 from aragora.reasoning.belief import BeliefPropagationAnalyzer
 
-                analyzer = BeliefPropagationAnalyzer()
+                analyzer = BeliefPropagationAnalyzer()  # type: ignore[call-arg]
             except ImportError:
                 return
 
             # Add claims from grounded verdict
             for claim in result.grounded_verdict.claims[:20]:
                 claim_id = getattr(claim, "claim_id", str(hash(claim.statement[:50])))
-                analyzer.add_claim(
+                analyzer.add_claim(  # type: ignore[call-arg]
                     claim_id=claim_id,
                     statement=claim.statement,
                     prior=getattr(claim, "confidence", 0.5),

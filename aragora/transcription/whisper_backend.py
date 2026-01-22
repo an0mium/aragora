@@ -265,7 +265,7 @@ class OpenAIWhisperBackend(TranscriptionBackend):
             import openai
 
             api_key = self.config.openai_api_key or os.getenv("OPENAI_API_KEY")
-            self._client = openai.AsyncOpenAI(api_key=api_key)
+            self._client = openai.AsyncOpenAI(api_key=api_key)  # type: ignore[assignment]
         return self._client
 
     async def transcribe(

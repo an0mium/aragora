@@ -172,7 +172,9 @@ async def list_integrations_tool(
     total = sum(len(v) for v in integrations.values())
 
     return {
-        "integrations": integrations if platform == "all" else {platform: integrations.get(platform, [])},
+        "integrations": integrations
+        if platform == "all"
+        else {platform: integrations.get(platform, [])},
         "total": total,
         "platform_filter": platform,
         "workspace_filter": workspace_id,
@@ -280,8 +282,8 @@ async def get_integration_events_tool(
 
             make = get_make_integration()
             modules = make.MODULE_TYPES
-            triggers = {k: v for k, v in modules.items() if v.get("type") == "trigger"}
-            actions = {k: v for k, v in modules.items() if v.get("type") == "action"}
+            triggers = {k: v for k, v in modules.items() if v.get("type") == "trigger"}  # type: ignore[attr-defined]
+            actions = {k: v for k, v in modules.items() if v.get("type") == "action"}  # type: ignore[attr-defined]
             return {
                 "platform": "make",
                 "trigger_modules": triggers,

@@ -171,7 +171,7 @@ class DebateTrajectoryCollector:
             messages=ctx.messages,  # type: ignore[attr-defined]
             winner=result.winner,
             final_answer=result.final_answer or "",  # type: ignore[attr-defined]
-            num_rounds=len(ctx.messages) // max(len(ctx.agents), 1) if ctx.agents else 0,
+            num_rounds=len(ctx.messages) // max(len(ctx.agents), 1) if ctx.agents else 0,  # type: ignore[attr-defined]
             agents=[a.name for a in ctx.agents] if ctx.agents else [],
             domain=ctx.domain or "general",
         )

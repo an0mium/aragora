@@ -600,8 +600,11 @@ class ExtractionMixin:
         min_confidence: float = 0.6,
     ) -> int:
         """Promote extracted claims to Knowledge Mound."""
-        return await self._get_extractor().promote_to_mound(  # type: ignore[arg-type]
-            self, workspace_id, claims, min_confidence
+        return await self._get_extractor().promote_to_mound(  # type: ignore[arg-type,call-arg]
+            self,
+            workspace_id,
+            claims,
+            min_confidence,  # type: ignore[arg-type]
         )
 
     def get_extraction_stats(self) -> Dict[str, Any]:

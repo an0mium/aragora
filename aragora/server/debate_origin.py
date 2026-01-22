@@ -722,7 +722,7 @@ async def _send_discord_result(origin: DebateOrigin, result: Dict[str, Any]) -> 
 
         # Reply to original message if we have it
         if origin.message_id:
-            data["message_reference"] = {"message_id": origin.message_id}
+            data["message_reference"] = {"message_id": origin.message_id}  # type: ignore[assignment]
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=data, headers=headers)

@@ -273,7 +273,7 @@ class CritiqueGenerator:
                 self.circuit_breaker.record_failure(critic.name)
 
             # Create placeholder critique
-            placeholder = Critique(
+            placeholder = Critique(  # type: ignore[call-arg]
                 agent=critic.name,
                 target_agent=proposal_agent,
                 issues=["[Critique unavailable - agent timed out or encountered an error]"],

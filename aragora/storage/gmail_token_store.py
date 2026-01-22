@@ -313,53 +313,53 @@ class InMemoryGmailTokenStore(GmailTokenStoreBackend):
     Thread-safe in-memory Gmail token store.
 
     Fast but not shared across restarts. Suitable for development/testing.
+    Uses asyncio.Lock for async-safe operations in multi-worker environments.
     """
 
     def __init__(self) -> None:
         self._tokens: Dict[str, GmailUserState] = {}
         self._jobs: Dict[str, SyncJobState] = {}
-        self._lock = threading.RLock()
+        self._lock = asyncio.Lock()
 
     async def get(self, user_id: str) -> Optional[GmailUserState]:
-        with self._lock:
+        async with self._lock:
             return self._tokens.get(user_id)
 
     async def save(self, state: GmailUserState) -> None:
         state.updated_at = time.time()
-        with self._lock:
+        async with self._lock:
             self._tokens[state.user_id] = state
 
     async def delete(self, user_id: str) -> bool:
-        with self._lock:
+        async with self._lock:
             if user_id in self._tokens:
                 del self._tokens[user_id]
                 return True
             return False
 
     async def list_all(self) -> List[GmailUserState]:
-        with self._lock:
+        async with self._lock:
             return list(self._tokens.values())
 
     async def get_sync_job(self, user_id: str) -> Optional[SyncJobState]:
-        with self._lock:
+        async with self._lock:
             return self._jobs.get(user_id)
 
     async def save_sync_job(self, job: SyncJobState) -> None:
-        with self._lock:
+        async with self._lock:
             self._jobs[job.user_id] = job
 
     async def delete_sync_job(self, user_id: str) -> bool:
-        with self._lock:
+        async with self._lock:
             if user_id in self._jobs:
                 del self._jobs[user_id]
                 return True
             return False
 
     def clear(self) -> None:
-        """Clear all entries (for testing)."""
-        with self._lock:
-            self._tokens.clear()
-            self._jobs.clear()
+        """Clear all entries (for testing). Not async-safe, use only in test setup."""
+        self._tokens.clear()
+        self._jobs.clear()
 
 
 class SQLiteGmailTokenStore(GmailTokenStoreBackend):
@@ -961,6 +961,7 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
 # =============================================================================
 
 _gmail_token_store: Optional[GmailTokenStoreBackend] = None
+_gmail_store_init_lock = threading.Lock()
 
 
 def get_gmail_token_store() -> GmailTokenStoreBackend:
@@ -978,51 +979,59 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
         Configured GmailTokenStoreBackend instance
     """
     global _gmail_token_store
+
+    # Fast path: already initialized
     if _gmail_token_store is not None:
         return _gmail_token_store
 
-    # Check store-specific backend first, then global database backend
-    backend_type = os.environ.get("ARAGORA_GMAIL_STORE_BACKEND")
-    if not backend_type:
-        # Fall back to global database backend setting
-        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-    backend_type = backend_type.lower()
+    # Thread-safe initialization
+    with _gmail_store_init_lock:
+        # Double-check after acquiring lock
+        if _gmail_token_store is not None:
+            return _gmail_token_store
 
-    # Get data directory for SQLite
-    try:
-        from aragora.config.legacy import DATA_DIR
+        # Check store-specific backend first, then global database backend
+        backend_type = os.environ.get("ARAGORA_GMAIL_STORE_BACKEND")
+        if not backend_type:
+            # Fall back to global database backend setting
+            backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+        backend_type = backend_type.lower()
 
-        data_dir = DATA_DIR
-    except ImportError:
-        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-        data_dir = Path(env_dir or ".nomic")
-
-    db_path = data_dir / "gmail_tokens.db"
-
-    if backend_type == "memory":
-        logger.info("Using in-memory Gmail token store (not persistent)")
-        _gmail_token_store = InMemoryGmailTokenStore()
-    elif backend_type == "postgres" or backend_type == "postgresql":
-        logger.info("Using PostgreSQL Gmail token store")
+        # Get data directory for SQLite
         try:
-            from aragora.storage.postgres_store import get_postgres_pool
+            from aragora.config.legacy import DATA_DIR
 
-            # Initialize PostgreSQL store with connection pool
-            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-            store = PostgresGmailTokenStore(pool)
-            asyncio.get_event_loop().run_until_complete(store.initialize())
-            _gmail_token_store = store
-        except Exception as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+            data_dir = DATA_DIR
+        except ImportError:
+            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
+            data_dir = Path(env_dir or ".nomic")
+
+        db_path = data_dir / "gmail_tokens.db"
+
+        if backend_type == "memory":
+            logger.info("Using in-memory Gmail token store (not persistent)")
+            _gmail_token_store = InMemoryGmailTokenStore()
+        elif backend_type == "postgres" or backend_type == "postgresql":
+            logger.info("Using PostgreSQL Gmail token store")
+            try:
+                from aragora.storage.postgres_store import get_postgres_pool
+
+                # Initialize PostgreSQL store with connection pool
+                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+                store = PostgresGmailTokenStore(pool)
+                asyncio.get_event_loop().run_until_complete(store.initialize())
+                _gmail_token_store = store
+            except Exception as e:
+                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+                _gmail_token_store = SQLiteGmailTokenStore(db_path)
+        elif backend_type == "redis":
+            logger.info("Using Redis Gmail token store with SQLite fallback")
+            _gmail_token_store = RedisGmailTokenStore(db_path)
+        else:  # Default: sqlite
+            logger.info(f"Using SQLite Gmail token store: {db_path}")
             _gmail_token_store = SQLiteGmailTokenStore(db_path)
-    elif backend_type == "redis":
-        logger.info("Using Redis Gmail token store with SQLite fallback")
-        _gmail_token_store = RedisGmailTokenStore(db_path)
-    else:  # Default: sqlite
-        logger.info(f"Using SQLite Gmail token store: {db_path}")
-        _gmail_token_store = SQLiteGmailTokenStore(db_path)
 
-    return _gmail_token_store
+        return _gmail_token_store
 
 
 def set_gmail_token_store(store: GmailTokenStoreBackend) -> None:

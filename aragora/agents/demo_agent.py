@@ -91,7 +91,7 @@ class DemoAgent(Agent):
     """Deterministic agent for demos and smoke tests."""
 
     def __init__(self, name: str, role: str = "proposer", model: str = "demo"):
-        super().__init__(name=name, model=model, role=role)
+        super().__init__(name=name, model=model, role=role)  # type: ignore[arg-type]
         self.agent_type = "demo"
         self._variant = _seed_from_name(name) % len(_PROPOSAL_VARIANTS)
 

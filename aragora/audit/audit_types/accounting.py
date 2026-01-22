@@ -480,7 +480,7 @@ class AccountingAuditor(BaseAuditor):
 
         return findings
 
-    async def cross_document_analysis(
+    async def cross_document_analysis(  # type: ignore[override]
         self,
         chunks: list[ChunkData],
         context: AuditContext,

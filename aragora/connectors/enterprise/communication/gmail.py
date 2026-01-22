@@ -115,10 +115,11 @@ class GmailConnector(EnterpriseConnector):
         self.include_spam_trash = include_spam_trash
         self.user_id = user_id
 
-        # OAuth tokens
+        # OAuth tokens (protected by _token_lock for thread-safety)
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._token_expiry: Optional[datetime] = None
+        self._token_lock: asyncio.Lock = asyncio.Lock()
 
         # Gmail-specific state
         self._gmail_state: Optional[GmailSyncState] = None
@@ -302,16 +303,20 @@ class GmailConnector(EnterpriseConnector):
         return self._access_token
 
     async def _get_access_token(self) -> str:
-        """Get valid access token, refreshing if needed."""
-        now = datetime.now(timezone.utc)
+        """Get valid access token, refreshing if needed.
 
-        if self._access_token and self._token_expiry and now < self._token_expiry:
-            return self._access_token
+        Thread-safe: Uses _token_lock to prevent concurrent refresh attempts.
+        """
+        async with self._token_lock:
+            now = datetime.now(timezone.utc)
 
-        if self._refresh_token:
-            return await self._refresh_access_token()
+            if self._access_token and self._token_expiry and now < self._token_expiry:
+                return self._access_token
 
-        raise ValueError("No valid access token and no refresh token available")
+            if self._refresh_token:
+                return await self._refresh_access_token()
+
+            raise ValueError("No valid access token and no refresh token available")
 
     async def _api_request(
         self,
@@ -855,8 +860,8 @@ class GmailConnector(EnterpriseConnector):
         Returns:
             Dict with message_id and thread_id of sent message
         """
-        if not self._access_token:
-            raise RuntimeError("Not authenticated. Call authenticate() first.")
+        # Get fresh token (will refresh if expired)
+        access_token = await self._get_access_token()
 
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
@@ -867,7 +872,7 @@ class GmailConnector(EnterpriseConnector):
             message.attach(MIMEText(body, "plain"))
             message.attach(MIMEText(html_body, "html"))
         else:
-            message = MIMEText(body, "plain")
+            message = MIMEText(body, "plain")  # type: ignore[assignment]
 
         message["To"] = ", ".join(to)
         message["Subject"] = subject
@@ -894,7 +899,7 @@ class GmailConnector(EnterpriseConnector):
             async with self._get_client() as client:
                 response = await client.post(
                     f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/send",
-                    headers={"Authorization": f"Bearer {self._access_token}"},
+                    headers={"Authorization": f"Bearer {access_token}"},
                     json={"raw": raw_message},
                 )
 
@@ -941,8 +946,8 @@ class GmailConnector(EnterpriseConnector):
         Returns:
             Dict with message_id and thread_id of sent reply
         """
-        if not self._access_token:
-            raise RuntimeError("Not authenticated. Call authenticate() first.")
+        # Get fresh token (will refresh if expired)
+        access_token = await self._get_access_token()
 
         # Fetch original message for context
         original = await self.get_message(original_message_id)
@@ -971,7 +976,7 @@ class GmailConnector(EnterpriseConnector):
             message.attach(MIMEText(body, "plain"))
             message.attach(MIMEText(html_body, "html"))
         else:
-            message = MIMEText(body, "plain")
+            message = MIMEText(body, "plain")  # type: ignore[assignment]
 
         message["To"] = ", ".join(to)
         message["Subject"] = subject
@@ -999,7 +1004,7 @@ class GmailConnector(EnterpriseConnector):
             async with self._get_client() as client:
                 response = await client.post(
                     f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/send",
-                    headers={"Authorization": f"Bearer {self._access_token}"},
+                    headers={"Authorization": f"Bearer {access_token}"},
                     json={
                         "raw": raw_message,
                         "threadId": original.thread_id,

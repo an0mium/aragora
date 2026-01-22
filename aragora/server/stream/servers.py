@@ -187,6 +187,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Voice streaming handler for speech-to-text
         self._voice_handler = VoiceStreamHandler(self)
 
+        # Stop event for graceful shutdown
+        self._stop_event: Optional[asyncio.Event] = None
+
         # Wire TTS integration to voice handler
         self._wire_tts_integration()
 
@@ -1386,9 +1389,12 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
         await site.start()
 
-        # Keep running
+        # Create stop event for graceful shutdown
+        self._stop_event = asyncio.Event()
+
+        # Keep running until shutdown signal
         try:
-            await asyncio.Future()
+            await self._stop_event.wait()
         finally:
             self._running = False
             await runner.cleanup()
@@ -1396,3 +1402,5 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
     def stop(self) -> None:
         """Stop the server."""
         self._running = False
+        if self._stop_event:
+            self._stop_event.set()

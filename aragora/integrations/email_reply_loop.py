@@ -967,7 +967,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         from aragora.debate.event_bus import get_event_bus
 
         event_bus = get_event_bus()
-        await event_bus.emit(  # type: ignore[arg-type]
+        await event_bus.emit(  # type: ignore[arg-type,call-arg]
             "user_input",
             {
                 "debate_id": debate_id,

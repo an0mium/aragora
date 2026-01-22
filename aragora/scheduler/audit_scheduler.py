@@ -202,7 +202,7 @@ class CronParser:
 
         if "-" in field:
             start, end = field.split("-")
-            return list(range(int(start), int(end) + 1))
+            return list(range(int(start), int(end) + 1))  # type: ignore[assignment]
 
         if "," in field:
             return [int(v) for v in field.split(",")]

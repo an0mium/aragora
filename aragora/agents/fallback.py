@@ -162,6 +162,20 @@ class QuotaFallbackMixin:
             if any(kw in error_lower for kw in ["quota", "exceeded", "billing"]):
                 return True
 
+        # 400 can indicate billing/credit exhaustion (especially Anthropic)
+        # Anthropic returns 400 with "credit balance is too low" when credits are exhausted
+        if status_code == 400:
+            error_lower = error_text.lower()
+            billing_keywords = [
+                "credit balance",
+                "billing",
+                "insufficient",
+                "purchase credits",
+                "payment",
+            ]
+            if any(kw in error_lower for kw in billing_keywords):
+                return True
+
         # Check for timeout keywords in error text
         error_lower = error_text.lower()
         if "timeout" in error_lower or "timed out" in error_lower:

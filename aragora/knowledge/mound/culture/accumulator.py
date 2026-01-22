@@ -231,8 +231,8 @@ class CultureAccumulator:
         try:
             from aragora.events.types import StreamEvent, StreamEventType
 
-            self._mound.event_emitter.emit(  # type: ignore[unused-coroutine]
-                StreamEvent(
+            self._mound.event_emitter.emit(  # type: ignore[unused-coroutine,arg-type,call-arg]
+                StreamEvent(  # type: ignore[arg-type]
                     type=StreamEventType.MOUND_UPDATED,
                     data={
                         "workspace_id": workspace_id,
@@ -486,7 +486,7 @@ class CultureAccumulator:
         workspace_id: str,
     ) -> List[CulturePattern]:
         """Update domain expertise patterns."""
-        patterns = []
+        patterns: List[CulturePattern] = []
 
         if not observation.domain:
             return patterns

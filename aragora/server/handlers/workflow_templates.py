@@ -492,7 +492,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
         workflow_args = {"name": name, "task": task, **config}
 
         try:
-            workflow = factory(**workflow_args)  # type: ignore[misc]
+            workflow = factory(**workflow_args)  # type: ignore[misc,operator]
 
             # Convert workflow to serializable dict
             workflow_dict = {

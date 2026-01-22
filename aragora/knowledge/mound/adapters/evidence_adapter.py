@@ -158,8 +158,8 @@ class EvidenceAdapter:
             if operation in ("store", "sync"):
                 record_km_adapter_sync("evidence", "forward", success)
         except ImportError:
-            pass  # Metrics not available
-        except Exception as e:
+            logger.debug("Metrics module not available for evidence adapter")
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.debug(f"Failed to record metric: {e}")
 
     @property

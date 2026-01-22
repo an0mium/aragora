@@ -97,7 +97,7 @@ InvalidAudienceError: type[Exception] = _InvalidAudienceError
 try:
     import jwt
 
-    _jwt_module = jwt
+    _jwt_module = jwt  # type: ignore[assignment]
     HAS_JWT = True
     # Use real exception classes from jwt
     from jwt.exceptions import DecodeError as _RealDecodeError

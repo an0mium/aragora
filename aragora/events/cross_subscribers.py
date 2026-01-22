@@ -1395,7 +1395,7 @@ class CrossSubscriberManager:
             from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
 
             adapter = InsightsAdapter()
-            adapter.store_insight(  # type: ignore[call-arg]
+            adapter.store_insight(  # type: ignore[call-arg,arg-type]
                 insight=data,
                 min_confidence=0.7,
             )
@@ -1427,7 +1427,7 @@ class CrossSubscriberManager:
             from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
 
             adapter = InsightsAdapter()
-            adapter.store_flip(flip=data)  # type: ignore[call-arg]
+            adapter.store_flip(flip=data)  # type: ignore[call-arg,arg-type]
 
         except ImportError:
             pass

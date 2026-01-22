@@ -773,7 +773,9 @@ class NotificationService:
     @property
     def webhook_provider(self) -> WebhookProvider:
         """Get the webhook provider for endpoint management."""
-        return self.providers[NotificationChannel.WEBHOOK]
+        provider = self.providers[NotificationChannel.WEBHOOK]
+        assert isinstance(provider, WebhookProvider)
+        return provider
 
     def get_configured_channels(self) -> list[NotificationChannel]:
         """Get list of configured channels."""

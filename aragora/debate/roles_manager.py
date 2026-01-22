@@ -131,7 +131,7 @@ class RolesManager:
             else:
                 stance_idx = i % len(stances)
 
-            agent.stance = stances[stance_idx]
+            agent.stance = stances[stance_idx]  # type: ignore[assignment]
 
     def apply_agreement_intensity(self) -> None:
         """Apply agreement intensity guidance to all agents' system prompts.

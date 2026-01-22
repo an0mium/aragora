@@ -418,13 +418,13 @@ class FeedbackPhase:
                 logger.info(
                     "[workflow] Completed workflow for %s: output=%s",
                     ctx.debate_id,
-                    str(workflow_result.output)[:200] if workflow_result.output else "None",
+                    str(workflow_result.output)[:200] if workflow_result.output else "None",  # type: ignore[attr-defined]
                 )
             else:
                 logger.warning(
                     "[workflow] Workflow failed for %s: %s",
                     ctx.debate_id,
-                    workflow_result.error_message,
+                    workflow_result.error_message,  # type: ignore[attr-defined]
                 )
 
         except ImportError:

@@ -158,8 +158,8 @@ class PreDebateResearcher:
         """
         try:
             # Offload to thread pool to avoid blocking the event loop
-            response = await asyncio.to_thread(  # type: ignore[arg-type]
-                self.anthropic_client.messages.create,
+            response = await asyncio.to_thread(  # type: ignore[arg-type,misc]
+                self.anthropic_client.messages.create,  # type: ignore[arg-type]
                 model=RESEARCH_MODEL,
                 max_tokens=100,
                 messages=[

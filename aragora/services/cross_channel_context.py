@@ -245,7 +245,7 @@ class CrossChannelContextService:
 
         # Process Slack signal
         if results and not isinstance(results[0], Exception) and results[0]:
-            context.slack = results[0]
+            context.slack = results[0]  # type: ignore[assignment]
 
         # Calculate derived signals
         context = self._calculate_derived_signals(context)

@@ -311,7 +311,7 @@ class SyncStore:
         # Ensure directory exists
         os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
 
-        self._connection = await aiosqlite.connect(db_path)
+        self._connection = await aiosqlite.connect(db_path)  # type: ignore[assignment]
         if self._connection is None:
             raise RuntimeError("Database connection failed")
 

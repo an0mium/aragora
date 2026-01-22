@@ -144,7 +144,7 @@ class VoteBonusCalculator:
             for agent, count in evidence_citations.items():
                 result.verification_results[f"evidence_{agent}"] = count
                 if agent in evidence_quality_totals:
-                    result.verification_results[f"evidence_quality_{agent}"] = round(
+                    result.verification_results[f"evidence_quality_{agent}"] = round(  # type: ignore[assignment]
                         evidence_quality_totals[agent], 3
                     )
 

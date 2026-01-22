@@ -541,7 +541,7 @@ class TemplateMarketplaceHandler(BaseHandler):
         # Store user rating
         if user_id not in _user_ratings:
             _user_ratings[user_id] = {}
-        _user_ratings[user_id][template_id] = rating
+        _user_ratings[user_id][template_id] = rating  # type: ignore[index]
 
         return json_response(
             {

@@ -1,0 +1,46 @@
+{
+  "drill_id": "DR-20260122-120300",
+  "start_time": "2026-01-22T12:03:00.321738",
+  "end_time": "2026-01-22T12:03:01.336957",
+  "mode": "failover",
+  "overall_success": true,
+  "rto_seconds": 0.19152092933654785,
+  "rpo_seconds": 0,
+  "results": [
+    {
+      "name": "API Health Check",
+      "success": true,
+      "duration_seconds": 0.3218100070953369,
+      "details": "API status: healthy",
+      "error": null
+    },
+    {
+      "name": "Detailed Health Check",
+      "success": true,
+      "duration_seconds": 0.12465977668762207,
+      "details": "0/0 services healthy",
+      "error": null
+    },
+    {
+      "name": "Circuit Breaker Status",
+      "success": false,
+      "duration_seconds": 0.11442899703979492,
+      "details": "HTTP Error 401: Unauthorized",
+      "error": null
+    },
+    {
+      "name": "Graceful Degradation",
+      "success": true,
+      "duration_seconds": 0.2612020969390869,
+      "details": "Success rate under load: 100.0%",
+      "error": null
+    },
+    {
+      "name": "Measure RTO",
+      "success": true,
+      "duration_seconds": 0.19208312034606934,
+      "details": "Service available in 0.19s (target: 300s)",
+      "error": null
+    }
+  ]
+}

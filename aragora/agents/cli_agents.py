@@ -114,7 +114,7 @@ class CLIAgent(CritiqueMixin, Agent):
         enable_circuit_breaker: bool = True,
         prefer_api: bool = False,  # Skip CLI, use OpenRouter directly
     ):
-        super().__init__(name, model, role)
+        super().__init__(name, model, role)  # type: ignore[arg-type]
         self.timeout = timeout
         # Use config setting if not explicitly provided
         if enable_fallback is None:

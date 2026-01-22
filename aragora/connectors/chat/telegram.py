@@ -827,9 +827,9 @@ class TelegramConnector(ChatPlatformConnector):
         title: Optional[str] = None,
         body: Optional[str] = None,
         fields: Optional[list[tuple[str, str]]] = None,
-        buttons: Optional[list[dict]] = None,
+        buttons: Optional[list[dict]] = None,  # type: ignore[override]
         **kwargs: Any,
-    ) -> list[dict]:
+    ) -> list[dict]:  # type: ignore[override]
         """Format content as Telegram-compatible blocks.
 
         Telegram uses inline keyboards for interactive elements.
@@ -989,7 +989,7 @@ class TelegramConnector(ChatPlatformConnector):
             thread_id=reply_to,
         )
 
-    async def respond_to_interaction(
+    async def respond_to_interaction(  # type: ignore[override]
         self,
         interaction: UserInteraction,
         text: str,

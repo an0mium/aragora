@@ -331,9 +331,7 @@ def record_cp_task_outcome(task_type: str, success: bool) -> None:
         success: Whether the task succeeded
     """
     _ensure_init()
-    KM_CP_TASK_OUTCOMES_TOTAL.labels(
-        task_type=task_type, success=str(success).lower()
-    ).inc()
+    KM_CP_TASK_OUTCOMES_TOTAL.labels(task_type=task_type, success=str(success).lower()).inc()
 
 
 def record_cp_capability_record(capability: str) -> None:
@@ -414,9 +412,7 @@ def record_validation_feedback(adapter: str, positive: bool) -> None:
     """
     _ensure_init()
     feedback_type = "positive" if positive else "negative"
-    KM_VALIDATION_FEEDBACK_TOTAL.labels(
-        adapter=adapter, feedback_type=feedback_type
-    ).inc()
+    KM_VALIDATION_FEEDBACK_TOTAL.labels(adapter=adapter, feedback_type=feedback_type).inc()
 
 
 def record_cross_debate_reuse(source_type: str) -> None:
@@ -453,8 +449,8 @@ def sync_km_metrics_to_prometheus() -> None:
         }
         set_km_health_status(health_map.get(health.status, 0))
 
-        # Update adapter count
-        set_km_active_adapters(len(km_metrics.adapters))
+        # Note: Adapter count is set by BidirectionalCoordinator.sync_all()
+        # No need to update here - adapters self-report their status
 
     except ImportError:
         logger.debug("KMMetrics not available for Prometheus sync")

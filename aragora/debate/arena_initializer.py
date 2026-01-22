@@ -200,7 +200,7 @@ class ArenaInitializer:
             from aragora.agents.airlock import AirlockConfig, wrap_agents
 
             airlock_cfg = airlock_config or AirlockConfig()
-            agents = wrap_agents(agents, airlock_cfg)
+            agents = wrap_agents(agents, airlock_cfg)  # type: ignore[assignment]
             logger.debug(f"[airlock] Wrapped {len(agents)} agents with resilience layer")
 
         hooks = event_hooks or {}

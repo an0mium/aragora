@@ -256,7 +256,7 @@ class ArenaBuilder:
 
             self._enable_rlm_training: bool = get_settings().integration.rlm_training_enabled
         except (ImportError, AttributeError, KeyError):
-            self._enable_rlm_training: bool = True  # Fallback to enabled
+            self._enable_rlm_training = True  # type: ignore[no-redef]  # Fallback to enabled
 
         # Multilingual support
         self._multilingual_manager: Any = None

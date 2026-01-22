@@ -326,7 +326,7 @@ class A2AServer:
         for i, agent_name in enumerate(agent_names):
             role = roles[i] if i < len(roles) else "critic"
             try:
-                agent = create_agent(  # type: ignore[call-arg]
+                agent = create_agent(  # type: ignore[call-arg,arg-type]
                     model_type=agent_name,
                     name=f"{agent_name}_{role}",
                     role=role,

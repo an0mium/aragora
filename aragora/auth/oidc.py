@@ -57,7 +57,7 @@ try:
     HAS_JWT = True
 except ImportError:
     jwt = None
-    PyJWKClient = None
+    PyJWKClient = None  # type: ignore[misc]
     HAS_JWT = False
 
 # Optional: httpx for async HTTP
