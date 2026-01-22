@@ -13,6 +13,7 @@ import { SidebarProvider } from '@/context/SidebarContext';
 import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
 import { CommandPaletteProvider } from '@/context/CommandPaletteContext';
 import { CommandPalette } from '@/components/command-palette';
+import { ThemeProvider, themeInitScript } from '@/context/ThemeContext';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
@@ -54,8 +55,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="crt-overlay crt-flicker">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* SSR-safe theme initialization - prevents flash of wrong theme */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className="crt-overlay crt-flicker theme-transition">
         {/* Configuration health banner - shows warnings for missing env vars */}
         <ConfigHealthBanner />
         {/* Skip to main content link for keyboard/screen reader users */}
@@ -65,30 +70,32 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <AuthProvider>
-          <ConnectionProvider>
-            <DebateSelectionProvider>
-              <ProgressiveModeProvider>
-                <AdaptiveModeProvider>
-                  <SidebarProvider>
-                    <LayoutProvider>
-                      <RightSidebarProvider>
-                        <CommandPaletteProvider>
-                          <ToastProvider>
-                            <ErrorBoundary>
-                              <CommandPalette />
-                              {children}
-                            </ErrorBoundary>
-                          </ToastProvider>
-                        </CommandPaletteProvider>
-                      </RightSidebarProvider>
-                    </LayoutProvider>
-                  </SidebarProvider>
-                </AdaptiveModeProvider>
-              </ProgressiveModeProvider>
-            </DebateSelectionProvider>
-          </ConnectionProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ConnectionProvider>
+              <DebateSelectionProvider>
+                <ProgressiveModeProvider>
+                  <AdaptiveModeProvider>
+                    <SidebarProvider>
+                      <LayoutProvider>
+                        <RightSidebarProvider>
+                          <CommandPaletteProvider>
+                            <ToastProvider>
+                              <ErrorBoundary>
+                                <CommandPalette />
+                                {children}
+                              </ErrorBoundary>
+                            </ToastProvider>
+                          </CommandPaletteProvider>
+                        </RightSidebarProvider>
+                      </LayoutProvider>
+                    </SidebarProvider>
+                  </AdaptiveModeProvider>
+                </ProgressiveModeProvider>
+              </DebateSelectionProvider>
+            </ConnectionProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

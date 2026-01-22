@@ -1,46 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useTheme } from '@/context/ThemeContext';
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [mounted, setMounted] = useState(false);
+  const { effectiveTheme, toggleTheme, isInitialized } = useTheme();
 
-  // Initialize theme from localStorage or system preference
-  useEffect(() => {
-    setMounted(true);
-
-    // Check localStorage first
-    const stored = localStorage.getItem('aragora-theme') as 'dark' | 'light' | null;
-    if (stored) {
-      setTheme(stored);
-      document.body.setAttribute('data-theme', stored);
-      return;
-    }
-
-    // Fall back to system preference
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const systemTheme = prefersDark ? 'dark' : 'light';
-    setTheme(systemTheme);
-    if (systemTheme === 'light') {
-      document.body.setAttribute('data-theme', 'light');
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    localStorage.setItem('aragora-theme', newTheme);
-
-    if (newTheme === 'light') {
-      document.body.setAttribute('data-theme', 'light');
-    } else {
-      document.body.removeAttribute('data-theme');
-    }
-  };
-
-  // Prevent hydration mismatch
-  if (!mounted) {
+  // Show placeholder during SSR/hydration to prevent mismatch
+  if (!isInitialized) {
     return (
       <button
         className="p-2 text-text-muted hover:text-text transition-colors"
@@ -55,10 +21,10 @@ export function ThemeToggle() {
     <button
       onClick={toggleTheme}
       className="p-2 text-text-muted hover:text-text transition-colors rounded hover:bg-surface"
-      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      aria-label={`Switch to ${effectiveTheme === 'dark' ? 'light' : 'dark'} mode`}
+      title={`Switch to ${effectiveTheme === 'dark' ? 'light' : 'dark'} mode`}
     >
-      {theme === 'dark' ? (
+      {effectiveTheme === 'dark' ? (
         // Sun icon for switching to light mode
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -92,5 +58,62 @@ export function ThemeToggle() {
         </svg>
       )}
     </button>
+  );
+}
+
+/**
+ * Extended theme toggle with system preference option.
+ * Shows three-state: dark, light, system (auto).
+ */
+export function ThemeSelector() {
+  const { preference, setTheme, isInitialized } = useTheme();
+
+  if (!isInitialized) {
+    return (
+      <div className="flex gap-1 p-1 bg-surface rounded">
+        <span className="w-20 h-8 bg-surface-elevated rounded animate-pulse" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-1 p-1 bg-surface rounded" role="radiogroup" aria-label="Theme selection">
+      <button
+        role="radio"
+        aria-checked={preference === 'dark'}
+        onClick={() => setTheme('dark')}
+        className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+          preference === 'dark'
+            ? 'bg-acid-green/20 text-acid-green'
+            : 'text-text-muted hover:text-text'
+        }`}
+      >
+        Dark
+      </button>
+      <button
+        role="radio"
+        aria-checked={preference === 'light'}
+        onClick={() => setTheme('light')}
+        className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+          preference === 'light'
+            ? 'bg-acid-green/20 text-acid-green'
+            : 'text-text-muted hover:text-text'
+        }`}
+      >
+        Light
+      </button>
+      <button
+        role="radio"
+        aria-checked={preference === 'system'}
+        onClick={() => setTheme('system')}
+        className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+          preference === 'system'
+            ? 'bg-acid-green/20 text-acid-green'
+            : 'text-text-muted hover:text-text'
+        }`}
+      >
+        Auto
+      </button>
+    </div>
   );
 }

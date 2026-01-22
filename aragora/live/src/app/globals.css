@@ -88,6 +88,35 @@
   );
 }
 
+/* Theme transition animation - smooth color changes */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition: background-color 200ms ease-out,
+              color 200ms ease-out,
+              border-color 200ms ease-out,
+              box-shadow 200ms ease-out !important;
+}
+
+/* Disable transitions during initial load to prevent flash */
+.theme-transition-disabled,
+.theme-transition-disabled *,
+.theme-transition-disabled *::before,
+.theme-transition-disabled *::after {
+  transition: none !important;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition: none !important;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;

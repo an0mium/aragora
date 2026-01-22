@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme, type ThemePreference } from '@/context/ThemeContext';
 import { useBackend } from '@/components/BackendSelector';
 
 import type { FeatureConfig, UserPreferences, SettingsTab } from './types';
@@ -26,6 +27,7 @@ const TABS = [
 
 export function SettingsPanel() {
   const { user, isAuthenticated } = useAuth();
+  const { preference: themePreference, setTheme } = useTheme();
   const { config: backendConfig } = useBackend();
   const [activeTab, setActiveTab] = useState<SettingsTab>('features');
   const [featureConfig, setFeatureConfig] = useState<FeatureConfig>(DEFAULT_FEATURE_CONFIG);
@@ -36,15 +38,14 @@ export function SettingsPanel() {
   const [discordWebhook, setDiscordWebhook] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // Load preferences
+  // Load preferences and sync theme from context
   useEffect(() => {
     const stored = getStoredPreferences();
-    const theme = localStorage.getItem('aragora-theme') as 'dark' | 'light' | null;
 
     setPreferences(prev => ({
       ...prev,
       ...stored,
-      theme: theme || stored.theme || 'dark',
+      theme: themePreference, // Use theme from context
     }));
 
     if (stored.integrations?.slack_webhook) {
@@ -53,7 +54,7 @@ export function SettingsPanel() {
     if (stored.integrations?.discord_webhook) {
       setDiscordWebhook(stored.integrations.discord_webhook);
     }
-  }, []);
+  }, [themePreference]);
 
   // Fetch feature config from backend
   useEffect(() => {
@@ -101,26 +102,14 @@ export function SettingsPanel() {
     }
   }, [featureConfig, backendConfig.api]);
 
-  const updateTheme = useCallback((theme: 'dark' | 'light' | 'system') => {
+  const updateThemePreference = useCallback((theme: 'dark' | 'light' | 'system') => {
+    // Update context (handles localStorage, DOM, and everything)
+    setTheme(theme);
+    // Update local preferences state for UI sync
     setPreferences(prev => ({ ...prev, theme }));
-
-    let effectiveTheme: 'dark' | 'light' = 'dark';
-    if (theme === 'system') {
-      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      localStorage.removeItem('aragora-theme');
-    } else {
-      effectiveTheme = theme;
-      localStorage.setItem('aragora-theme', theme);
-    }
-
-    if (effectiveTheme === 'light') {
-      document.body.setAttribute('data-theme', 'light');
-    } else {
-      document.body.removeAttribute('data-theme');
-    }
-
+    // Persist to preferences storage
     storePreferences({ theme });
-  }, []);
+  }, [setTheme]);
 
   const updateNotification = useCallback((key: keyof UserPreferences['notifications'], value: boolean) => {
     setPreferences(prev => {
@@ -257,7 +246,7 @@ export function SettingsPanel() {
       {activeTab === 'appearance' && (
         <AppearanceTab
           preferences={preferences}
-          updateTheme={updateTheme}
+          updateTheme={updateThemePreference}
           updateDisplay={updateDisplay}
         />
       )}
