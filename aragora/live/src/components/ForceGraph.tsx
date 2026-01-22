@@ -23,6 +23,13 @@ interface GraphLink {
   type: 'supports' | 'opposes' | 'extends' | 'synthesizes';
 }
 
+// D3 simulation modifies links to reference node objects
+interface SimulatedLink extends d3.SimulationLinkDatum<GraphNode> {
+  source: GraphNode;
+  target: GraphNode;
+  type: 'supports' | 'opposes' | 'extends' | 'synthesizes';
+}
+
 interface ForceGraphProps {
   nodes: GraphNode[];
   width?: number;
@@ -93,8 +100,8 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
 
     // Create simulation
     const simulation = d3.forceSimulation<GraphNode>(nodes)
-      .force('link', d3.forceLink(links)
-        .id((d: any) => d.id)
+      .force('link', d3.forceLink<GraphNode, GraphLink>(links)
+        .id((d) => d.id)
         .distance(100))
       .force('charge', d3.forceManyBody().strength(-300))
       .force('center', d3.forceCenter(width / 2, height / 2))
@@ -118,7 +125,7 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
       .join('g')
       .attr('class', 'node')
       .attr('cursor', 'pointer')
-      .call(drag(simulation) as any);
+      .call(drag(simulation) as never);
 
     // Node circles
     node.append('circle')
@@ -151,12 +158,12 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
     // Update positions on tick
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+        .attr('x1', (d) => (d as unknown as SimulatedLink).source.x ?? 0)
+        .attr('y1', (d) => (d as unknown as SimulatedLink).source.y ?? 0)
+        .attr('x2', (d) => (d as unknown as SimulatedLink).target.x ?? 0)
+        .attr('y2', (d) => (d as unknown as SimulatedLink).target.y ?? 0);
 
-      node.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
+      node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
     // Zoom behavior

@@ -36,6 +36,14 @@ export interface WorkflowLink {
   active?: boolean;
 }
 
+// D3 simulation modifies links to reference node objects
+interface SimulatedWorkflowLink extends d3.SimulationLinkDatum<WorkflowNode> {
+  source: WorkflowNode;
+  target: WorkflowNode;
+  type: 'flow' | 'assigns' | 'produces';
+  active?: boolean;
+}
+
 interface AgentWorkflowVisualizationProps {
   agents: AgentState[];
   jobs: JobState[];
@@ -226,10 +234,10 @@ export function AgentWorkflowVisualization({
     const simulation = d3.forceSimulation<WorkflowNode>(nodes)
       .force(
         'link',
-        d3.forceLink(links).id((d: any) => d.id).distance(80).strength(0.3)
+        d3.forceLink<WorkflowNode, WorkflowLink>(links).id((d) => d.id).distance(80).strength(0.3)
       )
       .force('charge', d3.forceManyBody().strength(-200))
-      .force('y', d3.forceY(height * 0.7).strength((d: any) => (d.type === 'agent' ? 0.1 : 0)))
+      .force('y', d3.forceY<WorkflowNode>(height * 0.7).strength((d) => (d.type === 'agent' ? 0.1 : 0)))
       .force('collision', d3.forceCollide().radius(35));
 
     // Draw links
@@ -258,7 +266,7 @@ export function AgentWorkflowVisualization({
       .join('g')
       .attr('class', 'node')
       .attr('cursor', 'pointer')
-      .call(drag(simulation) as any);
+      .call(drag(simulation) as never);
 
     // Node backgrounds (for glow effect)
     node
@@ -323,12 +331,12 @@ export function AgentWorkflowVisualization({
     // Update positions on tick
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+        .attr('x1', (d) => (d as unknown as SimulatedWorkflowLink).source.x ?? 0)
+        .attr('y1', (d) => (d as unknown as SimulatedWorkflowLink).source.y ?? 0)
+        .attr('x2', (d) => (d as unknown as SimulatedWorkflowLink).target.x ?? 0)
+        .attr('y2', (d) => (d as unknown as SimulatedWorkflowLink).target.y ?? 0);
 
-      node.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
+      node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
     // Zoom behavior

@@ -500,7 +500,7 @@ export function UnifiedMediaUploader({
               <input
                 ref={folderInputRef}
                 type="file"
-                {...{ webkitdirectory: 'true' } as any}
+                {...({ webkitdirectory: 'true' } as React.InputHTMLAttributes<HTMLInputElement>)}
                 onChange={handleFileSelect}
                 className="hidden"
               />

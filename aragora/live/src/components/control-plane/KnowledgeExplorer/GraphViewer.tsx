@@ -50,6 +50,15 @@ const edgeTypeColors: Record<RelationshipType, string> = {
   supersedes: '#a855f7',
 };
 
+// D3 simulation modifies edges to reference node objects
+interface SimulatedGraphEdge {
+  id: string;
+  source: GraphNode;
+  target: GraphNode;
+  type: RelationshipType;
+  strength: number;
+}
+
 /**
  * D3-based force-directed graph viewer for knowledge relationships.
  */
@@ -253,12 +262,12 @@ export function GraphViewer({
     // Update positions on each tick
     simulation.on('tick', () => {
       links
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+        .attr('x1', (d) => (d as unknown as SimulatedGraphEdge).source.x ?? 0)
+        .attr('y1', (d) => (d as unknown as SimulatedGraphEdge).source.y ?? 0)
+        .attr('x2', (d) => (d as unknown as SimulatedGraphEdge).target.x ?? 0)
+        .attr('y2', (d) => (d as unknown as SimulatedGraphEdge).target.y ?? 0);
 
-      nodeGroups.attr('transform', (d) => `translate(${d.x},${d.y})`);
+      nodeGroups.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
     // Cleanup
@@ -273,15 +282,15 @@ export function GraphViewer({
 
     const svg = d3Selection.select(svgRef.current);
 
-    svg.selectAll('.node-group circle')
-      .attr('stroke', (d: any) =>
+    svg.selectAll<SVGCircleElement, GraphNode>('.node-group circle')
+      .attr('stroke', (d) =>
         d.id === selectedNodeId
           ? '#fff'
           : d.id === hoveredNodeId
           ? 'rgba(255,255,255,0.5)'
           : 'none'
       )
-      .attr('opacity', (d: any) =>
+      .attr('opacity', (d) =>
         d.id === selectedNodeId || d.id === hoveredNodeId ? 1 : 0.8
       );
   }, [selectedNodeId, hoveredNodeId]);
@@ -344,11 +353,9 @@ export function GraphViewer({
       <div className="absolute top-2 right-2 flex gap-1">
         <button
           onClick={() => {
-            const svg = d3Selection.select(svgRef.current!);
-            (svg as any).transition().call(
-              d3Zoom.zoom<SVGSVGElement, unknown>().transform as any,
-              d3Zoom.zoomIdentity
-            );
+            const svg = d3Selection.select<SVGSVGElement, unknown>(svgRef.current!);
+            const zoom = d3Zoom.zoom<SVGSVGElement, unknown>();
+            svg.transition().duration(300).call(zoom.transform, d3Zoom.zoomIdentity);
           }}
           className="px-2 py-1 text-xs bg-surface border border-border rounded hover:border-text-muted transition-colors"
           title="Reset zoom"

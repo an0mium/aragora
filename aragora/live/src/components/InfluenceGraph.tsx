@@ -34,6 +34,14 @@ interface InfluenceLink {
   type: 'supports' | 'opposes' | 'influences';
 }
 
+// D3 simulation modifies links to reference node objects
+interface SimulatedInfluenceLink extends d3.SimulationLinkDatum<BeliefNode> {
+  source: BeliefNode;
+  target: BeliefNode;
+  weight: number;
+  type: 'supports' | 'opposes' | 'influences';
+}
+
 interface NetworkData {
   nodes: BeliefNode[];
   links: InfluenceLink[];
@@ -202,7 +210,7 @@ export function InfluenceGraph({
       .join('g')
       .attr('class', 'node')
       .attr('cursor', 'pointer')
-      .call(drag(simulation) as any);
+      .call(drag(simulation) as never);
 
     // Node circles
     node.append('circle')
@@ -257,12 +265,12 @@ export function InfluenceGraph({
     // Update positions
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+        .attr('x1', (d) => (d as unknown as SimulatedInfluenceLink).source.x ?? 0)
+        .attr('y1', (d) => (d as unknown as SimulatedInfluenceLink).source.y ?? 0)
+        .attr('x2', (d) => (d as unknown as SimulatedInfluenceLink).target.x ?? 0)
+        .attr('y2', (d) => (d as unknown as SimulatedInfluenceLink).target.y ?? 0);
 
-      node.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
+      node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
     // Zoom behavior

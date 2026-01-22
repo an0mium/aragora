@@ -107,7 +107,7 @@ export class AragoraWebSocket {
         }
       };
 
-      this.ws.onerror = (error) => {
+      this.ws.onerror = (_error) => {
         this.setState('error');
         const err = new Error('WebSocket error');
         this.errorHandlers.forEach(handler => handler(err));

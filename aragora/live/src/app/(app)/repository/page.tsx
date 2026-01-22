@@ -38,6 +38,13 @@ interface Entity {
   };
 }
 
+interface GraphEntity {
+  id: string;
+  name: string;
+  kind: string;
+  mentions?: number;
+}
+
 interface GraphStats {
   total_nodes: number;
   total_edges: number;
@@ -828,17 +835,17 @@ export default function RepositoryPage() {
                   <h3 className="text-lg font-mono text-acid-green mb-4">[RELATED ENTITIES]</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {graphEntities.map((entity: any) => (
+                    {graphEntities.map((entity) => (
                       <div key={entity.id} className="p-3 bg-bg rounded border border-border">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-mono text-sm text-acid-green">{entity.name}</span>
+                          <span className="font-mono text-sm text-acid-green">{entity.metadata?.name}</span>
                           <span className="text-xs font-mono text-text-muted px-2 py-0.5 bg-surface rounded">
-                            {entity.kind}
+                            {entity.metadata?.kind}
                           </span>
                         </div>
                         <div className="text-xs font-mono text-text-muted truncate">
-                          {entity.file_path}
-                          {entity.line_start && `:${entity.line_start}`}
+                          {entity.metadata?.file_path}
+                          {entity.metadata?.line_start && `:${entity.metadata.line_start}`}
                         </div>
                       </div>
                     ))}

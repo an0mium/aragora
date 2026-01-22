@@ -6,6 +6,33 @@ import type { KnowledgeNode, KnowledgeRelationship } from './types';
 import type { GraphNode, GraphEdge, NodeType, RelationshipType } from '@/store/knowledge-explorer/types';
 import { GraphViewer } from '@/components/control-plane/KnowledgeExplorer/GraphViewer';
 
+// API response types for D3 graph export
+interface ApiNode {
+  id?: string;
+  type?: string;
+  node_type?: string;
+  content?: string;
+  label?: string;
+  confidence?: number;
+  tier?: string;
+  topics?: string[];
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  x?: number;
+  y?: number;
+  depth?: number;
+}
+
+interface ApiLink {
+  id?: string;
+  source: string | { id: string };
+  target: string | { id: string };
+  type?: string;
+  relationship_type?: string;
+  strength?: number;
+  value?: number;
+}
+
 export interface KnowledgeGraphViewProps {
   /** Initial nodes to display (from parent) */
   nodes: KnowledgeNode[];
@@ -100,7 +127,7 @@ export function KnowledgeGraphView({
         // D3 format has nodes and links arrays
         if (data.nodes && Array.isArray(data.nodes)) {
           // Transform API nodes to GraphNode format
-          const apiGraphNodes: GraphNode[] = data.nodes.map((n: any, i: number) => ({
+          const apiGraphNodes: GraphNode[] = (data.nodes as ApiNode[]).map((n, i) => ({
             id: n.id || `node-${i}`,
             node_type: (n.type || n.node_type || 'fact') as NodeType,
             content: n.content || n.label || n.id || '',
@@ -115,7 +142,7 @@ export function KnowledgeGraphView({
             depth: n.depth || 0,
           }));
 
-          const apiGraphEdges: GraphEdge[] = (data.links || data.edges || []).map((l: any, i: number) => ({
+          const apiGraphEdges: GraphEdge[] = ((data.links || data.edges || []) as ApiLink[]).map((l, i) => ({
             id: l.id || `edge-${i}`,
             source: typeof l.source === 'object' ? l.source.id : l.source,
             target: typeof l.target === 'object' ? l.target.id : l.target,

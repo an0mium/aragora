@@ -24,6 +24,19 @@ export interface CloudFile {
 }
 
 /**
+ * API response file format
+ */
+interface ApiCloudFile {
+  id: string;
+  name: string;
+  path?: string;
+  size?: number;
+  mime_type?: string;
+  modified_time?: string;
+  is_folder?: boolean;
+}
+
+/**
  * Provider configuration
  */
 interface ProviderConfig {
@@ -158,7 +171,7 @@ export function CloudStoragePicker({
       }
 
       const data = await response.json();
-      const items: CloudFile[] = data.files.map((f: any) => ({
+      const items: CloudFile[] = (data.files as ApiCloudFile[]).map((f) => ({
         id: f.id,
         name: f.name,
         path: f.path || path + '/' + f.name,

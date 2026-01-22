@@ -37,6 +37,18 @@ interface RankedInboxResponse {
   };
 }
 
+// Legacy email format from older API
+interface LegacyEmail {
+  id: string;
+  subject: string;
+  sender: string;
+  snippet: string;
+  date: string;
+  thread_id?: string;
+  labels?: string[];
+  priority_score: number;
+}
+
 interface PriorityInboxListProps {
   apiBase: string;
   userId: string;
@@ -88,7 +100,7 @@ export function PriorityInboxList({
         if (!legacyResponse.ok) throw new Error('Failed to fetch emails');
         const legacyData = await legacyResponse.json();
         // Map legacy format to new format
-        const mappedEmails: PrioritizedEmail[] = (legacyData.emails || []).map((e: any) => ({
+        const mappedEmails: PrioritizedEmail[] = ((legacyData.emails || []) as LegacyEmail[]).map((e) => ({
           ...e,
           from_address: e.sender,
           priority: e.priority_score > 80 ? 'critical' :

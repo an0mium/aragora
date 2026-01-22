@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme, type ThemePreference } from '@/context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useBackend } from '@/components/BackendSelector';
 
 import type { FeatureConfig, UserPreferences, SettingsTab } from './types';
