@@ -293,7 +293,7 @@ class ConnectorsHandler(SecureHandler):
             connectors = [
                 c
                 for c in connectors
-                if CONNECTOR_TYPES.get(c["type"], {}).get("category") == category_filter
+                if CONNECTOR_TYPES.get(c["type"], {}).get("category") == category_filter  # type: ignore[call-overload]
             ]
 
         return self._json_response(
@@ -356,9 +356,9 @@ class ConnectorsHandler(SecureHandler):
             ][-5:]
 
         # Add type metadata
-        type_meta = CONNECTOR_TYPES.get(connector["type"], {})
-        connector["type_name"] = type_meta.get("name", connector["type"])
-        connector["category"] = type_meta.get("category", "unknown")
+        type_meta = CONNECTOR_TYPES.get(connector["type"], {})  # type: ignore[call-overload]
+        connector["type_name"] = type_meta.get("name", connector["type"])  # type: ignore[attr-defined]
+        connector["category"] = type_meta.get("category", "unknown")  # type: ignore[attr-defined]
 
         return self._json_response(200, connector)
 
@@ -376,13 +376,13 @@ class ConnectorsHandler(SecureHandler):
         if connector_type not in CONNECTOR_TYPES:
             return self._error_response(400, f"Unknown connector type: {connector_type}")
 
-        if CONNECTOR_TYPES[connector_type].get("coming_soon"):
+        if CONNECTOR_TYPES[connector_type].get("coming_soon"):  # type: ignore[attr-defined]
             return self._error_response(400, f"Connector type {connector_type} is coming soon")
 
         # Create connector
         connector_id = str(uuid4())
         type_meta = CONNECTOR_TYPES[connector_type]
-        name = body.get("name", type_meta["name"])
+        name = body.get("name", type_meta["name"])  # type: ignore[index]
         config = body.get("config", {})
 
         # Save to persistent store if available
@@ -400,7 +400,7 @@ class ConnectorsHandler(SecureHandler):
             "id": connector_id,
             "type": connector_type,
             "name": name,
-            "description": type_meta["description"],
+            "description": type_meta["description"],  # type: ignore[index]
             "status": "configured",
             "config": config,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -641,7 +641,7 @@ class ConnectorsHandler(SecureHandler):
                 history = [h for h in history if h["connector_id"] == connector_id]
 
             # Sort by start time descending
-            history.sort(key=lambda x: x["started_at"], reverse=True)
+            history.sort(key=lambda x: x["started_at"], reverse=True)  # type: ignore[arg-type,return-value]
 
             # Apply limit
             history = history[:limit]
