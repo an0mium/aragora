@@ -97,6 +97,12 @@ class RLMConfig:
     cache_compressions: bool = True  # Cache compression results
     cache_ttl_seconds: int = 3600  # Cache TTL
 
+    # Production Hardening - Resource Limits
+    max_content_bytes: int = 10_000_000  # 10MB max content size
+    max_streaming_timeout: float = 60.0  # Max streaming timeout (seconds)
+    max_repl_memory_mb: int = 100  # Max REPL namespace memory (MB)
+    max_query_results: int = 1000  # Max results from knowledge queries
+
     # Output format
     include_citations: bool = True  # Include source references
     citation_format: str = "[L{level}:{chunk}]"  # Citation format

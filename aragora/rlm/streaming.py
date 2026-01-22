@@ -138,15 +138,42 @@ class StreamingRLMQuery:
 
     async def stream_all(self) -> AsyncGenerator[StreamChunk, None]:
         """
-        Stream all levels of context.
+        Stream all levels of context with timeout enforcement.
 
         Yields:
             StreamChunk objects for each level
+
+        Raises:
+            asyncio.TimeoutError: If streaming exceeds configured timeout
         """
         self._started = True
         levels = self._get_level_order()
+        start_time = time.time()
 
         for i, level in enumerate(levels):
+            # Production hardening: Check timeout before each level
+            elapsed = time.time() - start_time
+            if elapsed > self.config.timeout:
+                logger.warning(
+                    f"Streaming timeout after {elapsed:.1f}s "
+                    f"(limit: {self.config.timeout}s), yielded {i}/{len(levels)} levels"
+                )
+                # Yield a final partial chunk to indicate timeout
+                yield StreamChunk(
+                    level=level,
+                    content="[TIMEOUT - partial results returned]",
+                    token_count=0,
+                    is_final=True,
+                    metadata={
+                        "level_index": i,
+                        "total_levels": len(levels),
+                        "timeout": True,
+                        "elapsed_seconds": elapsed,
+                    },
+                )
+                self._completed = False
+                return
+
             is_final = i == len(levels) - 1
 
             content = await self._get_level_content(level)
@@ -170,7 +197,7 @@ class StreamingRLMQuery:
         start_level: str = "ABSTRACT",
     ) -> AsyncGenerator[tuple[str, str], None]:
         """
-        Drill down through context levels.
+        Drill down through context levels with timeout enforcement.
 
         Args:
             query: Optional query to filter content
@@ -180,13 +207,22 @@ class StreamingRLMQuery:
             Tuples of (level, content)
         """
         levels = self._get_level_order()
+        start_time = time.time()
 
         try:
             start_idx = levels.index(start_level)
         except ValueError:
             start_idx = 0
 
-        for level in levels[start_idx:]:
+        for i, level in enumerate(levels[start_idx:]):
+            # Production hardening: Check timeout before each level
+            elapsed = time.time() - start_time
+            if elapsed > self.config.timeout:
+                logger.warning(
+                    f"Drill-down timeout after {elapsed:.1f}s " f"(limit: {self.config.timeout}s)"
+                )
+                return
+
             content = await self._get_level_content(level)
             if content:
                 # Filter by query if provided

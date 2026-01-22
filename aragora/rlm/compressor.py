@@ -248,8 +248,23 @@ Conclusion:""",
 
         Returns:
             CompressionResult with hierarchical context
+
+        Raises:
+            ValueError: If content exceeds max_content_bytes limit
         """
         start_time = time.time()
+
+        # Production hardening: Validate content size before processing
+        content_bytes = len(content.encode("utf-8"))
+        if content_bytes > self.config.max_content_bytes:
+            logger.warning(
+                f"Content size {content_bytes} bytes exceeds limit "
+                f"{self.config.max_content_bytes} bytes"
+            )
+            raise ValueError(
+                f"Content size ({content_bytes:,} bytes) exceeds maximum allowed "
+                f"({self.config.max_content_bytes:,} bytes). Consider chunking the content."
+            )
 
         # Check cache (LRU with TTL)
         cache_key = self._cache_key(content, source_type, max_levels)
