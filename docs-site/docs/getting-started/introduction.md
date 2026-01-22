@@ -1,12 +1,12 @@
 ---
 title: Introduction to Aragora
-description: Multi-agent debate platform for collaborative AI reasoning
+description: Control plane for multi-agent deliberation across org knowledge and channels
 sidebar_position: 1
 ---
 
 # Introduction to Aragora
 
-Aragora is a **multi-agent debate platform** that enables heterogeneous AI agents to collaborate through structured deliberation. By orchestrating debates between diverse AI models, Aragora produces more reliable, well-reasoned outputs than any single model could achieve alone.
+Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels**. It orchestrates 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
 ## Why Multi-Agent Debate?
 

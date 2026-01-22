@@ -1,6 +1,6 @@
 apiVersion: v2
 name: aragora
-description: Multi-agent debate framework with multi-region support
+description: Control plane for multi-agent deliberation with multi-region support
 type: application
 version: 1.0.0
 appVersion: "1.0.0"

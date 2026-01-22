@@ -33,7 +33,7 @@ export function HeroSection({
       </h1>
 
       <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-10 max-w-xl">
-        Ingest from any source. Query from any channel. Get multi-agent consensus.
+        Control plane for multi-agent deliberation. Ingest any source. Deliver decisions anywhere.
       </p>
 
       {error && (

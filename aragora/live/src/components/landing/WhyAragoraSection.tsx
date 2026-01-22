@@ -33,8 +33,8 @@ export function WhyAragoraSection() {
         <SectionHeader title="WHY ARAGORA?" />
 
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-          Most &quot;multi-agent&quot; systems run copies of the same model talking to itself. Aragora is adversarial validation:
-          it stress-tests high-stakes decisions and outputs decision receipts, risk heatmaps, and dissent trails.
+          Aragora is the control plane for multi-agent deliberation. Unlike single-model chatbots, it orchestrates 15+ AI models
+          to debate your org knowledge and deliver defensible decisions with full audit trails.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">

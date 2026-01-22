@@ -1,9 +1,10 @@
 """
-aragora (Agent Agora): Omnivorous Multi Agent Decision Making Engine
+Aragora: Control Plane for Multi-Agent Deliberation
 
-An omnivorous multi-agent decision making engine where diverse AI models
-collaborate through structured debate to reach well-reasoned conclusions.
-Debate is the engine; the product is a defensible decision record.
+The control plane for multi-agent deliberation across organizational knowledge
+and channels. Aragora orchestrates 15+ AI models to debate your organization's
+knowledge and deliver defensible decisions to any channel.
+Deliberation is the engine; the product is a defensible decision record.
 
 === CORE FEATURES (v2.0.2) ===
 

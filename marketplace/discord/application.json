@@ -1,14 +1,14 @@
 {
   "application": {
     "name": "Aragora",
-    "description": "Multi-agent AI debate platform. Get AI consensus on any topic.",
+    "description": "Control plane for multi-agent deliberation. Get defensible decisions across your org knowledge.",
     "bot_public": true,
     "bot_require_code_grant": false,
     "tags": ["AI", "debate", "productivity", "research", "validation"]
   },
   "bot": {
     "username": "Aragora",
-    "description": "Multi-agent AI debate and validation bot"
+    "description": "Multi-agent deliberation control plane bot"
   },
   "install_params": {
     "scopes": ["bot", "applications.commands"],
