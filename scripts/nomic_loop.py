@@ -7802,9 +7802,13 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         # Build learning context
         from aragora.nomic.phases.debate import LearningContext
 
+        # Get cross-cycle learning from previous cycles
+        cross_cycle_context = self._get_cross_cycle_context(topic_hint)
+
         learning = LearningContext(
             failure_lessons=self._analyze_failed_branches(),
             successful_patterns=self._format_successful_patterns(),
+            consensus_history=cross_cycle_context,  # Inject cross-cycle learning
         )
         result = await debate_phase.execute(
             codebase_context=codebase_context or self.get_current_features(),

@@ -505,6 +505,10 @@ class TeamSelector:
         try:
             # Classify the task
             pattern = self.pattern_matcher.classify_task(task)
+
+            # Track pattern classification for telemetry
+            self._track_pattern_classification(pattern, task)
+
             if pattern == "general":
                 return 0.0
 
@@ -512,6 +516,10 @@ class TeamSelector:
             if pattern not in self._pattern_affinities_cache:
                 affinities = self.pattern_matcher.get_agent_affinities(pattern, self.critique_store)
                 self._pattern_affinities_cache[pattern] = affinities
+                # Log cache population for telemetry
+                logger.info(
+                    f"pattern_affinities_loaded pattern={pattern} " f"agent_count={len(affinities)}"
+                )
 
             affinities = self._pattern_affinities_cache.get(pattern, {})
             if not affinities:
@@ -524,16 +532,55 @@ class TeamSelector:
                     affinity_name.lower() in agent_name_lower
                     or agent_name_lower in affinity_name.lower()
                 ):
-                    logger.debug(
-                        f"pattern_score agent={agent.name} pattern={pattern} "
-                        f"score={affinity_score:.3f}"
+                    # Structured telemetry log
+                    logger.info(
+                        f"pattern_score_applied agent={agent.name} pattern={pattern} "
+                        f"affinity={affinity_score:.3f} weight={self.config.pattern_weight:.2f} "
+                        f"contribution={affinity_score * self.config.pattern_weight:.3f}"
                     )
                     return affinity_score
 
+            # No affinity found for this agent
+            logger.debug(f"pattern_no_affinity agent={agent.name} pattern={pattern}")
             return 0.0
         except Exception as e:
-            logger.debug(f"Pattern score computation failed for {agent.name}: {e}")
+            logger.warning(f"pattern_score_error agent={agent.name} error={e}")
             return 0.0
+
+    def _track_pattern_classification(self, pattern: str, task: str) -> None:
+        """Track pattern classification for telemetry analysis.
+
+        Records pattern classifications to enable calibration analysis.
+        """
+        if not hasattr(self, "_pattern_classification_counts"):
+            self._pattern_classification_counts: dict[str, int] = {}
+
+        self._pattern_classification_counts[pattern] = (
+            self._pattern_classification_counts.get(pattern, 0) + 1
+        )
+
+        # Log at DEBUG for per-classification, INFO periodically for summary
+        total = sum(self._pattern_classification_counts.values())
+        if total % 50 == 0:  # Log summary every 50 classifications
+            logger.info(
+                f"pattern_classification_summary total={total} "
+                f"distribution={self._pattern_classification_counts}"
+            )
+
+    def get_pattern_telemetry(self) -> dict[str, Any]:
+        """Get pattern selection telemetry for analysis and calibration.
+
+        Returns:
+            Dictionary with pattern classification counts, cache stats, and config
+        """
+        return {
+            "classification_counts": getattr(self, "_pattern_classification_counts", {}),
+            "cached_patterns": list(self._pattern_affinities_cache.keys()),
+            "config": {
+                "pattern_weight": self.config.pattern_weight,
+                "enabled": self.config.enable_pattern_selection,
+            },
+        }
 
     def _compute_score(
         self,
