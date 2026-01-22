@@ -1064,21 +1064,33 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 min_importance=0.3,  # Only cache moderately important memories
             )
 
-            # Touch entries to update their access time
-            count = 0
-            for entry in entries:
-                # Update metadata to mark as pre-warmed
-                if entry.metadata is None:
-                    entry.metadata = {}
-                entry.metadata["last_prewarm"] = datetime.now().isoformat()
+            if not entries:
+                return 0
 
-                # Update in database to refresh recency
-                self.update(
-                    entry.id,
-                    metadata=entry.metadata,
-                )
-                count += 1
+            # Batch update all entries in a single transaction (avoid N+1)
+            prewarm_time = datetime.now().isoformat()
 
+            with self.connection() as conn:
+                cursor = conn.cursor()
+                # Use json_patch to update metadata in batch
+                # For SQLite, we need to update each row but in a single transaction
+                for entry in entries:
+                    if entry.metadata is None:
+                        entry.metadata = {}
+                    entry.metadata["last_prewarm"] = prewarm_time
+                    metadata_json = json.dumps(entry.metadata)
+
+                    cursor.execute(
+                        """
+                        UPDATE continuum_memory
+                        SET metadata = ?, accessed_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                        """,
+                        (metadata_json, entry.id),
+                    )
+                conn.commit()
+
+            count = len(entries)
             logger.debug(f"Pre-warmed {count} memories for query: '{query[:50]}...'")
             return count
 
@@ -1100,7 +1112,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         """
         try:
             updated_count = 0
-            # Find entries that reference this node
+            # Find entries that reference this node and batch update
             with self.connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
@@ -1113,24 +1125,42 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
                 rows = cursor.fetchall()
 
+                # Collect updates to perform in batch
+                updates: list[tuple[str, str]] = []
+
                 for row in rows:
                     entry_id = row[0]
                     metadata: Dict[str, Any] = safe_json_loads(row[1], {})
+                    modified = False
 
                     # Remove km_node_id reference if present
                     if metadata.get("km_node_id") == node_id:
                         del metadata["km_node_id"]
                         metadata["km_synced"] = False
-                        self.update(entry_id, metadata=metadata)
-                        updated_count += 1
+                        modified = True
 
                     # Remove from cross_references if present
                     cross_refs = metadata.get("cross_references", [])
                     if node_id in cross_refs:
                         cross_refs.remove(node_id)
                         metadata["cross_references"] = cross_refs
-                        self.update(entry_id, metadata=metadata)
+                        modified = True
+
+                    if modified:
+                        updates.append((json.dumps(metadata), entry_id))
                         updated_count += 1
+
+                # Batch update all modified entries in single transaction
+                if updates:
+                    cursor.executemany(
+                        """
+                        UPDATE continuum_memory
+                        SET metadata = ?
+                        WHERE id = ?
+                        """,
+                        updates,
+                    )
+                    conn.commit()
 
             if updated_count > 0:
                 logger.debug(f"Invalidated {updated_count} references to KM node {node_id}")

@@ -170,6 +170,22 @@ class BaseBotClient(ABC):
         self.platform = config.platform
         self._connected = False
 
+        # Warn about localhost defaults in production
+        import os
+
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        if env in ("production", "prod", "live"):
+            if "localhost" in config.api_base or "127.0.0.1" in config.api_base:
+                logger.warning(
+                    f"Bot api_base uses localhost ({config.api_base}) in production - "
+                    "set ARAGORA_API_BASE environment variable for production"
+                )
+            if "localhost" in config.ws_url or "127.0.0.1" in config.ws_url:
+                logger.warning(
+                    f"Bot ws_url uses localhost ({config.ws_url}) in production - "
+                    "set ARAGORA_WS_URL environment variable for production"
+                )
+
     @property
     def is_connected(self) -> bool:
         return self._connected

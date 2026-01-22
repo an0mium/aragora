@@ -633,29 +633,31 @@ class DatabaseConsolidator:
         self.migrate_analytics()
         self.migrate_agents()
 
-        # Print summary
+        # Log summary
         total = 0
-        print("\n" + "=" * 60)
-        print("MIGRATION SUMMARY")
-        print("=" * 60)
+        logger.info("=" * 60)
+        logger.info("MIGRATION SUMMARY")
+        logger.info("=" * 60)
 
         for db_name, tables in self.stats.items():
             db_total = sum(tables.values())
             total += db_total
-            print(f"\n{db_name}.db:")
+            logger.info(f"{db_name}.db:")
             for table, count in sorted(tables.items()):
                 if count > 0:
-                    print(f"  {table}: {count} rows")
-            print(f"  Total: {db_total} rows")
+                    logger.info(f"  {table}: {count} rows")
+            logger.info(f"  Total: {db_total} rows")
 
-        print("\n" + "-" * 60)
-        print(f"TOTAL ROWS MIGRATED: {total}")
-        print("-" * 60)
+        logger.info("-" * 60)
+        logger.info(f"TOTAL ROWS MIGRATED: {total}")
+        logger.info("-" * 60)
 
         if self.dry_run:
-            print("\n[DRY RUN] No changes were made to databases.")
+            logger.info("[DRY RUN] No changes were made to databases.")
         else:
-            print("\nMigration complete. Set ARAGORA_DB_MODE=consolidated to use new databases.")
+            logger.info(
+                "Migration complete. Set ARAGORA_DB_MODE=consolidated to use new databases."
+            )
 
         return self.stats
 
@@ -686,7 +688,7 @@ class DatabaseConsolidator:
                 conn.commit()
             conn.close()
 
-        print("\nRollback complete." if not self.dry_run else "\n[DRY RUN] No changes made.")
+        logger.info("Rollback complete." if not self.dry_run else "[DRY RUN] No changes made.")
 
 
 # Migration functions for aragora.migrations.runner

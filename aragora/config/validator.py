@@ -145,6 +145,22 @@ def validate_all(strict: bool = False) -> Dict[str, Any]:
 
     config_summary["supabase_configured"] = bool(supabase_url and supabase_key)
 
+    # Check for localhost defaults in production
+    if is_production:
+        localhost_vars = [
+            ("ARAGORA_API_BASE", os.environ.get("ARAGORA_API_BASE", "http://localhost:8080")),
+            ("ARAGORA_WS_URL", os.environ.get("ARAGORA_WS_URL", "ws://localhost:8080/ws")),
+            ("MONGODB_HOST", os.environ.get("MONGODB_HOST", "")),
+            ("KAFKA_BOOTSTRAP_SERVERS", os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "")),
+            ("RABBITMQ_URL", os.environ.get("RABBITMQ_URL", "")),
+        ]
+        for var_name, var_value in localhost_vars:
+            if var_value and ("localhost" in var_value or "127.0.0.1" in var_value):
+                warnings.append(
+                    f"{var_name} contains localhost address in production - "
+                    f"ensure this is intentional for local development"
+                )
+
     # Update config summary
     config_summary["environment"] = env
     config_summary["is_production"] = is_production

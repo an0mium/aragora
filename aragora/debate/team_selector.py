@@ -67,6 +67,24 @@ class CalibrationScorer(Protocol):
         """
         ...
 
+    def get_brier_scores_batch(
+        self, agent_names: list[str], domain: Optional[str] = None
+    ) -> dict[str, float]:
+        """Get Brier scores for multiple agents in a single query.
+
+        This is an optional optimization method. Implementations may fall back
+        to calling get_brier_score individually if not implemented.
+
+        Args:
+            agent_names: List of agent names to query
+            domain: Optional domain for domain-specific calibration
+
+        Returns:
+            Dict mapping agent names to their Brier scores
+        """
+        # Default implementation falls back to individual calls
+        return {name: self.get_brier_score(name, domain) for name in agent_names}
+
 
 @dataclass
 class TeamSelectionConfig:
@@ -155,14 +173,41 @@ class TeamSelector:
         # 2. Filter unavailable agents via circuit breaker
         available_names = self._filter_available(domain_filtered)
 
-        # 3. Score remaining agents (using ELO, calibration, delegation, and domain)
+        # 3. Pre-fetch calibration scores in batch for performance
+        calibration_scores: dict[str, float] = {}
+        if self.calibration_tracker:
+            try:
+                agent_names = [a.name for a in domain_filtered if a.name in available_names]
+                if hasattr(self.calibration_tracker, "get_brier_scores_batch"):
+                    calibration_scores = self.calibration_tracker.get_brier_scores_batch(
+                        agent_names, domain=domain
+                    )
+                else:
+                    # Fall back to individual lookups if batch not available
+                    for name in agent_names:
+                        try:
+                            calibration_scores[name] = self.calibration_tracker.get_brier_score(
+                                name, domain=domain
+                            )
+                        except (KeyError, AttributeError, TypeError):
+                            pass
+            except Exception as e:
+                logger.debug(f"Batch calibration lookup failed: {e}")
+
+        # 4. Score remaining agents (using ELO, calibration, delegation, and domain)
         scored: list[tuple["Agent", float]] = []
         for agent in domain_filtered:
             if agent.name not in available_names:
                 logger.info(f"agent_filtered_by_circuit_breaker agent={agent.name}")
                 continue
 
-            score = self._compute_score(agent, domain=domain, task=task, context=context)
+            score = self._compute_score(
+                agent,
+                domain=domain,
+                task=task,
+                context=context,
+                calibration_scores=calibration_scores,
+            )
             scored.append((agent, score))
 
         if not scored:
@@ -588,6 +633,7 @@ class TeamSelector:
         domain: Optional[str] = None,
         task: str = "",
         context: Optional["DebateContext"] = None,
+        calibration_scores: Optional[dict[str, float]] = None,
     ) -> float:
         """Compute composite score for an agent.
 
@@ -596,6 +642,7 @@ class TeamSelector:
             domain: Optional domain for domain-specific calibration lookup
             task: Task description for delegation-based scoring
             context: Optional debate context for state-aware scoring
+            calibration_scores: Pre-fetched calibration scores (for batch performance)
         """
         score = self.config.base_score
 
@@ -609,8 +656,12 @@ class TeamSelector:
                 logger.debug(f"ELO rating not found for {agent.name}: {e}")
 
         # Calibration contribution (well-calibrated agents get a bonus)
-        # Uses domain-specific calibration when available
-        if self.calibration_tracker:
+        # Uses pre-fetched scores when available for batch performance
+        if calibration_scores and agent.name in calibration_scores:
+            brier = calibration_scores[agent.name]
+            # Lower Brier = better calibration = higher score
+            score += (1 - brier) * self.config.calibration_weight
+        elif self.calibration_tracker:
             try:
                 brier = self.calibration_tracker.get_brier_score(agent.name, domain=domain)
                 # Lower Brier = better calibration = higher score
