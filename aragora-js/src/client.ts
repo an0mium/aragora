@@ -432,6 +432,41 @@ import {
   MongoAggregateRequest,
   MongoAggregateResponse,
   MongoCollectionsResponse,
+  // Agent Config types
+  AgentConfigDetail,
+  AgentConfigsListResponse,
+  AgentConfigResponse,
+  AgentConfigCreateResponse,
+  AgentConfigReloadResponse,
+  AgentConfigSearchResponse,
+  // RLM types
+  RlmStats,
+  RlmStrategyInfo,
+  RlmCompressRequest,
+  RlmCompressResponse,
+  RlmQueryRequest,
+  RlmQueryResponse,
+  RlmContextsResponse,
+  RlmContextDetail,
+  RlmStreamModesResponse,
+  RlmStreamRequest,
+  RlmStatusResponse,
+  // Queue types
+  QueueJob,
+  QueueSubmitRequest,
+  QueueSubmitResponse,
+  QueueJobsResponse,
+  QueueStats,
+  QueueWorkersResponse,
+  // Bot types
+  BotPlatform,
+  BotStatus,
+  BotWebhookResponse,
+  // External integration types
+  ZapierApp,
+  ZapierAppsResponse,
+  ZapierTrigger,
+  ZapierTriggersResponse,
 } from './types';
 
 // =============================================================================
@@ -1544,6 +1579,72 @@ class AgentsAPI {
    */
   async identityPrompt(agentId: string): Promise<{ prompt: string }> {
     return this.http.get<{ prompt: string }>(`/api/agent/${agentId}/identity-prompt`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Agent Configuration Methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List all available YAML agent configurations.
+   * @param options - Filter options (priority, role)
+   */
+  async getConfigs(options?: {
+    priority?: string;
+    role?: string;
+  }): Promise<AgentConfigsListResponse> {
+    const params = new URLSearchParams();
+    if (options?.priority) params.set('priority', options.priority);
+    if (options?.role) params.set('role', options.role);
+    const query = params.toString();
+    const path = query ? `/api/agents/configs?${query}` : '/api/agents/configs';
+    return this.http.get<AgentConfigsListResponse>(path);
+  }
+
+  /**
+   * Get a specific agent configuration by name.
+   * @param name - Configuration name
+   */
+  async getConfig(name: string): Promise<AgentConfigDetail> {
+    const response = await this.http.get<AgentConfigResponse>(
+      `/api/agents/configs/${encodeURIComponent(name)}`
+    );
+    return response.config;
+  }
+
+  /**
+   * Create an agent from a YAML configuration.
+   * @param name - Configuration name to create agent from
+   */
+  async createFromConfig(name: string): Promise<AgentConfigCreateResponse> {
+    return this.http.post<AgentConfigCreateResponse>(
+      `/api/agents/configs/${encodeURIComponent(name)}/create`,
+      {}
+    );
+  }
+
+  /**
+   * Reload all configurations from disk.
+   */
+  async reloadConfigs(): Promise<AgentConfigReloadResponse> {
+    return this.http.get<AgentConfigReloadResponse>('/api/agents/configs/reload');
+  }
+
+  /**
+   * Search configurations by expertise, capability, or tag.
+   * @param options - At least one search parameter required
+   */
+  async searchConfigs(options: {
+    expertise?: string;
+    capability?: string;
+    tag?: string;
+  }): Promise<AgentConfigSearchResponse> {
+    const params = new URLSearchParams();
+    if (options.expertise) params.set('expertise', options.expertise);
+    if (options.capability) params.set('capability', options.capability);
+    if (options.tag) params.set('tag', options.tag);
+    const query = params.toString();
+    return this.http.get<AgentConfigSearchResponse>(`/api/agents/configs/search?${query}`);
   }
 }
 
@@ -3934,6 +4035,123 @@ class ProbesAPI {
 }
 
 // =============================================================================
+// RLM (Recursive Language Model) API
+// =============================================================================
+
+/**
+ * API for RLM context compression and retrieval.
+ *
+ * RLM provides efficient context compression for long documents,
+ * enabling semantic queries over compressed contexts.
+ *
+ * @example
+ * ```typescript
+ * // Compress a document
+ * const result = await client.rlm.compress({
+ *   content: longDocument,
+ *   strategy: 'hierarchical',
+ * });
+ *
+ * // Query the compressed context
+ * const answer = await client.rlm.query({
+ *   context_id: result.context_id,
+ *   question: 'What are the key findings?',
+ * });
+ * ```
+ */
+class RlmAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get RLM system statistics.
+   */
+  async getStats(): Promise<RlmStats> {
+    return this.http.get<RlmStats>('/api/rlm/stats');
+  }
+
+  /**
+   * Get RLM system status.
+   */
+  async getStatus(): Promise<RlmStatusResponse> {
+    return this.http.get<RlmStatusResponse>('/api/rlm/status');
+  }
+
+  /**
+   * List available compression strategies.
+   */
+  async getStrategies(): Promise<{ strategies: RlmStrategyInfo[] }> {
+    return this.http.get<{ strategies: RlmStrategyInfo[] }>('/api/rlm/strategies');
+  }
+
+  /**
+   * Compress content using RLM.
+   * @param request - Compression request with content and options
+   */
+  async compress(request: RlmCompressRequest): Promise<RlmCompressResponse> {
+    return this.http.post<RlmCompressResponse>('/api/rlm/compress', request);
+  }
+
+  /**
+   * Query a compressed context.
+   * @param request - Query request with context_id and question
+   */
+  async query(request: RlmQueryRequest): Promise<RlmQueryResponse> {
+    return this.http.post<RlmQueryResponse>('/api/rlm/query', request);
+  }
+
+  /**
+   * List stored contexts with pagination.
+   * @param options - Pagination options
+   */
+  async listContexts(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<RlmContextsResponse> {
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined) params.set('limit', String(options.limit));
+    if (options?.offset !== undefined) params.set('offset', String(options.offset));
+    const query = params.toString();
+    const path = query ? `/api/rlm/contexts?${query}` : '/api/rlm/contexts';
+    return this.http.get<RlmContextsResponse>(path);
+  }
+
+  /**
+   * Get a specific context by ID.
+   * @param contextId - The context's unique identifier
+   */
+  async getContext(contextId: string): Promise<RlmContextDetail> {
+    return this.http.get<RlmContextDetail>(
+      `/api/rlm/context/${encodeURIComponent(contextId)}`
+    );
+  }
+
+  /**
+   * Delete a stored context.
+   * @param contextId - The context's unique identifier
+   */
+  async deleteContext(contextId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/rlm/context/${encodeURIComponent(contextId)}`
+    );
+  }
+
+  /**
+   * Get available streaming modes.
+   */
+  async getStreamModes(): Promise<RlmStreamModesResponse> {
+    return this.http.get<RlmStreamModesResponse>('/api/rlm/stream/modes');
+  }
+
+  /**
+   * Stream compression of content.
+   * @param request - Stream request with content and options
+   */
+  async stream(request: RlmStreamRequest): Promise<RlmCompressResponse> {
+    return this.http.post<RlmCompressResponse>('/api/rlm/stream', request);
+  }
+}
+
+// =============================================================================
 // Nomic Loop API
 // =============================================================================
 
@@ -5184,6 +5402,332 @@ class ConnectorsAPI {
 }
 
 // =============================================================================
+// Queue API
+// =============================================================================
+
+/**
+ * API for job queue management.
+ *
+ * Provides endpoints for submitting, monitoring, and managing background jobs.
+ *
+ * @example
+ * ```typescript
+ * // Submit a job
+ * const job = await client.queue.submit({
+ *   type: 'debate_processing',
+ *   payload: { debate_id: 'deb_123' },
+ *   priority: 'high',
+ * });
+ *
+ * // Check job status
+ * const status = await client.queue.getJob(job.job_id);
+ * ```
+ */
+class QueueAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Submit a new job to the queue.
+   * @param request - Job submission request
+   */
+  async submit(request: QueueSubmitRequest): Promise<QueueSubmitResponse> {
+    return this.http.post<QueueSubmitResponse>('/api/queue/jobs', request);
+  }
+
+  /**
+   * List jobs with optional filters.
+   * @param options - Filter and pagination options
+   */
+  async listJobs(options?: {
+    status?: string;
+    type?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<QueueJobsResponse> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.type) params.set('type', options.type);
+    if (options?.limit !== undefined) params.set('limit', String(options.limit));
+    if (options?.offset !== undefined) params.set('offset', String(options.offset));
+    const query = params.toString();
+    const path = query ? `/api/queue/jobs?${query}` : '/api/queue/jobs';
+    return this.http.get<QueueJobsResponse>(path);
+  }
+
+  /**
+   * Get a specific job by ID.
+   * @param jobId - Job ID
+   */
+  async getJob(jobId: string): Promise<QueueJob> {
+    return this.http.get<QueueJob>(`/api/queue/jobs/${encodeURIComponent(jobId)}`);
+  }
+
+  /**
+   * Retry a failed job.
+   * @param jobId - Job ID
+   */
+  async retryJob(jobId: string): Promise<{ success: boolean }> {
+    return this.http.post<{ success: boolean }>(
+      `/api/queue/jobs/${encodeURIComponent(jobId)}/retry`,
+      {}
+    );
+  }
+
+  /**
+   * Cancel a pending or running job.
+   * @param jobId - Job ID
+   */
+  async cancelJob(jobId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/queue/jobs/${encodeURIComponent(jobId)}`
+    );
+  }
+
+  /**
+   * Get queue statistics.
+   */
+  async getStats(): Promise<QueueStats> {
+    return this.http.get<QueueStats>('/api/queue/stats');
+  }
+
+  /**
+   * Get worker status.
+   */
+  async getWorkers(): Promise<QueueWorkersResponse> {
+    return this.http.get<QueueWorkersResponse>('/api/queue/workers');
+  }
+}
+
+// =============================================================================
+// Bots API
+// =============================================================================
+
+/**
+ * API for bot platform integrations.
+ *
+ * Manages connections to Discord, Telegram, WhatsApp, Zoom, Teams, etc.
+ *
+ * @example
+ * ```typescript
+ * // Check Discord bot status
+ * const status = await client.bots.getStatus('discord');
+ * console.log('Connected:', status.connected);
+ * ```
+ */
+class BotsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Get status of a bot platform.
+   * @param platform - Bot platform name
+   */
+  async getStatus(platform: BotPlatform): Promise<BotStatus> {
+    return this.http.get<BotStatus>(`/api/bots/${platform}/status`);
+  }
+
+  /**
+   * Handle Discord interaction webhook.
+   * @param interaction - Discord interaction payload
+   */
+  async handleDiscordInteraction(
+    interaction: Record<string, unknown>
+  ): Promise<BotWebhookResponse> {
+    return this.http.post<BotWebhookResponse>('/api/bots/discord/interactions', interaction);
+  }
+
+  /**
+   * Handle Telegram webhook.
+   * @param update - Telegram update payload
+   */
+  async handleTelegramWebhook(
+    update: Record<string, unknown>
+  ): Promise<BotWebhookResponse> {
+    return this.http.post<BotWebhookResponse>('/api/bots/telegram/webhook', update);
+  }
+
+  /**
+   * Handle WhatsApp webhook.
+   * @param event - WhatsApp event payload
+   */
+  async handleWhatsAppWebhook(
+    event: Record<string, unknown>
+  ): Promise<BotWebhookResponse> {
+    return this.http.post<BotWebhookResponse>('/api/bots/whatsapp/webhook', event);
+  }
+
+  /**
+   * Handle Zoom webhook events.
+   * @param event - Zoom event payload
+   */
+  async handleZoomEvents(event: Record<string, unknown>): Promise<BotWebhookResponse> {
+    return this.http.post<BotWebhookResponse>('/api/bots/zoom/events', event);
+  }
+
+  /**
+   * Handle Microsoft Teams messages.
+   * @param activity - Teams activity payload
+   */
+  async handleTeamsMessages(
+    activity: Record<string, unknown>
+  ): Promise<BotWebhookResponse> {
+    return this.http.post<BotWebhookResponse>('/api/bots/teams/messages', activity);
+  }
+
+  /**
+   * Handle Google Chat webhook.
+   * @param event - Google Chat event payload
+   */
+  async handleGoogleChatWebhook(
+    event: Record<string, unknown>
+  ): Promise<BotWebhookResponse> {
+    return this.http.post<BotWebhookResponse>('/api/bots/google-chat/webhook', event);
+  }
+}
+
+// =============================================================================
+// External Integrations API
+// =============================================================================
+
+/**
+ * API for external platform integrations (Zapier, Make, n8n).
+ *
+ * Manages automation platform connections and webhooks.
+ *
+ * @example
+ * ```typescript
+ * // List Zapier apps
+ * const apps = await client.externalIntegrations.listZapierApps();
+ *
+ * // Subscribe to a trigger
+ * await client.externalIntegrations.subscribeZapierTrigger({
+ *   app_id: apps.apps[0].id,
+ *   event_type: 'debate_completed',
+ *   webhook_url: 'https://hooks.zapier.com/...',
+ * });
+ * ```
+ */
+class ExternalIntegrationsAPI {
+  constructor(private http: HttpClient) {}
+
+  // Zapier Integration
+
+  /**
+   * List Zapier apps.
+   */
+  async listZapierApps(): Promise<ZapierAppsResponse> {
+    return this.http.get<ZapierAppsResponse>('/api/integrations/zapier/apps');
+  }
+
+  /**
+   * Create a Zapier app.
+   * @param data - App creation data
+   */
+  async createZapierApp(data: { name: string }): Promise<ZapierApp> {
+    return this.http.post<ZapierApp>('/api/integrations/zapier/apps', data);
+  }
+
+  /**
+   * Delete a Zapier app.
+   * @param appId - App ID
+   */
+  async deleteZapierApp(appId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/integrations/zapier/apps/${encodeURIComponent(appId)}`
+    );
+  }
+
+  /**
+   * List Zapier triggers.
+   */
+  async listZapierTriggers(): Promise<ZapierTriggersResponse> {
+    return this.http.get<ZapierTriggersResponse>('/api/integrations/zapier/triggers');
+  }
+
+  /**
+   * Subscribe to a Zapier trigger.
+   * @param data - Trigger subscription data
+   */
+  async subscribeZapierTrigger(data: {
+    app_id: string;
+    event_type: string;
+    webhook_url: string;
+  }): Promise<ZapierTrigger> {
+    return this.http.post<ZapierTrigger>('/api/integrations/zapier/triggers', data);
+  }
+
+  /**
+   * Unsubscribe from a Zapier trigger.
+   * @param triggerId - Trigger ID
+   */
+  async unsubscribeZapierTrigger(triggerId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/integrations/zapier/triggers/${encodeURIComponent(triggerId)}`
+    );
+  }
+
+  // Make (Integromat) Integration
+
+  /**
+   * List Make connections.
+   */
+  async listMakeConnections(): Promise<{ connections: Array<{ id: string; name: string; status: string }> }> {
+    return this.http.get<{ connections: Array<{ id: string; name: string; status: string }> }>(
+      '/api/integrations/make/connections'
+    );
+  }
+
+  /**
+   * Create a Make connection.
+   * @param data - Connection data
+   */
+  async createMakeConnection(data: { name: string }): Promise<{ id: string; name: string }> {
+    return this.http.post<{ id: string; name: string }>('/api/integrations/make/connections', data);
+  }
+
+  /**
+   * Delete a Make connection.
+   * @param connectionId - Connection ID
+   */
+  async deleteMakeConnection(connectionId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/integrations/make/connections/${encodeURIComponent(connectionId)}`
+    );
+  }
+
+  // n8n Integration
+
+  /**
+   * List n8n credentials.
+   */
+  async listN8nCredentials(): Promise<{ credentials: Array<{ id: string; name: string; type: string }> }> {
+    return this.http.get<{ credentials: Array<{ id: string; name: string; type: string }> }>(
+      '/api/integrations/n8n/credentials'
+    );
+  }
+
+  /**
+   * Create an n8n credential.
+   * @param data - Credential data
+   */
+  async createN8nCredential(data: { name: string; type: string }): Promise<{ id: string; name: string; type: string }> {
+    return this.http.post<{ id: string; name: string; type: string }>(
+      '/api/integrations/n8n/credentials',
+      data
+    );
+  }
+
+  /**
+   * Delete an n8n credential.
+   * @param credentialId - Credential ID
+   */
+  async deleteN8nCredential(credentialId: string): Promise<{ success: boolean }> {
+    return this.http.delete<{ success: boolean }>(
+      `/api/integrations/n8n/credentials/${encodeURIComponent(credentialId)}`
+    );
+  }
+}
+
+// =============================================================================
 // Main Client
 // =============================================================================
 
@@ -5238,6 +5782,10 @@ export class AragoraClient {
   readonly controlPlane: ControlPlaneAPI;
   readonly workflows: WorkflowsAPI;
   readonly knowledge: KnowledgeAPI;
+  readonly rlm: RlmAPI;
+  readonly queue: QueueAPI;
+  readonly bots: BotsAPI;
+  readonly externalIntegrations: ExternalIntegrationsAPI;
 
   /**
    * Create a new Aragora client.
@@ -5314,6 +5862,10 @@ export class AragoraClient {
     this.workflows = new WorkflowsAPI(this.http);
     this.knowledge = new KnowledgeAPI(this.http);
     this.connectors = new ConnectorsAPI(this.http);
+    this.rlm = new RlmAPI(this.http);
+    this.queue = new QueueAPI(this.http);
+    this.bots = new BotsAPI(this.http);
+    this.externalIntegrations = new ExternalIntegrationsAPI(this.http);
   }
 
   /**

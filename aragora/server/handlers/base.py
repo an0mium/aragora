@@ -892,22 +892,51 @@ class BaseHandler:
         self._current_handler = handler
         self._current_query_params = query_params or {}
 
-    def get_query_param(self, name: str, default: Optional[str] = None) -> Optional[str]:
+    def get_query_param(
+        self,
+        name_or_handler: Any,
+        name_or_default: Optional[str] = None,
+        default: Optional[str] = None,
+    ) -> Optional[str]:
         """Get a query parameter from the current request.
 
+        Supports two calling patterns for backwards compatibility:
+        1. get_query_param(name, default) - uses stored request context
+        2. get_query_param(handler, name, default) - extracts from handler
+
         Args:
-            name: Parameter name
-            default: Default value if not present
+            name_or_handler: Either parameter name (str) or HTTP handler
+            name_or_default: Either default value or parameter name
+            default: Default value (only used in handler pattern)
 
         Returns:
             Parameter value or default
         """
-        if self._current_query_params is None:
-            return default
-        value = self._current_query_params.get(name)
+        # Detect calling pattern
+        if isinstance(name_or_handler, str):
+            # Pattern 1: get_query_param(name, default)
+            name = name_or_handler
+            default_value = name_or_default
+            if self._current_query_params is None:
+                return default_value
+            value = self._current_query_params.get(name)
+        else:
+            # Pattern 2: get_query_param(handler, name, default)
+            handler = name_or_handler
+            name = name_or_default or ""
+            default_value = default
+            # Try to extract query params from handler
+            query_params = {}
+            if hasattr(handler, "path") and "?" in handler.path:
+                from urllib.parse import parse_qs, urlparse
+
+                parsed = urlparse(handler.path)
+                query_params = parse_qs(parsed.query)
+            value = query_params.get(name)
+
         if isinstance(value, list):
-            return value[0] if value else default
-        return value if value is not None else default
+            return value[0] if value else default_value
+        return value if value is not None else default_value
 
     def get_json_body(self) -> Optional[dict[str, Any]]:
         """Get JSON body from the current request.

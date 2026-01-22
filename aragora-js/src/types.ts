@@ -5007,3 +5007,394 @@ export interface ConnectorHealthResponse {
   running_syncs: number;
   success_rate: number;
 }
+
+// =============================================================================
+// Agent Config Types
+// =============================================================================
+
+/** Agent configuration summary */
+export interface AgentConfigSummary {
+  name: string;
+  model_type: string;
+  role: string;
+  priority: string;
+  description: string;
+  expertise_domains: string[];
+  capabilities: string[];
+  tags: string[];
+}
+
+/** Agent configuration detail */
+export interface AgentConfigDetail {
+  name: string;
+  model_type: string;
+  role: string;
+  priority: string;
+  description: string;
+  expertise_domains: string[];
+  capabilities: string[];
+  tags: string[];
+  system_prompt?: string;
+  temperature?: number;
+  max_tokens?: number;
+  extra_parameters?: Record<string, unknown>;
+}
+
+/** List agent configs response */
+export interface AgentConfigsListResponse {
+  configs: AgentConfigSummary[];
+  total: number;
+}
+
+/** Get agent config response */
+export interface AgentConfigResponse {
+  config: AgentConfigDetail;
+}
+
+/** Create agent from config response */
+export interface AgentConfigCreateResponse {
+  success: boolean;
+  agent: {
+    name: string;
+    role: string;
+    model_type: string;
+  };
+  config_used: string;
+}
+
+/** Reload configs response */
+export interface AgentConfigReloadResponse {
+  success: boolean;
+  reloaded: number;
+  configs: string[];
+}
+
+/** Search configs response */
+export interface AgentConfigSearchResponse {
+  results: AgentConfigSummary[];
+  total: number;
+  search_params: {
+    expertise?: string;
+    capability?: string;
+    tag?: string;
+  };
+}
+
+// =============================================================================
+// RLM (Recursive Language Model) Types
+// =============================================================================
+
+/** RLM compression strategy */
+export type RlmStrategy =
+  | 'hierarchical'
+  | 'semantic'
+  | 'extractive'
+  | 'abstractive'
+  | 'hybrid';
+
+/** RLM statistics */
+export interface RlmStats {
+  cache_size: number;
+  cache_hits: number;
+  cache_misses: number;
+  hit_rate: number;
+  total_compressions: number;
+  avg_compression_ratio: number;
+  contexts_stored: number;
+  memory_usage_bytes: number;
+}
+
+/** RLM strategy info */
+export interface RlmStrategyInfo {
+  name: string;
+  description: string;
+  compression_ratio: number;
+  latency_ms: number;
+  supports_streaming: boolean;
+}
+
+/** RLM compress request */
+export interface RlmCompressRequest {
+  content: string;
+  strategy?: RlmStrategy;
+  max_tokens?: number;
+  preserve_structure?: boolean;
+  context_id?: string;
+}
+
+/** RLM compress response */
+export interface RlmCompressResponse {
+  context_id: string;
+  compressed: string;
+  original_tokens: number;
+  compressed_tokens: number;
+  compression_ratio: number;
+  strategy_used: RlmStrategy;
+}
+
+/** RLM query request */
+export interface RlmQueryRequest {
+  context_id: string;
+  question: string;
+  max_tokens?: number;
+}
+
+/** RLM query response */
+export interface RlmQueryResponse {
+  answer: string;
+  context_id: string;
+  relevant_chunks: string[];
+  confidence: number;
+}
+
+/** RLM context summary */
+export interface RlmContextSummary {
+  context_id: string;
+  created_at: string;
+  original_tokens: number;
+  compressed_tokens: number;
+  strategy: RlmStrategy;
+  metadata?: Record<string, unknown>;
+}
+
+/** RLM contexts list response */
+export interface RlmContextsResponse {
+  contexts: RlmContextSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** RLM context detail response */
+export interface RlmContextDetail {
+  context_id: string;
+  content: string;
+  original_tokens: number;
+  compressed_tokens: number;
+  strategy: RlmStrategy;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** RLM stream mode */
+export interface RlmStreamMode {
+  mode: string;
+  description: string;
+  chunk_size: number;
+}
+
+/** RLM stream modes response */
+export interface RlmStreamModesResponse {
+  modes: RlmStreamMode[];
+}
+
+/** RLM stream request */
+export interface RlmStreamRequest {
+  content: string;
+  strategy?: RlmStrategy;
+  mode?: string;
+}
+
+/** RLM status response */
+export interface RlmStatusResponse {
+  enabled: boolean;
+  version: string;
+  backends: string[];
+  default_strategy: RlmStrategy;
+}
+
+// =============================================================================
+// Queue/Job Types
+// =============================================================================
+
+/** Job status */
+export type JobStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'retrying';
+
+/** Job priority */
+export type JobPriority = 'low' | 'normal' | 'high' | 'critical';
+
+/** Queue job */
+export interface QueueJob {
+  id: string;
+  type: string;
+  status: JobStatus;
+  priority: JobPriority;
+  payload: Record<string, unknown>;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  error?: string;
+  retries: number;
+  max_retries: number;
+  worker_id?: string;
+}
+
+/** Submit job request */
+export interface QueueSubmitRequest {
+  type: string;
+  payload: Record<string, unknown>;
+  priority?: JobPriority;
+  max_retries?: number;
+  delay_seconds?: number;
+}
+
+/** Submit job response */
+export interface QueueSubmitResponse {
+  job_id: string;
+  status: JobStatus;
+  queued_at: string;
+}
+
+/** List jobs response */
+export interface QueueJobsResponse {
+  jobs: QueueJob[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** Queue statistics */
+export interface QueueStats {
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+  total_processed: number;
+  avg_processing_time_ms: number;
+  throughput_per_minute: number;
+}
+
+/** Worker info */
+export interface QueueWorker {
+  worker_id: string;
+  status: 'idle' | 'busy' | 'offline';
+  current_job_id?: string;
+  jobs_processed: number;
+  last_heartbeat: string;
+}
+
+/** Workers response */
+export interface QueueWorkersResponse {
+  workers: QueueWorker[];
+  total: number;
+}
+
+// =============================================================================
+// Bot Integration Types
+// =============================================================================
+
+/** Bot platform */
+export type BotPlatform =
+  | 'discord'
+  | 'telegram'
+  | 'whatsapp'
+  | 'zoom'
+  | 'teams'
+  | 'google-chat'
+  | 'email';
+
+/** Bot status */
+export interface BotStatus {
+  platform: BotPlatform;
+  connected: boolean;
+  last_activity?: string;
+  error?: string;
+  webhook_url?: string;
+  features: string[];
+}
+
+/** Bot webhook response */
+export interface BotWebhookResponse {
+  success: boolean;
+  message?: string;
+  debate_id?: string;
+}
+
+/** Discord interaction */
+export interface DiscordInteraction {
+  type: number;
+  data: Record<string, unknown>;
+  member?: Record<string, unknown>;
+  user?: Record<string, unknown>;
+  channel_id?: string;
+  guild_id?: string;
+}
+
+/** Telegram update */
+export interface TelegramUpdate {
+  update_id: number;
+  message?: Record<string, unknown>;
+  callback_query?: Record<string, unknown>;
+}
+
+// =============================================================================
+// External Integration Types (Zapier, Make, n8n)
+// =============================================================================
+
+/** Zapier app */
+export interface ZapierApp {
+  id: string;
+  name: string;
+  api_key: string;
+  created_at: string;
+  status: 'active' | 'inactive';
+}
+
+/** Zapier trigger */
+export interface ZapierTrigger {
+  id: string;
+  app_id: string;
+  event_type: string;
+  webhook_url: string;
+  created_at: string;
+}
+
+/** Zapier triggers response */
+export interface ZapierTriggersResponse {
+  triggers: ZapierTrigger[];
+}
+
+/** Zapier apps response */
+export interface ZapierAppsResponse {
+  apps: ZapierApp[];
+}
+
+/** Make connection */
+export interface MakeConnection {
+  id: string;
+  name: string;
+  created_at: string;
+  status: 'active' | 'inactive';
+}
+
+/** Make webhook */
+export interface MakeWebhook {
+  id: string;
+  connection_id: string;
+  url: string;
+  events: string[];
+  created_at: string;
+}
+
+/** n8n credential */
+export interface N8nCredential {
+  id: string;
+  name: string;
+  type: string;
+  created_at: string;
+}
+
+/** n8n webhook */
+export interface N8nWebhook {
+  id: string;
+  credential_id: string;
+  url: string;
+  events: string[];
+  created_at: string;
+}

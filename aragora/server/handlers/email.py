@@ -23,6 +23,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -35,55 +36,77 @@ from aragora.server.handlers.base import (
 
 logger = logging.getLogger(__name__)
 
-# Global instances (initialized lazily)
+# Global instances (initialized lazily) with thread-safe access
 _gmail_connector: Optional[Any] = None
+_gmail_connector_lock = threading.Lock()
 _prioritizer: Optional[Any] = None
+_prioritizer_lock = threading.Lock()
 _context_service: Optional[Any] = None
+_context_service_lock = threading.Lock()
 _user_configs: Dict[str, Dict[str, Any]] = {}
+_user_configs_lock = threading.Lock()
 
 
 def get_gmail_connector(user_id: str = "default"):
-    """Get or create Gmail connector for a user."""
+    """Get or create Gmail connector for a user (thread-safe)."""
     global _gmail_connector
-    # In production, this would be per-user with their OAuth tokens
-    if _gmail_connector is None:
-        from aragora.connectors.enterprise.communication.gmail import GmailConnector
-        _gmail_connector = GmailConnector()
-    return _gmail_connector
+    if _gmail_connector is not None:
+        return _gmail_connector
+
+    with _gmail_connector_lock:
+        # Double-check after acquiring lock
+        if _gmail_connector is None:
+            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+
+            _gmail_connector = GmailConnector()
+        return _gmail_connector
 
 
 def get_prioritizer(user_id: str = "default"):
-    """Get or create email prioritizer for a user."""
+    """Get or create email prioritizer for a user (thread-safe)."""
     global _prioritizer
-    if _prioritizer is None:
-        from aragora.services.email_prioritization import (
-            EmailPrioritizer,
-            EmailPrioritizationConfig,
-        )
+    if _prioritizer is not None:
+        return _prioritizer
 
-        # Load user config if available
-        config_data = _user_configs.get(user_id, {})
-        config = EmailPrioritizationConfig(
-            vip_domains=set(config_data.get("vip_domains", [])),
-            vip_addresses=set(config_data.get("vip_addresses", [])),
-            internal_domains=set(config_data.get("internal_domains", [])),
-            auto_archive_senders=set(config_data.get("auto_archive_senders", [])),
-        )
+    with _prioritizer_lock:
+        # Double-check after acquiring lock
+        if _prioritizer is None:
+            from aragora.services.email_prioritization import (
+                EmailPrioritizer,
+                EmailPrioritizationConfig,
+            )
 
-        _prioritizer = EmailPrioritizer(
-            gmail_connector=get_gmail_connector(user_id),
-            config=config,
-        )
-    return _prioritizer
+            # Load user config if available (thread-safe access)
+            with _user_configs_lock:
+                config_data = _user_configs.get(user_id, {}).copy()
+
+            config = EmailPrioritizationConfig(
+                vip_domains=set(config_data.get("vip_domains", [])),
+                vip_addresses=set(config_data.get("vip_addresses", [])),
+                internal_domains=set(config_data.get("internal_domains", [])),
+                auto_archive_senders=set(config_data.get("auto_archive_senders", [])),
+            )
+
+            _prioritizer = EmailPrioritizer(
+                gmail_connector=get_gmail_connector(user_id),
+                config=config,
+            )
+        return _prioritizer
 
 
 def get_context_service():
-    """Get or create cross-channel context service."""
+    """Get or create cross-channel context service (thread-safe)."""
     global _context_service
-    if _context_service is None:
-        from aragora.services.cross_channel_context import CrossChannelContextService
-        _context_service = CrossChannelContextService()
-    return _context_service
+    if _context_service is not None:
+        return _context_service
+
+    with _context_service_lock:
+        # Double-check after acquiring lock
+        if _context_service is None:
+            from aragora.services.cross_channel_context import CrossChannelContextService
+
+            _context_service = CrossChannelContextService()
+        return _context_service
 
 
 # =============================================================================
@@ -131,7 +154,9 @@ async def handle_prioritize_email(
             to_addresses=email_data.get("to_addresses", []),
             cc_addresses=email_data.get("cc_addresses", []),
             bcc_addresses=email_data.get("bcc_addresses", []),
-            date=datetime.fromisoformat(email_data["date"]) if email_data.get("date") else datetime.now(),
+            date=datetime.fromisoformat(email_data["date"])
+            if email_data.get("date")
+            else datetime.now(),
             body_text=email_data.get("body_text", ""),
             body_html=email_data.get("body_html", ""),
             snippet=email_data.get("snippet", ""),
@@ -198,7 +223,9 @@ async def handle_rank_inbox(
                 to_addresses=email_data.get("to_addresses", []),
                 cc_addresses=email_data.get("cc_addresses", []),
                 bcc_addresses=email_data.get("bcc_addresses", []),
-                date=datetime.fromisoformat(email_data["date"]) if email_data.get("date") else datetime.now(),
+                date=datetime.fromisoformat(email_data["date"])
+                if email_data.get("date")
+                else datetime.now(),
                 body_text=email_data.get("body_text", ""),
                 body_html=email_data.get("body_html", ""),
                 snippet=email_data.get("snippet", ""),
@@ -415,9 +442,11 @@ async def handle_gmail_oauth_url(
         # Set scopes based on request
         if scopes == "full":
             from aragora.connectors.enterprise.communication.gmail import GMAIL_SCOPES_FULL
+
             connector._scopes = GMAIL_SCOPES_FULL
         else:
             from aragora.connectors.enterprise.communication.gmail import GMAIL_SCOPES_READONLY
+
             connector._scopes = GMAIL_SCOPES_READONLY
 
         url = connector.get_oauth_url(redirect_uri, state)
@@ -582,23 +611,25 @@ async def handle_fetch_and_rank_inbox(
             # Find corresponding email
             email = next((e for e in emails if e.id == result.email_id), None)
             if email:
-                inbox_items.append({
-                    "email": {
-                        "id": email.id,
-                        "thread_id": email.thread_id,
-                        "subject": email.subject,
-                        "from_address": email.from_address,
-                        "to_addresses": email.to_addresses,
-                        "date": email.date.isoformat() if email.date else None,
-                        "snippet": email.snippet,
-                        "labels": email.labels,
-                        "is_read": email.is_read,
-                        "is_starred": email.is_starred,
-                        "is_important": email.is_important,
-                        "has_attachments": len(email.attachments) > 0,
-                    },
-                    "priority": result.to_dict(),
-                })
+                inbox_items.append(
+                    {
+                        "email": {
+                            "id": email.id,
+                            "thread_id": email.thread_id,
+                            "subject": email.subject,
+                            "from_address": email.from_address,
+                            "to_addresses": email.to_addresses,
+                            "date": email.date.isoformat() if email.date else None,
+                            "snippet": email.snippet,
+                            "labels": email.labels,
+                            "is_read": email.is_read,
+                            "is_starred": email.is_starred,
+                            "is_important": email.is_important,
+                            "has_attachments": len(email.attachments) > 0,
+                        },
+                        "priority": result.to_dict(),
+                    }
+                )
 
         return {
             "success": True,
@@ -667,34 +698,41 @@ async def handle_update_config(
         if config_updates is None:
             config_updates = {}
 
-        # Get or create user config
-        if user_id not in _user_configs:
-            _user_configs[user_id] = {}
+        # Thread-safe config update
+        with _user_configs_lock:
+            # Get or create user config
+            if user_id not in _user_configs:
+                _user_configs[user_id] = {}
 
-        # Update config
-        user_config = _user_configs[user_id]
+            # Update config
+            user_config = _user_configs[user_id]
 
-        if "vip_domains" in config_updates:
-            user_config["vip_domains"] = config_updates["vip_domains"]
-        if "vip_addresses" in config_updates:
-            user_config["vip_addresses"] = config_updates["vip_addresses"]
-        if "internal_domains" in config_updates:
-            user_config["internal_domains"] = config_updates["internal_domains"]
-        if "auto_archive_senders" in config_updates:
-            user_config["auto_archive_senders"] = config_updates["auto_archive_senders"]
-        if "tier_1_confidence_threshold" in config_updates:
-            user_config["tier_1_confidence_threshold"] = config_updates["tier_1_confidence_threshold"]
-        if "tier_2_confidence_threshold" in config_updates:
-            user_config["tier_2_confidence_threshold"] = config_updates["tier_2_confidence_threshold"]
-        if "enable_slack_signals" in config_updates:
-            user_config["enable_slack_signals"] = config_updates["enable_slack_signals"]
-        if "enable_calendar_signals" in config_updates:
-            user_config["enable_calendar_signals"] = config_updates["enable_calendar_signals"]
-        if "enable_drive_signals" in config_updates:
-            user_config["enable_drive_signals"] = config_updates["enable_drive_signals"]
+            if "vip_domains" in config_updates:
+                user_config["vip_domains"] = config_updates["vip_domains"]
+            if "vip_addresses" in config_updates:
+                user_config["vip_addresses"] = config_updates["vip_addresses"]
+            if "internal_domains" in config_updates:
+                user_config["internal_domains"] = config_updates["internal_domains"]
+            if "auto_archive_senders" in config_updates:
+                user_config["auto_archive_senders"] = config_updates["auto_archive_senders"]
+            if "tier_1_confidence_threshold" in config_updates:
+                user_config["tier_1_confidence_threshold"] = config_updates[
+                    "tier_1_confidence_threshold"
+                ]
+            if "tier_2_confidence_threshold" in config_updates:
+                user_config["tier_2_confidence_threshold"] = config_updates[
+                    "tier_2_confidence_threshold"
+                ]
+            if "enable_slack_signals" in config_updates:
+                user_config["enable_slack_signals"] = config_updates["enable_slack_signals"]
+            if "enable_calendar_signals" in config_updates:
+                user_config["enable_calendar_signals"] = config_updates["enable_calendar_signals"]
+            if "enable_drive_signals" in config_updates:
+                user_config["enable_drive_signals"] = config_updates["enable_drive_signals"]
 
-        # Reset prioritizer to pick up new config
-        _prioritizer = None
+        # Reset prioritizer to pick up new config (thread-safe)
+        with _prioritizer_lock:
+            _prioritizer = None
 
         return {
             "success": True,

@@ -35,6 +35,7 @@ import logging
 import os
 import re
 import sqlite3
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -379,41 +380,53 @@ class PostgresEmailReplyStore:
             return count
 
 
-# Lazy-loaded stores
+# Lazy-loaded stores with thread-safe initialization
 _sqlite_email_store: Optional[SQLiteEmailReplyStore] = None
+_sqlite_email_store_lock = threading.Lock()
 _postgres_email_store: Optional[PostgresEmailReplyStore] = None
+_postgres_email_store_lock = asyncio.Lock()
 
 
 def _get_sqlite_email_store() -> SQLiteEmailReplyStore:
-    """Get or create the SQLite email reply store."""
+    """Get or create the SQLite email reply store (thread-safe)."""
     global _sqlite_email_store
-    if _sqlite_email_store is None:
-        _sqlite_email_store = SQLiteEmailReplyStore()
-    return _sqlite_email_store
+    if _sqlite_email_store is not None:
+        return _sqlite_email_store
+
+    with _sqlite_email_store_lock:
+        # Double-check after acquiring lock
+        if _sqlite_email_store is None:
+            _sqlite_email_store = SQLiteEmailReplyStore()
+        return _sqlite_email_store
 
 
 async def _get_postgres_email_store() -> Optional[PostgresEmailReplyStore]:
-    """Get or create the PostgreSQL email reply store if configured."""
+    """Get or create the PostgreSQL email reply store if configured (thread-safe)."""
     global _postgres_email_store
     if _postgres_email_store is not None:
         return _postgres_email_store
 
-    # Check if PostgreSQL is configured
-    backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-    if backend not in ("postgres", "postgresql"):
-        return None
+    async with _postgres_email_store_lock:
+        # Double-check after acquiring lock
+        if _postgres_email_store is not None:
+            return _postgres_email_store
 
-    try:
-        from aragora.storage.postgres_store import get_postgres_pool
+        # Check if PostgreSQL is configured
+        backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
+        if backend not in ("postgres", "postgresql"):
+            return None
 
-        pool = await get_postgres_pool()
-        _postgres_email_store = PostgresEmailReplyStore(pool)
-        await _postgres_email_store.initialize()
-        logger.info("PostgreSQL email reply store initialized")
-        return _postgres_email_store
-    except Exception as e:
-        logger.warning(f"PostgreSQL email reply store not available: {e}")
-        return None
+        try:
+            from aragora.storage.postgres_store import get_postgres_pool
+
+            pool = await get_postgres_pool()
+            _postgres_email_store = PostgresEmailReplyStore(pool)
+            await _postgres_email_store.initialize()
+            logger.info("PostgreSQL email reply store initialized")
+            return _postgres_email_store
+        except Exception as e:
+            logger.warning(f"PostgreSQL email reply store not available: {e}")
+            return None
 
 
 def _get_postgres_email_store_sync() -> Optional[PostgresEmailReplyStore]:
@@ -535,7 +548,7 @@ def register_email_origin(
         logger.debug(f"Redis email origin storage not available: {e}")
 
     logger.debug(
-        f"Registered email origin for debate {debate_id}: {message_id} " f"(redis={redis_success})"
+        f"Registered email origin for debate {debate_id}: {message_id} (redis={redis_success})"
     )
     return origin
 
@@ -1057,20 +1070,22 @@ def verify_ses_signature(message: Dict[str, Any]) -> bool:
     return True
 
 
-# Reply handlers registry
+# Reply handlers registry with thread-safe access
 _reply_handlers: List[Callable[[InboundEmail], bool]] = []
+_reply_handlers_lock = threading.Lock()
 
 
 def register_reply_handler(handler: Callable[[InboundEmail], bool]) -> None:
     """
-    Register a custom handler for email replies.
+    Register a custom handler for email replies (thread-safe).
 
     Handlers are called in order until one returns True.
 
     Args:
         handler: Callable that takes InboundEmail and returns bool
     """
-    _reply_handlers.append(handler)
+    with _reply_handlers_lock:
+        _reply_handlers.append(handler)
 
 
 async def handle_email_reply(email_data: InboundEmail) -> bool:
@@ -1083,8 +1098,12 @@ async def handle_email_reply(email_data: InboundEmail) -> bool:
     Returns:
         True if handled
     """
+    # Take a snapshot of handlers to avoid holding lock during iteration
+    with _reply_handlers_lock:
+        handlers = list(_reply_handlers)
+
     # Try custom handlers first
-    for handler in _reply_handlers:
+    for handler in handlers:
         try:
             if handler(email_data):
                 return True
