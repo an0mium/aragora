@@ -127,7 +127,7 @@ export default function InboxPage() {
   const handleConnect = useCallback(async () => {
     try {
       // Use new email API OAuth endpoint
-      const response = await fetch(`${backendConfig.api}/api/email/gmail/oauth-url`, {
+      const response = await fetch(`${backendConfig.api}/api/email/gmail/oauth/url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -34,7 +34,7 @@ function GmailOAuthCallbackContent() {
 
       try {
         // Exchange code for tokens via our API
-        const response = await fetch(`${backendConfig.api}/api/email/gmail/callback`, {
+        const response = await fetch(`${backendConfig.api}/api/email/gmail/oauth/callback`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

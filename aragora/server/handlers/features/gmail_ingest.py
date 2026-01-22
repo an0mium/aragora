@@ -466,6 +466,12 @@ class GmailIngestHandler(SecureHandler):
         """Run email sync (background thread)."""
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            from aragora.server.stream.inbox_sync import (
+                emit_sync_start,
+                emit_sync_progress,
+                emit_sync_complete,
+                emit_sync_error,
+            )
 
             connector = GmailConnector(
                 labels=labels,
@@ -482,8 +488,26 @@ class GmailIngestHandler(SecureHandler):
             asyncio.set_event_loop(loop)
 
             try:
+                # Emit sync start event
+                loop.run_until_complete(
+                    emit_sync_start(
+                        user_id, total_messages=max_messages, phase="Fetching messages..."
+                    )
+                )
+
                 result = loop.run_until_complete(
                     connector.sync(full_sync=full_sync, max_items=max_messages)
+                )
+
+                # Emit progress event
+                loop.run_until_complete(
+                    emit_sync_progress(
+                        user_id,
+                        progress=100,
+                        messages_synced=result.items_synced,
+                        total_messages=max_messages,
+                        phase="Completing sync...",
+                    )
                 )
 
                 # Update user state
@@ -501,6 +525,9 @@ class GmailIngestHandler(SecureHandler):
                     completed_at=datetime.now(timezone.utc).isoformat(),
                 )
                 loop.run_until_complete(save_sync_job(completed_job))
+
+                # Emit sync complete event
+                loop.run_until_complete(emit_sync_complete(user_id, result.items_synced))
 
             finally:
                 loop.close()
@@ -521,6 +548,11 @@ class GmailIngestHandler(SecureHandler):
                     failed_at=datetime.now(timezone.utc).isoformat(),
                 )
                 loop.run_until_complete(save_sync_job(failed_job))
+
+                # Emit sync error event
+                from aragora.server.stream.inbox_sync import emit_sync_error
+
+                loop.run_until_complete(emit_sync_error(user_id, str(e)))
             finally:
                 loop.close()
 

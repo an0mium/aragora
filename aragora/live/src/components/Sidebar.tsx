@@ -52,6 +52,7 @@ const browseItems: NavItem[] = [
 
 // Tools section - management and configuration
 const toolsItems: NavItem[] = [
+  { label: 'Inbox', href: '/inbox', icon: '@', requiresAuth: true },
   { label: 'Documents', href: '/documents', icon: ']', minMode: 'standard' },
   { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'advanced' },
   { label: 'Connectors', href: '/connectors', icon: '<', minMode: 'advanced' },

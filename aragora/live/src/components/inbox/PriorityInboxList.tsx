@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { EmailDetailModal } from './EmailDetailModal';
 
 // Priority levels from the email prioritization service
 type EmailPriority = 'critical' | 'high' | 'medium' | 'low' | 'defer';
@@ -61,6 +62,7 @@ export function PriorityInboxList({
   const [processingTime, setProcessingTime] = useState<number | null>(null);
   const [tiersSummary, setTiersSummary] = useState<RankedInboxResponse['tiers_summary'] | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<PrioritizedEmail | null>(null);
+  const [modalEmailId, setModalEmailId] = useState<string | null>(null);
   const [filter, setFilter] = useState<EmailPriority | 'all'>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -318,26 +320,37 @@ export function PriorityInboxList({
                     </div>
                   )}
 
-                  {/* Feedback buttons */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-text-muted text-xs">Priority correct?</span>
+                  {/* Action buttons */}
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-text-muted text-xs">Priority correct?</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFeedback(email.id, true);
+                        }}
+                        className="px-2 py-1 text-xs bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFeedback(email.id, false);
+                        }}
+                        className="px-2 py-1 text-xs bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded"
+                      >
+                        No
+                      </button>
+                    </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleFeedback(email.id, true);
+                        setModalEmailId(email.id);
                       }}
-                      className="px-2 py-1 text-xs bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded"
+                      className="px-3 py-1 text-xs bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/20 rounded font-mono"
                     >
-                      👍 Yes
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleFeedback(email.id, false);
-                      }}
-                      className="px-2 py-1 text-xs bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded"
-                    >
-                      👎 No
+                      View Full Email
                     </button>
                   </div>
                 </div>
@@ -346,6 +359,18 @@ export function PriorityInboxList({
           );
         })}
       </div>
+
+      {/* Email Detail Modal */}
+      {modalEmailId && (
+        <EmailDetailModal
+          emailId={modalEmailId}
+          apiBase={apiBase}
+          userId={userId}
+          authToken={authToken}
+          onClose={() => setModalEmailId(null)}
+          onFeedback={handleFeedback}
+        />
+      )}
     </div>
   );
 }
