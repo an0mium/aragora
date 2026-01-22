@@ -71,6 +71,14 @@ except ImportError:
     HAS_HTTPX = False
 
 
+def _is_production_mode() -> bool:
+    """Check if running in production mode."""
+    import os
+
+    env = os.environ.get("ARAGORA_ENV", "").lower()
+    return env in ("production", "prod", "staging", "stage")
+
+
 class OIDCError(SSOError):
     """OIDC-specific error."""
 
@@ -194,6 +202,13 @@ class OIDCProvider(SSOProvider):
         if errors:
             raise SSOConfigurationError(
                 f"Invalid OIDC configuration: {', '.join(errors)}", {"errors": errors}
+            )
+
+        # SECURITY: Require JWT library in production for proper token validation
+        if not HAS_JWT and _is_production_mode():
+            raise SSOConfigurationError(
+                "PyJWT library required for OIDC in production. " "Install with: pip install PyJWT",
+                {"missing_dependency": "PyJWT"},
             )
 
         # PKCE state (code_verifier stored by state)

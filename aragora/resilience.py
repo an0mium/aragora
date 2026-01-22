@@ -26,6 +26,35 @@ T = TypeVar("T")
 _circuit_breakers: dict[str, "CircuitBreaker"] = {}
 _circuit_breakers_lock = threading.Lock()
 
+# Metrics callback - set by prometheus module on import
+_metrics_callback: Callable[[str, int], None] | None = None
+
+
+def set_metrics_callback(callback: Callable[[str, int], None] | None) -> None:
+    """Set the callback for circuit breaker state changes.
+
+    The callback receives (circuit_name, state) where state is:
+    - 0 = closed
+    - 1 = open
+    - 2 = half-open
+
+    This is called by the prometheus module to wire up metrics.
+    """
+    global _metrics_callback
+    _metrics_callback = callback
+    if callback:
+        logger.debug("Circuit breaker metrics callback registered")
+
+
+def _emit_metrics(circuit_name: str, state: int) -> None:
+    """Emit metrics for circuit state change."""
+    if _metrics_callback:
+        try:
+            _metrics_callback(circuit_name, state)
+        except Exception as e:
+            logger.debug(f"Error emitting circuit breaker metrics: {e}")
+
+
 # Configuration for circuit breaker pruning
 MAX_CIRCUIT_BREAKERS = 1000  # Maximum registry size before forced pruning
 STALE_THRESHOLD_SECONDS = 24 * 60 * 60  # 24 hours - prune if not accessed
@@ -432,6 +461,7 @@ class CircuitBreaker:
             if self._single_open_at == 0.0:
                 self._single_open_at = time.time()
                 logger.warning(f"Circuit breaker OPEN after {self._single_failures} failures")
+                _emit_metrics(self.name, 1)  # 1 = open
                 return True
         return False
 
@@ -446,6 +476,7 @@ class CircuitBreaker:
                 logger.warning(
                     f"Circuit breaker OPEN for {entity} after {self._failures[entity]} failures"
                 )
+                _emit_metrics(f"{self.name}:{entity}", 1)  # 1 = open
                 return True
         return False
 

@@ -505,7 +505,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             try:
                 from aragora.events.types import StreamEvent, StreamEventType
 
-                self.event_emitter.emit(  # type: ignore[unused-coroutine,arg-type]
+                self.event_emitter.emit(  # type: ignore[unused-coroutine,arg-type,misc]
                     StreamEvent(
                         type=StreamEventType.MEMORY_STORED,
                         data={
@@ -704,16 +704,16 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             params.append(content)
         if importance is not None:
             updates.append("importance = ?")
-            params.append(importance)
+            params.append(importance)  # type: ignore[arg-type]
         if metadata is not None:
             updates.append("metadata = ?")
             params.append(json.dumps(metadata))
         if surprise_score is not None:
             updates.append("surprise_score = ?")
-            params.append(surprise_score)
+            params.append(surprise_score)  # type: ignore[arg-type]
         if consolidation_score is not None:
             updates.append("consolidation_score = ?")
-            params.append(consolidation_score)
+            params.append(consolidation_score)  # type: ignore[arg-type]
 
         if not updates:
             return False
@@ -997,7 +997,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 for e in entries:
                     tier_counts[e.tier.value] = tier_counts.get(e.tier.value, 0) + 1
 
-                self.event_emitter.emit(  # type: ignore[unused-coroutine]
+                self.event_emitter.emit(  # type: ignore[unused-coroutine,arg-type]
                     StreamEvent(
                         type=StreamEventType.MEMORY_RECALL,
                         data={
@@ -1017,7 +1017,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 from aragora.events.types import StreamEventType as CrossEventType
 
                 for entry in entries:
-                    self.event_emitter.emit(  # type: ignore[unused-coroutine]
+                    self.event_emitter.emit(  # type: ignore[unused-coroutine,arg-type]
                         CrossEvent(
                             type=CrossEventType.MEMORY_RETRIEVED,
                             data={
@@ -1640,5 +1640,5 @@ def reset_continuum_memory() -> None:
     """Reset the global ContinuumMemory instance (for testing)."""
     global _global_continuum_memory
     if _global_continuum_memory:
-        _global_continuum_memory.close()
+        _global_continuum_memory.close()  # type: ignore[attr-defined]
     _global_continuum_memory = None
