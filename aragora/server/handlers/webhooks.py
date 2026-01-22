@@ -38,7 +38,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None
+    AuthorizationContext = None  # type: ignore[misc]
     check_permission = None
 
 # Import durable storage from storage module

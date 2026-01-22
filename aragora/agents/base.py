@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from aragora.agents.cli_agents import CLIAgent
 
     # Type alias for agent instances
-    Agent = Union[APIAgent, CLIAgent]
+    Agent = Union[APIAgent, CLIAgent]  # type: ignore[misc,no-redef]
 
 
 # Context window limits (in characters, ~4 chars per token)

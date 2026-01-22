@@ -4,6 +4,13 @@ PostgreSQL store implementation for Aragora.
 Provides async PostgreSQL-backed storage with connection pooling for production
 deployments that need horizontal scaling and concurrent writes.
 
+Features:
+- Connection pooling with asyncpg
+- Circuit breaker protection against pool exhaustion
+- Automatic retry with exponential backoff
+- Pool utilization metrics for monitoring
+- Backpressure signaling when pool is near capacity
+
 Usage:
     from aragora.storage.postgres_store import PostgresStore, get_postgres_pool
 
@@ -25,12 +32,21 @@ Usage:
 
     store = MyStore(pool)
     await store.initialize()
+
+    # Check pool health
+    metrics = get_pool_metrics()
+    if metrics["backpressure"]:
+        # Slow down or queue requests
+        pass
 """
 
+import asyncio
 import logging
 import os
+import time
 from abc import ABC
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Optional
 
 logger = logging.getLogger(__name__)
@@ -48,9 +64,153 @@ except ImportError:
     ASYNCPG_AVAILABLE = False
     logger.debug("asyncpg not available, PostgreSQL backend disabled")
 
+# Import circuit breaker from resilience module
+try:
+    from aragora.resilience import CircuitBreaker, CircuitOpenError, get_circuit_breaker
+
+    RESILIENCE_AVAILABLE = True
+except ImportError:
+    RESILIENCE_AVAILABLE = False
+    CircuitBreaker = None  # type: ignore[misc]
+    CircuitOpenError = Exception  # type: ignore[misc]
+    get_circuit_breaker = None
+    logger.debug("resilience module not available, circuit breaker disabled")
+
 
 # Global pool singleton
 _pool: Optional["Pool"] = None
+
+# Pool metrics tracking
+_pool_metrics: dict[str, Any] = {
+    "total_acquisitions": 0,
+    "failed_acquisitions": 0,
+    "timeouts": 0,
+    "circuit_breaker_rejections": 0,
+    "last_acquisition_time": 0.0,
+    "total_wait_time": 0.0,
+    "max_wait_time": 0.0,
+}
+
+# Pool configuration
+POOL_ACQUIRE_TIMEOUT = 10.0  # Seconds to wait for connection
+POOL_BACKPRESSURE_THRESHOLD = 0.8  # Trigger backpressure at 80% utilization
+POOL_CIRCUIT_BREAKER_THRESHOLD = 5  # Failures before opening circuit
+POOL_CIRCUIT_BREAKER_COOLDOWN = 30.0  # Seconds before retry
+
+
+@dataclass
+class PoolMetrics:
+    """Metrics for connection pool health monitoring."""
+
+    pool_size: int
+    pool_min_size: int
+    pool_max_size: int
+    free_connections: int
+    used_connections: int
+    utilization: float
+    backpressure: bool
+    total_acquisitions: int
+    failed_acquisitions: int
+    timeouts: int
+    circuit_breaker_rejections: int
+    circuit_breaker_status: str
+    avg_wait_time_ms: float
+    max_wait_time_ms: float
+
+
+class PoolExhaustedError(Exception):
+    """Raised when the connection pool is exhausted and timeout occurs."""
+
+    def __init__(self, timeout: float, utilization: float):
+        self.timeout = timeout
+        self.utilization = utilization
+        super().__init__(
+            f"Connection pool exhausted after {timeout:.1f}s timeout "
+            f"(utilization: {utilization:.1%})"
+        )
+
+
+def get_pool_metrics() -> Optional[PoolMetrics]:
+    """
+    Get current connection pool metrics for monitoring.
+
+    Returns:
+        PoolMetrics with current pool state, or None if pool not initialized.
+
+    Example:
+        metrics = get_pool_metrics()
+        if metrics and metrics.backpressure:
+            logger.warning("Pool under pressure, consider slowing requests")
+    """
+    global _pool, _pool_metrics
+
+    if _pool is None:
+        return None
+
+    pool_size = _pool.get_size()
+    pool_min = _pool.get_min_size()
+    pool_max = _pool.get_max_size()
+    free = _pool.get_idle_size()
+    used = pool_size - free
+    utilization = used / pool_max if pool_max > 0 else 0.0
+
+    # Calculate average wait time
+    total_acq = _pool_metrics["total_acquisitions"]
+    avg_wait = (_pool_metrics["total_wait_time"] / total_acq * 1000) if total_acq > 0 else 0.0
+
+    # Get circuit breaker status
+    cb_status = "closed"
+    if RESILIENCE_AVAILABLE and get_circuit_breaker:
+        cb = get_circuit_breaker(
+            "postgres_pool",
+            failure_threshold=POOL_CIRCUIT_BREAKER_THRESHOLD,
+            cooldown_seconds=POOL_CIRCUIT_BREAKER_COOLDOWN,
+        )
+        cb_status = cb.get_status()
+
+    return PoolMetrics(
+        pool_size=pool_size,
+        pool_min_size=pool_min,
+        pool_max_size=pool_max,
+        free_connections=free,
+        used_connections=used,
+        utilization=utilization,
+        backpressure=utilization >= POOL_BACKPRESSURE_THRESHOLD,
+        total_acquisitions=_pool_metrics["total_acquisitions"],
+        failed_acquisitions=_pool_metrics["failed_acquisitions"],
+        timeouts=_pool_metrics["timeouts"],
+        circuit_breaker_rejections=_pool_metrics["circuit_breaker_rejections"],
+        circuit_breaker_status=cb_status,
+        avg_wait_time_ms=avg_wait,
+        max_wait_time_ms=_pool_metrics["max_wait_time"] * 1000,
+    )
+
+
+def is_pool_healthy() -> bool:
+    """
+    Quick health check for the connection pool.
+
+    Returns:
+        True if pool is healthy (not under backpressure and circuit is closed).
+    """
+    metrics = get_pool_metrics()
+    if metrics is None:
+        return False
+    return not metrics.backpressure and metrics.circuit_breaker_status == "closed"
+
+
+def reset_pool_metrics() -> None:
+    """Reset pool metrics (for testing)."""
+    global _pool_metrics
+    _pool_metrics = {
+        "total_acquisitions": 0,
+        "failed_acquisitions": 0,
+        "timeouts": 0,
+        "circuit_breaker_rejections": 0,
+        "last_acquisition_time": 0.0,
+        "total_wait_time": 0.0,
+        "max_wait_time": 0.0,
+    }
 
 
 async def get_postgres_pool(
@@ -181,6 +341,122 @@ async def close_postgres_pool() -> None:
         logger.info("PostgreSQL pool closed")
 
 
+@asynccontextmanager
+async def acquire_connection_resilient(
+    pool: "Pool",
+    timeout: float = POOL_ACQUIRE_TIMEOUT,
+    retries: int = 3,
+    backoff_base: float = 0.5,
+) -> AsyncGenerator["Connection", None]:
+    """
+    Acquire a connection from the pool with resilience patterns.
+
+    Features:
+    - Timeout on connection acquisition
+    - Circuit breaker to fail fast when pool is overwhelmed
+    - Exponential backoff retry on transient failures
+    - Metrics collection for monitoring
+
+    Args:
+        pool: asyncpg connection pool
+        timeout: Max seconds to wait for a connection (default 10)
+        retries: Number of retry attempts (default 3)
+        backoff_base: Base delay for exponential backoff (default 0.5s)
+
+    Yields:
+        asyncpg Connection
+
+    Raises:
+        PoolExhaustedError: If pool is exhausted after retries
+        CircuitOpenError: If circuit breaker is open
+
+    Example:
+        pool = await get_postgres_pool()
+        async with acquire_connection_resilient(pool) as conn:
+            await conn.fetch("SELECT 1")
+    """
+    global _pool_metrics
+
+    # Check circuit breaker first
+    circuit_breaker = None
+    if RESILIENCE_AVAILABLE and get_circuit_breaker:
+        circuit_breaker = get_circuit_breaker(
+            "postgres_pool",
+            failure_threshold=POOL_CIRCUIT_BREAKER_THRESHOLD,
+            cooldown_seconds=POOL_CIRCUIT_BREAKER_COOLDOWN,
+        )
+        if not circuit_breaker.can_proceed():
+            _pool_metrics["circuit_breaker_rejections"] += 1
+            cooldown = circuit_breaker.cooldown_remaining()
+            raise CircuitOpenError("postgres_pool", cooldown)
+
+    last_error: Optional[Exception] = None
+    start_time = time.time()
+
+    for attempt in range(retries):
+        try:
+            acquire_start = time.time()
+
+            # asyncpg's acquire() supports timeout parameter
+            async with asyncio.timeout(timeout):
+                async with pool.acquire() as conn:
+                    # Track successful acquisition
+                    wait_time = time.time() - acquire_start
+                    _pool_metrics["total_acquisitions"] += 1
+                    _pool_metrics["total_wait_time"] += wait_time
+                    _pool_metrics["max_wait_time"] = max(_pool_metrics["max_wait_time"], wait_time)
+                    _pool_metrics["last_acquisition_time"] = time.time()
+
+                    # Record success with circuit breaker
+                    if circuit_breaker:
+                        circuit_breaker.record_success()
+
+                    yield conn
+                    return
+
+        except asyncio.TimeoutError:
+            _pool_metrics["timeouts"] += 1
+            _pool_metrics["failed_acquisitions"] += 1
+            last_error = PoolExhaustedError(
+                timeout=timeout,
+                utilization=pool.get_size() / pool.get_max_size()
+                if pool.get_max_size() > 0
+                else 1.0,
+            )
+
+            if circuit_breaker:
+                circuit_breaker.record_failure()
+
+            logger.warning(
+                f"Connection pool timeout (attempt {attempt + 1}/{retries}), "
+                f"pool utilization: {pool.get_size()}/{pool.get_max_size()}"
+            )
+
+        except Exception as e:
+            _pool_metrics["failed_acquisitions"] += 1
+            last_error = e
+
+            if circuit_breaker:
+                circuit_breaker.record_failure()
+
+            logger.warning(f"Connection acquisition error (attempt {attempt + 1}/{retries}): {e}")
+
+        # Exponential backoff before retry (except on last attempt)
+        if attempt < retries - 1:
+            delay = backoff_base * (2**attempt)
+            await asyncio.sleep(delay)
+
+    # All retries exhausted
+    total_time = time.time() - start_time
+    logger.error(
+        f"Connection acquisition failed after {retries} attempts " f"({total_time:.2f}s total)"
+    )
+
+    if last_error:
+        raise last_error
+    raise PoolExhaustedError(timeout=timeout, utilization=1.0)
+
+
 class PostgresStore(ABC):
     """
     Base class for PostgreSQL-backed stores with schema management.
@@ -222,18 +498,31 @@ class PostgresStore(ABC):
     SCHEMA_VERSION: int = 1
     INITIAL_SCHEMA: str = ""
 
-    def __init__(self, pool: "Pool"):
+    def __init__(
+        self,
+        pool: "Pool",
+        use_resilient: bool = True,
+        acquire_timeout: float = POOL_ACQUIRE_TIMEOUT,
+        acquire_retries: int = 3,
+    ):
         """
         Initialize the store with a connection pool.
 
         Args:
             pool: asyncpg connection pool (from get_postgres_pool())
+            use_resilient: Whether to use resilient connection acquisition with
+                          circuit breaker, timeouts, and retries (default True)
+            acquire_timeout: Timeout in seconds for connection acquisition (default 10)
+            acquire_retries: Number of retries on acquisition failure (default 3)
         """
         if not ASYNCPG_AVAILABLE:
             raise RuntimeError("asyncpg is required for PostgresStore")
 
         self._pool = pool
         self._initialized = False
+        self._use_resilient = use_resilient
+        self._acquire_timeout = acquire_timeout
+        self._acquire_retries = acquire_retries
 
         # Validate subclass configuration
         if not self.SCHEMA_NAME:
@@ -320,12 +609,25 @@ class PostgresStore(ABC):
         Context manager for database operations.
 
         Acquires a connection from the pool and returns it after use.
+        Uses resilient acquisition with circuit breaker and retries if enabled.
 
         Yields:
             asyncpg Connection for database operations
+
+        Raises:
+            PoolExhaustedError: If pool is exhausted (when use_resilient=True)
+            CircuitOpenError: If circuit breaker is open (when use_resilient=True)
         """
-        async with self._pool.acquire() as conn:
-            yield conn
+        if self._use_resilient:
+            async with acquire_connection_resilient(
+                self._pool,
+                timeout=self._acquire_timeout,
+                retries=self._acquire_retries,
+            ) as conn:
+                yield conn
+        else:
+            async with self._pool.acquire() as conn:
+                yield conn
 
     @asynccontextmanager
     async def transaction(self) -> AsyncGenerator["Connection", None]:
@@ -333,13 +635,27 @@ class PostgresStore(ABC):
         Context manager for transactional operations.
 
         Starts a transaction and commits on success, rolls back on error.
+        Uses resilient acquisition with circuit breaker and retries if enabled.
 
         Yields:
             asyncpg Connection within a transaction
+
+        Raises:
+            PoolExhaustedError: If pool is exhausted (when use_resilient=True)
+            CircuitOpenError: If circuit breaker is open (when use_resilient=True)
         """
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                yield conn
+        if self._use_resilient:
+            async with acquire_connection_resilient(
+                self._pool,
+                timeout=self._acquire_timeout,
+                retries=self._acquire_retries,
+            ) as conn:
+                async with conn.transaction():
+                    yield conn
+        else:
+            async with self._pool.acquire() as conn:
+                async with conn.transaction():
+                    yield conn
 
     # =========================================================================
     # Common Query Helpers
@@ -517,5 +833,15 @@ __all__ = [
     "get_postgres_pool",
     "get_postgres_pool_from_settings",
     "close_postgres_pool",
+    "acquire_connection_resilient",
+    "get_pool_metrics",
+    "is_pool_healthy",
+    "reset_pool_metrics",
+    "PoolMetrics",
+    "PoolExhaustedError",
     "ASYNCPG_AVAILABLE",
+    "POOL_ACQUIRE_TIMEOUT",
+    "POOL_BACKPRESSURE_THRESHOLD",
+    "POOL_CIRCUIT_BREAKER_THRESHOLD",
+    "POOL_CIRCUIT_BREAKER_COOLDOWN",
 ]
