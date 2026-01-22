@@ -149,10 +149,7 @@ class TestRegisterDebateOrigin:
         db_path = tmp_path / "test.db"
         mock_store = SQLiteOriginStore(str(db_path))
 
-        with patch(
-            "aragora.server.debate_origin._get_sqlite_store",
-            return_value=mock_store
-        ):
+        with patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store):
             origin = register_debate_origin(
                 debate_id="persist-test",
                 platform="slack",
@@ -172,10 +169,7 @@ class TestRegisterDebateOrigin:
         mock_store = MagicMock()
         mock_store.save.side_effect = Exception("DB error")
 
-        with patch(
-            "aragora.server.debate_origin._get_sqlite_store",
-            return_value=mock_store
-        ):
+        with patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store):
             # Should not raise
             origin = register_debate_origin(
                 debate_id="error-test",
@@ -228,10 +222,7 @@ class TestGetDebateOrigin:
         )
         mock_store.save(sqlite_origin)
 
-        with patch(
-            "aragora.server.debate_origin._get_sqlite_store",
-            return_value=mock_store
-        ):
+        with patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store):
             result = get_debate_origin("sqlite-origin")
 
         assert result is not None
@@ -244,10 +235,7 @@ class TestGetDebateOrigin:
         mock_store = MagicMock()
         mock_store.get.return_value = None
 
-        with patch(
-            "aragora.server.debate_origin._get_sqlite_store",
-            return_value=mock_store
-        ):
+        with patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store):
             result = get_debate_origin("nonexistent")
 
         assert result is None
@@ -278,9 +266,11 @@ class TestMarkResultSent:
         _origin_store["mark-test"] = origin
         mock_store.save(origin)
 
-        with patch(
-            "aragora.server.debate_origin._get_sqlite_store",
-            return_value=mock_store
+        with (
+            patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store),
+            patch(
+                "aragora.server.debate_origin._store_origin_redis",
+            ),
         ):
             mark_result_sent("mark-test")
 
