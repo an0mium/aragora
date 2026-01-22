@@ -28,7 +28,7 @@ export function HeroSection({
         {ASCII_BANNER}
       </pre>
 
-      <h1 className="text-2xl sm:text-4xl font-mono text-center mb-4 text-text">
+      <h1 className="text-xl sm:text-3xl font-mono text-center mb-4 text-text">
         Control plane for multi-agent deliberation
       </h1>
 
@@ -46,7 +46,7 @@ export function HeroSection({
         </div>
       </div>
 
-      <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-10 max-w-xl">
+      <p className="text-acid-cyan font-mono text-xs sm:text-sm text-center mb-10 max-w-xl">
         Orchestrate AI models across your org knowledge and channels. Get defensible decisions with audit trails.
       </p>
 
