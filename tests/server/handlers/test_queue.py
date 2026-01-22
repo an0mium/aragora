@@ -42,9 +42,11 @@ class MockJob:
         self,
         id: str = "job-123",
         status: MockJobStatus = MockJobStatus.PENDING,
+        job_type: str = "debate",
         created_at: float = 1704067200.0,  # 2024-01-01 00:00:00
         started_at: Optional[float] = None,
         completed_at: Optional[float] = None,
+        failed_at: Optional[float] = None,
         attempts: int = 0,
         max_attempts: int = 3,
         priority: int = 0,
@@ -55,7 +57,9 @@ class MockJob:
     ):
         self.id = id
         self.status = status
+        self.job_type = job_type
         self.created_at = created_at
+        self.failed_at = failed_at
         self.started_at = started_at
         self.completed_at = completed_at
         self.attempts = attempts
@@ -102,6 +106,13 @@ class MockQueue:
             "stream_length": 111,
             "pending_in_group": 5,
         }
+
+    async def list_jobs(self, status=None, limit: int = 100, offset: int = 0) -> List[MockJob]:
+        """List jobs, optionally filtered by status."""
+        jobs = list(self.jobs.values())
+        if status is not None:
+            jobs = [j for j in jobs if j.status == status]
+        return jobs[offset : offset + limit]
 
 
 def create_mock_handler(
@@ -488,3 +499,114 @@ class TestWorkerStatus:
             body = get_body(result)
             assert "workers" in body
             assert body["total"] == 2
+
+
+class TestDeadLetterQueue:
+    """Tests for dead-letter queue (DLQ) endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_dlq(self, queue_handler, mock_queue):
+        """Should list failed jobs in DLQ."""
+        # Add a failed job with max retries exceeded
+        mock_queue.jobs["dlq-job-1"] = MockJob(
+            id="dlq-job-1",
+            status=MockJobStatus.FAILED,
+            attempts=3,
+            max_attempts=3,
+        )
+
+        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+            with patch("aragora.queue.JobStatus", MockJobStatus):
+                result = await queue_handler.handle("/api/queue/dlq", "GET")
+
+                assert get_status(result) == 200
+                body = get_body(result)
+                assert "jobs" in body
+                assert "total" in body
+
+    @pytest.mark.asyncio
+    async def test_list_dlq_queue_unavailable(self, queue_handler):
+        """Should return 503 when queue unavailable."""
+        with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+            result = await queue_handler.handle("/api/queue/dlq", "GET")
+
+            assert get_status(result) == 503
+
+    @pytest.mark.asyncio
+    async def test_requeue_dlq_job(self, queue_handler, mock_queue):
+        """Should requeue a specific DLQ job."""
+        mock_queue.jobs["dlq-job-1"] = MockJob(
+            id="dlq-job-1",
+            status=MockJobStatus.FAILED,
+            attempts=3,
+            max_attempts=3,
+        )
+
+        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+            with patch("aragora.queue.JobStatus", MockJobStatus):
+                result = await queue_handler.handle("/api/queue/dlq/dlq-job-1/requeue", "POST")
+
+                assert get_status(result) == 200
+                body = get_body(result)
+                assert body["status"] == "pending"
+
+    @pytest.mark.asyncio
+    async def test_requeue_dlq_job_not_found(self, queue_handler, mock_queue):
+        """Should return 404 for missing DLQ job."""
+        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+            with patch("aragora.queue.JobStatus", MockJobStatus):
+                result = await queue_handler.handle("/api/queue/dlq/nonexistent/requeue", "POST")
+
+                assert get_status(result) == 404
+
+    @pytest.mark.asyncio
+    async def test_requeue_dlq_job_not_in_dlq(self, queue_handler, mock_queue):
+        """Should reject requeue of non-DLQ job."""
+        mock_queue.jobs["job-123"] = MockJob(
+            id="job-123",
+            status=MockJobStatus.PENDING,
+        )
+
+        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+            with patch("aragora.queue.JobStatus", MockJobStatus):
+                result = await queue_handler.handle("/api/queue/dlq/job-123/requeue", "POST")
+
+                assert get_status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_requeue_all_dlq(self, queue_handler, mock_queue):
+        """Should requeue all DLQ jobs."""
+        mock_queue.jobs["dlq-job-1"] = MockJob(
+            id="dlq-job-1",
+            status=MockJobStatus.FAILED,
+            attempts=3,
+            max_attempts=3,
+        )
+        mock_queue.jobs["dlq-job-2"] = MockJob(
+            id="dlq-job-2",
+            status=MockJobStatus.FAILED,
+            attempts=3,
+            max_attempts=3,
+        )
+
+        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+            with patch("aragora.queue.JobStatus", MockJobStatus):
+                result = await queue_handler.handle("/api/queue/dlq/requeue", "POST")
+
+                assert get_status(result) == 200
+                body = get_body(result)
+                assert "requeued" in body
+
+    @pytest.mark.asyncio
+    async def test_requeue_all_dlq_queue_unavailable(self, queue_handler):
+        """Should return 503 when queue unavailable."""
+        with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+            result = await queue_handler.handle("/api/queue/dlq/requeue", "POST")
+
+            assert get_status(result) == 503
+
+    def test_handles_dlq_endpoints(self, queue_handler):
+        """Should recognize DLQ endpoints."""
+        assert queue_handler.can_handle("/api/queue/dlq") is True
+        assert queue_handler.can_handle("/api/queue/dlq/requeue") is True
+        assert queue_handler.can_handle("/api/queue/dlq/job-123/requeue") is True
