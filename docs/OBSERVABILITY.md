@@ -10,6 +10,8 @@ This guide covers distributed tracing, metrics, and monitoring for Aragora deplo
 - [Grafana Dashboards](#grafana-dashboards)
 - [Local Development](#local-development)
 - [Production Setup](#production-setup)
+- [Cross-Pollination Metrics](#cross-pollination-metrics)
+- [Platform Integration Metrics](#platform-integration-metrics)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -447,6 +449,93 @@ rate(aragora_consensus_evidence_linked_total[5m])
 - `aragora_km_cache_hits_total` - KM query cache hits
 - `aragora_consensus_evidence_linked_total` - Evidence linked to consensus
 
+### Platform Integration Metrics
+
+Metrics for chat platform integrations (Slack, Discord, Teams, Telegram, WhatsApp, Matrix).
+
+```promql
+# Request success rate by platform
+sum by (platform) (rate(aragora_platform_requests_total{status="success"}[5m])) /
+sum by (platform) (rate(aragora_platform_requests_total[5m]))
+
+# Platform latency P95
+histogram_quantile(0.95, rate(aragora_platform_request_latency_seconds_bucket[5m]))
+
+# Dead letter queue pending messages
+aragora_dlq_pending
+```
+
+**Platform Request Metrics:**
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_platform_requests_total` | Counter | platform, operation, status | Total platform API requests |
+| `aragora_platform_request_latency_seconds` | Histogram | platform, operation | Request latency by platform |
+| `aragora_platform_errors_total` | Counter | platform, error_type | Platform errors by type |
+
+**Circuit Breaker Metrics:**
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_platform_circuit_state` | Gauge | platform, state | Circuit breaker state (0=closed, 1=open, 2=half-open) |
+
+**Dead Letter Queue Metrics:**
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_dlq_enqueued_total` | Counter | platform | Messages enqueued to DLQ |
+| `aragora_dlq_processed_total` | Counter | platform | Messages successfully reprocessed |
+| `aragora_dlq_failed_total` | Counter | platform | Messages that exceeded retry limit |
+| `aragora_dlq_pending` | Gauge | platform | Current pending messages in DLQ |
+| `aragora_dlq_retry_latency_seconds` | Histogram | platform | Time between retries |
+
+**Rate Limiting Metrics:**
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_platform_rate_limit_total` | Counter | platform, result | Rate limit checks (allowed/blocked) |
+
+**Webhook Delivery Metrics:**
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_webhook_delivery_total` | Counter | platform, status | Webhook delivery attempts |
+| `aragora_webhook_retry_total` | Counter | platform | Webhook retries |
+
+**Bot Command Metrics:**
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `aragora_bot_command_total` | Counter | platform, command, status | Bot command processing |
+| `aragora_bot_command_latency_seconds` | Histogram | platform, command | Command processing time |
+| `aragora_bot_command_timeout_total` | Counter | platform, command | Command timeouts |
+
+#### Platform Health Endpoint
+
+Check platform health via the `/api/platform/health` endpoint:
+
+```bash
+curl http://localhost:8080/api/platform/health | jq
+```
+
+Response includes:
+- Rate limiter status per platform
+- Circuit breaker states
+- DLQ statistics
+- Prometheus metrics availability
+
+#### Platform-Specific Rate Limits
+
+| Platform | RPM | Burst | Daily Limit |
+|----------|-----|-------|-------------|
+| Slack | 10 | 5 | - |
+| Discord | 30 | 10 | - |
+| Teams | 10 | 5 | - |
+| Telegram | 20 | 5 | - |
+| WhatsApp | 5 | 2 | 100 |
+| Matrix | 10 | 5 | - |
+| Email | 10 | 3 | 500 |
+
 ### Recommended Alerting Rules
 
 ```yaml
@@ -470,6 +559,44 @@ groups:
           severity: warning
         annotations:
           summary: Agent calibration error (ECE) above 15%
+
+  - name: platform-integration
+    rules:
+      - alert: PlatformCircuitOpen
+        expr: aragora_platform_circuit_state == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Platform {{ $labels.platform }} circuit breaker is OPEN"
+          description: "Platform API is unavailable, messages will be queued to DLQ"
+
+      - alert: HighDLQPending
+        expr: aragora_dlq_pending > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DLQ has {{ $value }} pending messages for {{ $labels.platform }}"
+
+      - alert: PlatformHighErrorRate
+        expr: |
+          sum by (platform) (rate(aragora_platform_requests_total{status="error"}[5m])) /
+          sum by (platform) (rate(aragora_platform_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Platform {{ $labels.platform }} error rate above 10%"
+
+      - alert: PlatformHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(aragora_platform_request_latency_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Platform P95 latency above 5 seconds"
 ```
 
 ---
