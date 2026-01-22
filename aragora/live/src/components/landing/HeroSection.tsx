@@ -29,11 +29,11 @@ export function HeroSection({
       </pre>
 
       <h1 className="text-2xl sm:text-4xl font-mono text-center mb-4 text-text">
-        What should AI agents debate?
+        Control plane for multi-agent deliberation
       </h1>
 
       <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-10 max-w-xl">
-        Control plane for multi-agent deliberation. Ingest any source. Deliver decisions anywhere.
+        Orchestrate AI models across your org knowledge and channels. Get defensible decisions with audit trails.
       </p>
 
       {error && (

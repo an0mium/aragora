@@ -2,11 +2,11 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useLayout } from '@/context/LayoutContext';
 import { useCommandPalette } from '@/context/CommandPaletteContext';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { API_BASE_URL } from '@/config';
 
 export function TopBar() {
   const { isMobile, toggleLeftSidebar, toggleRightSidebar, rightSidebarOpen } = useLayout();
@@ -15,18 +15,24 @@ export function TopBar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 h-12 bg-[var(--surface)] border-b border-[var(--border)] z-50 flex items-center px-3 gap-3">
-      {/* Left section: Menu + Logo */}
+      {/* Left section: Logo (clickable to toggle sidebar) + Title */}
       <div className="flex items-center gap-2">
-        {/* Hamburger menu */}
+        {/* Aragora logo - toggles sidebar on click */}
         <button
           onClick={toggleLeftSidebar}
-          className="p-2 hover:bg-[var(--surface-elevated)] rounded transition-colors"
+          className="p-1.5 hover:bg-[var(--surface-elevated)] rounded transition-colors"
           aria-label="Toggle navigation menu"
         >
-          <span className="text-[var(--text-muted)] font-mono">☰</span>
+          <Image
+            src="/aragora-logo.png"
+            alt="Aragora"
+            width={28}
+            height={28}
+            className="rounded"
+          />
         </button>
 
-        {/* Logo */}
+        {/* Title link */}
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <span className="text-[var(--acid-green)] font-mono font-bold text-lg tracking-tight">
             ARAGORA
@@ -85,14 +91,14 @@ export function TopBar() {
             </button>
           </div>
         ) : (
-          <a
-            href={`${API_BASE_URL}/api/auth/oauth/google?redirect_url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/auth/callback' : '')}`}
+          <Link
+            href="/auth/login"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20 border border-[var(--accent)]/30 rounded-md transition-colors"
-            title="Login with Google"
+            title="Login"
           >
             <span className="text-[var(--accent)] font-mono text-sm">→</span>
             <span className="text-[var(--accent)] text-xs font-medium hidden sm:inline">Login</span>
-          </a>
+          </Link>
         )}
       </div>
     </header>

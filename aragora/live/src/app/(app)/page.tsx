@@ -27,6 +27,7 @@ import { useProgressiveMode } from '@/context/ProgressiveModeContext';
 import { UseCaseGuide } from '@/components/ui/UseCaseGuide';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { useLayout } from '@/context/LayoutContext';
+import { HeroSection } from '@/components/landing/HeroSection';
 import type { NomicState } from '@/types/events';
 import { DashboardFooter } from './components';
 
@@ -438,21 +439,16 @@ export default function Home() {
 
       {/* Main Content - Wider container */}
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        {/* Error Banner */}
-        {error && (
-          <div className="bg-warning/10 border border-warning/30 p-3 sm:p-4 flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-warning">⚠</span>
-              <span className="text-warning">{error}</span>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-warning hover:text-warning/80 px-2"
-            >
-              ✕
-            </button>
-          </div>
-        )}
+        {/* Hero Section with ASCII Art and Debate Input */}
+        <HeroSection
+          error={error}
+          activeDebateId={currentDebateId}
+          activeQuestion={debateTitle}
+          apiBase={apiBase}
+          onDismissError={() => setError(null)}
+          onDebateStarted={(debateId) => router.push(`/debate/${debateId}`)}
+          onError={setError}
+        />
 
         {/* Phase Progress */}
         <PhaseProgress events={events} currentPhase={currentPhase} />
