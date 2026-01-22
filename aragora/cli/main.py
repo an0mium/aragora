@@ -1055,6 +1055,21 @@ def cmd_mcp_server(args: argparse.Namespace) -> None:
         )
 
 
+def cmd_marketplace(args: argparse.Namespace) -> None:
+    """Handle 'marketplace' command - manage agent templates."""
+    from aragora.cli.marketplace import marketplace
+
+    # Build args list from parsed args
+    click_args = []
+    if hasattr(args, "subcommand") and args.subcommand:
+        click_args.append(args.subcommand)
+    if hasattr(args, "args") and args.args:
+        click_args.extend(args.args)
+
+    # Call click command
+    marketplace(click_args, standalone_mode=False)
+
+
 def cmd_memory(args: argparse.Namespace) -> None:
     """Handle 'memory' command - inspect ContinuumMemory tiers."""
     from aragora.memory.continuum import ContinuumMemory, MemoryTier
@@ -1782,6 +1797,24 @@ Configure in claude_desktop_config.json:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     mcp_parser.set_defaults(func=cmd_mcp_server)
+
+    # Marketplace command (uses Click for subcommands)
+    marketplace_parser = subparsers.add_parser(
+        "marketplace",
+        help="Manage agent template marketplace",
+        description="List, search, import, and export agent templates. Use 'aragora marketplace --help' for subcommands.",
+    )
+    marketplace_parser.add_argument(
+        "subcommand",
+        nargs="?",
+        help="Subcommand (list, search, get, export, import, categories, rate, use)",
+    )
+    marketplace_parser.add_argument(
+        "args",
+        nargs=argparse.REMAINDER,
+        help="Subcommand arguments",
+    )
+    marketplace_parser.set_defaults(func=cmd_marketplace)
 
     args = parser.parse_args()
 
