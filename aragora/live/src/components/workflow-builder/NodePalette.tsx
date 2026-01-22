@@ -1,6 +1,6 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import { NODE_TYPE_CONFIGS, type WorkflowStepType } from './types';
 
 interface NodePaletteProps {

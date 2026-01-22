@@ -240,20 +240,18 @@ class TestDiscordDeleteMessage:
         mock_response.status_code = 204
         mock_response.raise_for_status = MagicMock()
 
-        mock_client_instance = MagicMock()
-        mock_client_instance.delete = AsyncMock(return_value=mock_response)
-        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_instance = mock_client.return_value.__aenter__.return_value
+            mock_instance.delete = AsyncMock(return_value=mock_response)
 
-        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             result = await connector.delete_message(
                 channel_id="456",
                 message_id="123",
             )
 
             # Verify DELETE was called
-            mock_client_instance.delete.assert_called_once()
-            call_url = mock_client_instance.delete.call_args[0][0]
+            mock_instance.delete.assert_called_once()
+            call_url = mock_instance.delete.call_args[0][0]
             assert "/channels/456/messages/123" in call_url
 
         assert result is True
@@ -265,12 +263,10 @@ class TestDiscordDeleteMessage:
 
         connector = DiscordConnector(bot_token="test-token")
 
-        mock_client_instance = MagicMock()
-        mock_client_instance.delete = AsyncMock(side_effect=Exception("Not found"))
-        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
-        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_instance = mock_client.return_value.__aenter__.return_value
+            mock_instance.delete = AsyncMock(side_effect=Exception("Not found"))
 
-        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             result = await connector.delete_message(
                 channel_id="456",
                 message_id="invalid",
