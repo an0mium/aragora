@@ -85,7 +85,6 @@ export function WorkspaceManager({
   // Map to component types
   const workspaces = hookWorkspaces.map(mapToComponentWorkspace);
   const selectedWorkspace = hookSelectedWorkspace ? mapToComponentWorkspace(hookSelectedWorkspace) : null;
-  const selectedWorkspaceId = selectedWorkspace?.id || currentWorkspaceId;
 
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showCreateModal, setShowCreateModal] = useState(false);

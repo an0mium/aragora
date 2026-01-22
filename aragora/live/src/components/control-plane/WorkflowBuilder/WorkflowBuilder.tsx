@@ -30,7 +30,6 @@ export function WorkflowBuilder({
   className = '',
 }: WorkflowBuilderProps) {
   const [showTemplates, setShowTemplates] = useState(false);
-  const [, setShowConfig] = useState(true);
   const [selectedNode, setSelectedNode] = useState<StepDefinition | null>(null);
 
   // Workflow builder hook
