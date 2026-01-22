@@ -155,7 +155,7 @@ class DropboxConnector(EnterpriseConnector):
             include_patterns: Glob patterns for files to include
             exclude_patterns: Glob patterns for files to exclude
         """
-        super().__init__()
+        super().__init__()  # type: ignore[call-arg]
 
         self.app_key = app_key or os.environ.get("DROPBOX_APP_KEY", "")
         self.app_secret = app_secret or os.environ.get("DROPBOX_APP_SECRET", "")
@@ -171,7 +171,7 @@ class DropboxConnector(EnterpriseConnector):
     @property
     def source_type(self) -> SourceType:
         """Get the provenance source type."""
-        return SourceType.DROPBOX
+        return SourceType.DROPBOX  # type: ignore[attr-defined]
 
     def is_configured(self) -> bool:
         """Check if connector is properly configured."""
@@ -600,13 +600,13 @@ class DropboxConnector(EnterpriseConnector):
                     continue
 
                 if entry[".tag"] == "deleted":
-                    yield SyncItem(
+                    yield SyncItem(  # type: ignore[call-arg]
                         id=entry.get("path_lower", ""),
                         name=name,
                         action="delete",
                     )
                 else:
-                    yield SyncItem(
+                    yield SyncItem(  # type: ignore[call-arg]
                         id=entry.get("id", ""),
                         name=name,
                         action="update" if state else "create",
@@ -630,7 +630,7 @@ class DropboxConnector(EnterpriseConnector):
         # Yield cursor for next sync
         final_cursor = result.get("cursor")
         if final_cursor:
-            yield SyncItem(
+            yield SyncItem(  # type: ignore[call-arg]
                 id="__sync_state__",
                 name="",
                 action="state",

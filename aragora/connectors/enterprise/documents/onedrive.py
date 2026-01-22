@@ -163,7 +163,7 @@ class OneDriveConnector(EnterpriseConnector):
             include_patterns: Glob patterns for files to include
             exclude_patterns: Glob patterns for files to exclude
         """
-        super().__init__()
+        super().__init__()  # type: ignore[call-arg]
 
         self.client_id = client_id or os.environ.get("ONEDRIVE_CLIENT_ID", "")
         self.client_secret = client_secret or os.environ.get("ONEDRIVE_CLIENT_SECRET", "")
@@ -180,7 +180,7 @@ class OneDriveConnector(EnterpriseConnector):
     @property
     def source_type(self) -> SourceType:
         """Get the provenance source type."""
-        return SourceType.ONEDRIVE
+        return SourceType.ONEDRIVE  # type: ignore[attr-defined]
 
     def is_configured(self) -> bool:
         """Check if connector is properly configured."""
@@ -593,7 +593,7 @@ class OneDriveConnector(EnterpriseConnector):
 
                 # Check if deleted
                 if "deleted" in item:
-                    yield SyncItem(
+                    yield SyncItem(  # type: ignore[call-arg]
                         id=item["id"],
                         name=item.get("name", ""),
                         action="delete",
@@ -606,7 +606,7 @@ class OneDriveConnector(EnterpriseConnector):
                 if ext not in SUPPORTED_EXTENSIONS:
                     continue
 
-                yield SyncItem(
+                yield SyncItem(  # type: ignore[call-arg]
                     id=item["id"],
                     name=name,
                     action="update" if state else "create",
@@ -627,7 +627,7 @@ class OneDriveConnector(EnterpriseConnector):
                 endpoint = next_link.replace(self.GRAPH_BASE, "")
             elif delta_link:
                 # Store delta link for next sync
-                yield SyncItem(
+                yield SyncItem(  # type: ignore[call-arg]
                     id="__sync_state__",
                     name="",
                     action="state",

@@ -131,7 +131,7 @@ if LANGCHAIN_AVAILABLE:
 else:
 
     @dataclass
-    class AragoraToolInput:
+    class AragoraToolInput:  # type: ignore[no-redef]
         """Input schema for Aragora tool (standalone version)."""
 
         question: str
@@ -382,16 +382,16 @@ class AragoraRetriever(BaseRetriever):
         self.min_confidence = min_confidence
         self.include_metadata = include_metadata
 
-    def _get_relevant_documents(self, query: str) -> List[Document]:
+    def _get_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
         """Retrieve relevant documents synchronously."""
         return asyncio.run(self._aget_relevant_documents(query))
 
     # Alias for LangChain compatibility
-    def get_relevant_documents(self, query: str) -> List[Document]:
+    def get_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
         """Retrieve relevant documents (LangChain interface)."""
         return self._get_relevant_documents(query)
 
-    async def _aget_relevant_documents(self, query: str) -> List[Document]:
+    async def _aget_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
         """Retrieve relevant documents asynchronously."""
         import aiohttp
 
@@ -426,7 +426,7 @@ class AragoraRetriever(BaseRetriever):
             return []
 
     # Alias for LangChain compatibility
-    async def aget_relevant_documents(self, query: str) -> List[Document]:
+    async def aget_relevant_documents(self, query: str) -> List[Document]:  # type: ignore[override]
         """Retrieve relevant documents async (LangChain interface)."""
         return await self._aget_relevant_documents(query)
 
@@ -523,7 +523,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
             except json.JSONDecodeError:
                 self._on_debate_end({"raw_output": output})
 
-    def on_tool_error(
+    def on_tool_error(  # type: ignore[override]
         self,
         error: Union[Exception, KeyboardInterrupt],
         **kwargs,
@@ -532,7 +532,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         if self.verbose:
             logger.error(f"Aragora debate error: {error}")
         if self._on_error:
-            self._on_error(error)
+            self._on_error(error)  # type: ignore[arg-type]
 
 
 # =============================================================================
@@ -590,7 +590,7 @@ def create_aragora_chain(
             "aragora_knowledge",
             "Search Aragora's knowledge base for relevant information and past debate insights.",
         )
-        tools.append(retriever_tool)
+        tools.append(retriever_tool)  # type: ignore[arg-type]
 
     # Create prompt
     prompt = ChatPromptTemplate.from_messages(

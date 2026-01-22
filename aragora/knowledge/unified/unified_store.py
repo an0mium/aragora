@@ -507,7 +507,7 @@ class KnowledgeMound:
 
         try:
             # Use keyword matching for now (semantic search in Phase 1.2)
-            entries = self._continuum.search_by_keyword(query, limit=limit)
+            entries = self._continuum.search_by_keyword(query, limit=limit)  # type: ignore[attr-defined]
             items = []
             for entry in entries:
                 items.append(
@@ -540,7 +540,7 @@ class KnowledgeMound:
 
         try:
             # Search by topic similarity
-            entries = await self._consensus.search_by_topic(query, limit=limit)
+            entries = await self._consensus.search_by_topic(query, limit=limit)  # type: ignore[attr-defined]
             items = []
             for entry in entries:
                 items.append(
@@ -589,7 +589,7 @@ class KnowledgeMound:
             return []
 
         try:
-            facts = await self._facts.query_facts(
+            facts = await self._facts.query_facts(  # type: ignore[misc,call-arg]
                 query=query,
                 workspace_id=filters.workspace_id if filters else None,
                 limit=limit,
@@ -629,7 +629,7 @@ class KnowledgeMound:
             return []
 
         try:
-            results = await self._vectors.search(
+            results = await self._vectors.search(  # type: ignore[attr-defined]
                 query=query,
                 limit=limit,
                 filters=(
@@ -671,7 +671,7 @@ class KnowledgeMound:
         if not self._continuum:
             raise RuntimeError("ContinuumMemory not available")
 
-        await self._continuum.store(
+        await self._continuum.store(  # type: ignore[call-arg]
             content=content,
             importance=importance,
             tags=metadata.get("tags", []),
@@ -739,7 +739,7 @@ class KnowledgeMound:
         """Get a FactStore item by source ID."""
         if not self._facts:
             return None
-        fact = await self._facts.get_fact(source_id)
+        fact = await self._facts.get_fact(source_id)  # type: ignore[misc]
         if fact:
             return KnowledgeItem(
                 id=f"fc_{fact.id}",

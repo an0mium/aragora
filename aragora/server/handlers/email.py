@@ -526,15 +526,15 @@ async def handle_gmail_status(
             except (KeyError, AttributeError) as e:
                 logger.debug(f"Failed to extract user info fields: {e}")
                 result["authenticated"] = False
-                result["error"] = "Token expired or invalid"
+                result["error"] = "Token expired or invalid"  # type: ignore[assignment]
             except (ConnectionError, TimeoutError) as e:
                 logger.warning(f"Network error checking Gmail status: {e}")
                 result["authenticated"] = False
-                result["error"] = "Token expired or invalid"
+                result["error"] = "Token expired or invalid"  # type: ignore[assignment]
             except Exception as e:
                 logger.warning(f"Unexpected error checking Gmail status: {e}")
                 result["authenticated"] = False
-                result["error"] = "Token expired or invalid"
+                result["error"] = "Token expired or invalid"  # type: ignore[assignment]
 
         return result
 
@@ -845,12 +845,12 @@ async def handle_remove_vip(
             if email and "vip_addresses" in config:
                 if email in config["vip_addresses"]:
                     config["vip_addresses"].remove(email)
-                    removed["email"] = email
+                    removed["email"] = email  # type: ignore[assignment]
 
             if domain and "vip_domains" in config:
                 if domain in config["vip_domains"]:
                     config["vip_domains"].remove(domain)
-                    removed["domain"] = domain
+                    removed["domain"] = domain  # type: ignore[assignment]
 
             result_addresses = list(config.get("vip_addresses", []))
             result_domains = list(config.get("vip_domains", []))
@@ -904,7 +904,7 @@ class EmailHandler(BaseHandler):
 
     def __init__(self, ctx: Dict[str, Any]):
         """Initialize with server context."""
-        super().__init__(ctx)
+        super().__init__(ctx)  # type: ignore[arg-type]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""

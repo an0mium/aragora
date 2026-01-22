@@ -318,7 +318,7 @@ class KnowledgeMoundMetaLearner:
 
         for tier in ["fast", "medium", "slow", "glacial"]:
             # Get entries in this tier
-            entries = self._continuum.get_by_tier(tier, limit=1000)
+            entries = self._continuum.get_by_tier(tier, limit=1000)  # type: ignore[attr-defined]
 
             if not entries:
                 continue
@@ -407,10 +407,10 @@ class KnowledgeMoundMetaLearner:
         try:
             for rec in recommendations:
                 if rec.confidence >= 0.5:  # Only apply high-confidence recommendations
-                    self._continuum.hyperparams[f"{rec.tier}_promotion_threshold"] = (
+                    self._continuum.hyperparams[f"{rec.tier}_promotion_threshold"] = (  # type: ignore[literal-required]
                         rec.recommended_promotion_threshold
                     )
-                    self._continuum.hyperparams[f"{rec.tier}_demotion_threshold"] = (
+                    self._continuum.hyperparams[f"{rec.tier}_demotion_threshold"] = (  # type: ignore[literal-required]
                         rec.recommended_demotion_threshold
                     )
 

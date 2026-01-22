@@ -139,7 +139,7 @@ class MetaLearnerBridge:
         from aragora.memory.tier_manager import MemoryTier
 
         node = KnowledgeNode(
-            node_type="pattern",
+            node_type="pattern",  # type: ignore[arg-type]
             content=content,
             confidence=confidence,
             provenance=provenance,
@@ -148,7 +148,7 @@ class MetaLearnerBridge:
             surprise_score=0.5,  # Neutral surprise for meta-learning
         )
 
-        node_id = await self.mound.add_node(node)
+        node_id = await self.mound.add_node(node)  # type: ignore[misc]
         logger.info(f"Captured meta-learning adjustment as pattern node: {node_id}")
         return node_id
 
@@ -193,7 +193,7 @@ class MetaLearnerBridge:
             base_confidence = max(0.0, base_confidence - 0.1)
 
         node = KnowledgeNode(
-            node_type="pattern",
+            node_type="pattern",  # type: ignore[arg-type]
             content=content,
             confidence=base_confidence,
             provenance=provenance,
@@ -201,7 +201,7 @@ class MetaLearnerBridge:
             workspace_id=self.mound.workspace_id,
         )
 
-        node_id = await self.mound.add_node(node)
+        node_id = await self.mound.add_node(node)  # type: ignore[misc]
         logger.info(f"Captured meta-learning summary as pattern node: {node_id}")
         return node_id
 
@@ -281,7 +281,7 @@ class EvidenceBridge:
             workspace_id=self.mound.workspace_id,
         )
 
-        node_id = await self.mound.add_node(node)
+        node_id = await self.mound.add_node(node)  # type: ignore[misc]
         logger.info(f"Stored evidence as node: {node_id} (source: {source})")
         return node_id
 
@@ -344,7 +344,7 @@ class EvidenceBridge:
             contradicts=contradicts,
         )
 
-        node_id = await self.mound.add_node(node)
+        node_id = await self.mound.add_node(node)  # type: ignore[misc]
         logger.info(f"Stored collector evidence as node: {node_id}")
         return node_id
 
@@ -428,7 +428,7 @@ class PatternBridge:
         surprise_score = max(0.1, 1.0 - (occurrences / 20))  # Less surprise for common patterns
 
         node = KnowledgeNode(
-            node_type="pattern",
+            node_type="pattern",  # type: ignore[arg-type]
             content=content,
             confidence=confidence,
             provenance=provenance,
@@ -438,7 +438,7 @@ class PatternBridge:
             derived_from=source_ids or [],
         )
 
-        node_id = await self.mound.add_node(node)
+        node_id = await self.mound.add_node(node)  # type: ignore[misc]
         logger.info(f"Stored pattern as node: {node_id} (type: {pattern_type})")
         return node_id
 

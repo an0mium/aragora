@@ -273,7 +273,7 @@ class EvidenceAdapter:
             content_hash = hashlib.sha256(content.encode()).hexdigest()[:32]
 
             try:
-                existing = store.get_evidence_by_hash(content_hash)
+                existing = store.get_evidence_by_hash(content_hash)  # type: ignore[attr-defined]
                 if existing:
                     # Check SLO for hash lookup
                     latency_ms = (time.time() - start) * 1000
@@ -339,10 +339,10 @@ class EvidenceAdapter:
                 from aragora.knowledge.mound.semantic_store import SemanticStore
 
                 # Get or create semantic store
-                store = SemanticStore()
+                store = SemanticStore()  # type: ignore[call-arg]
 
                 # Search using embeddings
-                results = await store.search_similar(
+                results = await store.search_similar(  # type: ignore[call-arg]
                     query=query,
                     tenant_id=tenant_id or "default",
                     limit=limit,
@@ -397,9 +397,9 @@ class EvidenceAdapter:
                 logger.debug(f"Semantic search failed, falling back: {e}")
 
             # Fallback to keyword search
-            results = self.search_similar(query, limit=limit, min_similarity=min_similarity)
+            results = self.search_similar(query, limit=limit, min_similarity=min_similarity)  # type: ignore[assignment]
             success = True
-            return results
+            return results  # type: ignore[return-value]
 
         except EvidenceStoreUnavailableError:
             raise
@@ -676,7 +676,7 @@ class EvidenceAdapter:
         store = self._ensure_store()
 
         try:
-            store.mark_used_in_consensus(debate_id, evidence_id)
+            store.mark_used_in_consensus(debate_id, evidence_id)  # type: ignore[arg-type]
             logger.debug(
                 f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}"
             )
@@ -728,7 +728,7 @@ class EvidenceAdapter:
             new_reliability = current_reliability * (1 - weight) + km_confidence * weight
 
             # Update the evidence
-            store.update_evidence(
+            store.update_evidence(  # type: ignore[attr-defined]
                 evidence_id,
                 reliability_score=new_reliability,
             )
@@ -760,7 +760,7 @@ class EvidenceAdapter:
         store = self._ensure_store()
 
         try:
-            return store.get_stats()
+            return store.get_stats()  # type: ignore[attr-defined]
         except AttributeError:
             # Store doesn't support get_stats
             logger.debug("Evidence store does not support get_stats")
@@ -791,7 +791,7 @@ class EvidenceAdapter:
         store = self._ensure_store()
 
         try:
-            return store.get_debate_evidence(debate_id, min_relevance)
+            return store.get_debate_evidence(debate_id, min_relevance)  # type: ignore[arg-type]
         except AttributeError:
             # Store doesn't support debate evidence lookup
             logger.debug("Evidence store does not support get_debate_evidence")

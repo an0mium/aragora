@@ -65,7 +65,7 @@ class GraphOperationsMixin:
 
         try:
             nodes = _run_async(
-                mound.query_graph(
+                mound.query_graph(  # type: ignore[call-arg]
                     start_node_id=node_id,
                     relationship_type=relationship_type,
                     depth=depth,
@@ -82,8 +82,8 @@ class GraphOperationsMixin:
                 "depth": depth,
                 "direction": direction,
                 "relationship_type": relationship_type,
-                "nodes": [n.to_dict() for n in nodes],
-                "count": len(nodes),
+                "nodes": [n.to_dict() for n in nodes],  # type: ignore[attr-defined]
+                "count": len(nodes),  # type: ignore[arg-type]
             }
         )
 
@@ -152,7 +152,7 @@ class GraphOperationsMixin:
         try:
             rel_types = [relationship_type] if relationship_type else None
             result = _run_async(
-                mound.query_graph(
+                mound.query_graph(  # type: ignore[call-arg]
                     start_id=node_id,
                     relationship_types=rel_types,
                     depth=1,

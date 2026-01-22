@@ -72,9 +72,7 @@ class ArenaDelegation:
         processed_cruxes = None
         if belief_cruxes:
             processed_cruxes = [str(c) for c in belief_cruxes[:10]]
-        self._checkpoint_ops.store_debate_outcome(
-            result, task, belief_cruxes=processed_cruxes
-        )
+        self._checkpoint_ops.store_debate_outcome(result, task, belief_cruxes=processed_cruxes)
 
     def store_evidence(self, evidence_snippets: list, task: str) -> None:
         """Store evidence. Delegates to CheckpointOperations."""
@@ -149,11 +147,11 @@ class ArenaDelegation:
 
     def format_role_assignments_for_log(self) -> str:
         """Format role assignments for log. Delegates to RolesManager."""
-        return self._roles_manager.format_role_assignments_for_log()
+        return self._roles_manager.format_role_assignments_for_log()  # type: ignore[attr-defined]
 
     def log_role_assignments(self, round_num: int) -> None:
         """Log role assignments. Delegates to RolesManager."""
-        self._roles_manager.log_role_assignments(round_num)
+        self._roles_manager.log_role_assignments(round_num)  # type: ignore[attr-defined]
 
     def update_role_assignments(self, round_num: int) -> None:
         """Update role assignments. Delegates to RolesManager."""
@@ -180,7 +178,7 @@ class ArenaDelegation:
     ) -> None:
         """Record grounded position. Delegates to GroundedOperations."""
         if self._grounded_ops:
-            self._grounded_ops.record_position(
+            self._grounded_ops.record_position(  # type: ignore[call-arg]
                 agent_name=agent_name,
                 position_text=position_text,
                 round_num=round_num,
@@ -190,23 +188,21 @@ class ArenaDelegation:
     def create_grounded_verdict(self, result: "DebateResult") -> Any:
         """Create grounded verdict. Delegates to GroundedOperations."""
         if self._grounded_ops:
-            return self._grounded_ops.create_verdict(result)
+            return self._grounded_ops.create_verdict(result)  # type: ignore[attr-defined]
         return None
 
     # ==================== Knowledge Operations ====================
 
-    async def fetch_knowledge_context(
-        self, task: str, limit: int = 10
-    ) -> Optional[str]:
+    async def fetch_knowledge_context(self, task: str, limit: int = 10) -> Optional[str]:
         """Fetch knowledge context. Delegates to KnowledgeMoundOperations."""
         if self._knowledge_ops:
-            return await self._knowledge_ops.fetch_context(task, limit=limit)
+            return await self._knowledge_ops.fetch_context(task, limit=limit)  # type: ignore[attr-defined]
         return None
 
     async def ingest_debate_outcome(self, result: "DebateResult") -> None:
         """Ingest debate outcome into knowledge. Delegates to KnowledgeMoundOperations."""
         if self._knowledge_ops:
-            await self._knowledge_ops.ingest_outcome(result)
+            await self._knowledge_ops.ingest_outcome(result)  # type: ignore[attr-defined]
 
     # ==================== Prompt Building ====================
 

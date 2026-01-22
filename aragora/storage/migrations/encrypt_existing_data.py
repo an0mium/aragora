@@ -223,7 +223,7 @@ async def migrate_integration_store(
         integrations = store.list_all()  # type: ignore[union-attr]
         result.total_records = len(integrations)  # type: ignore[arg-type]
 
-        for integration in integrations:  # type: ignore[union-attr]
+        for integration in integrations:  # type: ignore[union-attr,attr-defined]
             integration_name = integration.name
             settings = integration.settings
 

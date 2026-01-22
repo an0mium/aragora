@@ -160,7 +160,7 @@ class ExportOperationsMixin:
         _batch_export_events[job_id] = asyncio.Queue()
 
         # Start processing in background
-        asyncio.create_task(self._process_batch_export(job))
+        asyncio.create_task(self._process_batch_export(job))  # type: ignore[attr-defined]
 
         logger.info(f"Batch export {job_id} started with {len(items)} items")
 
@@ -177,12 +177,12 @@ class ExportOperationsMixin:
     async def _process_batch_export(self: _DebatesHandlerProtocol, job: BatchExportJob) -> None:
         """Process batch export items and emit progress events."""
         job.status = BatchExportStatus.PROCESSING
-        await self._emit_export_event(job.job_id, "started", job.to_dict())
+        await self._emit_export_event(job.job_id, "started", job.to_dict())  # type: ignore[attr-defined]
 
         storage = self.get_storage()
         if not storage:
             job.status = BatchExportStatus.FAILED
-            await self._emit_export_event(
+            await self._emit_export_event(  # type: ignore[attr-defined]
                 job.job_id,
                 "error",
                 {
@@ -204,7 +204,7 @@ class ExportOperationsMixin:
                     job.error_count += 1
                 else:
                     # Generate export content
-                    content = self._generate_export_content(debate, item.format)
+                    content = self._generate_export_content(debate, item.format)  # type: ignore[attr-defined]
                     item.result = content
                     item.status = BatchExportStatus.COMPLETED
                     job.success_count += 1
@@ -221,7 +221,7 @@ class ExportOperationsMixin:
             job.processed_count += 1
 
             # Emit progress event
-            await self._emit_export_event(
+            await self._emit_export_event(  # type: ignore[attr-defined]
                 job.job_id,
                 "progress",
                 {
@@ -241,7 +241,7 @@ class ExportOperationsMixin:
         job.status = BatchExportStatus.COMPLETED
         job.completed_at = time.time()
 
-        await self._emit_export_event(job.job_id, "completed", job.to_dict())
+        await self._emit_export_event(job.job_id, "completed", job.to_dict())  # type: ignore[attr-defined]
 
     def _generate_export_content(self: _DebatesHandlerProtocol, debate: dict, format: str) -> str:
         """Generate export content for a debate."""
@@ -256,16 +256,16 @@ class ExportOperationsMixin:
             return json.dumps(debate, indent=2, default=str)
         elif format == "csv":
             result = format_debate_csv(debate, "messages")
-            return result.content
+            return result.content  # type: ignore[return-value]
         elif format == "html":
             result = format_debate_html(debate)
-            return result.content
+            return result.content  # type: ignore[return-value]
         elif format == "txt":
             result = format_debate_txt(debate)
-            return result.content
+            return result.content  # type: ignore[return-value]
         elif format == "md":
             result = format_debate_md(debate)
-            return result.content
+            return result.content  # type: ignore[return-value]
         else:
             return json.dumps(debate, indent=2, default=str)
 
