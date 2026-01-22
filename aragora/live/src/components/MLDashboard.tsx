@@ -65,7 +65,7 @@ interface MLDashboardProps {
   apiBase: string;
 }
 
-export function MLDashboard({ apiBase }: MLDashboardProps) {
+export function MLDashboard({ apiBase: _apiBase }: MLDashboardProps) {
   const [capabilities, setCapabilities] = useState<MLCapabilities | null>(null);
   const [stats, setStats] = useState<MLStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);

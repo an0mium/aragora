@@ -203,7 +203,7 @@ export function MediaUpload({
   }, [allExtensions, uploadDocument, uploadMedia]);
 
   // Handle voice recording completion
-  const handleRecordingComplete = useCallback(async (audioBlob: Blob, duration: number) => {
+  const handleRecordingComplete = useCallback(async (audioBlob: Blob, _duration: number) => {
     setUploading(true);
     setError(null);
 
@@ -302,7 +302,7 @@ export function MediaUpload({
     });
   };
 
-  const getSourceIcon = (source: UploadedMedia['source']) => {
+  const _getSourceIcon = (source: UploadedMedia['source']) => {
     switch (source) {
       case 'upload': return null;
       case 'recording': return 'mic';
@@ -310,7 +310,7 @@ export function MediaUpload({
     }
   };
 
-  const getFileIcon = (filename: string, source?: string) => {
+  const _getFileIcon = (filename: string, source?: string) => {
     if (source === 'youtube') return 'play';
     if (source === 'recording') return 'mic';
 

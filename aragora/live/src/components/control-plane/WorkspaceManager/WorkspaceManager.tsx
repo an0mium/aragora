@@ -113,19 +113,6 @@ export function WorkspaceManager({
     return 'bg-acid-green';
   };
 
-  const getRoleColor = (role: WorkspaceMember['role']) => {
-    switch (role) {
-      case 'owner':
-        return 'text-acid-green';
-      case 'admin':
-        return 'text-cyan-400';
-      case 'member':
-        return 'text-text';
-      case 'viewer':
-        return 'text-text-muted';
-    }
-  };
-
   const getVerticalIcon = (vertical?: string) => {
     const icons: Record<string, string> = {
       software: '&#x1F4BB;',

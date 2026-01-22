@@ -95,7 +95,7 @@ export function CloudStoragePicker({
   ]);
 
   const [activeProvider, setActiveProvider] = useState<CloudProvider | null>(null);
-  const [currentPath, setCurrentPath] = useState<string>('/');
+  const [, setCurrentPath] = useState<string>('/');
   const [files, setFiles] = useState<CloudFile[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<CloudFile[]>([]);
   const [loading, setLoading] = useState(false);

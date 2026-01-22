@@ -10,7 +10,7 @@
  * - Interactive node selection and details
  */
 
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import * as d3 from 'd3-force';
 import * as d3Select from 'd3-selection';
 import { zoom as d3Zoom } from 'd3-zoom';

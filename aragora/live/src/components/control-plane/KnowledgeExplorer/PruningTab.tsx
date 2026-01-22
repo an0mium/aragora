@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePruning, type PrunableItem, type PruningAction, type PruneHistoryEntry } from '@/hooks/usePruning';
+import { usePruning, type PruningAction } from '@/hooks/usePruning';
 
 export interface PruningTabProps {
   workspaceId?: string;

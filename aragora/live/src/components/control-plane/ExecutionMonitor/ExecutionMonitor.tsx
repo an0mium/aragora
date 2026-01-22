@@ -55,7 +55,7 @@ export function ExecutionMonitor({
     loadExecutions,
   } = useWorkflowExecution({
     autoConnect,
-    onApprovalRequired: (request) => {
+    onApprovalRequired: (_request) => {
       // Auto-switch to approvals tab when new approval comes in
       if (activeTab !== 'approvals') {
         // Could show a notification instead

@@ -59,7 +59,7 @@ const STATUS_STYLES: Record<ScheduleStatus, { bg: string; text: string; dot: str
   error: { bg: 'bg-red-500/10', text: 'text-red-400', dot: 'bg-red-500' },
 };
 
-export function SchedulerDashboard({ apiBase }: SchedulerDashboardProps) {
+export function SchedulerDashboard({ apiBase: _apiBase }: SchedulerDashboardProps) {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [status, setStatus] = useState<SchedulerStatus | null>(null);
   const [loading, setLoading] = useState(true);

@@ -11,10 +11,9 @@ import { NodeBrowser } from './NodeBrowser';
 import { GraphViewer } from './GraphViewer';
 import { StaleKnowledgeTab, type StaleNode } from './StaleKnowledgeTab';
 import { SharedWithMeTab, type SharedItem } from './SharedWithMeTab';
-import { FederationStatus, type FederatedRegion } from './FederationStatus';
+import { FederationStatus } from './FederationStatus';
 import { ShareDialog, type ShareGrant } from './ShareDialog';
-import { VisibilitySelector, type VisibilityLevel } from './VisibilitySelector';
-import { AccessGrantsList, type AccessGrant } from './AccessGrantsList';
+import type { VisibilityLevel } from './VisibilitySelector';
 import type { KnowledgeNode, GraphNode } from '@/store/knowledgeExplorerStore';
 
 export type ExplorerTab = 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation';
@@ -47,7 +46,6 @@ export interface KnowledgeExplorerProps {
  * Provides search, browse, and graph visualization modes.
  */
 export function KnowledgeExplorer({
-  initialTab = 'search',
   onSelectNode,
   height = 500,
   showStats = true,
@@ -55,7 +53,6 @@ export function KnowledgeExplorer({
   isAdmin = false,
   workspaceId,
   availableWorkspaces = [],
-  onVisibilityChange,
   onShare,
 }: KnowledgeExplorerProps) {
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -146,11 +143,6 @@ export function KnowledgeExplorer({
     [onSelectNode]
   );
 
-  // Handle share button click
-  const handleShareClick = useCallback((node: KnowledgeNode) => {
-    setSelectedNodeForShare(node);
-    setShareDialogOpen(true);
-  }, []);
 
   // Handle share dialog submit
   const handleShare = useCallback(

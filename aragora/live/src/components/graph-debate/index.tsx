@@ -6,7 +6,7 @@ import { Skeleton } from '../Skeleton';
 import { useGraphDebateWebSocket } from '@/hooks/useGraphDebateWebSocket';
 import { API_BASE_URL } from '@/config';
 
-import type { GraphDebate, DebateNode } from './types';
+import type { GraphDebate } from './types';
 import { getBranchColor, getBranchBgColor } from './utils';
 import { GraphVisualization } from './GraphVisualization';
 import { NodeDetailPanel } from './NodeDetailPanel';
@@ -70,7 +70,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
             prev.map(d => d.debate_id === data.debate_id ? data : d)
           );
         }
-      } catch (e) {
+      } catch {
         // Ignore refresh errors
       }
     };
@@ -95,7 +95,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
               prev.map(d => d.debate_id === data.debate_id ? data : d)
             );
           }
-        } catch (e) {
+        } catch {
           // Ignore refresh errors
         }
       };
@@ -106,7 +106,6 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
   const fetchDebates = useCallback(async () => {
     try {
       setLoading(true);
-      const apiUrl = API_BASE_URL;
       // For now, we'll show a placeholder since the API stores in memory
       // In production, this would fetch from storage
       setDebates([]);

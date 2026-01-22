@@ -58,7 +58,7 @@ interface SelectionDashboardProps {
   apiBase: string;
 }
 
-export function SelectionDashboard({ apiBase }: SelectionDashboardProps) {
+export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProps) {
   const [plugins, setPlugins] = useState<PluginsList | null>(null);
   const [defaults, setDefaults] = useState<Defaults | null>(null);
   const [loading, setLoading] = useState(true);

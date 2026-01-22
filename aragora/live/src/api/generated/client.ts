@@ -3,6 +3,7 @@
  * DO NOT EDIT - regenerate with: npm run generate:sdk
  */
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type * as Types from './types';
 import type {
   // Debate types

@@ -43,7 +43,7 @@ function getSeverityBg(severity: number): string {
   return 'bg-text-muted';
 }
 
-export function CritiqueSeverityMeter({ events, agents }: CritiqueSeverityMeterProps) {
+export function CritiqueSeverityMeter({ events, _agents }: CritiqueSeverityMeterProps) {
   const { critiques, avgSeverity, maxSeverity, critiquesByAgent } = useMemo(() => {
     const critiqueList: CritiqueData[] = [];
 

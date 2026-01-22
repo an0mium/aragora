@@ -256,7 +256,7 @@ export const KMAdapterActivity: React.FC<KMAdapterActivityProps> = ({
           };
           setActivity((prev) => [newEvent, ...prev].slice(0, maxActivityItems));
         }
-      } catch (e) {
+      } catch {
         // Ignore invalid messages
       }
     };

@@ -35,7 +35,7 @@ export function RoleBadge({ role, cognitiveRole, size = 'md' }: RoleBadgeProps) 
     color: 'bg-surface text-text-muted border-border',
   };
 
-  const config = cognitiveConfig || debateConfig;
+  const _config = cognitiveConfig || debateConfig;
   const sizeClasses = size === 'sm' ? 'text-xs px-1.5 py-0.5' : 'text-sm px-2 py-1';
 
   return (

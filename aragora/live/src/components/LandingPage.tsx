@@ -17,7 +17,7 @@ interface LandingPageProps {
   onEnterDashboard?: () => void;
 }
 
-export function LandingPage({ apiBase, wsUrl, onDebateStarted, onEnterDashboard }: LandingPageProps) {
+export function LandingPage({ apiBase, wsUrl: _wsUrl, onDebateStarted, onEnterDashboard }: LandingPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeDebateId, setActiveDebateId] = useState<string | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);

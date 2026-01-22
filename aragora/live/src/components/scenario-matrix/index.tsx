@@ -89,7 +89,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
             const data = await response.json();
             setResult(data);
           }
-        } catch (e) {
+        } catch {
           // Ignore refresh errors
         }
       };

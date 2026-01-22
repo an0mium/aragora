@@ -34,7 +34,7 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
         } else {
           setError('Failed to fetch contrary views');
         }
-      } catch (e) {
+      } catch {
         setError('Network error');
       } finally {
         setLoading(false);

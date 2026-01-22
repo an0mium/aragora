@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useDedup, type DuplicateCluster, type DedupReport } from '@/hooks/useDedup';
+import { useDedup } from '@/hooks/useDedup';
 
 export interface DedupTabProps {
   workspaceId?: string;

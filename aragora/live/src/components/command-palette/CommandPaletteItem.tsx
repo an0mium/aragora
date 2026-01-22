@@ -1,6 +1,6 @@
 'use client';
 
-import type { SearchResult, RecentItem, QuickAction, SearchCategory } from './types';
+import type { SearchResult, RecentItem, QuickAction } from './types';
 
 interface CommandPaletteItemProps {
   item: SearchResult | RecentItem | QuickAction;

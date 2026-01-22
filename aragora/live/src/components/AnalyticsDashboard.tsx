@@ -358,7 +358,7 @@ export function AnalyticsDashboard() {
           <h2 className="text-lg font-mono text-acid-green mb-3">{'>'} FINDINGS TREND (30D)</h2>
           <div className="border border-acid-green/30 bg-surface p-4 rounded">
             <div className="flex items-end gap-1 h-20">
-              {trends.slice(-14).map((day, i) => {
+              {trends.slice(-14).map((day) => {
                 const maxFindings = Math.max(...trends.map((t) => t.findings_count), 1);
                 const height = (day.findings_count / maxFindings) * 100;
 

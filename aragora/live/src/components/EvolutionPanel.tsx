@@ -88,7 +88,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
   const [genomes, setGenomes] = useState<Genome[]>([]);
   const [events, setEvents] = useState<GenesisEvent[]>([]);
   const [patterns, setPatterns] = useState<EvolutionPattern[]>([]);
-  const [abTests, setAbTests] = useState<ABTest[]>([]);
+  const [, setAbTests] = useState<ABTest[]>([]);
   const [selectedGenome, setSelectedGenome] = useState<Genome | null>(null);
 
   const fetchStats = useCallback(async () => {

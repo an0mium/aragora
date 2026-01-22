@@ -40,28 +40,9 @@ const DOC_TYPES = {
   'text/markdown': '.md',
 };
 
-// Audio MIME types
-const AUDIO_TYPES = {
-  'audio/mpeg': '.mp3',
-  'audio/mp4': '.m4a',
-  'audio/wav': '.wav',
-  'audio/webm': '.webm',
-};
-
-// Video MIME types
-const VIDEO_TYPES = {
-  'video/mp4': '.mp4',
-  'video/webm': '.webm',
-  'video/quicktime': '.mov',
-};
-
 const DOC_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.markdown'];
 const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.webm'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov'];
-
-// Combined for backwards compatibility
-const ACCEPTED_TYPES = { ...DOC_TYPES };
-const ACCEPTED_EXTENSIONS = DOC_EXTENSIONS;
 
 // Max sizes
 const MAX_DOC_SIZE_MB = 10;

@@ -65,7 +65,7 @@ export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPan
         } else {
           setError('Failed to fetch risk warnings');
         }
-      } catch (e) {
+      } catch {
         setError('Network error');
       } finally {
         setLoading(false);

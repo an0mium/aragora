@@ -151,7 +151,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
   }, [apiBase, loopId, selectedDomain]);
 
   // Legacy fallback kept as separate function for testing
-  const fetchDataLegacy = useCallback(async () => {
+  const _fetchDataLegacy = useCallback(async () => {
     const errors: Record<string, string> = {};
     const endpoints = [
       { key: 'rankings', url: `${apiBase}/api/leaderboard?limit=10${loopId ? `&loop_id=${loopId}` : ''}${selectedDomain ? `&domain=${selectedDomain}` : ''}` },

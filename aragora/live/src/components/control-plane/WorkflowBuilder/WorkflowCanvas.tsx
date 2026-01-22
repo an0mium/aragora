@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 // Extend SVG element to include D3 zoom state
 interface SVGElementWithZoom extends SVGSVGElement {
@@ -11,9 +11,7 @@ import * as d3Zoom from 'd3-zoom';
 import * as d3Drag from 'd3-drag';
 import {
   useWorkflowBuilderStore,
-  type StepDefinition,
   type StepType,
-  type Position,
 } from '@/store/workflowBuilderStore';
 
 export interface WorkflowCanvasProps {

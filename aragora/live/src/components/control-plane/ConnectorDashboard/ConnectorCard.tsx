@@ -39,19 +39,6 @@ export interface ConnectorCardProps {
   compact?: boolean;
 }
 
-const CONNECTOR_ICONS: Record<ConnectorType, string> = {
-  github: '/icons/github.svg',
-  s3: '/icons/aws.svg',
-  sharepoint: '/icons/sharepoint.svg',
-  postgresql: '/icons/postgresql.svg',
-  mongodb: '/icons/mongodb.svg',
-  confluence: '/icons/confluence.svg',
-  notion: '/icons/notion.svg',
-  slack: '/icons/slack.svg',
-  fhir: '/icons/fhir.svg',
-  gdrive: '/icons/gdrive.svg',
-};
-
 const CONNECTOR_COLORS: Record<ConnectorType, string> = {
   github: '#181717',
   s3: '#FF9900',

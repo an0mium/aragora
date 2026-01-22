@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { DEFAULT_AGENTS, DEFAULT_ROUNDS, AGENT_DISPLAY_NAMES } from '@/config';
+import { DEFAULT_AGENTS, DEFAULT_ROUNDS } from '@/config';
 
 interface DebateInputProps {
   apiBase: string;

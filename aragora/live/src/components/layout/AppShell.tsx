@@ -14,7 +14,6 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const {
     leftSidebarOpen,
-    leftSidebarCollapsed,
     rightSidebarOpen,
     isMobile,
     leftSidebarWidth,

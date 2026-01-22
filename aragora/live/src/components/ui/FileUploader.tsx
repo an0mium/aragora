@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, DragEvent } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 export interface UploadFile {
   file: File;

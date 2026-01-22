@@ -33,8 +33,6 @@ export function PolicyDashboard({
     riskScore,
     openViolations,
     criticalViolations,
-    updateViolationStatus,
-    refetch: refetchViolations,
   } = usePolicies({ autoLoad: true });
 
   const [activeTab, setActiveTab] = useState<PolicyTab>(defaultTab);

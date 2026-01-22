@@ -90,7 +90,7 @@ export function FindingDetailDrawer({ finding, isOpen, onClose, onUpdate }: Prop
   const { config: backendConfig } = useBackend();
   const { tokens, user } = useAuth();
   const [workflow, setWorkflow] = useState<WorkflowData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [, _setLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [showAssign, setShowAssign] = useState(false);
   const [assignUserId, setAssignUserId] = useState('');

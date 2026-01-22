@@ -37,7 +37,7 @@ function GitHubIcon() {
 export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, _setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProviders = async () => {
@@ -51,7 +51,7 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
           // No OAuth providers configured - this is OK
           setProviders([]);
         }
-      } catch (err) {
+      } catch {
         // API not available - hide social buttons
         setProviders([]);
       } finally {

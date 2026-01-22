@@ -10,14 +10,6 @@ interface AsciiCardProps {
   glow?: boolean;
 }
 
-// Box-drawing characters for different styles
-const CORNERS = {
-  default: { tl: '+', tr: '+', bl: '+', br: '+', h: '-', v: '|' },
-  rounded: { tl: '.', tr: '.', bl: "'", br: "'", h: '-', v: '|' },
-  double: { tl: '#', tr: '#', bl: '#', br: '#', h: '=', v: '|' },
-  unicode: { tl: '\u250C', tr: '\u2510', bl: '\u2514', br: '\u2518', h: '\u2500', v: '\u2502' },
-};
-
 export function AsciiCard({
   children,
   title,

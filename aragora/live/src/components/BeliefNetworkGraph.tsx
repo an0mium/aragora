@@ -94,7 +94,7 @@ export function BeliefNetworkGraph({
 
       // Initialize node positions
       if (json.nodes) {
-        const initializedNodes = json.nodes.map((node: BeliefNode, i: number) => ({
+        const initializedNodes = json.nodes.map((node: BeliefNode) => ({
           ...node,
           x: width / 2 + (Math.random() - 0.5) * 200,
           y: height / 2 + (Math.random() - 0.5) * 200,

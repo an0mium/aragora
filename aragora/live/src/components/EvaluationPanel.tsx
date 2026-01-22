@@ -55,7 +55,7 @@ interface EvaluationPanelProps {
   apiBase: string;
 }
 
-export function EvaluationPanel({ apiBase }: EvaluationPanelProps) {
+export function EvaluationPanel({ apiBase: _apiBase }: EvaluationPanelProps) {
   const [dimensions, setDimensions] = useState<Dimension[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);

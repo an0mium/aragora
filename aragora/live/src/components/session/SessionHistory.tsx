@@ -22,7 +22,6 @@ export function SessionHistory({ className = '' }: SessionHistoryProps) {
     revokeAllOtherSessions,
     fetchSessions,
     getLastActivityAge,
-    getSessionAge,
     isSessionExpired,
   } = useSession();
 

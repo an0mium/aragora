@@ -77,7 +77,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('rating');
   const [selectedTemplate, setSelectedTemplate] = useState<MarketplaceTemplate | null>(null);
-  const [templateReviews, setTemplateReviews] = useState<TemplateReview[]>([]);
+  const [, _setTemplateReviews] = useState<TemplateReview[]>([]);
   const [activeTab, setActiveTab] = useState<'browse' | 'featured' | 'trending'>('browse');
 
   // Rating modal state

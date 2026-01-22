@@ -24,7 +24,7 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
-  const [selectedAction, setSelectedAction] = useState<Record<string, string>>({});
+  const [, _setSelectedAction] = useState<Record<string, string>>({});
 
   const fetchBreakpoints = useCallback(async () => {
     try {

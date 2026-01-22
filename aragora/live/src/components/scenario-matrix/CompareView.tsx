@@ -1,6 +1,5 @@
 'use client';
 
-import { getAgentColors } from '@/utils/agentColors';
 import type { ScenarioResult } from './types';
 
 export interface CompareViewProps {

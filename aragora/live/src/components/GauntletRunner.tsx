@@ -39,7 +39,6 @@ export function GauntletRunner({ initialDecision }: GauntletRunnerProps) {
   const {
     status: wsStatus,
     progress: wsProgress,
-    verdict: wsVerdict,
     error: wsError,
   } = useGauntletWebSocket({
     gauntletId: activeGauntletId || '',

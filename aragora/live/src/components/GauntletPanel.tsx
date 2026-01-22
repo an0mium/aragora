@@ -45,7 +45,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
   const [total, setTotal] = useState(0);
   const [selectedVerdict, setSelectedVerdict] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [expandedDetails, setExpandedDetails] = useState<Record<string, unknown> | null>(null);
+  const [, setExpandedDetails] = useState<Record<string, unknown> | null>(null);
   const [detailsError, setDetailsError] = useState<string | null>(null);
 
   const fetchResults = useCallback(async () => {

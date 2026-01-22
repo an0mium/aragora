@@ -2,21 +2,11 @@
 
 import { useSupabaseHistory } from '@/hooks/useSupabaseHistory';
 import { useLocalHistory } from '@/hooks/useLocalHistory';
-import { PanelHeader, StatsGrid, RefreshButton } from './shared';
-import { getSupabaseWarning, SUPABASE_CONFIGURED } from '@/utils/supabase';
+import { PanelHeader, StatsGrid } from './shared';
+import { getSupabaseWarning } from '@/utils/supabase';
 import { API_BASE_URL } from '@/config';
 
 const DEFAULT_API_BASE = API_BASE_URL;
-
-function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 function formatLoopId(loopId: string): string {
   // nomic-20260102-091500 -> Jan 2, 09:15

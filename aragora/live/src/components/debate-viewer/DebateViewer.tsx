@@ -39,13 +39,10 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     streamingMessages,
     streamEvents,
     hasCitations,
-    error: liveError,
-    errorDetails: liveErrorDetails,
     sendVote,
     sendSuggestion,
     registerAckCallback,
     registerErrorCallback,
-    reconnect,
   } = useDebateWebSocket({
     debateId,
     wsUrl,

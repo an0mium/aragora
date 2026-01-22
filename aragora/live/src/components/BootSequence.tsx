@@ -94,7 +94,7 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
   useEffect(() => {
     if (skip) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (_e: KeyboardEvent) => {
       // Skip on any key
       handleSkip();
     };

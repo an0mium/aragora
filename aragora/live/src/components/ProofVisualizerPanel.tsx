@@ -81,7 +81,7 @@ const STATUS_COLORS: Record<string, { text: string; bg: string }> = {
   error: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
 };
 
-export function ProofVisualizerPanel({ backendConfig, debateId }: ProofVisualizerPanelProps) {
+export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: ProofVisualizerPanelProps) {
   const apiBase = backendConfig?.apiUrl || DEFAULT_API_BASE;
 
   const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'translate' | 'history'>('single');

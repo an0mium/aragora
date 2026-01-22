@@ -3,8 +3,8 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import * as d3 from 'd3-force';
 import * as d3Select from 'd3-selection';
-import { zoom as d3Zoom, type ZoomBehavior } from 'd3-zoom';
-import { drag as d3Drag, type DragBehavior, type D3DragEvent } from 'd3-drag';
+import { zoom as d3Zoom } from 'd3-zoom';
+import { drag as d3Drag, type D3DragEvent } from 'd3-drag';
 
 interface GraphNode extends d3.SimulationNodeDatum {
   id: string;

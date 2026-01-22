@@ -30,20 +30,17 @@ export function WorkflowBuilder({
   className = '',
 }: WorkflowBuilderProps) {
   const [showTemplates, setShowTemplates] = useState(false);
-  const [showConfig, setShowConfig] = useState(true);
+  const [, setShowConfig] = useState(true);
   const [selectedNode, setSelectedNode] = useState<StepDefinition | null>(null);
 
   // Workflow builder hook
   const {
     currentWorkflow,
-    workflows,
     templates,
     isDirty,
-    isSaving,
     isLoading,
     saveError,
     validationErrors,
-    loadWorkflow,
     createWorkflow,
     saveWorkflow,
     loadTemplates,
