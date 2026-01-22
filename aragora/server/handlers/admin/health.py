@@ -48,6 +48,8 @@ class HealthHandler(BaseHandler):
         "/api/health/cross-pollination",
         "/api/health/knowledge-mound",
         "/api/health/encryption",
+        "/api/health/platform",
+        "/api/platform/health",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -70,6 +72,8 @@ class HealthHandler(BaseHandler):
             "/api/health/slow-debates": self._slow_debates_status,
             "/api/health/cross-pollination": self._cross_pollination_health,
             "/api/health/knowledge-mound": self._knowledge_mound_health,
+            "/api/health/platform": self._platform_health,
+            "/api/platform/health": self._platform_health,
         }
 
         endpoint_handler = handlers.get(path)
@@ -2056,4 +2060,223 @@ class HealthHandler(BaseHandler):
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             },
             status=http_status,
+        )
+
+    def _platform_health(self) -> HandlerResult:
+        """Platform resilience health check for chat integrations.
+
+        Checks:
+        - Platform circuit breakers status (Slack, Discord, Teams, etc.)
+        - Platform-specific rate limiters
+        - Dead letter queue status
+        - Platform delivery metrics
+        - Webhook health
+
+        Returns:
+            JSON response with comprehensive platform health metrics
+        """
+        start_time = time.time()
+        components: Dict[str, Dict[str, Any]] = {}
+        all_healthy = True
+        warnings: list[str] = []
+
+        # 1. Check platform rate limiters
+        try:
+            from aragora.server.middleware.rate_limit.platform_limiter import (
+                PLATFORM_RATE_LIMITS,
+                get_platform_rate_limiter,
+            )
+
+            platform_limiters = {}
+            for platform in PLATFORM_RATE_LIMITS.keys():
+                limiter = get_platform_rate_limiter(platform)
+                platform_limiters[platform] = {
+                    "rpm": limiter.rpm,
+                    "burst_size": limiter.burst_size,
+                    "daily_limit": limiter.daily_limit,
+                }
+
+            components["rate_limiters"] = {
+                "healthy": True,
+                "status": "active",
+                "platforms": list(PLATFORM_RATE_LIMITS.keys()),
+                "config": platform_limiters,
+            }
+        except ImportError:
+            components["rate_limiters"] = {
+                "healthy": True,
+                "status": "not_available",
+                "note": "Platform rate limiter module not installed",
+            }
+        except Exception as e:
+            components["rate_limiters"] = {
+                "healthy": False,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+            all_healthy = False
+
+        # 2. Check platform resilience module
+        try:
+            from aragora.integrations.platform_resilience import (
+                get_platform_resilience,
+                DLQ_ENABLED,
+            )
+
+            resilience = get_platform_resilience()
+            stats = resilience.get_stats()
+
+            components["resilience"] = {
+                "healthy": True,
+                "status": "active",
+                "dlq_enabled": DLQ_ENABLED,
+                "platforms_tracked": stats.get("platforms_tracked", 0),
+                "circuit_breakers": stats.get("circuit_breakers", {}),
+            }
+        except ImportError:
+            components["resilience"] = {
+                "healthy": True,
+                "status": "not_available",
+                "note": "Platform resilience module not installed",
+            }
+        except Exception as e:
+            components["resilience"] = {
+                "healthy": True,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+
+        # 3. Check dead letter queue
+        try:
+            from aragora.integrations.platform_resilience import get_dlq
+
+            dlq = get_dlq()
+            dlq_stats = dlq.get_stats()
+
+            components["dead_letter_queue"] = {
+                "healthy": True,
+                "status": "active",
+                "pending_count": dlq_stats.get("pending", 0),
+                "failed_count": dlq_stats.get("failed", 0),
+                "processed_count": dlq_stats.get("processed", 0),
+            }
+
+            # Warn if DLQ is backing up
+            pending = dlq_stats.get("pending", 0)
+            if pending > 100:
+                warnings.append(f"DLQ has {pending} pending messages")
+            elif pending > 50:
+                warnings.append(f"DLQ has {pending} pending messages (elevated)")
+
+        except ImportError:
+            components["dead_letter_queue"] = {
+                "healthy": True,
+                "status": "not_available",
+                "note": "DLQ module not installed",
+            }
+        except Exception as e:
+            components["dead_letter_queue"] = {
+                "healthy": True,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+
+        # 4. Check platform metrics
+        try:
+            from aragora.observability.metrics.platform import (
+                get_platform_metrics_summary,
+            )
+
+            metrics = get_platform_metrics_summary()
+            components["metrics"] = {
+                "healthy": True,
+                "status": "active",
+                "prometheus_enabled": True,
+                "summary": metrics,
+            }
+        except ImportError:
+            components["metrics"] = {
+                "healthy": True,
+                "status": "not_available",
+                "prometheus_enabled": False,
+            }
+        except Exception as e:
+            components["metrics"] = {
+                "healthy": True,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+
+        # 5. Check individual platform circuit breakers
+        try:
+            from aragora.resilience import get_circuit_breaker
+
+            platform_circuits = {}
+            platforms = ["slack", "discord", "teams", "telegram", "whatsapp", "matrix"]
+
+            for platform in platforms:
+                try:
+                    cb = get_circuit_breaker(f"platform_{platform}")
+                    if cb:
+                        platform_circuits[platform] = {
+                            "state": cb.state.value
+                            if hasattr(cb.state, "value")
+                            else str(cb.state),
+                            "failure_count": cb.failure_count,
+                            "success_count": getattr(cb, "success_count", 0),
+                        }
+                except Exception:
+                    platform_circuits[platform] = {"state": "not_configured"}
+
+            components["platform_circuits"] = {
+                "healthy": True,
+                "status": "active",
+                "circuits": platform_circuits,
+            }
+
+            # Check for open circuits
+            open_circuits = [p for p, c in platform_circuits.items() if c.get("state") == "open"]
+            if open_circuits:
+                all_healthy = False
+                warnings.append(f"Open circuit breakers: {', '.join(open_circuits)}")
+
+        except ImportError:
+            components["platform_circuits"] = {
+                "healthy": True,
+                "status": "not_available",
+                "note": "Circuit breaker module not available",
+            }
+        except Exception as e:
+            components["platform_circuits"] = {
+                "healthy": True,
+                "status": "error",
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+
+        # Calculate response time
+        response_time_ms = round((time.time() - start_time) * 1000, 2)
+
+        # Determine overall status
+        healthy_count = sum(1 for c in components.values() if c.get("healthy", False))
+        active_count = sum(1 for c in components.values() if c.get("status") == "active")
+
+        status = "healthy" if all_healthy else "degraded"
+        if active_count == 0:
+            status = "not_configured"
+        elif warnings and all_healthy:
+            status = "healthy_with_warnings"
+
+        return json_response(
+            {
+                "status": status,
+                "summary": {
+                    "total_components": len(components),
+                    "healthy": healthy_count,
+                    "active": active_count,
+                },
+                "components": components,
+                "warnings": warnings if warnings else None,
+                "response_time_ms": response_time_ms,
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            }
         )

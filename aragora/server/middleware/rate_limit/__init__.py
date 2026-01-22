@@ -81,6 +81,16 @@ from .user_limiter import (
     get_user_rate_limiter,
 )
 
+# Re-export from platform_limiter module
+from .platform_limiter import (
+    PLATFORM_RATE_LIMITS,
+    PlatformRateLimiter,
+    PlatformRateLimitResult,
+    check_platform_rate_limit,
+    get_platform_rate_limiter,
+    reset_platform_rate_limiters,
+)
+
 __all__ = [
     # Base types
     "RateLimitConfig",
@@ -124,4 +134,11 @@ __all__ = [
     # Tier configuration
     "TIER_RATE_LIMITS",
     "USER_RATE_LIMITS",
+    # Platform rate limiting
+    "PLATFORM_RATE_LIMITS",
+    "PlatformRateLimiter",
+    "PlatformRateLimitResult",
+    "get_platform_rate_limiter",
+    "check_platform_rate_limit",
+    "reset_platform_rate_limiters",
 ]

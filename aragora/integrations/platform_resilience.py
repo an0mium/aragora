@@ -185,6 +185,58 @@ def get_all_platform_health() -> dict[str, PlatformHealth]:
         return {name: circuit.get_health() for name, circuit in _platform_circuits.items()}
 
 
+class PlatformResilience:
+    """Aggregated platform resilience manager.
+
+    Provides a unified interface to query platform health, circuit breakers,
+    and dead letter queue status.
+    """
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get aggregated resilience statistics."""
+        health = get_all_platform_health()
+        dlq = get_dead_letter_queue()
+        dlq_stats = dlq.get_stats()
+
+        circuit_states = {}
+        for platform, ph in health.items():
+            circuit_states[platform] = {
+                "status": ph.status.value,
+                "consecutive_failures": ph.consecutive_failures,
+                "total_requests": ph.total_requests,
+                "total_failures": ph.total_failures,
+            }
+
+        return {
+            "platforms_tracked": len(health),
+            "circuit_breakers": circuit_states,
+            "dlq": dlq_stats,
+            "healthy_platforms": sum(
+                1 for h in health.values() if h.status == PlatformStatus.HEALTHY
+            ),
+            "degraded_platforms": sum(
+                1 for h in health.values() if h.status == PlatformStatus.DEGRADED
+            ),
+            "unavailable_platforms": sum(
+                1 for h in health.values() if h.status == PlatformStatus.UNAVAILABLE
+            ),
+        }
+
+
+# Global singleton
+_platform_resilience: Optional[PlatformResilience] = None
+_platform_resilience_lock = threading.Lock()
+
+
+def get_platform_resilience() -> PlatformResilience:
+    """Get the global platform resilience manager."""
+    global _platform_resilience
+    with _platform_resilience_lock:
+        if _platform_resilience is None:
+            _platform_resilience = PlatformResilience()
+        return _platform_resilience
+
+
 # =============================================================================
 # Dead Letter Queue for Failed Messages
 # =============================================================================
@@ -530,6 +582,11 @@ _dlq: Optional[DeadLetterQueue] = None
 _dlq_lock = threading.Lock()
 
 
+def get_dlq() -> DeadLetterQueue:
+    """Alias for get_dead_letter_queue()."""
+    return get_dead_letter_queue()
+
+
 def get_dead_letter_queue() -> DeadLetterQueue:
     """Get the global dead letter queue instance."""
     global _dlq
@@ -707,10 +764,16 @@ __all__ = [
     "PlatformHealth",
     "get_platform_circuit",
     "get_all_platform_health",
+    # Platform resilience manager
+    "PlatformResilience",
+    "get_platform_resilience",
     # Dead letter queue
     "DeadLetterQueue",
     "DeadLetterMessage",
     "get_dead_letter_queue",
+    "get_dlq",
+    # Configuration
+    "DLQ_ENABLED",
     # Decorators
     "with_timeout",
     "with_platform_resilience",

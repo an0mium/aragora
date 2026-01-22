@@ -340,6 +340,45 @@ def histogram_observe(name: str, value: float, labels: dict[str, str]) -> None:
         PLATFORM_REQUEST_LATENCY.labels(**labels).observe(value)
 
 
+def get_platform_metrics_summary() -> dict[str, Any]:
+    """Get summary of platform metrics for health checks.
+
+    Returns:
+        Dictionary with metrics summary per platform
+    """
+    summary: dict[str, Any] = {
+        "platforms": {},
+        "dlq": {},
+        "initialized": _initialized,
+    }
+
+    if not _initialized:
+        return summary
+
+    try:
+        # Get platform request counts
+        if PLATFORM_REQUESTS_TOTAL is not None:
+            # Prometheus metrics don't easily expose values without a registry query
+            # Return structure info instead
+            summary["metrics_available"] = True
+            summary["metric_names"] = [
+                "aragora_platform_requests_total",
+                "aragora_platform_request_latency_seconds",
+                "aragora_platform_errors_total",
+                "aragora_platform_circuit_state",
+                "aragora_dlq_enqueued_total",
+                "aragora_dlq_processed_total",
+                "aragora_dlq_pending",
+            ]
+        else:
+            summary["metrics_available"] = False
+
+    except Exception as e:
+        summary["error"] = str(e)[:100]
+
+    return summary
+
+
 __all__ = [
     # Initialization
     "_initialize_platform_metrics",
@@ -358,4 +397,6 @@ __all__ = [
     # Generic helpers
     "counter_inc",
     "histogram_observe",
+    # Summary
+    "get_platform_metrics_summary",
 ]
