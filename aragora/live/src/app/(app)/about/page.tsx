@@ -102,7 +102,7 @@ export default function AboutPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  PyPI v2.0.2
+                  PyPI v2.1.10
                 </a>
                 <a
                   href="https://www.npmjs.com/package/@aragora/sdk"
