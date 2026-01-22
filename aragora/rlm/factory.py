@@ -400,6 +400,105 @@ def log_metrics_summary() -> None:
     )
 
 
+def require_true_rlm_decorator():
+    """
+    Decorator factory that enforces TRUE RLM usage at function level.
+
+    Apply this to async functions that should only use TRUE RLM (not compression).
+    Raises RuntimeError if TRUE RLM is not available when the function is called.
+
+    Example:
+        >>> from aragora.rlm import require_true_rlm_decorator
+        >>>
+        >>> @require_true_rlm_decorator()
+        ... async def analyze_debate(debate_result):
+        ...     rlm = get_rlm()
+        ...     return await rlm.compress_and_query(
+        ...         "Summarize the debate",
+        ...         str(debate_result),
+        ...         "debate",
+        ...     )
+    """
+    import functools
+
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            from .bridge import HAS_OFFICIAL_RLM
+
+            if not HAS_OFFICIAL_RLM:
+                raise RuntimeError(
+                    f"Function {func.__name__} requires TRUE RLM but official library "
+                    "is not installed. Install with: pip install aragora[rlm]"
+                )
+            return await func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def is_true_rlm_available() -> bool:
+    """
+    Check if TRUE RLM (official library) is available.
+
+    Use this to conditionally enable features that require TRUE RLM.
+
+    Example:
+        >>> from aragora.rlm import is_true_rlm_available
+        >>> if is_true_rlm_available():
+        ...     result = await rlm.query(q, ctx)  # TRUE RLM
+        ... else:
+        ...     result = await fallback_analysis(q, ctx)  # Alternative
+    """
+    from .bridge import HAS_OFFICIAL_RLM
+
+    return HAS_OFFICIAL_RLM
+
+
+def get_rlm_mode_info() -> dict:
+    """
+    Get information about the current RLM mode and availability.
+
+    Returns a dictionary with:
+    - true_rlm_available: Whether official RLM library is installed
+    - effective_mode: Current mode (AUTO, TRUE_RLM, or COMPRESSION)
+    - env_mode: Mode from environment variable (if set)
+    - env_require: Whether ARAGORA_RLM_REQUIRE_TRUE is set
+
+    Example:
+        >>> from aragora.rlm import get_rlm_mode_info
+        >>> info = get_rlm_mode_info()
+        >>> if info['true_rlm_available']:
+        ...     print("TRUE RLM is available!")
+        >>> print(f"Effective mode: {info['effective_mode']}")
+    """
+    from .bridge import HAS_OFFICIAL_RLM
+
+    env_mode = os.environ.get("ARAGORA_RLM_MODE", "").lower()
+    env_require = os.environ.get("ARAGORA_RLM_REQUIRE_TRUE", "").lower() == "true"
+
+    # Determine effective mode
+    if env_mode == "true_rlm":
+        effective = RLMMode.TRUE_RLM
+    elif env_mode == "compression":
+        effective = RLMMode.COMPRESSION
+    else:
+        effective = RLMMode.AUTO
+
+    return {
+        "true_rlm_available": HAS_OFFICIAL_RLM,
+        "effective_mode": effective.value,
+        "env_mode": env_mode or None,
+        "env_require": env_require,
+        "warning": (
+            "TRUE RLM not available, using compression fallback"
+            if not HAS_OFFICIAL_RLM and effective != RLMMode.COMPRESSION
+            else None
+        ),
+    }
+
+
 __all__ = [
     "get_rlm",
     "get_compressor",
@@ -410,4 +509,7 @@ __all__ = [
     "log_metrics_summary",
     "RLMFactoryMetrics",
     "RLMMode",
+    "require_true_rlm_decorator",
+    "is_true_rlm_available",
+    "get_rlm_mode_info",
 ]

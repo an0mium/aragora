@@ -121,6 +121,9 @@ from .factory import (
     reset_metrics,
     log_metrics_summary,
     RLMFactoryMetrics,
+    require_true_rlm_decorator,
+    is_true_rlm_available,
+    get_rlm_mode_info,
 )
 from .metrics_export import (
     MetricsSnapshot,
@@ -206,6 +209,9 @@ __all__ = [
     "reset_metrics",
     "log_metrics_summary",
     "RLMFactoryMetrics",
+    "require_true_rlm_decorator",
+    "is_true_rlm_available",
+    "get_rlm_mode_info",
     # Metrics export (Prometheus, StatsD, OTEL)
     "MetricsSnapshot",
     "MetricsCollector",

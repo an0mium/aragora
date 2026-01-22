@@ -716,11 +716,20 @@ class REPLContextAdapter(RLMContextAdapter):
         self,
         compressor: Optional["HierarchicalCompressor"] = None,
         agent_call: Optional[Callable[[str, str], Any]] = None,
+        rlm_agent_call: Optional[Callable[[str, str, str], str]] = None,
     ):
-        """Initialize the REPL context adapter."""
+        """
+        Initialize the REPL context adapter.
+
+        Args:
+            compressor: Optional compressor for fallback compression
+            agent_call: Optional LLM call function for queries (2-arg: prompt, model)
+            rlm_agent_call: Optional 3-arg LLM call for RLM sub-calls (model, query, context)
+        """
         super().__init__(compressor=compressor, agent_call=agent_call)
         self._repl_environments: dict[str, Any] = {}
         self._has_true_rlm = self._check_true_rlm()
+        self._rlm_agent_call = rlm_agent_call
 
     def _check_true_rlm(self) -> bool:
         """Check if TRUE RLM (official library) is available."""
@@ -760,14 +769,8 @@ class REPLContextAdapter(RLMContextAdapter):
             >>> # debate = load_debate_context(result)
             >>> # proposals = get_proposals_by_agent(debate, "claude")
         """
-        if not self._has_true_rlm:
-            logger.warning(
-                "TRUE RLM not available for REPL environment. "
-                "Install with: pip install aragora[rlm]"
-            )
-            return None
-
         from .debate_helpers import get_debate_helpers, load_debate_context
+        from .types import RLMConfig, RLMContext, AbstractionLevel, AbstractionNode
 
         # Generate content ID if not provided
         if not content_id:
@@ -778,18 +781,46 @@ class REPLContextAdapter(RLMContextAdapter):
             # Load debate into structured context
             debate_context = load_debate_context(debate_result)
 
-            # Create REPL environment
+            # Convert debate to string content for RLMContext
+            debate_content = self._debate_to_string(debate_context)
+
+            # Create a summary node
+            summary_text = f"Debate with {len(debate_context.agent_names)} agents over {debate_context.total_rounds} rounds. Task: {debate_context.task}"
+            summary_node = AbstractionNode(
+                id="debate_summary",
+                level=AbstractionLevel.SUMMARY,
+                content=summary_text,
+                token_count=len(summary_text) // 4,
+            )
+
+            # Create RLMConfig
+            config = RLMConfig()
+
+            # Create RLMContext with debate content and summary
+            rlm_context = RLMContext(
+                original_content=debate_content,
+                original_tokens=len(debate_content) // 4,  # Approximate
+                levels={AbstractionLevel.SUMMARY: [summary_node]},
+                nodes_by_id={summary_node.id: summary_node},
+            )
+
+            # Create REPL environment with proper initialization
             from .repl import RLMEnvironment
 
-            env = RLMEnvironment()  # type: ignore[call-arg]
+            env = RLMEnvironment(
+                config=config,
+                context=rlm_context,
+                agent_call=self._rlm_agent_call,
+            )
 
-            # Inject debate context and helpers
-            env.set_variable("debate", debate_context)  # type: ignore[attr-defined]
-            env.set_variable("debate_result", debate_result)  # type: ignore[attr-defined]
+            # Inject debate context and helpers into the namespace
+            # Note: RLMEnvironment already provides RLM_M and FINAL via _rlm_call and _final
+            env.state.namespace["debate"] = debate_context
+            env.state.namespace["debate_result"] = debate_result
 
-            # Inject all debate helpers
-            for name, helper in get_debate_helpers().items():
-                env.set_variable(name, helper)  # type: ignore[attr-defined]
+            # Inject debate-specific navigation helpers (NOT RLM_M/FINAL - those come from env)
+            for name, helper in get_debate_helpers(include_rlm_primitives=False).items():
+                env.state.namespace[name] = helper
 
             # Store environment
             self._repl_environments[content_id] = env
@@ -804,6 +835,31 @@ class REPLContextAdapter(RLMContextAdapter):
         except Exception as e:
             logger.error(f"Failed to create debate REPL environment: {e}")
             return None
+
+    def _debate_to_string(self, debate_context: Any) -> str:
+        """Convert DebateREPLContext to string representation for RLMContext."""
+        lines = [
+            f"# Debate: {debate_context.task}",
+            f"Agents: {', '.join(debate_context.agent_names)}",
+            f"Rounds: {debate_context.total_rounds}",
+            f"Consensus: {debate_context.consensus_reached}",
+            "",
+        ]
+
+        for round_num in sorted(debate_context.rounds.keys()):
+            lines.append(f"## Round {round_num}")
+            for msg in debate_context.rounds[round_num]:
+                agent = msg.get("agent", "unknown")
+                content = msg.get("content", "")[:500]
+                lines.append(f"### {agent}")
+                lines.append(content)
+                lines.append("")
+
+        if debate_context.final_answer:
+            lines.append("## Final Answer")
+            lines.append(debate_context.final_answer)
+
+        return "\n".join(lines)
 
     def create_repl_for_knowledge(
         self,
@@ -831,14 +887,8 @@ class REPLContextAdapter(RLMContextAdapter):
             >>> # facts = get_facts(km, "rate limiting", min_confidence=0.8)
             >>> # related = get_related(km, facts[0].id)
         """
-        if not self._has_true_rlm:
-            logger.warning(
-                "TRUE RLM not available for REPL environment. "
-                "Install with: pip install aragora[rlm]"
-            )
-            return None
-
         from .knowledge_helpers import get_knowledge_helpers, load_knowledge_context
+        from .types import RLMConfig, RLMContext, AbstractionLevel, AbstractionNode
 
         # Generate content ID if not provided
         if not content_id:
@@ -848,19 +898,47 @@ class REPLContextAdapter(RLMContextAdapter):
             # Load knowledge into structured context
             km_context = load_knowledge_context(mound, workspace_id)
 
-            # Create REPL environment
+            # Convert knowledge to string content for RLMContext
+            knowledge_content = self._knowledge_to_string(km_context)
+
+            # Create a summary node
+            summary_text = f"Knowledge Mound with {km_context.total_items} items. Avg confidence: {km_context.avg_confidence:.2f}"
+            summary_node = AbstractionNode(
+                id="knowledge_summary",
+                level=AbstractionLevel.SUMMARY,
+                content=summary_text,
+                token_count=len(summary_text) // 4,
+            )
+
+            # Create RLMConfig
+            config = RLMConfig()
+
+            # Create RLMContext with knowledge content and summary
+            rlm_context = RLMContext(
+                original_content=knowledge_content,
+                original_tokens=len(knowledge_content) // 4,  # Approximate
+                levels={AbstractionLevel.SUMMARY: [summary_node]},
+                nodes_by_id={summary_node.id: summary_node},
+            )
+
+            # Create REPL environment with proper initialization
             from .repl import RLMEnvironment
 
-            env = RLMEnvironment()  # type: ignore[call-arg]
+            env = RLMEnvironment(
+                config=config,
+                context=rlm_context,
+                agent_call=self._rlm_agent_call,
+            )
 
-            # Inject knowledge context and helpers
-            env.set_variable("km", km_context)  # type: ignore[attr-defined]
-            env.set_variable("mound", mound)  # type: ignore[attr-defined]
-            env.set_variable("workspace_id", workspace_id)  # type: ignore[attr-defined]
+            # Inject knowledge context and helpers into the namespace
+            # Note: RLMEnvironment already provides RLM_M and FINAL via _rlm_call and _final
+            env.state.namespace["km"] = km_context
+            env.state.namespace["mound"] = mound
+            env.state.namespace["workspace_id"] = workspace_id
 
-            # Inject all knowledge helpers
-            for name, helper in get_knowledge_helpers(mound).items():
-                env.set_variable(name, helper)  # type: ignore[attr-defined]
+            # Inject knowledge-specific navigation helpers (NOT RLM_M/FINAL - those come from env)
+            for name, helper in get_knowledge_helpers(mound, include_rlm_primitives=False).items():
+                env.state.namespace[name] = helper
 
             # Store environment
             self._repl_environments[content_id] = env
@@ -875,6 +953,35 @@ class REPLContextAdapter(RLMContextAdapter):
         except Exception as e:
             logger.error(f"Failed to create knowledge REPL environment: {e}")
             return None
+
+    def _knowledge_to_string(self, km_context: Any) -> str:
+        """Convert KnowledgeREPLContext to string representation for RLMContext."""
+        lines = [
+            "# Knowledge Mound",
+            f"Total items: {km_context.total_items}",
+            f"Average confidence: {km_context.avg_confidence:.2f}",
+            "",
+        ]
+
+        # Add facts
+        if hasattr(km_context, "facts") and km_context.facts:
+            lines.append("## Facts")
+            for fact in km_context.facts[:20]:  # Limit to first 20
+                content = getattr(fact, "content", str(fact))[:200]
+                confidence = getattr(fact, "confidence", 0.0)
+                lines.append(f"- [{confidence:.2f}] {content}")
+            lines.append("")
+
+        # Add claims
+        if hasattr(km_context, "claims") and km_context.claims:
+            lines.append("## Claims")
+            for claim in km_context.claims[:20]:
+                content = getattr(claim, "content", str(claim))[:200]
+                confidence = getattr(claim, "confidence", 0.0)
+                lines.append(f"- [{confidence:.2f}] {content}")
+            lines.append("")
+
+        return "\n".join(lines)
 
     def get_repl_environment(self, content_id: str) -> Optional[Any]:
         """

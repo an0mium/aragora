@@ -495,6 +495,7 @@ def FINAL(answer: str) -> str:
 
 def get_knowledge_helpers(
     mound: Optional["KnowledgeMound"] = None,
+    include_rlm_primitives: bool = False,
 ) -> dict[str, Any]:
     """
     Get all knowledge REPL helpers as a dictionary.
@@ -503,6 +504,9 @@ def get_knowledge_helpers(
 
     Args:
         mound: Optional KnowledgeMound for context loading
+        include_rlm_primitives: If True, include RLM_M/FINAL placeholders.
+            Defaults to False because RLMEnvironment provides proper
+            implementations that should NOT be overwritten.
 
     Returns:
         Dictionary of helper functions
@@ -529,10 +533,14 @@ def get_knowledge_helpers(
         "group_by_source": group_by_source,
         "search_knowledge": search_knowledge,
         "partition_by_topic": partition_by_topic,
-        # RLM primitives
-        "RLM_M": RLM_M,
-        "FINAL": FINAL,
     }
+
+    # Only include RLM primitives if explicitly requested.
+    # RLMEnvironment provides proper implementations of RLM_M and FINAL
+    # that integrate with the agent callback system.
+    if include_rlm_primitives:
+        helpers["RLM_M"] = RLM_M
+        helpers["FINAL"] = FINAL
 
     # If mound provided, add a convenience loader
     if mound is not None:

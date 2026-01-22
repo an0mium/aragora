@@ -239,13 +239,19 @@ class TestDebateHelpers:
         """get_debate_helpers should return dictionary of helpers."""
         from aragora.rlm import get_debate_helpers
 
+        # By default, RLM_M and FINAL are excluded (provided by RLMEnvironment)
         helpers = get_debate_helpers()
         assert isinstance(helpers, dict)
         assert "get_round" in helpers
         assert "get_proposals_by_agent" in helpers
         assert "search_debate" in helpers
-        assert "RLM_M" in helpers
-        assert "FINAL" in helpers
+        assert "RLM_M" not in helpers  # Excluded by default
+        assert "FINAL" not in helpers  # Excluded by default
+
+        # Can include RLM primitives when explicitly requested
+        helpers_with_rlm = get_debate_helpers(include_rlm_primitives=True)
+        assert "RLM_M" in helpers_with_rlm
+        assert "FINAL" in helpers_with_rlm
 
     def test_debate_repl_context_dataclass(self):
         """DebateREPLContext should be a dataclass with expected fields."""
@@ -291,6 +297,7 @@ class TestKnowledgeHelpers:
         """get_knowledge_helpers should return dictionary of helpers."""
         from aragora.rlm import get_knowledge_helpers
 
+        # By default, RLM_M and FINAL are excluded (provided by RLMEnvironment)
         helpers = get_knowledge_helpers()
         assert isinstance(helpers, dict)
         assert "get_facts" in helpers
@@ -298,8 +305,13 @@ class TestKnowledgeHelpers:
         assert "get_evidence" in helpers
         assert "filter_by_confidence" in helpers
         assert "search_knowledge" in helpers
-        assert "RLM_M" in helpers
-        assert "FINAL" in helpers
+        assert "RLM_M" not in helpers  # Excluded by default
+        assert "FINAL" not in helpers  # Excluded by default
+
+        # Can include RLM primitives when explicitly requested
+        helpers_with_rlm = get_knowledge_helpers(include_rlm_primitives=True)
+        assert "RLM_M" in helpers_with_rlm
+        assert "FINAL" in helpers_with_rlm
 
     def test_knowledge_item_dataclass(self):
         """KnowledgeItem should be a dataclass with expected fields."""

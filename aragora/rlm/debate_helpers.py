@@ -413,11 +413,16 @@ def FINAL(answer: str) -> str:
     return answer
 
 
-def get_debate_helpers() -> dict[str, Any]:
+def get_debate_helpers(include_rlm_primitives: bool = False) -> dict[str, Any]:
     """
     Get all debate REPL helpers as a dictionary.
 
     This is used to inject helpers into a TRUE RLM REPL environment.
+
+    Args:
+        include_rlm_primitives: If True, include RLM_M/FINAL placeholders.
+            Defaults to False because RLMEnvironment provides proper
+            implementations that should NOT be overwritten.
 
     Returns:
         Dictionary of helper functions
@@ -427,7 +432,7 @@ def get_debate_helpers() -> dict[str, Any]:
         >>> helpers = get_debate_helpers()
         >>> rlm_env.inject_helpers(helpers)
     """
-    return {
+    helpers = {
         # Context loading
         "load_debate_context": load_debate_context,
         "DebateREPLContext": DebateREPLContext,
@@ -439,10 +444,14 @@ def get_debate_helpers() -> dict[str, Any]:
         "get_critiques": get_critiques,
         "summarize_round": summarize_round,
         "partition_debate": partition_debate,
-        # RLM primitives
-        "RLM_M": RLM_M,
-        "FINAL": FINAL,
     }
+    # Only include RLM primitives if explicitly requested.
+    # RLMEnvironment provides proper implementations of RLM_M and FINAL
+    # that integrate with the agent callback system.
+    if include_rlm_primitives:
+        helpers["RLM_M"] = RLM_M
+        helpers["FINAL"] = FINAL
+    return helpers
 
 
 __all__ = [
