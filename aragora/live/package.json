@@ -22,6 +22,8 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
     "test:a11y": "playwright test --project=accessibility",
+    "test:visual": "playwright test --project=visual-regression",
+    "test:visual:update": "playwright test --project=visual-regression --update-snapshots",
     "test:e2e:integration": "playwright test e2e/integration/",
     "test:e2e:prod": "playwright test e2e/production/",
     "generate:types": "openapi-typescript ../../docs/api/openapi.json -o src/types/api.generated.ts",

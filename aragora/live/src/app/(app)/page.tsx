@@ -1,0 +1,843 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useNomicStream } from '@/hooks/useNomicStream';
+import { MetricsCards } from '@/components/MetricsCards';
+import { PhaseProgress } from '@/components/PhaseProgress';
+import { AgentPanel } from '@/components/AgentPanel';
+import { AgentTabs } from '@/components/AgentTabs';
+import { RoundProgress } from '@/components/RoundProgress';
+import { HistoryPanel } from '@/components/HistoryPanel';
+import { UserParticipation } from '@/components/UserParticipation';
+import { ReplayBrowser } from '@/components/ReplayBrowser';
+import { DebateBrowser } from '@/components/DebateBrowser';
+import { DebateExportModal } from '@/components/DebateExportModal';
+import { VerdictCard } from '@/components/VerdictCard';
+import { DocumentUpload } from '@/components/DocumentUpload';
+import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { useBackend, BACKENDS } from '@/components/BackendSelector';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { FeaturesProvider } from '@/context/FeaturesContext';
+import { FeatureGuard } from '@/components/FeatureGuard';
+import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
+import { useProgressiveMode } from '@/context/ProgressiveModeContext';
+import { UseCaseGuide } from '@/components/ui/UseCaseGuide';
+import { useRightSidebar } from '@/context/RightSidebarContext';
+import { useLayout } from '@/context/LayoutContext';
+import type { NomicState } from '@/types/events';
+import { DashboardFooter } from './components';
+
+// Dynamic imports - code-split for bundle size optimization
+import {
+  BootSequence,
+  CompareView,
+  DeepAuditView,
+  LeaderboardPanel,
+  AgentNetworkPanel,
+  InsightsPanel,
+  LaboratoryPanel,
+  BreakpointsPanel,
+  MetricsPanel,
+  TournamentPanel,
+  CruxPanel,
+  MemoryInspector,
+  LearningDashboard,
+  CitationsPanel,
+  CapabilityProbePanel,
+  OperationalModesPanel,
+  RedTeamAnalysisPanel,
+  ContraryViewsPanel,
+  RiskWarningsPanel,
+  AnalyticsPanel,
+  CalibrationPanel,
+  TricksterAlertPanel,
+  RhetoricalObserverPanel,
+  ConsensusKnowledgeBase,
+  DebateListPanel,
+  AgentComparePanel,
+  TrendingTopicsPanel,
+  ImpasseDetectionPanel,
+  LearningEvolution,
+  MomentsTimeline,
+  ConsensusQualityDashboard,
+  MemoryAnalyticsPanel,
+  UncertaintyPanel,
+  MoodTrackerPanel,
+  GauntletPanel,
+  ReviewsPanel,
+  TournamentViewerPanel,
+  PluginMarketplacePanel,
+  MemoryExplorerPanel,
+  EvidenceVisualizerPanel,
+  BatchDebatePanel,
+  SettingsPanel,
+  ApiExplorerPanel,
+  CheckpointPanel,
+  ProofVisualizerPanel,
+  EvolutionPanel,
+  PulseSchedulerControlPanel,
+  EvidencePanel,
+  BroadcastPanel,
+  LineageBrowser,
+  InfluenceGraph,
+  EvolutionTimeline,
+  GenesisExplorer,
+  PublicGallery,
+  GauntletRunner,
+  TokenStreamViewer,
+  ABTestResultsPanel,
+  ProofTreeVisualization,
+  TrainingExportPanel,
+  TournamentBracket,
+  GraphDebateBrowser,
+  ScenarioMatrixView,
+} from './page-imports';
+
+type ViewMode = 'tabs' | 'stream' | 'deep-audit';
+
+export default function Home() {
+  const router = useRouter();
+
+  // Progressive disclosure mode (simple/standard/advanced/expert)
+  const { mode: progressiveMode, isFeatureVisible } = useProgressiveMode();
+
+  // Dashboard preferences (Focus vs Explorer mode)
+  const {
+    preferences,
+    setMode,
+    isFocusMode,
+    isLoaded: prefsLoaded,
+    markOnboardingComplete,
+  } = useDashboardPreferences();
+
+  // Onboarding wizard state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+
+  // Layout context for responsive behavior
+  const { isMobile } = useLayout();
+  const { setContext: setRightSidebarContext, clearContext: clearRightSidebarContext } = useRightSidebar();
+
+  // Boot sequence state - disabled by default for cleaner UX
+  const [showBoot, setShowBoot] = useState(false);
+  const [skipBoot, setSkipBoot] = useState(true);
+
+  // Show onboarding for new users (after boot sequence completes)
+  useEffect(() => {
+    if (prefsLoaded && !preferences.hasSeenOnboarding && !showBoot) {
+      setShowOnboarding(true);
+    }
+  }, [prefsLoaded, preferences.hasSeenOnboarding, showBoot]);
+
+  // Backend selection (production vs development)
+  const { config: backendConfig } = useBackend();
+  const [apiBase, setApiBase] = useState(BACKENDS.production.api);
+  const [wsUrl, setWsUrl] = useState(BACKENDS.production.ws);
+
+  // Update URLs when backend changes
+  useEffect(() => {
+    setApiBase(backendConfig.api);
+    setWsUrl(backendConfig.ws);
+  }, [backendConfig]);
+
+  const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(wsUrl);
+
+  // Handler to navigate to landing page
+  const handleGoToLanding = useCallback(() => {
+    router.push('/landing');
+  }, [router]);
+
+  // Handle debate started from landing page - navigate to debate viewer
+  const handleDebateStarted = useCallback((debateId: string) => {
+    // Navigate to the dedicated debate viewer page
+    router.push(`/debate/${debateId}`);
+  }, [router]);
+
+  // Handle starting a debate from a trending topic
+  const handleStartDebateFromTrend = useCallback(async (topic: string, source: string) => {
+    try {
+      const response = await fetch(`${apiBase}/api/debate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: topic,
+          agents: 'grok,anthropic-api,openai-api,deepseek',
+          rounds: 3,
+          metadata: { source, from_trending: true },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.debate_id) {
+        router.push(`/debate/${data.debate_id}`);
+      } else {
+        setError(data.error || 'Failed to start debate from trend');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start debate');
+    }
+  }, [apiBase, router]);
+  // Local state for nomicState, initialized from wsNomicState and updated by events
+  const [localNomicState, setLocalNomicState] = useState<NomicState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Merge wsNomicState (from WebSocket) with local state - prefer WS state for cycle/phase
+  const nomicState: NomicState | null = wsNomicState || localNomicState ? {
+    ...localNomicState,
+    ...wsNomicState,
+    // Local state can override for things updated by events
+    completed_tasks: localNomicState?.completed_tasks ?? wsNomicState?.completed_tasks,
+    last_success: localNomicState?.last_success ?? wsNomicState?.last_success,
+  } : null;
+  const [viewMode, setViewMode] = useState<ViewMode>('tabs');
+  const [showCompare, setShowCompare] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportDebateId, setExportDebateId] = useState<string | null>(null);
+
+  // Track current debate for impasse detection and broadcast
+  const [currentDebateId, setCurrentDebateId] = useState<string | null>(null);
+  const [debateTitle, setDebateTitle] = useState<string | null>(null);
+
+  // Check if boot was shown before (session storage)
+  useEffect(() => {
+    const bootShown = sessionStorage.getItem('aragora-boot-shown');
+    if (bootShown === 'true') {
+      setSkipBoot(true);
+      setShowBoot(false);
+    }
+  }, []);
+
+  const handleBootComplete = useCallback(() => {
+    setShowBoot(false);
+    sessionStorage.setItem('aragora-boot-shown', 'true');
+  }, []);
+
+  // Onboarding completion handler
+  const handleOnboardingComplete = useCallback((persona: string, startWithPrompt?: string) => {
+    markOnboardingComplete();
+    setShowOnboarding(false);
+    if (startWithPrompt) {
+      setPendingPrompt(startWithPrompt);
+    }
+  }, [markOnboardingComplete]);
+
+  const handleOnboardingSkip = useCallback(() => {
+    markOnboardingComplete();
+    setShowOnboarding(false);
+  }, [markOnboardingComplete]);
+
+  // Compute effective loop ID - auto-select if only one loop active (fixes race condition)
+  const effectiveLoopId = selectedLoopId || (activeLoops.length === 1 ? activeLoops[0].loop_id : null);
+
+  // Note: Initial state now comes from wsNomicState (via loop_list WebSocket event)
+  // HTTP API fetch removed - api.aragora.ai only serves WebSocket, not HTTP API
+
+  // Update local nomic state from events
+  useEffect(() => {
+    if (events.length === 0) return;
+
+    const lastEvent = events[events.length - 1];
+
+    // Update state based on event type
+    switch (lastEvent.type) {
+      case 'cycle_start':
+        setLocalNomicState((prev) => ({
+          ...prev,
+          cycle: lastEvent.data.cycle as number,
+          phase: 'debate',
+          last_success: undefined,
+        }));
+        break;
+      case 'phase_start':
+        setLocalNomicState((prev) => ({
+          ...prev,
+          phase: lastEvent.data.phase as string,
+        }));
+        break;
+      case 'task_complete':
+        setLocalNomicState((prev) => ({
+          ...prev,
+          completed_tasks: (prev?.completed_tasks || 0) + 1,
+        }));
+        break;
+      case 'cycle_end':
+        setLocalNomicState((prev) => ({
+          ...prev,
+          last_success: lastEvent.data.success as boolean,
+        }));
+        break;
+      case 'error':
+        setError(lastEvent.data.error as string);
+        break;
+    }
+  }, [events]);
+
+  // Derive current phase from state or latest phase event
+  const currentPhase = nomicState?.phase || 'idle';
+
+  // Track current debate ID and title from events
+  useEffect(() => {
+    const debateEvent = events.find(
+      (e) => e.type === 'debate_start' || (e.data && 'debate_id' in e.data)
+    );
+    if (debateEvent?.data && 'debate_id' in debateEvent.data) {
+      setCurrentDebateId(debateEvent.data.debate_id as string);
+      // Extract title from event data if available
+      const eventData = debateEvent.data as Record<string, unknown>;
+      const title = eventData.title || eventData.topic || eventData.question;
+      if (typeof title === 'string') {
+        setDebateTitle(title);
+      }
+    }
+  }, [events]);
+
+  // Export modal handlers
+  const handleExportDebate = useCallback((debateId: string) => {
+    setExportDebateId(debateId);
+    setShowExportModal(true);
+  }, []);
+
+  const handleCloseExport = useCallback(() => {
+    setShowExportModal(false);
+    setExportDebateId(null);
+  }, []);
+
+  // Check if we have a verdict
+  const hasVerdict = events.some(
+    (e) => e.type === 'grounded_verdict' || e.type === 'verdict' || e.type === 'consensus'
+  );
+
+  // User participation handlers (use effectiveLoopId to auto-select single active loop)
+  const handleUserVote = (choice: string, intensity?: number) => {
+    if (!effectiveLoopId) {
+      setError('No active debate loop selected. Please wait for a debate to start.');
+      return;
+    }
+    sendMessage({
+      type: 'user_vote',
+      loop_id: effectiveLoopId,
+      payload: { choice, intensity: intensity ?? 5 }  // Default to neutral intensity
+    });
+  };
+
+  const handleUserSuggestion = (suggestion: string) => {
+    if (!effectiveLoopId) {
+      setError('No active debate loop selected. Please wait for a debate to start.');
+      return;
+    }
+    sendMessage({
+      type: 'user_suggestion',
+      loop_id: effectiveLoopId,
+      payload: { suggestion }
+    });
+  };
+
+  // Loading state - show minimal loading indicator
+  // Dashboard view
+  return (
+    <FeaturesProvider apiBase={apiBase}>
+      {/* Boot Sequence */}
+      {showBoot && <BootSequence onComplete={handleBootComplete} skip={skipBoot} />}
+
+      {/* Onboarding Wizard - shows for new users after boot */}
+      {showOnboarding && (
+        <OnboardingWizard
+          onComplete={handleOnboardingComplete}
+          onSkip={handleOnboardingSkip}
+        />
+      )}
+
+      {/* CRT Effects */}
+      <Scanlines opacity={0.02} />
+      <CRTVignette />
+
+      <main className="min-h-screen bg-bg text-text relative z-10">
+        {/* Compare Modal */}
+        {showCompare && (
+          <CompareView events={events} onClose={() => setShowCompare(false)} />
+        )}
+
+        {/* Export Modal */}
+        {showExportModal && exportDebateId && (
+          <DebateExportModal
+            debateId={exportDebateId}
+            isOpen={showExportModal}
+            onClose={handleCloseExport}
+            apiBase={apiBase}
+          />
+        )}
+
+        {/* View Mode Controls - Simplified inline bar */}
+        <div className="border-b border-[var(--border)] bg-[var(--surface)]/50 px-4 py-2">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-[var(--text-muted)]">VIEW:</span>
+              <div className="flex items-center gap-0.5 bg-[var(--bg)] border border-[var(--border)] p-0.5 font-mono text-xs">
+                <button
+                  onClick={() => setViewMode('tabs')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'tabs'
+                      ? 'bg-[var(--acid-green)] text-[var(--bg)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
+                  }`}
+                >
+                  TABS
+                </button>
+                <button
+                  onClick={() => setViewMode('stream')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'stream'
+                      ? 'bg-[var(--acid-green)] text-[var(--bg)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
+                  }`}
+                >
+                  STREAM
+                </button>
+                <button
+                  onClick={() => setViewMode('deep-audit')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'deep-audit'
+                      ? 'bg-[var(--acid-green)] text-[var(--bg)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
+                  }`}
+                >
+                  AUDIT
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {activeLoops.length > 0 && (
+                <select
+                  value={selectedLoopId || ''}
+                  onChange={(e) => selectLoop(e.target.value)}
+                  className="text-xs font-mono bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded"
+                >
+                  <option value="">Select loop...</option>
+                  {activeLoops.map((loop) => (
+                    <option key={loop.loop_id} value={loop.loop_id}>
+                      {loop.name || loop.loop_id.slice(0, 8)} (Cycle {loop.cycle})
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={() => setShowCompare(true)}
+                className="text-xs font-mono text-[var(--acid-cyan)] hover:text-[var(--acid-green)] transition-colors"
+              >
+                [COMPARE]
+              </button>
+              <span className={`text-xs font-mono ${connected ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
+                {connected ? '● LIVE' : '○ OFFLINE'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+      {/* Main Content - Wider container */}
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        {/* Error Banner */}
+        {error && (
+          <div className="bg-warning/10 border border-warning/30 p-3 sm:p-4 flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-warning">⚠</span>
+              <span className="text-warning">{error}</span>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-warning hover:text-warning/80 px-2"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Phase Progress */}
+        <PhaseProgress events={events} currentPhase={currentPhase} />
+
+        {/* Round Progress (new - Heavy3-inspired) */}
+        {currentPhase === 'debate' && (
+          <RoundProgress events={events} />
+        )}
+
+        {/* Metrics */}
+        <MetricsCards nomicState={nomicState} events={events} />
+
+        {/* Verdict Card (when available) */}
+        {hasVerdict && <VerdictCard events={events} />}
+
+        {/* Main Panels - Responsive grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+          {/* Agent Activity - Main content area */}
+          <div className="lg:col-span-2 min-h-[400px] sm:min-h-[500px]">
+            {viewMode === 'deep-audit' ? (
+              <PanelErrorBoundary panelName="Deep Audit">
+                <DeepAuditView
+                  events={events}
+                  isActive={true}
+                  onToggle={() => setViewMode('tabs')}
+                />
+              </PanelErrorBoundary>
+            ) : viewMode === 'tabs' ? (
+              <PanelErrorBoundary panelName="Debate Dashboard">
+                <AgentTabs events={events} />
+              </PanelErrorBoundary>
+            ) : (
+              <PanelErrorBoundary panelName="Agent Stream">
+                <AgentPanel events={events} />
+              </PanelErrorBoundary>
+            )}
+          </div>
+
+          {/* Side Panel - Collapsible sections */}
+          <div className="space-y-2 hidden lg:block">
+            {/* Use Case Guide for simple/standard users */}
+            {progressiveMode === 'simple' && (
+              <CollapsibleSection
+                id="use-case-guide"
+                title="GETTING STARTED"
+                defaultOpen={true}
+                priority="core"
+                description="Quick actions and feature discovery"
+              >
+                <UseCaseGuide maxItems={4} showModeFilter={false} />
+              </CollapsibleSection>
+            )}
+
+            {/* Section 1: Core Debate - expanded by default */}
+            <CollapsibleSection
+              id="core-debate"
+              title="CORE DEBATE"
+              defaultOpen={true}
+              priority="core"
+              description="Essential debate controls: input, voting, citations"
+            >
+              <PanelErrorBoundary panelName="Document Upload">
+                <DocumentUpload apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="User Participation">
+                <UserParticipation
+                  events={events}
+                  onVote={handleUserVote}
+                  onSuggest={handleUserSuggestion}
+                  onAck={onAck}
+                  onError={onError}
+                />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Trickster Alerts">
+                <TricksterAlertPanel events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Rhetorical Observer">
+                <RhetoricalObserverPanel events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Citations">
+                <CitationsPanel events={events} debateId={currentDebateId || undefined} apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="History">
+                <HistoryPanel />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+
+            {/* Section 2: Browse & Discover */}
+            <CollapsibleSection
+              id="browse-discover"
+              title="BROWSE & DISCOVER"
+              defaultOpen={!isFocusMode}
+              forceOpen={isFocusMode ? false : undefined}
+              description="Find debates, trending topics, and replays"
+            >
+              <FeatureGuard featureId="pulse">
+                <PanelErrorBoundary panelName="Trending Topics">
+                  <TrendingTopicsPanel apiBase={apiBase} onStartDebate={handleStartDebateFromTrend} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              <PanelErrorBoundary panelName="Debate List">
+                <DebateListPanel />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Debate Browser">
+                <DebateBrowser />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Replay Browser">
+                <ReplayBrowser />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+
+            {/* Section 3: Agent Analysis */}
+            <CollapsibleSection
+              id="agent-analysis"
+              title="AGENT ANALYSIS"
+              defaultOpen={!isFocusMode}
+              forceOpen={isFocusMode ? false : undefined}
+              description="Compare agents, view rankings, and tournaments"
+            >
+              <PanelErrorBoundary panelName="Agent Compare">
+                <AgentComparePanel />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Agent Network">
+                <AgentNetworkPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Mood Tracker">
+                <MoodTrackerPanel events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Leaderboard">
+                <LeaderboardPanel wsMessages={events} loopId={effectiveLoopId} apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="calibration">
+                <PanelErrorBoundary panelName="Calibration">
+                  <CalibrationPanel apiBase={apiBase} events={events} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              <FeatureGuard featureId="tournaments">
+                <PanelErrorBoundary panelName="Tournament">
+                  <TournamentPanel apiBase={apiBase} events={events} />
+                </PanelErrorBoundary>
+                <PanelErrorBoundary panelName="Tournament Viewer">
+                  <TournamentViewerPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+            </CollapsibleSection>
+
+            {/* Section 4: Insights & Learning */}
+            <CollapsibleSection
+              id="insights-learning"
+              title="INSIGHTS & LEARNING"
+              defaultOpen={!isFocusMode}
+              forceOpen={isFocusMode ? false : undefined}
+              priority="secondary"
+              description="Deep analysis, consensus quality, and learning evolution"
+            >
+              <PanelErrorBoundary panelName="Moments Timeline">
+                <MomentsTimeline apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Uncertainty Analysis">
+                <UncertaintyPanel events={events} debateId={currentDebateId || undefined} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Evidence Visualizer">
+                <EvidenceVisualizerPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Consensus Quality">
+                <ConsensusQualityDashboard apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Cross-Cycle Learning">
+                <LearningDashboard apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Insights">
+                <InsightsPanel wsMessages={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Crux Analysis">
+                <CruxPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Contrary Views">
+                <ContraryViewsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Risk Warnings">
+                <RiskWarningsPanel apiBase={apiBase} events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Learning Evolution">
+                <LearningEvolution />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="evolution">
+                <PanelErrorBoundary panelName="Prompt Evolution">
+                  <EvolutionPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              {currentDebateId && (
+                <PanelErrorBoundary panelName="Evidence">
+                  <EvidencePanel debateId={currentDebateId} />
+                </PanelErrorBoundary>
+              )}
+            </CollapsibleSection>
+
+            {/* Section 5: System Tools - Collapsed in Focus Mode, requires advanced mode */}
+            {isFeatureVisible('advanced') && (
+            <CollapsibleSection
+              id="system-tools"
+              title="SYSTEM TOOLS"
+              defaultOpen={false}
+              forceOpen={isFocusMode ? false : undefined}
+              priority="secondary"
+              description="Red team analysis, gauntlet, code reviews, and batch operations"
+            >
+              <PanelErrorBoundary panelName="Capability Probes">
+                <CapabilityProbePanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Operational Modes">
+                <OperationalModesPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Red Team">
+                <RedTeamAnalysisPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Gauntlet Results">
+                <GauntletPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Code Reviews">
+                <ReviewsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="plugins">
+                <PanelErrorBoundary panelName="Plugin Marketplace">
+                  <PluginMarketplacePanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              <FeatureGuard featureId="laboratory">
+                <PanelErrorBoundary panelName="Laboratory">
+                  <LaboratoryPanel apiBase={apiBase} events={events} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              <PanelErrorBoundary panelName="Breakpoints">
+                <BreakpointsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Batch Debates">
+                <BatchDebatePanel />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="pulse">
+                <PanelErrorBoundary panelName="Pulse Scheduler">
+                  <PulseSchedulerControlPanel />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              {currentDebateId && debateTitle && (
+                <PanelErrorBoundary panelName="Broadcast">
+                  <BroadcastPanel debateId={currentDebateId} debateTitle={debateTitle} />
+                </PanelErrorBoundary>
+              )}
+            </CollapsibleSection>
+            )}
+
+            {/* Section 6: Analysis & Exploration - requires advanced mode */}
+            {isFeatureVisible('advanced') && (
+            <CollapsibleSection
+              id="analysis-exploration"
+              title="ANALYSIS & EXPLORATION"
+              defaultOpen={false}
+              forceOpen={isFocusMode ? false : undefined}
+              priority="secondary"
+              description="Deep-dive analysis, lineage tracking, and advanced visualizations"
+            >
+              <PanelErrorBoundary panelName="Lineage Browser">
+                <LineageBrowser apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Influence Graph">
+                <InfluenceGraph />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Evolution Timeline">
+                <EvolutionTimeline apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Genesis Explorer">
+                <GenesisExplorer />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Public Gallery">
+                <PublicGallery />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Graph Debates">
+                <GraphDebateBrowser events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Matrix Scenarios">
+                <ScenarioMatrixView events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Tournament Bracket">
+                <TournamentBracket />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Proof Tree">
+                <ProofTreeVisualization apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="laboratory">
+                <PanelErrorBoundary panelName="A/B Test Results">
+                  <ABTestResultsPanel apiBase={apiBase} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              <PanelErrorBoundary panelName="Gauntlet Runner">
+                <GauntletRunner />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Training Export">
+                <TrainingExportPanel />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Token Stream">
+                <TokenStreamViewer events={events} />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+            )}
+
+            {/* Section 7: Advanced/Debug - requires expert mode */}
+            {isFeatureVisible('expert') && (
+            <CollapsibleSection
+              id="advanced-debug"
+              title="ADVANCED / DEBUG"
+              defaultOpen={false}
+              forceOpen={isFocusMode ? false : undefined}
+              priority="advanced"
+              description="Analytics, memory inspection, API explorer, and debug tools"
+            >
+              <PanelErrorBoundary panelName="Analytics">
+                <AnalyticsPanel apiBase={apiBase} events={events} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Server Metrics">
+                <MetricsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Consensus KB">
+                <ConsensusKnowledgeBase apiBase={apiBase} events={events} />
+              </PanelErrorBoundary>
+              <FeatureGuard featureId="memory">
+                <PanelErrorBoundary panelName="Memory Inspector">
+                  <MemoryInspector apiBase={apiBase} />
+                </PanelErrorBoundary>
+                <PanelErrorBoundary panelName="Memory Explorer">
+                  <MemoryExplorerPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} />
+                </PanelErrorBoundary>
+              </FeatureGuard>
+              <PanelErrorBoundary panelName="Memory Analytics">
+                <MemoryAnalyticsPanel apiBase={apiBase} />
+              </PanelErrorBoundary>
+              {currentDebateId && (
+                <PanelErrorBoundary panelName="Impasse Detection">
+                  <ImpasseDetectionPanel debateId={currentDebateId} apiBase={apiBase} />
+                </PanelErrorBoundary>
+              )}
+              <PanelErrorBoundary panelName="API Explorer">
+                <ApiExplorerPanel />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Checkpoints">
+                <CheckpointPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} debateId={currentDebateId || undefined} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Proof Visualizer">
+                <ProofVisualizerPanel backendConfig={{ apiUrl: apiBase, wsUrl: wsUrl }} debateId={currentDebateId || undefined} />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Settings">
+                <SettingsPanel />
+              </PanelErrorBoundary>
+            </CollapsibleSection>
+            )}
+
+            {/* Mode Hints */}
+            {(isFocusMode || progressiveMode !== 'expert') && (
+              <div className="mt-4 p-3 border border-acid-green/20 rounded-lg bg-surface/20 text-center space-y-2">
+                {isFocusMode && (
+                  <>
+                    <p className="text-xs font-mono text-text-muted">
+                      Some sections are collapsed in Focus Mode
+                    </p>
+                    <button
+                      onClick={() => setMode('explorer')}
+                      className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                    >
+                      [SWITCH TO EXPLORER MODE]
+                    </button>
+                  </>
+                )}
+                {progressiveMode !== 'expert' && (
+                  <p className="text-xs font-mono text-text-muted/60">
+                    Mode: {progressiveMode.toUpperCase()} - Use mode selector for more features
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <DashboardFooter />
+      </div>
+    </main>
+    </FeaturesProvider>
+  );
+}

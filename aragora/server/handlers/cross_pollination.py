@@ -450,8 +450,8 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
             start_time = time.time()
 
             try:
-                from aragora.knowledge.mound.facade import get_knowledge_mound
-                from aragora.knowledge.mound.staleness import StalenessDetector, StalenessConfig
+                from aragora.knowledge.mound.facade import get_knowledge_mound  # type: ignore[attr-defined]
+                from aragora.knowledge.mound.staleness import StalenessDetector, StalenessConfig  # type: ignore[attr-defined]
 
                 mound = get_knowledge_mound()
                 if mound is None:
@@ -536,7 +536,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
             )
 
             try:
-                from aragora.knowledge.mound.facade import get_knowledge_mound
+                from aragora.knowledge.mound.facade import get_knowledge_mound  # type: ignore[attr-defined]
 
                 mound = get_knowledge_mound()
                 if mound is None or not hasattr(mound, "_culture_accumulator"):

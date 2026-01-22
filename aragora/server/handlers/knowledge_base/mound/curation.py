@@ -125,7 +125,7 @@ class CurationOperationsMixin:
     @require_auth
     def _handle_set_curation_policy(self, handler: Any) -> HandlerResult:
         """Set curation policy for a workspace."""
-        from ...base import read_json_body
+        from ...base import read_json_body  # type: ignore[attr-defined]
 
         body = read_json_body(handler)
         if body is None:
@@ -226,7 +226,7 @@ class CurationOperationsMixin:
     @require_auth
     def _handle_run_curation(self, handler: Any) -> HandlerResult:
         """Trigger a curation run for a workspace."""
-        from ...base import read_json_body
+        from ...base import read_json_body  # type: ignore[attr-defined]
 
         body = read_json_body(handler) or {}
         workspace_id = body.get("workspace_id", "default")

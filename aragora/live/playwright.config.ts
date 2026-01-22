@@ -41,6 +41,20 @@ export default defineConfig({
     video: 'on-first-retry',
   },
 
+  // Visual regression settings for toHaveScreenshot
+  expect: {
+    toHaveScreenshot: {
+      // Maximum allowed pixel difference
+      maxDiffPixels: 100,
+      // Maximum allowed ratio of different pixels (0.2%)
+      maxDiffPixelRatio: 0.002,
+      // Disable animations for consistent screenshots
+      animations: 'disabled',
+      // Threshold for per-pixel color comparison (0-1)
+      threshold: 0.2,
+    },
+  },
+
   // Configure projects for major browsers
   projects: [
     {
@@ -73,6 +87,13 @@ export default defineConfig({
       name: 'accessibility',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /accessibility\.spec\.ts/,
+    },
+
+    // Visual regression tests - run with: npx playwright test --project=visual-regression
+    {
+      name: 'visual-regression',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /visual-regression\.spec\.ts/,
     },
   ],
 

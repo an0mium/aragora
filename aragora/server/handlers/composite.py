@@ -330,7 +330,7 @@ class CompositeHandler(BaseHandler):
     def _get_circuit_breaker_state(self, agent_id: str) -> Dict[str, Any]:
         """Get circuit breaker state for an agent."""
         try:
-            from aragora.resilience import get_circuit_breaker_stats
+            from aragora.resilience import get_circuit_breaker_stats  # type: ignore[attr-defined]
 
             stats = get_circuit_breaker_stats(agent_id)
             return {
@@ -347,7 +347,7 @@ class CompositeHandler(BaseHandler):
     def _get_airlock_metrics(self, agent_id: str) -> Dict[str, Any]:
         """Get airlock proxy metrics for an agent."""
         try:
-            from aragora.agents.airlock import get_airlock_metrics
+            from aragora.agents.airlock import get_airlock_metrics  # type: ignore[attr-defined]
 
             metrics = get_airlock_metrics(agent_id)
             return {

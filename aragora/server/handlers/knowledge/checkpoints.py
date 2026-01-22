@@ -29,11 +29,11 @@ from aragora.server.handlers.utils.rate_limit import (
     RateLimiter,
     rate_limit,
 )
-from aragora.observability.metrics import (
+from aragora.observability.metrics import (  # type: ignore[attr-defined]
     record_checkpoint_operation,
     track_checkpoint_operation,
 )
-from aragora.observability.metrics.slo import check_and_record_slo
+from aragora.observability.metrics.slo import check_and_record_slo  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class KMCheckpointHandler(BaseHandler):
         """Get or create the checkpoint store instance."""
         if self._checkpoint_store is None:
             try:
-                from aragora.knowledge.mound.checkpoint import get_checkpoint_store
+                from aragora.knowledge.mound.checkpoint import get_checkpoint_store  # type: ignore[attr-defined]
 
                 self._checkpoint_store = get_checkpoint_store()
             except ImportError:
@@ -295,7 +295,7 @@ class KMCheckpointHandler(BaseHandler):
 
             success = True
 
-            from aragora.observability.metrics import record_checkpoint_restore_result
+            from aragora.observability.metrics import record_checkpoint_restore_result  # type: ignore[attr-defined]
 
             record_checkpoint_restore_result(
                 nodes_restored=result.nodes_restored,

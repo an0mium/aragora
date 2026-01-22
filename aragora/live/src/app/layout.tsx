@@ -13,7 +13,6 @@ import { SidebarProvider } from '@/context/SidebarContext';
 import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
 import { CommandPaletteProvider } from '@/context/CommandPaletteContext';
 import { CommandPalette } from '@/components/command-palette';
-import { AppShell } from '@/components/layout';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
@@ -78,9 +77,7 @@ export default function RootLayout({
                           <ToastProvider>
                             <ErrorBoundary>
                               <CommandPalette />
-                              <AppShell>
-                                {children}
-                              </AppShell>
+                              {children}
                             </ErrorBoundary>
                           </ToastProvider>
                         </CommandPaletteProvider>

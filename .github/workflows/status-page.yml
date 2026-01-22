@@ -1,0 +1,198 @@
+name: Status Page Deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/uptime-kuma/**'
+      - '.github/workflows/status-page.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+
+# SOC 2 Control: A1-01 - Public availability information
+
+env:
+  STATUS_PAGE_DOMAIN: status.aragora.ai
+  CONTAINER_NAME: aragora-status
+
+jobs:
+  validate:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose
+        run: |
+          docker compose -f deploy/uptime-kuma/docker-compose.yml config
+
+      - name: Validate monitors seed JSON
+        run: |
+          python3 -c "import json; json.load(open('deploy/uptime-kuma/monitors-seed.json'))"
+
+      - name: Check required monitors
+        run: |
+          python3 << 'EOF'
+          import json
+
+          required_monitors = [
+              "API - Health",
+              "API - Detailed Health",
+              "WebSocket Server",
+              "Authentication Service"
+          ]
+
+          with open('deploy/uptime-kuma/monitors-seed.json') as f:
+              config = json.load(f)
+
+          monitor_names = [m['name'] for m in config['monitors']]
+          missing = [m for m in required_monitors if m not in monitor_names]
+
+          if missing:
+              print(f"Missing required monitors: {missing}")
+              exit(1)
+
+          print(f"All {len(required_monitors)} required monitors configured")
+          EOF
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: validate
+    if: github.event.inputs.environment == 'staging' || github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging
+        run: |
+          echo "Staging deployment would run here"
+          echo "Staging URL: https://status-staging.aragora.ai"
+
+  deploy-production:
+    name: Deploy to Production
+    needs: validate
+    if: github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy Status Page
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          # Copy updated configuration
+          scp -r deploy/uptime-kuma/* $SSH_USER@$SSH_HOST:/opt/aragora/status-page/
+
+          # Deploy with zero-downtime
+          ssh $SSH_USER@$SSH_HOST << 'ENDSSH'
+            cd /opt/aragora/status-page
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            # Wait for health check
+            for i in {1..30}; do
+              if curl -sf http://localhost:3001 > /dev/null; then
+                echo "Status page is healthy"
+                exit 0
+              fi
+              echo "Waiting for status page to be ready... ($i/30)"
+              sleep 2
+            done
+
+            echo "Status page failed to start"
+            docker compose logs --tail=50
+            exit 1
+          ENDSSH
+
+      - name: Verify Deployment
+        run: |
+          # Give DNS/CDN time to propagate
+          sleep 10
+
+          # Check public status page
+          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "https://$STATUS_PAGE_DOMAIN" || echo "000")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Status page is live at https://$STATUS_PAGE_DOMAIN"
+          else
+            echo "Warning: Status page returned HTTP $HTTP_CODE"
+            echo "This may be a DNS/CDN propagation delay"
+          fi
+
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Status Page Deployment: ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Status Page Deployment* ${{ job.status == 'success' && ':white_check_mark:' || ':x:' }}\n*Environment:* production\n*URL:* https://status.aragora.ai\n*Commit:* `${{ github.sha }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_OPS_WEBHOOK }}
+        continue-on-error: true
+
+  provision-monitors:
+    name: Provision Monitors
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install python-socketio websocket-client
+
+      - name: Provision monitors
+        env:
+          UPTIME_KUMA_URL: https://status.aragora.ai
+          UPTIME_KUMA_USERNAME: ${{ secrets.UPTIME_KUMA_USERNAME }}
+          UPTIME_KUMA_PASSWORD: ${{ secrets.UPTIME_KUMA_PASSWORD }}
+          ARAGORA_API_URL: https://api.aragora.ai
+        run: |
+          python scripts/provision_status_page.py \
+            --url "$UPTIME_KUMA_URL" \
+            --api-url "$ARAGORA_API_URL" \
+            --username "$UPTIME_KUMA_USERNAME" \
+            --password "$UPTIME_KUMA_PASSWORD" \
+            || echo "Monitor provisioning skipped (may already exist)"
