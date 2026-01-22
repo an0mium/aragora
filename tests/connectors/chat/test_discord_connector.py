@@ -123,7 +123,7 @@ class TestDiscordSendMessage:
             # Verify request was called with correct method
             call_kwargs = mock_client_instance.request.call_args[1]
             assert call_kwargs["method"] == "POST"
-            payload = json.loads(call_kwargs["content"])
+            payload = call_kwargs["json"]
             assert payload["embeds"] == embeds
 
         assert result.success is True
@@ -164,7 +164,7 @@ class TestDiscordSendMessage:
             )
 
             call_kwargs = mock_client_instance.request.call_args[1]
-            payload = json.loads(call_kwargs["content"])
+            payload = call_kwargs["json"]
             assert payload["components"] == components
 
         assert result.success is True
@@ -241,7 +241,7 @@ class TestDiscordDeleteMessage:
         mock_response.raise_for_status = MagicMock()
 
         mock_client_instance = MagicMock()
-        mock_client_instance.request = AsyncMock(return_value=mock_response)
+        mock_client_instance.delete = AsyncMock(return_value=mock_response)
         mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
         mock_client_instance.__aexit__ = AsyncMock(return_value=None)
 
@@ -251,10 +251,10 @@ class TestDiscordDeleteMessage:
                 message_id="123",
             )
 
-            # Verify DELETE to correct endpoint
-            call_kwargs = mock_client_instance.request.call_args[1]
-            assert call_kwargs["method"] == "DELETE"
-            assert "/channels/456/messages/123" in call_kwargs["url"]
+            # Verify DELETE was called
+            mock_client_instance.delete.assert_called_once()
+            call_url = mock_client_instance.delete.call_args[0][0]
+            assert "/channels/456/messages/123" in call_url
 
         assert result is True
 
@@ -266,7 +266,7 @@ class TestDiscordDeleteMessage:
         connector = DiscordConnector(bot_token="test-token")
 
         mock_client_instance = MagicMock()
-        mock_client_instance.request = AsyncMock(side_effect=Exception("Not found"))
+        mock_client_instance.delete = AsyncMock(side_effect=Exception("Not found"))
         mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
         mock_client_instance.__aexit__ = AsyncMock(return_value=None)
 
