@@ -170,7 +170,14 @@ from .workflow_templates import (
 from .template_marketplace import TemplateMarketplaceHandler
 from .email import EmailHandler  # Email prioritization API
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
-from .bots import DiscordHandler, GoogleChatHandler, TeamsHandler, TelegramHandler, WhatsAppHandler, ZoomHandler  # Bot platform handlers
+from .bots import (
+    DiscordHandler,
+    GoogleChatHandler,
+    TeamsHandler,
+    TelegramHandler,
+    WhatsAppHandler,
+    ZoomHandler,
+)  # Bot platform handlers
 from .explainability import ExplainabilityHandler  # Decision explainability API
 from .a2a import A2AHandler  # A2A protocol handler
 from .autonomous import (  # Autonomous operations handlers (Phase 5)
@@ -251,7 +258,7 @@ ALL_HANDLERS = [
     ProbesHandler,
     InsightsHandler,
     KnowledgeHandler,
-    KnowledgeMoundHandler,  # Extended Knowledge Mound API - Phase A1
+    KnowledgeMoundHandler,  # Extended Knowledge Mound API - STABLE
     KMCheckpointHandler,  # KM checkpoint backup/restore API
     GalleryHandler,
     BreakpointsHandler,
@@ -280,8 +287,8 @@ ALL_HANDLERS = [
     PolicyHandler,  # Policy and compliance management API
     PrivacyHandler,
     QueueHandler,  # Job queue management API
-    RepositoryHandler,  # Repository indexing API - Phase A3
-    UncertaintyHandler,  # Uncertainty estimation API - Phase A1
+    RepositoryHandler,  # Repository indexing API - STABLE
+    UncertaintyHandler,  # Uncertainty estimation API - STABLE
     VerticalsHandler,  # Vertical specialist API
     WorkspaceHandler,  # Enterprise workspace/privacy management
     WorkflowHandler,  # Enterprise workflow engine API
@@ -381,7 +388,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ProbesHandler": Stability.STABLE,  # 16 tests, capability probing
     "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
     "KnowledgeHandler": Stability.EXPERIMENTAL,  # Knowledge base API - new
-    "KnowledgeMoundHandler": Stability.EXPERIMENTAL,  # Knowledge Mound API - Phase A1
+    "KnowledgeMoundHandler": Stability.STABLE,  # Knowledge Mound API - Graduated from Phase A1
     "ReviewsHandler": Stability.STABLE,  # 18 tests, shareable code reviews
     "FormalVerificationHandler": Stability.STABLE,  # 18 tests, Z3/Lean backends
     # Promoted to Stable (Jan 2026) - from Preview
@@ -414,8 +421,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "WorkflowPatternTemplatesHandler": Stability.STABLE,  # Pattern-based workflow templates - new
     "TemplateMarketplaceHandler": Stability.EXPERIMENTAL,  # Community template marketplace - new
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
-    "RepositoryHandler": Stability.EXPERIMENTAL,  # Repository indexing API - Phase A3
-    "UncertaintyHandler": Stability.EXPERIMENTAL,  # Uncertainty estimation API - Phase A1
+    "RepositoryHandler": Stability.STABLE,  # Repository indexing API - Graduated from Phase A3
+    "UncertaintyHandler": Stability.STABLE,  # Uncertainty estimation API - Graduated from Phase A1
     "VerticalsHandler": Stability.EXPERIMENTAL,  # Vertical specialist API - Phase A1
     # Bot platform handlers
     "DiscordHandler": Stability.EXPERIMENTAL,  # Discord Interactions API - new
