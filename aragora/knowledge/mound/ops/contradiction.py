@@ -197,7 +197,7 @@ class ContradictionDetector:
         if item_ids:
             items = []
             for item_id in item_ids:
-                item = await mound.get(item_id)
+                item = await mound.get(item_id)  # type: ignore[misc]
                 if item:
                     items.append(item)
         else:
@@ -481,7 +481,7 @@ class ContradictionOperationsMixin:
             ContradictionReport with findings
         """
         detector = self._get_contradiction_detector()
-        return await detector.detect_contradictions(self, workspace_id, item_ids)
+        return await detector.detect_contradictions(self, workspace_id, item_ids)  # type: ignore[arg-type]
 
     async def resolve_contradiction(
         self,

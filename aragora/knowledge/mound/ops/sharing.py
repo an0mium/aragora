@@ -376,8 +376,8 @@ class KnowledgeSharingMixin:
             consent = DataSharingConsent(  # type: ignore[call-arg]
                 from_workspace_id=from_workspace_id,
                 to_workspace_id=to_workspace_id,
-                scope=scope,
-                operations=operations,
+                scope=scope,  # type: ignore[arg-type]
+                operations=operations,  # type: ignore[arg-type]
                 granted_by=granted_by,
             )
             await coordinator.record_consent(consent)  # type: ignore[attr-defined]

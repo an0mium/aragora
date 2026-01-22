@@ -715,7 +715,10 @@ class KnowledgeMoundMetaStore(SQLiteStore):
         """Delete a knowledge node and its relationships."""
         with self.connection() as conn:
             # Delete relationships
-            conn.execute("DELETE FROM relationships WHERE from_node_id = ? OR to_node_id = ?", (node_id, node_id))
+            conn.execute(
+                "DELETE FROM relationships WHERE from_node_id = ? OR to_node_id = ?",
+                (node_id, node_id),
+            )
             # Delete provenance
             conn.execute("DELETE FROM provenance WHERE node_id = ?", (node_id,))
             # Delete topics
@@ -847,7 +850,7 @@ class KnowledgeMound:
         """
         self.workspace_id = workspace_id
         if db_path is None:
-            knowledge_dir = get_db_path(DatabaseType.KNOWLEDGE).parent
+            knowledge_dir = get_db_path(DatabaseType.KNOWLEDGE).parent  # type: ignore[attr-defined]
             self._db_path = knowledge_dir / "mound.db"
         else:
             self._db_path = Path(db_path)
@@ -1325,7 +1328,7 @@ class KnowledgeMound:
                         debate_id=getattr(debate_result, "debate_id", None),
                     ),
                     workspace_id=self.workspace_id,
-                    validation_status=ValidationStatus.PENDING,
+                    validation_status=ValidationStatus.PENDING,  # type: ignore[attr-defined]
                     metadata={
                         "agent": agent_id,
                         "debate_round": getattr(msg, "round", 0),
@@ -1418,7 +1421,7 @@ class KnowledgeMound:
                             "source": rel.from_node_id,
                             "target": rel.to_node_id,
                             "type": (
-                                rel.relationship_type.value
+                                rel.relationship_type.value  # type: ignore[union-attr]
                                 if hasattr(rel.relationship_type, "value")
                                 else str(rel.relationship_type)
                             ),

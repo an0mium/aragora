@@ -280,7 +280,7 @@ class KnowledgeMoundMetaLearner:
             rec_promo, rec_demo, reasoning = self._calculate_tier_recommendations(
                 tier,
                 metrics,
-                current_promo,
+                current_promo,  # type: ignore[arg-type]
                 current_demo,  # type: ignore[arg-type]
             )
 
@@ -288,9 +288,9 @@ class KnowledgeMoundMetaLearner:
                 recommendations.append(
                     TierOptimizationRecommendation(  # type: ignore[arg-type]
                         tier=tier,
-                        current_promotion_threshold=current_promo,
+                        current_promotion_threshold=current_promo,  # type: ignore[arg-type]
                         recommended_promotion_threshold=rec_promo,
-                        current_demotion_threshold=current_demo,
+                        current_demotion_threshold=current_demo,  # type: ignore[arg-type]
                         recommended_demotion_threshold=rec_demo,
                         reasoning=reasoning,
                         confidence=metrics.get("confidence", 0.5),

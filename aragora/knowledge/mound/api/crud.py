@@ -266,7 +266,7 @@ class CRUDOperationsMixin:
         if self._cache:
             await self._cache.invalidate_node(node_id)
 
-        return await self.get(node_id)
+        return await self.get(node_id)  # type: ignore[attr-defined]
 
     async def delete(self: CRUDProtocol, node_id: str, archive: bool = True) -> bool:
         """Delete a knowledge node.
@@ -353,7 +353,7 @@ class CRUDOperationsMixin:
             source_type=KnowledgeSource.EXTERNAL,
             metadata=metadata or {},
         )
-        result = await self.store(request)
+        result = await self.store(request)  # type: ignore[attr-defined]
         return result.node_id
 
     async def add_node(self: CRUDProtocol, node: Any) -> str:
@@ -377,7 +377,7 @@ class CRUDOperationsMixin:
         # Convert tier to string if it's an enum
         tier_str = node.tier.value if hasattr(node.tier, "value") else str(node.tier)
 
-        return await self.add(
+        return await self.add(  # type: ignore[attr-defined]
             content=node.content,
             metadata={
                 "provenance": node.provenance.__dict__ if node.provenance else None,
@@ -403,7 +403,7 @@ class CRUDOperationsMixin:
             A dict-like object with node_type, content, etc., or None
         """
 
-        item = await self.get(node_id)
+        item = await self.get(node_id)  # type: ignore[attr-defined]
         if item is None:
             return None
 

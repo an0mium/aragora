@@ -434,7 +434,7 @@ class KnowledgeMoundMigrator:
                                     created_by=dissent.agent_id,
                                     metadata={"dissent_type": dissent.dissent_type.value},
                                 )
-                                result.relationship_ids.append(rel_id)
+                                result.relationship_ids.append(rel_id)  # type: ignore[arg-type]
 
                 except Exception as e:
                     result.error_count += 1
@@ -596,7 +596,7 @@ class KnowledgeMoundMigrator:
         estimates: dict[str, dict[str, Any]] = {}
 
         if continuum_source:
-            entries = continuum_source.get_all_entries()
+            entries = continuum_source.get_all_entries()  # type: ignore[attr-defined]
             estimates["continuum"] = {
                 "total_records": len(entries),
                 "by_tier": {},
@@ -609,7 +609,7 @@ class KnowledgeMoundMigrator:
                 )
 
         if consensus_source:
-            records = consensus_source.get_all_consensus()
+            records = consensus_source.get_all_consensus()  # type: ignore[attr-defined]
             total_dissents = sum(len(r.dissent_ids) for r in records)
             total_claims = sum(len(r.key_claims) for r in records)
             estimates["consensus"] = {

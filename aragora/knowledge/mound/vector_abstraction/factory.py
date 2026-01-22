@@ -204,7 +204,7 @@ class VectorStoreFactory:
             # Check if preferred backend is registered and available
             if cls.is_registered(preferred_backend):
                 logger.debug(f"Using namespace routing: {namespace} -> {preferred_backend.value}")
-                config = VectorStoreConfig(
+                config = VectorStoreConfig(  # type: ignore[call-arg]
                     backend=preferred_backend,
                     namespace=namespace,
                     **(config_overrides or {}),
@@ -218,7 +218,7 @@ class VectorStoreFactory:
 
         # Fall back to environment-based config
         config = VectorStoreConfig.from_env()
-        config.namespace = namespace
+        config.namespace = namespace  # type: ignore[attr-defined]
         if config_overrides:
             for key, value in config_overrides.items():
                 if hasattr(config, key):

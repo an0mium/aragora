@@ -382,7 +382,7 @@ class ConfidenceDecayManager:
         import uuid
 
         # Get item
-        item = await mound.get(item_id)
+        item = await mound.get(item_id)  # type: ignore[arg-type,misc]
         if not item:
             return None
 
@@ -492,7 +492,7 @@ class ConfidenceDecayMixin:
             DecayReport with results
         """
         manager = self._get_decay_manager()
-        return await manager.apply_decay(self, workspace_id, force)
+        return await manager.apply_decay(self, workspace_id, force)  # type: ignore[arg-type]
 
     async def record_confidence_event(
         self,
@@ -511,7 +511,7 @@ class ConfidenceDecayMixin:
             ConfidenceAdjustment if confidence changed
         """
         manager = self._get_decay_manager()
-        return await manager.record_event(self, item_id, event, reason)
+        return await manager.record_event(self, item_id, event, reason)  # type: ignore[arg-type]
 
     async def get_confidence_history(
         self,

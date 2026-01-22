@@ -677,7 +677,7 @@ class KnowledgeFederationMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            await coordinator.register_workspace(workspace)  # type: ignore[call-arg]
+            await coordinator.register_workspace(workspace)  # type: ignore[call-arg,func-returns-value]
         except ImportError:
             logger.debug("CrossWorkspaceCoordinator not available")
         except Exception as e:
@@ -696,9 +696,9 @@ class KnowledgeFederationMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            result = await coordinator.execute_operation(  # type: ignore[call-arg]
-                operation=CrossWorkspaceOperation.SYNC_CULTURE,  # type: ignore[attr-defined]
-                from_workspace_id=self.workspace_id,
+            result = await coordinator.execute_operation(  # type: ignore[call-arg,arg-type,attr-defined]
+                operation=CrossWorkspaceOperation.SYNC_CULTURE,  # type: ignore[attr-defined,arg-type]
+                from_workspace_id=self.workspace_id,  # type: ignore[arg-type,attr-defined]
                 to_workspace_id=f"region:{region.region_id}",
                 payload={"items": items},
             )
@@ -725,9 +725,9 @@ class KnowledgeFederationMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            result = await coordinator.execute_operation(  # type: ignore[call-arg]
-                operation=CrossWorkspaceOperation.QUERY_MOUND,  # type: ignore[attr-defined]
-                from_workspace_id=self.workspace_id,
+            result = await coordinator.execute_operation(  # type: ignore[call-arg,arg-type,attr-defined]
+                operation=CrossWorkspaceOperation.QUERY_MOUND,  # type: ignore[attr-defined,arg-type]
+                from_workspace_id=self.workspace_id,  # type: ignore[arg-type,attr-defined]
                 to_workspace_id=f"region:{region.region_id}",
                 payload={"since": since.isoformat() if since else None},
             )

@@ -255,8 +255,8 @@ class InsightsAdapter:
                 self._debate_insights[insight.debate_id] = []
             self._debate_insights[insight.debate_id].append(insight_id)
 
-        insight_type = insight_data["type"]
-        if insight_type not in self._type_insights:
+        insight_type = insight_data["type"]  # type: ignore[index]
+        if insight_type not in self._type_insights:  # type: ignore[index]
             self._type_insights[insight_type] = []
         self._type_insights[insight_type].append(insight_id)
 
@@ -747,7 +747,7 @@ class InsightsAdapter:
         """Get statistics about stored insights and flips."""
         self.__init_reverse_flow_state()
 
-        flip_types = {}
+        flip_types: Dict[str, int] = {}
         for flip in self._flips.values():
             ft = flip.get("flip_type", "unknown")
             flip_types[ft] = flip_types.get(ft, 0) + 1

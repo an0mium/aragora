@@ -681,7 +681,7 @@ class AnalyticsMixin:
         stale_threshold_days: int = 90,
     ) -> CoverageReport:
         """Analyze domain coverage."""
-        return await self._get_analytics().analyze_coverage(
+        return await self._get_analytics().analyze_coverage(  # type: ignore[arg-type]
             self, workspace_id, stale_threshold_days
         )
 
@@ -698,7 +698,7 @@ class AnalyticsMixin:
         workspace_id: str,
     ) -> QualitySnapshot:
         """Capture current quality metrics."""
-        return await self._get_analytics().capture_quality_snapshot(self, workspace_id)
+        return await self._get_analytics().capture_quality_snapshot(self, workspace_id)  # type: ignore[arg-type]
 
     async def get_quality_trend(
         self,

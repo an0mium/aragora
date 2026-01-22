@@ -333,7 +333,7 @@ class EloAdapter:
         Returns:
             The relationship ID if stored, None if below threshold
         """
-        if metrics.debates_together < self.MIN_DEBATES_FOR_RELATIONSHIP:
+        if metrics.debates_together < self.MIN_DEBATES_FOR_RELATIONSHIP:  # type: ignore[attr-defined]
             logger.debug(f"Relationship {metrics.agent_a}-{metrics.agent_b} below debate threshold")
             return None
 
@@ -343,10 +343,10 @@ class EloAdapter:
             "id": rel_id,
             "agent_a": metrics.agent_a,
             "agent_b": metrics.agent_b,
-            "debates_together": metrics.debates_together,
-            "a_wins_vs_b": metrics.a_wins_vs_b,
-            "b_wins_vs_a": metrics.b_wins_vs_a,
-            "draws": metrics.draws,
+            "debates_together": metrics.debates_together,  # type: ignore[attr-defined]
+            "a_wins_vs_b": metrics.a_wins_vs_b,  # type: ignore[attr-defined]
+            "b_wins_vs_a": metrics.b_wins_vs_a,  # type: ignore[attr-defined]
+            "draws": metrics.draws,  # type: ignore[attr-defined]
             "avg_elo_diff": metrics.avg_elo_diff if hasattr(metrics, "avg_elo_diff") else 0.0,
             "synergy_score": metrics.synergy_score if hasattr(metrics, "synergy_score") else 0.5,
             "created_at": datetime.now(timezone.utc).isoformat(),

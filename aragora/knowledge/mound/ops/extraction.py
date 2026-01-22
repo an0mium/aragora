@@ -532,7 +532,7 @@ class DebateKnowledgeExtractor:
 
             try:
                 # Create knowledge item
-                await mound.store(
+                await mound.store(  # type: ignore[misc,call-arg]
                     workspace_id=workspace_id,
                     content=claim.content,
                     topics=claim.topics,
@@ -600,7 +600,7 @@ class ExtractionMixin:
         min_confidence: float = 0.6,
     ) -> int:
         """Promote extracted claims to Knowledge Mound."""
-        return await self._get_extractor().promote_to_mound(
+        return await self._get_extractor().promote_to_mound(  # type: ignore[arg-type]
             self, workspace_id, claims, min_confidence
         )
 

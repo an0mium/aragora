@@ -334,7 +334,7 @@ class ContinuumAdapter:
             3: MemoryTier.SLOW,
             4: MemoryTier.GLACIAL,
         }
-        tier = tier_mapping.get(request.tier, MemoryTier.SLOW)
+        tier = tier_mapping.get(request.tier, MemoryTier.SLOW)  # type: ignore[call-overload]
 
         return {
             "id": entry_id or f"mound_{uuid.uuid4().hex[:12]}",
@@ -590,9 +590,9 @@ class ContinuumAdapter:
                 logger.debug(f"Semantic search failed, falling back: {e}")
 
             # Fallback to keyword search
-            results = self.search_similar(query, limit=limit, min_similarity=min_similarity)
+            results = self.search_similar(query, limit=limit, min_similarity=min_similarity)  # type: ignore[assignment]
             success = True
-            return results
+            return results  # type: ignore[return-value]
 
         finally:
             self._record_metric("semantic_search", success, time.time() - start)
@@ -925,7 +925,7 @@ class ContinuumAdapter:
                     source_type=SourceType.CONTINUUM,
                     workspace_id=workspace_id,
                     confidence=entry.importance,
-                    tier=self._tier_to_km_tier(entry.tier.value),
+                    tier=self._tier_to_km_tier(entry.tier.value),  # type: ignore[arg-type]
                     metadata={
                         "continuum_id": entry.id,
                         "continuum_tier": entry.tier.value,

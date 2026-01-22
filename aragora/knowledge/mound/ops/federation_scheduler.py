@@ -93,9 +93,7 @@ class FederationScheduleConfig:
     interval_minutes: int = 15  # For interval trigger
 
     # Sync options
-    visibility_levels: List[str] = field(
-        default_factory=lambda: ["organization", "public"]
-    )
+    visibility_levels: List[str] = field(default_factory=lambda: ["organization", "public"])
     max_items_per_sync: int = 1000
     conflict_resolution: str = "remote_wins"  # remote_wins, local_wins, newest_wins
 
@@ -261,7 +259,7 @@ class CronParser:
 
         if "-" in field_str:
             start, end = field_str.split("-")
-            return list(range(int(start), int(end) + 1))
+            return list(range(int(start), int(end) + 1))  # type: ignore[return-value]
 
         if "," in field_str:
             return [int(v) for v in field_str.split(",")]
@@ -583,7 +581,7 @@ class FederationScheduler:
         try:
             from aragora.knowledge.mound import get_knowledge_mound
 
-            mound = await get_knowledge_mound(config.workspace_id)
+            mound = await get_knowledge_mound(config.workspace_id)  # type: ignore[arg-type]
 
             if config.sync_mode in (SyncMode.PUSH, SyncMode.BIDIRECTIONAL):
                 # Push to remote
@@ -645,9 +643,7 @@ class FederationScheduler:
                 "total": len(recent_runs),
                 "successful": successful_runs,
                 "failed": failed_runs,
-                "success_rate": (
-                    successful_runs / len(recent_runs) if recent_runs else 0
-                ),
+                "success_rate": (successful_runs / len(recent_runs) if recent_runs else 0),
             },
             "running": self._running,
         }

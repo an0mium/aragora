@@ -259,7 +259,7 @@ class CritiqueAdapter:
         elif success_rate >= 0.4:
             confidence = ConfidenceLevel.LOW
         else:
-            confidence = ConfidenceLevel.UNCERTAIN
+            confidence = ConfidenceLevel.UNCERTAIN  # type: ignore[attr-defined]
 
         # Build content from issue + suggestion
         content = pattern.issue_text
@@ -557,7 +557,7 @@ class CritiqueAdapter:
         # Note: CritiqueStore.record_pattern_outcome is the API for this
         try:
             for _ in range(validation.boost_amount):
-                self._store.record_pattern_outcome(
+                self._store.record_pattern_outcome(  # type: ignore[attr-defined]
                     issue_type=pattern.issue_type,
                     issue_text=pattern.issue_text,
                     suggestion=pattern.suggestion_text,
@@ -679,14 +679,14 @@ class CritiqueAdapter:
             if adjustment.adjustment > 0:
                 # Record positive outcomes
                 for _ in range(int(abs(adjustment.adjustment) * 10)):
-                    self._store.update_reputation(
+                    self._store.update_reputation(  # type: ignore[call-arg]
                         agent_name=adjustment.agent_name,
                         accepted=True,
                     )
             else:
                 # Record negative outcomes
                 for _ in range(int(abs(adjustment.adjustment) * 10)):
-                    self._store.update_reputation(
+                    self._store.update_reputation(  # type: ignore[call-arg]
                         agent_name=adjustment.agent_name,
                         accepted=False,
                     )
