@@ -17,6 +17,14 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, Sequence
 
+from aragora.knowledge.mound.validation import (
+    validate_graph_params,
+    validate_id,
+    validate_pagination,
+    validate_query,
+    validate_workspace_id,
+)
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
         GraphQueryResult,
@@ -123,8 +131,14 @@ class QueryOperationsMixin:
 
         self._ensure_initialized()
 
-        start_time = time.time()
+        # Validate inputs
+        validate_query(query)
         ws_id = workspace_id or self.workspace_id
+        if ws_id:
+            validate_workspace_id(ws_id)
+        limit, offset = validate_pagination(limit, offset)
+
+        start_time = time.time()
         limit = min(limit, self.config.max_query_limit)
 
         # Check cache first (include offset in cache key)
@@ -170,11 +184,12 @@ class QueryOperationsMixin:
         # Check and record SLO compliance
         try:
             from aragora.observability.metrics.slo import check_and_record_slo
+
             check_and_record_slo("km_query", execution_time)
         except ImportError:
             pass  # Metrics not available
 
-        result = QueryResult(
+        result = QueryResult(  # type: ignore[assignment]
             items=items,
             total_count=len(items),
             query=query,
@@ -187,7 +202,7 @@ class QueryOperationsMixin:
         if self._cache:
             await self._cache.set_query(cache_key, result)
 
-        return result
+        return result  # type: ignore[return-value]
 
     async def get_recent_nodes(
         self: QueryProtocol,
@@ -281,10 +296,27 @@ class QueryOperationsMixin:
         depth: int = 2,
         max_nodes: int = 50,
     ) -> "GraphQueryResult":
-        """Traverse knowledge graph from a starting node."""
+        """Traverse knowledge graph from a starting node.
+
+        Args:
+            start_id: Node ID to start traversal from
+            relationship_types: Filter to specific relationship types
+            depth: Maximum traversal depth (capped at 5)
+            max_nodes: Maximum nodes to return (capped at 1000)
+
+        Returns:
+            GraphQueryResult with nodes and edges
+
+        Raises:
+            ValidationError: If parameters exceed limits
+        """
         from aragora.knowledge.mound.types import GraphQueryResult
 
         self._ensure_initialized()
+
+        # Validate inputs
+        validate_id(start_id, field_name="start_id")
+        depth, max_nodes = validate_graph_params(depth, max_nodes)
 
         nodes: Dict[str, KnowledgeItem] = {}
         edges: List[KnowledgeLink] = []
@@ -351,7 +383,9 @@ class QueryOperationsMixin:
                     source_str = (
                         source.value
                         if hasattr(source, "value")
-                        else str(source) if source else "unknown"
+                        else str(source)
+                        if source
+                        else "unknown"
                     )
                     confidence = getattr(node, "confidence", 0.0)
                     if hasattr(confidence, "value"):
@@ -371,7 +405,9 @@ class QueryOperationsMixin:
                 rel_type_str = (
                     rel_type.value
                     if hasattr(rel_type, "value")
-                    else str(rel_type) if rel_type else "related"
+                    else str(rel_type)
+                    if rel_type
+                    else "related"
                 )
                 links.append(
                     {
@@ -392,7 +428,9 @@ class QueryOperationsMixin:
                 source_str = (
                     source.value
                     if hasattr(source, "value")
-                    else str(source) if source else "unknown"
+                    else str(source)
+                    if source
+                    else "unknown"
                 )
                 confidence = getattr(item, "confidence", 0.0)
                 if hasattr(confidence, "value"):
@@ -418,7 +456,9 @@ class QueryOperationsMixin:
                         rel_type_str = (
                             rel_type.value
                             if hasattr(rel_type, "value")
-                            else str(rel_type) if rel_type else "related"
+                            else str(rel_type)
+                            if rel_type
+                            else "related"
                         )
                         links.append(
                             {
@@ -450,7 +490,7 @@ class QueryOperationsMixin:
         Returns:
             GraphML XML string
         """
-        d3_data = await self.export_graph_d3(start_node_id, depth, limit)
+        d3_data = await self.export_graph_d3(start_node_id, depth, limit)  # type: ignore[attr-defined]
 
         # Build GraphML XML
         lines = [
@@ -539,12 +579,12 @@ class QueryOperationsMixin:
         limit = min(limit, self.config.max_query_limit)
 
         # First, get regular query results
-        result = await self.query(
+        result = await self.query(  # type: ignore[arg-type]
             query, sources, filters, limit * 2, ws_id
         )  # Get extra for filtering
 
         # Filter by visibility
-        filtered_items = await self._filter_by_visibility(
+        filtered_items = await self._filter_by_visibility(  # type: ignore[attr-defined]
             items=result.items,
             actor_id=actor_id,
             actor_workspace_id=actor_workspace_id,
@@ -611,7 +651,7 @@ class QueryOperationsMixin:
             elif vis == VisibilityLevel.PRIVATE:
                 # Private items require explicit grant - check access_grants
                 grants = (item.metadata or {}).get("access_grants", [])
-                if self._has_access_grant(grants, actor_id, actor_workspace_id, actor_org_id):
+                if self._has_access_grant(grants, actor_id, actor_workspace_id, actor_org_id):  # type: ignore[attr-defined]
                     result.append(item)
 
         return result

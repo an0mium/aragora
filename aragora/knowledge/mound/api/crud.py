@@ -19,6 +19,15 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
+from aragora.knowledge.mound.validation import (
+    ValidationError,
+    validate_content,
+    validate_id,
+    validate_metadata,
+    validate_topics,
+    validate_workspace_id,
+)
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
         IngestionRequest,
@@ -70,10 +79,27 @@ class CRUDOperationsMixin:
 
         Returns:
             IngestionResult with node ID and status
+
+        Raises:
+            ValidationError: If request data is invalid
         """
         from aragora.knowledge.mound.types import IngestionResult
 
         self._ensure_initialized()
+
+        # Validate inputs
+        try:
+            validate_content(request.content)
+            validate_workspace_id(request.workspace_id)
+            request.topics = validate_topics(request.topics)
+            request.metadata = validate_metadata(request.metadata)
+        except ValidationError as e:
+            logger.warning(f"Validation failed for store request: {e.message}")
+            return IngestionResult(
+                node_id="",
+                success=False,
+                message=f"Validation error: {e.message}",
+            )
 
         # Generate node ID
         node_id = f"kn_{uuid.uuid4().hex[:16]}"
@@ -176,8 +202,21 @@ class CRUDOperationsMixin:
         )
 
     async def get(self: CRUDProtocol, node_id: str) -> Optional["KnowledgeItem"]:
-        """Get a knowledge node by ID."""
+        """Get a knowledge node by ID.
+
+        Args:
+            node_id: ID of node to retrieve
+
+        Returns:
+            KnowledgeItem if found, None otherwise
+
+        Raises:
+            ValidationError: If node_id is invalid
+        """
         self._ensure_initialized()
+
+        # Validate input
+        validate_id(node_id, field_name="node_id")
 
         # Check cache first
         if self._cache:
@@ -197,8 +236,28 @@ class CRUDOperationsMixin:
     async def update(
         self: CRUDProtocol, node_id: str, updates: Dict[str, Any]
     ) -> Optional["KnowledgeItem"]:
-        """Update a knowledge node."""
+        """Update a knowledge node.
+
+        Args:
+            node_id: ID of node to update
+            updates: Dict of fields to update
+
+        Returns:
+            Updated KnowledgeItem if found, None otherwise
+
+        Raises:
+            ValidationError: If inputs are invalid
+        """
         self._ensure_initialized()
+
+        # Validate inputs
+        validate_id(node_id, field_name="node_id")
+        if "content" in updates:
+            validate_content(updates["content"])
+        if "topics" in updates:
+            updates["topics"] = validate_topics(updates["topics"])
+        if "metadata" in updates:
+            updates["metadata"] = validate_metadata(updates["metadata"])
 
         updates["updated_at"] = datetime.now()
         await self._update_node(node_id, updates)
@@ -210,8 +269,22 @@ class CRUDOperationsMixin:
         return await self.get(node_id)
 
     async def delete(self: CRUDProtocol, node_id: str, archive: bool = True) -> bool:
-        """Delete a knowledge node."""
+        """Delete a knowledge node.
+
+        Args:
+            node_id: ID of node to delete
+            archive: Whether to archive before deleting (default True)
+
+        Returns:
+            True if deleted, False if not found
+
+        Raises:
+            ValidationError: If node_id is invalid
+        """
         self._ensure_initialized()
+
+        # Validate input
+        validate_id(node_id, field_name="node_id")
 
         if archive:
             await self._archive_node(node_id)
@@ -463,14 +536,10 @@ class CRUDOperationsMixin:
             # Apply node_type and workspace_id filters manually
             if node_type:
                 items = [
-                    i for i in items
-                    if getattr(i, "metadata", {}).get("node_type") == node_type
+                    i for i in items if getattr(i, "metadata", {}).get("node_type") == node_type
                 ]
             if workspace_id:
-                items = [
-                    i for i in items
-                    if getattr(i, "workspace_id", None) == workspace_id
-                ]
+                items = [i for i in items if getattr(i, "workspace_id", None) == workspace_id]
             return items
 
         return []
