@@ -1,0 +1,113 @@
+# US-EAST-1 (Primary Region) Configuration
+# This is the primary region - all writes go here
+
+region:
+  name: us-east-2
+  id: region-us-east-2
+  primary: true
+  federationEnabled: true
+
+# Primary region gets more resources
+backend:
+  replicaCount: 5
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 30
+
+  env:
+    ARAGORA_REGION: us-east-2
+    ARAGORA_REGION_ID: region-us-east-2
+    ARAGORA_PRIMARY: "true"
+
+  ingress:
+    hosts:
+      - host: api.us-east-2.aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+      - host: api.aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: aragora-us-east-2-tls
+        hosts:
+          - api.us-east-2.aragora.ai
+          - api.aragora.ai
+
+debateWorker:
+  replicaCount: 4
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 15
+
+frontend:
+  replicaCount: 3
+  ingress:
+    hosts:
+      - host: us-east-2.aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+      - host: aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: aragora-frontend-us-east-2-tls
+        hosts:
+          - us-east-2.aragora.ai
+          - aragora.ai
+
+# Primary PostgreSQL
+postgresql:
+  enabled: true
+  architecture: replication
+  primary:
+    persistence:
+      size: 200Gi
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+  readReplicas:
+    replicaCount: 3
+
+# Redis with Sentinel for HA
+redis:
+  enabled: true
+  architecture: replication
+  replica:
+    replicaCount: 3
+  sentinel:
+    enabled: true
+
+# Federation - register other regions
+federation:
+  enabled: true
+  mode: bidirectional
+  regions:
+    - name: eu-west-1
+      endpoint: https://api.eu-west-1.aragora.ai
+      syncEnabled: true
+    - name: ap-south-1
+      endpoint: https://api.ap-south-1.aragora.ai
+      syncEnabled: true
+
+# Cross-region backup
+backup:
+  enabled: true
+  schedule: "0 */4 * * *"  # Every 4 hours for primary
+  retention: 60  # 60 days for primary
+  crossRegionReplication: true
+  destinationBuckets:
+    - s3://aragora-backup-eu-west-1
+    - s3://aragora-backup-ap-south-1
+
+# Istio traffic policies for primary
+istio:
+  virtualService:
+    timeout: 60s  # Higher timeout for primary (handles more traffic)

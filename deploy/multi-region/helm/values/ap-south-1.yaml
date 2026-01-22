@@ -1,0 +1,109 @@
+# AP-SOUTH-1 (Secondary Region) Configuration
+# Read replica region - syncs from us-east-2
+
+region:
+  name: ap-south-1
+  id: region-ap-south-1
+  primary: false
+  federationEnabled: true
+
+backend:
+  replicaCount: 3
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 12
+
+  env:
+    ARAGORA_REGION: ap-south-1
+    ARAGORA_REGION_ID: region-ap-south-1
+    ARAGORA_PRIMARY: "false"
+    PRIMARY_REGION_URL: https://api.us-east-2.aragora.ai
+
+  ingress:
+    hosts:
+      - host: api.ap-south-1.aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: aragora-ap-south-1-tls
+        hosts:
+          - api.ap-south-1.aragora.ai
+
+debateWorker:
+  replicaCount: 2
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 8
+
+frontend:
+  replicaCount: 2
+  ingress:
+    hosts:
+      - host: ap-south-1.aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: aragora-frontend-ap-south-1-tls
+        hosts:
+          - ap-south-1.aragora.ai
+
+# PostgreSQL read replica configuration
+postgresql:
+  enabled: true
+  architecture: standalone
+
+  primary:
+    persistence:
+      size: 100Gi
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+
+    extendedConfiguration: |
+      hot_standby = on
+      max_standby_streaming_delay = 30s
+      wal_receiver_timeout = 60s
+
+# External database connection to primary
+database:
+  replicaOf: us-east-2
+  externalHost: postgres.us-east-2.aragora.internal
+  externalPort: 5432
+
+# Redis for local caching
+redis:
+  enabled: true
+  architecture: replication
+  replica:
+    replicaCount: 2
+  sentinel:
+    enabled: true
+
+# Federation configuration
+federation:
+  enabled: true
+  mode: bidirectional
+  primaryRegion: us-east-2
+  regions:
+    - name: us-east-2
+      endpoint: https://api.us-east-2.aragora.ai
+      syncEnabled: true
+      isPrimary: true
+    - name: eu-west-1
+      endpoint: https://api.eu-west-1.aragora.ai
+      syncEnabled: true
+
+# Regional sync
+regionalSync:
+  enabled: true
+  primaryRedisUrl: redis://redis.us-east-2.aragora.internal:6379
+
+# Local backup
+backup:
+  enabled: true
+  schedule: "0 */6 * * *"
+  retention: 14
+  crossRegionReplication: false

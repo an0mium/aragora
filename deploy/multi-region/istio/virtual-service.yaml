@@ -1,0 +1,216 @@
+# Istio Virtual Service for Aragora Multi-Region Traffic Management
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: aragora-api
+  namespace: aragora
+spec:
+  hosts:
+    - api.aragora.ai
+    - "api.*.aragora.ai"
+  gateways:
+    - aragora-gateway
+  http:
+    # Health check endpoints - no retry, fast timeout
+    - match:
+        - uri:
+            prefix: /health
+      route:
+        - destination:
+            host: aragora-backend
+            port:
+              number: 8080
+      timeout: 5s
+
+    # WebSocket connections - long timeout, no retry
+    - match:
+        - headers:
+            upgrade:
+              exact: websocket
+      route:
+        - destination:
+            host: aragora-backend
+            port:
+              number: 8080
+      timeout: 0s  # No timeout for WebSocket
+
+    # API endpoints - standard routing with retry
+    - match:
+        - uri:
+            prefix: /api
+      route:
+        - destination:
+            host: aragora-backend
+            port:
+              number: 8080
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: gateway-error,connect-failure,retriable-4xx,reset,resource-exhausted
+
+    # Default route
+    - route:
+        - destination:
+            host: aragora-backend
+            port:
+              number: 8080
+      timeout: 30s
+---
+# Destination Rule for load balancing and circuit breaking
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: aragora-backend
+  namespace: aragora
+spec:
+  host: aragora-backend
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 1000
+        connectTimeout: 10s
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 1000
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 100
+        maxRetries: 3
+    loadBalancer:
+      simple: LEAST_REQUEST
+      localityLbSetting:
+        enabled: true
+        failover:
+          - from: us-east-2
+            to: eu-west-1
+          - from: eu-west-1
+            to: us-east-2
+          - from: ap-south-1
+            to: us-east-2
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+---
+# Gateway for external traffic
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: aragora-gateway
+  namespace: aragora
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: aragora-tls
+      hosts:
+        - api.aragora.ai
+        - "api.*.aragora.ai"
+        - aragora.ai
+        - "*.aragora.ai"
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - api.aragora.ai
+        - "api.*.aragora.ai"
+      tls:
+        httpsRedirect: true
+---
+# Peer Authentication - mTLS between services
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: aragora
+spec:
+  mtls:
+    mode: STRICT
+---
+# Authorization Policy - service-to-service access control
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: aragora-backend-policy
+  namespace: aragora
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+  action: ALLOW
+  rules:
+    # Allow from ingress gateway
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account
+    # Allow from other Aragora services
+    - from:
+        - source:
+            namespaces:
+              - aragora
+    # Allow from monitoring
+    - from:
+        - source:
+            namespaces:
+              - monitoring
+      to:
+        - operation:
+            paths:
+              - /metrics
+              - /health/*
+---
+# Service Entry for cross-region communication
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: aragora-primary-region
+  namespace: aragora
+spec:
+  hosts:
+    - api.us-east-2.aragora.ai
+  location: MESH_EXTERNAL
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: aragora-eu-region
+  namespace: aragora
+spec:
+  hosts:
+    - api.eu-west-1.aragora.ai
+  location: MESH_EXTERNAL
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: aragora-ap-region
+  namespace: aragora
+spec:
+  hosts:
+    - api.ap-south-1.aragora.ai
+  location: MESH_EXTERNAL
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  resolution: DNS

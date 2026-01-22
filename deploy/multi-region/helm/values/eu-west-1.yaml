@@ -1,0 +1,117 @@
+# EU-WEST-1 (Secondary Region) Configuration
+# Read replica region - syncs from us-east-2
+
+region:
+  name: eu-west-1
+  id: region-eu-west-1
+  primary: false
+  federationEnabled: true
+
+backend:
+  replicaCount: 3
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 15
+
+  env:
+    ARAGORA_REGION: eu-west-1
+    ARAGORA_REGION_ID: region-eu-west-1
+    ARAGORA_PRIMARY: "false"
+    PRIMARY_REGION_URL: https://api.us-east-2.aragora.ai
+
+  ingress:
+    hosts:
+      - host: api.eu-west-1.aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: aragora-eu-west-1-tls
+        hosts:
+          - api.eu-west-1.aragora.ai
+
+debateWorker:
+  replicaCount: 2
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 8
+
+frontend:
+  replicaCount: 2
+  ingress:
+    hosts:
+      - host: eu-west-1.aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: aragora-frontend-eu-west-1-tls
+        hosts:
+          - eu-west-1.aragora.ai
+
+# PostgreSQL read replica configuration
+postgresql:
+  enabled: true
+  architecture: standalone  # Single replica in secondary region
+
+  primary:
+    persistence:
+      size: 100Gi
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+
+    # Configure as streaming replica from primary
+    extendedConfiguration: |
+      hot_standby = on
+      max_standby_streaming_delay = 30s
+      wal_receiver_timeout = 60s
+
+# External database connection to primary (for writes)
+database:
+  replicaOf: us-east-2
+  externalHost: postgres.us-east-2.aragora.internal
+  externalPort: 5432
+
+# Redis for local caching and session state
+redis:
+  enabled: true
+  architecture: replication
+  replica:
+    replicaCount: 2
+  sentinel:
+    enabled: true
+
+# Federation - pull from primary, push local changes
+federation:
+  enabled: true
+  mode: bidirectional
+  primaryRegion: us-east-2
+  regions:
+    - name: us-east-2
+      endpoint: https://api.us-east-2.aragora.ai
+      syncEnabled: true
+      isPrimary: true
+    - name: ap-south-1
+      endpoint: https://api.ap-south-1.aragora.ai
+      syncEnabled: true
+
+# Regional sync for state propagation
+regionalSync:
+  enabled: true
+  primaryRedisUrl: redis://redis.us-east-2.aragora.internal:6379
+
+# Local backup only (primary handles cross-region)
+backup:
+  enabled: true
+  schedule: "0 */6 * * *"
+  retention: 14  # 14 days for secondary
+  crossRegionReplication: false
+
+# GDPR compliance settings for EU region
+compliance:
+  gdpr:
+    enabled: true
+    dataResidency: eu
+    auditLogging: true

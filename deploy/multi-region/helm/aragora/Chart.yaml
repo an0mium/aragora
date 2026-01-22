@@ -1,0 +1,31 @@
+apiVersion: v2
+name: aragora
+description: Multi-agent debate framework with multi-region support
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: redis
+    version: "18.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: postgresql
+    version: "13.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+
+keywords:
+  - aragora
+  - debate
+  - multi-agent
+  - ai
+  - multi-region
+
+maintainers:
+  - name: Aragora Team
+    email: ops@aragora.ai
+
+annotations:
+  artifacthub.io/license: MIT
+  artifacthub.io/category: ai-machine-learning

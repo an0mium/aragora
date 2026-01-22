@@ -1,0 +1,208 @@
+{{- if .Values.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aragora.fullname" . }}-backend
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+  annotations:
+    region: {{ .Values.region.name }}
+    primary: "{{ .Values.region.primary }}"
+spec:
+  {{- if not .Values.backend.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aragora.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "aragora.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+        region: {{ .Values.region.name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "aragora.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.backend.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: backend
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: ARAGORA_REGION
+              value: {{ .Values.region.name | quote }}
+            - name: ARAGORA_REGION_ID
+              value: {{ .Values.region.id | default (printf "region-%s" .Values.region.name) | quote }}
+            - name: ARAGORA_PRIMARY
+              value: {{ .Values.region.primary | quote }}
+            - name: FEDERATION_ENABLED
+              value: {{ .Values.region.federationEnabled | quote }}
+            {{- range $key, $value := .Values.backend.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              value: "redis://{{ include "aragora.fullname" . }}-redis-master:6379"
+            {{- end }}
+            {{- if .Values.postgresql.enabled }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aragora.fullname" . }}-postgres-secret
+                  key: database-url
+            {{- end }}
+          {{- with .Values.backend.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
+{{- end }}
+---
+{{- if .Values.debateWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aragora.fullname" . }}-debate-worker
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+    app.kubernetes.io/component: debate-worker
+spec:
+  {{- if not .Values.debateWorker.autoscaling.enabled }}
+  replicas: {{ .Values.debateWorker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aragora.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: debate-worker
+  template:
+    metadata:
+      labels:
+        {{- include "aragora.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: debate-worker
+        region: {{ .Values.region.name }}
+    spec:
+      serviceAccountName: {{ include "aragora.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.debateWorker.image.repository }}:{{ .Values.debateWorker.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.debateWorker.image.pullPolicy }}
+          env:
+            - name: ARAGORA_REGION
+              value: {{ .Values.region.name | quote }}
+            - name: WORKER_MODE
+              value: "true"
+          resources:
+            {{- toYaml .Values.debateWorker.resources | nindent 12 }}
+{{- end }}
+---
+{{- if .Values.frontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aragora.fullname" . }}-frontend
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "aragora.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        {{- include "aragora.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
+        region: {{ .Values.region.name }}
+    spec:
+      serviceAccountName: {{ include "aragora.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: frontend
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: "https://api.{{ .Values.region.name }}.aragora.ai"
+            - name: NEXT_PUBLIC_REGION
+              value: {{ .Values.region.name | quote }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+{{- end }}

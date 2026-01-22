@@ -1,0 +1,343 @@
+# Default values for Aragora multi-region deployment
+# This is a YAML-formatted file.
+
+# Region configuration
+region:
+  name: "us-east-2"
+  id: ""  # Auto-generated if empty
+  primary: true
+  federationEnabled: true
+
+# Global settings
+global:
+  imagePullSecrets: []
+  storageClass: ""
+
+# Backend API configuration
+backend:
+  enabled: true
+  replicaCount: 3
+
+  image:
+    repository: aragora/backend
+    pullPolicy: IfNotPresent
+    tag: ""  # Defaults to chart appVersion
+
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Pod topology spread for HA
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: backend
+
+  # Anti-affinity
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: backend
+            topologyKey: kubernetes.io/hostname
+
+  # Environment variables
+  env:
+    ARAGORA_ENV: production
+    LOG_LEVEL: info
+    FEDERATION_ENABLED: "true"
+
+  # Secrets (reference external secrets)
+  envFrom:
+    - secretRef:
+        name: aragora-secrets
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  ingress:
+    enabled: true
+    className: istio
+    annotations:
+      kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: api.aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: aragora-tls
+        hosts:
+          - api.aragora.ai
+
+# Debate worker configuration
+debateWorker:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: aragora/debate-worker
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: aragora/frontend
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  service:
+    type: ClusterIP
+    port: 3000
+
+  ingress:
+    enabled: true
+    className: istio
+    annotations:
+      kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: aragora.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: aragora-frontend-tls
+        hosts:
+          - aragora.ai
+
+# Redis configuration
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+    existingSecret: aragora-redis-secret
+    existingSecretPasswordKey: redis-password
+
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+  sentinel:
+    enabled: true
+    masterSet: aragora-master
+    quorum: 2
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  architecture: replication
+  auth:
+    existingSecret: aragora-postgres-secret
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
+
+  primary:
+    persistence:
+      enabled: true
+      size: 100Gi
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+    # Enable streaming replication
+    extendedConfiguration: |
+      wal_level = replica
+      max_wal_senders = 10
+      max_replication_slots = 10
+      hot_standby = on
+      synchronous_commit = on
+
+  readReplicas:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 100Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+# Cross-region database replication (for secondary regions)
+database:
+  replicaOf: ""  # Set to primary region name for read replicas
+  externalHost: ""  # External database host for cross-region
+  externalPort: 5432
+
+# Regional sync configuration
+regionalSync:
+  enabled: true
+  heartbeatInterval: 10
+  healthTimeout: 30
+  maxBufferedEvents: 1000
+  conflictResolution: last-write-wins
+
+# Federation configuration
+federation:
+  enabled: true
+  mode: bidirectional  # push, pull, bidirectional, disabled
+  syncScope: full  # full, metadata, summary
+  syncInterval: 60  # seconds
+  regions: []  # List of federated region endpoints
+
+# Service mesh (Istio)
+istio:
+  enabled: true
+
+  # Virtual service for traffic management
+  virtualService:
+    enabled: true
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,retriable-4xx
+
+  # Destination rules
+  destinationRule:
+    enabled: true
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 1000
+        http:
+          h2UpgradePolicy: UPGRADE
+          http1MaxPendingRequests: 1000
+          http2MaxRequests: 1000
+      loadBalancer:
+        simple: LEAST_REQUEST
+      outlierDetection:
+        consecutive5xxErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+
+# Observability
+observability:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 15s
+
+  tracing:
+    enabled: true
+    samplingRate: 0.1
+
+  logging:
+    enabled: true
+    format: json
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 */6 * * *"  # Every 6 hours
+  retention: 30  # days
+  crossRegionReplication: true
+  destinationBucket: ""
+
+# Network policies
+networkPolicy:
+  enabled: true
+
+  # Allow traffic from specific sources
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+
+# Pod security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
