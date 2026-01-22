@@ -397,9 +397,10 @@ async def search_failure_emails(
             break
 
         for msg_summary in messages:
-            # Get full message
+            # Get full message - msg_summary may be a string (ID) or dict with 'id' key
+            msg_id = msg_summary if isinstance(msg_summary, str) else msg_summary.get("id")
             try:
-                msg = await connector.get_message(msg_summary["id"])
+                msg = await connector.get_message(msg_id)
                 total_processed += 1
 
                 # Check if Aragora-related
@@ -427,7 +428,7 @@ async def search_failure_emails(
             except Exception as e:
                 errors += 1
                 if errors <= 5:
-                    print(f"  Error fetching message {msg_summary.get('id', 'unknown')}: {e}")
+                    print(f"  Error fetching message {msg_id}: {e}")
                 elif errors == 6:
                     print("  (suppressing further error messages...)")
 
