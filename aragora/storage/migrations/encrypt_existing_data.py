@@ -47,7 +47,7 @@ except ImportError:
 
 # Check metrics availability
 try:
-    from aragora.observability.metrics import record_migration_record, record_migration_error
+    from aragora.observability.metrics import record_migration_record, record_migration_error  # type: ignore[attr-defined]
 
     METRICS_AVAILABLE = True
 except ImportError:

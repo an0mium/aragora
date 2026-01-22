@@ -339,6 +339,9 @@ class GmailConnector(EnterpriseConnector):
                 json=json_data,
                 timeout=60,
             )
+            if response.status_code >= 400:
+                # Log the full error response for debugging
+                logger.error(f"Gmail API error {response.status_code}: {response.text}")
             response.raise_for_status()
             return response.json() if response.content else {}
 

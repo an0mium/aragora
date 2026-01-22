@@ -189,12 +189,12 @@ def _update_total_syncs(count: int) -> None:
 
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.adapters.elo_adapter import (
+    from aragora.knowledge.mound.adapters.elo_adapter import (  # type: ignore[attr-defined]
         EloAdapter,
         EloAdjustmentRecommendation,
         KMEloPattern,
     )
-    from aragora.knowledge.mound.core import KnowledgeMound
+    from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
     from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
