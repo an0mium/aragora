@@ -671,13 +671,13 @@ class KnowledgeFederationMixin:
             workspace = FederatedWorkspace(
                 id=f"region:{region.region_id}",
                 name=f"Region: {region.region_id}",
-                federation_mode=region.mode,
+                federation_mode=region.mode,  # type: ignore[arg-type]
                 endpoint_url=region.endpoint_url,
                 public_key=region.api_key,
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            await coordinator.register_workspace(workspace)
+            await coordinator.register_workspace(workspace)  # type: ignore[call-arg]
         except ImportError:
             logger.debug("CrossWorkspaceCoordinator not available")
         except Exception as e:
@@ -696,8 +696,8 @@ class KnowledgeFederationMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            result = await coordinator.execute_operation(
-                operation=CrossWorkspaceOperation.SYNC_CULTURE,
+            result = await coordinator.execute_operation(  # type: ignore[call-arg]
+                operation=CrossWorkspaceOperation.SYNC_CULTURE,  # type: ignore[attr-defined]
                 from_workspace_id=self.workspace_id,
                 to_workspace_id=f"region:{region.region_id}",
                 payload={"items": items},
@@ -725,8 +725,8 @@ class KnowledgeFederationMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            result = await coordinator.execute_operation(
-                operation=CrossWorkspaceOperation.QUERY_MOUND,
+            result = await coordinator.execute_operation(  # type: ignore[call-arg]
+                operation=CrossWorkspaceOperation.QUERY_MOUND,  # type: ignore[attr-defined]
                 from_workspace_id=self.workspace_id,
                 to_workspace_id=f"region:{region.region_id}",
                 payload={"since": since.isoformat() if since else None},

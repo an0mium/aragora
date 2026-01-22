@@ -11,6 +11,12 @@ This module provides operational mixins for the KnowledgeMound facade:
 - DedupOperationsMixin: Similarity-based deduplication
 - PruningOperationsMixin: Automatic and manual pruning
 - AutoCurationMixin: Intelligent automated knowledge maintenance (Phase 4)
+
+Phase A2 Operations:
+- ContradictionOperationsMixin: Contradiction detection and resolution
+- ConfidenceDecayMixin: Dynamic confidence adjustment over time
+- GovernanceMixin: RBAC and audit trails
+- AnalyticsMixin: Coverage, usage, and quality analytics
 """
 
 from aragora.knowledge.mound.ops.staleness import StalenessOperationsMixin
@@ -51,6 +57,67 @@ from aragora.knowledge.mound.ops.auto_curation import (
     TierLevel,
 )
 
+# Phase A2 Operations
+from aragora.knowledge.mound.ops.contradiction import (
+    ContradictionOperationsMixin,
+    ContradictionDetector,
+    Contradiction,
+    ContradictionReport,
+    ContradictionConfig,
+    ContradictionType,
+    ResolutionStrategy,
+    get_contradiction_detector,
+)
+from aragora.knowledge.mound.ops.confidence_decay import (
+    ConfidenceDecayMixin,
+    ConfidenceDecayManager,
+    ConfidenceAdjustment,
+    DecayReport,
+    DecayConfig,
+    DecayModel,
+    ConfidenceEvent,
+    get_decay_manager,
+)
+from aragora.knowledge.mound.ops.governance import (
+    GovernanceMixin,
+    RBACManager,
+    AuditTrail,
+    Role,
+    RoleAssignment,
+    Permission,
+    BuiltinRole,
+    BUILTIN_ROLES,
+    AuditAction,
+    AuditEntry,
+    get_rbac_manager,
+    get_audit_trail,
+)
+from aragora.knowledge.mound.ops.analytics import (
+    AnalyticsMixin,
+    KnowledgeAnalytics,
+    DomainCoverage,
+    CoverageReport,
+    UsageEvent,
+    UsageEventType,
+    ItemUsageStats,
+    UsageReport,
+    QualitySnapshot,
+    QualityTrend,
+    GrowthMetrics,
+    get_knowledge_analytics,
+)
+from aragora.knowledge.mound.ops.extraction import (
+    ExtractionMixin,
+    DebateKnowledgeExtractor,
+    ExtractedClaim,
+    ExtractedRelationship,
+    ExtractionResult,
+    ExtractionConfig,
+    ExtractionType,
+    ConfidenceSource,
+    get_debate_extractor,
+)
+
 __all__ = [
     "StalenessOperationsMixin",
     "CultureOperationsMixin",
@@ -85,4 +152,58 @@ __all__ = [
     "CurationAction",
     "QualityScore",
     "TierLevel",
+    # Phase A2: Contradiction Detection
+    "ContradictionOperationsMixin",
+    "ContradictionDetector",
+    "Contradiction",
+    "ContradictionReport",
+    "ContradictionConfig",
+    "ContradictionType",
+    "ResolutionStrategy",
+    "get_contradiction_detector",
+    # Phase A2: Confidence Decay
+    "ConfidenceDecayMixin",
+    "ConfidenceDecayManager",
+    "ConfidenceAdjustment",
+    "DecayReport",
+    "DecayConfig",
+    "DecayModel",
+    "ConfidenceEvent",
+    "get_decay_manager",
+    # Phase A2: Governance
+    "GovernanceMixin",
+    "RBACManager",
+    "AuditTrail",
+    "Role",
+    "RoleAssignment",
+    "Permission",
+    "BuiltinRole",
+    "BUILTIN_ROLES",
+    "AuditAction",
+    "AuditEntry",
+    "get_rbac_manager",
+    "get_audit_trail",
+    # Phase A2: Analytics
+    "AnalyticsMixin",
+    "KnowledgeAnalytics",
+    "DomainCoverage",
+    "CoverageReport",
+    "UsageEvent",
+    "UsageEventType",
+    "ItemUsageStats",
+    "UsageReport",
+    "QualitySnapshot",
+    "QualityTrend",
+    "GrowthMetrics",
+    "get_knowledge_analytics",
+    # Phase A2: Knowledge Extraction
+    "ExtractionMixin",
+    "DebateKnowledgeExtractor",
+    "ExtractedClaim",
+    "ExtractedRelationship",
+    "ExtractionResult",
+    "ExtractionConfig",
+    "ExtractionType",
+    "ConfidenceSource",
+    "get_debate_extractor",
 ]
