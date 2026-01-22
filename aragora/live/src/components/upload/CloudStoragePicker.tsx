@@ -34,6 +34,8 @@ interface ApiCloudFile {
   mime_type?: string;
   modified_time?: string;
   is_folder?: boolean;
+  web_url?: string;
+  thumbnail_url?: string;
 }
 
 /**
