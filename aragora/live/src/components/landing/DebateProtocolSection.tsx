@@ -11,10 +11,10 @@ const STEPS = [
   },
   {
     id: '02',
-    title: 'ATTACK',
+    title: 'VALIDATE',
     accent: 'acid-cyan',
     content:
-      "Rival models red-team each proposal for security, logic, compliance, and scale. Agents rotate through cognitive roles: Analyst, Skeptic, Devil's Advocate.",
+      "Adversarial validation: rival models red-team each proposal for security, logic, compliance, and scale. Agents rotate through cognitive roles: Analyst, Skeptic, Devil's Advocate.",
   },
   {
     id: '03',
@@ -30,10 +30,10 @@ const STEPS = [
   },
   {
     id: '05',
-    title: 'RECORD',
+    title: 'RECEIPT',
     accent: 'acid-green',
     content:
-      'Decision receipts, risk heatmaps, and evidence chains are saved. Outcomes feed into agent memory and ELO ratings.',
+      'Cryptographic decision receipts with evidence chains and audit trails. Outcomes feed into agent memory and ELO ratings.',
   },
 ];
 
@@ -41,7 +41,7 @@ export function DebateProtocolSection() {
   return (
     <section className="py-12 border-t border-acid-green/20">
       <div className="container mx-auto px-4">
-        <SectionHeader title="THE STRESS-TEST PROTOCOL" />
+        <SectionHeader title="THE DELIBERATION PROTOCOL" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 max-w-6xl mx-auto">
           {STEPS.map((step) => (

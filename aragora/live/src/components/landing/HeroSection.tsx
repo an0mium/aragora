@@ -32,6 +32,20 @@ export function HeroSection({
         Control plane for multi-agent deliberation
       </h1>
 
+      {/* Fleet Status Indicator */}
+      <div className="flex items-center gap-4 mb-4 flex-wrap justify-center">
+        <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-acid-green/30 rounded-full">
+          <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse" />
+          <span className="text-xs font-mono text-acid-green">15+ models</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-acid-cyan/30 rounded-full">
+          <span className="text-xs font-mono text-acid-cyan">25+ sources</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-acid-yellow/30 rounded-full">
+          <span className="text-xs font-mono text-acid-yellow">24+ channels</span>
+        </div>
+      </div>
+
       <p className="text-acid-cyan font-mono text-sm sm:text-base text-center mb-10 max-w-xl">
         Orchestrate AI models across your org knowledge and channels. Get defensible decisions with audit trails.
       </p>
