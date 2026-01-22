@@ -183,7 +183,7 @@ class PersistentOriginStore:
             )
 
             # Create schema
-            async with self._pool.acquire() as conn:  # type: ignore[union-attr]
+            async with self._pool.acquire() as conn:  # type: ignore[union-attr, attr-defined]
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS routing_origins (
                         origin_id TEXT PRIMARY KEY,
@@ -460,7 +460,7 @@ class PersistentOriginStore:
 
     async def _save_postgres(self, origin: OriginRecord) -> None:
         """Save origin to PostgreSQL."""
-        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
+        async with self._pool.acquire() as conn:  # type: ignore[union-attr, attr-defined]
             await conn.execute(
                 """
                 INSERT INTO routing_origins
@@ -491,7 +491,7 @@ class PersistentOriginStore:
 
     async def _load_postgres(self, origin_id: str) -> Optional[OriginRecord]:
         """Load origin from PostgreSQL."""
-        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
+        async with self._pool.acquire() as conn:  # type: ignore[union-attr, attr-defined]
             row = await conn.fetchrow(
                 """
                 SELECT origin_id, origin_type, platform, channel_id, user_id,
@@ -550,7 +550,7 @@ class PersistentOriginStore:
         """
 
         results = []
-        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
+        async with self._pool.acquire() as conn:  # type: ignore[union-attr, attr-defined]
             rows = await conn.fetch(query, *params)
             for row in rows:
                 results.append(
@@ -574,7 +574,7 @@ class PersistentOriginStore:
 
     async def _cleanup_postgres(self) -> int:
         """Remove expired records from PostgreSQL."""
-        async with self._pool.acquire() as conn:  # type: ignore[union-attr]
+        async with self._pool.acquire() as conn:  # type: ignore[union-attr, attr-defined]
             result = await conn.execute("DELETE FROM routing_origins WHERE expires_at < NOW()")
             # Parse "DELETE N" result
             count = int(result.split()[-1]) if result else 0

@@ -634,9 +634,15 @@ class TestRealRLMIntegration:
             limiter = RLMCognitiveLoadLimiter(
                 rlm_backend="anthropic", rlm_model="claude-3-5-sonnet-20241022"
             )
-            # Check deprecation warning was issued
-            assert len(w) == 1
-            assert "deprecated" in str(w[0].message).lower()
+            # Check deprecation warning was issued (may have additional warnings from RLM init)
+            deprecation_warnings = [
+                warning
+                for warning in w
+                if issubclass(warning.category, DeprecationWarning)
+                and "rlm_backend" in str(warning.message).lower()
+            ]
+            assert len(deprecation_warnings) >= 1
+            assert "deprecated" in str(deprecation_warnings[0].message).lower()
 
         # Only rlm_model is stored
         assert limiter._rlm_model == "claude-3-5-sonnet-20241022"
@@ -650,8 +656,14 @@ class TestRealRLMIntegration:
             limiter = RLMCognitiveLoadLimiter.for_stress_level(
                 level="elevated", rlm_backend="openrouter", rlm_model="mistral-large"
             )
-            # rlm_backend triggers deprecation warning
-            assert len(w) == 1
+            # rlm_backend triggers deprecation warning (may have additional warnings from RLM init)
+            deprecation_warnings = [
+                warning
+                for warning in w
+                if issubclass(warning.category, DeprecationWarning)
+                and "rlm_backend" in str(warning.message).lower()
+            ]
+            assert len(deprecation_warnings) >= 1
 
         assert limiter._rlm_model == "mistral-large"
 
@@ -734,6 +746,7 @@ class TestRealRLMIntegration:
     def test_real_rlm_initialization(self):
         """When RLM is installed, limiter initializes real RLM."""
         import warnings
+
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             # rlm_backend is deprecated - use rlm_model only

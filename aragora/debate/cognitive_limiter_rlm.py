@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
@@ -156,8 +157,6 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                          This parameter is ignored and will be removed in v3.0.
             rlm_model: Model for real RLM queries (e.g., 'claude', 'gpt-4o')
         """
-        import warnings
-
         # rlm_backend is deprecated - warn if any value is passed
         if rlm_backend is not _DEPRECATED_RLM_BACKEND:
             warnings.warn(
@@ -189,9 +188,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                 if DebateContextAdapter is not None:
                     self._debate_adapter = DebateContextAdapter(self._aragora_rlm)
                 if HAS_OFFICIAL_RLM:
-                    logger.info(
-                        f"TRUE RLM initialized via factory with model={rlm_model}"
-                    )
+                    logger.info(f"TRUE RLM initialized via factory with model={rlm_model}")
                 else:
                     logger.info(
                         f"AragoraRLM initialized via factory (compression fallback), model={rlm_model}"

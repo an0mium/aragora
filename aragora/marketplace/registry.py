@@ -23,6 +23,9 @@ from .models import (
     BUILTIN_DEBATE_TEMPLATES,
 )
 
+# Type alias for all template types
+Template = Union[AgentTemplate, DebateTemplate, WorkflowTemplate]
+
 
 class TemplateRegistry:
     """Local registry for marketplace templates."""
@@ -368,6 +371,7 @@ class TemplateRegistry:
         data = json.loads(json_str)
 
         # Determine template type from data
+        template: Template  # Union type for all template types
         if "agent_type" in data:
             metadata = self._parse_metadata(data["metadata"])
             template = AgentTemplate(

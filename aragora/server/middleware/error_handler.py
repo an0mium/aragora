@@ -83,7 +83,7 @@ class APIError(Exception):
         self, request_id: Optional[str] = None, path: Optional[str] = None
     ) -> Dict[str, Any]:
         """Convert to standardized error response dict."""
-        error_dict = {
+        error_dict: Dict[str, Any] = {
             "code": self.code,
             "message": self.message,
             "timestamp": datetime.now(timezone.utc).isoformat() + "Z",

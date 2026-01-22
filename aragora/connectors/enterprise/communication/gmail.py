@@ -39,9 +39,10 @@ logger = logging.getLogger(__name__)
 
 
 # Gmail API scopes
+# Note: gmail.metadata doesn't support search queries ('q' parameter)
+# Using gmail.readonly alone is sufficient for read operations including search
 GMAIL_SCOPES_READONLY = [
     "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.metadata",
 ]
 
 # Full scopes including send (required for bidirectional email)

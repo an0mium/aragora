@@ -41,10 +41,18 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
+      # Enable unified alerting
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_ALERTING_ENABLED=false
     volumes:
       - grafana-data:/var/lib/grafana
-      - ../grafana:/etc/grafana/provisioning/dashboards:ro
+      # Dashboard provisioning
+      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # Datasource provisioning
       - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      # Alert rules provisioning
+      - ./grafana-alerts.yaml:/etc/grafana/provisioning/alerting/alerts.yaml:ro
     restart: unless-stopped
     networks:
       - observability
