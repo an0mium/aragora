@@ -224,6 +224,7 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
             <button
               onClick={onClose}
               disabled={running}
+              aria-label="Close plugin runner"
               className="px-4 py-2 text-xs font-mono text-text-muted hover:text-text transition-colors disabled:opacity-50"
             >
               [CLOSE]

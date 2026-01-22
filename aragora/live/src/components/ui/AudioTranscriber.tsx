@@ -213,6 +213,7 @@ export function AudioTranscriber({
           <div className="text-xs text-crimson/80">{error}</div>
           <button
             onClick={reset}
+            aria-label="Try transcription again"
             className="mt-3 px-3 py-1 text-xs font-mono border border-crimson/50 text-crimson hover:bg-crimson/10 transition-colors"
           >
             Try Again
@@ -237,6 +238,7 @@ export function AudioTranscriber({
             </div>
             <button
               onClick={reset}
+              aria-label="Start new transcription"
               className="text-xs font-mono text-acid-green/70 hover:text-acid-green"
             >
               New File
@@ -244,21 +246,24 @@ export function AudioTranscriber({
           </div>
 
           {/* Export buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-2" role="group" aria-label="Export options">
             <button
               onClick={() => exportTranscript('txt')}
+              aria-label="Export as plain text"
               className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
             >
               Export TXT
             </button>
             <button
               onClick={() => exportTranscript('srt')}
+              aria-label="Export as SRT subtitles"
               className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
             >
               Export SRT
             </button>
             <button
               onClick={() => exportTranscript('vtt')}
+              aria-label="Export as WebVTT subtitles"
               className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
             >
               Export VTT
@@ -268,9 +273,12 @@ export function AudioTranscriber({
           {/* Transcript content */}
           <div className="bg-surface border border-acid-green/20 rounded-lg overflow-hidden">
             {/* Toggle between full text and segments */}
-            <div className="flex border-b border-acid-green/20">
+            <div className="flex border-b border-acid-green/20" role="tablist" aria-label="Transcript view">
               <button
                 onClick={() => setShowSegments(false)}
+                role="tab"
+                aria-selected={!showSegments}
+                aria-controls="transcript-content"
                 className={`flex-1 px-3 py-2 text-xs font-mono ${
                   !showSegments
                     ? 'bg-acid-green/10 text-acid-green'
@@ -281,6 +289,9 @@ export function AudioTranscriber({
               </button>
               <button
                 onClick={() => setShowSegments(true)}
+                role="tab"
+                aria-selected={showSegments}
+                aria-controls="transcript-content"
                 className={`flex-1 px-3 py-2 text-xs font-mono ${
                   showSegments
                     ? 'bg-acid-green/10 text-acid-green'

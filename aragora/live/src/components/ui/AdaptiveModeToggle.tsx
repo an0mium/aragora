@@ -101,6 +101,7 @@ export function AdaptiveModeBadge({ className = '' }: { className?: string }) {
   return (
     <button
       onClick={toggleMode}
+      aria-label={`Toggle UI mode. Currently in ${modeLabel} mode.`}
       className={`
         px-2 py-0.5
         text-xs font-mono
@@ -141,6 +142,8 @@ export function AdaptiveModeCard({ className = '' }: { className?: string }) {
         {/* Simple Mode */}
         <button
           onClick={() => setMode('simple')}
+          aria-pressed={isSimple}
+          aria-label="Select simple mode"
           className={`
             w-full p-4 text-left border rounded
             transition-colors
@@ -167,6 +170,8 @@ export function AdaptiveModeCard({ className = '' }: { className?: string }) {
         {/* Advanced Mode */}
         <button
           onClick={() => setMode('advanced')}
+          aria-pressed={isAdvanced}
+          aria-label="Select advanced mode"
           className={`
             w-full p-4 text-left border rounded
             transition-colors

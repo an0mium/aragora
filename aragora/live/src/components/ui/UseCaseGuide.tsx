@@ -172,9 +172,10 @@ export function UseCaseGuide({
         />
 
         {/* Tag filters */}
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by category">
           <button
             onClick={() => setSelectedTag(null)}
+            aria-pressed={!selectedTag}
             className={`
               px-2 py-1 text-xs font-mono
               ${!selectedTag
@@ -190,6 +191,7 @@ export function UseCaseGuide({
             <button
               key={tag}
               onClick={() => setSelectedTag(tag === selectedTag ? null : tag)}
+              aria-pressed={selectedTag === tag}
               className={`
                 px-2 py-1 text-xs font-mono
                 ${selectedTag === tag
@@ -220,6 +222,7 @@ export function UseCaseGuide({
             {selectedTag && (
               <button
                 onClick={() => setSelectedTag(null)}
+                aria-label="Clear category filter"
                 className="ml-2 text-acid-green underline"
               >
                 Clear filter
