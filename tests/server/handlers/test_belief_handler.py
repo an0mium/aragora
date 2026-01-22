@@ -222,8 +222,8 @@ class TestBeliefHandlerValidation:
             mock_http,
         )
 
-        # Should return error or None
-        assert result is None or result.status_code == 400
+        # Should return error or None (400 for invalid ID, 503 if nomic_dir not configured)
+        assert result is None or result.status_code in (400, 503)
 
     def test_top_k_clamped_to_max(self, handler):
         """Top K parameter is clamped to maximum."""

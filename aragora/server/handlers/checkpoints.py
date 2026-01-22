@@ -96,50 +96,52 @@ class CheckpointHandler(BaseHandler):
         if path == "/api/v1/checkpoints/resumable" and method == "GET":
             return await self.list_resumable_debates()
 
-        # /api/checkpoints/{id}...
+        # /api/v1/checkpoints/{id}...
         if path.startswith("/api/v1/checkpoints/") and not path.startswith(
             "/api/v1/checkpoints/resumable"
         ):
             parts = path.split("/")
-            if len(parts) >= 4:
-                checkpoint_id = parts[3]
+            # Parts: ["", "api", "v1", "checkpoints", ":id", ...]
+            if len(parts) >= 5:
+                checkpoint_id = parts[4]
 
-                # GET /api/checkpoints/{id}
-                if method == "GET" and len(parts) == 4:
+                # GET /api/v1/checkpoints/{id} (5 parts)
+                if method == "GET" and len(parts) == 5:
                     return await self.get_checkpoint(checkpoint_id)
 
-                # POST /api/checkpoints/{id}/resume
-                if method == "POST" and len(parts) >= 5 and parts[4] == "resume":
+                # POST /api/v1/checkpoints/{id}/resume (6 parts)
+                if method == "POST" and len(parts) >= 6 and parts[5] == "resume":
                     return await self.resume_checkpoint(checkpoint_id, body)
 
-                # DELETE /api/checkpoints/{id}
-                if method == "DELETE" and len(parts) == 4:
+                # DELETE /api/v1/checkpoints/{id} (5 parts)
+                if method == "DELETE" and len(parts) == 5:
                     return await self.delete_checkpoint(checkpoint_id)
 
-                # POST /api/checkpoints/{id}/intervention
-                if method == "POST" and len(parts) >= 5 and parts[4] == "intervention":
+                # POST /api/v1/checkpoints/{id}/intervention (6 parts)
+                if method == "POST" and len(parts) >= 6 and parts[5] == "intervention":
                     return await self.add_intervention(checkpoint_id, body)
 
-        # /api/debates/{id}/checkpoint...
+        # /api/v1/debates/{id}/checkpoint...
         if path.startswith("/api/v1/debates/") and "/checkpoint" in path:
             parts = path.split("/")
-            if len(parts) >= 4:
-                debate_id = parts[3]
+            # Parts: ["", "api", "v1", "debates", ":id", ...]
+            if len(parts) >= 5:
+                debate_id = parts[4]
 
-                # GET /api/debates/{id}/checkpoints
-                if method == "GET" and len(parts) >= 5 and parts[4] == "checkpoints":
+                # GET /api/v1/debates/{id}/checkpoints (6 parts)
+                if method == "GET" and len(parts) >= 6 and parts[5] == "checkpoints":
                     return await self.list_debate_checkpoints(debate_id, query_params)
 
-                # POST /api/debates/{id}/checkpoint
-                if method == "POST" and len(parts) == 5 and parts[4] == "checkpoint":
+                # POST /api/v1/debates/{id}/checkpoint (6 parts)
+                if method == "POST" and len(parts) == 6 and parts[5] == "checkpoint":
                     return await self.create_checkpoint(debate_id, body)
 
-                # POST /api/debates/{id}/checkpoint/pause
+                # POST /api/v1/debates/{id}/checkpoint/pause (7 parts)
                 if (
                     method == "POST"
-                    and len(parts) >= 6
-                    and parts[4] == "checkpoint"
-                    and parts[5] == "pause"
+                    and len(parts) >= 7
+                    and parts[5] == "checkpoint"
+                    and parts[6] == "pause"
                 ):
                     return await self.pause_debate(debate_id, body)
 
