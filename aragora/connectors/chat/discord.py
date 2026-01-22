@@ -160,22 +160,24 @@ class DiscordConnector(ChatPlatformConnector):
             # Handle thread
             target_channel = thread_id or channel_id
 
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{DISCORD_API_BASE}/channels/{target_channel}/messages",
-                    headers=self._get_headers(),
-                    json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
+            # Use shared HTTP helper with retry and circuit breaker
+            success, data, error = await self._http_request(
+                method="POST",
+                url=f"{DISCORD_API_BASE}/channels/{target_channel}/messages",
+                headers=self._get_headers(),
+                json=payload,
+                operation="send_message",
+            )
 
-                self._record_success()
+            if success and data:
                 return SendMessageResponse(
                     success=True,
                     message_id=data.get("id"),
                     channel_id=data.get("channel_id"),
                     timestamp=data.get("timestamp"),
                 )
+            else:
+                return SendMessageResponse(success=False, error=error or "Unknown error")
 
         except Exception as e:
             self._record_failure(e)
