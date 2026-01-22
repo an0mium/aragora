@@ -504,6 +504,7 @@ class CircuitBreaker:
             self._single_failures = 0
             self._single_successes = 0
             logger.info("Circuit breaker CLOSED")
+            _emit_metrics(self.name, 0)  # 0 = closed
         else:
             self._single_failures = 0
 
@@ -516,6 +517,7 @@ class CircuitBreaker:
                 self._failures[entity] = 0
                 self._half_open_successes[entity] = 0
                 logger.info(f"Circuit breaker CLOSED for {entity}")
+                _emit_metrics(f"{self.name}:{entity}", 0)  # 0 = closed
         else:
             self._failures[entity] = 0
 
