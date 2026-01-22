@@ -78,18 +78,37 @@ SEVERITY_PATTERNS = {
     "low": [r"notice", r"info", r"minor"],
 }
 
-ARAGORA_PATTERNS = [
+# Strict Aragora patterns - avoid generic terms that appear in newsletters
+# Terms like "debate", "consensus", "agent" cause many false positives
+ARAGORA_PATTERNS_STRICT = [
     r"aragora",
-    r"debate",
-    r"consensus",
-    r"agent",
-    r"nomic",
-    r"elo",
-    r"belief",
+    r"aragora\.ai",
+    r"synaptent",
+    r"nomic\s*loop",
     r"knowledge\s*mound",
-    r"rlm",
-    r"orchestrat",
+    r"continuum\s*memory",
+    r"elo\s*rating",  # More specific than just "elo"
 ]
+
+# Python/CI patterns that indicate actual failures (not newsletter mentions)
+TECHNICAL_FAILURE_PATTERNS = [
+    r"traceback\s*\(",
+    r"File\s+\".*\.py\"",  # Python file references
+    r"line\s+\d+,\s+in\s+",  # Python traceback format
+    r"pytest",
+    r"AssertionError",
+    r"github\s*actions.*aragora",
+    r"workflow.*failed",
+    r"ModuleNotFoundError",
+    r"ImportError",
+    r"AttributeError",
+    r"TypeError",
+    r"ValueError",
+    r"KeyError",
+]
+
+# Combined: Must match strict Aragora OR technical failure patterns
+ARAGORA_PATTERNS = ARAGORA_PATTERNS_STRICT
 
 
 def get_email_body(msg: email.message.Message) -> str:
@@ -152,9 +171,24 @@ def classify_failure(subject: str, body: str) -> tuple[str, str, list[str]]:
 
 
 def is_aragora_related(subject: str, body: str) -> bool:
-    """Check if email is Aragora-related."""
-    text = f"{subject} {body}".lower()
-    return any(re.search(pattern, text, re.IGNORECASE) for pattern in ARAGORA_PATTERNS)
+    """Check if email is Aragora-related.
+
+    Uses strict patterns to avoid false positives from newsletters.
+    Returns True if:
+    - Email contains strict Aragora terms (aragora, synaptent, nomic loop, etc.)
+    - OR email contains Python/CI failure patterns (tracebacks, pytest, etc.)
+    """
+    text = f"{subject} {body}"
+
+    # Check strict Aragora patterns
+    if any(re.search(pattern, text, re.IGNORECASE) for pattern in ARAGORA_PATTERNS_STRICT):
+        return True
+
+    # Check technical failure patterns (Python tracebacks, CI failures)
+    if any(re.search(pattern, text, re.IGNORECASE) for pattern in TECHNICAL_FAILURE_PATTERNS):
+        return True
+
+    return False
 
 
 def is_failure_related(subject: str, body: str) -> bool:
@@ -293,9 +327,9 @@ def summarize_failures(failures: list[FailureEmail]) -> FailureSummary:
 
 def print_summary(summary: FailureSummary):
     """Print failure summary to console."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("ARAGORA FAILURE ANALYSIS")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if summary.total_emails == 0:
         print("\nNo Aragora-related failure emails found!")
@@ -384,12 +418,34 @@ def main():
         default="gmail_failures.json",
         help="Output JSON file (default: gmail_failures.json)",
     )
+    parser.add_argument(
+        "--loose",
+        action="store_true",
+        help="Use loose matching (includes generic terms like 'debate', 'consensus')",
+    )
 
     args = parser.parse_args()
 
-    print(f"\n{'='*60}")
+    # Update patterns based on mode
+    global ARAGORA_PATTERNS
+    if args.loose:
+        ARAGORA_PATTERNS = ARAGORA_PATTERNS_STRICT + [
+            r"debate",
+            r"consensus",
+            r"agent",
+            r"nomic",
+            r"elo",
+            r"belief",
+            r"rlm",
+            r"orchestrat",
+        ]
+        print("Mode: LOOSE (may include newsletter false positives)")
+    else:
+        print("Mode: STRICT (Aragora-specific terms only)")
+
+    print(f"\n{'=' * 60}")
     print("ARAGORA GMAIL TAKEOUT ANALYZER")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"\nLooking back: {args.days} days")
     print(f"Max results: {args.max_results}")
 
@@ -403,9 +459,9 @@ def main():
     print_summary(summary)
     export_results(summary, args.output)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"TOTAL: Found {summary.total_emails} Aragora failure emails")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     return 0
 

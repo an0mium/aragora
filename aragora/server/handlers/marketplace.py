@@ -128,7 +128,7 @@ class MarketplaceHandler(BaseHandler):
         Body: Template JSON
         """
         try:
-            user, error = self.require_auth_or_error(self)
+            user, error = self.require_auth_or_error(self._current_handler)
             if error:
                 return error
 
@@ -157,7 +157,7 @@ class MarketplaceHandler(BaseHandler):
         DELETE /api/v1/marketplace/templates/{id}
         """
         try:
-            user, error = self.require_auth_or_error(self)
+            user, error = self.require_auth_or_error(self._current_handler)
             if error:
                 return error
 
@@ -183,7 +183,7 @@ class MarketplaceHandler(BaseHandler):
         Body: {"score": 1-5, "review": "optional review text"}
         """
         try:
-            user, error = self.require_auth_or_error(self)
+            user, error = self.require_auth_or_error(self._current_handler)
             if error:
                 return error
 
@@ -254,7 +254,7 @@ class MarketplaceHandler(BaseHandler):
         POST /api/v1/marketplace/templates/{id}/star
         """
         try:
-            user, error = self.require_auth_or_error(self)
+            user, error = self.require_auth_or_error(self._current_handler)
             if error:
                 return error
 

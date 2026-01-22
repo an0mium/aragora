@@ -42,6 +42,7 @@ import logging
 import os
 import re
 from functools import wraps
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, TypedDict, Union
 
 from aragora.config import DB_TIMEOUT_SECONDS
@@ -860,6 +861,8 @@ class BaseHandler:
     """
 
     ctx: ServerContext
+    _current_handler: Any = None
+    _current_query_params: dict[str, Any] = None  # type: ignore[assignment]
 
     def __init__(self, server_context: ServerContext):
         """
@@ -871,6 +874,84 @@ class BaseHandler:
                            See ServerContext TypedDict for available fields.
         """
         self.ctx = server_context
+        self._current_handler = None
+        self._current_query_params = {}
+
+    def set_request_context(
+        self, handler: Any, query_params: Optional[dict[str, Any]] = None
+    ) -> None:
+        """Set the current request context for helper methods.
+
+        Call this at the start of request handling to enable helper methods
+        like get_query_param(), get_json_body(), json_response(), json_error().
+
+        Args:
+            handler: HTTP request handler
+            query_params: Parsed query parameters dict
+        """
+        self._current_handler = handler
+        self._current_query_params = query_params or {}
+
+    def get_query_param(self, name: str, default: Optional[str] = None) -> Optional[str]:
+        """Get a query parameter from the current request.
+
+        Args:
+            name: Parameter name
+            default: Default value if not present
+
+        Returns:
+            Parameter value or default
+        """
+        if self._current_query_params is None:
+            return default
+        value = self._current_query_params.get(name)
+        if isinstance(value, list):
+            return value[0] if value else default
+        return value if value is not None else default
+
+    def get_json_body(self) -> Optional[dict[str, Any]]:
+        """Get JSON body from the current request.
+
+        Returns:
+            Parsed JSON dict, empty dict if no body, None on error
+        """
+        if self._current_handler is None:
+            return None
+        return self.read_json_body(self._current_handler)
+
+    def json_response(
+        self,
+        data: Any,
+        status: Union[int, HTTPStatus] = HTTPStatus.OK,
+    ) -> HandlerResult:
+        """Create a JSON response.
+
+        Args:
+            data: Data to serialize as JSON
+            status: HTTP status code
+
+        Returns:
+            HandlerResult with JSON response
+        """
+        status_code = status.value if isinstance(status, HTTPStatus) else status
+        return json_response(data, status=status_code)
+
+    def json_error(
+        self,
+        message: str,
+        status: Union[int, HTTPStatus] = HTTPStatus.BAD_REQUEST,
+    ) -> HandlerResult:
+        """Create a JSON error response.
+
+        Args:
+            message: Error message
+            status: HTTP status code
+
+        Returns:
+            HandlerResult with error response
+        """
+        status_code = status.value if isinstance(status, HTTPStatus) else status
+        return error_response(message, status_code)
 
     def extract_path_param(
         self,

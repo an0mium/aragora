@@ -142,19 +142,36 @@ SEVERITY_PATTERNS = {
     "low": [r"notice", r"info", r"minor"],
 }
 
-# Aragora-specific patterns
-ARAGORA_PATTERNS = [
+# Strict Aragora patterns - avoid generic terms that appear in newsletters
+ARAGORA_PATTERNS_STRICT = [
     r"aragora",
-    r"debate",
-    r"consensus",
-    r"agent",
-    r"nomic",
-    r"elo",
-    r"belief",
+    r"aragora\.ai",
+    r"synaptent",
+    r"nomic\s*loop",
     r"knowledge\s*mound",
-    r"rlm",
-    r"orchestrat",
+    r"continuum\s*memory",
+    r"elo\s*rating",  # More specific than just "elo"
 ]
+
+# Python/CI patterns that indicate actual failures (not newsletter mentions)
+TECHNICAL_FAILURE_PATTERNS = [
+    r"traceback\s*\(",
+    r"File\s+\".*\.py\"",  # Python file references
+    r"line\s+\d+,\s+in\s+",  # Python traceback format
+    r"pytest",
+    r"AssertionError",
+    r"github\s*actions.*aragora",
+    r"workflow.*failed",
+    r"ModuleNotFoundError",
+    r"ImportError",
+    r"AttributeError",
+    r"TypeError",
+    r"ValueError",
+    r"KeyError",
+]
+
+# Combined patterns (strict by default)
+ARAGORA_PATTERNS = ARAGORA_PATTERNS_STRICT
 
 
 class OAuthCallbackHandler(BaseHTTPRequestHandler):
@@ -229,9 +246,9 @@ async def get_oauth_token(connector: Any, account_name: str) -> bool:
 
     redirect_uri = f"http://localhost:{port}/callback"
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Connecting Gmail account: {account_name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"\nUsing OAuth callback: {redirect_uri}")
     print("\nIMPORTANT: If you see 'redirect_uri_mismatch' error:")
     print("  1. Go to Google Cloud Console -> APIs & Services -> Credentials")
@@ -317,10 +334,31 @@ def classify_failure(subject: str, body: str) -> tuple[str, str, list[str]]:
     return failure_type, severity, keywords_found
 
 
-def is_aragora_related(subject: str, body: str) -> bool:
-    """Check if email is Aragora-related."""
-    text = f"{subject} {body}".lower()
-    return any(re.search(pattern, text, re.IGNORECASE) for pattern in ARAGORA_PATTERNS)
+def is_aragora_related(subject: str, body: str, strict: bool = True) -> bool:
+    """Check if email is Aragora-related.
+
+    Uses strict patterns by default to avoid false positives from newsletters.
+    Returns True if:
+    - Email contains strict Aragora terms (aragora, synaptent, nomic loop, etc.)
+    - OR email contains Python/CI failure patterns (tracebacks, pytest, etc.)
+    """
+    text = f"{subject} {body}"
+
+    # Check strict Aragora patterns
+    if any(re.search(pattern, text, re.IGNORECASE) for pattern in ARAGORA_PATTERNS_STRICT):
+        return True
+
+    # Check technical failure patterns (Python tracebacks, CI failures)
+    if any(re.search(pattern, text, re.IGNORECASE) for pattern in TECHNICAL_FAILURE_PATTERNS):
+        return True
+
+    # If not strict mode, also check loose patterns
+    if not strict:
+        loose_patterns = [r"debate", r"consensus", r"agent", r"nomic", r"elo", r"belief", r"rlm"]
+        if any(re.search(pattern, text, re.IGNORECASE) for pattern in loose_patterns):
+            return True
+
+    return False
 
 
 async def search_failure_emails(
@@ -510,9 +548,9 @@ def summarize_failures(failures: list[FailureEmail]) -> FailureSummary:
 
 def print_summary(summary: FailureSummary, account: str):
     """Print failure summary to console."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"FAILURE ANALYSIS: {account}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if summary.total_emails == 0:
         print("\nNo Aragora-related failure emails found!")
@@ -658,9 +696,9 @@ async def main():
     # Default accounts if not specified
     accounts = args.accounts or ["Account 1", "Account 2"]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("ARAGORA GMAIL FAILURE ANALYZER")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"\nAnalyzing {len(accounts)} account(s)")
     print(f"Looking back: {args.days} days")
     print(f"Max results per account: {args.max_results}")
@@ -716,11 +754,11 @@ async def main():
 
     # Final summary
     total_failures = sum(s.total_emails for s in summaries.values())
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(
         f"TOTAL: Found {total_failures} Aragora failure emails across {len(summaries)} account(s)"
     )
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     return 0
 
