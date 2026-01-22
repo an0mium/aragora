@@ -9,6 +9,10 @@ Endpoints:
 - GET  /api/analytics/cost              - Cost analysis
 - GET  /api/analytics/compliance        - Compliance scorecard
 - GET  /api/analytics/heatmap           - Risk heatmap data
+- GET  /api/analytics/flips/summary     - Flip detection summary
+- GET  /api/analytics/flips/recent      - Recent flip events
+- GET  /api/analytics/flips/consistency - Agent consistency scores
+- GET  /api/analytics/flips/trends      - Flip trends over time
 """
 
 from __future__ import annotations
@@ -47,6 +51,10 @@ class AnalyticsDashboardHandler(BaseHandler):
         "/api/analytics/tokens",
         "/api/analytics/tokens/trends",
         "/api/analytics/tokens/providers",
+        "/api/analytics/flips/summary",
+        "/api/analytics/flips/recent",
+        "/api/analytics/flips/consistency",
+        "/api/analytics/flips/trends",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -76,6 +84,14 @@ class AnalyticsDashboardHandler(BaseHandler):
             return self._get_token_trends(query_params)
         elif path == "/api/analytics/tokens/providers":
             return self._get_provider_breakdown(query_params)
+        elif path == "/api/analytics/flips/summary":
+            return self._get_flip_summary(query_params)
+        elif path == "/api/analytics/flips/recent":
+            return self._get_recent_flips(query_params)
+        elif path == "/api/analytics/flips/consistency":
+            return self._get_agent_consistency(query_params)
+        elif path == "/api/analytics/flips/trends":
+            return self._get_flip_trends(query_params)
 
         return None
 
@@ -747,3 +763,266 @@ class AnalyticsDashboardHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Unexpected error getting provider breakdown: {e}")
             return error_response(safe_error_message(e, "provider breakdown"), 500)
+
+    @handle_errors("get flip summary")
+    def _get_flip_summary(self, query_params: dict) -> HandlerResult:
+        """
+        Get flip detection summary for dashboard.
+
+        Response:
+        {
+            "total_flips": 150,
+            "by_type": {"contradiction": 45, "retraction": 20, ...},
+            "by_agent": {"claude": 30, "gpt-4": 25, ...},
+            "recent_24h": 12
+        }
+        """
+        try:
+            from aragora.insights.flip_detector import FlipDetector
+
+            detector = FlipDetector()
+            summary = detector.get_flip_summary()
+
+            return json_response(summary)
+
+        except Exception as e:
+            logger.exception(f"Error getting flip summary: {e}")
+            return error_response(safe_error_message(e, "flip summary"), 500)
+
+    @handle_errors("get recent flips")
+    def _get_recent_flips(self, query_params: dict) -> HandlerResult:
+        """
+        Get recent flip events.
+
+        Query params:
+        - limit: Maximum number of flips to return (default: 20, max: 100)
+        - agent: Filter by agent name (optional)
+        - flip_type: Filter by type (contradiction, retraction, qualification, refinement)
+
+        Response:
+        {
+            "flips": [
+                {
+                    "id": "flip-123",
+                    "agent": "claude",
+                    "type": "contradiction",
+                    "type_emoji": "...",
+                    "before": {"claim": "...", "confidence": "85%"},
+                    "after": {"claim": "...", "confidence": "90%"},
+                    "similarity": "45%",
+                    "domain": "security",
+                    "timestamp": "2026-01-20T..."
+                },
+                ...
+            ]
+        }
+        """
+        try:
+            limit = min(int(query_params.get("limit", "20")), 100)
+        except ValueError:
+            limit = 20
+
+        agent_filter = query_params.get("agent")
+        type_filter = query_params.get("flip_type")
+
+        try:
+            from aragora.insights.flip_detector import FlipDetector, format_flip_for_ui
+
+            detector = FlipDetector()
+            flips = detector.get_recent_flips(limit=limit * 2)  # Fetch more for filtering
+
+            # Apply filters
+            if agent_filter:
+                flips = [f for f in flips if f.agent_name == agent_filter]
+            if type_filter:
+                flips = [f for f in flips if f.flip_type == type_filter]
+
+            # Format for UI and limit
+            formatted = [format_flip_for_ui(f) for f in flips[:limit]]
+
+            return json_response({"flips": formatted, "count": len(formatted)})
+
+        except Exception as e:
+            logger.exception(f"Error getting recent flips: {e}")
+            return error_response(safe_error_message(e, "recent flips"), 500)
+
+    @handle_errors("get agent consistency")
+    def _get_agent_consistency(self, query_params: dict) -> HandlerResult:
+        """
+        Get agent consistency scores.
+
+        Query params:
+        - agents: Comma-separated list of agent names (optional, returns all if empty)
+
+        Response:
+        {
+            "agents": [
+                {
+                    "agent": "claude",
+                    "consistency": "92%",
+                    "consistency_class": "high",
+                    "total_positions": 150,
+                    "flip_rate": "8%",
+                    "breakdown": {
+                        "contradictions": 3,
+                        "retractions": 2,
+                        "qualifications": 5,
+                        "refinements": 2
+                    },
+                    "problem_domains": ["security", "performance"]
+                },
+                ...
+            ]
+        }
+        """
+        agents_param = query_params.get("agents", "")
+        agent_names = [a.strip() for a in agents_param.split(",") if a.strip()]
+
+        try:
+            from aragora.insights.flip_detector import FlipDetector, format_consistency_for_ui
+
+            detector = FlipDetector()
+
+            if agent_names:
+                # Batch query for specified agents
+                scores = detector.get_agents_consistency_batch(agent_names)
+                formatted = [format_consistency_for_ui(s) for s in scores.values()]
+            else:
+                # Get all agents with flips
+                summary = detector.get_flip_summary()
+                agent_names = list(summary.get("by_agent", {}).keys())
+                if agent_names:
+                    scores = detector.get_agents_consistency_batch(agent_names)
+                    formatted = [format_consistency_for_ui(s) for s in scores.values()]
+                else:
+                    formatted = []
+
+            # Sort by consistency score (highest first)
+            formatted.sort(key=lambda x: float(x["consistency"].rstrip("%")), reverse=True)
+
+            return json_response({"agents": formatted, "count": len(formatted)})
+
+        except Exception as e:
+            logger.exception(f"Error getting agent consistency: {e}")
+            return error_response(safe_error_message(e, "agent consistency"), 500)
+
+    @handle_errors("get flip trends")
+    def _get_flip_trends(self, query_params: dict) -> HandlerResult:
+        """
+        Get flip trends over time.
+
+        Query params:
+        - days: Number of days to look back (default: 30)
+        - granularity: 'day' or 'week' (default: 'day')
+
+        Response:
+        {
+            "period": {"start": "...", "end": "...", "days": 30},
+            "granularity": "day",
+            "data_points": [
+                {
+                    "date": "2026-01-15",
+                    "total": 5,
+                    "by_type": {"contradiction": 2, "refinement": 3}
+                },
+                ...
+            ],
+            "summary": {
+                "total_flips": 45,
+                "avg_per_day": 1.5,
+                "trend": "stable"
+            }
+        }
+        """
+        try:
+            days = int(query_params.get("days", "30"))
+        except ValueError:
+            days = 30
+
+        granularity = query_params.get("granularity", "day")
+        if granularity not in ("day", "week"):
+            granularity = "day"
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            from aragora.insights.flip_detector import FlipDetector
+
+            detector = FlipDetector()
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            # Query flip trends from database
+            data_points = []
+            with detector.db.connection() as conn:
+                if granularity == "day":
+                    date_format = "DATE(detected_at)"
+                else:
+                    date_format = "strftime('%Y-W%W', detected_at)"
+
+                rows = conn.execute(
+                    f"""
+                    SELECT
+                        {date_format} as period,
+                        flip_type,
+                        COUNT(*) as count
+                    FROM detected_flips
+                    WHERE detected_at >= ?
+                    GROUP BY {date_format}, flip_type
+                    ORDER BY period
+                    """,
+                    (period_start.isoformat(),),
+                ).fetchall()
+
+                # Group by period
+                period_data: dict = {}
+                for row in rows:
+                    period = row[0]
+                    flip_type = row[1]
+                    count = row[2]
+
+                    if period not in period_data:
+                        period_data[period] = {"date": period, "total": 0, "by_type": {}}
+                    period_data[period]["by_type"][flip_type] = count
+                    period_data[period]["total"] += count
+
+                data_points = list(period_data.values())
+
+            # Calculate summary
+            total_flips = sum(p["total"] for p in data_points)
+            avg_per_day = total_flips / days if days > 0 else 0
+
+            # Determine trend (compare first half vs second half)
+            if len(data_points) >= 2:
+                mid = len(data_points) // 2
+                first_half = sum(p["total"] for p in data_points[:mid])
+                second_half = sum(p["total"] for p in data_points[mid:])
+                if second_half > first_half * 1.2:
+                    trend = "increasing"
+                elif second_half < first_half * 0.8:
+                    trend = "decreasing"
+                else:
+                    trend = "stable"
+            else:
+                trend = "insufficient_data"
+
+            return json_response(
+                {
+                    "period": {
+                        "start": period_start.isoformat(),
+                        "end": period_end.isoformat(),
+                        "days": days,
+                    },
+                    "granularity": granularity,
+                    "data_points": data_points,
+                    "summary": {
+                        "total_flips": total_flips,
+                        "avg_per_day": round(avg_per_day, 2),
+                        "trend": trend,
+                    },
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Error getting flip trends: {e}")
+            return error_response(safe_error_message(e, "flip trends"), 500)
