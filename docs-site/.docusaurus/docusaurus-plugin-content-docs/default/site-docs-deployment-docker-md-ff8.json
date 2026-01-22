@@ -1,0 +1,30 @@
+{
+  "id": "deployment/docker",
+  "title": "docker",
+  "description": "See the deployment guide at /docs/DEPLOYMENT_GUIDE.md for detailed instructions.",
+  "source": "@site/docs/deployment/docker.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/docker",
+  "permalink": "/docs/deployment/docker",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/docker.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "docker",
+    "sidebar_position": 2
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Evidence System Guide",
+    "permalink": "/docs/guides/evidence"
+  },
+  "next": {
+    "title": "kubernetes",
+    "permalink": "/docs/deployment/kubernetes"
+  }
+}

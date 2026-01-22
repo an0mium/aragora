@@ -1,0 +1,20 @@
+{
+  "id": "admin/ab-testing",
+  "title": "A/B Testing for Prompt Evolution",
+  "description": "A/B Testing for Prompt Evolution",
+  "source": "@site/docs/admin/ab-testing.md",
+  "sourceDirName": "admin",
+  "slug": "/admin/ab-testing",
+  "permalink": "/docs/admin/ab-testing",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/admin/ab-testing.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "A/B Testing for Prompt Evolution",
+    "description": "A/B Testing for Prompt Evolution"
+  }
+}

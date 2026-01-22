@@ -1,0 +1,29 @@
+{
+  "id": "deployment/security",
+  "title": "Security Deployment Guide",
+  "description": "Security Deployment Guide",
+  "source": "@site/docs/deployment/security.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/security",
+  "permalink": "/docs/deployment/security",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/security.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Security Deployment Guide",
+    "description": "Security Deployment Guide"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Scaling Guide",
+    "permalink": "/docs/deployment/scaling"
+  },
+  "next": {
+    "title": "Aragora Governance",
+    "permalink": "/docs/enterprise/multi-tenancy"
+  }
+}

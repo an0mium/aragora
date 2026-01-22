@@ -1,0 +1,20 @@
+{
+  "id": "contributing/dependencies",
+  "title": "Aragora Dependencies Guide",
+  "description": "Aragora Dependencies Guide",
+  "source": "@site/docs/contributing/dependencies.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/dependencies",
+  "permalink": "/docs/contributing/dependencies",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/dependencies.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Dependencies Guide",
+    "description": "Aragora Dependencies Guide"
+  }
+}

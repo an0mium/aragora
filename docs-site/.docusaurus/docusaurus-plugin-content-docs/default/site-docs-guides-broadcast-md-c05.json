@@ -1,0 +1,20 @@
+{
+  "id": "guides/broadcast",
+  "title": "Broadcast Module - Debate Podcast Generation",
+  "description": "Broadcast Module - Debate Podcast Generation",
+  "source": "@site/docs/guides/broadcast.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/broadcast",
+  "permalink": "/docs/guides/broadcast",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/broadcast.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Broadcast Module - Debate Podcast Generation",
+    "description": "Broadcast Module - Debate Podcast Generation"
+  }
+}

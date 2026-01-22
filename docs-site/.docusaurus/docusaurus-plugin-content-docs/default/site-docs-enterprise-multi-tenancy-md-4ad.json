@@ -1,0 +1,29 @@
+{
+  "id": "enterprise/multi-tenancy",
+  "title": "Aragora Governance",
+  "description": "Aragora Governance",
+  "source": "@site/docs/enterprise/multi-tenancy.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/multi-tenancy",
+  "permalink": "/docs/enterprise/multi-tenancy",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/multi-tenancy.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Governance",
+    "description": "Aragora Governance"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Security Deployment Guide",
+    "permalink": "/docs/deployment/security"
+  },
+  "next": {
+    "title": "sso",
+    "permalink": "/docs/enterprise/sso"
+  }
+}

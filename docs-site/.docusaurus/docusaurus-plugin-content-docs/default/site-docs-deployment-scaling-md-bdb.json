@@ -1,0 +1,29 @@
+{
+  "id": "deployment/scaling",
+  "title": "Scaling Guide",
+  "description": "Scaling Guide",
+  "source": "@site/docs/deployment/scaling.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/scaling",
+  "permalink": "/docs/deployment/scaling",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/scaling.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Scaling Guide",
+    "description": "Scaling Guide"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "kubernetes",
+    "permalink": "/docs/deployment/kubernetes"
+  },
+  "next": {
+    "title": "Security Deployment Guide",
+    "permalink": "/docs/deployment/security"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "guides/websocket-events",
+  "title": "WebSocket Events Reference",
+  "description": "WebSocket Events Reference",
+  "source": "@site/docs/guides/websocket-events.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/websocket-events",
+  "permalink": "/docs/guides/websocket-events",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/websocket-events.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "WebSocket Events Reference",
+    "description": "WebSocket Events Reference"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "deployment/redis",
+  "title": "Redis High Availability Guide",
+  "description": "Redis High Availability Guide",
+  "source": "@site/docs/deployment/redis.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/redis",
+  "permalink": "/docs/deployment/redis",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/redis.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Redis High Availability Guide",
+    "description": "Redis High Availability Guide"
+  }
+}

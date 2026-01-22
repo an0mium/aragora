@@ -1,0 +1,20 @@
+{
+  "id": "security/privacy-policy",
+  "title": "Privacy Policy",
+  "description": "Privacy Policy",
+  "source": "@site/docs/security/privacy-policy.md",
+  "sourceDirName": "security",
+  "slug": "/security/privacy-policy",
+  "permalink": "/docs/security/privacy-policy",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/privacy-policy.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Privacy Policy",
+    "description": "Privacy Policy"
+  }
+}

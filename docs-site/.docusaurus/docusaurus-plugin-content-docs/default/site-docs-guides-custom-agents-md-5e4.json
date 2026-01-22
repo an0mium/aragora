@@ -1,0 +1,29 @@
+{
+  "id": "guides/custom-agents",
+  "title": "Agent Development Guide",
+  "description": "Agent Development Guide",
+  "source": "@site/docs/guides/custom-agents.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/custom-agents",
+  "permalink": "/docs/guides/custom-agents",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/custom-agents.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Agent Development Guide",
+    "description": "Agent Development Guide"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Aragora Python SDK",
+    "permalink": "/docs/guides/sdk"
+  },
+  "next": {
+    "title": "Aragora Workflows",
+    "permalink": "/docs/guides/workflows"
+  }
+}

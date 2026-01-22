@@ -1,0 +1,20 @@
+{
+  "id": "api/cli",
+  "title": "Aragora CLI Reference",
+  "description": "Aragora CLI Reference",
+  "source": "@site/docs/api/cli.md",
+  "sourceDirName": "api",
+  "slug": "/api/cli",
+  "permalink": "/docs/api/cli",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/cli.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora CLI Reference",
+    "description": "Aragora CLI Reference"
+  }
+}

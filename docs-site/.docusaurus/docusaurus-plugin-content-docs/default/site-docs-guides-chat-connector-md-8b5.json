@@ -1,0 +1,20 @@
+{
+  "id": "guides/chat-connector",
+  "title": "Chat Connector Developer Guide",
+  "description": "Chat Connector Developer Guide",
+  "source": "@site/docs/guides/chat-connector.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/chat-connector",
+  "permalink": "/docs/guides/chat-connector",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/chat-connector.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Chat Connector Developer Guide",
+    "description": "Chat Connector Developer Guide"
+  }
+}

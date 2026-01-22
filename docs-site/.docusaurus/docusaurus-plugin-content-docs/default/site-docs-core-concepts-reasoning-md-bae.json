@@ -1,0 +1,20 @@
+{
+  "id": "core-concepts/reasoning",
+  "title": "Reasoning Module",
+  "description": "Reasoning Module",
+  "source": "@site/docs/core-concepts/reasoning.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/reasoning",
+  "permalink": "/docs/core-concepts/reasoning",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/reasoning.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Reasoning Module",
+    "description": "Reasoning Module"
+  }
+}

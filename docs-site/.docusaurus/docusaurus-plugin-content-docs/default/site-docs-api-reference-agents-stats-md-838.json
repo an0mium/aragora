@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/agents/stats",
+  "title": "stats",
+  "description": "",
+  "source": "@site/docs/api-reference/agents/stats.md",
+  "sourceDirName": "api-reference/agents",
+  "slug": "/api-reference/agents/stats",
+  "permalink": "/docs/api-reference/agents/stats",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/agents/stats.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "list",
+    "permalink": "/docs/api-reference/agents/list"
+  },
+  "next": {
+    "title": "Knowledge API",
+    "permalink": "/docs/api-reference/knowledge/overview"
+  }
+}

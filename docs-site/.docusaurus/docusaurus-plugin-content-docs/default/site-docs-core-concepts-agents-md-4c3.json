@@ -1,0 +1,29 @@
+{
+  "id": "core-concepts/agents",
+  "title": "Custom Agent Development Guide",
+  "description": "Custom Agent Development Guide",
+  "source": "@site/docs/core-concepts/agents.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/agents",
+  "permalink": "/docs/core-concepts/agents",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/agents.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Custom Agent Development Guide",
+    "description": "Custom Agent Development Guide"
+  },
+  "sidebar": "gettingStartedSidebar",
+  "previous": {
+    "title": "Debate Phases Architecture",
+    "permalink": "/docs/core-concepts/debates"
+  },
+  "next": {
+    "title": "Consensus Mechanism",
+    "permalink": "/docs/core-concepts/consensus"
+  }
+}

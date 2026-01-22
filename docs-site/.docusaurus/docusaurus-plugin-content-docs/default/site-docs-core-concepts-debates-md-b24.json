@@ -1,0 +1,29 @@
+{
+  "id": "core-concepts/debates",
+  "title": "Debate Phases Architecture",
+  "description": "Debate Phases Architecture",
+  "source": "@site/docs/core-concepts/debates.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/debates",
+  "permalink": "/docs/core-concepts/debates",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/debates.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Debate Phases Architecture",
+    "description": "Debate Phases Architecture"
+  },
+  "sidebar": "gettingStartedSidebar",
+  "previous": {
+    "title": "Your First Debate",
+    "permalink": "/docs/getting-started/first-debate"
+  },
+  "next": {
+    "title": "Custom Agent Development Guide",
+    "permalink": "/docs/core-concepts/agents"
+  }
+}

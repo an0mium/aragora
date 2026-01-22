@@ -1,0 +1,20 @@
+{
+  "id": "deployment/database-setup",
+  "title": "Database Setup Guide",
+  "description": "Database Setup Guide",
+  "source": "@site/docs/deployment/database-setup.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/database-setup",
+  "permalink": "/docs/deployment/database-setup",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/database-setup.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Database Setup Guide",
+    "description": "Database Setup Guide"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "deployment/disaster-recovery",
+  "title": "Disaster Recovery Runbook",
+  "description": "Disaster Recovery Runbook",
+  "source": "@site/docs/deployment/disaster-recovery.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/disaster-recovery",
+  "permalink": "/docs/deployment/disaster-recovery",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/disaster-recovery.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Disaster Recovery Runbook",
+    "description": "Disaster Recovery Runbook"
+  }
+}

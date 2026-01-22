@@ -1,0 +1,20 @@
+{
+  "id": "guides/graph-debates",
+  "title": "Graph Debates",
+  "description": "Graph Debates",
+  "source": "@site/docs/guides/graph-debates.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/graph-debates",
+  "permalink": "/docs/guides/graph-debates",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/graph-debates.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Graph Debates",
+    "description": "Graph Debates"
+  }
+}

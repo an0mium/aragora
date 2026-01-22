@@ -1,0 +1,30 @@
+{
+  "id": "enterprise/sso",
+  "title": "sso",
+  "description": "Enterprise feature documentation coming soon.",
+  "source": "@site/docs/enterprise/sso.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/sso",
+  "permalink": "/docs/enterprise/sso",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/sso.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "sso",
+    "sidebar_position": 2
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Aragora Governance",
+    "permalink": "/docs/enterprise/multi-tenancy"
+  },
+  "next": {
+    "title": "audit-logs",
+    "permalink": "/docs/enterprise/audit-logs"
+  }
+}

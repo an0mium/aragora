@@ -1,0 +1,20 @@
+{
+  "id": "api/reference",
+  "title": "Aragora API Reference",
+  "description": "Aragora API Reference",
+  "source": "@site/docs/api/reference.md",
+  "sourceDirName": "api",
+  "slug": "/api/reference",
+  "permalink": "/docs/api/reference",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/reference.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora API Reference",
+    "description": "Aragora API Reference"
+  }
+}

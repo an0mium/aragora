@@ -1,0 +1,20 @@
+{
+  "id": "operations/runbook-database",
+  "title": "Database Issues Runbook",
+  "description": "Database Issues Runbook",
+  "source": "@site/docs/operations/runbook-database.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/runbook-database",
+  "permalink": "/docs/operations/runbook-database",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/runbook-database.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Database Issues Runbook",
+    "description": "Database Issues Runbook"
+  }
+}

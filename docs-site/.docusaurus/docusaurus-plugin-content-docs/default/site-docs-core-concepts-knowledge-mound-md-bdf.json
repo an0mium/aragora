@@ -1,0 +1,25 @@
+{
+  "id": "core-concepts/knowledge-mound",
+  "title": "Knowledge Mound",
+  "description": "Knowledge Mound",
+  "source": "@site/docs/core-concepts/knowledge-mound.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/knowledge-mound",
+  "permalink": "/docs/core-concepts/knowledge-mound",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/knowledge-mound.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Knowledge Mound",
+    "description": "Knowledge Mound"
+  },
+  "sidebar": "gettingStartedSidebar",
+  "previous": {
+    "title": "Memory Tier Operations Guide",
+    "permalink": "/docs/core-concepts/memory"
+  }
+}

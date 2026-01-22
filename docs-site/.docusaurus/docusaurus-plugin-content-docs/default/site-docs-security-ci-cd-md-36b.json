@@ -1,0 +1,20 @@
+{
+  "id": "security/ci-cd",
+  "title": "CI/CD Security Guide",
+  "description": "CI/CD Security Guide",
+  "source": "@site/docs/security/ci-cd.md",
+  "sourceDirName": "security",
+  "slug": "/security/ci-cd",
+  "permalink": "/docs/security/ci-cd",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/ci-cd.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "CI/CD Security Guide",
+    "description": "CI/CD Security Guide"
+  }
+}

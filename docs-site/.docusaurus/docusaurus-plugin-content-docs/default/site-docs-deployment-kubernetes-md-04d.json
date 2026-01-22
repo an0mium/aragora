@@ -1,0 +1,30 @@
+{
+  "id": "deployment/kubernetes",
+  "title": "kubernetes",
+  "description": "See the deployment guide at /docs/DEPLOYMENT_GUIDE.md for detailed instructions.",
+  "source": "@site/docs/deployment/kubernetes.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/kubernetes",
+  "permalink": "/docs/deployment/kubernetes",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/kubernetes.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "kubernetes",
+    "sidebar_position": 2
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "docker",
+    "permalink": "/docs/deployment/docker"
+  },
+  "next": {
+    "title": "Scaling Guide",
+    "permalink": "/docs/deployment/scaling"
+  }
+}

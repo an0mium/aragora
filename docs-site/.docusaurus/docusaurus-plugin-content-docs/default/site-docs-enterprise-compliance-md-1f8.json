@@ -1,0 +1,25 @@
+{
+  "id": "enterprise/compliance",
+  "title": "Compliance Documentation",
+  "description": "Compliance Documentation",
+  "source": "@site/docs/enterprise/compliance.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/compliance",
+  "permalink": "/docs/enterprise/compliance",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/compliance.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Compliance Documentation",
+    "description": "Compliance Documentation"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "audit-logs",
+    "permalink": "/docs/enterprise/audit-logs"
+  }
+}

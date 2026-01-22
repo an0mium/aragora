@@ -1,0 +1,20 @@
+{
+  "id": "deployment/dr-drills",
+  "title": "Disaster Recovery Drill Procedures",
+  "description": "Disaster Recovery Drill Procedures",
+  "source": "@site/docs/deployment/dr-drills.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/dr-drills",
+  "permalink": "/docs/deployment/dr-drills",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/dr-drills.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Disaster Recovery Drill Procedures",
+    "description": "Disaster Recovery Drill Procedures"
+  }
+}

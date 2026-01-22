@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/features",
+  "title": "Aragora Enterprise Features",
+  "description": "Aragora Enterprise Features",
+  "source": "@site/docs/enterprise/features.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/features",
+  "permalink": "/docs/enterprise/features",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/features.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Enterprise Features",
+    "description": "Aragora Enterprise Features"
+  }
+}

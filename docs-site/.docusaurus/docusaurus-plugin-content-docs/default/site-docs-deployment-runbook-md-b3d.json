@@ -1,0 +1,20 @@
+{
+  "id": "deployment/runbook",
+  "title": "Deployment Operations Runbook",
+  "description": "Deployment Operations Runbook",
+  "source": "@site/docs/deployment/runbook.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/runbook",
+  "permalink": "/docs/deployment/runbook",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/runbook.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Deployment Operations Runbook",
+    "description": "Deployment Operations Runbook"
+  }
+}

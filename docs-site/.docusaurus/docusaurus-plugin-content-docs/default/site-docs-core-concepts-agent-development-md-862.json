@@ -1,0 +1,20 @@
+{
+  "id": "core-concepts/agent-development",
+  "title": "Agent Development Guide",
+  "description": "Agent Development Guide",
+  "source": "@site/docs/core-concepts/agent-development.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/agent-development",
+  "permalink": "/docs/core-concepts/agent-development",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/agent-development.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Agent Development Guide",
+    "description": "Agent Development Guide"
+  }
+}

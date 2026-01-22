@@ -1,0 +1,20 @@
+{
+  "id": "contributing/status",
+  "title": "Aragora Project Status",
+  "description": "Aragora Project Status",
+  "source": "@site/docs/contributing/status.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/status",
+  "permalink": "/docs/contributing/status",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/status.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Project Status",
+    "description": "Aragora Project Status"
+  }
+}

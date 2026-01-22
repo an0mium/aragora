@@ -1,0 +1,20 @@
+{
+  "id": "api/rate-limits",
+  "title": "API Rate Limits",
+  "description": "API Rate Limits",
+  "source": "@site/docs/api/rate-limits.md",
+  "sourceDirName": "api",
+  "slug": "/api/rate-limits",
+  "permalink": "/docs/api/rate-limits",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/rate-limits.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "API Rate Limits",
+    "description": "API Rate Limits"
+  }
+}

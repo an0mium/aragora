@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/billing",
+  "title": "Billing System",
+  "description": "Billing System",
+  "source": "@site/docs/enterprise/billing.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/billing",
+  "permalink": "/docs/enterprise/billing",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/billing.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Billing System",
+    "description": "Billing System"
+  }
+}

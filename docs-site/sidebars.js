@@ -7,6 +7,7 @@ const sidebars = {
     {
       type: 'category',
       label: 'Getting Started',
+      collapsed: false,
       items: [
         'getting-started/introduction',
         'getting-started/quickstart',
@@ -31,7 +32,8 @@ const sidebars = {
   guidesSidebar: [
     {
       type: 'category',
-      label: 'Guides',
+      label: 'Developer Guides',
+      collapsed: false,
       items: [
         'guides/sdk',
         'guides/custom-agents',
@@ -62,16 +64,45 @@ const sidebars = {
     },
   ],
 
-  // API Reference sidebar (auto-generated from OpenAPI)
+  // API Reference sidebar (manual structure)
   apiSidebar: [
+    'api-reference/index',
     {
       type: 'category',
-      label: 'API Reference',
-      link: {
-        type: 'doc',
-        id: 'api-reference/index',
-      },
-      items: require('./docs/api-reference/sidebar.js'),
+      label: 'Debates',
+      items: [
+        'api-reference/debates/overview',
+        'api-reference/debates/create',
+        'api-reference/debates/get',
+        'api-reference/debates/list',
+        'api-reference/debates/consensus',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Agents',
+      items: [
+        'api-reference/agents/overview',
+        'api-reference/agents/list',
+        'api-reference/agents/stats',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Knowledge',
+      items: [
+        'api-reference/knowledge/overview',
+        'api-reference/knowledge/query',
+        'api-reference/knowledge/store',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Workflows',
+      items: [
+        'api-reference/workflows/overview',
+        'api-reference/workflows/execute',
+      ],
     },
   ],
 };

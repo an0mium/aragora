@@ -1,0 +1,20 @@
+{
+  "id": "security/breach-notification",
+  "title": "Breach Notification SLA",
+  "description": "Breach Notification SLA",
+  "source": "@site/docs/security/breach-notification.md",
+  "sourceDirName": "security",
+  "slug": "/security/breach-notification",
+  "permalink": "/docs/security/breach-notification",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/breach-notification.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Breach Notification SLA",
+    "description": "Breach Notification SLA"
+  }
+}

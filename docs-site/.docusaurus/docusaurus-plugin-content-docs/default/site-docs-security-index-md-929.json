@@ -1,0 +1,22 @@
+{
+  "id": "security/index",
+  "title": "Security & Compliance",
+  "description": "Security, authentication, and compliance",
+  "source": "@site/docs/security/index.md",
+  "sourceDirName": "security",
+  "slug": "/security/",
+  "permalink": "/docs/security/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Security & Compliance",
+    "description": "Security, authentication, and compliance",
+    "sidebar_position": 1
+  }
+}

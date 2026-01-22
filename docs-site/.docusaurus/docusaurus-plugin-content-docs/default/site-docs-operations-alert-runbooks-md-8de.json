@@ -1,0 +1,20 @@
+{
+  "id": "operations/alert-runbooks",
+  "title": "Alert Runbooks",
+  "description": "Alert Runbooks",
+  "source": "@site/docs/operations/alert-runbooks.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/alert-runbooks",
+  "permalink": "/docs/operations/alert-runbooks",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/alert-runbooks.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Alert Runbooks",
+    "description": "Alert Runbooks"
+  }
+}

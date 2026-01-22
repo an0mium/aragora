@@ -1,0 +1,20 @@
+{
+  "id": "security/data-residency",
+  "title": "Data Residency Policy",
+  "description": "Data Residency Policy",
+  "source": "@site/docs/security/data-residency.md",
+  "sourceDirName": "security",
+  "slug": "/security/data-residency",
+  "permalink": "/docs/security/data-residency",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/data-residency.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Data Residency Policy",
+    "description": "Data Residency Policy"
+  }
+}

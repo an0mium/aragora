@@ -1,0 +1,588 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/docs",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/docs",
+          "mainDocId": "getting-started/introduction",
+          "docs": [
+            {
+              "id": "admin/ab-testing",
+              "path": "/docs/admin/ab-testing"
+            },
+            {
+              "id": "admin/index",
+              "path": "/docs/admin/"
+            },
+            {
+              "id": "admin/nomic-loop",
+              "path": "/docs/admin/nomic-loop"
+            },
+            {
+              "id": "admin/overview",
+              "path": "/docs/admin/overview"
+            },
+            {
+              "id": "advanced/cross-functional",
+              "path": "/docs/advanced/cross-functional"
+            },
+            {
+              "id": "advanced/cross-pollination",
+              "path": "/docs/advanced/cross-pollination"
+            },
+            {
+              "id": "advanced/formal-verification",
+              "path": "/docs/advanced/formal-verification"
+            },
+            {
+              "id": "advanced/index",
+              "path": "/docs/advanced/"
+            },
+            {
+              "id": "advanced/trickster",
+              "path": "/docs/advanced/trickster"
+            },
+            {
+              "id": "analysis/benchmarks",
+              "path": "/docs/analysis/benchmarks"
+            },
+            {
+              "id": "analysis/index",
+              "path": "/docs/analysis/"
+            },
+            {
+              "id": "analysis/overview",
+              "path": "/docs/analysis/overview"
+            },
+            {
+              "id": "api-reference/agents/list",
+              "path": "/docs/api-reference/agents/list",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/agents/overview",
+              "path": "/docs/api-reference/agents/overview",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/agents/stats",
+              "path": "/docs/api-reference/agents/stats",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/debates/consensus",
+              "path": "/docs/api-reference/debates/consensus",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/debates/create",
+              "path": "/docs/api-reference/debates/create",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/debates/get",
+              "path": "/docs/api-reference/debates/get",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/debates/list",
+              "path": "/docs/api-reference/debates/list",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/debates/overview",
+              "path": "/docs/api-reference/debates/overview",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/index",
+              "path": "/docs/api-reference/",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/knowledge/overview",
+              "path": "/docs/api-reference/knowledge/overview",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/knowledge/query",
+              "path": "/docs/api-reference/knowledge/query",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/knowledge/store",
+              "path": "/docs/api-reference/knowledge/store",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/workflows/execute",
+              "path": "/docs/api-reference/workflows/execute",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api-reference/workflows/overview",
+              "path": "/docs/api-reference/workflows/overview",
+              "sidebar": "apiSidebar"
+            },
+            {
+              "id": "api/cli",
+              "path": "/docs/api/cli"
+            },
+            {
+              "id": "api/discovery",
+              "path": "/docs/api/discovery"
+            },
+            {
+              "id": "api/endpoints",
+              "path": "/docs/api/endpoints"
+            },
+            {
+              "id": "api/examples",
+              "path": "/docs/api/examples"
+            },
+            {
+              "id": "api/index",
+              "path": "/docs/api/"
+            },
+            {
+              "id": "api/rate-limits",
+              "path": "/docs/api/rate-limits"
+            },
+            {
+              "id": "api/reference",
+              "path": "/docs/api/reference"
+            },
+            {
+              "id": "api/stability",
+              "path": "/docs/api/stability"
+            },
+            {
+              "id": "api/versioning",
+              "path": "/docs/api/versioning"
+            },
+            {
+              "id": "contributing/dependencies",
+              "path": "/docs/contributing/dependencies"
+            },
+            {
+              "id": "contributing/deprecation",
+              "path": "/docs/contributing/deprecation"
+            },
+            {
+              "id": "contributing/guide",
+              "path": "/docs/contributing/guide"
+            },
+            {
+              "id": "contributing/index",
+              "path": "/docs/contributing/"
+            },
+            {
+              "id": "contributing/status",
+              "path": "/docs/contributing/status"
+            },
+            {
+              "id": "core-concepts/agent-development",
+              "path": "/docs/core-concepts/agent-development"
+            },
+            {
+              "id": "core-concepts/agent-selection",
+              "path": "/docs/core-concepts/agent-selection"
+            },
+            {
+              "id": "core-concepts/agents",
+              "path": "/docs/core-concepts/agents",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "core-concepts/architecture",
+              "path": "/docs/core-concepts/architecture"
+            },
+            {
+              "id": "core-concepts/consensus",
+              "path": "/docs/core-concepts/consensus",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "core-concepts/debate-internals",
+              "path": "/docs/core-concepts/debate-internals"
+            },
+            {
+              "id": "core-concepts/debates",
+              "path": "/docs/core-concepts/debates",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "core-concepts/index",
+              "path": "/docs/core-concepts/"
+            },
+            {
+              "id": "core-concepts/knowledge-mound",
+              "path": "/docs/core-concepts/knowledge-mound",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "core-concepts/memory",
+              "path": "/docs/core-concepts/memory",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "core-concepts/memory-strategy",
+              "path": "/docs/core-concepts/memory-strategy"
+            },
+            {
+              "id": "core-concepts/reasoning",
+              "path": "/docs/core-concepts/reasoning"
+            },
+            {
+              "id": "deployment/capacity-planning",
+              "path": "/docs/deployment/capacity-planning"
+            },
+            {
+              "id": "deployment/database",
+              "path": "/docs/deployment/database"
+            },
+            {
+              "id": "deployment/database-consolidation",
+              "path": "/docs/deployment/database-consolidation"
+            },
+            {
+              "id": "deployment/database-schema",
+              "path": "/docs/deployment/database-schema"
+            },
+            {
+              "id": "deployment/database-setup",
+              "path": "/docs/deployment/database-setup"
+            },
+            {
+              "id": "deployment/disaster-recovery",
+              "path": "/docs/deployment/disaster-recovery"
+            },
+            {
+              "id": "deployment/docker",
+              "path": "/docs/deployment/docker",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "deployment/dr-drills",
+              "path": "/docs/deployment/dr-drills"
+            },
+            {
+              "id": "deployment/index",
+              "path": "/docs/deployment/"
+            },
+            {
+              "id": "deployment/kubernetes",
+              "path": "/docs/deployment/kubernetes",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "deployment/observability",
+              "path": "/docs/deployment/observability"
+            },
+            {
+              "id": "deployment/overview",
+              "path": "/docs/deployment/overview"
+            },
+            {
+              "id": "deployment/redis",
+              "path": "/docs/deployment/redis"
+            },
+            {
+              "id": "deployment/redis-ha",
+              "path": "/docs/deployment/redis-ha"
+            },
+            {
+              "id": "deployment/runbook",
+              "path": "/docs/deployment/runbook"
+            },
+            {
+              "id": "deployment/scaling",
+              "path": "/docs/deployment/scaling",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "deployment/security",
+              "path": "/docs/deployment/security",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "enterprise/audit-logs",
+              "path": "/docs/enterprise/audit-logs",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "enterprise/billing",
+              "path": "/docs/enterprise/billing"
+            },
+            {
+              "id": "enterprise/billing-units",
+              "path": "/docs/enterprise/billing-units"
+            },
+            {
+              "id": "enterprise/commercial-overview",
+              "path": "/docs/enterprise/commercial-overview"
+            },
+            {
+              "id": "enterprise/compliance",
+              "path": "/docs/enterprise/compliance",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "enterprise/control-plane",
+              "path": "/docs/enterprise/control-plane"
+            },
+            {
+              "id": "enterprise/control-plane-feasibility",
+              "path": "/docs/enterprise/control-plane-feasibility"
+            },
+            {
+              "id": "enterprise/features",
+              "path": "/docs/enterprise/features"
+            },
+            {
+              "id": "enterprise/governance",
+              "path": "/docs/enterprise/governance"
+            },
+            {
+              "id": "enterprise/incident-response",
+              "path": "/docs/enterprise/incident-response"
+            },
+            {
+              "id": "enterprise/index",
+              "path": "/docs/enterprise/"
+            },
+            {
+              "id": "enterprise/multi-tenancy",
+              "path": "/docs/enterprise/multi-tenancy",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "enterprise/positioning",
+              "path": "/docs/enterprise/positioning"
+            },
+            {
+              "id": "enterprise/sso",
+              "path": "/docs/enterprise/sso",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "enterprise/support",
+              "path": "/docs/enterprise/support"
+            },
+            {
+              "id": "getting-started/configuration",
+              "path": "/docs/getting-started/configuration"
+            },
+            {
+              "id": "getting-started/environment",
+              "path": "/docs/getting-started/environment"
+            },
+            {
+              "id": "getting-started/first-debate",
+              "path": "/docs/getting-started/first-debate",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "getting-started/index",
+              "path": "/docs/getting-started/"
+            },
+            {
+              "id": "getting-started/installation",
+              "path": "/docs/getting-started/installation",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "getting-started/introduction",
+              "path": "/docs/getting-started/introduction",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "getting-started/quickstart",
+              "path": "/docs/getting-started/quickstart",
+              "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "guides/api-quickstart",
+              "path": "/docs/guides/api-quickstart"
+            },
+            {
+              "id": "guides/api-usage",
+              "path": "/docs/guides/api-usage"
+            },
+            {
+              "id": "guides/automation",
+              "path": "/docs/guides/automation"
+            },
+            {
+              "id": "guides/bot-integrations",
+              "path": "/docs/guides/bot-integrations"
+            },
+            {
+              "id": "guides/broadcast",
+              "path": "/docs/guides/broadcast"
+            },
+            {
+              "id": "guides/chat-connector",
+              "path": "/docs/guides/chat-connector"
+            },
+            {
+              "id": "guides/connector-troubleshooting",
+              "path": "/docs/guides/connector-troubleshooting"
+            },
+            {
+              "id": "guides/connectors",
+              "path": "/docs/guides/connectors"
+            },
+            {
+              "id": "guides/connectors-setup",
+              "path": "/docs/guides/connectors-setup"
+            },
+            {
+              "id": "guides/custom-agents",
+              "path": "/docs/guides/custom-agents",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/evidence",
+              "path": "/docs/guides/evidence",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/gauntlet",
+              "path": "/docs/guides/gauntlet"
+            },
+            {
+              "id": "guides/graph-debates",
+              "path": "/docs/guides/graph-debates"
+            },
+            {
+              "id": "guides/index",
+              "path": "/docs/guides/"
+            },
+            {
+              "id": "guides/integrations",
+              "path": "/docs/guides/integrations",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/matrix-debates",
+              "path": "/docs/guides/matrix-debates"
+            },
+            {
+              "id": "guides/pulse",
+              "path": "/docs/guides/pulse"
+            },
+            {
+              "id": "guides/sdk",
+              "path": "/docs/guides/sdk",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/websocket-events",
+              "path": "/docs/guides/websocket-events"
+            },
+            {
+              "id": "guides/workflows",
+              "path": "/docs/guides/workflows",
+              "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "operations/alert-runbooks",
+              "path": "/docs/operations/alert-runbooks"
+            },
+            {
+              "id": "operations/index",
+              "path": "/docs/operations/"
+            },
+            {
+              "id": "operations/runbook-database",
+              "path": "/docs/operations/runbook-database"
+            },
+            {
+              "id": "operations/runbook-deployment",
+              "path": "/docs/operations/runbook-deployment"
+            },
+            {
+              "id": "operations/runbook-incident",
+              "path": "/docs/operations/runbook-incident"
+            },
+            {
+              "id": "operations/runbook-provider",
+              "path": "/docs/operations/runbook-provider"
+            },
+            {
+              "id": "security/authentication",
+              "path": "/docs/security/authentication"
+            },
+            {
+              "id": "security/breach-notification",
+              "path": "/docs/security/breach-notification"
+            },
+            {
+              "id": "security/ci-cd",
+              "path": "/docs/security/ci-cd"
+            },
+            {
+              "id": "security/compliance",
+              "path": "/docs/security/compliance"
+            },
+            {
+              "id": "security/data-classification",
+              "path": "/docs/security/data-classification"
+            },
+            {
+              "id": "security/data-residency",
+              "path": "/docs/security/data-residency"
+            },
+            {
+              "id": "security/dsar",
+              "path": "/docs/security/dsar"
+            },
+            {
+              "id": "security/index",
+              "path": "/docs/security/"
+            },
+            {
+              "id": "security/overview",
+              "path": "/docs/security/overview"
+            },
+            {
+              "id": "security/privacy-policy",
+              "path": "/docs/security/privacy-policy"
+            },
+            {
+              "id": "security/remote-work",
+              "path": "/docs/security/remote-work"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "gettingStartedSidebar": {
+              "link": {
+                "path": "/docs/getting-started/introduction",
+                "label": "getting-started/introduction"
+              }
+            },
+            "guidesSidebar": {
+              "link": {
+                "path": "/docs/guides/sdk",
+                "label": "guides/sdk"
+              }
+            },
+            "apiSidebar": {
+              "link": {
+                "path": "/docs/api-reference/",
+                "label": "api-reference/index"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

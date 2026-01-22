@@ -1,0 +1,20 @@
+{
+  "id": "guides/api-quickstart",
+  "title": "Aragora API Quick Start",
+  "description": "Aragora API Quick Start",
+  "source": "@site/docs/guides/api-quickstart.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/api-quickstart",
+  "permalink": "/docs/guides/api-quickstart",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/api-quickstart.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora API Quick Start",
+    "description": "Aragora API Quick Start"
+  }
+}

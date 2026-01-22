@@ -1,0 +1,29 @@
+{
+  "id": "guides/workflows",
+  "title": "Aragora Workflows",
+  "description": "Aragora Workflows",
+  "source": "@site/docs/guides/workflows.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/workflows",
+  "permalink": "/docs/guides/workflows",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/workflows.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Workflows",
+    "description": "Aragora Workflows"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Agent Development Guide",
+    "permalink": "/docs/guides/custom-agents"
+  },
+  "next": {
+    "title": "Integrations",
+    "permalink": "/docs/guides/integrations"
+  }
+}

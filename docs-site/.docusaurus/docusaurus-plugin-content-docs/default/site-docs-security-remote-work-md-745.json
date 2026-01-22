@@ -1,0 +1,20 @@
+{
+  "id": "security/remote-work",
+  "title": "Remote Work Security Policy",
+  "description": "Remote Work Security Policy",
+  "source": "@site/docs/security/remote-work.md",
+  "sourceDirName": "security",
+  "slug": "/security/remote-work",
+  "permalink": "/docs/security/remote-work",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/remote-work.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Remote Work Security Policy",
+    "description": "Remote Work Security Policy"
+  }
+}

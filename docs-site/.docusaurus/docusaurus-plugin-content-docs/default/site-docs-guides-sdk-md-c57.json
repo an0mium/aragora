@@ -1,0 +1,25 @@
+{
+  "id": "guides/sdk",
+  "title": "Aragora Python SDK",
+  "description": "Aragora Python SDK",
+  "source": "@site/docs/guides/sdk.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/sdk",
+  "permalink": "/docs/guides/sdk",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/sdk.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Python SDK",
+    "description": "Aragora Python SDK"
+  },
+  "sidebar": "guidesSidebar",
+  "next": {
+    "title": "Agent Development Guide",
+    "permalink": "/docs/guides/custom-agents"
+  }
+}

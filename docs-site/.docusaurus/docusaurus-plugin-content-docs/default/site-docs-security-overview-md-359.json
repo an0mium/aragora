@@ -1,0 +1,20 @@
+{
+  "id": "security/overview",
+  "title": "Security",
+  "description": "Security",
+  "source": "@site/docs/security/overview.md",
+  "sourceDirName": "security",
+  "slug": "/security/overview",
+  "permalink": "/docs/security/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Security",
+    "description": "Security"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "deployment/database",
+  "title": "Database Architecture",
+  "description": "Database Architecture",
+  "source": "@site/docs/deployment/database.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/database",
+  "permalink": "/docs/deployment/database",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/database.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Database Architecture",
+    "description": "Database Architecture"
+  }
+}

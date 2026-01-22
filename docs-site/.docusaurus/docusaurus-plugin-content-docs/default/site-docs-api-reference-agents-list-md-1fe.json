@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/agents/list",
+  "title": "list",
+  "description": "",
+  "source": "@site/docs/api-reference/agents/list.md",
+  "sourceDirName": "api-reference/agents",
+  "slug": "/api-reference/agents/list",
+  "permalink": "/docs/api-reference/agents/list",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/agents/list.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "Agents API",
+    "permalink": "/docs/api-reference/agents/overview"
+  },
+  "next": {
+    "title": "stats",
+    "permalink": "/docs/api-reference/agents/stats"
+  }
+}

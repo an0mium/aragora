@@ -1,0 +1,20 @@
+{
+  "id": "security/authentication",
+  "title": "Authentication Guide",
+  "description": "Authentication Guide",
+  "source": "@site/docs/security/authentication.md",
+  "sourceDirName": "security",
+  "slug": "/security/authentication",
+  "permalink": "/docs/security/authentication",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/authentication.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Authentication Guide",
+    "description": "Authentication Guide"
+  }
+}

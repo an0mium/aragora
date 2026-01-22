@@ -1,0 +1,20 @@
+{
+  "id": "getting-started/environment",
+  "title": "Environment Variable Reference",
+  "description": "Environment Variable Reference",
+  "source": "@site/docs/getting-started/environment.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/environment",
+  "permalink": "/docs/getting-started/environment",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/getting-started/environment.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Environment Variable Reference",
+    "description": "Environment Variable Reference"
+  }
+}

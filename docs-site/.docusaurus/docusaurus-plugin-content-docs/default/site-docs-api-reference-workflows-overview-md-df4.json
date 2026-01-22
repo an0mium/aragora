@@ -1,0 +1,31 @@
+{
+  "id": "api-reference/workflows/overview",
+  "title": "Workflows API",
+  "description": "Automate debate workflows",
+  "source": "@site/docs/api-reference/workflows/overview.md",
+  "sourceDirName": "api-reference/workflows",
+  "slug": "/api-reference/workflows/overview",
+  "permalink": "/docs/api-reference/workflows/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/workflows/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Workflows API",
+    "description": "Automate debate workflows",
+    "sidebar_position": 1
+  },
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "store",
+    "permalink": "/docs/api-reference/knowledge/store"
+  },
+  "next": {
+    "title": "Execute Workflow",
+    "permalink": "/docs/api-reference/workflows/execute"
+  }
+}

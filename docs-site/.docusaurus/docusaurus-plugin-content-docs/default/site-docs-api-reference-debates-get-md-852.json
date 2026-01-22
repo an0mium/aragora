@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/debates/get",
+  "title": "get",
+  "description": "",
+  "source": "@site/docs/api-reference/debates/get.md",
+  "sourceDirName": "api-reference/debates",
+  "slug": "/api-reference/debates/get",
+  "permalink": "/docs/api-reference/debates/get",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/debates/get.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "create",
+    "permalink": "/docs/api-reference/debates/create"
+  },
+  "next": {
+    "title": "list",
+    "permalink": "/docs/api-reference/debates/list"
+  }
+}

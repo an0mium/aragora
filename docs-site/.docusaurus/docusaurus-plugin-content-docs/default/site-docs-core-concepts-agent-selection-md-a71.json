@@ -1,0 +1,20 @@
+{
+  "id": "core-concepts/agent-selection",
+  "title": "Agent Selection Guide",
+  "description": "Agent Selection Guide",
+  "source": "@site/docs/core-concepts/agent-selection.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/agent-selection",
+  "permalink": "/docs/core-concepts/agent-selection",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/agent-selection.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Agent Selection Guide",
+    "description": "Agent Selection Guide"
+  }
+}

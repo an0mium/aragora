@@ -1,0 +1,31 @@
+{
+  "id": "getting-started/first-debate",
+  "title": "Your First Debate",
+  "description": "Step-by-step tutorial for running your first multi-agent debate",
+  "source": "@site/docs/getting-started/first-debate.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/first-debate",
+  "permalink": "/docs/getting-started/first-debate",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/getting-started/first-debate.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "title": "Your First Debate",
+    "description": "Step-by-step tutorial for running your first multi-agent debate",
+    "sidebar_position": 4
+  },
+  "sidebar": "gettingStartedSidebar",
+  "previous": {
+    "title": "Installation",
+    "permalink": "/docs/getting-started/installation"
+  },
+  "next": {
+    "title": "Debate Phases Architecture",
+    "permalink": "/docs/core-concepts/debates"
+  }
+}

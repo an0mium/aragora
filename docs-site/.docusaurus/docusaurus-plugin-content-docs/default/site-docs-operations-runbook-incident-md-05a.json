@@ -1,0 +1,20 @@
+{
+  "id": "operations/runbook-incident",
+  "title": "Incident Response Runbook",
+  "description": "Incident Response Runbook",
+  "source": "@site/docs/operations/runbook-incident.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/runbook-incident",
+  "permalink": "/docs/operations/runbook-incident",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/runbook-incident.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Incident Response Runbook",
+    "description": "Incident Response Runbook"
+  }
+}

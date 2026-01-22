@@ -1,0 +1,20 @@
+{
+  "id": "security/data-classification",
+  "title": "Data Classification Policy",
+  "description": "Data Classification Policy",
+  "source": "@site/docs/security/data-classification.md",
+  "sourceDirName": "security",
+  "slug": "/security/data-classification",
+  "permalink": "/docs/security/data-classification",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/data-classification.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Data Classification Policy",
+    "description": "Data Classification Policy"
+  }
+}

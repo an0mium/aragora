@@ -1,0 +1,20 @@
+{
+  "id": "guides/automation",
+  "title": "Automation Platform Integrations",
+  "description": "Automation Platform Integrations",
+  "source": "@site/docs/guides/automation.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/automation",
+  "permalink": "/docs/guides/automation",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/automation.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Automation Platform Integrations",
+    "description": "Automation Platform Integrations"
+  }
+}

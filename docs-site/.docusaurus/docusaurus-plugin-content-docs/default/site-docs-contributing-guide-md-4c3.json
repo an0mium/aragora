@@ -1,0 +1,20 @@
+{
+  "id": "contributing/guide",
+  "title": "Contributing",
+  "description": "Contributing",
+  "source": "@site/docs/contributing/guide.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/guide",
+  "permalink": "/docs/contributing/guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/guide.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Contributing",
+    "description": "Contributing"
+  }
+}

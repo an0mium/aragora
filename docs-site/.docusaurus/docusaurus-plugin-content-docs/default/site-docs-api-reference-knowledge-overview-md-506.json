@@ -1,0 +1,31 @@
+{
+  "id": "api-reference/knowledge/overview",
+  "title": "Knowledge API",
+  "description": "Knowledge Mound operations",
+  "source": "@site/docs/api-reference/knowledge/overview.md",
+  "sourceDirName": "api-reference/knowledge",
+  "slug": "/api-reference/knowledge/overview",
+  "permalink": "/docs/api-reference/knowledge/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/knowledge/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Knowledge API",
+    "description": "Knowledge Mound operations",
+    "sidebar_position": 1
+  },
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "stats",
+    "permalink": "/docs/api-reference/agents/stats"
+  },
+  "next": {
+    "title": "query",
+    "permalink": "/docs/api-reference/knowledge/query"
+  }
+}

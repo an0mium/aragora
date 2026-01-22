@@ -1,0 +1,31 @@
+{
+  "id": "api-reference/agents/overview",
+  "title": "Agents API",
+  "description": "Manage AI agents",
+  "source": "@site/docs/api-reference/agents/overview.md",
+  "sourceDirName": "api-reference/agents",
+  "slug": "/api-reference/agents/overview",
+  "permalink": "/docs/api-reference/agents/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/agents/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Agents API",
+    "description": "Manage AI agents",
+    "sidebar_position": 1
+  },
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "consensus",
+    "permalink": "/docs/api-reference/debates/consensus"
+  },
+  "next": {
+    "title": "list",
+    "permalink": "/docs/api-reference/agents/list"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "guides/integrations",
+  "title": "Integrations",
+  "description": "Integrations",
+  "source": "@site/docs/guides/integrations.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/integrations",
+  "permalink": "/docs/guides/integrations",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/integrations.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Integrations",
+    "description": "Integrations"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Aragora Workflows",
+    "permalink": "/docs/guides/workflows"
+  },
+  "next": {
+    "title": "Evidence System Guide",
+    "permalink": "/docs/guides/evidence"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "advanced/trickster",
+  "title": "Evidence-Powered Trickster",
+  "description": "Evidence-Powered Trickster",
+  "source": "@site/docs/advanced/trickster.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/trickster",
+  "permalink": "/docs/advanced/trickster",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/trickster.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Evidence-Powered Trickster",
+    "description": "Evidence-Powered Trickster"
+  }
+}

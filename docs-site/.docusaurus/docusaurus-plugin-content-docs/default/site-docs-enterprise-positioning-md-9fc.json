@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/positioning",
+  "title": "Aragora: Commercial Positioning & Value Proposition",
+  "description": "Aragora: Commercial Positioning & Value Proposition",
+  "source": "@site/docs/enterprise/positioning.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/positioning",
+  "permalink": "/docs/enterprise/positioning",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/positioning.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora: Commercial Positioning & Value Proposition",
+    "description": "Aragora: Commercial Positioning & Value Proposition"
+  }
+}

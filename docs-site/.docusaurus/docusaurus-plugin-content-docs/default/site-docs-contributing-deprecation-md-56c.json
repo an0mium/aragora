@@ -1,0 +1,20 @@
+{
+  "id": "contributing/deprecation",
+  "title": "API Deprecation Policy",
+  "description": "API Deprecation Policy",
+  "source": "@site/docs/contributing/deprecation.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/deprecation",
+  "permalink": "/docs/contributing/deprecation",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/deprecation.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "API Deprecation Policy",
+    "description": "API Deprecation Policy"
+  }
+}

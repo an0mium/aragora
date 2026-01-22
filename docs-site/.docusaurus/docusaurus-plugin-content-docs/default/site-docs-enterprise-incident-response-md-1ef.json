@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/incident-response",
+  "title": "Incident Response Runbook",
+  "description": "Incident Response Runbook",
+  "source": "@site/docs/enterprise/incident-response.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/incident-response",
+  "permalink": "/docs/enterprise/incident-response",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/incident-response.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Incident Response Runbook",
+    "description": "Incident Response Runbook"
+  }
+}

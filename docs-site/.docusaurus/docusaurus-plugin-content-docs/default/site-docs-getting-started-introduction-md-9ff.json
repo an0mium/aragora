@@ -1,0 +1,27 @@
+{
+  "id": "getting-started/introduction",
+  "title": "Introduction to Aragora",
+  "description": "Multi-agent debate platform for collaborative AI reasoning",
+  "source": "@site/docs/getting-started/introduction.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/introduction",
+  "permalink": "/docs/getting-started/introduction",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/getting-started/introduction.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Introduction to Aragora",
+    "description": "Multi-agent debate platform for collaborative AI reasoning",
+    "sidebar_position": 1
+  },
+  "sidebar": "gettingStartedSidebar",
+  "next": {
+    "title": "Aragora Developer Quick Start",
+    "permalink": "/docs/getting-started/quickstart"
+  }
+}

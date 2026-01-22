@@ -1,0 +1,20 @@
+{
+  "id": "advanced/cross-pollination",
+  "title": "Cross-Pollination Architecture",
+  "description": "Cross-Pollination Architecture",
+  "source": "@site/docs/advanced/cross-pollination.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/cross-pollination",
+  "permalink": "/docs/advanced/cross-pollination",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/cross-pollination.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Cross-Pollination Architecture",
+    "description": "Cross-Pollination Architecture"
+  }
+}

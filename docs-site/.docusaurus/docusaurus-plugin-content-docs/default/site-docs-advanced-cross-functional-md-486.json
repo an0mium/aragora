@@ -1,0 +1,20 @@
+{
+  "id": "advanced/cross-functional",
+  "title": "Cross-Functional Feature Integration Guide",
+  "description": "Cross-Functional Feature Integration Guide",
+  "source": "@site/docs/advanced/cross-functional.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/cross-functional",
+  "permalink": "/docs/advanced/cross-functional",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/cross-functional.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Cross-Functional Feature Integration Guide",
+    "description": "Cross-Functional Feature Integration Guide"
+  }
+}

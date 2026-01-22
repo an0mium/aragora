@@ -1,0 +1,20 @@
+{
+  "id": "deployment/capacity-planning",
+  "title": "Capacity Planning Guide",
+  "description": "Capacity Planning Guide",
+  "source": "@site/docs/deployment/capacity-planning.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/capacity-planning",
+  "permalink": "/docs/deployment/capacity-planning",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/capacity-planning.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Capacity Planning Guide",
+    "description": "Capacity Planning Guide"
+  }
+}

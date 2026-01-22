@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/support",
+  "title": "Enterprise Support Guide",
+  "description": "Enterprise Support Guide",
+  "source": "@site/docs/enterprise/support.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/support",
+  "permalink": "/docs/enterprise/support",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/support.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Enterprise Support Guide",
+    "description": "Enterprise Support Guide"
+  }
+}

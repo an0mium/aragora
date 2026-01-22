@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/billing-units",
+  "title": "Billing Units and Token Metering",
+  "description": "Billing Units and Token Metering",
+  "source": "@site/docs/enterprise/billing-units.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/billing-units",
+  "permalink": "/docs/enterprise/billing-units",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/billing-units.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Billing Units and Token Metering",
+    "description": "Billing Units and Token Metering"
+  }
+}

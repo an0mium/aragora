@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/knowledge/store",
+  "title": "store",
+  "description": "",
+  "source": "@site/docs/api-reference/knowledge/store.md",
+  "sourceDirName": "api-reference/knowledge",
+  "slug": "/api-reference/knowledge/store",
+  "permalink": "/docs/api-reference/knowledge/store",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/knowledge/store.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "query",
+    "permalink": "/docs/api-reference/knowledge/query"
+  },
+  "next": {
+    "title": "Workflows API",
+    "permalink": "/docs/api-reference/workflows/overview"
+  }
+}

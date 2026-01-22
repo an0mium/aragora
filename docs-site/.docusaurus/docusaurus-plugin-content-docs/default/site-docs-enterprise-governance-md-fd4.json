@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/governance",
+  "title": "Aragora Governance",
+  "description": "Aragora Governance",
+  "source": "@site/docs/enterprise/governance.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/governance",
+  "permalink": "/docs/enterprise/governance",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/governance.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Governance",
+    "description": "Aragora Governance"
+  }
+}

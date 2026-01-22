@@ -1,0 +1,20 @@
+{
+  "id": "guides/bot-integrations",
+  "title": "Bot Integrations Guide",
+  "description": "Bot Integrations Guide",
+  "source": "@site/docs/guides/bot-integrations.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/bot-integrations",
+  "permalink": "/docs/guides/bot-integrations",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/bot-integrations.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Bot Integrations Guide",
+    "description": "Bot Integrations Guide"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "advanced/formal-verification",
+  "title": "Formal Verification",
+  "description": "Formal Verification",
+  "source": "@site/docs/advanced/formal-verification.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/formal-verification",
+  "permalink": "/docs/advanced/formal-verification",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/formal-verification.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Formal Verification",
+    "description": "Formal Verification"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "guides/connectors",
+  "title": "Data Connectors Reference",
+  "description": "Data Connectors Reference",
+  "source": "@site/docs/guides/connectors.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/connectors",
+  "permalink": "/docs/guides/connectors",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/connectors.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Data Connectors Reference",
+    "description": "Data Connectors Reference"
+  }
+}

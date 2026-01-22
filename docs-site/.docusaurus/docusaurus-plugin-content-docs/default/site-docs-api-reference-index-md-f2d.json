@@ -1,0 +1,27 @@
+{
+  "id": "api-reference/index",
+  "title": "API Reference",
+  "description": "Complete API reference for the Aragora platform",
+  "source": "@site/docs/api-reference/index.md",
+  "sourceDirName": "api-reference",
+  "slug": "/api-reference/",
+  "permalink": "/docs/api-reference/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "API Reference",
+    "description": "Complete API reference for the Aragora platform",
+    "sidebar_position": 1
+  },
+  "sidebar": "apiSidebar",
+  "next": {
+    "title": "Debates API",
+    "permalink": "/docs/api-reference/debates/overview"
+  }
+}

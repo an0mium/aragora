@@ -1,0 +1,20 @@
+{
+  "id": "operations/runbook-provider",
+  "title": "Provider Failure Runbook",
+  "description": "Provider Failure Runbook",
+  "source": "@site/docs/operations/runbook-provider.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/runbook-provider",
+  "permalink": "/docs/operations/runbook-provider",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/runbook-provider.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Provider Failure Runbook",
+    "description": "Provider Failure Runbook"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "analysis/benchmarks",
+  "title": "Performance Benchmark Results",
+  "description": "Performance Benchmark Results",
+  "source": "@site/docs/analysis/benchmarks.md",
+  "sourceDirName": "analysis",
+  "slug": "/analysis/benchmarks",
+  "permalink": "/docs/analysis/benchmarks",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/benchmarks.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Performance Benchmark Results",
+    "description": "Performance Benchmark Results"
+  }
+}

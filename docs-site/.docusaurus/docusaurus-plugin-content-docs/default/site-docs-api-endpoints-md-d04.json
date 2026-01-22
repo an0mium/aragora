@@ -1,0 +1,20 @@
+{
+  "id": "api/endpoints",
+  "title": "Aragora API Documentation",
+  "description": "Aragora API Documentation",
+  "source": "@site/docs/api/endpoints.md",
+  "sourceDirName": "api",
+  "slug": "/api/endpoints",
+  "permalink": "/docs/api/endpoints",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/endpoints.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora API Documentation",
+    "description": "Aragora API Documentation"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "api/versioning",
+  "title": "API Versioning Strategy",
+  "description": "API Versioning Strategy",
+  "source": "@site/docs/api/versioning.md",
+  "sourceDirName": "api",
+  "slug": "/api/versioning",
+  "permalink": "/docs/api/versioning",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/versioning.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "API Versioning Strategy",
+    "description": "API Versioning Strategy"
+  }
+}

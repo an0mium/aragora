@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/debates/consensus",
+  "title": "consensus",
+  "description": "",
+  "source": "@site/docs/api-reference/debates/consensus.md",
+  "sourceDirName": "api-reference/debates",
+  "slug": "/api-reference/debates/consensus",
+  "permalink": "/docs/api-reference/debates/consensus",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/debates/consensus.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "list",
+    "permalink": "/docs/api-reference/debates/list"
+  },
+  "next": {
+    "title": "Agents API",
+    "permalink": "/docs/api-reference/agents/overview"
+  }
+}

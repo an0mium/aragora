@@ -1,0 +1,20 @@
+{
+  "id": "guides/connector-troubleshooting",
+  "title": "Connector Troubleshooting Guide",
+  "description": "Connector Troubleshooting Guide",
+  "source": "@site/docs/guides/connector-troubleshooting.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/connector-troubleshooting",
+  "permalink": "/docs/guides/connector-troubleshooting",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/connector-troubleshooting.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Connector Troubleshooting Guide",
+    "description": "Connector Troubleshooting Guide"
+  }
+}

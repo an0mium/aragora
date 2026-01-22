@@ -1,0 +1,20 @@
+{
+  "id": "deployment/database-schema",
+  "title": "Aragora Database Schema Reference",
+  "description": "Aragora Database Schema Reference",
+  "source": "@site/docs/deployment/database-schema.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/database-schema",
+  "permalink": "/docs/deployment/database-schema",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/database-schema.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Database Schema Reference",
+    "description": "Aragora Database Schema Reference"
+  }
+}

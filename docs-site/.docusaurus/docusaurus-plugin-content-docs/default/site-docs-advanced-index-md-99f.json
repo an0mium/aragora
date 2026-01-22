@@ -1,0 +1,22 @@
+{
+  "id": "advanced/index",
+  "title": "Advanced Topics",
+  "description": "Advanced features and internals",
+  "source": "@site/docs/advanced/index.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/",
+  "permalink": "/docs/advanced/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Advanced Topics",
+    "description": "Advanced features and internals",
+    "sidebar_position": 1
+  }
+}

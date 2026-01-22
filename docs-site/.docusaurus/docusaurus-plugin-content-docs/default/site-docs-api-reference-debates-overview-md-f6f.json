@@ -1,0 +1,31 @@
+{
+  "id": "api-reference/debates/overview",
+  "title": "Debates API",
+  "description": "Create and manage multi-agent debates",
+  "source": "@site/docs/api-reference/debates/overview.md",
+  "sourceDirName": "api-reference/debates",
+  "slug": "/api-reference/debates/overview",
+  "permalink": "/docs/api-reference/debates/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/debates/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Debates API",
+    "description": "Create and manage multi-agent debates",
+    "sidebar_position": 1
+  },
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "API Reference",
+    "permalink": "/docs/api-reference/"
+  },
+  "next": {
+    "title": "create",
+    "permalink": "/docs/api-reference/debates/create"
+  }
+}

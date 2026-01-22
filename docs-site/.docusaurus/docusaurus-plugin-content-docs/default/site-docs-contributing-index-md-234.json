@@ -1,0 +1,22 @@
+{
+  "id": "contributing/index",
+  "title": "Contributing",
+  "description": "How to contribute to Aragora",
+  "source": "@site/docs/contributing/index.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/",
+  "permalink": "/docs/contributing/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Contributing",
+    "description": "How to contribute to Aragora",
+    "sidebar_position": 1
+  }
+}

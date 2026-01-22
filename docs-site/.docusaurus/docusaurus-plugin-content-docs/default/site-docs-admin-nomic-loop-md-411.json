@@ -1,0 +1,20 @@
+{
+  "id": "admin/nomic-loop",
+  "title": "Nomic Loop Documentation",
+  "description": "Nomic Loop Documentation",
+  "source": "@site/docs/admin/nomic-loop.md",
+  "sourceDirName": "admin",
+  "slug": "/admin/nomic-loop",
+  "permalink": "/docs/admin/nomic-loop",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/admin/nomic-loop.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Nomic Loop Documentation",
+    "description": "Nomic Loop Documentation"
+  }
+}

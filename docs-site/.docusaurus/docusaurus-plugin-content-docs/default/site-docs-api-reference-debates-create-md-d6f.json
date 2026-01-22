@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/debates/create",
+  "title": "create",
+  "description": "",
+  "source": "@site/docs/api-reference/debates/create.md",
+  "sourceDirName": "api-reference/debates",
+  "slug": "/api-reference/debates/create",
+  "permalink": "/docs/api-reference/debates/create",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/debates/create.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "Debates API",
+    "permalink": "/docs/api-reference/debates/overview"
+  },
+  "next": {
+    "title": "get",
+    "permalink": "/docs/api-reference/debates/get"
+  }
+}

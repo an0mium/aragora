@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/knowledge/query",
+  "title": "query",
+  "description": "",
+  "source": "@site/docs/api-reference/knowledge/query.md",
+  "sourceDirName": "api-reference/knowledge",
+  "slug": "/api-reference/knowledge/query",
+  "permalink": "/docs/api-reference/knowledge/query",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/knowledge/query.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "Knowledge API",
+    "permalink": "/docs/api-reference/knowledge/overview"
+  },
+  "next": {
+    "title": "store",
+    "permalink": "/docs/api-reference/knowledge/store"
+  }
+}

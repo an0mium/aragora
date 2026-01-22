@@ -1,0 +1,29 @@
+{
+  "id": "getting-started/quickstart",
+  "title": "Aragora Developer Quick Start",
+  "description": "Aragora Developer Quick Start",
+  "source": "@site/docs/getting-started/quickstart.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/quickstart",
+  "permalink": "/docs/getting-started/quickstart",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/getting-started/quickstart.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Developer Quick Start",
+    "description": "Aragora Developer Quick Start"
+  },
+  "sidebar": "gettingStartedSidebar",
+  "previous": {
+    "title": "Introduction to Aragora",
+    "permalink": "/docs/getting-started/introduction"
+  },
+  "next": {
+    "title": "Installation",
+    "permalink": "/docs/getting-started/installation"
+  }
+}

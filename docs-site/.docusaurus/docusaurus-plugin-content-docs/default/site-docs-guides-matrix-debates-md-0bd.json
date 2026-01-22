@@ -1,0 +1,20 @@
+{
+  "id": "guides/matrix-debates",
+  "title": "Matrix Debates",
+  "description": "Matrix Debates",
+  "source": "@site/docs/guides/matrix-debates.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/matrix-debates",
+  "permalink": "/docs/guides/matrix-debates",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/matrix-debates.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Matrix Debates",
+    "description": "Matrix Debates"
+  }
+}

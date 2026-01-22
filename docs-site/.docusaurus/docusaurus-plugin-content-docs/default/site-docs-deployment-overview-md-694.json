@@ -1,0 +1,20 @@
+{
+  "id": "deployment/overview",
+  "title": "Aragora Deployment Guide",
+  "description": "Aragora Deployment Guide",
+  "source": "@site/docs/deployment/overview.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/overview",
+  "permalink": "/docs/deployment/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Deployment Guide",
+    "description": "Aragora Deployment Guide"
+  }
+}

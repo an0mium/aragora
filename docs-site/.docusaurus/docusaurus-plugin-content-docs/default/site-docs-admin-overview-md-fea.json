@@ -1,0 +1,20 @@
+{
+  "id": "admin/overview",
+  "title": "Admin Console Guide",
+  "description": "Admin Console Guide",
+  "source": "@site/docs/admin/overview.md",
+  "sourceDirName": "admin",
+  "slug": "/admin/overview",
+  "permalink": "/docs/admin/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/admin/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Admin Console Guide",
+    "description": "Admin Console Guide"
+  }
+}

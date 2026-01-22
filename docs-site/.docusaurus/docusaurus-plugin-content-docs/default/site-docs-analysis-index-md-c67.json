@@ -1,0 +1,22 @@
+{
+  "id": "analysis/index",
+  "title": "Analysis & Metrics",
+  "description": "Performance analysis and benchmarks",
+  "source": "@site/docs/analysis/index.md",
+  "sourceDirName": "analysis",
+  "slug": "/analysis/",
+  "permalink": "/docs/analysis/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Analysis & Metrics",
+    "description": "Performance analysis and benchmarks",
+    "sidebar_position": 1
+  }
+}

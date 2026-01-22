@@ -1,0 +1,29 @@
+{
+  "id": "core-concepts/consensus",
+  "title": "Consensus Mechanism",
+  "description": "Consensus Mechanism",
+  "source": "@site/docs/core-concepts/consensus.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/consensus",
+  "permalink": "/docs/core-concepts/consensus",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/consensus.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Consensus Mechanism",
+    "description": "Consensus Mechanism"
+  },
+  "sidebar": "gettingStartedSidebar",
+  "previous": {
+    "title": "Custom Agent Development Guide",
+    "permalink": "/docs/core-concepts/agents"
+  },
+  "next": {
+    "title": "Memory Tier Operations Guide",
+    "permalink": "/docs/core-concepts/memory"
+  }
+}

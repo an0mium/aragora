@@ -1,0 +1,22 @@
+{
+  "id": "enterprise/index",
+  "title": "Enterprise",
+  "description": "Enterprise features and compliance",
+  "source": "@site/docs/enterprise/index.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/",
+  "permalink": "/docs/enterprise/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Enterprise",
+    "description": "Enterprise features and compliance",
+    "sidebar_position": 1
+  }
+}

@@ -1,0 +1,250 @@
+/**
+ * Aragora Documentation Theme
+ *
+ * Custom styles for docs.aragora.ai
+ */
+
+/* Color palette - matches the main app theme */
+:root {
+  /* Primary colors */
+  --ifm-color-primary: #39ff14;
+  --ifm-color-primary-dark: #2de610;
+  --ifm-color-primary-darker: #2ad90f;
+  --ifm-color-primary-darkest: #23b30c;
+  --ifm-color-primary-light: #4fff2d;
+  --ifm-color-primary-lighter: #5cff39;
+  --ifm-color-primary-lightest: #7aff5a;
+
+  /* Secondary colors */
+  --ifm-color-secondary: #00ffff;
+
+  /* Background colors */
+  --ifm-background-color: #0a0a0a;
+  --ifm-background-surface-color: #0d0d0d;
+
+  /* Code block styling */
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(57, 255, 20, 0.1);
+
+  /* Font */
+  --ifm-font-family-base: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  --ifm-heading-font-family: var(--ifm-font-family-base);
+  --ifm-font-family-monospace: var(--ifm-font-family-base);
+}
+
+/* Dark mode (default) */
+[data-theme='dark'] {
+  --ifm-background-color: #0a0a0a;
+  --ifm-background-surface-color: #0d0d0d;
+  --ifm-color-emphasis-300: #1a1a1a;
+  --ifm-navbar-background-color: #0a0a0a;
+  --ifm-footer-background-color: #050505;
+  --ifm-toc-border-color: #1a1a1a;
+  --ifm-color-content: #e0e0e0;
+  --ifm-heading-color: #ffffff;
+  --ifm-link-color: var(--ifm-color-primary);
+}
+
+/* Light mode */
+[data-theme='light'] {
+  --ifm-color-primary: #1e7033;
+  --ifm-color-primary-dark: #1a6430;
+  --ifm-color-primary-darker: #185d2c;
+  --ifm-color-primary-darkest: #134c24;
+  --ifm-color-primary-light: #227c36;
+  --ifm-color-primary-lighter: #24833a;
+  --ifm-color-primary-lightest: #2a9842;
+
+  --ifm-background-color: #faf9f7;
+  --ifm-background-surface-color: #fefdfc;
+  --ifm-navbar-background-color: #faf9f7;
+  --ifm-footer-background-color: #f0efed;
+  --ifm-color-content: #2c2a28;
+}
+
+/* Navbar styling */
+.navbar {
+  border-bottom: 1px solid var(--ifm-color-primary);
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.1);
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.navbar__link {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Sidebar styling */
+.menu__link {
+  font-size: 0.875rem;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.menu__link--active {
+  color: var(--ifm-color-primary) !important;
+  border-left: 2px solid var(--ifm-color-primary);
+  background: rgba(57, 255, 20, 0.1);
+}
+
+/* Table of contents */
+.table-of-contents__link--active {
+  color: var(--ifm-color-primary);
+}
+
+/* Code blocks */
+.prism-code {
+  background: #0d0d0d !important;
+  border: 1px solid #1a1a1a;
+  border-radius: 8px;
+}
+
+[data-theme='light'] .prism-code {
+  background: #f5f5f5 !important;
+  border-color: #e0e0e0;
+}
+
+/* Heading anchors */
+.hash-link {
+  color: var(--ifm-color-primary);
+}
+
+/* Admonitions / callouts */
+.admonition {
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: rgba(57, 255, 20, 0.05);
+}
+
+.admonition-heading h5 {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Footer */
+.footer {
+  border-top: 1px solid var(--ifm-color-primary);
+}
+
+.footer__title {
+  color: var(--ifm-color-primary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Cards/panels */
+.card {
+  background: var(--ifm-background-surface-color);
+  border: 1px solid #1a1a1a;
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.1);
+}
+
+/* API reference specific styles */
+.api-method-box {
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.api-method--get {
+  background: rgba(57, 255, 20, 0.1);
+  border-left: 4px solid #39ff14;
+}
+
+.api-method--post {
+  background: rgba(0, 255, 255, 0.1);
+  border-left: 4px solid #00ffff;
+}
+
+.api-method--put {
+  background: rgba(255, 215, 0, 0.1);
+  border-left: 4px solid #ffd700;
+}
+
+.api-method--delete {
+  background: rgba(255, 0, 64, 0.1);
+  border-left: 4px solid #ff0040;
+}
+
+/* Terminal-style code examples */
+.terminal-block {
+  background: #0a0a0a;
+  border: 1px solid #39ff14;
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: var(--ifm-font-family-monospace);
+  overflow-x: auto;
+}
+
+.terminal-block::before {
+  content: '$ ';
+  color: var(--ifm-color-primary);
+}
+
+/* Search */
+.DocSearch-Button {
+  border: 1px solid #1a1a1a !important;
+  background: transparent !important;
+}
+
+.DocSearch-Button:hover {
+  border-color: var(--ifm-color-primary) !important;
+}
+
+/* Mobile responsive */
+@media screen and (max-width: 996px) {
+  .navbar__title {
+    font-size: 1rem;
+  }
+
+  .menu__link {
+    font-size: 0.8125rem;
+  }
+}
+
+/* Scrollbar styling for dark theme */
+[data-theme='dark'] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
+  border-radius: 4px;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2a;
+}
+
+/* Animation for page transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.main-wrapper article {
+  animation: fadeIn 0.3s ease-out;
+}

@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/workflows/execute",
+  "title": "Execute Workflow",
+  "description": "Documentation coming soon.",
+  "source": "@site/docs/api-reference/workflows/execute.md",
+  "sourceDirName": "api-reference/workflows",
+  "slug": "/api-reference/workflows/execute",
+  "permalink": "/docs/api-reference/workflows/execute",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/workflows/execute.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "Execute Workflow",
+    "sidebar_position": 2
+  },
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "Workflows API",
+    "permalink": "/docs/api-reference/workflows/overview"
+  }
+}

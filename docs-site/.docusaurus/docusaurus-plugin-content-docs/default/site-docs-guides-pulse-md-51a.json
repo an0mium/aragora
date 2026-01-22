@@ -1,0 +1,20 @@
+{
+  "id": "guides/pulse",
+  "title": "Pulse System Guide",
+  "description": "Pulse System Guide",
+  "source": "@site/docs/guides/pulse.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/pulse",
+  "permalink": "/docs/guides/pulse",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/pulse.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Pulse System Guide",
+    "description": "Pulse System Guide"
+  }
+}

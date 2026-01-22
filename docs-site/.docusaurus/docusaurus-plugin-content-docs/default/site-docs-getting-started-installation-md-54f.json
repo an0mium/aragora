@@ -1,0 +1,31 @@
+{
+  "id": "getting-started/installation",
+  "title": "Installation",
+  "description": "Install and configure Aragora",
+  "source": "@site/docs/getting-started/installation.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/installation",
+  "permalink": "/docs/getting-started/installation",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/getting-started/installation.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "title": "Installation",
+    "description": "Install and configure Aragora",
+    "sidebar_position": 3
+  },
+  "sidebar": "gettingStartedSidebar",
+  "previous": {
+    "title": "Aragora Developer Quick Start",
+    "permalink": "/docs/getting-started/quickstart"
+  },
+  "next": {
+    "title": "Your First Debate",
+    "permalink": "/docs/getting-started/first-debate"
+  }
+}

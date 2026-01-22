@@ -1,0 +1,22 @@
+{
+  "id": "admin/index",
+  "title": "Administration",
+  "description": "Administrative features and management",
+  "source": "@site/docs/admin/index.md",
+  "sourceDirName": "admin",
+  "slug": "/admin/",
+  "permalink": "/docs/admin/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/admin/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "Administration",
+    "description": "Administrative features and management",
+    "sidebar_position": 1
+  }
+}

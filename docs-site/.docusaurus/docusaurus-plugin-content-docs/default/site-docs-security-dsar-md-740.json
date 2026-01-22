@@ -1,0 +1,20 @@
+{
+  "id": "security/dsar",
+  "title": "Data Subject Access Request (DSAR) Workflow",
+  "description": "Data Subject Access Request (DSAR) Workflow",
+  "source": "@site/docs/security/dsar.md",
+  "sourceDirName": "security",
+  "slug": "/security/dsar",
+  "permalink": "/docs/security/dsar",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/dsar.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Data Subject Access Request (DSAR) Workflow",
+    "description": "Data Subject Access Request (DSAR) Workflow"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/control-plane-feasibility",
+  "title": "Enterprise Multi-Agent Control Plane",
+  "description": "Enterprise Multi-Agent Control Plane",
+  "source": "@site/docs/enterprise/control-plane-feasibility.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/control-plane-feasibility",
+  "permalink": "/docs/enterprise/control-plane-feasibility",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/control-plane-feasibility.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Enterprise Multi-Agent Control Plane",
+    "description": "Enterprise Multi-Agent Control Plane"
+  }
+}

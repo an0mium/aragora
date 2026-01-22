@@ -1,0 +1,29 @@
+{
+  "id": "core-concepts/memory",
+  "title": "Memory Tier Operations Guide",
+  "description": "Memory Tier Operations Guide",
+  "source": "@site/docs/core-concepts/memory.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/memory",
+  "permalink": "/docs/core-concepts/memory",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/memory.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Memory Tier Operations Guide",
+    "description": "Memory Tier Operations Guide"
+  },
+  "sidebar": "gettingStartedSidebar",
+  "previous": {
+    "title": "Consensus Mechanism",
+    "permalink": "/docs/core-concepts/consensus"
+  },
+  "next": {
+    "title": "Knowledge Mound",
+    "permalink": "/docs/core-concepts/knowledge-mound"
+  }
+}

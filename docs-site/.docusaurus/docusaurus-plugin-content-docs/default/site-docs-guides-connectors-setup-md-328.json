@@ -1,0 +1,20 @@
+{
+  "id": "guides/connectors-setup",
+  "title": "Enterprise Connectors Setup Guide",
+  "description": "Enterprise Connectors Setup Guide",
+  "source": "@site/docs/guides/connectors-setup.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/connectors-setup",
+  "permalink": "/docs/guides/connectors-setup",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/connectors-setup.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Enterprise Connectors Setup Guide",
+    "description": "Enterprise Connectors Setup Guide"
+  }
+}

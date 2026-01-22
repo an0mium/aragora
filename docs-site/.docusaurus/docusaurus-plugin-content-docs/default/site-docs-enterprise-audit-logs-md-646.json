@@ -1,0 +1,30 @@
+{
+  "id": "enterprise/audit-logs",
+  "title": "audit-logs",
+  "description": "Enterprise feature documentation coming soon.",
+  "source": "@site/docs/enterprise/audit-logs.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/audit-logs",
+  "permalink": "/docs/enterprise/audit-logs",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/audit-logs.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "audit-logs",
+    "sidebar_position": 2
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "sso",
+    "permalink": "/docs/enterprise/sso"
+  },
+  "next": {
+    "title": "Compliance Documentation",
+    "permalink": "/docs/enterprise/compliance"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "core-concepts/debate-internals",
+  "title": "Debate Engine Internals",
+  "description": "Debate Engine Internals",
+  "source": "@site/docs/core-concepts/debate-internals.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/debate-internals",
+  "permalink": "/docs/core-concepts/debate-internals",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/debate-internals.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Debate Engine Internals",
+    "description": "Debate Engine Internals"
+  }
+}

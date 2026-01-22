@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/commercial-overview",
+  "title": "Aragora - Omnivorous Multi Agent Decision Making Platform",
+  "description": "Aragora - Omnivorous Multi Agent Decision Making Platform",
+  "source": "@site/docs/enterprise/commercial-overview.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/commercial-overview",
+  "permalink": "/docs/enterprise/commercial-overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/commercial-overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora - Omnivorous Multi Agent Decision Making Platform",
+    "description": "Aragora - Omnivorous Multi Agent Decision Making Platform"
+  }
+}

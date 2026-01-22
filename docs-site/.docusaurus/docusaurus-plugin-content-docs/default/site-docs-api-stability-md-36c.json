@@ -1,0 +1,20 @@
+{
+  "id": "api/stability",
+  "title": "API Stability & Versioning Policy",
+  "description": "API Stability & Versioning Policy",
+  "source": "@site/docs/api/stability.md",
+  "sourceDirName": "api",
+  "slug": "/api/stability",
+  "permalink": "/docs/api/stability",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/stability.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "API Stability & Versioning Policy",
+    "description": "API Stability & Versioning Policy"
+  }
+}

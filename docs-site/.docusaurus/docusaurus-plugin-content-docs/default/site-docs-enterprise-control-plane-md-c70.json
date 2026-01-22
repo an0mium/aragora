@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/control-plane",
+  "title": "Control Plane Guide",
+  "description": "Control Plane Guide",
+  "source": "@site/docs/enterprise/control-plane.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/control-plane",
+  "permalink": "/docs/enterprise/control-plane",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/control-plane.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Control Plane Guide",
+    "description": "Control Plane Guide"
+  }
+}

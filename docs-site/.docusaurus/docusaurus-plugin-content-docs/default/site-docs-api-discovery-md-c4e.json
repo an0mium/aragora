@@ -1,0 +1,20 @@
+{
+  "id": "api/discovery",
+  "title": "Aragora API Discovery Guide",
+  "description": "Aragora API Discovery Guide",
+  "source": "@site/docs/api/discovery.md",
+  "sourceDirName": "api",
+  "slug": "/api/discovery",
+  "permalink": "/docs/api/discovery",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/discovery.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora API Discovery Guide",
+    "description": "Aragora API Discovery Guide"
+  }
+}

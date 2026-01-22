@@ -1,0 +1,20 @@
+{
+  "id": "getting-started/configuration",
+  "title": "Aragora Configuration Reference",
+  "description": "Aragora Configuration Reference",
+  "source": "@site/docs/getting-started/configuration.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/configuration",
+  "permalink": "/docs/getting-started/configuration",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/getting-started/configuration.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Configuration Reference",
+    "description": "Aragora Configuration Reference"
+  }
+}

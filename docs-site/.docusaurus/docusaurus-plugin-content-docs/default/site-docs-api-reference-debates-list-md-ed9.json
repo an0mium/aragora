@@ -1,0 +1,26 @@
+{
+  "id": "api-reference/debates/list",
+  "title": "list",
+  "description": "",
+  "source": "@site/docs/api-reference/debates/list.md",
+  "sourceDirName": "api-reference/debates",
+  "slug": "/api-reference/debates/list",
+  "permalink": "/docs/api-reference/debates/list",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api-reference/debates/list.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "apiSidebar",
+  "previous": {
+    "title": "get",
+    "permalink": "/docs/api-reference/debates/get"
+  },
+  "next": {
+    "title": "consensus",
+    "permalink": "/docs/api-reference/debates/consensus"
+  }
+}

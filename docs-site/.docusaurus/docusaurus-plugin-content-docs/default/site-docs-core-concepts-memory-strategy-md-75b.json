@@ -1,0 +1,20 @@
+{
+  "id": "core-concepts/memory-strategy",
+  "title": "Memory Strategy Architecture",
+  "description": "Memory Strategy Architecture",
+  "source": "@site/docs/core-concepts/memory-strategy.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/memory-strategy",
+  "permalink": "/docs/core-concepts/memory-strategy",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/memory-strategy.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Memory Strategy Architecture",
+    "description": "Memory Strategy Architecture"
+  }
+}

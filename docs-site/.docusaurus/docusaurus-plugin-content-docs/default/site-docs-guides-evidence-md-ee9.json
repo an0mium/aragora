@@ -1,0 +1,29 @@
+{
+  "id": "guides/evidence",
+  "title": "Evidence System Guide",
+  "description": "Evidence System Guide",
+  "source": "@site/docs/guides/evidence.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/evidence",
+  "permalink": "/docs/guides/evidence",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/evidence.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Evidence System Guide",
+    "description": "Evidence System Guide"
+  },
+  "sidebar": "guidesSidebar",
+  "previous": {
+    "title": "Integrations",
+    "permalink": "/docs/guides/integrations"
+  },
+  "next": {
+    "title": "docker",
+    "permalink": "/docs/deployment/docker"
+  }
+}
