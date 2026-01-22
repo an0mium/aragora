@@ -1539,6 +1539,8 @@ class Arena:
         # Clear context gatherer cache to prevent cross-debate leaks
         if hasattr(self, "context_gatherer") and self.context_gatherer:
             self.context_gatherer.clear_cache()
+        # Clear embedding cache (also called on success path, but idempotent)
+        self._cleanup_convergence_cache()
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results.
