@@ -233,7 +233,7 @@ async def migrate_integration_store(
                         logger.info(f"[DRY RUN] Would migrate integration: {integration_name}")
                     else:
                         # Re-save triggers encryption
-                        store.save(integration)
+                        store.save(integration)  # type: ignore[unused-coroutine]
                         logger.info(f"Migrated integration: {integration_name}")
                     result.migrated += 1
                     record_migration_record("integration_store", "migrated")

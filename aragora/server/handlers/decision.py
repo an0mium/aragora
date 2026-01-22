@@ -217,7 +217,7 @@ class DecisionHandler(BaseHandler):
                     workspace_id=request.context.workspace_id,
                     user_id=request.context.user_id,
                 )
-                enforcer.require(
+                enforcer.require(  # type: ignore[unused-coroutine]
                     auth_ctx.user_id,
                     ResourceType.DECISION
                     if hasattr(ResourceType, "DECISION")

@@ -70,7 +70,7 @@ class MoundHandlersMixin:
                 from aragora.memory.continuum import ContinuumMemory
 
                 memory = ContinuumMemory()
-                memory.store(
+                memory.store(  # type: ignore[unused-coroutine]
                     key=f"km:{node_id}",
                     value=content,
                     metadata={
