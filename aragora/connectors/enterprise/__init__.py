@@ -3,9 +3,10 @@ Enterprise Connectors for the Multi-Agent Control Plane.
 
 Provides crawling and syncing from enterprise data sources:
 - Git repositories (GitHub, GitLab, Bitbucket)
-- Cloud documents (S3, SharePoint, Google Drive)
+- Cloud documents (S3, SharePoint, Google Drive, Google Sheets)
 - Databases (PostgreSQL, MongoDB, Snowflake)
 - Collaboration platforms (Confluence, Notion, Slack, Jira)
+- CRM platforms (Salesforce)
 - ITSM platforms (ServiceNow)
 - Healthcare systems (FHIR)
 
@@ -32,7 +33,11 @@ from aragora.connectors.enterprise.documents import (
     OneDriveConnector,
     DropboxConnector,
 )
-from aragora.connectors.enterprise.database import PostgreSQLConnector, MongoDBConnector, SnowflakeConnector
+from aragora.connectors.enterprise.database import (
+    PostgreSQLConnector,
+    MongoDBConnector,
+    SnowflakeConnector,
+)
 from aragora.connectors.enterprise.sync import SyncScheduler, SyncJob, SyncSchedule, SyncHistory
 from aragora.connectors.enterprise.healthcare import FHIRConnector, PHIRedactor, FHIRAuditLogger
 from aragora.connectors.enterprise.collaboration import (
@@ -40,9 +45,13 @@ from aragora.connectors.enterprise.collaboration import (
     NotionConnector,
     SlackConnector,
     JiraConnector,
+    TeamsEnterpriseConnector,
 )
 from aragora.connectors.enterprise.itsm import (
     ServiceNowConnector,
+)
+from aragora.connectors.enterprise.crm import (
+    SalesforceConnector,
 )
 
 __all__ = [
@@ -70,8 +79,11 @@ __all__ = [
     "NotionConnector",
     "SlackConnector",
     "JiraConnector",
+    "TeamsEnterpriseConnector",
     # ITSM connectors
     "ServiceNowConnector",
+    # CRM connectors
+    "SalesforceConnector",
     # Sync scheduler
     "SyncScheduler",
     "SyncJob",
