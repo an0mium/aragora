@@ -120,7 +120,7 @@ Handler for analytics dashboard endpoints.
 
 ### `GET` `/api/analytics/summary` 🔒
 
-Get dashboard summary with key metrics
+Get flip detection summary for dashboard
 
 ### `GET` `/api/analytics/trends/findings`
 
@@ -145,6 +145,34 @@ Get compliance scorecard for specified frameworks
 ### `GET` `/api/analytics/heatmap` 🔒
 
 Get risk heatmap data (category x severity)
+
+### `GET` `/api/analytics/tokens`
+
+GET /api/analytics/tokens
+
+### `GET` `/api/analytics/tokens/trends` 🔒
+
+Get finding trends over time
+
+### `GET` `/api/analytics/tokens/providers`
+
+GET /api/analytics/tokens/providers
+
+### `GET` `/api/analytics/flips/summary` 🔒
+
+Get flip detection summary for dashboard
+
+### `GET` `/api/analytics/flips/recent` 🔒
+
+Get recent flip events
+
+### `GET` `/api/analytics/flips/consistency` 🔒
+
+Get agent consistency scores
+
+### `GET` `/api/analytics/flips/trends` 🔒
+
+Get finding trends over time
 
 ---
 
