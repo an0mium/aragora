@@ -13,6 +13,7 @@ All endpoints follow RFC 7807 for error responses.
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -52,7 +53,11 @@ def rfc7807_error(
     if instance:
         problem["instance"] = instance
     problem.update(extra)
-    return HandlerResult(status=status, body=problem)
+    return HandlerResult(
+        status=status,
+        body=json.dumps(problem).encode("utf-8"),
+        content_type="application/problem+json",
+    )
 
 
 class GauntletSchemaHandler(BaseHandler):
