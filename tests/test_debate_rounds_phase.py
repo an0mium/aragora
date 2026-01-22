@@ -933,7 +933,7 @@ class TestRLMReadySignal:
 
     def test_parse_ready_signal_html_comment_format(self):
         """Should parse ready signal from HTML comment format."""
-        from aragora.debate.phases.debate_rounds import parse_ready_signal
+        from aragora.debate.phases import parse_ready_signal
 
         content = """This is my final position on the matter.
 
@@ -949,7 +949,7 @@ class TestRLMReadySignal:
 
     def test_parse_ready_signal_json_code_block_format(self):
         """Should parse ready signal from JSON code block format."""
-        from aragora.debate.phases.debate_rounds import parse_ready_signal
+        from aragora.debate.phases import parse_ready_signal
 
         content = """My analysis is complete.
 
@@ -962,7 +962,7 @@ class TestRLMReadySignal:
 
     def test_parse_ready_signal_inline_format(self):
         """Should parse ready signal from inline marker format."""
-        from aragora.debate.phases.debate_rounds import parse_ready_signal
+        from aragora.debate.phases import parse_ready_signal
 
         content = "Final answer provided. [READY: confidence=0.88, ready=true]"
 
@@ -973,7 +973,7 @@ class TestRLMReadySignal:
 
     def test_parse_ready_signal_natural_language(self):
         """Should detect ready signal from natural language markers."""
-        from aragora.debate.phases.debate_rounds import parse_ready_signal
+        from aragora.debate.phases import parse_ready_signal
 
         content = "This is my final position. I believe no further refinement is needed."
 
@@ -984,7 +984,7 @@ class TestRLMReadySignal:
 
     def test_parse_ready_signal_no_signal(self):
         """Should return defaults when no ready signal found."""
-        from aragora.debate.phases.debate_rounds import parse_ready_signal
+        from aragora.debate.phases import parse_ready_signal
 
         content = "This is my proposal but I want to keep iterating."
 
@@ -995,7 +995,7 @@ class TestRLMReadySignal:
 
     def test_parse_ready_signal_empty_content(self):
         """Should handle empty content gracefully."""
-        from aragora.debate.phases.debate_rounds import parse_ready_signal
+        from aragora.debate.phases import parse_ready_signal
 
         signal = parse_ready_signal("agent1", "", round_num=1)
 
