@@ -92,6 +92,7 @@ class TestVerifyTeamsWebhook:
         result = verify_teams_webhook("Bearer invalid.token.here", "app123")
         assert result is False
 
+    @pytest.mark.skip(reason="Behavior changed to fail-closed when PyJWT not installed")
     @pytest.mark.skipif(HAS_JWT, reason="Test only when PyJWT not installed")
     def test_accepts_without_jwt_library(self):
         """When PyJWT not installed, accepts tokens with warning."""
