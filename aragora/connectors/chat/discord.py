@@ -213,20 +213,23 @@ class DiscordConnector(ChatPlatformConnector):
             if components:
                 payload["components"] = components
 
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.patch(
-                    f"{DISCORD_API_BASE}/channels/{channel_id}/messages/{message_id}",
-                    headers=self._get_headers(),
-                    json=payload,
-                )
-                response.raise_for_status()
+            # Use shared HTTP helper with retry and circuit breaker
+            success, _, error = await self._http_request(
+                method="PATCH",
+                url=f"{DISCORD_API_BASE}/channels/{channel_id}/messages/{message_id}",
+                headers=self._get_headers(),
+                json=payload,
+                operation="update_message",
+            )
 
-                self._record_success()
+            if success:
                 return SendMessageResponse(
                     success=True,
                     message_id=message_id,
                     channel_id=channel_id,
                 )
+            else:
+                return SendMessageResponse(success=False, error=error or "Unknown error")
 
         except Exception as e:
             self._record_failure(e)
