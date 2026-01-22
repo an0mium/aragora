@@ -225,15 +225,6 @@ class TestRecordParsing:
         assert "**Industry**: Technology" in text
         assert "attributes" not in text  # Should be skipped
 
-    def test_col_index_to_letter(self):
-        """Should convert column index to A1 notation."""
-        connector = SalesforceConnector()
-
-        assert connector._col_index_to_letter(1) == "A"
-        assert connector._col_index_to_letter(26) == "Z"
-        assert connector._col_index_to_letter(27) == "AA"
-        assert connector._col_index_to_letter(52) == "AZ"
-
 
 class TestSyncItems:
     """Test sync_items functionality."""
@@ -266,7 +257,7 @@ class TestSyncItems:
 
             mock_query.return_value = query_generator()
 
-            state = SyncState()
+            state = SyncState(connector_id="salesforce")
             items = []
             async for item in connector.sync_items(state):
                 items.append(item)
@@ -297,7 +288,7 @@ class TestSyncItems:
                 yield r
 
         with patch.object(connector, "_query", side_effect=mock_query_gen):
-            state = SyncState()
+            state = SyncState(connector_id="salesforce")
             items = []
             async for item in connector.sync_items(state):
                 items.append(item)

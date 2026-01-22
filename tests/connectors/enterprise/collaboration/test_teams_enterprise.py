@@ -330,7 +330,7 @@ class TestSyncItems:
         with patch.object(connector, "_list_teams", mock_list_teams):
             with patch.object(connector, "_list_channels", mock_list_channels):
                 with patch.object(connector, "_get_channel_messages", mock_get_messages):
-                    state = SyncState()
+                    state = SyncState(connector_id="teams-enterprise")
                     items = []
                     async for item in connector.sync_items(state):
                         items.append(item)

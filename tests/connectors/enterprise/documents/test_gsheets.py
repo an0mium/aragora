@@ -283,7 +283,7 @@ class TestSyncItems:
         )
 
         with patch.object(connector, "_get_spreadsheet", return_value=mock_spreadsheet):
-            state = SyncState()
+            state = SyncState(connector_id="gsheets")
             items = []
             async for item in connector.sync_items(state):
                 items.append(item)

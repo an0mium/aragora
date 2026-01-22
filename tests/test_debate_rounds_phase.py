@@ -1115,7 +1115,7 @@ class TestCollectiveReadiness:
 
 
 class TestRLMReadyQuorumCheck:
-    """Tests for _check_rlm_ready_quorum method."""
+    """Tests for check_rlm_ready_quorum via convergence tracker."""
 
     def test_returns_true_when_quorum_reached(self, protocol):
         """Should return True when enough agents signal ready."""
@@ -1130,10 +1130,10 @@ class TestRLMReadyQuorumCheck:
             }
         )
 
-        result = phase._check_rlm_ready_quorum(ctx, round_num=3)
+        result = phase._convergence_tracker.check_rlm_ready_quorum(ctx, round_num=3)
 
         assert result is True
-        assert phase._collective_readiness.ready_count == 3
+        assert phase._convergence_tracker._collective_readiness.ready_count == 3
 
     def test_returns_false_when_no_quorum(self, protocol):
         """Should return False when not enough agents signal ready."""
@@ -1148,10 +1148,10 @@ class TestRLMReadyQuorumCheck:
             }
         )
 
-        result = phase._check_rlm_ready_quorum(ctx, round_num=2)
+        result = phase._convergence_tracker.check_rlm_ready_quorum(ctx, round_num=2)
 
         assert result is False
-        assert phase._collective_readiness.ready_count == 1
+        assert phase._convergence_tracker._collective_readiness.ready_count == 1
 
     def test_emits_hook_on_quorum(self, protocol):
         """Should emit hook when quorum reached."""
@@ -1169,7 +1169,7 @@ class TestRLMReadyQuorumCheck:
             }
         )
 
-        phase._check_rlm_ready_quorum(ctx, round_num=4)
+        phase._convergence_tracker.check_rlm_ready_quorum(ctx, round_num=4)
 
         hook_fn.assert_called_once()
         call_kwargs = hook_fn.call_args.kwargs
@@ -1192,7 +1192,7 @@ class TestRLMReadyQuorumCheck:
             }
         )
 
-        phase._check_rlm_ready_quorum(ctx, round_num=3)
+        phase._convergence_tracker.check_rlm_ready_quorum(ctx, round_num=3)
 
         notify_fn.assert_called()
         assert notify_fn.call_args[0][0] == "rlm_ready"
