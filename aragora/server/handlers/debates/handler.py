@@ -89,6 +89,11 @@ class DebatesHandler(
         "/api/debates/batch/",
         "/api/debates/batch/*/status",  # GET - batch status
         "/api/debates/queue/status",  # GET - queue status
+        "/api/debates/export/batch",  # POST - start batch export
+        "/api/debates/export/batch/",
+        "/api/debates/export/batch/*/status",  # GET - export job status
+        "/api/debates/export/batch/*/results",  # GET - export job results
+        "/api/debates/export/batch/*/stream",  # GET - SSE progress stream
         "/api/debates/slug/",
         "/api/debates/*/export/",
         "/api/debates/*/impasse",
@@ -322,6 +327,10 @@ class DebatesHandler(
             status_filter = query_params.get("status")
             return self._list_batches(limit, status_filter)
 
+        # Batch export endpoints
+        if path.startswith("/api/debates/export/batch"):
+            return self._handle_batch_export(path, query_params, handler)
+
         # Exact path matches
         if path == "/api/debates":
             limit = min(get_int_param(query_params, "limit", 20), 100)
@@ -388,6 +397,61 @@ class DebatesHandler(
             return None, err
 
         return debate_id, None
+
+    @handle_errors("batch export")
+    def _handle_batch_export(
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
+        """Route batch export requests to appropriate methods."""
+        from aragora.server.http_utils import run_async
+
+        # POST /api/debates/export/batch - start batch export
+        if path in ("/api/debates/export/batch", "/api/debates/export/batch/"):
+            body = self.read_json_body(handler)
+            if not body:
+                return error_response("Invalid or missing JSON body", 400)
+            debate_ids = body.get("debate_ids", [])
+            format = body.get("format", "json")
+            return self._start_batch_export(handler, debate_ids, format)
+
+        # GET /api/debates/export/batch - list export jobs
+        if path == "/api/debates/export/batch":
+            limit = min(get_int_param(query_params, "limit", 50), 100)
+            return self._list_batch_exports(limit)
+
+        # Extract job ID from path
+        parts = path.split("/")
+        if len(parts) < 6:
+            return error_response("Invalid batch export path", 400)
+
+        job_id = parts[5]
+
+        # GET /api/debates/export/batch/{job_id}/status
+        if path.endswith("/status"):
+            return self._get_batch_export_status(job_id)
+
+        # GET /api/debates/export/batch/{job_id}/results
+        if path.endswith("/results"):
+            return self._get_batch_export_results(job_id)
+
+        # GET /api/debates/export/batch/{job_id}/stream - SSE stream
+        if path.endswith("/stream"):
+
+            async def stream():
+                async for chunk in self._stream_batch_export_progress(job_id):
+                    yield chunk
+
+            return HandlerResult(
+                status_code=200,
+                content_type="text/event-stream",
+                body=run_async(stream()),
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                },
+            )
+
+        return error_response(f"Unknown batch export endpoint: {path}", 404)
 
     @rate_limit(rpm=30, limiter_name="debates_list")
     @require_storage
