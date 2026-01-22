@@ -11,12 +11,6 @@ Tests cover:
 """
 
 import pytest
-
-# Skip entire module - Discord connector mocks have status_code comparison issue
-pytest.skip(
-    "Discord connector tests need mock fixes (AsyncMock vs int comparison)",
-    allow_module_level=True,
-)
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
 
