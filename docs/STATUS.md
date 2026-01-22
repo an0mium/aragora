@@ -9,7 +9,7 @@
 **Production Ready** - Aragora 2.1.10 adds comprehensive testing improvements, type safety fixes, and multi-instance deployment support.
 
 #### Key Highlights
-- **42,500+ tests** across 950+ test files
+- **43,400+ tests** across 960+ test files
 - **Type safety fixes** - Resolved mypy errors in 5 key modules
 - **Multi-instance support** - PostgreSQL required for distributed deployments
 - **Telegram connector** - Full ChatPlatformConnector implementation
@@ -39,6 +39,15 @@
 - Implemented ChatPlatformConnector abstract methods
 - format_blocks(), format_button(), format_select_menu() support
 - send_ephemeral() for user-specific messages
+
+**Agent Template Marketplace** (FEATURE)
+- New `aragora.marketplace` module for template sharing
+- AgentTemplate, DebateTemplate, WorkflowTemplate models
+- Local SQLite registry with search, ratings, versioning
+- Async MarketplaceClient for remote template sharing
+- 3 built-in agent templates (Devil's Advocate, Code Reviewer, Research Analyst)
+- 3 built-in debate templates (Oxford-Style, Brainstorm, Code Review)
+- 38 comprehensive tests for models and registry
 
 ---
 
