@@ -16,6 +16,7 @@ from aragora.knowledge.mound.types import (
     StalenessCheck,
     StalenessReason,
 )
+from aragora.knowledge.unified.types import RelationshipType
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
@@ -201,7 +202,7 @@ class StalenessDetector:
             # Query for contradicting relationships
             result = await self._mound.query_graph(
                 start_id=node_id,
-                relationship_types=["contradicts"],
+                relationship_types=[RelationshipType.CONTRADICTS],
                 depth=1,
             )
 
@@ -232,7 +233,7 @@ class StalenessDetector:
             # Query for supporting evidence added recently
             result = await self._mound.query_graph(
                 start_id=node_id,
-                relationship_types=["supports", "derived_from"],
+                relationship_types=[RelationshipType.SUPPORTS, RelationshipType.DERIVED_FROM],
                 depth=1,
             )
 
@@ -273,7 +274,7 @@ class StalenessDetector:
             # Query for superseding consensus
             superseding = await self._mound.query_graph(
                 start_id=node_id,
-                relationship_types=["supersedes"],
+                relationship_types=[RelationshipType.SUPERSEDES],
                 depth=1,
             )
 

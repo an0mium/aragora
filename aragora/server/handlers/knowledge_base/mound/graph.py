@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Protocol
 
+from aragora.knowledge.unified.types import RelationshipType
 from aragora.server.http_utils import run_async as _run_async
 
 from ...base import (
@@ -107,7 +108,7 @@ class GraphOperationsMixin:
             result = _run_async(
                 mound.query_graph(
                     start_id=node_id,
-                    relationship_types=["derived_from"],
+                    relationship_types=[RelationshipType.DERIVED_FROM],
                     depth=depth,
                 )
             )

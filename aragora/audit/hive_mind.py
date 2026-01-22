@@ -49,6 +49,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence
 
+from aragora.audit.document_auditor import AuditType
+
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding, AuditSession
     from aragora.core import Agent
@@ -193,7 +195,9 @@ class QueenOrchestrator:
         """
         tasks = []
         audit_types = (
-            session.audit_types if hasattr(session, "audit_types") else ["security", "quality"]
+            session.audit_types
+            if hasattr(session, "audit_types")
+            else [AuditType.SECURITY, AuditType.QUALITY]
         )
 
         # Create tasks for each chunk
