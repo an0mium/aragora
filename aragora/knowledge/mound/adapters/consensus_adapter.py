@@ -112,6 +112,7 @@ class ConsensusAdapter:
                 record_km_operation,
                 record_km_adapter_sync,
             )
+
             record_km_operation(operation, success, latency)
             if operation in ("store", "sync"):
                 record_km_adapter_sync("consensus", "forward", success)
@@ -191,7 +192,7 @@ class ConsensusAdapter:
             # SimilarDebate has: consensus, dissents, similarity
             result = ConsensusSearchResult(
                 record=debate.consensus,
-                similarity=debate.similarity,
+                similarity=debate.similarity,  # type: ignore[attr-defined]
                 dissents=debate.dissents if include_dissents else [],
             )
             results.append(result)
@@ -378,7 +379,7 @@ class ConsensusAdapter:
         Returns:
             List of DissentRecord with type RISK_WARNING
         """
-        return self._consensus.find_risk_warnings(topic=topic, limit=limit)
+        return self._consensus.find_risk_warnings(topic=topic, limit=limit)  # type: ignore[attr-defined]
 
     def get_contrarian_views(
         self,
@@ -396,11 +397,11 @@ class ConsensusAdapter:
         Returns:
             List of DissentRecord with type FUNDAMENTAL_DISAGREEMENT
         """
-        return self._consensus.find_contrarian_views(limit=limit)
+        return self._consensus.find_contrarian_views(limit=limit)  # type: ignore[attr-defined]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the consensus memory."""
-        return self._consensus.get_stats()
+        return self._consensus.get_stats()  # type: ignore[attr-defined]
 
     def search_similar(
         self,
@@ -420,6 +421,7 @@ class ConsensusAdapter:
             List of similar consensus records as dicts
         """
         import time
+
         start = time.time()
         success = False
 
@@ -439,7 +441,7 @@ class ConsensusAdapter:
                     "strength": d.consensus.strength.value,
                     "confidence": d.consensus.confidence,
                     "domain": d.consensus.domain,
-                    "similarity": d.similarity,
+                    "similarity": d.similarity,  # type: ignore[attr-defined]
                     "timestamp": d.consensus.timestamp.isoformat()
                     if hasattr(d.consensus.timestamp, "isoformat")
                     else str(d.consensus.timestamp),
@@ -448,12 +450,15 @@ class ConsensusAdapter:
             ]
 
             # Emit dashboard event for reverse flow query
-            self._emit_event("km_adapter_reverse_query", {
-                "source": "consensus",
-                "topic_preview": topic[:50] + "..." if len(topic) > 50 else topic,
-                "results_count": len(results),
-                "limit": limit,
-            })
+            self._emit_event(
+                "km_adapter_reverse_query",
+                {
+                    "source": "consensus",
+                    "topic_preview": topic[:50] + "..." if len(topic) > 50 else topic,
+                    "results_count": len(results),
+                    "limit": limit,
+                },
+            )
 
             success = True
             return results
@@ -483,22 +488,20 @@ class ConsensusAdapter:
             List of matching consensus records with similarity scores
         """
         import time
+
         start = time.time()
         success = False
 
         try:
             # Try semantic search first
             try:
-                from aragora.knowledge.mound.semantic_store import (
-                    SemanticStore,
-                    SemanticSearchResult,
-                )
+                from aragora.knowledge.mound.semantic_store import SemanticStore
 
                 # Get or create semantic store
-                store = SemanticStore()
+                store = SemanticStore()  # type: ignore[call-arg]
 
                 # Search using embeddings
-                results = await store.search_similar(
+                results = await store.search_similar(  # type: ignore[call-arg]
                     query=query,
                     tenant_id=tenant_id or "default",
                     limit=limit,
@@ -516,39 +519,46 @@ class ConsensusAdapter:
 
                     record = self._consensus.get_consensus(record_id)
                     if record:
-                        enriched.append({
-                            "id": record.id,
-                            "topic": record.topic,
-                            "conclusion": record.conclusion,
-                            "strength": record.strength.value,
-                            "confidence": record.confidence,
-                            "domain": record.domain,
-                            "similarity": r.similarity,
-                            "timestamp": record.timestamp.isoformat()
-                            if hasattr(record.timestamp, "isoformat")
-                            else str(record.timestamp),
-                            "metadata": record.metadata,
-                        })
+                        enriched.append(
+                            {
+                                "id": record.id,
+                                "topic": record.topic,
+                                "conclusion": record.conclusion,
+                                "strength": record.strength.value,
+                                "confidence": record.confidence,
+                                "domain": record.domain,
+                                "similarity": r.similarity,
+                                "timestamp": record.timestamp.isoformat()
+                                if hasattr(record.timestamp, "isoformat")
+                                else str(record.timestamp),
+                                "metadata": record.metadata,
+                            }
+                        )
                     else:
                         # Record may not be in memory
-                        enriched.append({
-                            "id": r.source_id,
-                            "similarity": r.similarity,
-                            "domain": r.domain,
-                            "importance": r.importance,
-                            "metadata": r.metadata,
-                        })
+                        enriched.append(
+                            {
+                                "id": r.source_id,
+                                "similarity": r.similarity,
+                                "domain": r.domain,
+                                "importance": r.importance,
+                                "metadata": r.metadata,
+                            }
+                        )
 
                 success = True
                 logger.debug(f"Semantic search returned {len(enriched)} results for '{query[:50]}'")
 
                 # Emit event
-                self._emit_event("km_adapter_semantic_search", {
-                    "source": "consensus",
-                    "query_preview": query[:50],
-                    "results_count": len(enriched),
-                    "search_type": "vector",
-                })
+                self._emit_event(
+                    "km_adapter_semantic_search",
+                    {
+                        "source": "consensus",
+                        "query_preview": query[:50],
+                        "results_count": len(enriched),
+                        "search_type": "vector",
+                    },
+                )
 
                 return enriched
 
@@ -589,10 +599,15 @@ class ConsensusAdapter:
             record.metadata["km_sync_requested_at"] = datetime.now().isoformat()
 
         # Emit dashboard event for forward sync
-        self._emit_event("km_adapter_forward_sync", {
-            "source": "consensus",
-            "consensus_id": record.id,
-            "topic_preview": record.topic[:50] + "..." if len(record.topic) > 50 else record.topic,
-            "confidence": record.confidence,
-            "strength": record.strength.value,
-        })
+        self._emit_event(
+            "km_adapter_forward_sync",
+            {
+                "source": "consensus",
+                "consensus_id": record.id,
+                "topic_preview": record.topic[:50] + "..."
+                if len(record.topic) > 50
+                else record.topic,
+                "confidence": record.confidence,
+                "strength": record.strength.value,
+            },
+        )

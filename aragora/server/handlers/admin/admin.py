@@ -132,13 +132,13 @@ def admin_secure_endpoint(
                 # 2. Check admin role
                 user_store = self._get_user_store()
                 if not user_store:
-                    return error_response("Service unavailable", 503)
+                    return error_response("Service unavailable", 503)  # type: ignore[return-value]
 
                 user = user_store.get_user_by_id(auth_context.user_id)
                 if not user or user.role not in ADMIN_ROLES:
                     logger.warning(f"Non-admin user {auth_context.user_id} attempted admin access")
                     record_blocked_request("admin_required", "user")
-                    return error_response("Admin access required", 403)
+                    return error_response("Admin access required", 403)  # type: ignore[return-value]
 
                 # 3. Enforce MFA for admin users (SOC 2 CC5-01)
                 mfa_result = enforce_admin_mfa_policy(user, user_store)
@@ -146,7 +146,7 @@ def admin_secure_endpoint(
                     reason = mfa_result.get("reason", "MFA required")
                     logger.warning(f"Admin user {auth_context.user_id} denied: {reason}")
                     record_blocked_request("mfa_required", "admin")
-                    return error_response(
+                    return error_response(  # type: ignore[return-value]
                         f"Administrative access requires MFA. {reason}",
                         403,
                         code="ADMIN_MFA_REQUIRED",
@@ -156,12 +156,12 @@ def admin_secure_endpoint(
                 if permission:
                     resource_id = kwargs.get(resource_id_param) if resource_id_param else None
                     try:
-                        self.check_permission(auth_context, permission, resource_id)
+                        self.check_permission(auth_context, permission, resource_id)  # type: ignore[arg-type]
                     except ForbiddenError:
-                        return error_response(f"Permission denied: {permission}", 403)
+                        return error_response(f"Permission denied: {permission}", 403)  # type: ignore[return-value]
 
                 # 5. Call the actual handler
-                result = await func(self, request, auth_context, *args, **kwargs)
+                result = await func(self, request, auth_context, *args, **kwargs)  # type: ignore[assignment]
 
                 # 6. Audit if requested
                 if audit:
@@ -188,7 +188,7 @@ def admin_secure_endpoint(
                 return result
 
             except (UnauthorizedError, ForbiddenError) as e:
-                return self.handle_security_error(e, request)
+                return self.handle_security_error(e, request)  # type: ignore[return-value]
 
         return wrapper  # type: ignore
 

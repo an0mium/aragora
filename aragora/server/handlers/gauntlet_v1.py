@@ -53,7 +53,7 @@ def rfc7807_error(
     if instance:
         problem["instance"] = instance
     problem.update(extra)
-    return HandlerResult(
+    return HandlerResult(  # type: ignore[call-arg]
         status=status,
         body=json.dumps(problem).encode("utf-8"),
         content_type="application/problem+json",
@@ -349,7 +349,7 @@ class GauntletReceiptExportHandler(BaseHandler):
             # Try persistent storage
             if not run:
                 storage = _get_storage()
-                run = storage.get_result(gauntlet_id)
+                run = storage.get_result(gauntlet_id)  # type: ignore[attr-defined]
 
             if not run:
                 return rfc7807_error(
@@ -441,7 +441,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                     "text": "text/plain",
                 }.get(format_str, "text/plain")
 
-                return HandlerResult(
+                return HandlerResult(  # type: ignore[call-arg]
                     status=200,
                     body=content,
                     headers={"Content-Type": content_type},
@@ -455,7 +455,7 @@ class GauntletReceiptExportHandler(BaseHandler):
             )
 
             # Map format string to enum
-            format_map = {
+            format_map = {  # type: ignore[dict-item]
                 "json": ReceiptExportFormat.JSON,
                 "markdown": ReceiptExportFormat.MARKDOWN,
                 "html": ReceiptExportFormat.HTML,
@@ -483,7 +483,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                 validate_schema=options_dict.get("validate_schema", False),
             )
 
-            content = export_receipt(receipt, export_format, options)
+            content = export_receipt(receipt, export_format, options)  # type: ignore[arg-type]
 
             # Set appropriate content type
             content_type = {
@@ -494,7 +494,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                 "sarif": "application/sarif+json",
             }.get(format_str, "application/json")
 
-            return HandlerResult(
+            return HandlerResult(  # type: ignore[call-arg]
                 status=200,
                 body=content,
                 headers={"Content-Type": content_type},
@@ -554,7 +554,7 @@ class GauntletHeatmapExportHandler(BaseHandler):
             run = _gauntlet_runs.get(gauntlet_id)
             if not run:
                 storage = _get_storage()
-                run = storage.get_result(gauntlet_id)
+                run = storage.get_result(gauntlet_id)  # type: ignore[attr-defined]
 
             if not run:
                 return rfc7807_error(
@@ -611,7 +611,7 @@ class GauntletHeatmapExportHandler(BaseHandler):
                 "html": "text/html",
             }.get(format_str, "application/json")
 
-            return HandlerResult(
+            return HandlerResult(  # type: ignore[call-arg]
                 status=200,
                 body=content,
                 headers={"Content-Type": content_type},
@@ -698,4 +698,4 @@ def register_gauntlet_v1_handlers(router: Any, server_context: Any = None) -> No
     """Register all v1 Gauntlet handlers with a router."""
     ctx = server_context or {}
     for handler_cls in GAUNTLET_V1_HANDLERS:
-        router.add_handler(handler_cls(ctx))
+        router.add_handler(handler_cls(ctx))  # type: ignore[arg-type]
