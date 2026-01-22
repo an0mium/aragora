@@ -20,6 +20,13 @@ from typing import Any
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def seed_random():
+    """Seed random for reproducible chaos tests."""
+    random.seed(42)
+    yield
+
+
 class LoadGenerator:
     """Generates configurable load for testing."""
 

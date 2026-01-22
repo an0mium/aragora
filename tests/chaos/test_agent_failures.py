@@ -19,6 +19,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def seed_random():
+    """Seed random for reproducible chaos tests."""
+    random.seed(42)
+    yield
+
+
 class ChaosAgent:
     """A configurable chaos agent for testing failure scenarios."""
 

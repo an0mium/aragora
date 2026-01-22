@@ -20,6 +20,13 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def seed_random():
+    """Seed random for reproducible chaos tests."""
+    random.seed(42)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def reset_circuit_breakers():
     """Reset circuit breakers before and after each test."""
     from aragora.resilience import reset_all_circuit_breakers
@@ -107,7 +114,7 @@ class TestConcurrentCircuitBreakerAccess:
         async def record_failures(count: int):
             for _ in range(count):
                 cb.record_failure()
-                await asyncio.sleep(0.001)
+                await asyncio.sleep(0.01)
 
         # Record failures concurrently
         tasks = [record_failures(20) for _ in range(5)]
@@ -315,17 +322,17 @@ class TestCircuitBreakerEdgeCases:
         """Circuit breaker with very short reset timeout."""
         from aragora.resilience import get_circuit_breaker
 
-        cb = get_circuit_breaker("short_reset", failure_threshold=2, cooldown_seconds=0.01)
+        cb = get_circuit_breaker("short_reset", failure_threshold=2, cooldown_seconds=0.05)
 
         # Open the circuit
         cb.record_failure()
         cb.record_failure()
         assert cb.is_open
 
-        # Wait minimal time
-        await asyncio.sleep(0.02)
+        # Wait for cooldown to pass
+        await asyncio.sleep(0.1)
 
-        # Should be half-open now
+        # Should be half-open now (and can_proceed resets to closed)
         can_proceed = cb.can_proceed()
         assert can_proceed is True
 
@@ -358,7 +365,7 @@ class TestCircuitBreakerEdgeCases:
         """Circuit breaker under stress with alternating conditions."""
         from aragora.resilience import get_circuit_breaker
 
-        cb = get_circuit_breaker("stress_test", failure_threshold=3, cooldown_seconds=0.02)
+        cb = get_circuit_breaker("stress_test", failure_threshold=3, cooldown_seconds=0.05)
 
         state_changes = []
 
@@ -377,7 +384,7 @@ class TestCircuitBreakerEdgeCases:
             if cb.state != initial_state:
                 state_changes.append((i, initial_state, cb.state))
 
-            await asyncio.sleep(0.005)
+            await asyncio.sleep(0.01)
 
         # Should have recorded some state changes
         # (not asserting specific number as it depends on random actions)

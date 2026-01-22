@@ -19,7 +19,7 @@ def _default_environment() -> "Environment":
     """Create a minimal Environment for tests or standalone usage."""
     from aragora.core import Environment
 
-    return Environment(task="")
+    return Environment(task="default")
 
 
 @dataclass
