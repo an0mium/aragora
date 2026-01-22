@@ -1,0 +1,29 @@
+# Region-specific values for us-east-2 (Primary)
+
+global:
+  region: us-east-2
+
+multiRegion:
+  primary: true
+
+backend:
+  replicaCount: 5
+  autoscaling:
+    minReplicas: 5
+    maxReplicas: 30
+
+worker:
+  replicaCount: 3
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 20
+
+externalDatabase:
+  host: aragora-us-east-2.cluster-xxxxx.us-east-2.rds.amazonaws.com
+
+externalRedis:
+  host: aragora-us-east-2.xxxxx.clustercfg.use2.cache.amazonaws.com
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/aragora-us-east-2-sa

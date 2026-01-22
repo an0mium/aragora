@@ -1,0 +1,31 @@
+apiVersion: v2
+name: aragora
+description: Multi-Agent Debate Platform for Collaborative AI Reasoning
+type: application
+version: 1.0.0
+appVersion: "2.2.0"
+
+keywords:
+  - ai
+  - multi-agent
+  - debate
+  - llm
+  - reasoning
+
+home: https://aragora.ai
+sources:
+  - https://github.com/aragora/aragora
+
+maintainers:
+  - name: Aragora Team
+    email: ops@aragora.ai
+
+dependencies:
+  - name: redis
+    version: "~18.0"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: postgresql
+    version: "~13.0"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

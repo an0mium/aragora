@@ -1,0 +1,29 @@
+# Region-specific values for eu-west-1
+
+global:
+  region: eu-west-1
+
+multiRegion:
+  primary: false
+
+backend:
+  replicaCount: 3
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 20
+
+worker:
+  replicaCount: 2
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 10
+
+externalDatabase:
+  host: aragora-eu-west-1.cluster-xxxxx.eu-west-1.rds.amazonaws.com
+
+externalRedis:
+  host: aragora-eu-west-1.xxxxx.clustercfg.euw1.cache.amazonaws.com
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/aragora-eu-west-1-sa

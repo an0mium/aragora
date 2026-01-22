@@ -1,0 +1,244 @@
+# Default values for aragora
+# Multi-region deployment configuration
+
+global:
+  environment: production
+  region: us-east-2
+  domain: aragora.ai
+  imageRegistry: ghcr.io/aragora
+
+# Backend API Configuration
+backend:
+  replicaCount: 3
+  image:
+    repository: ghcr.io/aragora/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  env:
+    - name: ENVIRONMENT
+      value: production
+    - name: LOG_LEVEL
+      value: info
+    - name: ENABLE_METRICS
+      value: "true"
+
+  secrets:
+    - name: ANTHROPIC_API_KEY
+      secretKeyRef:
+        name: aragora-api-keys
+        key: anthropic
+    - name: OPENAI_API_KEY
+      secretKeyRef:
+        name: aragora-api-keys
+        key: openai
+    - name: DATABASE_URL
+      secretKeyRef:
+        name: aragora-db
+        key: url
+    - name: REDIS_URL
+      secretKeyRef:
+        name: aragora-redis
+        key: url
+
+  livenessProbe:
+    httpGet:
+      path: /health/live
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+  nodeSelector:
+    role: general
+
+  tolerations: []
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - aragora-backend
+            topologyKey: topology.kubernetes.io/zone
+
+# Frontend Configuration
+frontend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/aragora/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  service:
+    type: ClusterIP
+    port: 3000
+
+# Worker Configuration (for background jobs)
+worker:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/aragora/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  command: ["python", "-m", "aragora.queue.workers.runner"]
+
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 60
+
+  nodeSelector:
+    role: compute
+
+  tolerations:
+    - key: compute
+      value: "true"
+      effect: NoSchedule
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: istio
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.aragora.ai
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: backend
+    - host: aragora.ai
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: frontend
+  tls:
+    - secretName: aragora-tls
+      hosts:
+        - api.aragora.ai
+        - aragora.ai
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Set per-region
+
+# Redis (disabled when using external ElastiCache)
+redis:
+  enabled: false
+
+# PostgreSQL (disabled when using external RDS)
+postgresql:
+  enabled: false
+
+# External services (for production)
+externalDatabase:
+  host: ""  # Set per-region from Terraform outputs
+  port: 5432
+  database: aragora
+  existingSecret: aragora-db
+
+externalRedis:
+  host: ""  # Set per-region from Terraform outputs
+  port: 6379
+  existingSecret: aragora-redis
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    serviceMonitor:
+      enabled: true
+      interval: 15s
+  grafana:
+    dashboards:
+      enabled: true
+
+# Observability
+observability:
+  tracing:
+    enabled: true
+    jaegerEndpoint: http://jaeger-collector.observability:14268/api/traces
+  logging:
+    format: json
+    level: info
+
+# Multi-region settings
+multiRegion:
+  enabled: true
+  primary: false  # Override in region-specific values
+  regions:
+    - name: us-east-2
+      primary: true
+      endpoint: api.us-east-2.aragora.ai
+    - name: eu-west-1
+      primary: false
+      endpoint: api.eu-west-1.aragora.ai
+    - name: ap-south-1
+      primary: false
+      endpoint: api.ap-south-1.aragora.ai
+
+# Network Policies
+networkPolicies:
+  enabled: true

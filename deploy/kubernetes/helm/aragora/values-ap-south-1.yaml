@@ -1,0 +1,29 @@
+# Region-specific values for ap-south-1
+
+global:
+  region: ap-south-1
+
+multiRegion:
+  primary: false
+
+backend:
+  replicaCount: 3
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 15
+
+worker:
+  replicaCount: 2
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 8
+
+externalDatabase:
+  host: aragora-ap-south-1.cluster-xxxxx.ap-south-1.rds.amazonaws.com
+
+externalRedis:
+  host: aragora-ap-south-1.xxxxx.clustercfg.aps1.cache.amazonaws.com
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/aragora-ap-south-1-sa

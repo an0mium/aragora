@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aragora.fullname" . }}-config
+  labels:
+    {{- include "aragora.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    environment: {{ .Values.global.environment }}
+    region: {{ .Values.global.region }}
+    domain: {{ .Values.global.domain }}
+
+    server:
+      host: 0.0.0.0
+      port: 8080
+      workers: 4
+
+    logging:
+      level: {{ .Values.observability.logging.level }}
+      format: {{ .Values.observability.logging.format }}
+
+    metrics:
+      enabled: {{ .Values.monitoring.enabled }}
+      port: 9090
+
+    tracing:
+      enabled: {{ .Values.observability.tracing.enabled }}
+      {{- if .Values.observability.tracing.enabled }}
+      endpoint: {{ .Values.observability.tracing.jaegerEndpoint }}
+      {{- end }}
+
+    multi_region:
+      enabled: {{ .Values.multiRegion.enabled }}
+      primary: {{ .Values.multiRegion.primary }}
+      regions:
+        {{- range .Values.multiRegion.regions }}
+        - name: {{ .name }}
+          endpoint: {{ .endpoint }}
+          primary: {{ .primary }}
+        {{- end }}
