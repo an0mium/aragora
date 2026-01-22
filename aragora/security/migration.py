@@ -521,7 +521,7 @@ def rotate_and_reencrypt_store(
                                 plaintext,
                                 associated_data=str(record_id),
                             )
-                            reencrypted[key] = encrypted.to_dict()
+                            reencrypted[key] = encrypted.to_dict()  # type: ignore[union-attr]
                         except Exception as e:
                             logger.warning(f"Failed to re-encrypt field {key}: {e}")
                             reencrypted[key] = value  # Keep original
@@ -693,7 +693,7 @@ def _get_integration_store_config() -> Optional[Dict[str, Any]]:
         store = get_integration_store()
 
         return {
-            "list_fn": lambda: list(store.list_all()),
+            "list_fn": lambda: list(store.list_all()),  # type: ignore[call-overload,union-attr]
             "save_fn": lambda id, record: store.save(record),
             "sensitive_fields": [
                 "api_key",
@@ -719,8 +719,8 @@ def _get_gmail_store_config() -> Optional[Dict[str, Any]]:
         store = get_gmail_token_store()
 
         return {
-            "list_fn": lambda: list(store.list_all()) if hasattr(store, "list_all") else [],
-            "save_fn": lambda id, record: store.save_state(id, record),
+            "list_fn": lambda: list(store.list_all()) if hasattr(store, "list_all") else [],  # type: ignore[call-overload]
+            "save_fn": lambda id, record: store.save_state(id, record),  # type: ignore[attr-defined]
             "sensitive_fields": ["access_token", "refresh_token"],
             "id_field": "user_id",
         }

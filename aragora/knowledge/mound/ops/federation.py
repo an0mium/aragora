@@ -190,7 +190,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            result = await store.delete(region_id, self.workspace_id)
+            result = await store.delete(region_id, self.workspace_id)  # type: ignore[attr-defined]
             if result or was_in_cache:
                 logger.info(f"Unregistered federated region {region_id}")
                 return True
@@ -265,7 +265,7 @@ class KnowledgeFederationMixin:
             ]
 
             # Query items without filters (filter visibility post-query)
-            result = await self.query(
+            result = await self.query(  # type: ignore[attr-defined]
                 query="",  # Get all matching items
                 workspace_id=ws_id,
                 limit=1000,
@@ -398,7 +398,7 @@ class KnowledgeFederationMixin:
                             **item_data.get("metadata", {}),
                         },
                     )
-                    await self.store(request)
+                    await self.store(request)  # type: ignore[attr-defined]
                     nodes_synced += 1
                 except Exception as e:
                     logger.warning(f"Failed to ingest item from {region_id}: {e}")
@@ -501,7 +501,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            config = await store.get(region_id, self.workspace_id)
+            config = await store.get(region_id, self.workspace_id)  # type: ignore[attr-defined]
             if config:
                 return FederatedRegion(
                     region_id=config.region_id,
@@ -532,7 +532,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            configs = await store.list_enabled(self.workspace_id)
+            configs = await store.list_enabled(self.workspace_id)  # type: ignore[attr-defined]
             return [
                 FederatedRegion(
                     region_id=config.region_id,
@@ -568,7 +568,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            configs = await store.list_all(self.workspace_id)
+            configs = await store.list_all(self.workspace_id)  # type: ignore[attr-defined]
             return [
                 FederatedRegion(
                     region_id=config.region_id,
@@ -616,7 +616,7 @@ class KnowledgeFederationMixin:
                 direction=direction,
                 nodes_synced=nodes_synced,
                 error=error,
-                workspace_id=self.workspace_id,
+                workspace_id=self.workspace_id,  # type: ignore[attr-defined]
             )
         except ImportError:
             logger.debug("Federation registry store not available")

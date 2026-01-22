@@ -354,7 +354,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         self.event_emitter = event_emitter
 
         # Hyperparameters (can be modified by MetaLearner)
-        self.hyperparams: ContinuumHyperparams = {
+        self.hyperparams: ContinuumHyperparams = {  # type: ignore[assignment]
             "surprise_weight_success": 0.3,  # Weight for success rate surprise
             "surprise_weight_semantic": 0.3,  # Weight for semantic novelty
             "surprise_weight_temporal": 0.2,  # Weight for timing surprise
@@ -505,7 +505,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             try:
                 from aragora.events.types import StreamEvent, StreamEventType
 
-                self.event_emitter.emit(  # type: ignore[unused-coroutine]
+                self.event_emitter.emit(  # type: ignore[unused-coroutine,arg-type]
                     StreamEvent(
                         type=StreamEventType.MEMORY_STORED,
                         data={

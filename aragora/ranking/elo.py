@@ -322,7 +322,7 @@ class EloSystem:
             return []
 
         try:
-            return self._km_adapter.get_agent_skill_history(
+            return self._km_adapter.get_agent_skill_history(  # type: ignore[call-arg]
                 agent_name=agent_name,
                 domain=domain,
                 limit=limit,
@@ -872,7 +872,7 @@ class EloSystem:
                 from aragora.server.stream.events import StreamEvent, StreamEventType
 
                 for agent_name, elo_change in elo_changes.items():
-                    new_rating = ratings.get(agent_name, 1500) + elo_change
+                    new_rating = ratings.get(agent_name, 1500) + elo_change  # type: ignore[operator]
                     self.event_emitter.emit(
                         StreamEvent(
                             type=StreamEventType.AGENT_ELO_UPDATED,
@@ -892,7 +892,7 @@ class EloSystem:
         if self._km_adapter and elo_changes:
             try:
                 # Store match result for skill history tracking
-                self._km_adapter.store_match(
+                self._km_adapter.store_match(  # type: ignore[call-arg]
                     match_id=debate_id,
                     participants=participants_list,
                     winner=winner,

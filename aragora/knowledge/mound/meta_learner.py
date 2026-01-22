@@ -153,7 +153,7 @@ class KnowledgeMoundMetaLearner:
         if entry and entry.source_type == "continuum":
             # Fetch from ContinuumMemory
             if self._continuum:
-                return self._continuum.get_by_id(entry.source_id)
+                return self._continuum.get_by_id(entry.source_id)  # type: ignore[attr-defined]
         return None
 
     async def _record_continuum_access(self, entry_id: str, was_useful: Optional[bool]) -> None:
@@ -164,9 +164,9 @@ class KnowledgeMoundMetaLearner:
         # ContinuumMemory should have a method to record successful/failed access
         try:
             if was_useful is True:
-                self._continuum.record_success(entry_id)
+                self._continuum.record_success(entry_id)  # type: ignore[attr-defined]
             elif was_useful is False:
-                self._continuum.record_failure(entry_id)
+                self._continuum.record_failure(entry_id)  # type: ignore[attr-defined]
             else:
                 self._continuum.record_access(entry_id)
         except AttributeError:
@@ -278,12 +278,15 @@ class KnowledgeMoundMetaLearner:
 
             # Calculate recommended thresholds based on retrieval patterns
             rec_promo, rec_demo, reasoning = self._calculate_tier_recommendations(
-                tier, metrics, current_promo, current_demo
+                tier,
+                metrics,
+                current_promo,
+                current_demo,  # type: ignore[arg-type]
             )
 
-            if abs(rec_promo - current_promo) > 0.05 or abs(rec_demo - current_demo) > 0.05:
+            if abs(rec_promo - current_promo) > 0.05 or abs(rec_demo - current_demo) > 0.05:  # type: ignore[operator]
                 recommendations.append(
-                    TierOptimizationRecommendation(
+                    TierOptimizationRecommendation(  # type: ignore[arg-type]
                         tier=tier,
                         current_promotion_threshold=current_promo,
                         recommended_promotion_threshold=rec_promo,

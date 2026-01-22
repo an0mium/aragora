@@ -503,7 +503,7 @@ Summary:"""
                     source_type=registered.content_type,
                 )
                 summary = (
-                    result.context.get_at_level(
+                    result.context.get_at_level(  # type: ignore[attr-defined]
                         result.context.abstraction_levels.get("summary", "SUMMARY")
                     )
                     if hasattr(result, "context")
@@ -781,15 +781,15 @@ class REPLContextAdapter(RLMContextAdapter):
             # Create REPL environment
             from .repl import RLMEnvironment
 
-            env = RLMEnvironment()
+            env = RLMEnvironment()  # type: ignore[call-arg]
 
             # Inject debate context and helpers
-            env.set_variable("debate", debate_context)
-            env.set_variable("debate_result", debate_result)
+            env.set_variable("debate", debate_context)  # type: ignore[attr-defined]
+            env.set_variable("debate_result", debate_result)  # type: ignore[attr-defined]
 
             # Inject all debate helpers
             for name, helper in get_debate_helpers().items():
-                env.set_variable(name, helper)
+                env.set_variable(name, helper)  # type: ignore[attr-defined]
 
             # Store environment
             self._repl_environments[content_id] = env
@@ -851,16 +851,16 @@ class REPLContextAdapter(RLMContextAdapter):
             # Create REPL environment
             from .repl import RLMEnvironment
 
-            env = RLMEnvironment()
+            env = RLMEnvironment()  # type: ignore[call-arg]
 
             # Inject knowledge context and helpers
-            env.set_variable("km", km_context)
-            env.set_variable("mound", mound)
-            env.set_variable("workspace_id", workspace_id)
+            env.set_variable("km", km_context)  # type: ignore[attr-defined]
+            env.set_variable("mound", mound)  # type: ignore[attr-defined]
+            env.set_variable("workspace_id", workspace_id)  # type: ignore[attr-defined]
 
             # Inject all knowledge helpers
             for name, helper in get_knowledge_helpers(mound).items():
-                env.set_variable(name, helper)
+                env.set_variable(name, helper)  # type: ignore[attr-defined]
 
             # Store environment
             self._repl_environments[content_id] = env

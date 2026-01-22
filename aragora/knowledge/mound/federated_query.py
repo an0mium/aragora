@@ -559,15 +559,15 @@ class FederatedQueryAggregator:
                 items = await asyncio.wait_for(task, timeout=self._timeout_seconds)
                 results[source] = (items, None)
             except asyncio.TimeoutError:
-                results[source] = ([], f"Timeout after {self._timeout_seconds}s")
+                results[source] = ([], f"Timeout after {self._timeout_seconds}s")  # type: ignore[assignment]
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.debug(f"Query to {source.value} failed with expected error: {e}")
-                results[source] = ([], str(e))
+                results[source] = ([], str(e))  # type: ignore[assignment]
             except Exception as e:
                 logger.warning(f"Query to {source.value} failed with unexpected error: {e}")
-                results[source] = ([], str(e))
+                results[source] = ([], str(e))  # type: ignore[assignment]
 
-        return results
+        return results  # type: ignore[return-value]
 
     async def _query_sequential(
         self,
@@ -584,12 +584,12 @@ class FederatedQueryAggregator:
                 results[source] = (items, None)
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.debug(f"Sequential query to {source.value} failed with expected error: {e}")
-                results[source] = ([], str(e))
+                results[source] = ([], str(e))  # type: ignore[assignment]
             except Exception as e:
                 logger.warning(
                     f"Sequential query to {source.value} failed with unexpected error: {e}"
                 )
-                results[source] = ([], str(e))
+                results[source] = ([], str(e))  # type: ignore[assignment]
 
         return results
 

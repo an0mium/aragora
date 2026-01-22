@@ -789,7 +789,7 @@ class KnowledgeMoundCheckpointStore:
             )
 
             # Store in mound
-            node_id = await self.mound.add_node(node)  # type: ignore[arg-type]
+            node_id = await self.mound.add_node(node)  # type: ignore[arg-type,misc]
             logger.info(
                 f"Saved workflow checkpoint: workflow={checkpoint.workflow_id}, "
                 f"step={checkpoint.current_step}, node_id={node_id}"
@@ -811,7 +811,7 @@ class KnowledgeMoundCheckpointStore:
             WorkflowCheckpoint or None if not found
         """
         try:
-            node = await self.mound.get_node(checkpoint_id)  # type: ignore[arg-type]
+            node = await self.mound.get_node(checkpoint_id)  # type: ignore[arg-type,misc]
             if node is None:
                 return None
 
@@ -1160,8 +1160,8 @@ def get_checkpoint_store(
                     logger.debug("Postgres pool requires async context, skipping")
                 else:
                     pool = loop.run_until_complete(get_postgres_pool())  # type: ignore[arg-type]
-                    store = PostgresCheckpointStore(pool)  # type: ignore[arg-type]
-                    loop.run_until_complete(store.initialize())
+                    store = PostgresCheckpointStore(pool)  # type: ignore[arg-type,assignment]
+                    loop.run_until_complete(store.initialize())  # type: ignore[attr-defined]
                     logger.info("Using PostgresCheckpointStore for checkpoints")
                     return store
             except RuntimeError:

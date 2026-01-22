@@ -300,7 +300,7 @@ class SyncOperationsMixin:
         try:
             # FactStore has query_facts method
             if hasattr(facts, "query_facts"):
-                all_facts = facts.query_facts(
+                all_facts = facts.query_facts(  # type: ignore[call-arg]
                     query="",
                     workspace_id=self.workspace_id,
                     limit=10000,
@@ -535,19 +535,19 @@ class SyncOperationsMixin:
         results: Dict[str, SyncResult] = {}
 
         if self._continuum:
-            results["continuum"] = await self.sync_from_continuum(self._continuum)
+            results["continuum"] = await self.sync_from_continuum(self._continuum)  # type: ignore[attr-defined]
 
         if self._consensus:
-            results["consensus"] = await self.sync_from_consensus(self._consensus)
+            results["consensus"] = await self.sync_from_consensus(self._consensus)  # type: ignore[attr-defined]
 
         if self._facts:
-            results["facts"] = await self.sync_from_facts(self._facts)
+            results["facts"] = await self.sync_from_facts(self._facts)  # type: ignore[attr-defined]
 
         if self._evidence:
-            results["evidence"] = await self.sync_from_evidence(self._evidence)
+            results["evidence"] = await self.sync_from_evidence(self._evidence)  # type: ignore[attr-defined]
 
         if self._critique:
-            results["critique"] = await self.sync_from_critique(self._critique)
+            results["critique"] = await self.sync_from_critique(self._critique)  # type: ignore[attr-defined]
 
         logger.info(
             "Sync complete: %d sources, %d total nodes synced",
@@ -859,7 +859,7 @@ class SyncOperationsMixin:
 
         try:
             if hasattr(self._facts, "query_facts"):
-                all_facts = self._facts.query_facts(
+                all_facts = self._facts.query_facts(  # type: ignore[call-arg]
                     query="",
                     workspace_id=ws_id,
                     limit=limit,

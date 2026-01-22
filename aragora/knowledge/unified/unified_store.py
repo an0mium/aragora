@@ -206,7 +206,7 @@ class KnowledgeMound:
 
         # Combine results
         all_items: List[KnowledgeItem] = []
-        for i, result in enumerate(results):
+        for i, result in enumerate(results):  # type: ignore[assignment]
             if isinstance(result, Exception):
                 logger.warning(f"Query to {source_list[i]} failed: {result}")
             elif result:

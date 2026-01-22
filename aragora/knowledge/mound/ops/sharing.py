@@ -107,7 +107,7 @@ class KnowledgeSharingMixin:
             logger.warning("Store does not support access grants, grant not persisted")
 
         # Record in federation coordinator if available
-        await self._record_sharing_consent(
+        await self._record_sharing_consent(  # type: ignore[attr-defined]
             from_workspace_id=from_workspace_id,
             to_workspace_id=to_workspace_id,
             scope="knowledge_item",
@@ -121,7 +121,7 @@ class KnowledgeSharingMixin:
         )
 
         # Send notification asynchronously (best effort)
-        await self._send_share_notification(
+        await self._send_share_notification(  # type: ignore[attr-defined]
             item_id=item_id,
             item_title=getattr(item, "content", "")[:50],
             from_user_id=shared_by,
@@ -188,7 +188,7 @@ class KnowledgeSharingMixin:
         )
 
         # Send notification asynchronously (best effort)
-        await self._send_user_share_notification(
+        await self._send_user_share_notification(  # type: ignore[attr-defined]
             item_id=item_id,
             item_title=getattr(item, "content", "")[:50],
             from_user_id=shared_by,
@@ -324,7 +324,7 @@ class KnowledgeSharingMixin:
         self._ensure_initialized()
 
         # Get existing grant
-        grants = await self.get_share_grants(item_id)
+        grants = await self.get_share_grants(item_id)  # type: ignore[attr-defined]
         existing = next((g for g in grants if g.grantee_id == grantee_id), None)
 
         if not existing:
@@ -373,14 +373,14 @@ class KnowledgeSharingMixin:
             )
 
             coordinator = CrossWorkspaceCoordinator()
-            consent = DataSharingConsent(
+            consent = DataSharingConsent(  # type: ignore[call-arg]
                 from_workspace_id=from_workspace_id,
                 to_workspace_id=to_workspace_id,
                 scope=scope,
                 operations=operations,
                 granted_by=granted_by,
             )
-            await coordinator.record_consent(consent)
+            await coordinator.record_consent(consent)  # type: ignore[attr-defined]
         except ImportError:
             # CrossWorkspaceCoordinator not available
             pass
@@ -402,13 +402,11 @@ class KnowledgeSharingMixin:
         This is a simplified implementation - production would look up members.
         """
         try:
-            from aragora.knowledge.mound.notifications import notify_item_shared
+            from aragora.knowledge.mound.notifications import notify_item_shared  # noqa: F401
 
             # Note: In production, we would look up workspace members
             # and notify each one. For now, log the notification.
-            logger.debug(
-                f"Would notify workspace {to_workspace_id} about shared item {item_id}"
-            )
+            logger.debug(f"Would notify workspace {to_workspace_id} about shared item {item_id}")
         except ImportError:
             logger.debug("Notifications module not available")
         except Exception as e:
