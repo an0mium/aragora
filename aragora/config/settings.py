@@ -333,6 +333,75 @@ class SSLSettings(BaseSettings):
         return v
 
 
+class SecuritySettings(BaseSettings):
+    """Security configuration for SOC 2 compliance.
+
+    SOC 2 Controls:
+        CC5-01: Enforce MFA for administrative access
+        CC6-01: Encryption at rest for sensitive data
+    """
+
+    model_config = SettingsConfigDict(env_prefix="ARAGORA_SECURITY_")
+
+    # MFA Enforcement (SOC 2 CC5-01)
+    admin_mfa_required: bool = Field(
+        default=True,
+        alias="ARAGORA_SECURITY_ADMIN_MFA_REQUIRED",
+        description="Require MFA for admin/owner users (SOC 2 CC5-01)",
+    )
+    admin_mfa_grace_period_days: int = Field(
+        default=7,
+        ge=0,
+        le=30,
+        alias="ARAGORA_SECURITY_MFA_GRACE_PERIOD_DAYS",
+        description="Grace period for new admins before MFA is required",
+    )
+
+    # Encryption at rest (SOC 2 CC6-01)
+    encryption_enabled: bool = Field(
+        default=True,
+        alias="ARAGORA_SECURITY_ENCRYPTION_ENABLED",
+        description="Enable encryption at rest for sensitive data",
+    )
+    key_rotation_interval_days: int = Field(
+        default=90,
+        ge=30,
+        le=365,
+        alias="ARAGORA_SECURITY_KEY_ROTATION_DAYS",
+        description="Days between automatic key rotations",
+    )
+
+    # Session security
+    max_session_duration_hours: int = Field(
+        default=24,
+        ge=1,
+        le=168,
+        alias="ARAGORA_SECURITY_MAX_SESSION_HOURS",
+        description="Maximum session duration before re-authentication",
+    )
+    session_idle_timeout_minutes: int = Field(
+        default=30,
+        ge=5,
+        le=480,
+        alias="ARAGORA_SECURITY_IDLE_TIMEOUT_MINUTES",
+        description="Session timeout after inactivity",
+    )
+
+    # Password policy
+    min_password_length: int = Field(
+        default=12,
+        ge=8,
+        le=128,
+        alias="ARAGORA_SECURITY_MIN_PASSWORD_LENGTH",
+        description="Minimum password length",
+    )
+    require_password_complexity: bool = Field(
+        default=True,
+        alias="ARAGORA_SECURITY_REQUIRE_COMPLEXITY",
+        description="Require uppercase, lowercase, number, and special character",
+    )
+
+
 class SSOSettings(BaseSettings):
     """SSO/SAML/OIDC configuration for enterprise authentication."""
 
@@ -814,6 +883,7 @@ class Settings(BaseSettings):
     _elo: Optional[EloSettings] = None
     _belief: Optional[BeliefSettings] = None
     _ssl: Optional[SSLSettings] = None
+    _security: Optional[SecuritySettings] = None
     _storage: Optional[StorageSettings] = None
     _evidence: Optional[EvidenceSettings] = None
     _sso: Optional[SSOSettings] = None
@@ -888,6 +958,12 @@ class Settings(BaseSettings):
         if self._ssl is None:
             self._ssl = SSLSettings()
         return self._ssl
+
+    @property
+    def security(self) -> SecuritySettings:
+        if self._security is None:
+            self._security = SecuritySettings()
+        return self._security
 
     @property
     def storage(self) -> StorageSettings:

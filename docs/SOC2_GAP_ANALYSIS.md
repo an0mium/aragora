@@ -36,6 +36,7 @@ Aragora's current security posture is **strong** with most SOC 2 Trust Service C
 | GAP-CC2-01 | Security portal | `docs/SECURITY_PORTAL.md` |
 | GAP-CC3-01 | Vendor risk assessment | `docs/VENDOR_RISK_ASSESSMENT.md` |
 | GAP-CC3-02 | Risk acceptance criteria | `docs/VENDOR_RISK_ASSESSMENT.md` |
+| GAP-CC5-01 | Admin MFA enforcement | `aragora/config/settings.py` (SecuritySettings) |
 | GAP-CC5-02 | Remote work security | `docs/REMOTE_WORK_SECURITY.md` |
 | GAP-CC7-02 | IR playbooks | `docs/INCIDENT_RESPONSE_PLAYBOOKS.md` |
 | GAP-A1-01 | Status page | `.github/workflows/status-page.yml` |
@@ -155,8 +156,7 @@ Aragora's current security posture is **strong** with most SOC 2 Trust Service C
 | Deployment approval | PASS | Protected branches | - |
 | Rollback capability | PASS | Git + versioned releases | - |
 
-**Gaps:**
-8. **GAP-CC5-01**: Enforce MFA for all administrative access (configuration pending)
+**Gaps:** None - MFA enforcement enabled via `ARAGORA_SECURITY_ADMIN_MFA_REQUIRED=true` (default)
 
 ---
 

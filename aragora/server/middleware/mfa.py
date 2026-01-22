@@ -264,19 +264,34 @@ def check_mfa_status(user_id: str, user_store: Any) -> dict:
 def enforce_admin_mfa_policy(
     user: User,
     user_store: Any,
-    grace_period_days: int = 7,
+    grace_period_days: Optional[int] = None,
 ) -> Optional[dict]:
     """
     Check if admin user complies with MFA policy.
 
+    SOC 2 Control: CC5-01 - Enforce MFA for administrative access.
+
     Args:
         user: The authenticated user
         user_store: User storage backend
-        grace_period_days: Days to allow before enforcing (default 7)
+        grace_period_days: Days to allow before enforcing (uses settings if None)
 
     Returns:
         None if compliant, or dict with enforcement details if not
     """
+    # Load settings
+    from aragora.config.settings import get_settings
+
+    settings = get_settings()
+
+    # Check if MFA enforcement is enabled
+    if not settings.security.admin_mfa_required:
+        return None  # MFA enforcement disabled
+
+    # Use settings-based grace period if not explicitly provided
+    if grace_period_days is None:
+        grace_period_days = settings.security.admin_mfa_grace_period_days
+
     admin_roles = {"admin", "owner", "superadmin"}
     if user.role not in admin_roles:
         return None  # Non-admins are always compliant
