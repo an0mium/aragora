@@ -1,88 +1,98 @@
 # Contributing to Aragora
 
-Thank you for your interest in contributing to Aragora! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to Aragora! This guide will help you get started.
 
 ## Development Setup
 
 ### Prerequisites
 
 - Python 3.10+
-- Node.js 18+ (for the live dashboard)
-- Git
+- Node.js 18+ (for frontend development)
+- Docker (optional, for containerized development)
 
-### Installation
+### Quick Start
 
 ```bash
 # Clone the repository
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/aragora-ai/aragora.git
 cd aragora
 
-# Create a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Install development dependencies
+make dev
 
-# Install dependencies
-pip install -e ".[dev]"
+# Run tests to verify setup
+make test-fast
 
-# Install pre-commit hooks (recommended)
-pip install pre-commit
-pre-commit install
+# Start the development server
+make serve
 ```
 
-### Environment Variables
+### Using VS Code Dev Container
 
-Copy the example environment file and configure your API keys:
+1. Install the "Dev Containers" extension in VS Code
+2. Open the project folder
+3. Click "Reopen in Container" when prompted
+4. Wait for the container to build and dependencies to install
+
+## Development Workflow
+
+### Running Tests
 
 ```bash
-cp .env.example .env
-# Edit .env with your API keys
+# Run all tests
+make test
+
+# Run fast tests only (excludes slow, e2e, load tests)
+make test-fast
+
+# Run tests with coverage
+make test-cov
+
+# Run specific test file
+pytest tests/debate/test_orchestrator.py -v
 ```
 
-Required API keys:
-- `GEMINI_API_KEY` - Google Gemini API
-- `ANTHROPIC_API_KEY` - Anthropic Claude API
-- `OPENAI_API_KEY` - OpenAI API (for Codex)
-- `XAI_API_KEY` - xAI Grok API
+### Code Quality
+
+```bash
+# Run linter
+make lint
+
+# Format code
+make format
+
+# Type checking
+make typecheck
+
+# Run all checks
+make check
+```
+
+### Development Server
+
+```bash
+# Start API server
+make serve
+
+# Interactive debate REPL
+make repl
+
+# System health check
+make doctor
+```
 
 ## Code Style
 
 ### Python
 
-- Follow PEP 8 guidelines
-- Use type hints for function signatures
-- Maximum line length: 100 characters
-- Use docstrings for public functions and classes
+- Follow PEP 8 with a line length of 88 characters
+- Use type hints for all function signatures
+- Use `ruff` for linting and formatting
+- Use `mypy` for type checking
 
-### TypeScript/JavaScript
+### Commit Messages
 
-- Use TypeScript for new code
-- Follow the existing code style
-- Use ESLint configuration
-
-## Pull Request Process
-
-1. **Create a branch** from `main`:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. **Make your changes** with clear, atomic commits
-
-3. **Run tests** before submitting:
-   ```bash
-   pytest tests/
-   ```
-
-4. **Update documentation** if needed
-
-5. **Submit a pull request** with:
-   - Clear description of changes
-   - Link to related issues
-   - Screenshots for UI changes
-
-## Commit Messages
-
-Follow conventional commit format:
+Follow conventional commits format:
 
 ```
 type(scope): description
@@ -96,200 +106,70 @@ Types:
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
 - `refactor`: Code refactoring
-- `test`: Adding tests
+- `test`: Adding or updating tests
 - `chore`: Maintenance tasks
 
 Examples:
 ```
-feat(debate): add conviction-weighted voting
-fix(server): prevent path traversal in static file serving
-docs(readme): update installation instructions
+feat(marketplace): add template rating system
+fix(debate): handle timeout in consensus phase
+docs(api): update authentication guide
 ```
 
-## Adding a New Handler
+### Pull Request Process
 
-Aragora uses modular HTTP handlers in `aragora/server/handlers/`. Each handler owns a set of endpoints.
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feat/my-feature`
+3. Make your changes
+4. Run tests and checks: `make check && make test`
+5. Commit with a descriptive message
+6. Push to your fork: `git push origin feat/my-feature`
+7. Open a Pull Request
 
-### Handler Structure
+## Project Structure
 
-Create a new file in `aragora/server/handlers/`:
-
-```python
-"""
-Your Handler - Brief description.
-
-Endpoints:
-- GET /api/yourfeature - List items
-- GET /api/yourfeature/{id} - Get specific item
-- POST /api/yourfeature - Create item
-"""
-
-from typing import Any
-from .base import BaseHandler, json_response, error_response, handle_errors
-from .utils.rate_limit import rate_limit
-
-class YourHandler(BaseHandler):
-    """Handler for your feature endpoints."""
-
-    ROUTES = [
-        "/api/yourfeature",
-        "/api/yourfeature/*",
-    ]
-
-    def can_handle(self, path: str, method: str) -> bool:
-        """Check if this handler can handle the request."""
-        return path.startswith("/api/yourfeature")
-
-    @handle_errors
-    @rate_limit(rpm=60)
-    async def handle(self, path: str, method: str, handler: Any = None):
-        """Route request to appropriate method."""
-        if path == "/api/yourfeature" and method == "GET":
-            return self._list_items()
-        # ... more routing
-        return None
-
-    def _list_items(self):
-        return json_response({"items": [], "total": 0})
+```
+aragora/
+├── aragora/           # Main package
+│   ├── agents/        # Agent implementations
+│   ├── debate/        # Debate orchestration
+│   ├── memory/        # Memory systems
+│   ├── server/        # API server
+│   ├── cli/           # CLI commands
+│   └── marketplace/   # Template marketplace
+├── tests/             # Test suite
+├── docs/              # Documentation
+└── aragora-js/        # TypeScript SDK
 ```
 
-### Registration
+## Adding New Features
 
-1. Import your handler in `aragora/server/handlers/__init__.py`:
-   ```python
-   from .yourfeature import YourHandler
-   ```
+### Adding a New Agent
 
-2. Add to `ALL_HANDLERS` list (order matters - more specific handlers first):
-   ```python
-   ALL_HANDLERS = [
-       # ... existing handlers
-       YourHandler,
-   ]
-   ```
+1. Create agent file in `aragora/agents/api_agents/`
+2. Implement the `Agent` protocol
+3. Register in `aragora/agents/__init__.py`
+4. Add tests in `tests/agents/`
 
-3. Set stability level in `HANDLER_STABILITY`:
-   ```python
-   HANDLER_STABILITY: dict[str, Stability] = {
-       # ...
-       "YourHandler": Stability.PREVIEW,  # Start as PREVIEW
-   }
-   ```
+### Adding a CLI Command
 
-4. Add to `__all__` exports.
+1. Create command file in `aragora/cli/`
+2. Register in `aragora/cli/main.py`
+3. Add tests in `tests/cli/`
 
-### Stability Levels
+### Adding a Server Handler
 
-| Level | Meaning | Usage |
-|-------|---------|-------|
-| `STABLE` | Production-ready, API stable | Core features |
-| `EXPERIMENTAL` | Works but may change | New features |
-| `PREVIEW` | Early access, expect issues | Alpha features |
-| `DEPRECATED` | Being phased out | Legacy code |
+1. Create handler in `aragora/server/handlers/`
+2. Register routes in server startup
+3. Add tests in `tests/server/handlers/`
 
-### Handler Testing
+## Getting Help
 
-Create tests in `tests/test_handlers_yourfeature.py`:
-
-```python
-import pytest
-from aragora.server.handlers.yourfeature import YourHandler
-
-class TestYourHandler:
-    def setup_method(self):
-        self.handler = YourHandler({})
-
-    def test_can_handle_routes(self):
-        assert self.handler.can_handle("/api/yourfeature", "GET")
-        assert not self.handler.can_handle("/api/other", "GET")
-
-    def test_list_items(self):
-        result = self.handler._list_items()
-        assert result["total"] == 0
-```
-
-## Adding a Dashboard Page
-
-Frontend pages live in `aragora/live/src/app/`.
-
-### Page Structure
-
-Create `aragora/live/src/app/yourfeature/page.tsx`:
-
-```tsx
-'use client';
-
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
-import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
-
-const YourPanel = dynamic(
-  () => import('@/components/YourPanel').then(m => ({ default: m.YourPanel })),
-  { ssr: false, loading: () => <div className="animate-pulse h-96 bg-surface" /> }
-);
-
-export default function YourFeaturePage() {
-  const { config } = useBackend();
-
-  return (
-    <>
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
-      <main className="min-h-screen bg-bg text-text">
-        {/* Header, content, footer - see existing pages */}
-        <PanelErrorBoundary panelName="Your Feature">
-          <YourPanel apiBase={config.api} />
-        </PanelErrorBoundary>
-      </main>
-    </>
-  );
-}
-```
-
-### Component Patterns
-
-- Use `dynamic` imports for code splitting
-- Wrap in `PanelErrorBoundary` for resilience
-- Use `useBackend()` hook for API base URL
-- Follow the cyberpunk/matrix visual theme
-
-## Testing
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=aragora
-
-# Run specific test file
-pytest tests/test_debate.py
-```
-
-### Writing Tests
-
-- Place tests in the `tests/` directory
-- Use descriptive test names
-- Include both positive and negative test cases
-
-## Security
-
-- Never commit API keys or secrets
-- Use environment variables for sensitive data
-- Report security vulnerabilities privately to the maintainers
-
-## Questions?
-
-- Open an issue for bugs or feature requests
-- Check existing issues before creating new ones
-- Join discussions in GitHub Discussions
+- Check existing issues for similar problems
+- Open a new issue with a clear description
+- Join our community discussions
 
 ## License
 

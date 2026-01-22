@@ -1,0 +1,70 @@
+{
+  "name": "Aragora Development",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "github.copilot",
+        "github.copilot-chat",
+        "eamodio.gitlens",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.formatting.provider": "none",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.ruff": "explicit",
+          "source.organizeImports.ruff": "explicit"
+        },
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "ruff.lint.run": "onSave",
+        "mypy-type-checker.args": ["--ignore-missing-imports"]
+      }
+    }
+  },
+  "postCreateCommand": "pip install -e '.[dev,research,mcp]' && pre-commit install",
+  "forwardPorts": [8080, 3000, 9090],
+  "portsAttributes": {
+    "8080": {
+      "label": "Aragora API",
+      "onAutoForward": "notify"
+    },
+    "3000": {
+      "label": "Frontend Dev",
+      "onAutoForward": "notify"
+    },
+    "9090": {
+      "label": "Metrics",
+      "onAutoForward": "silent"
+    }
+  },
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "ARAGORA_ENV": "development",
+    "ARAGORA_DEBUG": "true"
+  },
+  "mounts": [
+    "source=${localEnv:HOME}/.aragora,target=/home/vscode/.aragora,type=bind,consistency=cached"
+  ]
+}
