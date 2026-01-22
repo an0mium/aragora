@@ -131,16 +131,16 @@ class TestRouting:
 
     def test_can_handle_interactions(self, handler):
         """Test handler recognizes interactions endpoint."""
-        assert handler.can_handle("/api/bots/discord/interactions") is True
+        assert handler.can_handle("/api/v1/bots/discord/interactions") is True
 
     def test_can_handle_status(self, handler):
         """Test handler recognizes status endpoint."""
-        assert handler.can_handle("/api/bots/discord/status") is True
+        assert handler.can_handle("/api/v1/bots/discord/status") is True
 
     def test_cannot_handle_unknown(self, handler):
         """Test handler rejects unknown endpoints."""
-        assert handler.can_handle("/api/bots/discord/unknown") is False
-        assert handler.can_handle("/api/other/endpoint") is False
+        assert handler.can_handle("/api/v1/bots/discord/unknown") is False
+        assert handler.can_handle("/api/v1/other/endpoint") is False
 
 
 # ===========================================================================
@@ -158,7 +158,7 @@ class TestStatusEndpoint:
             method="GET",
         )
 
-        result = handler.handle("/api/bots/discord/status", {}, mock_http)
+        result = handler.handle("/api/v1/bots/discord/status", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -197,7 +197,7 @@ class TestPingPong:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -245,7 +245,7 @@ class TestApplicationCommands:
                 )
                 mock_registry.return_value = mock_reg
 
-                result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+                result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -283,7 +283,7 @@ class TestApplicationCommands:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -319,7 +319,7 @@ class TestMessageComponents:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -358,7 +358,7 @@ class TestMessageComponents:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -415,7 +415,7 @@ class TestModalSubmit:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -451,7 +451,7 @@ class TestSignatureVerification:
             with patch(
                 "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=False
             ):
-                result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+                result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 401
@@ -475,7 +475,7 @@ class TestSignatureVerification:
             with patch(
                 "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=False
             ):
-                result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+                result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         # Should either reject or skip verification
         assert result is not None
@@ -505,7 +505,7 @@ class TestErrorHandling:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -534,7 +534,7 @@ class TestErrorHandling:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/bots/discord/interactions", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 

@@ -242,29 +242,29 @@ class TestMemoryHandlerRouting:
 
     def test_can_handle_memory_paths(self, memory_handler):
         """Test handler recognizes memory paths."""
-        assert memory_handler.can_handle("/api/memory/continuum/retrieve") is True
-        assert memory_handler.can_handle("/api/memory/tier-stats") is True
-        assert memory_handler.can_handle("/api/memory/pressure") is True
-        assert memory_handler.can_handle("/api/memory/tiers") is True
-        assert memory_handler.can_handle("/api/memory/search") is True
-        assert memory_handler.can_handle("/api/memory/critiques") is True
+        assert memory_handler.can_handle("/api/v1/memory/continuum/retrieve") is True
+        assert memory_handler.can_handle("/api/v1/memory/tier-stats") is True
+        assert memory_handler.can_handle("/api/v1/memory/pressure") is True
+        assert memory_handler.can_handle("/api/v1/memory/tiers") is True
+        assert memory_handler.can_handle("/api/v1/memory/search") is True
+        assert memory_handler.can_handle("/api/v1/memory/critiques") is True
 
     def test_can_handle_delete_path(self, memory_handler):
         """Test handler recognizes memory delete paths."""
-        assert memory_handler.can_handle("/api/memory/continuum/mem-123") is True
-        assert memory_handler.can_handle("/api/memory/continuum/some-id-456") is True
+        assert memory_handler.can_handle("/api/v1/memory/continuum/mem-123") is True
+        assert memory_handler.can_handle("/api/v1/memory/continuum/some-id-456") is True
 
     def test_excludes_known_routes_from_delete_pattern(self, memory_handler):
         """Test known routes are not treated as delete targets."""
         # These are actual routes, not delete targets
-        assert memory_handler.can_handle("/api/memory/continuum/retrieve") is True
-        assert memory_handler.can_handle("/api/memory/continuum/consolidate") is True
-        assert memory_handler.can_handle("/api/memory/continuum/cleanup") is True
+        assert memory_handler.can_handle("/api/v1/memory/continuum/retrieve") is True
+        assert memory_handler.can_handle("/api/v1/memory/continuum/consolidate") is True
+        assert memory_handler.can_handle("/api/v1/memory/continuum/cleanup") is True
 
     def test_cannot_handle_non_memory_paths(self, memory_handler):
         """Test handler rejects non-memory paths."""
-        assert memory_handler.can_handle("/api/debates") is False
-        assert memory_handler.can_handle("/api/admin/users") is False
+        assert memory_handler.can_handle("/api/v1/debates") is False
+        assert memory_handler.can_handle("/api/v1/admin/users") is False
 
 
 # ===========================================================================
@@ -279,7 +279,7 @@ class TestContinuumRetrieve:
         """Test successful memory retrieval."""
         handler = make_mock_handler()
 
-        result = memory_handler.handle("/api/memory/continuum/retrieve", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/continuum/retrieve", {}, handler)
 
         assert result is not None
         assert get_status(result) == 200
@@ -293,7 +293,7 @@ class TestContinuumRetrieve:
         handler = make_mock_handler()
 
         result = memory_handler.handle(
-            "/api/memory/continuum/retrieve",
+            "/api/v1/memory/continuum/retrieve",
             {"query": "test search", "limit": "5"},
             handler,
         )
@@ -308,7 +308,7 @@ class TestContinuumRetrieve:
         handler = make_mock_handler()
 
         result = memory_handler.handle(
-            "/api/memory/continuum/retrieve",
+            "/api/v1/memory/continuum/retrieve",
             {"min_importance": "0.6"},
             handler,
         )
@@ -328,7 +328,7 @@ class TestContinuumRetrieve:
             handler_obj = MemoryHandler(ctx)
             http_handler = make_mock_handler()
 
-            result = handler_obj.handle("/api/memory/continuum/retrieve", {}, http_handler)
+            result = handler_obj.handle("/api/v1/memory/continuum/retrieve", {}, http_handler)
 
             assert result is not None
             assert get_status(result) == 503
@@ -341,7 +341,7 @@ class TestContinuumRetrieve:
         handler_obj = MemoryHandler(ctx)
         http_handler = make_mock_handler()
 
-        result = handler_obj.handle("/api/memory/continuum/retrieve", {}, http_handler)
+        result = handler_obj.handle("/api/v1/memory/continuum/retrieve", {}, http_handler)
 
         assert result is not None
         assert get_status(result) == 503
@@ -359,7 +359,7 @@ class TestTierStats:
         """Test successful tier stats retrieval."""
         handler = make_mock_handler()
 
-        result = memory_handler.handle("/api/memory/tier-stats", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/tier-stats", {}, handler)
 
         assert result is not None
         assert get_status(result) == 200
@@ -372,7 +372,7 @@ class TestTierStats:
         """Test comprehensive tier listing."""
         handler = make_mock_handler()
 
-        result = memory_handler.handle("/api/memory/tiers", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/tiers", {}, handler)
 
         assert result is not None
         assert get_status(result) == 200
@@ -397,7 +397,7 @@ class TestMemoryPressure:
         """Test memory pressure retrieval."""
         handler = make_mock_handler()
 
-        result = memory_handler.handle("/api/memory/pressure", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/pressure", {}, handler)
 
         assert result is not None
         assert get_status(result) == 200
@@ -421,7 +421,7 @@ class TestMemorySearch:
         """Test successful memory search."""
         handler = make_mock_handler()
 
-        result = memory_handler.handle("/api/memory/search", {"q": "test query"}, handler)
+        result = memory_handler.handle("/api/v1/memory/search", {"q": "test query"}, handler)
 
         assert result is not None
         assert get_status(result) == 200
@@ -434,7 +434,7 @@ class TestMemorySearch:
         """Test search with missing query parameter."""
         handler = make_mock_handler()
 
-        result = memory_handler.handle("/api/memory/search", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/search", {}, handler)
 
         assert result is not None
         assert get_status(result) == 400
@@ -444,7 +444,7 @@ class TestMemorySearch:
         handler = make_mock_handler()
 
         result = memory_handler.handle(
-            "/api/memory/search",
+            "/api/v1/memory/search",
             {
                 "q": "test",
                 "tier": "fast,medium",
@@ -482,7 +482,7 @@ class TestCritiques:
             patch("aragora.server.handlers.memory.memory.CRITIQUE_STORE_AVAILABLE", True),
             patch("aragora.server.handlers.memory.memory.CritiqueStore", MockCritiqueStore),
         ):
-            result = handler_obj.handle("/api/memory/critiques", {}, http_handler)
+            result = handler_obj.handle("/api/v1/memory/critiques", {}, http_handler)
 
             assert result is not None
             assert get_status(result) == 200
@@ -499,7 +499,7 @@ class TestCritiques:
             handler_obj = MemoryHandler(ctx)
             http_handler = make_mock_handler()
 
-            result = handler_obj.handle("/api/memory/critiques", {}, http_handler)
+            result = handler_obj.handle("/api/v1/memory/critiques", {}, http_handler)
 
             assert result is not None
             assert get_status(result) == 503
@@ -512,7 +512,7 @@ class TestCritiques:
         handler_obj = MemoryHandler(ctx)
         http_handler = make_mock_handler()
 
-        result = handler_obj.handle("/api/memory/critiques", {}, http_handler)
+        result = handler_obj.handle("/api/v1/memory/critiques", {}, http_handler)
 
         assert result is not None
         assert get_status(result) == 503
@@ -532,7 +532,7 @@ class TestConsolidateEndpoint:
         mock_auth.return_value = MockAuthContext()
         handler = make_mock_handler(method="POST")
 
-        result = memory_handler.handle_post("/api/memory/continuum/consolidate", {}, handler)
+        result = memory_handler.handle_post("/api/v1/memory/continuum/consolidate", {}, handler)
 
         assert result is not None
         assert get_status(result) == 200
@@ -546,7 +546,7 @@ class TestConsolidateEndpoint:
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
         handler = make_mock_handler(method="POST")
 
-        result = memory_handler.handle_post("/api/memory/continuum/consolidate", {}, handler)
+        result = memory_handler.handle_post("/api/v1/memory/continuum/consolidate", {}, handler)
 
         assert result is not None
         assert get_status(result) == 401
@@ -555,7 +555,7 @@ class TestConsolidateEndpoint:
         """Test GET not allowed for consolidate endpoint."""
         handler = make_mock_handler(method="GET")
 
-        result = memory_handler.handle("/api/memory/continuum/consolidate", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/continuum/consolidate", {}, handler)
 
         assert result is not None
         assert get_status(result) == 405
@@ -570,7 +570,7 @@ class TestCleanupEndpoint:
         mock_auth.return_value = MockAuthContext()
         handler = make_mock_handler(method="POST")
 
-        result = memory_handler.handle_post("/api/memory/continuum/cleanup", {}, handler)
+        result = memory_handler.handle_post("/api/v1/memory/continuum/cleanup", {}, handler)
 
         assert result is not None
         assert get_status(result) == 200
@@ -585,7 +585,7 @@ class TestCleanupEndpoint:
         handler = make_mock_handler(method="POST")
 
         result = memory_handler.handle_post(
-            "/api/memory/continuum/cleanup", {"tier": "fast"}, handler
+            "/api/v1/memory/continuum/cleanup", {"tier": "fast"}, handler
         )
 
         assert result is not None
@@ -598,7 +598,7 @@ class TestCleanupEndpoint:
         handler = make_mock_handler(method="POST")
 
         result = memory_handler.handle_post(
-            "/api/memory/continuum/cleanup", {"tier": "invalid_tier"}, handler
+            "/api/v1/memory/continuum/cleanup", {"tier": "invalid_tier"}, handler
         )
 
         assert result is not None
@@ -619,7 +619,7 @@ class TestDeleteMemory:
         mock_auth.return_value = MockAuthContext()
         handler = make_mock_handler(method="DELETE")
 
-        result = memory_handler.handle_delete("/api/memory/continuum/mem-1", {}, handler)
+        result = memory_handler.handle_delete("/api/v1/memory/continuum/mem-1", {}, handler)
 
         assert result is not None
         assert get_status(result) == 200
@@ -632,7 +632,9 @@ class TestDeleteMemory:
         mock_auth.return_value = MockAuthContext()
         handler = make_mock_handler(method="DELETE")
 
-        result = memory_handler.handle_delete("/api/memory/continuum/nonexistent-id", {}, handler)
+        result = memory_handler.handle_delete(
+            "/api/v1/memory/continuum/nonexistent-id", {}, handler
+        )
 
         assert result is not None
         assert get_status(result) == 404
@@ -643,7 +645,7 @@ class TestDeleteMemory:
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
         handler = make_mock_handler(method="DELETE")
 
-        result = memory_handler.handle_delete("/api/memory/continuum/mem-1", {}, handler)
+        result = memory_handler.handle_delete("/api/v1/memory/continuum/mem-1", {}, handler)
 
         assert result is not None
         assert get_status(result) == 401
@@ -668,10 +670,10 @@ class TestRateLimiting:
 
         # Make 60 requests (the limit)
         for _ in range(60):
-            memory_handler.handle("/api/memory/continuum/retrieve", {}, handler)
+            memory_handler.handle("/api/v1/memory/continuum/retrieve", {}, handler)
 
         # 61st request should be rate limited
-        result = memory_handler.handle("/api/memory/continuum/retrieve", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/continuum/retrieve", {}, handler)
 
         assert result is not None
         assert get_status(result) == 429
@@ -687,10 +689,10 @@ class TestRateLimiting:
 
         # Make 30 requests (the limit)
         for _ in range(30):
-            memory_handler.handle("/api/memory/tier-stats", {}, handler)
+            memory_handler.handle("/api/v1/memory/tier-stats", {}, handler)
 
         # 31st request should be rate limited
-        result = memory_handler.handle("/api/memory/tier-stats", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/tier-stats", {}, handler)
 
         assert result is not None
         assert get_status(result) == 429
@@ -708,7 +710,7 @@ class TestArchiveStats:
         """Test successful archive stats retrieval."""
         handler = make_mock_handler()
 
-        result = memory_handler.handle("/api/memory/archive-stats", {}, handler)
+        result = memory_handler.handle("/api/v1/memory/archive-stats", {}, handler)
 
         assert result is not None
         assert get_status(result) == 200

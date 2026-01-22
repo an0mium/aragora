@@ -31,33 +31,33 @@ class TestBeliefHandlerRouting:
 
     def test_can_handle_cruxes(self, handler):
         """Handler can handle cruxes endpoint."""
-        assert handler.can_handle("/api/belief-network/debate_123/cruxes")
+        assert handler.can_handle("/api/v1/belief-network/debate_123/cruxes")
 
     def test_can_handle_load_bearing_claims(self, handler):
         """Handler can handle load-bearing-claims endpoint."""
-        assert handler.can_handle("/api/belief-network/debate_abc/load-bearing-claims")
+        assert handler.can_handle("/api/v1/belief-network/debate_abc/load-bearing-claims")
 
     def test_can_handle_graph(self, handler):
         """Handler can handle graph endpoint."""
-        assert handler.can_handle("/api/belief-network/debate_xyz/graph")
+        assert handler.can_handle("/api/v1/belief-network/debate_xyz/graph")
 
     def test_can_handle_export(self, handler):
         """Handler can handle export endpoint."""
-        assert handler.can_handle("/api/belief-network/debate_123/export")
+        assert handler.can_handle("/api/v1/belief-network/debate_123/export")
 
     def test_can_handle_claim_support(self, handler):
         """Handler can handle claim support endpoint."""
-        assert handler.can_handle("/api/provenance/debate_123/claims/claim_456/support")
+        assert handler.can_handle("/api/v1/provenance/debate_123/claims/claim_456/support")
 
     def test_can_handle_graph_stats(self, handler):
         """Handler can handle graph stats endpoint."""
-        assert handler.can_handle("/api/debate/debate_123/graph-stats")
+        assert handler.can_handle("/api/v1/debate/debate_123/graph-stats")
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/belief-network")
-        assert not handler.can_handle("/api/other")
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/belief-network")
+        assert not handler.can_handle("/api/v1/other")
 
 
 class TestBeliefHandlerRouteDispatch:
@@ -73,7 +73,7 @@ class TestBeliefHandlerRouteDispatch:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/belief-network/debate_123/cruxes",
+            "/api/v1/belief-network/debate_123/cruxes",
             {},
             mock_http,
         )
@@ -87,7 +87,7 @@ class TestBeliefHandlerRouteDispatch:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/belief-network/debate_abc/load-bearing-claims",
+            "/api/v1/belief-network/debate_abc/load-bearing-claims",
             {},
             mock_http,
         )
@@ -100,7 +100,7 @@ class TestBeliefHandlerRouteDispatch:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/belief-network/debate_xyz/graph",
+            "/api/v1/belief-network/debate_xyz/graph",
             {},
             mock_http,
         )
@@ -113,7 +113,7 @@ class TestBeliefHandlerRouteDispatch:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/belief-network/debate_123/export",
+            "/api/v1/belief-network/debate_123/export",
             {},
             mock_http,
         )
@@ -126,7 +126,7 @@ class TestBeliefHandlerRouteDispatch:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/provenance/debate_123/claims/claim_456/support",
+            "/api/v1/provenance/debate_123/claims/claim_456/support",
             {},
             mock_http,
         )
@@ -139,7 +139,7 @@ class TestBeliefHandlerRouteDispatch:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/debate/debate_123/graph-stats",
+            "/api/v1/debate/debate_123/graph-stats",
             {},
             mock_http,
         )
@@ -151,7 +151,7 @@ class TestBeliefHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/unknown", {}, mock_http)
+        result = handler.handle("/api/v1/unknown", {}, mock_http)
 
         assert result is None
 
@@ -169,7 +169,7 @@ class TestBeliefHandlerQueryParams:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/belief-network/debate_123/cruxes",
+            "/api/v1/belief-network/debate_123/cruxes",
             {"top_k": ["5"]},
             mock_http,
         )
@@ -182,7 +182,7 @@ class TestBeliefHandlerQueryParams:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/belief-network/debate_abc/load-bearing-claims",
+            "/api/v1/belief-network/debate_abc/load-bearing-claims",
             {"limit": ["10"]},
             mock_http,
         )
@@ -195,7 +195,7 @@ class TestBeliefHandlerQueryParams:
         mock_http.client_address = ("127.0.0.1", 8080)
 
         result = handler.handle(
-            "/api/belief-network/debate_xyz/graph",
+            "/api/v1/belief-network/debate_xyz/graph",
             {"include_cruxes": ["true"]},
             mock_http,
         )
@@ -217,7 +217,7 @@ class TestBeliefHandlerValidation:
 
         # Missing debate_id in path
         result = handler.handle(
-            "/api/belief-network//cruxes",
+            "/api/v1/belief-network//cruxes",
             {},
             mock_http,
         )
@@ -232,7 +232,7 @@ class TestBeliefHandlerValidation:
 
         # Request high top_k, should be clamped to 10
         result = handler.handle(
-            "/api/belief-network/debate_123/cruxes",
+            "/api/v1/belief-network/debate_123/cruxes",
             {"top_k": ["100"]},
             mock_http,
         )
@@ -246,7 +246,7 @@ class TestBeliefHandlerValidation:
 
         # Request high limit, should be clamped to 20
         result = handler.handle(
-            "/api/belief-network/debate_abc/load-bearing-claims",
+            "/api/v1/belief-network/debate_abc/load-bearing-claims",
             {"limit": ["500"]},
             mock_http,
         )
@@ -264,18 +264,18 @@ class TestBeliefHandlerExtractDebateId:
     def test_extract_debate_id_from_cruxes_path(self, handler):
         """Extract debate ID from cruxes path."""
         # Use internal method if available
-        debate_id = handler._extract_debate_id("/api/belief-network/abc123/cruxes", 3)
+        debate_id = handler._extract_debate_id("/api/v1/belief-network/abc123/cruxes", 3)
         assert debate_id == "abc123"
 
     def test_extract_debate_id_from_graph_stats_path(self, handler):
         """Extract debate ID from graph-stats path."""
-        debate_id = handler._extract_debate_id("/api/debate/xyz789/graph-stats", 3)
+        debate_id = handler._extract_debate_id("/api/v1/debate/xyz789/graph-stats", 3)
         assert debate_id == "xyz789"
 
     def test_extract_debate_id_invalid_returns_none(self, handler):
         """Invalid debate ID extraction returns None."""
         # Path traversal attempt
-        debate_id = handler._extract_debate_id("/api/belief-network/../etc/cruxes", 3)
+        debate_id = handler._extract_debate_id("/api/v1/belief-network/../etc/cruxes", 3)
         # Should return None for invalid path
         assert debate_id is None
 
@@ -289,18 +289,18 @@ class TestBeliefHandlerPathMatching:
 
     def test_matches_various_debate_ids(self, handler):
         """Handler matches various debate ID formats."""
-        assert handler.can_handle("/api/belief-network/debate_123/cruxes")
-        assert handler.can_handle("/api/belief-network/abc-def-ghi/cruxes")
-        assert handler.can_handle("/api/belief-network/uuid_format_id/cruxes")
+        assert handler.can_handle("/api/v1/belief-network/debate_123/cruxes")
+        assert handler.can_handle("/api/v1/belief-network/abc-def-ghi/cruxes")
+        assert handler.can_handle("/api/v1/belief-network/uuid_format_id/cruxes")
 
     def test_matches_claim_support_pattern(self, handler):
         """Handler matches claim support pattern correctly."""
-        assert handler.can_handle("/api/provenance/d1/claims/c1/support")
-        assert handler.can_handle("/api/something/debate_123/claims/claim_456/support")
+        assert handler.can_handle("/api/v1/provenance/d1/claims/c1/support")
+        assert handler.can_handle("/api/v1/something/debate_123/claims/claim_456/support")
 
     def test_does_not_match_partial_patterns(self, handler):
         """Handler does not match partial patterns."""
         # Missing /cruxes suffix
-        assert not handler.can_handle("/api/belief-network/debate_123")
+        assert not handler.can_handle("/api/v1/belief-network/debate_123")
         # Missing /claims/ in path (support suffix alone is not enough)
-        assert not handler.can_handle("/api/provenance/debate_123/support")
+        assert not handler.can_handle("/api/v1/provenance/debate_123/support")

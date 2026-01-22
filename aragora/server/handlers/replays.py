@@ -57,35 +57,47 @@ class ReplaysHandler(BaseHandler):
         """Check if this handler can process the given path."""
         if path in self.ROUTES:
             return True
-        # Dynamic route for specific replay
-        if path.startswith("/api/v1/replays/") and len(path.split("/")) == 4:
+        # Dynamic route for specific replay: /api/v1/replays/{id}
+        # Split gives ['', 'api', 'v1', 'replays', '{id}'] = 5 parts
+        if path.startswith("/api/v1/replays/") and len(path.split("/")) == 5:
             return True
         return False
 
-    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
-        """Route replay requests to appropriate methods."""
-        # Rate limit check
+    def _apply_rate_limit(self, handler: Any) -> Optional[HandlerResult]:
+        """Apply rate limiting. Returns error response if limit exceeded, None otherwise."""
         client_ip = get_client_ip(handler)
         if not _replays_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for replays endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+        return None
 
+    def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+        """Route replay requests to appropriate methods."""
         nomic_dir = self.ctx.get("nomic_dir")
 
         if path == "/api/v1/replays":
+            if err := self._apply_rate_limit(handler):
+                return err
             limit = get_int_param(query_params, "limit", 100)
             return self._list_replays(nomic_dir, max(1, min(limit, 500)))
 
         if path == "/api/v1/learning/evolution":
+            if err := self._apply_rate_limit(handler):
+                return err
             limit = get_int_param(query_params, "limit", 20)
             return self._get_learning_evolution(nomic_dir, max(1, min(limit, 100)))
 
         if path == "/api/v1/meta-learning/stats":
+            if err := self._apply_rate_limit(handler):
+                return err
             limit = get_int_param(query_params, "limit", 20)
             return self._get_meta_learning_stats(nomic_dir, max(1, min(limit, 50)))
 
         if path.startswith("/api/v1/replays/"):
-            replay_id, err = self.extract_path_param(path, 2, "replay_id")
+            if err := self._apply_rate_limit(handler):
+                return err
+            # Path: /api/v1/replays/{id} -> stripped parts are ["api", "v1", "replays", "{id}"]
+            replay_id, err = self.extract_path_param(path, 3, "replay_id")
             if err:
                 return err
             # Support pagination for large replay files

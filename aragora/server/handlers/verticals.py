@@ -6,6 +6,7 @@ Exposes the vertical specialist system for domain-specific AI agents.
 Endpoints:
 - GET /api/verticals - List available verticals
 - GET /api/verticals/:id - Get vertical config
+- PUT /api/verticals/:id/config - Update vertical configuration
 - GET /api/verticals/:id/tools - Get vertical tools
 - GET /api/verticals/:id/compliance - Get compliance frameworks
 - POST /api/verticals/:id/debate - Create vertical-specific debate
@@ -40,6 +41,7 @@ class VerticalsHandler(BaseHandler):
         "/api/v1/verticals",
         "/api/v1/verticals/suggest",
         "/api/v1/verticals/*",
+        "/api/v1/verticals/*/config",
         "/api/v1/verticals/*/tools",
         "/api/v1/verticals/*/compliance",
         "/api/v1/verticals/*/debate",
@@ -95,6 +97,14 @@ class VerticalsHandler(BaseHandler):
                 if not is_valid:
                     return error_response(err, 400)
                 return self._get_compliance(vertical_id, query_params)
+
+            # PUT /api/verticals/:id/config
+            if len(parts) == 5 and parts[4] == "config" and method == "PUT":
+                vertical_id = parts[3]
+                is_valid, err = validate_path_segment(vertical_id, "vertical_id", SAFE_ID_PATTERN)
+                if not is_valid:
+                    return error_response(err, 400)
+                return self._update_config(vertical_id, handler)
 
             # POST /api/verticals/:id/debate
             if len(parts) == 5 and parts[4] == "debate" and method == "POST":
@@ -382,7 +392,7 @@ class VerticalsHandler(BaseHandler):
 
                 for agent_spec in additional_agents:
                     if isinstance(agent_spec, str):
-                        agents.append(create_agent(agent_spec))
+                        agents.append(create_agent(agent_spec))  # type: ignore[arg-type]
                     elif isinstance(agent_spec, dict):
                         agents.append(
                             create_agent(
@@ -478,3 +488,137 @@ class VerticalsHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Unexpected error creating agent for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical agent"), 500)
+
+    def _update_config(self, vertical_id: str, handler: Any) -> HandlerResult:
+        """Update configuration for a vertical.
+
+        Accepts partial updates for:
+        - tools: List of tool configurations with enabled states
+        - compliance_frameworks: List of compliance framework updates
+        - model_config: Model configuration overrides
+        """
+        registry = self._get_registry()
+        if registry is None:
+            return error_response("Verticals module not available", 503)
+
+        # Validate vertical exists
+        if not registry.is_registered(vertical_id):
+            return error_response(f"Vertical not found: {vertical_id}", 404)
+
+        # Parse request body
+        data = self.read_json_body(handler)
+        if data is None:
+            return error_response("Invalid or too large request body", 400)
+
+        try:
+            from aragora.verticals.config import (  # type: ignore[attr-defined]
+                ComplianceFramework,
+                ComplianceLevel,
+                ModelConfig,
+                VerticalTool,
+            )
+
+            spec = registry.get(vertical_id)
+            if spec is None:
+                return error_response(f"Vertical not found: {vertical_id}", 404)
+
+            config = spec.config
+            updates_applied = []
+
+            # Update tools if provided
+            if "tools" in data:
+                tools_data = data["tools"]
+                if not isinstance(tools_data, list):
+                    return error_response("tools must be a list", 400)
+
+                new_tools = []
+                for tool_data in tools_data:
+                    if isinstance(tool_data, dict):
+                        # Create new tool from data
+                        tool = VerticalTool(
+                            name=tool_data.get("name", ""),
+                            description=tool_data.get("description", ""),
+                            enabled=tool_data.get("enabled", True),
+                            api_endpoint=tool_data.get("api_endpoint"),
+                            parameters=tool_data.get("parameters", {}),
+                        )
+                        new_tools.append(tool)
+                config.tools = new_tools
+                updates_applied.append("tools")
+
+            # Update compliance frameworks if provided
+            if "compliance_frameworks" in data:
+                frameworks_data = data["compliance_frameworks"]
+                if not isinstance(frameworks_data, list):
+                    return error_response("compliance_frameworks must be a list", 400)
+
+                new_frameworks = []
+                for fw_data in frameworks_data:
+                    if isinstance(fw_data, dict):
+                        level_str = fw_data.get("level", "standard")
+                        try:
+                            level = ComplianceLevel(level_str)
+                        except ValueError:
+                            level = ComplianceLevel.STANDARD  # type: ignore[attr-defined]
+                        framework = ComplianceFramework(
+                            name=fw_data.get("name", ""),
+                            description=fw_data.get("description", ""),
+                            level=level,
+                            requirements=fw_data.get("requirements", []),
+                        )
+                        new_frameworks.append(framework)
+                config.compliance_frameworks = new_frameworks
+                updates_applied.append("compliance_frameworks")
+
+            # Update model config if provided
+            if "model_config" in data:
+                model_data = data["model_config"]
+                if not isinstance(model_data, dict):
+                    return error_response("model_config must be an object", 400)
+
+                model_config = ModelConfig(  # type: ignore[call-arg]
+                    preferred_model=model_data.get(
+                        "preferred_model", config.model_config.preferred_model
+                    ),
+                    temperature=model_data.get("temperature", config.model_config.temperature),
+                    max_tokens=model_data.get("max_tokens", config.model_config.max_tokens),
+                    system_prompt_additions=model_data.get(
+                        "system_prompt_additions", config.model_config.system_prompt_additions
+                    ),
+                )
+                config.model_config = model_config
+                updates_applied.append("model_config")
+
+            if not updates_applied:
+                return error_response(
+                    "No valid fields to update. Provide: tools, compliance_frameworks, or model_config",
+                    400,
+                )
+
+            # Log the update
+            logger.info(f"Updated vertical {vertical_id} config: {updates_applied}")
+
+            return json_response(
+                {
+                    "vertical_id": vertical_id,
+                    "updated_fields": updates_applied,
+                    "message": f"Configuration updated successfully for {vertical_id}",
+                    "current_config": {
+                        "tools": [t.to_dict() for t in config.tools],
+                        "compliance_frameworks": [
+                            c.to_dict() for c in config.compliance_frameworks
+                        ],
+                        "model_config": config.model_config.to_dict(),
+                    },
+                }
+            )
+
+        except ImportError as e:
+            logger.error(f"Verticals config module not available: {e}")
+            return error_response("Verticals config module not available", 503)
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            logger.warning(f"Data error updating config for {vertical_id}: {e}")
+            return error_response(safe_error_message(e, "update vertical config"), 400)
+        except Exception as e:
+            logger.exception(f"Unexpected error updating config for {vertical_id}: {e}")
+            return error_response(safe_error_message(e, "update vertical config"), 500)

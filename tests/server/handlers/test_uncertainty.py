@@ -66,24 +66,24 @@ class TestUncertaintyHandlerRouting:
 
     def test_can_handle_estimate(self, uncertainty_handler):
         """Test that handler recognizes /api/uncertainty/estimate route."""
-        assert uncertainty_handler.can_handle("/api/uncertainty/estimate") is True
+        assert uncertainty_handler.can_handle("/api/v1/uncertainty/estimate") is True
 
     def test_can_handle_followups(self, uncertainty_handler):
         """Test that handler recognizes /api/uncertainty/followups route."""
-        assert uncertainty_handler.can_handle("/api/uncertainty/followups") is True
+        assert uncertainty_handler.can_handle("/api/v1/uncertainty/followups") is True
 
     def test_can_handle_debate_id(self, uncertainty_handler):
         """Test that handler recognizes /api/uncertainty/debate/:id route."""
-        assert uncertainty_handler.can_handle("/api/uncertainty/debate/abc123") is True
+        assert uncertainty_handler.can_handle("/api/v1/uncertainty/debate/abc123") is True
 
     def test_can_handle_agent_id(self, uncertainty_handler):
         """Test that handler recognizes /api/uncertainty/agent/:id route."""
-        assert uncertainty_handler.can_handle("/api/uncertainty/agent/claude") is True
+        assert uncertainty_handler.can_handle("/api/v1/uncertainty/agent/claude") is True
 
     def test_cannot_handle_unknown(self, uncertainty_handler):
         """Test that handler rejects unknown paths."""
-        assert uncertainty_handler.can_handle("/api/debates") is False
-        assert uncertainty_handler.can_handle("/api/health") is False
+        assert uncertainty_handler.can_handle("/api/v1/debates") is False
+        assert uncertainty_handler.can_handle("/api/v1/health") is False
 
 
 class TestEstimateUncertainty:
@@ -95,7 +95,7 @@ class TestEstimateUncertainty:
         with patch.object(uncertainty_handler, "_get_estimator", return_value=mock_estimator):
             # Mock the handler request
             mock_handler = MagicMock()
-            mock_handler.path = "/api/uncertainty/estimate"
+            mock_handler.path = "/api/v1/uncertainty/estimate"
             mock_handler.headers = {"Content-Length": "100"}
             mock_handler.rfile.read.return_value = json.dumps(
                 {
@@ -105,7 +105,7 @@ class TestEstimateUncertainty:
             ).encode()
 
             result = await uncertainty_handler.handle(
-                "/api/uncertainty/estimate", "POST", mock_handler
+                "/api/v1/uncertainty/estimate", "POST", mock_handler
             )
 
             assert result is not None
@@ -117,11 +117,13 @@ class TestEstimateUncertainty:
     async def test_estimate_uncertainty_no_content(self, uncertainty_handler):
         """Test estimate with missing content returns metrics or handles empty gracefully."""
         mock_handler = MagicMock()
-        mock_handler.path = "/api/uncertainty/estimate"
+        mock_handler.path = "/api/v1/uncertainty/estimate"
         mock_handler.headers = {"Content-Length": "2"}
         mock_handler.rfile.read.return_value = b"{}"
 
-        result = await uncertainty_handler.handle("/api/uncertainty/estimate", "POST", mock_handler)
+        result = await uncertainty_handler.handle(
+            "/api/v1/uncertainty/estimate", "POST", mock_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -137,7 +139,7 @@ class TestDebateUncertainty:
         """Test successful debate uncertainty retrieval."""
         with patch.object(uncertainty_handler, "_get_estimator", return_value=mock_estimator):
             result = await uncertainty_handler.handle(
-                "/api/uncertainty/debate/test-debate-123", "GET", None
+                "/api/v1/uncertainty/debate/test-debate-123", "GET", None
             )
 
             assert result is not None
@@ -150,7 +152,7 @@ class TestDebateUncertainty:
         """Test that invalid debate ID returns error."""
         # Script tag path contains '/' which splits into more segments, so route won't match
         result = await uncertainty_handler.handle(
-            "/api/uncertainty/debate/<script>alert(1)</script>", "GET", None
+            "/api/v1/uncertainty/debate/<script>alert(1)</script>", "GET", None
         )
 
         # Result is None because the path doesn't match the expected route pattern
@@ -170,7 +172,9 @@ class TestAgentCalibration:
     async def test_get_agent_calibration_success(self, uncertainty_handler, mock_estimator):
         """Test successful agent calibration retrieval."""
         with patch.object(uncertainty_handler, "_get_estimator", return_value=mock_estimator):
-            result = await uncertainty_handler.handle("/api/uncertainty/agent/claude", "GET", None)
+            result = await uncertainty_handler.handle(
+                "/api/v1/uncertainty/agent/claude", "GET", None
+            )
 
             assert result is not None
             body = json.loads(result.body)
@@ -181,7 +185,7 @@ class TestAgentCalibration:
         """Test that invalid agent ID returns error."""
         # Path traversal with '/' chars will split into many segments
         result = await uncertainty_handler.handle(
-            "/api/uncertainty/agent/../../../etc/passwd", "GET", None
+            "/api/v1/uncertainty/agent/../../../etc/passwd", "GET", None
         )
 
         # Path traversal is rejected because the route won't match (too many path segments)
@@ -200,7 +204,7 @@ class TestFollowups:
         """Test successful follow-up generation."""
         with patch.object(uncertainty_handler, "_get_estimator", return_value=mock_estimator):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/uncertainty/followups"
+            mock_handler.path = "/api/v1/uncertainty/followups"
             mock_handler.headers = {"Content-Length": "200"}
             mock_handler.rfile.read.return_value = json.dumps(
                 {
@@ -210,7 +214,7 @@ class TestFollowups:
             ).encode()
 
             result = await uncertainty_handler.handle(
-                "/api/uncertainty/followups", "POST", mock_handler
+                "/api/v1/uncertainty/followups", "POST", mock_handler
             )
 
             assert result is not None
@@ -227,7 +231,7 @@ class TestUncertaintyModuleUnavailable:
         """Test estimate returns error when module unavailable."""
         with patch.object(uncertainty_handler, "_get_estimator", return_value=None):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/uncertainty/estimate"
+            mock_handler.path = "/api/v1/uncertainty/estimate"
             mock_handler.headers = {"Content-Length": "50"}
             mock_handler.rfile.read.return_value = json.dumps(
                 {
@@ -236,7 +240,7 @@ class TestUncertaintyModuleUnavailable:
             ).encode()
 
             result = await uncertainty_handler.handle(
-                "/api/uncertainty/estimate", "POST", mock_handler
+                "/api/v1/uncertainty/estimate", "POST", mock_handler
             )
 
             assert result is not None

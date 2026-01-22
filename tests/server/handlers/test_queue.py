@@ -116,7 +116,7 @@ class MockQueue:
 
 
 def create_mock_handler(
-    method: str = "GET", body: Optional[Dict] = None, path: str = "/api/queue/jobs"
+    method: str = "GET", body: Optional[Dict] = None, path: str = "/api/v1/queue/jobs"
 ) -> MagicMock:
     """Create a mock HTTP handler."""
     handler = MagicMock()
@@ -197,23 +197,23 @@ class TestCanHandle:
     """Tests for route matching."""
 
     def test_handles_jobs_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/queue/jobs") is True
+        assert queue_handler.can_handle("/api/v1/queue/jobs") is True
 
     def test_handles_specific_job_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/queue/jobs/job-123") is True
+        assert queue_handler.can_handle("/api/v1/queue/jobs/job-123") is True
 
     def test_handles_retry_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/queue/jobs/job-123/retry") is True
+        assert queue_handler.can_handle("/api/v1/queue/jobs/job-123/retry") is True
 
     def test_handles_stats_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/queue/stats") is True
+        assert queue_handler.can_handle("/api/v1/queue/stats") is True
 
     def test_handles_workers_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/queue/workers") is True
+        assert queue_handler.can_handle("/api/v1/queue/workers") is True
 
     def test_does_not_handle_other_routes(self, queue_handler):
-        assert queue_handler.can_handle("/api/debates") is False
-        assert queue_handler.can_handle("/api/users") is False
+        assert queue_handler.can_handle("/api/v1/debates") is False
+        assert queue_handler.can_handle("/api/v1/users") is False
 
 
 class TestQueueStats:
@@ -223,7 +223,7 @@ class TestQueueStats:
     async def test_stats_returns_queue_unavailable(self, queue_handler):
         """Should return 503 when queue is not available."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/queue/stats", "GET")
+            result = await queue_handler.handle("/api/v1/queue/stats", "GET")
 
             assert get_status(result) == 503
             body = get_body(result)
@@ -233,7 +233,7 @@ class TestQueueStats:
     async def test_stats_returns_counts(self, queue_handler, mock_queue):
         """Should return queue statistics."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/queue/stats", "GET")
+            result = await queue_handler.handle("/api/v1/queue/stats", "GET")
 
             assert get_status(result) == 200
             body = get_body(result)
@@ -251,7 +251,7 @@ class TestJobSubmission:
         mock_handler = create_mock_handler("POST", {"agents": ["claude"]})
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/queue/jobs", "POST", mock_handler)
+            result = await queue_handler.handle("/api/v1/queue/jobs", "POST", mock_handler)
 
             assert get_status(result) == 400
             body = get_body(result)
@@ -269,7 +269,7 @@ class TestJobSubmission:
                 mock_job = MockJob()
                 mock_create.return_value = mock_job
 
-                result = await queue_handler.handle("/api/queue/jobs", "POST", mock_handler)
+                result = await queue_handler.handle("/api/v1/queue/jobs", "POST", mock_handler)
 
                 assert get_status(result) == 202
                 body = get_body(result)
@@ -282,7 +282,7 @@ class TestJobSubmission:
         mock_handler = create_mock_handler("POST", {"question": "test?"})
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/queue/jobs", "POST", mock_handler)
+            result = await queue_handler.handle("/api/v1/queue/jobs", "POST", mock_handler)
 
             assert get_status(result) == 503
 
@@ -309,7 +309,7 @@ class TestJobListing:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/jobs", "GET", mock_handler)
+                result = await queue_handler.handle("/api/v1/queue/jobs", "GET", mock_handler)
 
                 assert get_status(result) == 200
                 body = get_body(result)
@@ -322,7 +322,7 @@ class TestJobListing:
         mock_handler = create_mock_handler("GET")
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/queue/jobs", "GET", mock_handler)
+            result = await queue_handler.handle("/api/v1/queue/jobs", "GET", mock_handler)
 
             assert get_status(result) == 503
 
@@ -340,7 +340,7 @@ class TestJobRetrieval:
         )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/queue/jobs/job-123", "GET")
+            result = await queue_handler.handle("/api/v1/queue/jobs/job-123", "GET")
 
             assert get_status(result) == 200
             body = get_body(result)
@@ -351,7 +351,7 @@ class TestJobRetrieval:
     async def test_get_job_not_found(self, queue_handler, mock_queue):
         """Should return 404 for missing job."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/queue/jobs/nonexistent", "GET")
+            result = await queue_handler.handle("/api/v1/queue/jobs/nonexistent", "GET")
 
             assert get_status(result) == 404
 
@@ -370,7 +370,7 @@ class TestJobRetry:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/jobs/job-123/retry", "POST")
+                result = await queue_handler.handle("/api/v1/queue/jobs/job-123/retry", "POST")
 
                 assert get_status(result) == 200
                 body = get_body(result)
@@ -386,7 +386,7 @@ class TestJobRetry:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/jobs/job-123/retry", "POST")
+                result = await queue_handler.handle("/api/v1/queue/jobs/job-123/retry", "POST")
 
                 assert get_status(result) == 400
 
@@ -395,7 +395,7 @@ class TestJobRetry:
         """Should return 404 for missing job."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/jobs/nonexistent/retry", "POST")
+                result = await queue_handler.handle("/api/v1/queue/jobs/nonexistent/retry", "POST")
 
                 assert get_status(result) == 404
 
@@ -412,7 +412,7 @@ class TestJobCancellation:
         )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/queue/jobs/job-123", "DELETE")
+            result = await queue_handler.handle("/api/v1/queue/jobs/job-123", "DELETE")
 
             assert get_status(result) == 200
             body = get_body(result)
@@ -427,7 +427,7 @@ class TestJobCancellation:
         )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/queue/jobs/job-123", "DELETE")
+            result = await queue_handler.handle("/api/v1/queue/jobs/job-123", "DELETE")
 
             assert get_status(result) == 400
 
@@ -435,7 +435,7 @@ class TestJobCancellation:
     async def test_cancel_not_found(self, queue_handler, mock_queue):
         """Should return 404 for missing job."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/queue/jobs/nonexistent", "DELETE")
+            result = await queue_handler.handle("/api/v1/queue/jobs/nonexistent", "DELETE")
 
             assert get_status(result) == 404
 
@@ -452,7 +452,7 @@ class TestPathValidation:
         """
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             # Use a job_id with path traversal characters that matches route length
-            result = await queue_handler.handle("/api/queue/jobs/..passwd", "GET")
+            result = await queue_handler.handle("/api/v1/queue/jobs/..passwd", "GET")
 
             assert get_status(result) == 400
 
@@ -461,7 +461,7 @@ class TestPathValidation:
         """Should reject special characters in job ID."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             # Use a job_id with invalid characters that matches route length
-            result = await queue_handler.handle("/api/queue/jobs/job@invalid", "GET")
+            result = await queue_handler.handle("/api/v1/queue/jobs/job@invalid", "GET")
 
             assert get_status(result) == 400
 
@@ -473,7 +473,7 @@ class TestWorkerStatus:
     async def test_workers_queue_unavailable(self, queue_handler):
         """Should return 503 when queue unavailable."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/queue/workers", "GET")
+            result = await queue_handler.handle("/api/v1/queue/workers", "GET")
 
             assert get_status(result) == 503
             body = get_body(result)
@@ -493,7 +493,7 @@ class TestWorkerStatus:
         )
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/queue/workers", "GET")
+            result = await queue_handler.handle("/api/v1/queue/workers", "GET")
 
             assert get_status(result) == 200
             body = get_body(result)
@@ -517,7 +517,7 @@ class TestDeadLetterQueue:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/dlq", "GET")
+                result = await queue_handler.handle("/api/v1/queue/dlq", "GET")
 
                 assert get_status(result) == 200
                 body = get_body(result)
@@ -528,7 +528,7 @@ class TestDeadLetterQueue:
     async def test_list_dlq_queue_unavailable(self, queue_handler):
         """Should return 503 when queue unavailable."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/queue/dlq", "GET")
+            result = await queue_handler.handle("/api/v1/queue/dlq", "GET")
 
             assert get_status(result) == 503
 
@@ -544,7 +544,7 @@ class TestDeadLetterQueue:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/dlq/dlq-job-1/requeue", "POST")
+                result = await queue_handler.handle("/api/v1/queue/dlq/dlq-job-1/requeue", "POST")
 
                 assert get_status(result) == 200
                 body = get_body(result)
@@ -555,7 +555,7 @@ class TestDeadLetterQueue:
         """Should return 404 for missing DLQ job."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/dlq/nonexistent/requeue", "POST")
+                result = await queue_handler.handle("/api/v1/queue/dlq/nonexistent/requeue", "POST")
 
                 assert get_status(result) == 404
 
@@ -569,7 +569,7 @@ class TestDeadLetterQueue:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/dlq/job-123/requeue", "POST")
+                result = await queue_handler.handle("/api/v1/queue/dlq/job-123/requeue", "POST")
 
                 assert get_status(result) == 400
 
@@ -591,7 +591,7 @@ class TestDeadLetterQueue:
 
         with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
             with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/queue/dlq/requeue", "POST")
+                result = await queue_handler.handle("/api/v1/queue/dlq/requeue", "POST")
 
                 assert get_status(result) == 200
                 body = get_body(result)
@@ -601,12 +601,12 @@ class TestDeadLetterQueue:
     async def test_requeue_all_dlq_queue_unavailable(self, queue_handler):
         """Should return 503 when queue unavailable."""
         with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/queue/dlq/requeue", "POST")
+            result = await queue_handler.handle("/api/v1/queue/dlq/requeue", "POST")
 
             assert get_status(result) == 503
 
     def test_handles_dlq_endpoints(self, queue_handler):
         """Should recognize DLQ endpoints."""
-        assert queue_handler.can_handle("/api/queue/dlq") is True
-        assert queue_handler.can_handle("/api/queue/dlq/requeue") is True
-        assert queue_handler.can_handle("/api/queue/dlq/job-123/requeue") is True
+        assert queue_handler.can_handle("/api/v1/queue/dlq") is True
+        assert queue_handler.can_handle("/api/v1/queue/dlq/requeue") is True
+        assert queue_handler.can_handle("/api/v1/queue/dlq/job-123/requeue") is True

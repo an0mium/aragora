@@ -25,7 +25,9 @@ import pytest
 
 # Mock get_available_backends before importing the handler to avoid API key checks
 with patch("aragora.transcription.get_available_backends", return_value=["mock"]):
-    with patch("aragora.transcription.whisper_backend.get_available_backends", return_value=["mock"]):
+    with patch(
+        "aragora.transcription.whisper_backend.get_available_backends", return_value=["mock"]
+    ):
         from aragora.server.handlers.transcription import TranscriptionHandler
 
 
@@ -115,7 +117,7 @@ def mock_http_handler():
     """Create a mock HTTP handler."""
     return MockHandler(
         headers={"Content-Type": "application/json", "Content-Length": "0"},
-        path="/api/transcription/config",
+        path="/api/v1/transcription/config",
     )
 
 
@@ -163,28 +165,28 @@ class TestRouting:
 
     def test_can_handle_config(self, handler):
         """Test handler recognizes config endpoint."""
-        assert handler.can_handle("/api/transcription/config") is True
+        assert handler.can_handle("/api/v1/transcription/config") is True
 
     def test_can_handle_audio(self, handler):
         """Test handler recognizes audio endpoint."""
-        assert handler.can_handle("/api/transcription/audio") is True
+        assert handler.can_handle("/api/v1/transcription/audio") is True
 
     def test_can_handle_video(self, handler):
         """Test handler recognizes video endpoint."""
-        assert handler.can_handle("/api/transcription/video") is True
+        assert handler.can_handle("/api/v1/transcription/video") is True
 
     def test_can_handle_youtube(self, handler):
         """Test handler recognizes youtube endpoint."""
-        assert handler.can_handle("/api/transcription/youtube") is True
+        assert handler.can_handle("/api/v1/transcription/youtube") is True
 
     def test_can_handle_youtube_info(self, handler):
         """Test handler recognizes youtube info endpoint."""
-        assert handler.can_handle("/api/transcription/youtube/info") is True
+        assert handler.can_handle("/api/v1/transcription/youtube/info") is True
 
     def test_cannot_handle_unknown(self, handler):
         """Test handler rejects unknown endpoints."""
-        assert handler.can_handle("/api/transcription/unknown") is False
-        assert handler.can_handle("/api/other/endpoint") is False
+        assert handler.can_handle("/api/v1/transcription/unknown") is False
+        assert handler.can_handle("/api/v1/other/endpoint") is False
 
 
 # ===========================================================================
@@ -197,7 +199,7 @@ class TestConfigEndpoint:
 
     def test_get_config(self, handler, mock_http_handler, mock_transcription_available):
         """Test getting transcription config."""
-        result = handler.handle("/api/transcription/config", {}, mock_http_handler)
+        result = handler.handle("/api/v1/transcription/config", {}, mock_http_handler)
 
         assert result is not None
         assert result.content_type == "application/json"
@@ -209,9 +211,11 @@ class TestConfigEndpoint:
         # Config includes size limits
         assert "max_audio_size_mb" in data or "max_file_size_mb" in data
 
-    def test_config_contains_formats(self, handler, mock_http_handler, mock_transcription_available):
+    def test_config_contains_formats(
+        self, handler, mock_http_handler, mock_transcription_available
+    ):
         """Test config includes expected formats."""
-        result = handler.handle("/api/transcription/config", {}, mock_http_handler)
+        result = handler.handle("/api/v1/transcription/config", {}, mock_http_handler)
         data = json.loads(result.body)
 
         assert ".mp3" in data["audio_formats"]
@@ -229,7 +233,7 @@ class TestAudioTranscription:
 
     def test_audio_requires_post(self, handler, mock_http_handler):
         """Test audio endpoint requires POST method."""
-        result = handler.handle("/api/transcription/audio", {}, mock_http_handler)
+        result = handler.handle("/api/v1/transcription/audio", {}, mock_http_handler)
         assert result is None  # GET not handled
 
     @pytest.mark.asyncio
@@ -259,7 +263,7 @@ class TestAudioTranscription:
             mock_backend.transcribe = AsyncMock(return_value=MockTranscriptionResult())
             mock_get.return_value = mock_backend
 
-            result = handler.handle_post("/api/transcription/audio", {}, mock_http)
+            result = handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
 
             # Should return result or error
             assert result is not None
@@ -275,7 +279,7 @@ class TestAudioTranscription:
             method="POST",
         )
 
-        result = handler.handle_post("/api/transcription/audio", {}, mock_http)
+        result = handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
 
         assert result is not None
         # May return 503 (no backend) or 400 (bad request)
@@ -301,7 +305,7 @@ class TestAudioTranscription:
             method="POST",
         )
 
-        result = handler.handle_post("/api/transcription/audio", {}, mock_http)
+        result = handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
 
         assert result is not None
         # Should reject unsupported format or return 503 if no backend
@@ -327,7 +331,7 @@ class TestYouTubeTranscription:
             method="POST",
         )
 
-        result = handler.handle_post("/api/transcription/youtube", {}, mock_http)
+        result = handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
 
         assert result is not None
         # May return 503 (no backend) or 400 (bad request)
@@ -346,7 +350,7 @@ class TestYouTubeTranscription:
             method="POST",
         )
 
-        result = handler.handle_post("/api/transcription/youtube", {}, mock_http)
+        result = handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
 
         assert result is not None
         # May return 503 (no backend) or 400 (bad request)
@@ -378,7 +382,7 @@ class TestYouTubeTranscription:
                 mock_backend.transcribe = AsyncMock(return_value=MockTranscriptionResult())
                 mock_get.return_value = mock_backend
 
-                result = handler.handle_post("/api/transcription/youtube", {}, mock_http)
+                result = handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
 
                 # Should return result
                 assert result is not None
@@ -403,7 +407,7 @@ class TestYouTubeInfoEndpoint:
             method="POST",
         )
 
-        result = handler.handle_post("/api/transcription/youtube/info", {}, mock_http)
+        result = handler.handle_post("/api/v1/transcription/youtube/info", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -435,7 +439,7 @@ class TestYouTubeInfoEndpoint:
             mock_fetcher.get_video_info = AsyncMock(return_value=mock_info)
             mock_fetcher_class.return_value = mock_fetcher
 
-            result = handler.handle_post("/api/transcription/youtube/info", {}, mock_http)
+            result = handler.handle_post("/api/v1/transcription/youtube/info", {}, mock_http)
 
             assert result is not None
             if result.status_code == 200:
@@ -469,12 +473,12 @@ class TestErrorResponses:
 
     def test_404_for_unknown_route(self, handler, mock_http_handler):
         """Test 404 for unknown routes (can_handle returns False)."""
-        assert handler.can_handle("/api/transcription/unknown") is False
+        assert handler.can_handle("/api/v1/transcription/unknown") is False
 
     def test_method_not_allowed(self, handler, mock_http_handler):
         """Test method handling."""
         # GET on POST-only endpoint returns None (not handled)
-        result = handler.handle("/api/transcription/audio", {}, mock_http_handler)
+        result = handler.handle("/api/v1/transcription/audio", {}, mock_http_handler)
         assert result is None
 
     def test_json_error_format(self, handler, mock_transcription_available):
@@ -488,7 +492,7 @@ class TestErrorResponses:
             method="POST",
         )
 
-        result = handler.handle_post("/api/transcription/audio", {}, mock_http)
+        result = handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
 
         if result:
             if result.status_code >= 400:

@@ -162,55 +162,55 @@ class TestCanHandle:
     def test_handles_org_detail(self):
         """Should handle /api/org/{org_id}."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/org/org-123") is True
-        assert handler.can_handle("/api/org/my_org") is True
+        assert handler.can_handle("/api/v1/org/org-123") is True
+        assert handler.can_handle("/api/v1/org/my_org") is True
 
     def test_handles_members_list(self):
         """Should handle /api/org/{org_id}/members."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/org/org-123/members") is True
+        assert handler.can_handle("/api/v1/org/org-123/members") is True
 
     def test_handles_invite(self):
         """Should handle /api/org/{org_id}/invite."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/org/org-123/invite") is True
+        assert handler.can_handle("/api/v1/org/org-123/invite") is True
 
     def test_handles_invitations_list(self):
         """Should handle /api/org/{org_id}/invitations."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/org/org-123/invitations") is True
+        assert handler.can_handle("/api/v1/org/org-123/invitations") is True
 
     def test_handles_invitation_revoke(self):
         """Should handle /api/org/{org_id}/invitations/{id}."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/org/org-123/invitations/inv-456") is True
+        assert handler.can_handle("/api/v1/org/org-123/invitations/inv-456") is True
 
     def test_handles_member_remove(self):
         """Should handle /api/org/{org_id}/members/{user_id}."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/org/org-123/members/user-456") is True
+        assert handler.can_handle("/api/v1/org/org-123/members/user-456") is True
 
     def test_handles_member_role(self):
         """Should handle /api/org/{org_id}/members/{user_id}/role."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/org/org-123/members/user-456/role") is True
+        assert handler.can_handle("/api/v1/org/org-123/members/user-456/role") is True
 
     def test_handles_pending_invitations(self):
         """Should handle /api/invitations/pending."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/invitations/pending") is True
+        assert handler.can_handle("/api/v1/invitations/pending") is True
 
     def test_handles_accept_invitation(self):
         """Should handle /api/invitations/{token}/accept."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/invitations/abc123/accept") is True
+        assert handler.can_handle("/api/v1/invitations/abc123/accept") is True
 
     def test_rejects_unknown_routes(self):
         """Should reject unknown routes."""
         handler = create_org_handler()
-        assert handler.can_handle("/api/unknown") is False
-        assert handler.can_handle("/api/org") is False  # No org_id
-        assert handler.can_handle("/api/organizations") is False
+        assert handler.can_handle("/api/v1/unknown") is False
+        assert handler.can_handle("/api/v1/org") is False  # No org_id
+        assert handler.can_handle("/api/v1/organizations") is False
 
 
 # ===========================================================================
@@ -229,7 +229,7 @@ class TestRateLimiting:
         mock_http = MockHandler(client_address=("192.168.1.100", 12345))
 
         with patch.object(_org_limiter, "is_allowed", return_value=False):
-            result = handler.handle("/api/org/org-123", {}, mock_http, "GET")
+            result = handler.handle("/api/v1/org/org-123", {}, mock_http, "GET")
 
         assert get_status(result) == 429
         assert "Rate limit" in get_body(result)["error"]
@@ -783,7 +783,7 @@ class TestRouteDispatching:
 
         with patch.object(handler, "_get_organization") as mock_method:
             mock_method.return_value = MagicMock(status_code=200, body=b"{}")
-            handler.handle("/api/org/org-123", {}, mock_http, "GET")
+            handler.handle("/api/v1/org/org-123", {}, mock_http, "GET")
 
             mock_method.assert_called_once()
 
@@ -794,7 +794,7 @@ class TestRouteDispatching:
 
         with patch.object(handler, "_update_organization") as mock_method:
             mock_method.return_value = MagicMock(status_code=200, body=b"{}")
-            handler.handle("/api/org/org-123", {}, mock_http, "PUT")
+            handler.handle("/api/v1/org/org-123", {}, mock_http, "PUT")
 
             mock_method.assert_called_once()
 
@@ -803,7 +803,7 @@ class TestRouteDispatching:
         handler = create_org_handler()
         mock_http = MockHandler(method="PATCH")
 
-        result = handler.handle("/api/org/org-123", {}, mock_http, "PATCH")
+        result = handler.handle("/api/v1/org/org-123", {}, mock_http, "PATCH")
 
         assert get_status(result) == 405
 
@@ -812,7 +812,7 @@ class TestRouteDispatching:
         handler = create_org_handler()
         mock_http = MockHandler()
 
-        result = handler.handle("/api/unknown/route", {}, mock_http, "GET")
+        result = handler.handle("/api/v1/unknown/route", {}, mock_http, "GET")
 
         assert result is None
 

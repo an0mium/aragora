@@ -23,7 +23,6 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-
     from aragora.billing.auth.context import UserAuthContext
 
 
@@ -62,7 +61,7 @@ class HandlerInterface(Protocol):
     Example:
         def register_handler(handler: HandlerInterface) -> None:
             # Works with any handler implementing the interface
-            result = handler.handle("/api/test", {}, mock_handler)
+            result = handler.handle("/api/v1/test", {}, mock_handler)
     """
 
     def handle(
@@ -71,7 +70,7 @@ class HandlerInterface(Protocol):
         """Handle a GET request.
 
         Args:
-            path: The request path (e.g., "/api/debates/123")
+            path: The request path (e.g., "/api/v1/debates/123")
             query_params: Parsed query parameters as dict
             handler: HTTP request handler for accessing request context
 

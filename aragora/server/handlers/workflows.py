@@ -1096,9 +1096,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             path = path[: -len(suffix)]
 
         parts = path.strip("/").split("/")
-        # /api/workflows/{id}
-        if len(parts) >= 3 and parts[0] == "api" and parts[1] == "workflows":
-            return parts[2]
+        # /api/v1/workflows/{id} (4 parts: api, v1, workflows, id)
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "v1" and parts[2] == "workflows":
+            return parts[3]
         return None
 
     # =========================================================================

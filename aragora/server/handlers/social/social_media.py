@@ -273,14 +273,14 @@ class SocialMediaHandler(BaseHandler):
         """Handle POST requests."""
         # Twitter publishing
         if path.startswith("/api/v1/debates/") and path.endswith("/publish/twitter"):
-            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._publish_to_twitter(debate_id, handler)
 
         # YouTube publishing
         if path.startswith("/api/v1/debates/") and path.endswith("/publish/youtube"):
-            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._publish_to_youtube(debate_id, handler)

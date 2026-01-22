@@ -151,12 +151,12 @@ class KnowledgeHandler(
     def _handle_fact_routes(
         self, path: str, query_params: dict, handler: Any
     ) -> Optional[HandlerResult]:
-        """Handle /api/knowledge/facts/:id/* routes."""
+        """Handle /api/v1/knowledge/facts/:id/* routes."""
         parts = path.strip("/").split("/")
 
-        # /api/knowledge/facts/:id
-        if len(parts) == 4:
-            fact_id = parts[3]
+        # /api/v1/knowledge/facts/:id (5 parts: api, v1, knowledge, facts, id)
+        if len(parts) == 5:
+            fact_id = parts[4]
             method = getattr(handler, "command", "GET")
             if method == "GET":
                 return self._handle_get_fact(fact_id)
@@ -165,26 +165,26 @@ class KnowledgeHandler(
             elif method == "DELETE":
                 return self._handle_delete_fact(fact_id, handler)
 
-        # /api/knowledge/facts/:id/verify
-        if len(parts) == 5 and parts[4] == "verify":
-            fact_id = parts[3]
+        # /api/v1/knowledge/facts/:id/verify (6 parts)
+        if len(parts) == 6 and parts[5] == "verify":
+            fact_id = parts[4]
             return self._handle_verify_fact(fact_id, handler)
 
-        # /api/knowledge/facts/:id/contradictions
-        if len(parts) == 5 and parts[4] == "contradictions":
-            fact_id = parts[3]
+        # /api/v1/knowledge/facts/:id/contradictions (6 parts)
+        if len(parts) == 6 and parts[5] == "contradictions":
+            fact_id = parts[4]
             return self._handle_get_contradictions(fact_id)
 
-        # /api/knowledge/facts/:id/relations
-        if len(parts) == 5 and parts[4] == "relations":
-            fact_id = parts[3]
+        # /api/v1/knowledge/facts/:id/relations (6 parts)
+        if len(parts) == 6 and parts[5] == "relations":
+            fact_id = parts[4]
             method = getattr(handler, "command", "GET")
             if method == "POST":
                 return self._handle_add_relation(fact_id, handler)
             return self._handle_get_relations(fact_id, query_params)
 
-        # /api/knowledge/facts/relations (POST - add relation)
-        if len(parts) == 4 and parts[3] == "relations":
+        # /api/v1/knowledge/facts/relations (POST - add relation) (5 parts)
+        if len(parts) == 5 and parts[4] == "relations":
             return self._handle_add_relation_bulk(handler)
 
         return error_response("Unknown endpoint", 404)

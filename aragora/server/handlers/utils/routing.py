@@ -14,15 +14,15 @@ class PathMatcher:
     to handler methods.
 
     Example:
-        matcher = PathMatcher("/api/agent/{name}/{action}")
-        result = matcher.match("/api/agent/claude/profile")
+        matcher = PathMatcher("/api/v1/agent/{name}/{action}")
+        result = matcher.match("/api/v1/agent/claude/profile")
         # result = {"name": "claude", "action": "profile"}
 
-        matcher = PathMatcher("/api/debates")
-        result = matcher.match("/api/debates")
+        matcher = PathMatcher("/api/v1/debates")
+        result = matcher.match("/api/v1/debates")
         # result = {}  (empty dict = matched)
 
-        result = matcher.match("/api/other")
+        result = matcher.match("/api/v1/other")
         # result = None  (None = no match)
     """
 
@@ -75,9 +75,9 @@ class RouteDispatcher:
 
     Example:
         dispatcher = RouteDispatcher()
-        dispatcher.add_route("/api/agents", self._list_agents)
-        dispatcher.add_route("/api/agent/{name}/profile", self._get_profile)
-        dispatcher.add_route("/api/agent/{name}/history", self._get_history)
+        dispatcher.add_route("/api/v1/agents", self._list_agents)
+        dispatcher.add_route("/api/v1/agent/{name}/profile", self._get_profile)
+        dispatcher.add_route("/api/v1/agent/{name}/history", self._get_history)
 
         # In handle() method:
         result = dispatcher.dispatch(path, query_params)

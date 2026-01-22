@@ -45,11 +45,11 @@ class TestRoutingHandlerRouting:
 
     def test_routes_defined(self):
         """Handler should define expected routes."""
-        assert "/api/routing/best-teams" in RoutingHandler.ROUTES
-        assert "/api/routing/recommendations" in RoutingHandler.ROUTES
-        assert "/api/routing/auto-route" in RoutingHandler.ROUTES
-        assert "/api/routing/detect-domain" in RoutingHandler.ROUTES
-        assert "/api/routing/domain-leaderboard" in RoutingHandler.ROUTES
+        assert "/api/v1/routing/best-teams" in RoutingHandler.ROUTES
+        assert "/api/v1/routing/recommendations" in RoutingHandler.ROUTES
+        assert "/api/v1/routing/auto-route" in RoutingHandler.ROUTES
+        assert "/api/v1/routing/detect-domain" in RoutingHandler.ROUTES
+        assert "/api/v1/routing/domain-leaderboard" in RoutingHandler.ROUTES
 
     def test_can_handle_routes(self):
         """Should handle defined routes."""
@@ -60,8 +60,8 @@ class TestRoutingHandlerRouting:
     def test_cannot_handle_unknown_routes(self):
         """Should not handle unknown routes."""
         handler = RoutingHandler({})
-        assert handler.can_handle("/api/unknown") is False
-        assert handler.can_handle("/api/routing/unknown") is False
+        assert handler.can_handle("/api/v1/unknown") is False
+        assert handler.can_handle("/api/v1/routing/unknown") is False
 
 
 class TestBestTeamCombinations:
@@ -74,7 +74,7 @@ class TestBestTeamCombinations:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/routing/best-teams", {}, mock_http)
+        result = handler.handle("/api/v1/routing/best-teams", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 503
@@ -95,7 +95,7 @@ class TestBestTeamCombinations:
         mock_http.client_address = ("127.0.0.1", 12345)
 
         result = handler.handle(
-            "/api/routing/best-teams", {"min_debates": ["5"], "limit": ["10"]}, mock_http
+            "/api/v1/routing/best-teams", {"min_debates": ["5"], "limit": ["10"]}, mock_http
         )
 
         assert result is not None
@@ -114,7 +114,7 @@ class TestRecommendations:
         mock_http.client_address = ("127.0.0.1", 12345)
         handler.read_json_body = MagicMock(return_value={"primary_domain": "code"})
 
-        result = handler.handle_post("/api/routing/recommendations", {}, mock_http)
+        result = handler.handle_post("/api/v1/routing/recommendations", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 503
@@ -138,7 +138,7 @@ class TestRecommendations:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/routing/recommendations", {}, mock_http)
+        result = handler.handle_post("/api/v1/routing/recommendations", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -150,7 +150,7 @@ class TestRecommendations:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/routing/recommendations", {}, mock_http)
+        result = handler.handle_post("/api/v1/routing/recommendations", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -167,7 +167,7 @@ class TestAutoRoute:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/routing/auto-route", {}, mock_http)
+        result = handler.handle_post("/api/v1/routing/auto-route", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 503
@@ -197,7 +197,7 @@ class TestAutoRoute:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/routing/auto-route", {}, mock_http)
+        result = handler.handle_post("/api/v1/routing/auto-route", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -212,7 +212,7 @@ class TestAutoRoute:
         with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True):
             with patch("aragora.server.handlers.routing.AgentSelector"):
                 with patch("aragora.server.handlers.routing.DomainDetector"):
-                    result = handler.handle_post("/api/routing/auto-route", {}, mock_http)
+                    result = handler.handle_post("/api/v1/routing/auto-route", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -224,7 +224,7 @@ class TestAutoRoute:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/routing/auto-route", {}, mock_http)
+        result = handler.handle_post("/api/v1/routing/auto-route", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -241,7 +241,7 @@ class TestDetectDomain:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/routing/detect-domain", {}, mock_http)
+        result = handler.handle_post("/api/v1/routing/detect-domain", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 503
@@ -259,7 +259,7 @@ class TestDetectDomain:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/routing/detect-domain", {}, mock_http)
+        result = handler.handle_post("/api/v1/routing/detect-domain", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -273,7 +273,7 @@ class TestDetectDomain:
 
         with patch("aragora.server.handlers.routing.ROUTING_AVAILABLE", True):
             with patch("aragora.server.handlers.routing.DomainDetector"):
-                result = handler.handle_post("/api/routing/detect-domain", {}, mock_http)
+                result = handler.handle_post("/api/v1/routing/detect-domain", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -289,7 +289,9 @@ class TestDomainLeaderboard:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/routing/domain-leaderboard", {"domain": ["code"]}, mock_http)
+        result = handler.handle(
+            "/api/v1/routing/domain-leaderboard", {"domain": ["code"]}, mock_http
+        )
 
         assert result is not None
         assert result.status_code == 503
@@ -311,7 +313,7 @@ class TestDomainLeaderboard:
         mock_http.client_address = ("127.0.0.1", 12345)
 
         result = handler.handle(
-            "/api/routing/domain-leaderboard",
+            "/api/v1/routing/domain-leaderboard",
             {"domain": ["code"], "limit": ["10"]},
             mock_http,
         )
@@ -332,7 +334,7 @@ class TestRateLimiting:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/routing/best-teams", {}, mock_http)
+        result = handler.handle("/api/v1/routing/best-teams", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 429
@@ -355,7 +357,7 @@ class TestParameterValidation:
         mock_http.client_address = ("127.0.0.1", 12345)
 
         # min_debates should be clamped to max of 20
-        result = handler.handle("/api/routing/best-teams", {"min_debates": ["100"]}, mock_http)
+        result = handler.handle("/api/v1/routing/best-teams", {"min_debates": ["100"]}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -374,7 +376,7 @@ class TestParameterValidation:
         mock_http.client_address = ("127.0.0.1", 12345)
 
         # limit should be clamped to max of 50
-        result = handler.handle("/api/routing/best-teams", {"limit": ["1000"]}, mock_http)
+        result = handler.handle("/api/v1/routing/best-teams", {"limit": ["1000"]}, mock_http)
 
         assert result is not None
         assert result.status_code == 200

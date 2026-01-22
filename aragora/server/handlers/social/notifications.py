@@ -279,7 +279,7 @@ class NotificationsHandler(SecureHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/notifications")
+        return path.startswith("/api/v1/notifications")
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -305,14 +305,14 @@ class NotificationsHandler(SecureHandler):
         if perm_err:
             return perm_err
 
-        if path == "/api/notifications/status":
+        if path == "/api/v1/notifications/status":
             # SECURITY: Log access with org context for audit trail
             logger.info(
                 f"Notifications status accessed by user {user.user_id} in org {user.org_id}"
             )
             return self._get_status(user.org_id)
 
-        if path == "/api/notifications/email/recipients":
+        if path == "/api/v1/notifications/email/recipients":
             # SECURITY: Log recipient list access with org context for audit trail
             logger.info(f"Email recipients accessed by user {user.user_id} in org {user.org_id}")
             return self._get_email_recipients(user.org_id)
@@ -343,23 +343,23 @@ class NotificationsHandler(SecureHandler):
         if perm_err:
             return perm_err
 
-        if path == "/api/notifications/email/config":
+        if path == "/api/v1/notifications/email/config":
             logger.info(f"Email config modified by user {user.user_id} in org {user.org_id}")
             return self._configure_email(handler, user.org_id)
 
-        if path == "/api/notifications/telegram/config":
+        if path == "/api/v1/notifications/telegram/config":
             logger.info(f"Telegram config modified by user {user.user_id} in org {user.org_id}")
             return self._configure_telegram(handler, user.org_id)
 
-        if path == "/api/notifications/email/recipient":
+        if path == "/api/v1/notifications/email/recipient":
             logger.info(f"Email recipient added by user {user.user_id} in org {user.org_id}")
             return self._add_email_recipient(handler, user.org_id)
 
-        if path == "/api/notifications/test":
+        if path == "/api/v1/notifications/test":
             logger.info(f"Test notification sent by user {user.user_id}")
             return self._send_test_notification(handler)
 
-        if path == "/api/notifications/send":
+        if path == "/api/v1/notifications/send":
             logger.info(f"Notification sent by user {user.user_id}")
             return self._send_notification(handler)
 
@@ -381,7 +381,7 @@ class NotificationsHandler(SecureHandler):
         if perm_err:
             return perm_err
 
-        if path == "/api/notifications/email/recipient":
+        if path == "/api/v1/notifications/email/recipient":
             logger.info(f"Email recipient removed by user {user.user_id} in org {user.org_id}")
             return self._remove_email_recipient(handler, query_params, user.org_id)
 

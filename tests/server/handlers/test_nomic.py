@@ -53,34 +53,34 @@ class TestNomicHandlerRouting:
 
     def test_can_handle_nomic_state(self, nomic_handler):
         """Test that handler recognizes /api/nomic/state route."""
-        assert nomic_handler.can_handle("/api/nomic/state") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/state") is True
 
     def test_can_handle_nomic_health(self, nomic_handler):
         """Test that handler recognizes /api/nomic/health route."""
-        assert nomic_handler.can_handle("/api/nomic/health") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/health") is True
 
     def test_can_handle_nomic_metrics(self, nomic_handler):
         """Test that handler recognizes /api/nomic/metrics route."""
-        assert nomic_handler.can_handle("/api/nomic/metrics") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/metrics") is True
 
     def test_can_handle_nomic_log(self, nomic_handler):
         """Test that handler recognizes /api/nomic/log route."""
-        assert nomic_handler.can_handle("/api/nomic/log") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/log") is True
 
     def test_can_handle_nomic_risk_register(self, nomic_handler):
         """Test that handler recognizes /api/nomic/risk-register route."""
-        assert nomic_handler.can_handle("/api/nomic/risk-register") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/risk-register") is True
 
     def test_can_handle_modes(self, nomic_handler):
         """Test that handler recognizes /api/modes route."""
-        assert nomic_handler.can_handle("/api/modes") is True
+        assert nomic_handler.can_handle("/api/v1/modes") is True
 
     def test_cannot_handle_unknown_path(self, nomic_handler):
         """Test that handler rejects unknown paths outside its prefix."""
-        assert nomic_handler.can_handle("/api/unknown") is False
-        assert nomic_handler.can_handle("/api/nomic") is False
+        assert nomic_handler.can_handle("/api/v1/unknown") is False
+        assert nomic_handler.can_handle("/api/v1/nomic") is False
         # Handler accepts all /api/nomic/* paths and handles 404 internally
-        assert nomic_handler.can_handle("/api/nomic/unknown") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/unknown") is True
 
 
 class TestNomicState:
@@ -88,7 +88,7 @@ class TestNomicState:
 
     def test_nomic_state_no_dir(self, nomic_handler, mock_http_handler):
         """Nomic state should return 503 when directory not configured."""
-        result = nomic_handler.handle("/api/nomic/state", {}, mock_http_handler)
+        result = nomic_handler.handle("/api/v1/nomic/state", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -99,7 +99,7 @@ class TestNomicState:
         """Nomic state should return not_running when no state file exists."""
         handler, tmp_path = nomic_handler_with_dir
 
-        result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/state", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -114,7 +114,7 @@ class TestNomicState:
         state = {"state": "running", "cycle": 5, "phase": "debate"}
         (tmp_path / "nomic_state.json").write_text(json.dumps(state))
 
-        result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/state", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -129,7 +129,7 @@ class TestNomicState:
 
         (tmp_path / "nomic_state.json").write_text("not valid json {")
 
-        result = handler.handle("/api/nomic/state", {}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/state", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -142,7 +142,7 @@ class TestNomicHealth:
 
     def test_nomic_health_no_dir(self, nomic_handler, mock_http_handler):
         """Nomic health should return 503 when directory not configured."""
-        result = nomic_handler.handle("/api/nomic/health", {}, mock_http_handler)
+        result = nomic_handler.handle("/api/v1/nomic/health", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -151,7 +151,7 @@ class TestNomicHealth:
         """Nomic health should return not_running when no state file exists."""
         handler, tmp_path = nomic_handler_with_dir
 
-        result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/health", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -168,7 +168,7 @@ class TestNomicHealth:
         state = {"cycle": 3, "phase": "design", "last_update": recent_time}
         (tmp_path / "nomic_state.json").write_text(json.dumps(state))
 
-        result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/health", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -186,7 +186,7 @@ class TestNomicHealth:
         state = {"cycle": 2, "phase": "implement", "last_update": old_time}
         (tmp_path / "nomic_state.json").write_text(json.dumps(state))
 
-        result = handler.handle("/api/nomic/health", {}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/health", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -201,7 +201,7 @@ class TestNomicLog:
 
     def test_nomic_log_no_dir(self, nomic_handler, mock_http_handler):
         """Nomic log should return 503 when directory not configured."""
-        result = nomic_handler.handle("/api/nomic/log", {}, mock_http_handler)
+        result = nomic_handler.handle("/api/v1/nomic/log", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -210,7 +210,7 @@ class TestNomicLog:
         """Nomic log should return empty list when no log file exists."""
         handler, tmp_path = nomic_handler_with_dir
 
-        result = handler.handle("/api/nomic/log", {}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/log", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -225,7 +225,7 @@ class TestNomicLog:
         log_content = "Line 1\nLine 2\nLine 3\n"
         (tmp_path / "nomic_loop.log").write_text(log_content)
 
-        result = handler.handle("/api/nomic/log", {}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/log", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -240,7 +240,7 @@ class TestNomicLog:
         log_content = "\n".join([f"Line {i}" for i in range(100)])
         (tmp_path / "nomic_loop.log").write_text(log_content)
 
-        result = handler.handle("/api/nomic/log", {"lines": "10"}, mock_http_handler)
+        result = handler.handle("/api/v1/nomic/log", {"lines": "10"}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -258,7 +258,7 @@ class TestNomicMetrics:
             mock_metrics.return_value = MagicMock(
                 body=json.dumps({"metrics": {"cycles": 10}}).encode(), status_code=200
             )
-            result = nomic_handler.handle("/api/nomic/metrics", {}, mock_http_handler)
+            result = nomic_handler.handle("/api/v1/nomic/metrics", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -273,7 +273,7 @@ class TestRiskRegister:
             mock_risk.return_value = MagicMock(
                 body=json.dumps({"risks": [], "total": 0}).encode(), status_code=200
             )
-            result = nomic_handler.handle("/api/nomic/risk-register", {}, mock_http_handler)
+            result = nomic_handler.handle("/api/v1/nomic/risk-register", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -285,7 +285,7 @@ class TestRiskRegister:
                 body=json.dumps({"risks": [], "total": 0}).encode(), status_code=200
             )
             result = nomic_handler.handle(
-                "/api/nomic/risk-register", {"limit": "10"}, mock_http_handler
+                "/api/v1/nomic/risk-register", {"limit": "10"}, mock_http_handler
             )
 
         assert result is not None
@@ -298,7 +298,7 @@ class TestModes:
 
     def test_get_modes_returns_list(self, nomic_handler, mock_http_handler):
         """Get modes should return available operational modes."""
-        result = nomic_handler.handle("/api/modes", {}, mock_http_handler)
+        result = nomic_handler.handle("/api/v1/modes", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -313,5 +313,5 @@ class TestHandleReturnsNone:
     def test_handle_returns_none_for_non_matching(self, nomic_handler, mock_http_handler):
         """Handle should return None for paths that can_handle returns False for."""
         # Force a path that would bypass can_handle check
-        result = nomic_handler.handle("/api/nomic/nonexistent", {}, mock_http_handler)
+        result = nomic_handler.handle("/api/v1/nomic/nonexistent", {}, mock_http_handler)
         assert result is None

@@ -44,26 +44,28 @@ class AlertHandler:
             analyzer = get_alert_analyzer()
             alerts = analyzer.get_active_alerts()
 
-            return web.json_response({
-                "success": True,
-                "alerts": [
-                    {
-                        "id": alert.id,
-                        "severity": alert.severity.value,
-                        "title": alert.title,
-                        "description": alert.description,
-                        "source": alert.source,
-                        "timestamp": alert.timestamp.isoformat(),
-                        "acknowledged": alert.acknowledged,
-                        "acknowledged_by": alert.acknowledged_by,
-                        "debate_triggered": alert.debate_triggered,
-                        "debate_id": alert.debate_id,
-                        "metadata": alert.metadata,
-                    }
-                    for alert in alerts
-                ],
-                "count": len(alerts),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "alerts": [
+                        {
+                            "id": alert.id,
+                            "severity": alert.severity.value,
+                            "title": alert.title,
+                            "description": alert.description,
+                            "source": alert.source,
+                            "timestamp": alert.timestamp.isoformat(),
+                            "acknowledged": alert.acknowledged,
+                            "acknowledged_by": alert.acknowledged_by,
+                            "debate_triggered": alert.debate_triggered,
+                            "debate_id": alert.debate_id,
+                            "metadata": alert.metadata,
+                        }
+                        for alert in alerts
+                    ],
+                    "count": len(alerts),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error listing alerts: {e}")
@@ -100,11 +102,13 @@ class AlertHandler:
                     status=404,
                 )
 
-            return web.json_response({
-                "success": True,
-                "alert_id": alert_id,
-                "acknowledged_by": acknowledged_by,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "alert_id": alert_id,
+                    "acknowledged_by": acknowledged_by,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error acknowledging alert: {e}")
@@ -135,11 +139,13 @@ class AlertHandler:
                     status=404,
                 )
 
-            return web.json_response({
-                "success": True,
-                "alert_id": alert_id,
-                "resolved": True,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "alert_id": alert_id,
+                    "resolved": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error resolving alert: {e}")
@@ -184,11 +190,13 @@ class AlertHandler:
                 enabled=data.get("enabled", True),
             )
 
-            return web.json_response({
-                "success": True,
-                "metric_name": metric_name,
-                "threshold_set": True,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "metric_name": metric_name,
+                    "threshold_set": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error setting threshold: {e}")
@@ -232,21 +240,25 @@ class AlertHandler:
             )
 
             if alert:
-                return web.json_response({
-                    "success": True,
-                    "alert_generated": True,
-                    "alert": {
-                        "id": alert.id,
-                        "severity": alert.severity.value,
-                        "title": alert.title,
-                        "description": alert.description,
-                    },
-                })
+                return web.json_response(
+                    {
+                        "success": True,
+                        "alert_generated": True,
+                        "alert": {
+                            "id": alert.id,
+                            "severity": alert.severity.value,
+                            "title": alert.title,
+                            "description": alert.description,
+                        },
+                    }
+                )
 
-            return web.json_response({
-                "success": True,
-                "alert_generated": False,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "alert_generated": False,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error checking metric: {e}")
@@ -256,7 +268,7 @@ class AlertHandler:
             )
 
     @staticmethod
-    def register_routes(app: web.Application, prefix: str = "/api/autonomous") -> None:
+    def register_routes(app: web.Application, prefix: str = "/api/v1/autonomous") -> None:
         """Register alert routes with the application."""
         app.router.add_get(
             f"{prefix}/alerts/active",

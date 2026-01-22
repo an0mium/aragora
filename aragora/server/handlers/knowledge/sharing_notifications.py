@@ -43,7 +43,7 @@ class SharingNotificationsHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/knowledge/notifications")
+        return path.startswith("/api/v1/knowledge/notifications")
 
     def handle(
         self,
@@ -64,13 +64,13 @@ class SharingNotificationsHandler(BaseHandler):
 
         user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
 
-        if path == "/api/knowledge/notifications":
+        if path == "/api/v1/knowledge/notifications":
             return self._get_notifications(user_id, query_params)
 
-        if path == "/api/knowledge/notifications/count":
+        if path == "/api/v1/knowledge/notifications/count":
             return self._get_unread_count(user_id)
 
-        if path == "/api/knowledge/notifications/preferences":
+        if path == "/api/v1/knowledge/notifications/preferences":
             return self._get_preferences(user_id)
 
         return None
@@ -94,18 +94,18 @@ class SharingNotificationsHandler(BaseHandler):
 
         user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
 
-        if path == "/api/knowledge/notifications/read-all":
+        if path == "/api/v1/knowledge/notifications/read-all":
             return self._mark_all_read(user_id)
 
         # Check for notification ID in path
-        if path.startswith("/api/knowledge/notifications/") and "/read" in path:
+        if path.startswith("/api/v1/knowledge/notifications/") and "/read" in path:
             # Extract notification ID: /api/knowledge/notifications/{id}/read
             parts = path.split("/")
             if len(parts) >= 5:
                 notification_id = parts[4]
                 return self._mark_read(user_id, notification_id)
 
-        if path.startswith("/api/knowledge/notifications/") and "/dismiss" in path:
+        if path.startswith("/api/v1/knowledge/notifications/") and "/dismiss" in path:
             parts = path.split("/")
             if len(parts) >= 5:
                 notification_id = parts[4]
@@ -132,7 +132,7 @@ class SharingNotificationsHandler(BaseHandler):
 
         user_id = user.get("sub") or user.get("user_id") or user.get("id", "anonymous")  # type: ignore[union-attr]
 
-        if path == "/api/knowledge/notifications/preferences":
+        if path == "/api/v1/knowledge/notifications/preferences":
             return self._update_preferences(user_id, handler)
 
         return None

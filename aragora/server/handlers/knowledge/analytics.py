@@ -37,11 +37,11 @@ class AnalyticsHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return (
-            path.startswith("/api/knowledge/mound/stats")
-            or path.startswith("/api/knowledge/sharing/stats")
-            or path.startswith("/api/knowledge/federation/stats")
-            or path.startswith("/api/knowledge/analytics")
-            or path.startswith("/api/knowledge/learning")
+            path.startswith("/api/v1/knowledge/mound/stats")
+            or path.startswith("/api/v1/knowledge/sharing/stats")
+            or path.startswith("/api/v1/knowledge/federation/stats")
+            or path.startswith("/api/v1/knowledge/analytics")
+            or path.startswith("/api/v1/knowledge/learning")
         )
 
     def handle(
@@ -71,22 +71,22 @@ class AnalyticsHandler(BaseHandler):
 
         workspace_id = query_params.get("workspace_id")
 
-        if path == "/api/knowledge/mound/stats":
+        if path == "/api/v1/knowledge/mound/stats":
             return self._get_mound_stats(workspace_id)
 
-        if path == "/api/knowledge/sharing/stats":
+        if path == "/api/v1/knowledge/sharing/stats":
             return self._get_sharing_stats(workspace_id, user_id)
 
-        if path == "/api/knowledge/federation/stats":
+        if path == "/api/v1/knowledge/federation/stats":
             return self._get_federation_stats(workspace_id)
 
-        if path == "/api/knowledge/analytics/summary":
+        if path == "/api/v1/knowledge/analytics/summary":
             return self._get_summary(workspace_id, user_id)
 
-        if path == "/api/knowledge/learning/stats":
+        if path == "/api/v1/knowledge/learning/stats":
             return self._get_learning_stats(workspace_id)
 
-        if path == "/api/knowledge/analytics/learning":
+        if path == "/api/v1/knowledge/analytics/learning":
             return self._get_learning_stats(workspace_id)
 
         return None
@@ -418,15 +418,15 @@ class AnalyticsHandler(BaseHandler):
             # Calculate derived metrics
             reuse = learning_stats["knowledge_reuse"]  # type: ignore[index]
             if reuse["total_queries"] > 0:  # type: ignore[index]
-                reuse["reuse_rate"] = round(  # type: ignore[index,arg-type]
-                    reuse["queries_with_hits"] / reuse["total_queries"],  # type: ignore[arg-type]
+                reuse["reuse_rate"] = round(  # type: ignore[index,arg-type,operator]
+                    reuse["queries_with_hits"] / reuse["total_queries"],  # type: ignore[arg-type,operator]
                     3,
                 )
 
             validation = learning_stats["validation"]  # type: ignore[index]
             if validation["total_validations"] > 0:  # type: ignore[index]
-                validation["accuracy_rate"] = round(  # type: ignore[index,arg-type]
-                    validation["positive_validations"]  # type: ignore[index,arg-type]
+                validation["accuracy_rate"] = round(  # type: ignore[index,arg-type,operator]
+                    validation["positive_validations"]  # type: ignore[index,arg-type,operator]
                     / validation["total_validations"],
                     3,
                 )

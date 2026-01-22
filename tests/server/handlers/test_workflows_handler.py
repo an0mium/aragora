@@ -31,44 +31,44 @@ class TestWorkflowHandlerRouting:
 
     def test_can_handle_workflows(self, handler):
         """Handler can handle workflows base path."""
-        assert handler.can_handle("/api/workflows")
+        assert handler.can_handle("/api/v1/workflows")
 
     def test_can_handle_workflow_by_id(self, handler):
         """Handler can handle workflow by ID."""
-        assert handler.can_handle("/api/workflows/wf_123")
+        assert handler.can_handle("/api/v1/workflows/wf_123")
 
     def test_can_handle_workflow_execute(self, handler):
         """Handler can handle workflow execute."""
-        assert handler.can_handle("/api/workflows/wf_123/execute")
+        assert handler.can_handle("/api/v1/workflows/wf_123/execute")
 
     def test_can_handle_workflow_simulate(self, handler):
         """Handler can handle workflow simulate."""
-        assert handler.can_handle("/api/workflows/wf_123/simulate")
+        assert handler.can_handle("/api/v1/workflows/wf_123/simulate")
 
     def test_can_handle_workflow_versions(self, handler):
         """Handler can handle workflow versions."""
-        assert handler.can_handle("/api/workflows/wf_123/versions")
+        assert handler.can_handle("/api/v1/workflows/wf_123/versions")
 
     def test_can_handle_workflow_status(self, handler):
         """Handler can handle workflow status."""
-        assert handler.can_handle("/api/workflows/wf_123/status")
+        assert handler.can_handle("/api/v1/workflows/wf_123/status")
 
     def test_can_handle_templates(self, handler):
         """Handler can handle templates."""
-        assert handler.can_handle("/api/workflow-templates")
+        assert handler.can_handle("/api/v1/workflow-templates")
 
     def test_can_handle_approvals(self, handler):
         """Handler can handle approvals."""
-        assert handler.can_handle("/api/workflow-approvals")
+        assert handler.can_handle("/api/v1/workflow-approvals")
 
     def test_can_handle_executions(self, handler):
         """Handler can handle executions."""
-        assert handler.can_handle("/api/workflow-executions")
+        assert handler.can_handle("/api/v1/workflow-executions")
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/other")
-        assert not handler.can_handle("/api/debates")
+        assert not handler.can_handle("/api/v1/other")
+        assert not handler.can_handle("/api/v1/debates")
 
 
 class TestWorkflowHandlerIdExtraction:
@@ -80,22 +80,22 @@ class TestWorkflowHandlerIdExtraction:
 
     def test_extract_id_basic(self, handler):
         """Extract ID from basic path."""
-        id_ = handler._extract_id("/api/workflows/wf_123")
+        id_ = handler._extract_id("/api/v1/workflows/wf_123")
         assert id_ == "wf_123"
 
     def test_extract_id_with_suffix(self, handler):
         """Extract ID with suffix removal."""
-        id_ = handler._extract_id("/api/workflows/wf_123/execute", suffix="/execute")
+        id_ = handler._extract_id("/api/v1/workflows/wf_123/execute", suffix="/execute")
         assert id_ == "wf_123"
 
     def test_extract_id_no_id(self, handler):
         """Extract ID returns None for base path."""
-        id_ = handler._extract_id("/api/workflows")
+        id_ = handler._extract_id("/api/v1/workflows")
         assert id_ is None
 
     def test_extract_id_with_versions_suffix(self, handler):
         """Extract ID with versions suffix."""
-        id_ = handler._extract_id("/api/workflows/wf_abc123/versions", suffix="/versions")
+        id_ = handler._extract_id("/api/v1/workflows/wf_abc123/versions", suffix="/versions")
         assert id_ == "wf_abc123"
 
 
@@ -107,35 +107,35 @@ class TestWorkflowHandlerRouteDispatch:
         return WorkflowHandler(mock_server_context)
 
     def test_handle_dispatches_list_workflows(self, handler):
-        """Handle dispatches /api/workflows to list handler."""
+        """Handle dispatches /api/v1/workflows to list handler."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/workflows", {}, mock_http)
+        result = handler.handle("/api/v1/workflows", {}, mock_http)
 
         # Result should be returned
         assert result is not None
 
     def test_handle_dispatches_templates(self, handler):
-        """Handle dispatches /api/workflow-templates to template handler."""
+        """Handle dispatches /api/v1/workflow-templates to template handler."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/workflow-templates", {}, mock_http)
+        result = handler.handle("/api/v1/workflow-templates", {}, mock_http)
 
         assert result is not None
 
     def test_handle_dispatches_approvals(self, handler):
-        """Handle dispatches /api/workflow-approvals to approval handler."""
+        """Handle dispatches /api/v1/workflow-approvals to approval handler."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/workflow-approvals", {}, mock_http)
+        result = handler.handle("/api/v1/workflow-approvals", {}, mock_http)
 
         assert result is not None
 
     def test_handle_dispatches_executions(self, handler):
-        """Handle dispatches /api/workflow-executions to execution handler."""
+        """Handle dispatches /api/v1/workflow-executions to execution handler."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/workflow-executions", {}, mock_http)
+        result = handler.handle("/api/v1/workflow-executions", {}, mock_http)
 
         assert result is not None
 
@@ -154,7 +154,7 @@ class TestWorkflowHandlerUnknownPath:
         mock_http.headers = {"Content-Length": "2", "Content-Type": "application/json"}
         mock_http.rfile.read.return_value = b"{}"
 
-        result = handler.handle_post("/api/other", {}, mock_http)
+        result = handler.handle_post("/api/v1/other", {}, mock_http)
 
         assert result is None
 
@@ -162,7 +162,7 @@ class TestWorkflowHandlerUnknownPath:
         """Unhandled DELETE path returns None."""
         mock_http = MagicMock()
 
-        result = handler.handle_delete("/api/other", {}, mock_http)
+        result = handler.handle_delete("/api/v1/other", {}, mock_http)
 
         assert result is None
 
@@ -173,7 +173,7 @@ class TestWorkflowHandlerUnknownPath:
         mock_http.headers = {"Content-Length": "2", "Content-Type": "application/json"}
         mock_http.rfile.read.return_value = b"{}"
 
-        result = handler.handle_patch("/api/other", {}, mock_http)
+        result = handler.handle_patch("/api/v1/other", {}, mock_http)
 
         assert result is None
 

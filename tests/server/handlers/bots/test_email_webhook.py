@@ -141,20 +141,20 @@ class TestRouting:
 
     def test_can_handle_sendgrid_webhook(self, handler):
         """Test handler recognizes SendGrid webhook endpoint."""
-        assert handler.can_handle("/api/bots/email/webhook/sendgrid") is True
+        assert handler.can_handle("/api/v1/bots/email/webhook/sendgrid") is True
 
     def test_can_handle_ses_webhook(self, handler):
         """Test handler recognizes SES webhook endpoint."""
-        assert handler.can_handle("/api/bots/email/webhook/ses") is True
+        assert handler.can_handle("/api/v1/bots/email/webhook/ses") is True
 
     def test_can_handle_status(self, handler):
         """Test handler recognizes status endpoint."""
-        assert handler.can_handle("/api/bots/email/status") is True
+        assert handler.can_handle("/api/v1/bots/email/status") is True
 
     def test_cannot_handle_unknown(self, handler):
         """Test handler rejects unknown endpoints."""
-        assert handler.can_handle("/api/bots/email/unknown") is False
-        assert handler.can_handle("/api/other/endpoint") is False
+        assert handler.can_handle("/api/v1/bots/email/unknown") is False
+        assert handler.can_handle("/api/v1/other/endpoint") is False
 
 
 # ===========================================================================
@@ -172,7 +172,7 @@ class TestStatusEndpoint:
             method="GET",
         )
 
-        result = handler.handle("/api/bots/email/status", {}, mock_http)
+        result = handler.handle("/api/v1/bots/email/status", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -194,7 +194,7 @@ class TestStatusEndpoint:
             {"SENDGRID_INBOUND_SECRET": "test_secret", "SES_NOTIFICATION_SECRET": ""},
             clear=False,
         ):
-            result = handler.handle("/api/bots/email/status", {}, mock_http)
+            result = handler.handle("/api/v1/bots/email/status", {}, mock_http)
 
         data = json.loads(result.body)
         # SendGrid configured, SES not
@@ -245,7 +245,7 @@ class TestSendGridWebhook:
             mock_email.subject = "Re: Test"
             mock_parse.return_value = mock_email
 
-            result = handler.handle_post("/api/bots/email/webhook/sendgrid", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -273,7 +273,7 @@ class TestSendGridWebhook:
             "aragora.integrations.email_reply_loop.verify_sendgrid_signature",
             return_value=False,
         ):
-            result = handler.handle_post("/api/bots/email/webhook/sendgrid", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 401
@@ -292,7 +292,7 @@ class TestSendGridWebhook:
         )
 
         with patch("aragora.server.handlers.bots.email_webhook.EMAIL_INBOUND_ENABLED", False):
-            result = handler.handle_post("/api/bots/email/webhook/sendgrid", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 503
@@ -336,7 +336,7 @@ class TestSESWebhook:
             mock_email.subject = "Re: Test"
             mock_parse.return_value = mock_email
 
-            result = handler.handle_post("/api/bots/email/webhook/ses", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -361,7 +361,7 @@ class TestSESWebhook:
             "aragora.integrations.email_reply_loop.verify_ses_signature",
             return_value=True,
         ):
-            result = handler.handle_post("/api/bots/email/webhook/ses", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -387,7 +387,7 @@ class TestSESWebhook:
             "aragora.integrations.email_reply_loop.verify_ses_signature",
             return_value=False,
         ):
-            result = handler.handle_post("/api/bots/email/webhook/ses", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 401
@@ -405,7 +405,7 @@ class TestSESWebhook:
             method="POST",
         )
 
-        result = handler.handle_post("/api/bots/email/webhook/ses", {}, mock_http)
+        result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -438,7 +438,7 @@ class TestSESWebhook:
                 return_value=None,  # Not an email receipt
             ),
         ):
-            result = handler.handle_post("/api/bots/email/webhook/ses", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/ses", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -509,7 +509,7 @@ class TestErrorHandling:
 
         with patch.dict("sys.modules", {"aragora.integrations.email_reply_loop": None}):
             # Should return 503 when module not available
-            result = handler.handle_post("/api/bots/email/webhook/sendgrid", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, mock_http)
 
         assert result is not None
         # Either 503 (module unavailable) or 200 with error (caught exception)
@@ -540,7 +540,7 @@ class TestErrorHandling:
                 side_effect=ValueError("Parse error"),
             ),
         ):
-            result = handler.handle_post("/api/bots/email/webhook/sendgrid", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/email/webhook/sendgrid", {}, mock_http)
 
         assert result is not None
         # Returns 200 to prevent retries even on error

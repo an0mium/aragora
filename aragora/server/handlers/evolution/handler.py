@@ -90,7 +90,7 @@ class EvolutionHandler(BaseHandler):
 
         # Agent-specific history endpoint
         if path.endswith("/history"):
-            agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+            agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             limit = get_int_param(query_params, "limit", 10)
@@ -99,7 +99,7 @@ class EvolutionHandler(BaseHandler):
 
         # Agent-specific prompt endpoint
         if path.endswith("/prompt"):
-            agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+            agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             version = get_int_param(query_params, "version")

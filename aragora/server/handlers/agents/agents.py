@@ -183,7 +183,7 @@ class AgentsHandler(BaseHandler):
             return error_response("Invalid agent path", 400)
 
         # Extract and validate agent name
-        agent_name, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+        agent_name, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
         if err:
             return err
 

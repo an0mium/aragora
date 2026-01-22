@@ -233,8 +233,8 @@ class WebhookHandler(SecureHandler):
             return self._handle_slo_status()
 
         # GET /api/webhooks/:id
-        if path.startswith("/api/v1/webhooks/") and path.count("/") == 3:
-            webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
+        if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
+            webhook_id, err = self.extract_path_param(path, 3, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_webhook(webhook_id, handler)
@@ -253,9 +253,9 @@ class WebhookHandler(SecureHandler):
         if path == "/api/v1/webhooks/slo/test":
             return self._handle_slo_test()
 
-        # POST /api/webhooks/:id/test
-        if path.endswith("/test") and path.count("/") == 4:
-            webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
+        # POST /api/v1/webhooks/:id/test
+        if path.endswith("/test") and path.count("/") == 5:
+            webhook_id, err = self.extract_path_param(path, 3, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_test_webhook(webhook_id, handler)
@@ -274,8 +274,8 @@ class WebhookHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Handle DELETE requests for webhook endpoints."""
         # DELETE /api/webhooks/:id
-        if path.startswith("/api/v1/webhooks/") and path.count("/") == 3:
-            webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
+        if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
+            webhook_id, err = self.extract_path_param(path, 3, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_webhook(webhook_id, handler)
@@ -287,8 +287,8 @@ class WebhookHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Handle PATCH requests for webhook endpoints."""
         # PATCH /api/webhooks/:id
-        if path.startswith("/api/v1/webhooks/") and path.count("/") == 3:
-            webhook_id, err = self.extract_path_param(path, 2, "webhook_id", SAFE_ID_PATTERN)
+        if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
+            webhook_id, err = self.extract_path_param(path, 3, "webhook_id", SAFE_ID_PATTERN)
             if err:
                 return err
             body, err = self.read_json_body_validated(handler)

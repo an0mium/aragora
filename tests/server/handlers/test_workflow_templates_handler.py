@@ -40,7 +40,7 @@ class TestWorkflowTemplatesHandlerRouting:
 
     def test_can_handle_templates_base(self, handler):
         """Handler can handle templates base path."""
-        assert handler.can_handle("/api/workflow/templates")
+        assert handler.can_handle("/api/v1/workflow/templates")
 
     def test_can_handle_templates_v1(self, handler):
         """Handler can handle v1 templates path."""
@@ -48,26 +48,26 @@ class TestWorkflowTemplatesHandlerRouting:
 
     def test_can_handle_template_by_id(self, handler):
         """Handler can handle template by ID."""
-        assert handler.can_handle("/api/workflow/templates/legal/contract-review")
+        assert handler.can_handle("/api/v1/workflow/templates/legal/contract-review")
 
     def test_can_handle_template_package(self, handler):
         """Handler can handle template package path."""
-        assert handler.can_handle("/api/workflow/templates/legal/contract-review/package")
+        assert handler.can_handle("/api/v1/workflow/templates/legal/contract-review/package")
 
     def test_can_handle_template_run(self, handler):
         """Handler can handle template run path."""
-        assert handler.can_handle("/api/workflow/templates/general/research/run")
+        assert handler.can_handle("/api/v1/workflow/templates/general/research/run")
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/other")
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/workflows")  # Different from templates
+        assert not handler.can_handle("/api/v1/other")
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/workflows")  # Different from templates
 
     def test_routes_defined(self, handler):
         """Handler has expected routes defined."""
-        assert "/api/workflow/templates" in handler.ROUTES
-        assert "/api/workflow/templates/*" in handler.ROUTES
+        assert "/api/v1/workflow/templates" in handler.ROUTES
+        assert "/api/v1/workflow/templates/*" in handler.ROUTES
         assert "/api/v1/workflow/templates" in handler.ROUTES
 
 
@@ -85,7 +85,7 @@ class TestWorkflowCategoriesHandler:
 
     def test_can_handle_categories(self, handler):
         """Handler can handle categories path."""
-        assert handler.can_handle("/api/workflow/categories")
+        assert handler.can_handle("/api/v1/workflow/categories")
 
     def test_can_handle_categories_v1(self, handler):
         """Handler can handle v1 categories path."""
@@ -93,12 +93,12 @@ class TestWorkflowCategoriesHandler:
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/workflow/templates")
-        assert not handler.can_handle("/api/other")
+        assert not handler.can_handle("/api/v1/workflow/templates")
+        assert not handler.can_handle("/api/v1/other")
 
     def test_routes_defined(self, handler):
         """Handler has expected routes defined."""
-        assert "/api/workflow/categories" in handler.ROUTES
+        assert "/api/v1/workflow/categories" in handler.ROUTES
         assert "/api/v1/workflow/categories" in handler.ROUTES
 
 
@@ -116,7 +116,7 @@ class TestWorkflowPatternsHandler:
 
     def test_can_handle_patterns(self, handler):
         """Handler can handle patterns path."""
-        assert handler.can_handle("/api/workflow/patterns")
+        assert handler.can_handle("/api/v1/workflow/patterns")
 
     def test_can_handle_patterns_v1(self, handler):
         """Handler can handle v1 patterns path."""
@@ -124,8 +124,8 @@ class TestWorkflowPatternsHandler:
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/workflow/templates")
-        assert not handler.can_handle("/api/other")
+        assert not handler.can_handle("/api/v1/workflow/templates")
+        assert not handler.can_handle("/api/v1/other")
 
 
 # =============================================================================
@@ -151,13 +151,14 @@ class TestWorkflowTemplatesHandlerResponses:
     def _parse_result(self, result):
         """Parse HandlerResult into body, status, content_type."""
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         return body, result.status_code, result.content_type
 
     def test_list_templates_returns_json(self, handler, mock_handler_request):
         """List templates returns JSON response."""
         result = handler.handle(
-            "/api/workflow/templates",
+            "/api/v1/workflow/templates",
             {},
             mock_handler_request,
         )
@@ -172,7 +173,7 @@ class TestWorkflowTemplatesHandlerResponses:
     def test_list_templates_with_limit(self, handler, mock_handler_request):
         """List templates respects limit parameter."""
         result = handler.handle(
-            "/api/workflow/templates",
+            "/api/v1/workflow/templates",
             {"limit": ["5"]},
             mock_handler_request,
         )
@@ -185,7 +186,7 @@ class TestWorkflowTemplatesHandlerResponses:
     def test_list_templates_with_offset(self, handler, mock_handler_request):
         """List templates respects offset parameter."""
         result = handler.handle(
-            "/api/workflow/templates",
+            "/api/v1/workflow/templates",
             {"offset": ["10"]},
             mock_handler_request,
         )
@@ -198,7 +199,7 @@ class TestWorkflowTemplatesHandlerResponses:
     def test_list_templates_with_category_filter(self, handler, mock_handler_request):
         """List templates filters by category."""
         result = handler.handle(
-            "/api/workflow/templates",
+            "/api/v1/workflow/templates",
             {"category": ["legal"]},
             mock_handler_request,
         )
@@ -210,7 +211,7 @@ class TestWorkflowTemplatesHandlerResponses:
     def test_get_template_not_found(self, handler, mock_handler_request):
         """Get non-existent template returns 404."""
         result = handler.handle(
-            "/api/workflow/templates/nonexistent-template",
+            "/api/v1/workflow/templates/nonexistent-template",
             {},
             mock_handler_request,
         )
@@ -223,7 +224,7 @@ class TestWorkflowTemplatesHandlerResponses:
         """Invalid method returns 405."""
         mock_handler_request.command = "DELETE"
         result = handler.handle(
-            "/api/workflow/templates",
+            "/api/v1/workflow/templates",
             {},
             mock_handler_request,
         )
@@ -249,13 +250,14 @@ class TestWorkflowCategoriesHandlerResponses:
     def _parse_result(self, result):
         """Parse HandlerResult into body, status, content_type."""
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         return body, result.status_code, result.content_type
 
     def test_list_categories_returns_json(self, handler, mock_handler_request):
         """List categories returns JSON response."""
         result = handler.handle(
-            "/api/workflow/categories",
+            "/api/v1/workflow/categories",
             {},
             mock_handler_request,
         )
@@ -283,13 +285,14 @@ class TestWorkflowPatternsHandlerResponses:
     def _parse_result(self, result):
         """Parse HandlerResult into body, status, content_type."""
         import json
+
         body = json.loads(result.body.decode("utf-8"))
         return body, result.status_code, result.content_type
 
     def test_list_patterns_returns_json(self, handler, mock_handler_request):
         """List patterns returns JSON response."""
         result = handler.handle(
-            "/api/workflow/patterns",
+            "/api/v1/workflow/patterns",
             {},
             mock_handler_request,
         )

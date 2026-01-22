@@ -110,16 +110,16 @@ class TestRouting:
 
     def test_can_handle_events(self, handler):
         """Test handler recognizes events endpoint."""
-        assert handler.can_handle("/api/bots/zoom/events") is True
+        assert handler.can_handle("/api/v1/bots/zoom/events") is True
 
     def test_can_handle_status(self, handler):
         """Test handler recognizes status endpoint."""
-        assert handler.can_handle("/api/bots/zoom/status") is True
+        assert handler.can_handle("/api/v1/bots/zoom/status") is True
 
     def test_cannot_handle_unknown(self, handler):
         """Test handler rejects unknown endpoints."""
-        assert handler.can_handle("/api/bots/zoom/unknown") is False
-        assert handler.can_handle("/api/other/endpoint") is False
+        assert handler.can_handle("/api/v1/bots/zoom/unknown") is False
+        assert handler.can_handle("/api/v1/other/endpoint") is False
 
 
 # ===========================================================================
@@ -137,7 +137,7 @@ class TestStatusEndpoint:
             method="GET",
         )
 
-        result = handler.handle("/api/bots/zoom/status", {}, mock_http)
+        result = handler.handle("/api/v1/bots/zoom/status", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -156,7 +156,7 @@ class TestStatusEndpoint:
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", ""):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", ""):
-                result = handler.handle("/api/bots/zoom/status", {}, mock_http)
+                result = handler.handle("/api/v1/bots/zoom/status", {}, mock_http)
 
         data = json.loads(result.body)
         # When env vars are empty, enabled should be False
@@ -187,7 +187,7 @@ class TestUrlValidation:
         )
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_SECRET_TOKEN", secret):
-            result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -218,7 +218,7 @@ class TestUrlValidation:
         )
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_SECRET_TOKEN", ""):
-            result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+            result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -252,7 +252,7 @@ class TestBotNotification:
         # Bot not configured
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", ""):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", ""):
-                result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 503
@@ -281,11 +281,9 @@ class TestBotNotification:
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", "test-id"):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", "test-secret"):
-                with patch(
-                    "aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot
-                ):
+                with patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
                     handler._bot_initialized = False  # Reset
-                    result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -320,11 +318,9 @@ class TestSignatureVerification:
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", "test-id"):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", "test-secret"):
-                with patch(
-                    "aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot
-                ):
+                with patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
                     handler._bot_initialized = False  # Reset
-                    result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 401
@@ -350,11 +346,9 @@ class TestSignatureVerification:
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", "test-id"):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", "test-secret"):
-                with patch(
-                    "aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot
-                ):
+                with patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
                     handler._bot_initialized = False  # Reset
-                    result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -379,7 +373,7 @@ class TestErrorHandling:
             method="POST",
         )
 
-        result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+        result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -395,7 +389,7 @@ class TestErrorHandling:
             method="POST",
         )
 
-        result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+        result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
@@ -416,7 +410,7 @@ class TestErrorHandling:
         # Without client credentials, should return 503 for non-validation events
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", ""):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", ""):
-                result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         # Should return 503 (bot not configured) for unknown events
@@ -442,7 +436,7 @@ class TestErrorHandling:
                     side_effect=ImportError("Module not found"),
                 ):
                     handler._bot_initialized = False  # Reset
-                    result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         # Should return 503 when bot fails to initialize
@@ -476,11 +470,9 @@ class TestMeetingEvents:
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", "test-id"):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", "test-secret"):
-                with patch(
-                    "aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot
-                ):
+                with patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
                     handler._bot_initialized = False
-                    result = handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -524,11 +516,11 @@ class TestBotInitialization:
                     handler._bot_initialized = False
 
                     # First request
-                    handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                    handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
                     # Second request (reread body)
                     mock_http.rfile = BytesIO(body)
-                    handler.handle_post("/api/bots/zoom/events", {}, mock_http)
+                    handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
                     # create_zoom_bot should only be called once
                     assert mock_create.call_count == 1

@@ -267,16 +267,16 @@ class TestCanHandle:
     """Tests for route matching."""
 
     def test_handles_export_route(self, handler):
-        assert handler.can_handle("/api/privacy/export") is True
+        assert handler.can_handle("/api/v1/privacy/export") is True
 
     def test_handles_data_inventory_route(self, handler):
-        assert handler.can_handle("/api/privacy/data-inventory") is True
+        assert handler.can_handle("/api/v1/privacy/data-inventory") is True
 
     def test_handles_account_route(self, handler):
-        assert handler.can_handle("/api/privacy/account") is True
+        assert handler.can_handle("/api/v1/privacy/account") is True
 
     def test_handles_preferences_route(self, handler):
-        assert handler.can_handle("/api/privacy/preferences") is True
+        assert handler.can_handle("/api/v1/privacy/preferences") is True
 
     def test_handles_v2_export_route(self, handler):
         assert handler.can_handle("/api/v2/users/me/export") is True
@@ -285,8 +285,8 @@ class TestCanHandle:
         assert handler.can_handle("/api/v2/users/me") is True
 
     def test_does_not_handle_other_routes(self, handler):
-        assert handler.can_handle("/api/auth/login") is False
-        assert handler.can_handle("/api/users/123") is False
+        assert handler.can_handle("/api/v1/auth/login") is False
+        assert handler.can_handle("/api/v1/users/123") is False
 
 
 # ===========================================================================
@@ -302,7 +302,7 @@ class TestDataExport:
         mock_extract.return_value = MockAuthContext(is_authenticated=False)
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         assert get_status(result) == 401
 
@@ -311,7 +311,7 @@ class TestDataExport:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -323,7 +323,7 @@ class TestDataExport:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         body = get_body(result)
         assert "organization" in body
@@ -334,7 +334,7 @@ class TestDataExport:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         body = get_body(result)
         assert "oauth_providers" in body
@@ -346,7 +346,7 @@ class TestDataExport:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         body = get_body(result)
         assert "preferences" in body
@@ -357,7 +357,7 @@ class TestDataExport:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         body = get_body(result)
         assert "audit_log" in body
@@ -368,7 +368,7 @@ class TestDataExport:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         body = get_body(result)
         assert "_export_metadata" in body
@@ -379,7 +379,7 @@ class TestDataExport:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {"format": "csv"}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {"format": "csv"}, mock_handler, "GET")
 
         assert get_status(result) == 200
         # CSV returns bytes, not JSON
@@ -393,7 +393,7 @@ class TestDataExport:
         mock_extract.return_value = MockAuthContext(user_id="nonexistent")
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         assert get_status(result) == 404
 
@@ -411,7 +411,7 @@ class TestDataInventory:
         mock_extract.return_value = MockAuthContext(is_authenticated=False)
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/data-inventory", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/data-inventory", {}, mock_handler, "GET")
 
         assert get_status(result) == 401
 
@@ -420,7 +420,7 @@ class TestDataInventory:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/data-inventory", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/data-inventory", {}, mock_handler, "GET")
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -432,7 +432,7 @@ class TestDataInventory:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/data-inventory", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/data-inventory", {}, mock_handler, "GET")
 
         body = get_body(result)
         assert "third_party_sharing" in body
@@ -443,7 +443,7 @@ class TestDataInventory:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/data-inventory", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/data-inventory", {}, mock_handler, "GET")
 
         body = get_body(result)
         assert body["data_sold"] is False
@@ -462,7 +462,7 @@ class TestAccountDeletion:
         mock_extract.return_value = MockAuthContext(is_authenticated=False)
         mock_handler = create_mock_handler("DELETE", {"password": "test", "confirm": True})
 
-        result = handler.handle("/api/privacy/account", {}, mock_handler, "DELETE")
+        result = handler.handle("/api/v1/privacy/account", {}, mock_handler, "DELETE")
 
         assert get_status(result) == 401
 
@@ -471,7 +471,7 @@ class TestAccountDeletion:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("DELETE", {"password": "correct_password"})
 
-        result = handler.handle("/api/privacy/account", {}, mock_handler, "DELETE")
+        result = handler.handle("/api/v1/privacy/account", {}, mock_handler, "DELETE")
 
         assert get_status(result) == 400
         body = get_body(result)
@@ -484,7 +484,7 @@ class TestAccountDeletion:
             "DELETE", {"password": "wrong_password", "confirm": True}
         )
 
-        result = handler.handle("/api/privacy/account", {}, mock_handler, "DELETE")
+        result = handler.handle("/api/v1/privacy/account", {}, mock_handler, "DELETE")
 
         assert get_status(result) == 401
         body = get_body(result)
@@ -502,7 +502,7 @@ class TestAccountDeletion:
             "DELETE", {"password": "correct_password", "confirm": True, "reason": "Testing"}
         )
 
-        result = handler.handle("/api/privacy/account", {}, mock_handler, "DELETE")
+        result = handler.handle("/api/v1/privacy/account", {}, mock_handler, "DELETE")
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -520,7 +520,7 @@ class TestAccountDeletion:
             "DELETE", {"password": "correct_password", "confirm": True}
         )
 
-        result = handler.handle("/api/privacy/account", {}, mock_handler, "DELETE")
+        result = handler.handle("/api/v1/privacy/account", {}, mock_handler, "DELETE")
 
         assert get_status(result) == 400
         body = get_body(result)
@@ -535,7 +535,7 @@ class TestAccountDeletion:
             "DELETE", {"password": "correct_password", "confirm": True}
         )
 
-        handler.handle("/api/privacy/account", {}, mock_handler, "DELETE")
+        handler.handle("/api/v1/privacy/account", {}, mock_handler, "DELETE")
 
         # Should have logged deletion request and completion
         assert len(user_store.audit_log) > initial_audit_count
@@ -548,7 +548,7 @@ class TestAccountDeletion:
             "DELETE", {"password": "correct_password", "confirm": True}
         )
 
-        handler.handle("/api/privacy/account", {}, mock_handler, "DELETE")
+        handler.handle("/api/v1/privacy/account", {}, mock_handler, "DELETE")
 
         # Check that updates include anonymization
         email_updates = [u for u in user_store.updates if "email" in u]
@@ -569,7 +569,7 @@ class TestPrivacyPreferences:
         mock_extract.return_value = MockAuthContext(is_authenticated=False)
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/preferences", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/preferences", {}, mock_handler, "GET")
 
         assert get_status(result) == 401
 
@@ -581,7 +581,7 @@ class TestPrivacyPreferences:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/preferences", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/preferences", {}, mock_handler, "GET")
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -595,7 +595,7 @@ class TestPrivacyPreferences:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/preferences", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/preferences", {}, mock_handler, "GET")
 
         body = get_body(result)
         assert body["marketing_opt_out"] is True
@@ -605,7 +605,7 @@ class TestPrivacyPreferences:
         mock_extract.return_value = MockAuthContext(is_authenticated=False)
         mock_handler = create_mock_handler("POST", {"do_not_sell": True})
 
-        result = handler.handle("/api/privacy/preferences", {}, mock_handler, "POST")
+        result = handler.handle("/api/v1/privacy/preferences", {}, mock_handler, "POST")
 
         assert get_status(result) == 401
 
@@ -616,7 +616,7 @@ class TestPrivacyPreferences:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("POST", {"do_not_sell": True})
 
-        result = handler.handle("/api/privacy/preferences", {}, mock_handler, "POST")
+        result = handler.handle("/api/v1/privacy/preferences", {}, mock_handler, "POST")
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -628,7 +628,7 @@ class TestPrivacyPreferences:
         initial_count = len(user_store.audit_log)
         mock_handler = create_mock_handler("POST", {"analytics_opt_out": True})
 
-        handler.handle("/api/privacy/preferences", {}, mock_handler, "POST")
+        handler.handle("/api/v1/privacy/preferences", {}, mock_handler, "POST")
 
         assert len(user_store.audit_log) > initial_count
         last_entry = user_store.audit_log[-1]
@@ -679,7 +679,7 @@ class TestEdgeCases:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -691,7 +691,7 @@ class TestEdgeCases:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -703,7 +703,7 @@ class TestEdgeCases:
         mock_extract.return_value = auth_context
         mock_handler = create_mock_handler("GET")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -712,7 +712,7 @@ class TestEdgeCases:
     def test_method_not_allowed(self, handler):
         mock_handler = create_mock_handler("PATCH")
 
-        result = handler.handle("/api/privacy/export", {}, mock_handler, "PATCH")
+        result = handler.handle("/api/v1/privacy/export", {}, mock_handler, "PATCH")
 
         assert get_status(result) == 405
 
@@ -722,6 +722,6 @@ class TestEdgeCases:
         handler_no_store = PrivacyHandler({})
         mock_handler = create_mock_handler("GET")
 
-        result = handler_no_store.handle("/api/privacy/export", {}, mock_handler, "GET")
+        result = handler_no_store.handle("/api/v1/privacy/export", {}, mock_handler, "GET")
 
         assert get_status(result) == 503

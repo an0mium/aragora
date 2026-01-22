@@ -394,7 +394,9 @@ class TestBaseHandlerPathExtraction:
         from aragora.server.handlers.base import BaseHandler
 
         handler = BaseHandler({})
-        value, err = handler.extract_path_param("/api/debates/debate-123/messages", 2, "debate_id")
+        value, err = handler.extract_path_param(
+            "/api/v1/debates/debate-123/messages", 2, "debate_id"
+        )
         assert value == "debate-123"
         assert err is None
 
@@ -403,7 +405,7 @@ class TestBaseHandlerPathExtraction:
         from aragora.server.handlers.base import BaseHandler
 
         handler = BaseHandler({})
-        value, err = handler.extract_path_param("/api/debates", 5, "missing")
+        value, err = handler.extract_path_param("/api/v1/debates", 5, "missing")
         assert value is None
         assert err is not None
         assert err.status_code == 400
@@ -414,7 +416,7 @@ class TestBaseHandlerPathExtraction:
 
         handler = BaseHandler({})
         # Double slash creates empty segment
-        value, err = handler.extract_path_param("/api//debates", 1, "empty")
+        value, err = handler.extract_path_param("/api/v1//debates", 1, "empty")
         assert value is None
         assert err is not None
 
@@ -424,7 +426,7 @@ class TestBaseHandlerPathExtraction:
 
         handler = BaseHandler({})
         params, err = handler.extract_path_params(
-            "/api/debates/debate-123/rounds/5",
+            "/api/v1/debates/debate-123/rounds/5",
             [
                 (2, "debate_id", SAFE_ID_PATTERN),
                 (3, "resource", None),
@@ -442,7 +444,7 @@ class TestBaseHandlerPathExtraction:
 
         handler = BaseHandler({})
         params, err = handler.extract_path_params(
-            "/api/debates",
+            "/api/v1/debates",
             [
                 (2, "debate_id", None),
                 (10, "nonexistent", None),  # This would fail if reached

@@ -37,23 +37,23 @@ class TestMetricsHandlerRouting:
 
     def test_can_handle_metrics(self, handler):
         """Handler can handle metrics base endpoint."""
-        assert handler.can_handle("/api/metrics")
+        assert handler.can_handle("/api/v1/metrics")
 
     def test_can_handle_health(self, handler):
         """Handler can handle health endpoint."""
-        assert handler.can_handle("/api/metrics/health")
+        assert handler.can_handle("/api/v1/metrics/health")
 
     def test_can_handle_cache(self, handler):
         """Handler can handle cache endpoint."""
-        assert handler.can_handle("/api/metrics/cache")
+        assert handler.can_handle("/api/v1/metrics/cache")
 
     def test_can_handle_verification(self, handler):
         """Handler can handle verification endpoint."""
-        assert handler.can_handle("/api/metrics/verification")
+        assert handler.can_handle("/api/v1/metrics/verification")
 
     def test_can_handle_system(self, handler):
         """Handler can handle system endpoint."""
-        assert handler.can_handle("/api/metrics/system")
+        assert handler.can_handle("/api/v1/metrics/system")
 
     def test_can_handle_prometheus(self, handler):
         """Handler can handle Prometheus metrics endpoint."""
@@ -61,8 +61,8 @@ class TestMetricsHandlerRouting:
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/other")
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/other")
 
 
 class TestMetricsHandlerRoutesAttribute:
@@ -74,23 +74,23 @@ class TestMetricsHandlerRoutesAttribute:
 
     def test_routes_contains_metrics(self, handler):
         """ROUTES contains metrics base."""
-        assert "/api/metrics" in handler.ROUTES
+        assert "/api/v1/metrics" in handler.ROUTES
 
     def test_routes_contains_health(self, handler):
         """ROUTES contains health."""
-        assert "/api/metrics/health" in handler.ROUTES
+        assert "/api/v1/metrics/health" in handler.ROUTES
 
     def test_routes_contains_cache(self, handler):
         """ROUTES contains cache."""
-        assert "/api/metrics/cache" in handler.ROUTES
+        assert "/api/v1/metrics/cache" in handler.ROUTES
 
     def test_routes_contains_verification(self, handler):
         """ROUTES contains verification."""
-        assert "/api/metrics/verification" in handler.ROUTES
+        assert "/api/v1/metrics/verification" in handler.ROUTES
 
     def test_routes_contains_system(self, handler):
         """ROUTES contains system."""
-        assert "/api/metrics/system" in handler.ROUTES
+        assert "/api/v1/metrics/system" in handler.ROUTES
 
     def test_routes_contains_prometheus(self, handler):
         """ROUTES contains Prometheus endpoint."""
@@ -109,7 +109,7 @@ class TestMetricsHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics", {}, mock_http)
+        result = handler.handle("/api/v1/metrics", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -119,7 +119,7 @@ class TestMetricsHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics/health", {}, mock_http)
+        result = handler.handle("/api/v1/metrics/health", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -129,7 +129,7 @@ class TestMetricsHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics/cache", {}, mock_http)
+        result = handler.handle("/api/v1/metrics/cache", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -139,7 +139,7 @@ class TestMetricsHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics/verification", {}, mock_http)
+        result = handler.handle("/api/v1/metrics/verification", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -149,7 +149,7 @@ class TestMetricsHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics/system", {}, mock_http)
+        result = handler.handle("/api/v1/metrics/system", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -169,7 +169,7 @@ class TestMetricsHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/unknown", {}, mock_http)
+        result = handler.handle("/api/v1/unknown", {}, mock_http)
 
         assert result is None
 
@@ -236,7 +236,7 @@ class TestRequestTracking:
 
     def test_track_request_increments_count(self):
         """track_request increments endpoint count."""
-        endpoint = "/api/test/unique_endpoint_123"
+        endpoint = "/api/v1/test/unique_endpoint_123"
 
         track_request(endpoint)
         track_request(endpoint)
@@ -247,7 +247,7 @@ class TestRequestTracking:
 
     def test_track_request_handles_error(self):
         """track_request can track errors."""
-        endpoint = "/api/test/error_endpoint"
+        endpoint = "/api/v1/test/error_endpoint"
 
         track_request(endpoint, is_error=True)
 
@@ -256,9 +256,9 @@ class TestRequestTracking:
 
     def test_track_request_multiple_endpoints(self):
         """track_request tracks multiple endpoints."""
-        track_request("/api/endpoint1")
-        track_request("/api/endpoint2")
-        track_request("/api/endpoint3")
+        track_request("/api/v1/endpoint1")
+        track_request("/api/v1/endpoint2")
+        track_request("/api/v1/endpoint3")
 
         # Verify no crash
         assert True
@@ -276,7 +276,7 @@ class TestMetricsHandlerResponseFormat:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics", {}, mock_http)
+        result = handler.handle("/api/v1/metrics", {}, mock_http)
 
         assert result is not None
         assert result.content_type == "application/json"
@@ -297,7 +297,7 @@ class TestMetricsHandlerResponseFormat:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics/health", {}, mock_http)
+        result = handler.handle("/api/v1/metrics/health", {}, mock_http)
 
         assert result is not None
         # Body should contain status
@@ -319,7 +319,7 @@ class TestMetricsHandlerSystemInfo:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics/system", {}, mock_http)
+        result = handler.handle("/api/v1/metrics/system", {}, mock_http)
 
         assert result is not None
         import json
@@ -332,7 +332,7 @@ class TestMetricsHandlerSystemInfo:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 8080)
 
-        result = handler.handle("/api/metrics/system", {}, mock_http)
+        result = handler.handle("/api/v1/metrics/system", {}, mock_http)
 
         assert result is not None
         import json

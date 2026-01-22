@@ -35,6 +35,7 @@ from aragora.server.handlers.admin import AdminHandler, ADMIN_ROLES
 @dataclass
 class MockPermissionDecision:
     """Mock RBAC permission decision."""
+
     allowed: bool = True
     reason: str = "Allowed by test"
 
@@ -259,14 +260,14 @@ class TestAdminHandlerRouting:
     """Tests for AdminHandler routing."""
 
     def test_can_handle_admin_paths(self, admin_handler):
-        assert admin_handler.can_handle("/api/admin/organizations") is True
-        assert admin_handler.can_handle("/api/admin/users") is True
-        assert admin_handler.can_handle("/api/admin/stats") is True
-        assert admin_handler.can_handle("/api/admin/nomic/status") is True
+        assert admin_handler.can_handle("/api/v1/admin/organizations") is True
+        assert admin_handler.can_handle("/api/v1/admin/users") is True
+        assert admin_handler.can_handle("/api/v1/admin/stats") is True
+        assert admin_handler.can_handle("/api/v1/admin/nomic/status") is True
 
     def test_cannot_handle_non_admin_paths(self, admin_handler):
-        assert admin_handler.can_handle("/api/billing/plans") is False
-        assert admin_handler.can_handle("/api/debates") is False
+        assert admin_handler.can_handle("/api/v1/billing/plans") is False
+        assert admin_handler.can_handle("/api/v1/debates") is False
 
 
 # ===========================================================================
@@ -283,7 +284,7 @@ class TestAdminAuthorization:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/stats", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -294,7 +295,7 @@ class TestAdminAuthorization:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/stats", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -305,7 +306,7 @@ class TestAdminAuthorization:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/stats", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 403
@@ -316,7 +317,7 @@ class TestAdminAuthorization:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/stats", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 401
@@ -336,7 +337,7 @@ class TestAdminListOrganizations:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/organizations", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/organizations", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -351,7 +352,7 @@ class TestAdminListOrganizations:
         query_params = {"limit": "10", "offset": "5"}
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/organizations", query_params, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/organizations", query_params, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -374,7 +375,7 @@ class TestAdminListUsers:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/users", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/users", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -395,7 +396,7 @@ class TestAdminListUsers:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/users", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/users", {}, handler, "GET")
 
         assert result is not None
         data = get_body(result)
@@ -421,7 +422,7 @@ class TestAdminGetStats:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/stats", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/stats", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -443,7 +444,7 @@ class TestAdminSystemMetrics:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/system/metrics", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/system/metrics", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -473,7 +474,7 @@ class TestAdminRevenueStats:
                 "starter": MagicMock(price_monthly_cents=2900),
             },
         ):
-            result = admin_handler.handle("/api/admin/revenue", {}, handler, "GET")
+            result = admin_handler.handle("/api/v1/admin/revenue", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -500,7 +501,7 @@ class TestAdminImpersonate:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/impersonate/user-456", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/impersonate/user-456", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 200
@@ -516,7 +517,7 @@ class TestAdminImpersonate:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/impersonate/nonexistent", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/impersonate/nonexistent", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 404
@@ -528,7 +529,9 @@ class TestAdminImpersonate:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/impersonate/../etc/passwd", {}, handler, "POST")
+        result = admin_handler.handle(
+            "/api/v1/admin/impersonate/../etc/passwd", {}, handler, "POST"
+        )
 
         assert result is not None
         # Handler returns 404 (user not found) for invalid IDs - secure behavior
@@ -551,7 +554,9 @@ class TestAdminDeactivateUser:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/users/user-456/deactivate", {}, handler, "POST")
+        result = admin_handler.handle(
+            "/api/v1/admin/users/user-456/deactivate", {}, handler, "POST"
+        )
 
         assert result is not None
         assert get_status(result) == 200
@@ -566,7 +571,9 @@ class TestAdminDeactivateUser:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/users/admin-123/deactivate", {}, handler, "POST")
+        result = admin_handler.handle(
+            "/api/v1/admin/users/admin-123/deactivate", {}, handler, "POST"
+        )
 
         assert result is not None
         assert get_status(result) == 400
@@ -592,7 +599,7 @@ class TestAdminActivateUser:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/users/user-456/activate", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/users/user-456/activate", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 200
@@ -622,7 +629,7 @@ class TestAdminUnlockUser:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/users/user-456/unlock", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/users/user-456/unlock", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 200
@@ -645,7 +652,7 @@ class TestAdminNomicStatus:
 
         handler = make_mock_handler()
 
-        result = admin_handler.handle("/api/admin/nomic/status", {}, handler, "GET")
+        result = admin_handler.handle("/api/v1/admin/nomic/status", {}, handler, "GET")
 
         assert result is not None
         assert get_status(result) == 200
@@ -669,7 +676,9 @@ class TestAdminNomicCircuitBreakers:
         handler = make_mock_handler()
 
         with patch.dict("sys.modules", {"aragora.nomic.recovery": None}):
-            result = admin_handler.handle("/api/admin/nomic/circuit-breakers", {}, handler, "GET")
+            result = admin_handler.handle(
+                "/api/v1/admin/nomic/circuit-breakers", {}, handler, "GET"
+            )
 
         # Should handle gracefully
         assert result is not None
@@ -695,7 +704,7 @@ class TestAdminNomicReset:
             method="POST",
         )
 
-        result = admin_handler.handle("/api/admin/nomic/reset", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/nomic/reset", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 200
@@ -714,7 +723,7 @@ class TestAdminNomicReset:
             method="POST",
         )
 
-        result = admin_handler.handle("/api/admin/nomic/reset", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/nomic/reset", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 400
@@ -743,7 +752,7 @@ class TestAdminNomicPauseResume:
             method="POST",
         )
 
-        result = admin_handler.handle("/api/admin/nomic/pause", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/nomic/pause", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 200
@@ -765,7 +774,7 @@ class TestAdminNomicPauseResume:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/nomic/resume", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/nomic/resume", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 200
@@ -786,7 +795,7 @@ class TestAdminNomicPauseResume:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/nomic/resume", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/nomic/resume", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 400
@@ -808,7 +817,7 @@ class TestAdminResetCircuitBreakers:
 
         with patch.dict("sys.modules", {"aragora.nomic.recovery": None}):
             result = admin_handler.handle(
-                "/api/admin/nomic/circuit-breakers/reset", {}, handler, "POST"
+                "/api/v1/admin/nomic/circuit-breakers/reset", {}, handler, "POST"
             )
 
         # Should handle gracefully with 503
@@ -829,7 +838,7 @@ class TestAdminMethodNotAllowed:
 
         handler = make_mock_handler(method="POST")
 
-        result = admin_handler.handle("/api/admin/stats", {}, handler, "POST")
+        result = admin_handler.handle("/api/v1/admin/stats", {}, handler, "POST")
 
         assert result is not None
         assert get_status(result) == 405

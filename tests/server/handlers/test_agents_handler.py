@@ -29,11 +29,11 @@ class TestAgentsHandlerInit:
     def test_routes_includes_core_endpoints(self):
         """ROUTES should include core agent endpoints."""
         routes = AgentsHandler.ROUTES
-        assert "/api/agents" in routes
-        assert "/api/leaderboard" in routes
-        assert "/api/rankings" in routes
-        assert "/api/matches/recent" in routes
-        assert "/api/agent/compare" in routes
+        assert "/api/v1/agents" in routes
+        assert "/api/v1/leaderboard" in routes
+        assert "/api/v1/rankings" in routes
+        assert "/api/v1/matches/recent" in routes
+        assert "/api/v1/agent/compare" in routes
 
 
 class TestAgentsHandlerCanHandle:
@@ -42,64 +42,64 @@ class TestAgentsHandlerCanHandle:
     def test_can_handle_agents_list(self):
         """Should handle /api/agents."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/agents") is True
+        assert handler.can_handle("/api/v1/agents") is True
 
     def test_can_handle_local_agents(self):
         """Should handle /api/agents/local."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/agents/local") is True
+        assert handler.can_handle("/api/v1/agents/local") is True
 
     def test_can_handle_local_status(self):
         """Should handle /api/agents/local/status."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/agents/local/status") is True
+        assert handler.can_handle("/api/v1/agents/local/status") is True
 
     def test_can_handle_leaderboard(self):
         """Should handle /api/leaderboard."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/leaderboard") is True
+        assert handler.can_handle("/api/v1/leaderboard") is True
 
     def test_can_handle_rankings(self):
         """Should handle /api/rankings."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/rankings") is True
+        assert handler.can_handle("/api/v1/rankings") is True
 
     def test_can_handle_recent_matches(self):
         """Should handle /api/matches/recent."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/matches/recent") is True
+        assert handler.can_handle("/api/v1/matches/recent") is True
 
     def test_can_handle_agent_compare(self):
         """Should handle /api/agent/compare."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/agent/compare") is True
+        assert handler.can_handle("/api/v1/agent/compare") is True
 
     def test_can_handle_agent_profile(self):
         """Should handle /api/agent/{name}/* paths."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/agent/claude/profile") is True
+        assert handler.can_handle("/api/v1/agent/claude/profile") is True
 
     def test_can_handle_agent_history(self):
         """Should handle agent history endpoint."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/agent/claude/history") is True
+        assert handler.can_handle("/api/v1/agent/claude/history") is True
 
     def test_can_handle_flips_recent(self):
         """Should handle /api/flips/recent."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/flips/recent") is True
+        assert handler.can_handle("/api/v1/flips/recent") is True
 
     def test_can_handle_flips_summary(self):
         """Should handle /api/flips/summary."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/flips/summary") is True
+        assert handler.can_handle("/api/v1/flips/summary") is True
 
     def test_cannot_handle_unknown_path(self):
         """Should not handle unknown paths."""
         handler = AgentsHandler({})
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/other") is False
-        assert handler.can_handle("/api/users") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/other") is False
+        assert handler.can_handle("/api/v1/users") is False
 
 
 class TestAgentsHandlerDispatch:
@@ -217,7 +217,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._list_agents = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/agents", {}, None)
+        handler.handle("/api/v1/agents", {}, None)
         handler._list_agents.assert_called_once()
 
     def test_handle_local_agents(self):
@@ -225,7 +225,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._list_local_agents = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/agents/local", {}, None)
+        handler.handle("/api/v1/agents/local", {}, None)
         handler._list_local_agents.assert_called_once()
 
     def test_handle_local_status(self):
@@ -233,7 +233,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._get_local_status = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/agents/local/status", {}, None)
+        handler.handle("/api/v1/agents/local/status", {}, None)
         handler._get_local_status.assert_called_once()
 
     def test_handle_leaderboard(self):
@@ -241,7 +241,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._get_leaderboard = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/leaderboard", {}, None)
+        handler.handle("/api/v1/leaderboard", {}, None)
         handler._get_leaderboard.assert_called()
 
     def test_handle_rankings(self):
@@ -249,7 +249,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._get_leaderboard = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/rankings", {}, None)
+        handler.handle("/api/v1/rankings", {}, None)
         handler._get_leaderboard.assert_called()
 
     def test_handle_recent_matches(self):
@@ -257,7 +257,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._get_recent_matches = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/matches/recent", {}, None)
+        handler.handle("/api/v1/matches/recent", {}, None)
         handler._get_recent_matches.assert_called()
 
     def test_handle_agent_compare(self):
@@ -265,7 +265,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._compare_agents = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/agent/compare", {"agents": ["claude", "gpt"]}, None)
+        handler.handle("/api/v1/agent/compare", {"agents": ["claude", "gpt"]}, None)
         handler._compare_agents.assert_called()
 
     def test_handle_flips_recent(self):
@@ -273,7 +273,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._get_recent_flips = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/flips/recent", {}, None)
+        handler.handle("/api/v1/flips/recent", {}, None)
         handler._get_recent_flips.assert_called()
 
     def test_handle_flips_summary(self):
@@ -281,7 +281,7 @@ class TestAgentsHandlerHandle:
         handler = AgentsHandler({})
         handler._get_flip_summary = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/flips/summary", {}, None)
+        handler.handle("/api/v1/flips/summary", {}, None)
         handler._get_flip_summary.assert_called_once()
 
 
@@ -291,7 +291,7 @@ class TestAgentsHandlerAgentEndpoint:
     def test_invalid_short_path(self):
         """Short paths should return error."""
         handler = AgentsHandler({})
-        result = handler._handle_agent_endpoint("/api/agent", {})
+        result = handler._handle_agent_endpoint("/api/v1/agent", {})
         assert result.status_code == 400
 
     def test_head_to_head_routing(self):
@@ -309,7 +309,7 @@ class TestAgentsHandlerAgentEndpoint:
                 ("gpt", None),  # Second call returns opponent name
             ],
         ):
-            result = handler._handle_agent_endpoint("/api/agent/claude/head-to-head/gpt", {})
+            result = handler._handle_agent_endpoint("/api/v1/agent/claude/head-to-head/gpt", {})
             handler._get_head_to_head.assert_called_once_with("claude", "gpt")
 
     def test_opponent_briefing_routing(self):
@@ -325,7 +325,9 @@ class TestAgentsHandlerAgentEndpoint:
                 ("gpt", None),
             ],
         ):
-            result = handler._handle_agent_endpoint("/api/agent/claude/opponent-briefing/gpt", {})
+            result = handler._handle_agent_endpoint(
+                "/api/v1/agent/claude/opponent-briefing/gpt", {}
+            )
             handler._get_opponent_briefing.assert_called_once_with("claude", "gpt")
 
 
@@ -359,7 +361,7 @@ class TestListAgentsIncludeStats:
         handler = AgentsHandler({})
         handler._list_agents = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/agents", {}, None)
+        handler.handle("/api/v1/agents", {}, None)
         handler._list_agents.assert_called_with(False)
 
     def test_include_stats_true(self):
@@ -367,7 +369,7 @@ class TestListAgentsIncludeStats:
         handler = AgentsHandler({})
         handler._list_agents = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/agents", {"include_stats": ["true"]}, None)
+        handler.handle("/api/v1/agents", {"include_stats": ["true"]}, None)
         handler._list_agents.assert_called_with(True)
 
     def test_include_stats_false(self):
@@ -375,5 +377,5 @@ class TestListAgentsIncludeStats:
         handler = AgentsHandler({})
         handler._list_agents = MagicMock(return_value={"status": 200})
 
-        handler.handle("/api/agents", {"include_stats": ["false"]}, None)
+        handler.handle("/api/v1/agents", {"include_stats": ["false"]}, None)
         handler._list_agents.assert_called_with(False)

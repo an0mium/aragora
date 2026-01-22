@@ -37,44 +37,44 @@ class TestMLHandlerCanHandle:
 
     def test_can_handle_route(self, ml_handler):
         """Test can_handle returns True for route endpoint."""
-        assert ml_handler.can_handle("/api/ml/route")
+        assert ml_handler.can_handle("/api/v1/ml/route")
 
     def test_can_handle_score(self, ml_handler):
         """Test can_handle returns True for score endpoint."""
-        assert ml_handler.can_handle("/api/ml/score")
+        assert ml_handler.can_handle("/api/v1/ml/score")
 
     def test_can_handle_score_batch(self, ml_handler):
         """Test can_handle returns True for batch score endpoint."""
-        assert ml_handler.can_handle("/api/ml/score-batch")
+        assert ml_handler.can_handle("/api/v1/ml/score-batch")
 
     def test_can_handle_consensus(self, ml_handler):
         """Test can_handle returns True for consensus endpoint."""
-        assert ml_handler.can_handle("/api/ml/consensus")
+        assert ml_handler.can_handle("/api/v1/ml/consensus")
 
     def test_can_handle_export_training(self, ml_handler):
         """Test can_handle returns True for export-training endpoint."""
-        assert ml_handler.can_handle("/api/ml/export-training")
+        assert ml_handler.can_handle("/api/v1/ml/export-training")
 
     def test_can_handle_models(self, ml_handler):
         """Test can_handle returns True for models endpoint."""
-        assert ml_handler.can_handle("/api/ml/models")
+        assert ml_handler.can_handle("/api/v1/ml/models")
 
     def test_can_handle_stats(self, ml_handler):
         """Test can_handle returns True for stats endpoint."""
-        assert ml_handler.can_handle("/api/ml/stats")
+        assert ml_handler.can_handle("/api/v1/ml/stats")
 
     def test_can_handle_embed(self, ml_handler):
         """Test can_handle returns True for embed endpoint."""
-        assert ml_handler.can_handle("/api/ml/embed")
+        assert ml_handler.can_handle("/api/v1/ml/embed")
 
     def test_can_handle_search(self, ml_handler):
         """Test can_handle returns True for search endpoint."""
-        assert ml_handler.can_handle("/api/ml/search")
+        assert ml_handler.can_handle("/api/v1/ml/search")
 
     def test_cannot_handle_unknown(self, ml_handler):
         """Test can_handle returns False for unknown endpoint."""
-        assert not ml_handler.can_handle("/api/ml/unknown")
-        assert not ml_handler.can_handle("/api/debates")
+        assert not ml_handler.can_handle("/api/v1/ml/unknown")
+        assert not ml_handler.can_handle("/api/v1/debates")
 
 
 class TestMLHandlerGetModels:
@@ -82,7 +82,7 @@ class TestMLHandlerGetModels:
 
     def test_get_models(self, ml_handler, mock_http_handler):
         """Test get_models returns model info."""
-        result = ml_handler.handle("/api/ml/models", {}, mock_http_handler)
+        result = ml_handler.handle("/api/v1/ml/models", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -101,7 +101,7 @@ class TestMLHandlerGetStats:
 
     def test_get_stats(self, ml_handler, mock_http_handler):
         """Test get_stats returns statistics."""
-        result = ml_handler.handle("/api/ml/stats", {}, mock_http_handler)
+        result = ml_handler.handle("/api/v1/ml/stats", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -121,7 +121,7 @@ class TestMLHandlerPostRoute:
             "available_agents": ["claude", "gpt-4", "codex"],
             "team_size": 2,
         }
-        result = ml_handler.handle_post("/api/ml/route", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/route", data, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -136,7 +136,7 @@ class TestMLHandlerPostRoute:
             "available_agents": ["claude", "gpt-4"],
             "team_size": 2,
         }
-        result = ml_handler.handle_post("/api/ml/route", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/route", data, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -150,7 +150,7 @@ class TestMLHandlerPostRoute:
             "available_agents": [],
             "team_size": 2,
         }
-        result = ml_handler.handle_post("/api/ml/route", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/route", data, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -167,7 +167,7 @@ class TestMLHandlerPostScore:
             "text": "This is a comprehensive, well-structured response that addresses the core question.",
             "context": "Design a rate limiter",
         }
-        result = ml_handler.handle_post("/api/ml/score", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/score", data, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -179,7 +179,7 @@ class TestMLHandlerPostScore:
     def test_post_score_missing_text(self, ml_handler, mock_http_handler):
         """Test posting score request without text."""
         data = {"context": "Some context"}
-        result = ml_handler.handle_post("/api/ml/score", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/score", data, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -189,7 +189,7 @@ class TestMLHandlerPostScore:
     def test_post_score_empty_text(self, ml_handler, mock_http_handler):
         """Test posting score request with empty text returns error."""
         data = {"text": "", "context": "Some context"}
-        result = ml_handler.handle_post("/api/ml/score", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/score", data, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -209,7 +209,7 @@ class TestMLHandlerPostScoreBatch:
             ],
             "context": "Task context",
         }
-        result = ml_handler.handle_post("/api/ml/score-batch", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/score-batch", data, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -219,7 +219,7 @@ class TestMLHandlerPostScoreBatch:
     def test_post_score_batch_empty(self, ml_handler, mock_http_handler):
         """Test posting batch score with empty list returns error."""
         data = {"texts": []}
-        result = ml_handler.handle_post("/api/ml/score-batch", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/score-batch", data, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -241,7 +241,7 @@ class TestMLHandlerPostConsensus:
             "current_round": 2,
             "total_rounds": 3,
         }
-        result = ml_handler.handle_post("/api/ml/consensus", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/consensus", data, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -257,7 +257,7 @@ class TestMLHandlerPostConsensus:
             "current_round": 1,
             "total_rounds": 3,
         }
-        result = ml_handler.handle_post("/api/ml/consensus", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/consensus", data, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -272,7 +272,7 @@ class TestMLHandlerPostEmbed:
     def test_post_embed_valid(self, ml_handler, mock_http_handler):
         """Test posting valid embed request."""
         data = {"text": "Some text to embed"}
-        result = ml_handler.handle_post("/api/ml/embed", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/embed", data, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -285,7 +285,7 @@ class TestMLHandlerPostEmbed:
         data = {
             "texts": ["First text", "Second text", "Third text"],
         }
-        result = ml_handler.handle_post("/api/ml/embed", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/embed", data, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -308,7 +308,7 @@ class TestMLHandlerPostSearch:
             ],
             "top_k": 2,
         }
-        result = ml_handler.handle_post("/api/ml/search", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/search", data, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -338,7 +338,7 @@ class TestMLHandlerPostExportTraining:
             ],
             "format": "json",
         }
-        result = ml_handler.handle_post("/api/ml/export-training", data, mock_http_handler)
+        result = ml_handler.handle_post("/api/v1/ml/export-training", data, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -382,7 +382,7 @@ class TestMLHandlerIntegration:
             "available_agents": ["claude", "gpt-4", "codex", "gemini"],
             "team_size": 3,
         }
-        route_result = ml_handler.handle_post("/api/ml/route", route_data, mock_http_handler)
+        route_result = ml_handler.handle_post("/api/v1/ml/route", route_data, mock_http_handler)
         assert route_result is not None
         route_body = json.loads(route_result.body)
         selected = route_body.get("selected_agents", [])
@@ -392,7 +392,7 @@ class TestMLHandlerIntegration:
             "text": "Implement using Redis with consistent hashing for distribution",
             "context": "Design a distributed cache",
         }
-        score_result = ml_handler.handle_post("/api/ml/score", score_data, mock_http_handler)
+        score_result = ml_handler.handle_post("/api/v1/ml/score", score_data, mock_http_handler)
         assert score_result is not None
         score_body = json.loads(score_result.body)
         assert "overall" in score_body
@@ -408,7 +408,7 @@ class TestMLHandlerIntegration:
             "total_rounds": 3,
         }
         consensus_result = ml_handler.handle_post(
-            "/api/ml/consensus", consensus_data, mock_http_handler
+            "/api/v1/ml/consensus", consensus_data, mock_http_handler
         )
         assert consensus_result is not None
         consensus_body = json.loads(consensus_result.body)

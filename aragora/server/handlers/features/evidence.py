@@ -223,8 +223,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return self._handle_get_debate_evidence(debate_id, query_params)
 
         # GET /api/evidence/:id
-        if path.startswith("/api/v1/evidence/") and path.count("/") == 3:
-            evidence_id, err = self.extract_path_param(path, 2, "evidence_id", SAFE_ID_PATTERN)
+        if path.startswith("/api/v1/evidence/") and path.count("/") == 4:
+            evidence_id, err = self.extract_path_param(path, 3, "evidence_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_evidence(evidence_id)
@@ -282,8 +282,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # DELETE /api/evidence/:id
-        if path.startswith("/api/v1/evidence/") and path.count("/") == 3:
-            evidence_id, err = self.extract_path_param(path, 2, "evidence_id", SAFE_ID_PATTERN)
+        if path.startswith("/api/v1/evidence/") and path.count("/") == 4:
+            evidence_id, err = self.extract_path_param(path, 3, "evidence_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_evidence(evidence_id)

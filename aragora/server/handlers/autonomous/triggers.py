@@ -44,25 +44,27 @@ class TriggerHandler:
             trigger = get_scheduled_trigger()
             triggers = trigger.list_triggers()
 
-            return web.json_response({
-                "success": True,
-                "triggers": [
-                    {
-                        "id": t.id,
-                        "name": t.name,
-                        "interval_seconds": t.interval_seconds,
-                        "cron_expression": t.cron_expression,
-                        "enabled": t.enabled,
-                        "last_run": t.last_run.isoformat() if t.last_run else None,
-                        "next_run": t.next_run.isoformat() if t.next_run else None,
-                        "run_count": t.run_count,
-                        "max_runs": t.max_runs,
-                        "metadata": t.metadata,
-                    }
-                    for t in triggers
-                ],
-                "count": len(triggers),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "triggers": [
+                        {
+                            "id": t.id,
+                            "name": t.name,
+                            "interval_seconds": t.interval_seconds,
+                            "cron_expression": t.cron_expression,
+                            "enabled": t.enabled,
+                            "last_run": t.last_run.isoformat() if t.last_run else None,
+                            "next_run": t.next_run.isoformat() if t.next_run else None,
+                            "run_count": t.run_count,
+                            "max_runs": t.max_runs,
+                            "metadata": t.metadata,
+                        }
+                        for t in triggers
+                    ],
+                    "count": len(triggers),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error listing triggers: {e}")
@@ -112,16 +114,18 @@ class TriggerHandler:
                 metadata=data.get("metadata"),
             )
 
-            return web.json_response({
-                "success": True,
-                "trigger": {
-                    "id": config.id,
-                    "name": config.name,
-                    "interval_seconds": config.interval_seconds,
-                    "enabled": config.enabled,
-                    "next_run": config.next_run.isoformat() if config.next_run else None,
-                },
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "trigger": {
+                        "id": config.id,
+                        "name": config.name,
+                        "interval_seconds": config.interval_seconds,
+                        "enabled": config.enabled,
+                        "next_run": config.next_run.isoformat() if config.next_run else None,
+                    },
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error adding trigger: {e}")
@@ -152,11 +156,13 @@ class TriggerHandler:
                     status=404,
                 )
 
-            return web.json_response({
-                "success": True,
-                "trigger_id": trigger_id,
-                "removed": True,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "trigger_id": trigger_id,
+                    "removed": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error removing trigger: {e}")
@@ -187,11 +193,13 @@ class TriggerHandler:
                     status=404,
                 )
 
-            return web.json_response({
-                "success": True,
-                "trigger_id": trigger_id,
-                "enabled": True,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "trigger_id": trigger_id,
+                    "enabled": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error enabling trigger: {e}")
@@ -222,11 +230,13 @@ class TriggerHandler:
                     status=404,
                 )
 
-            return web.json_response({
-                "success": True,
-                "trigger_id": trigger_id,
-                "enabled": False,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "trigger_id": trigger_id,
+                    "enabled": False,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error disabling trigger: {e}")
@@ -249,10 +259,12 @@ class TriggerHandler:
             trigger = get_scheduled_trigger()
             await trigger.start()
 
-            return web.json_response({
-                "success": True,
-                "scheduler_running": True,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "scheduler_running": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error starting scheduler: {e}")
@@ -275,10 +287,12 @@ class TriggerHandler:
             trigger = get_scheduled_trigger()
             await trigger.stop()
 
-            return web.json_response({
-                "success": True,
-                "scheduler_running": False,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "scheduler_running": False,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error stopping scheduler: {e}")
@@ -288,7 +302,7 @@ class TriggerHandler:
             )
 
     @staticmethod
-    def register_routes(app: web.Application, prefix: str = "/api/autonomous") -> None:
+    def register_routes(app: web.Application, prefix: str = "/api/v1/autonomous") -> None:
         """Register trigger routes with the application."""
         app.router.add_get(
             f"{prefix}/triggers",

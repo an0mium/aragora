@@ -221,7 +221,7 @@ def extract_path_segment(
     """Extract a segment from a URL path.
 
     Args:
-        path: URL path (e.g., "/api/debates/123/rounds")
+        path: URL path (e.g., "/api/v1/debates/123/rounds")
         index: Zero-based index of segment to extract
         default: Default value if segment doesn't exist
 
@@ -229,7 +229,7 @@ def extract_path_segment(
         Path segment at index, or default if not found
 
     Example:
-        path = "/api/debates/123/rounds"
+        path = "/api/v1/debates/123/rounds"
         extract_path_segment(path, 2)  # Returns "123"
         extract_path_segment(path, 5)  # Returns None
         extract_path_segment(path, 5, "default")  # Returns "default"
@@ -255,8 +255,8 @@ def build_api_url(
         URL string
 
     Example:
-        build_api_url("api", "debates", "123")  # "/api/debates/123"
-        build_api_url("api", "agents", query_params={"limit": 10})  # "/api/agents?limit=10"
+        build_api_url("api", "debates", "123")  # "/api/v1/debates/123"
+        build_api_url("api", "agents", query_params={"limit": 10})  # "/api/v1/agents?limit=10"
     """
     path = "/" + "/".join(str(s).strip("/") for s in segments if s)
 

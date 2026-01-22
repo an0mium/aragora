@@ -30,7 +30,7 @@ class TestRegisterHandlers:
         # Check add_get was called with correct path
         calls = app.router.add_get.call_args_list
         paths = [call[0][0] for call in calls]
-        assert "/api/audit/events" in paths
+        assert "/api/v1/audit/events" in paths
 
     def test_registers_audit_stats_route(self):
         """Should register /api/audit/stats GET route."""
@@ -38,7 +38,7 @@ class TestRegisterHandlers:
         register_handlers(app)
         calls = app.router.add_get.call_args_list
         paths = [call[0][0] for call in calls]
-        assert "/api/audit/stats" in paths
+        assert "/api/v1/audit/stats" in paths
 
     def test_registers_audit_export_route(self):
         """Should register /api/audit/export POST route."""
@@ -46,7 +46,7 @@ class TestRegisterHandlers:
         register_handlers(app)
         calls = app.router.add_post.call_args_list
         paths = [call[0][0] for call in calls]
-        assert "/api/audit/export" in paths
+        assert "/api/v1/audit/export" in paths
 
     def test_registers_audit_verify_route(self):
         """Should register /api/audit/verify POST route."""
@@ -54,7 +54,7 @@ class TestRegisterHandlers:
         register_handlers(app)
         calls = app.router.add_post.call_args_list
         paths = [call[0][0] for call in calls]
-        assert "/api/audit/verify" in paths
+        assert "/api/v1/audit/verify" in paths
 
 
 class TestGetAuditLog:

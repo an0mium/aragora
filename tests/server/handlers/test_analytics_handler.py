@@ -109,32 +109,32 @@ class TestAnalyticsHandlerCanHandle:
 
     def test_can_handle_disagreements(self, analytics_handler):
         """Test can_handle returns True for disagreements endpoint."""
-        assert analytics_handler.can_handle("/api/analytics/disagreements")
+        assert analytics_handler.can_handle("/api/v1/analytics/disagreements")
 
     def test_can_handle_role_rotation(self, analytics_handler):
         """Test can_handle returns True for role-rotation endpoint."""
-        assert analytics_handler.can_handle("/api/analytics/role-rotation")
+        assert analytics_handler.can_handle("/api/v1/analytics/role-rotation")
 
     def test_can_handle_early_stops(self, analytics_handler):
         """Test can_handle returns True for early-stops endpoint."""
-        assert analytics_handler.can_handle("/api/analytics/early-stops")
+        assert analytics_handler.can_handle("/api/v1/analytics/early-stops")
 
     def test_can_handle_consensus_quality(self, analytics_handler):
         """Test can_handle returns True for consensus-quality endpoint."""
-        assert analytics_handler.can_handle("/api/analytics/consensus-quality")
+        assert analytics_handler.can_handle("/api/v1/analytics/consensus-quality")
 
     def test_can_handle_ranking_stats(self, analytics_handler):
         """Test can_handle returns True for ranking stats endpoint."""
-        assert analytics_handler.can_handle("/api/ranking/stats")
+        assert analytics_handler.can_handle("/api/v1/ranking/stats")
 
     def test_can_handle_memory_stats(self, analytics_handler):
         """Test can_handle returns True for memory stats endpoint."""
-        assert analytics_handler.can_handle("/api/memory/stats")
+        assert analytics_handler.can_handle("/api/v1/memory/stats")
 
     def test_cannot_handle_unknown(self, analytics_handler):
         """Test can_handle returns False for unknown endpoint."""
-        assert not analytics_handler.can_handle("/api/analytics/unknown")
-        assert not analytics_handler.can_handle("/api/debates")
+        assert not analytics_handler.can_handle("/api/v1/analytics/unknown")
+        assert not analytics_handler.can_handle("/api/v1/debates")
 
 
 class TestAnalyticsHandlerDisagreements:
@@ -142,7 +142,7 @@ class TestAnalyticsHandlerDisagreements:
 
     def test_disagreement_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test disagreement stats returns empty when no storage."""
-        result = analytics_handler.handle("/api/analytics/disagreements", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/analytics/disagreements", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -154,7 +154,7 @@ class TestAnalyticsHandlerDisagreements:
         """Test disagreement stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
 
-        result = analytics_handler.handle("/api/analytics/disagreements", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/analytics/disagreements", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -171,7 +171,7 @@ class TestAnalyticsHandlerRoleRotation:
 
     def test_role_rotation_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test role rotation stats returns empty when no storage."""
-        result = analytics_handler.handle("/api/analytics/role-rotation", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/analytics/role-rotation", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -183,7 +183,7 @@ class TestAnalyticsHandlerRoleRotation:
         """Test role rotation stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
 
-        result = analytics_handler.handle("/api/analytics/role-rotation", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/analytics/role-rotation", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -198,7 +198,7 @@ class TestAnalyticsHandlerEarlyStops:
 
     def test_early_stop_stats_no_storage(self, analytics_handler, mock_http_handler):
         """Test early stop stats returns empty when no storage."""
-        result = analytics_handler.handle("/api/analytics/early-stops", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/analytics/early-stops", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -210,7 +210,7 @@ class TestAnalyticsHandlerEarlyStops:
         """Test early stop stats with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
 
-        result = analytics_handler.handle("/api/analytics/early-stops", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/analytics/early-stops", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -227,7 +227,9 @@ class TestAnalyticsHandlerConsensusQuality:
 
     def test_consensus_quality_no_storage(self, analytics_handler, mock_http_handler):
         """Test consensus quality returns empty when no storage."""
-        result = analytics_handler.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
+        result = analytics_handler.handle(
+            "/api/v1/analytics/consensus-quality", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -240,7 +242,9 @@ class TestAnalyticsHandlerConsensusQuality:
         """Test consensus quality with storage data."""
         analytics_handler.ctx["storage"] = mock_storage
 
-        result = analytics_handler.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
+        result = analytics_handler.handle(
+            "/api/v1/analytics/consensus-quality", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -259,7 +263,9 @@ class TestAnalyticsHandlerConsensusQuality:
         mock_storage.list_debates.return_value = []
         analytics_handler.ctx["storage"] = mock_storage
 
-        result = analytics_handler.handle("/api/analytics/consensus-quality", {}, mock_http_handler)
+        result = analytics_handler.handle(
+            "/api/v1/analytics/consensus-quality", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -272,7 +278,7 @@ class TestAnalyticsHandlerRankingStats:
 
     def test_ranking_stats_no_elo(self, analytics_handler, mock_http_handler):
         """Test ranking stats returns 503 when no ELO system."""
-        result = analytics_handler.handle("/api/ranking/stats", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/ranking/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -281,7 +287,7 @@ class TestAnalyticsHandlerRankingStats:
         """Test ranking stats with ELO system data."""
         analytics_handler.ctx["elo_system"] = mock_elo_system
 
-        result = analytics_handler.handle("/api/ranking/stats", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/ranking/stats", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -301,7 +307,7 @@ class TestAnalyticsHandlerMemoryStats:
 
     def test_memory_stats_no_nomic_dir(self, analytics_handler, mock_http_handler):
         """Test memory stats returns empty when no nomic dir."""
-        result = analytics_handler.handle("/api/memory/stats", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/memory/stats", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -316,7 +322,7 @@ class TestAnalyticsHandlerMemoryStats:
 
         analytics_handler.ctx["nomic_dir"] = nomic_dir
 
-        result = analytics_handler.handle("/api/memory/stats", {}, mock_http_handler)
+        result = analytics_handler.handle("/api/v1/memory/stats", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -344,7 +350,7 @@ class TestAnalyticsHandlerRateLimiting:
             # Make many requests to trigger rate limit
             for _ in range(35):
                 result = analytics_handler.handle(
-                    "/api/analytics/disagreements", {}, mock_http_handler
+                    "/api/v1/analytics/disagreements", {}, mock_http_handler
                 )
 
             # The rate limiter should eventually kick in
@@ -371,12 +377,12 @@ class TestAnalyticsHandlerIntegration:
         analytics_handler.ctx["nomic_dir"] = nomic_dir
 
         endpoints = [
-            "/api/analytics/disagreements",
-            "/api/analytics/role-rotation",
-            "/api/analytics/early-stops",
-            "/api/analytics/consensus-quality",
-            "/api/ranking/stats",
-            "/api/memory/stats",
+            "/api/v1/analytics/disagreements",
+            "/api/v1/analytics/role-rotation",
+            "/api/v1/analytics/early-stops",
+            "/api/v1/analytics/consensus-quality",
+            "/api/v1/ranking/stats",
+            "/api/v1/memory/stats",
         ]
 
         for endpoint in endpoints:

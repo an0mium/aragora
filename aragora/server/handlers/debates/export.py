@@ -137,7 +137,7 @@ class ExportOperationsMixin:
             "job_id": "export_abc123",
             "total_count": 10,
             "status": "pending",
-            "stream_url": "/api/debates/export/batch/export_abc123/stream"
+            "stream_url": "/api/v1/debates/export/batch/export_abc123/stream"
         }
         """
         valid_formats = {"json", "csv", "html", "txt", "md"}
@@ -169,8 +169,8 @@ class ExportOperationsMixin:
                 "job_id": job_id,
                 "total_count": len(items),
                 "status": job.status.value,
-                "stream_url": f"/api/debates/export/batch/{job_id}/stream",
-                "status_url": f"/api/debates/export/batch/{job_id}/status",
+                "stream_url": f"/api/v1/debates/export/batch/{job_id}/stream",
+                "status_url": f"/api/v1/debates/export/batch/{job_id}/status",
             }
         )
 

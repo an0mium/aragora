@@ -124,33 +124,33 @@ class TestControlPlaneHandlerCanHandle:
 
     def test_can_handle_agents_endpoint(self, handler):
         """Should handle /api/control-plane/agents."""
-        assert handler.can_handle("/api/control-plane/agents") is True
+        assert handler.can_handle("/api/v1/control-plane/agents") is True
 
     def test_can_handle_agents_by_id(self, handler):
         """Should handle /api/control-plane/agents/:id."""
-        assert handler.can_handle("/api/control-plane/agents/agent-1") is True
+        assert handler.can_handle("/api/v1/control-plane/agents/agent-1") is True
 
     def test_can_handle_tasks_endpoint(self, handler):
         """Should handle /api/control-plane/tasks."""
-        assert handler.can_handle("/api/control-plane/tasks") is True
+        assert handler.can_handle("/api/v1/control-plane/tasks") is True
 
     def test_can_handle_tasks_by_id(self, handler):
         """Should handle /api/control-plane/tasks/:id."""
-        assert handler.can_handle("/api/control-plane/tasks/task-1") is True
+        assert handler.can_handle("/api/v1/control-plane/tasks/task-1") is True
 
     def test_can_handle_health_endpoint(self, handler):
         """Should handle /api/control-plane/health."""
-        assert handler.can_handle("/api/control-plane/health") is True
+        assert handler.can_handle("/api/v1/control-plane/health") is True
 
     def test_can_handle_stats_endpoint(self, handler):
         """Should handle /api/control-plane/stats."""
-        assert handler.can_handle("/api/control-plane/stats") is True
+        assert handler.can_handle("/api/v1/control-plane/stats") is True
 
     def test_cannot_handle_unknown_path(self, handler):
         """Should not handle unknown paths."""
-        assert handler.can_handle("/api/control-plane") is False
-        assert handler.can_handle("/api/unknown") is False
-        assert handler.can_handle("/api/other/path") is False
+        assert handler.can_handle("/api/v1/control-plane") is False
+        assert handler.can_handle("/api/v1/unknown") is False
+        assert handler.can_handle("/api/v1/other/path") is False
 
 
 # ===========================================================================
@@ -173,7 +173,7 @@ class TestControlPlaneHealth:
         mock_coordinator._health_monitor.get_all_health.return_value = {}
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            result = handler.handle("/api/control-plane/health", {}, mock_http_handler)
+            result = handler.handle("/api/v1/control-plane/health", {}, mock_http_handler)
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -181,7 +181,7 @@ class TestControlPlaneHealth:
 
     def test_health_returns_503_without_coordinator(self, handler, mock_http_handler):
         """Should return 503 when coordinator not initialized."""
-        result = handler.handle("/api/control-plane/health", {}, mock_http_handler)
+        result = handler.handle("/api/v1/control-plane/health", {}, mock_http_handler)
         assert get_status(result) == 503
         assert "not initialized" in get_body(result)["error"]
 
@@ -197,7 +197,7 @@ class TestControlPlaneHealth:
         mock_coordinator._health_monitor.get_all_health.return_value = {}
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            result = handler.handle("/api/control-plane/health", {}, mock_http_handler)
+            result = handler.handle("/api/v1/control-plane/health", {}, mock_http_handler)
 
         # Health endpoints don't require auth, should return 200 not 401
         assert get_status(result) != 401
@@ -228,11 +228,13 @@ class TestAgentRegistration:
                     HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}),
                 ),
             ):
-                result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                result = handler.handle_post("/api/v1/control-plane/agents", {}, mock_http_handler)
 
         assert get_status(result) == 401
 
-    def test_register_agent_success(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
+    def test_register_agent_success(
+        self, handler, mock_http_handler, mock_coordinator, mock_admin_user
+    ):
         """Should register agent successfully with auth."""
         mock_http_handler.command = "POST"
         mock_http_handler.rfile.read.return_value = json.dumps(
@@ -245,30 +247,40 @@ class TestAgentRegistration:
         ).encode()
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_admin_user, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
                 ):
-                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/agents", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 201  # Created
         body = get_body(result)
         assert body["id"] == "agent-1"
 
-    def test_register_agent_missing_id(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
+    def test_register_agent_missing_id(
+        self, handler, mock_http_handler, mock_coordinator, mock_admin_user
+    ):
         """Should reject registration without agent_id."""
         mock_http_handler.command = "POST"
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_admin_user, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"capabilities": ["debate"]}, None),  # Missing agent_id
                 ):
-                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/agents", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 400
         assert "agent_id" in get_body(result)["error"]
@@ -299,11 +311,15 @@ class TestTaskSubmission:
                         HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}),
                     ),
                 ):
-                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/tasks", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 401
 
-    def test_submit_task_success(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
+    def test_submit_task_success(
+        self, handler, mock_http_handler, mock_coordinator, mock_admin_user
+    ):
         """Should submit task successfully with auth."""
         mock_http_handler.command = "POST"
 
@@ -311,30 +327,40 @@ class TestTaskSubmission:
         mock_coordinator.submit_task = AsyncMock(return_value="task-123")
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_admin_user, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"task_type": "debate", "payload": {"topic": "AI"}}, None),
                 ):
-                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/tasks", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 201  # Created
         body = get_body(result)
         assert "task_id" in body
 
-    def test_submit_task_missing_type(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
+    def test_submit_task_missing_type(
+        self, handler, mock_http_handler, mock_coordinator, mock_admin_user
+    ):
         """Should reject task without task_type."""
         mock_http_handler.command = "POST"
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_admin_user, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"payload": {}}, None),  # Missing task_type
                 ):
-                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/tasks", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 400
         assert "task_type" in get_body(result)["error"]
@@ -360,31 +386,39 @@ class TestAgentUnregistration:
                 ),
             ):
                 result = handler.handle_delete(
-                    "/api/control-plane/agents/agent-1", {}, mock_http_handler
+                    "/api/v1/control-plane/agents/agent-1", {}, mock_http_handler
                 )
 
         assert get_status(result) == 401
 
-    def test_unregister_agent_success(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
+    def test_unregister_agent_success(
+        self, handler, mock_http_handler, mock_coordinator, mock_admin_user
+    ):
         """Should unregister agent successfully with auth."""
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_admin_user, None)
+            ):
                 result = handler.handle_delete(
-                    "/api/control-plane/agents/agent-1", {}, mock_http_handler
+                    "/api/v1/control-plane/agents/agent-1", {}, mock_http_handler
                 )
 
         assert get_status(result) == 200
         body = get_body(result)
         assert body["unregistered"] is True
 
-    def test_unregister_nonexistent_agent(self, handler, mock_http_handler, mock_coordinator, mock_admin_user):
+    def test_unregister_nonexistent_agent(
+        self, handler, mock_http_handler, mock_coordinator, mock_admin_user
+    ):
         """Should return 404 for nonexistent agent."""
         mock_coordinator.unregister_agent = AsyncMock(return_value=False)
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_admin_user, None)
+            ):
                 result = handler.handle_delete(
-                    "/api/control-plane/agents/nonexistent", {}, mock_http_handler
+                    "/api/v1/control-plane/agents/nonexistent", {}, mock_http_handler
                 )
 
         assert get_status(result) == 404
@@ -398,34 +432,46 @@ class TestAgentUnregistration:
 class TestCoordinatorNotInitialized:
     """Tests for when coordinator is not available."""
 
-    def test_register_returns_503_without_coordinator(self, handler, mock_http_handler, mock_admin_user):
+    def test_register_returns_503_without_coordinator(
+        self, handler, mock_http_handler, mock_admin_user
+    ):
         """Should return 503 when coordinator not initialized."""
         mock_http_handler.command = "POST"
 
         with patch.object(handler, "_get_coordinator", return_value=None):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_admin_user, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1"}, None),
                 ):
-                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/agents", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 503
         assert "not initialized" in get_body(result)["error"]
 
-    def test_submit_returns_503_without_coordinator(self, handler, mock_http_handler, mock_admin_user):
+    def test_submit_returns_503_without_coordinator(
+        self, handler, mock_http_handler, mock_admin_user
+    ):
         """Should return 503 when coordinator not initialized."""
         mock_http_handler.command = "POST"
 
         with patch.object(handler, "_get_coordinator", return_value=None):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_admin_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_admin_user, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"task_type": "debate"}, None),
                 ):
-                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/tasks", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 503
 
@@ -440,7 +486,7 @@ class TestQueueEndpoint:
 
     def test_can_handle_queue_endpoint(self, handler):
         """Should handle /api/control-plane/queue."""
-        assert handler.can_handle("/api/control-plane/queue") is True
+        assert handler.can_handle("/api/v1/control-plane/queue") is True
 
     def test_queue_returns_jobs(self, handler, mock_http_handler, mock_coordinator):
         """Should return pending and running tasks as jobs."""
@@ -477,7 +523,7 @@ class TestQueueEndpoint:
         )
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            result = handler.handle("/api/control-plane/queue", {}, mock_http_handler)
+            result = handler.handle("/api/v1/control-plane/queue", {}, mock_http_handler)
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -486,7 +532,7 @@ class TestQueueEndpoint:
 
     def test_queue_returns_503_without_coordinator(self, handler, mock_http_handler):
         """Should return 503 when coordinator not initialized."""
-        result = handler.handle("/api/control-plane/queue", {}, mock_http_handler)
+        result = handler.handle("/api/v1/control-plane/queue", {}, mock_http_handler)
         assert get_status(result) == 503
 
 
@@ -500,7 +546,7 @@ class TestMetricsEndpoint:
 
     def test_can_handle_metrics_endpoint(self, handler):
         """Should handle /api/control-plane/metrics."""
-        assert handler.can_handle("/api/control-plane/metrics") is True
+        assert handler.can_handle("/api/v1/control-plane/metrics") is True
 
     def test_metrics_returns_dashboard_data(self, handler, mock_http_handler, mock_coordinator):
         """Should return metrics for dashboard."""
@@ -519,7 +565,7 @@ class TestMetricsEndpoint:
         )
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            result = handler.handle("/api/control-plane/metrics", {}, mock_http_handler)
+            result = handler.handle("/api/v1/control-plane/metrics", {}, mock_http_handler)
 
         assert get_status(result) == 200
         body = get_body(result)
@@ -531,7 +577,7 @@ class TestMetricsEndpoint:
 
     def test_metrics_returns_503_without_coordinator(self, handler, mock_http_handler):
         """Should return 503 when coordinator not initialized."""
-        result = handler.handle("/api/control-plane/metrics", {}, mock_http_handler)
+        result = handler.handle("/api/v1/control-plane/metrics", {}, mock_http_handler)
         assert get_status(result) == 503
 
 
@@ -552,44 +598,60 @@ def mock_member_user():
 class TestRBACPermissionDenied:
     """Tests for RBAC permission enforcement - users without correct role should get 403."""
 
-    def test_register_agent_denied_for_member(self, handler, mock_http_handler, mock_coordinator, mock_member_user):
+    def test_register_agent_denied_for_member(
+        self, handler, mock_http_handler, mock_coordinator, mock_member_user
+    ):
         """Member users should not be able to register agents."""
         mock_http_handler.command = "POST"
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_member_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_member_user, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
                 ):
-                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/agents", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 403
         assert "controlplane:agents" in get_body(result)["error"]
 
-    def test_submit_task_denied_for_member(self, handler, mock_http_handler, mock_coordinator, mock_member_user):
+    def test_submit_task_denied_for_member(
+        self, handler, mock_http_handler, mock_coordinator, mock_member_user
+    ):
         """Member users should not be able to submit tasks."""
         mock_http_handler.command = "POST"
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_member_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_member_user, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"task_type": "debate", "payload": {}}, None),
                 ):
-                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/tasks", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 403
         assert "controlplane:tasks" in get_body(result)["error"]
 
-    def test_unregister_agent_denied_for_member(self, handler, mock_http_handler, mock_coordinator, mock_member_user):
+    def test_unregister_agent_denied_for_member(
+        self, handler, mock_http_handler, mock_coordinator, mock_member_user
+    ):
         """Member users should not be able to unregister agents."""
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_member_user, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_member_user, None)
+            ):
                 result = handler.handle_delete(
-                    "/api/control-plane/agents/agent-1", {}, mock_http_handler
+                    "/api/v1/control-plane/agents/agent-1", {}, mock_http_handler
                 )
 
         assert get_status(result) == 403
@@ -602,13 +664,17 @@ class TestRBACPermissionDenied:
         mock_user_no_role.user_id = "user-no-role"
 
         with patch.object(handler, "_get_coordinator", return_value=mock_coordinator):
-            with patch.object(handler, "require_auth_or_error", return_value=(mock_user_no_role, None)):
+            with patch.object(
+                handler, "require_auth_or_error", return_value=(mock_user_no_role, None)
+            ):
                 with patch.object(
                     handler,
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1"}, None),
                 ):
-                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/agents", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 403
 
@@ -626,6 +692,8 @@ class TestRBACPermissionDenied:
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
                 ):
-                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                    result = handler.handle_post(
+                        "/api/v1/control-plane/agents", {}, mock_http_handler
+                    )
 
         assert get_status(result) == 201  # Success - owner is allowed

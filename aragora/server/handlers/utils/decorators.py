@@ -734,7 +734,7 @@ def deprecated_endpoint(
         Decorated function that adds deprecation headers to responses.
 
     Example:
-        @deprecated_endpoint(replacement="/api/debates", sunset_date="2025-06-01")
+        @deprecated_endpoint(replacement="/api/v1/debates", sunset_date="2025-06-01")
         def _create_debate_legacy(self, handler, user=None):
             ...
 

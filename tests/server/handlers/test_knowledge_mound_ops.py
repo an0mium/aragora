@@ -66,11 +66,11 @@ class TestVisibilityCanHandle:
 
     def test_can_handle_visibility_get(self, mound_handler):
         """Test can_handle for GET visibility."""
-        assert mound_handler.can_handle("/api/knowledge/mound/nodes/node-123/visibility")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/nodes/node-123/visibility")
 
     def test_can_handle_access_grants(self, mound_handler):
         """Test can_handle for access grants."""
-        assert mound_handler.can_handle("/api/knowledge/mound/nodes/node-123/access")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/nodes/node-123/access")
 
 
 class TestGetVisibility:
@@ -80,7 +80,7 @@ class TestGetVisibility:
         """Test returns 503 when mound not available."""
         with patch.object(mound_handler, "_get_mound", return_value=None):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/visibility", {}, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/node-123/visibility", {}, mock_http_handler
             )
 
         assert result is not None
@@ -93,7 +93,7 @@ class TestGetVisibility:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/nonexistent/visibility", {}, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/nonexistent/visibility", {}, mock_http_handler
             )
 
         assert result is not None
@@ -114,7 +114,7 @@ class TestGetVisibility:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/visibility", {}, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/node-123/visibility", {}, mock_http_handler
             )
 
         assert result is not None
@@ -138,7 +138,7 @@ class TestSetVisibility:
             mock_auth.return_value = (None, error_response("Unauthorized", 401))
 
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/visibility", {}, handler
+                "/api/v1/knowledge/mound/nodes/node-123/visibility", {}, handler
             )
 
         assert result is not None
@@ -152,7 +152,7 @@ class TestSetVisibility:
             mock_auth.return_value = (mock_user(), None)
 
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/visibility", {}, handler
+                "/api/v1/knowledge/mound/nodes/node-123/visibility", {}, handler
             )
 
         assert result is not None
@@ -177,7 +177,7 @@ class TestSetVisibility:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
                 result = mound_handler.handle(
-                    "/api/knowledge/mound/nodes/node-123/visibility", {}, handler
+                    "/api/v1/knowledge/mound/nodes/node-123/visibility", {}, handler
                 )
 
         assert result is not None
@@ -219,7 +219,7 @@ class TestAccessGrants:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
                 result = mound_handler.handle(
-                    "/api/knowledge/mound/nodes/node-123/access", {}, handler
+                    "/api/v1/knowledge/mound/nodes/node-123/access", {}, handler
                 )
 
         assert result is not None
@@ -243,7 +243,7 @@ class TestAccessGrants:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/access", {}, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/node-123/access", {}, mock_http_handler
             )
 
         assert result is not None
@@ -262,7 +262,7 @@ class TestAccessGrants:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
                 result = mound_handler.handle(
-                    "/api/knowledge/mound/nodes/node-123/access", {}, handler
+                    "/api/v1/knowledge/mound/nodes/node-123/access", {}, handler
                 )
 
         assert result is not None
@@ -281,15 +281,15 @@ class TestSharingCanHandle:
 
     def test_can_handle_share(self, mound_handler):
         """Test can_handle for share endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/share")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/share")
 
     def test_can_handle_shared_with_me(self, mound_handler):
         """Test can_handle for shared-with-me endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/shared-with-me")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/shared-with-me")
 
     def test_can_handle_my_shares(self, mound_handler):
         """Test can_handle for my-shares endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/my-shares")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/my-shares")
 
 
 class TestShareItem:
@@ -310,7 +310,7 @@ class TestShareItem:
 
             mock_auth.return_value = (None, error_response("Unauthorized", 401))
 
-            result = mound_handler.handle("/api/knowledge/mound/share", {}, handler)
+            result = mound_handler.handle("/api/v1/knowledge/mound/share", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -333,7 +333,7 @@ class TestShareItem:
         with patch.object(mound_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
-                result = mound_handler.handle("/api/knowledge/mound/share", {}, handler)
+                result = mound_handler.handle("/api/v1/knowledge/mound/share", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -357,7 +357,7 @@ class TestShareItem:
         with patch.object(mound_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
-                result = mound_handler.handle("/api/knowledge/mound/share", {}, handler)
+                result = mound_handler.handle("/api/v1/knowledge/mound/share", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -375,7 +375,7 @@ class TestShareItem:
         with patch.object(mound_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = (mock_user(), None)
 
-            result = mound_handler.handle("/api/knowledge/mound/share", {}, handler)
+            result = mound_handler.handle("/api/v1/knowledge/mound/share", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -392,7 +392,7 @@ class TestSharedWithMe:
             mock_auth.return_value = (None, error_response("Unauthorized", 401))
 
             result = mound_handler.handle(
-                "/api/knowledge/mound/shared-with-me", {}, mock_http_handler
+                "/api/v1/knowledge/mound/shared-with-me", {}, mock_http_handler
             )
 
         assert result is not None
@@ -412,7 +412,7 @@ class TestSharedWithMe:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
                 result = mound_handler.handle(
-                    "/api/knowledge/mound/shared-with-me", {}, mock_http_handler
+                    "/api/v1/knowledge/mound/shared-with-me", {}, mock_http_handler
                 )
 
         assert result is not None
@@ -431,15 +431,15 @@ class TestGlobalKnowledgeCanHandle:
 
     def test_can_handle_global(self, mound_handler):
         """Test can_handle for global endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/global")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/global")
 
     def test_can_handle_global_promote(self, mound_handler):
         """Test can_handle for global/promote endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/global/promote")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/global/promote")
 
     def test_can_handle_global_facts(self, mound_handler):
         """Test can_handle for global/facts endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/global/facts")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/global/facts")
 
 
 class TestQueryGlobalKnowledge:
@@ -448,7 +448,7 @@ class TestQueryGlobalKnowledge:
     def test_query_global_mound_unavailable(self, mound_handler, mock_http_handler):
         """Test returns 503 when mound not available."""
         with patch.object(mound_handler, "_get_mound", return_value=None):
-            result = mound_handler.handle("/api/knowledge/mound/global", {}, mock_http_handler)
+            result = mound_handler.handle("/api/v1/knowledge/mound/global", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -474,7 +474,7 @@ class TestQueryGlobalKnowledge:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/global", query_params, mock_http_handler
+                "/api/v1/knowledge/mound/global", query_params, mock_http_handler
             )
 
         assert result is not None
@@ -502,7 +502,7 @@ class TestStoreVerifiedFact:
             with patch.object(mound_handler, "require_auth_or_error") as mock_auth:
                 mock_auth.return_value = (mock_user(is_admin=False), None)
 
-                result = mound_handler.handle("/api/knowledge/mound/global", {}, handler)
+                result = mound_handler.handle("/api/v1/knowledge/mound/global", {}, handler)
 
         assert result is not None
         assert result.status_code == 403
@@ -523,7 +523,7 @@ class TestStoreVerifiedFact:
         with patch.object(mound_handler, "require_admin_or_error") as mock_admin:
             mock_admin.return_value = (mock_user(is_admin=True), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
-                result = mound_handler.handle("/api/knowledge/mound/global", {}, handler)
+                result = mound_handler.handle("/api/v1/knowledge/mound/global", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -550,7 +550,7 @@ class TestPromoteToGlobal:
 
             mock_auth.return_value = (None, error_response("Unauthorized", 401))
 
-            result = mound_handler.handle("/api/knowledge/mound/global/promote", {}, handler)
+            result = mound_handler.handle("/api/v1/knowledge/mound/global/promote", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -571,7 +571,7 @@ class TestPromoteToGlobal:
         with patch.object(mound_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
-                result = mound_handler.handle("/api/knowledge/mound/global/promote", {}, handler)
+                result = mound_handler.handle("/api/v1/knowledge/mound/global/promote", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -589,19 +589,19 @@ class TestFederationCanHandle:
 
     def test_can_handle_federation_regions(self, mound_handler):
         """Test can_handle for federation regions endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/federation/regions")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/federation/regions")
 
     def test_can_handle_federation_sync_push(self, mound_handler):
         """Test can_handle for federation sync/push endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/federation/sync/push")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/federation/sync/push")
 
     def test_can_handle_federation_sync_pull(self, mound_handler):
         """Test can_handle for federation sync/pull endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/federation/sync/pull")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/federation/sync/pull")
 
     def test_can_handle_federation_status(self, mound_handler):
         """Test can_handle for federation status endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/federation/status")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/federation/status")
 
 
 class TestRegisterRegion:
@@ -622,7 +622,7 @@ class TestRegisterRegion:
 
             mock_admin.return_value = (None, error_response("Forbidden", 403))
 
-            result = mound_handler.handle("/api/knowledge/mound/federation/regions", {}, handler)
+            result = mound_handler.handle("/api/v1/knowledge/mound/federation/regions", {}, handler)
 
         assert result is not None
         assert result.status_code == 403
@@ -655,7 +655,7 @@ class TestRegisterRegion:
             mock_admin.return_value = (mock_user(is_admin=True), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
                 result = mound_handler.handle(
-                    "/api/knowledge/mound/federation/regions", {}, handler
+                    "/api/v1/knowledge/mound/federation/regions", {}, handler
                 )
 
         assert result is not None
@@ -672,7 +672,7 @@ class TestListRegions:
         """Test returns 503 when mound not available."""
         with patch.object(mound_handler, "_get_mound", return_value=None):
             result = mound_handler.handle(
-                "/api/knowledge/mound/federation/regions", {}, mock_http_handler
+                "/api/v1/knowledge/mound/federation/regions", {}, mock_http_handler
             )
 
         assert result is not None
@@ -698,7 +698,7 @@ class TestListRegions:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/federation/regions", {}, mock_http_handler
+                "/api/v1/knowledge/mound/federation/regions", {}, mock_http_handler
             )
 
         assert result is not None
@@ -719,7 +719,9 @@ class TestSyncToRegion:
 
             mock_auth.return_value = (None, error_response("Unauthorized", 401))
 
-            result = mound_handler.handle("/api/knowledge/mound/federation/sync/push", {}, handler)
+            result = mound_handler.handle(
+                "/api/v1/knowledge/mound/federation/sync/push", {}, handler
+            )
 
         assert result is not None
         assert result.status_code == 401
@@ -750,7 +752,7 @@ class TestSyncToRegion:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
                 result = mound_handler.handle(
-                    "/api/knowledge/mound/federation/sync/push", {}, handler
+                    "/api/v1/knowledge/mound/federation/sync/push", {}, handler
                 )
 
         assert result is not None
@@ -787,7 +789,7 @@ class TestSyncFromRegion:
             mock_auth.return_value = (mock_user(), None)
             with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
                 result = mound_handler.handle(
-                    "/api/knowledge/mound/federation/sync/pull", {}, handler
+                    "/api/v1/knowledge/mound/federation/sync/pull", {}, handler
                 )
 
         assert result is not None
@@ -816,7 +818,7 @@ class TestFederationStatus:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/federation/status", {}, mock_http_handler
+                "/api/v1/knowledge/mound/federation/status", {}, mock_http_handler
             )
 
         assert result is not None

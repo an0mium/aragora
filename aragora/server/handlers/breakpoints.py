@@ -45,7 +45,7 @@ class BreakpointsHandler(BaseHandler):
     ]
 
     # Pattern for breakpoint-specific routes
-    BREAKPOINT_PATTERN = re.compile(r"^/api/breakpoints/([a-zA-Z0-9_-]+)/(resolve|status)$")
+    BREAKPOINT_PATTERN = re.compile(r"^/api/v1/breakpoints/([a-zA-Z0-9_-]+)/(resolve|status)$")
 
     def __init__(self, storage=None):
         """Initialize with optional storage backend."""

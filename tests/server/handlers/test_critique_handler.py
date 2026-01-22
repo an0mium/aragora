@@ -44,29 +44,29 @@ class TestCritiqueHandlerRouting:
 
     def test_routes_defined(self):
         """Handler should define expected routes."""
-        assert "/api/critiques/patterns" in CritiqueHandler.ROUTES
-        assert "/api/critiques/archive" in CritiqueHandler.ROUTES
-        assert "/api/reputation/all" in CritiqueHandler.ROUTES
+        assert "/api/v1/critiques/patterns" in CritiqueHandler.ROUTES
+        assert "/api/v1/critiques/archive" in CritiqueHandler.ROUTES
+        assert "/api/v1/reputation/all" in CritiqueHandler.ROUTES
 
     def test_can_handle_static_routes(self):
         """Should handle static routes."""
         handler = CritiqueHandler({})
-        assert handler.can_handle("/api/critiques/patterns") is True
-        assert handler.can_handle("/api/critiques/archive") is True
-        assert handler.can_handle("/api/reputation/all") is True
+        assert handler.can_handle("/api/v1/critiques/patterns") is True
+        assert handler.can_handle("/api/v1/critiques/archive") is True
+        assert handler.can_handle("/api/v1/reputation/all") is True
 
     def test_can_handle_dynamic_agent_route(self):
         """Should handle dynamic agent reputation route."""
         handler = CritiqueHandler({})
-        assert handler.can_handle("/api/agent/claude/reputation") is True
-        assert handler.can_handle("/api/agent/gpt-4/reputation") is True
+        assert handler.can_handle("/api/v1/agent/claude/reputation") is True
+        assert handler.can_handle("/api/v1/agent/gpt-4/reputation") is True
 
     def test_cannot_handle_unknown_routes(self):
         """Should not handle unknown routes."""
         handler = CritiqueHandler({})
-        assert handler.can_handle("/api/unknown") is False
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/agent/claude") is False
+        assert handler.can_handle("/api/v1/unknown") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/agent/claude") is False
 
 
 class TestExtractAgentName:
@@ -75,21 +75,21 @@ class TestExtractAgentName:
     def test_extract_valid_agent_name(self):
         """Should extract valid agent names."""
         handler = CritiqueHandler({})
-        assert handler._extract_agent_name("/api/agent/claude/reputation") == "claude"
-        assert handler._extract_agent_name("/api/agent/gpt-4/reputation") == "gpt-4"
+        assert handler._extract_agent_name("/api/v1/agent/claude/reputation") == "claude"
+        assert handler._extract_agent_name("/api/v1/agent/gpt-4/reputation") == "gpt-4"
 
     def test_reject_path_traversal(self):
         """Should reject path traversal attempts."""
         handler = CritiqueHandler({})
-        assert handler._extract_agent_name("/api/agent/../etc/passwd/reputation") is None
-        assert handler._extract_agent_name("/api/agent/..%2F..%2Fetc/reputation") is None
+        assert handler._extract_agent_name("/api/v1/agent/../etc/passwd/reputation") is None
+        assert handler._extract_agent_name("/api/v1/agent/..%2F..%2Fetc/reputation") is None
 
     def test_reject_invalid_path(self):
         """Should reject invalid paths."""
         handler = CritiqueHandler({})
         # Short paths don't have enough parts
         assert handler._extract_agent_name("/api/") is None
-        assert handler._extract_agent_name("/api/agent") is None
+        assert handler._extract_agent_name("/api/v1/agent") is None
 
 
 class TestCritiquePatterns:
@@ -101,7 +101,7 @@ class TestCritiquePatterns:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/critiques/patterns", {}, mock_handler)
+        result = handler.handle("/api/v1/critiques/patterns", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -131,7 +131,7 @@ class TestCritiquePatterns:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/critiques/patterns", {"limit": "10"}, mock_handler)
+        result = handler.handle("/api/v1/critiques/patterns", {"limit": "10"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -144,7 +144,7 @@ class TestCritiquePatterns:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/critiques/patterns", {}, mock_handler)
+        result = handler.handle("/api/v1/critiques/patterns", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -159,7 +159,7 @@ class TestArchiveStats:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/critiques/archive", {}, mock_handler)
+        result = handler.handle("/api/v1/critiques/archive", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -179,7 +179,7 @@ class TestArchiveStats:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/critiques/archive", {}, mock_handler)
+        result = handler.handle("/api/v1/critiques/archive", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -194,7 +194,7 @@ class TestReputationEndpoints:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/reputation/all", {}, mock_handler)
+        result = handler.handle("/api/v1/reputation/all", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -223,7 +223,7 @@ class TestReputationEndpoints:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/reputation/all", {}, mock_handler)
+        result = handler.handle("/api/v1/reputation/all", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -250,7 +250,7 @@ class TestReputationEndpoints:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/agent/claude/reputation", {}, mock_handler)
+        result = handler.handle("/api/v1/agent/claude/reputation", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -271,7 +271,7 @@ class TestReputationEndpoints:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/agent/unknown-agent/reputation", {}, mock_handler)
+        result = handler.handle("/api/v1/agent/unknown-agent/reputation", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -289,7 +289,7 @@ class TestRateLimiting:
         mock_handler = MagicMock()
         mock_handler.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/critiques/patterns", {}, mock_handler)
+        result = handler.handle("/api/v1/critiques/patterns", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -305,7 +305,7 @@ class TestParameterValidation:
         mock_handler.client_address = ("127.0.0.1", 12345)
 
         # Limit should be clamped to max of 50
-        result = handler.handle("/api/critiques/patterns", {"limit": "1000"}, mock_handler)
+        result = handler.handle("/api/v1/critiques/patterns", {"limit": "1000"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -317,7 +317,7 @@ class TestParameterValidation:
         mock_handler.client_address = ("127.0.0.1", 12345)
 
         # min_success should be bounded to 0.0-1.0
-        result = handler.handle("/api/critiques/patterns", {"min_success": "2.0"}, mock_handler)
+        result = handler.handle("/api/v1/critiques/patterns", {"min_success": "2.0"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200

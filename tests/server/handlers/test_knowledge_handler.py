@@ -59,48 +59,48 @@ class TestKnowledgeHandlerCanHandle:
 
     def test_can_handle_query(self, knowledge_handler):
         """Test can_handle returns True for query endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/query")
+        assert knowledge_handler.can_handle("/api/v1/knowledge/query")
 
     def test_can_handle_facts(self, knowledge_handler):
         """Test can_handle returns True for facts endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/facts")
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts")
 
     def test_can_handle_search(self, knowledge_handler):
         """Test can_handle returns True for search endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/search")
+        assert knowledge_handler.can_handle("/api/v1/knowledge/search")
 
     def test_can_handle_stats(self, knowledge_handler):
         """Test can_handle returns True for stats endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/stats")
+        assert knowledge_handler.can_handle("/api/v1/knowledge/stats")
 
     def test_can_handle_fact_by_id(self, knowledge_handler):
         """Test can_handle returns True for fact by ID endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-123")
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts/fact-123")
 
     def test_can_handle_fact_verify(self, knowledge_handler):
         """Test can_handle returns True for fact verify endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-123/verify")
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts/fact-123/verify")
 
     def test_can_handle_fact_contradictions(self, knowledge_handler):
         """Test can_handle returns True for fact contradictions endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-123/contradictions")
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts/fact-123/contradictions")
 
     def test_can_handle_fact_relations(self, knowledge_handler):
         """Test can_handle returns True for fact relations endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-123/relations")
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts/fact-123/relations")
 
     def test_cannot_handle_unknown(self, knowledge_handler):
         """Test can_handle returns False for unknown endpoint."""
-        assert not knowledge_handler.can_handle("/api/knowledge/unknown")
-        assert not knowledge_handler.can_handle("/api/debates")
+        assert not knowledge_handler.can_handle("/api/v1/knowledge/unknown")
+        assert not knowledge_handler.can_handle("/api/v1/debates")
 
 
 class TestKnowledgeHandlerListFacts:
-    """Test GET /api/knowledge/facts endpoint."""
+    """Test GET /api/v1/knowledge/facts endpoint."""
 
     def test_list_facts_default(self, knowledge_handler, mock_http_handler):
         """Test listing facts with default parameters."""
-        result = knowledge_handler.handle("/api/knowledge/facts", {}, mock_http_handler)
+        result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -118,7 +118,9 @@ class TestKnowledgeHandlerListFacts:
             "limit": "10",
             "offset": "0",
         }
-        result = knowledge_handler.handle("/api/knowledge/facts", query_params, mock_http_handler)
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -132,7 +134,9 @@ class TestKnowledgeHandlerListFacts:
             "status": "majority_agreed",
             "include_superseded": "false",
         }
-        result = knowledge_handler.handle("/api/knowledge/facts", query_params, mock_http_handler)
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/facts", query_params, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -140,12 +144,12 @@ class TestKnowledgeHandlerListFacts:
 
 
 class TestKnowledgeHandlerGetFact:
-    """Test GET /api/knowledge/facts/:id endpoint."""
+    """Test GET /api/v1/knowledge/facts/:id endpoint."""
 
     def test_get_fact_not_found(self, knowledge_handler, mock_http_handler):
         """Test getting non-existent fact returns 404."""
         result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent-id", {}, mock_http_handler
+            "/api/v1/knowledge/facts/nonexistent-id", {}, mock_http_handler
         )
 
         assert result is not None
@@ -164,7 +168,9 @@ class TestKnowledgeHandlerGetFact:
         )
 
         # Then retrieve it
-        result = knowledge_handler.handle(f"/api/knowledge/facts/{fact.id}", {}, mock_http_handler)
+        result = knowledge_handler.handle(
+            f"/api/v1/knowledge/facts/{fact.id}", {}, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -174,7 +180,7 @@ class TestKnowledgeHandlerGetFact:
 
 
 class TestKnowledgeHandlerCreateFact:
-    """Test POST /api/knowledge/facts endpoint."""
+    """Test POST /api/v1/knowledge/facts endpoint."""
 
     def test_create_fact_requires_auth(self, knowledge_handler):
         """Test creating fact requires authentication."""
@@ -191,7 +197,7 @@ class TestKnowledgeHandlerCreateFact:
 
             mock_auth.return_value = (None, error_response("Unauthorized", 401))
 
-            result = knowledge_handler.handle("/api/knowledge/facts", {}, handler)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -211,7 +217,7 @@ class TestKnowledgeHandlerCreateFact:
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
-            result = knowledge_handler.handle("/api/knowledge/facts", {}, handler)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -230,7 +236,7 @@ class TestKnowledgeHandlerCreateFact:
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
-            result = knowledge_handler.handle("/api/knowledge/facts", {}, handler)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -239,7 +245,7 @@ class TestKnowledgeHandlerCreateFact:
 
 
 class TestKnowledgeHandlerUpdateFact:
-    """Test PUT /api/knowledge/facts/:id endpoint."""
+    """Test PUT /api/v1/knowledge/facts/:id endpoint."""
 
     def test_update_fact_not_found(self, knowledge_handler):
         """Test updating non-existent fact returns 404."""
@@ -253,7 +259,7 @@ class TestKnowledgeHandlerUpdateFact:
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
-            result = knowledge_handler.handle("/api/knowledge/facts/nonexistent-id", {}, handler)
+            result = knowledge_handler.handle("/api/v1/knowledge/facts/nonexistent-id", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -280,7 +286,7 @@ class TestKnowledgeHandlerUpdateFact:
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
-            result = knowledge_handler.handle(f"/api/knowledge/facts/{fact.id}", {}, handler)
+            result = knowledge_handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -289,7 +295,7 @@ class TestKnowledgeHandlerUpdateFact:
 
 
 class TestKnowledgeHandlerDeleteFact:
-    """Test DELETE /api/knowledge/facts/:id endpoint."""
+    """Test DELETE /api/v1/knowledge/facts/:id endpoint."""
 
     def test_delete_fact_not_found(self, knowledge_handler, mock_http_handler):
         """Test deleting non-existent fact returns 404."""
@@ -299,7 +305,7 @@ class TestKnowledgeHandlerDeleteFact:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
             result = knowledge_handler.handle(
-                "/api/knowledge/facts/nonexistent-id", {}, mock_http_handler
+                "/api/v1/knowledge/facts/nonexistent-id", {}, mock_http_handler
             )
 
         assert result is not None
@@ -320,7 +326,7 @@ class TestKnowledgeHandlerDeleteFact:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
 
             result = knowledge_handler.handle(
-                f"/api/knowledge/facts/{fact.id}", {}, mock_http_handler
+                f"/api/v1/knowledge/facts/{fact.id}", {}, mock_http_handler
             )
 
         assert result is not None
@@ -330,12 +336,12 @@ class TestKnowledgeHandlerDeleteFact:
 
 
 class TestKnowledgeHandlerVerifyFact:
-    """Test POST /api/knowledge/facts/:id/verify endpoint."""
+    """Test POST /api/v1/knowledge/facts/:id/verify endpoint."""
 
     def test_verify_fact_not_found(self, knowledge_handler, mock_http_handler_post):
         """Test verifying non-existent fact returns 404."""
         result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent-id/verify", {}, mock_http_handler_post
+            "/api/v1/knowledge/facts/nonexistent-id/verify", {}, mock_http_handler_post
         )
 
         assert result is not None
@@ -351,7 +357,7 @@ class TestKnowledgeHandlerVerifyFact:
         )
 
         result = knowledge_handler.handle(
-            f"/api/knowledge/facts/{fact.id}/verify", {}, mock_http_handler_post
+            f"/api/v1/knowledge/facts/{fact.id}/verify", {}, mock_http_handler_post
         )
 
         assert result is not None
@@ -361,12 +367,12 @@ class TestKnowledgeHandlerVerifyFact:
 
 
 class TestKnowledgeHandlerContradictions:
-    """Test GET /api/knowledge/facts/:id/contradictions endpoint."""
+    """Test GET /api/v1/knowledge/facts/:id/contradictions endpoint."""
 
     def test_get_contradictions_not_found(self, knowledge_handler, mock_http_handler):
         """Test getting contradictions for non-existent fact returns 404."""
         result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent-id/contradictions", {}, mock_http_handler
+            "/api/v1/knowledge/facts/nonexistent-id/contradictions", {}, mock_http_handler
         )
 
         assert result is not None
@@ -382,7 +388,7 @@ class TestKnowledgeHandlerContradictions:
         )
 
         result = knowledge_handler.handle(
-            f"/api/knowledge/facts/{fact.id}/contradictions", {}, mock_http_handler
+            f"/api/v1/knowledge/facts/{fact.id}/contradictions", {}, mock_http_handler
         )
 
         assert result is not None
@@ -393,12 +399,12 @@ class TestKnowledgeHandlerContradictions:
 
 
 class TestKnowledgeHandlerRelations:
-    """Test /api/knowledge/facts/:id/relations endpoints."""
+    """Test /api/v1/knowledge/facts/:id/relations endpoints."""
 
     def test_get_relations_not_found(self, knowledge_handler, mock_http_handler):
         """Test getting relations for non-existent fact returns 404."""
         result = knowledge_handler.handle(
-            "/api/knowledge/facts/nonexistent-id/relations", {}, mock_http_handler
+            "/api/v1/knowledge/facts/nonexistent-id/relations", {}, mock_http_handler
         )
 
         assert result is not None
@@ -414,7 +420,7 @@ class TestKnowledgeHandlerRelations:
         )
 
         result = knowledge_handler.handle(
-            f"/api/knowledge/facts/{fact.id}/relations", {}, mock_http_handler
+            f"/api/v1/knowledge/facts/{fact.id}/relations", {}, mock_http_handler
         )
 
         assert result is not None
@@ -434,7 +440,7 @@ class TestKnowledgeHandlerRelations:
 
         query_params = {"type": "supports"}
         result = knowledge_handler.handle(
-            f"/api/knowledge/facts/{fact.id}/relations", query_params, mock_http_handler
+            f"/api/v1/knowledge/facts/{fact.id}/relations", query_params, mock_http_handler
         )
 
         assert result is not None
@@ -444,11 +450,11 @@ class TestKnowledgeHandlerRelations:
 
 
 class TestKnowledgeHandlerStats:
-    """Test GET /api/knowledge/stats endpoint."""
+    """Test GET /api/v1/knowledge/stats endpoint."""
 
     def test_get_stats(self, knowledge_handler, mock_http_handler):
         """Test getting knowledge base statistics."""
-        result = knowledge_handler.handle("/api/knowledge/stats", {}, mock_http_handler)
+        result = knowledge_handler.handle("/api/v1/knowledge/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -458,19 +464,23 @@ class TestKnowledgeHandlerStats:
     def test_get_stats_with_workspace(self, knowledge_handler, mock_http_handler):
         """Test getting stats for specific workspace."""
         query_params = {"workspace_id": "test-workspace"}
-        result = knowledge_handler.handle("/api/knowledge/stats", query_params, mock_http_handler)
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/stats", query_params, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
 
 
 class TestKnowledgeHandlerSearch:
-    """Test GET /api/knowledge/search endpoint."""
+    """Test GET /api/v1/knowledge/search endpoint."""
 
     def test_search_basic(self, knowledge_handler, mock_http_handler):
         """Test basic search functionality."""
         query_params = {"q": "security"}
-        result = knowledge_handler.handle("/api/knowledge/search", query_params, mock_http_handler)
+        result = knowledge_handler.handle(
+            "/api/v1/knowledge/search", query_params, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -478,13 +488,13 @@ class TestKnowledgeHandlerSearch:
 
 
 class TestKnowledgeHandlerQuery:
-    """Test POST /api/knowledge/query endpoint."""
+    """Test POST /api/v1/knowledge/query endpoint."""
 
     def test_query_missing_question(self, knowledge_handler):
         """Test query without question returns error."""
         handler = create_request_body({})
 
-        result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
+        result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -500,7 +510,7 @@ class TestKnowledgeHandlerQuery:
             }
         )
 
-        result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
+        result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -520,7 +530,7 @@ class TestKnowledgeHandlerQuery:
             }
         )
 
-        result = knowledge_handler.handle("/api/knowledge/query", {}, handler)
+        result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -544,7 +554,7 @@ class TestKnowledgeHandlerIntegration:
 
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
-            create_result = knowledge_handler.handle("/api/knowledge/facts", {}, create_handler)
+            create_result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, create_handler)
 
         assert create_result is not None
         assert create_result.status_code == 201
@@ -556,7 +566,9 @@ class TestKnowledgeHandlerIntegration:
         read_handler.client_address = ("127.0.0.1", 12345)
         read_handler.command = "GET"
 
-        read_result = knowledge_handler.handle(f"/api/knowledge/facts/{fact_id}", {}, read_handler)
+        read_result = knowledge_handler.handle(
+            f"/api/v1/knowledge/facts/{fact_id}", {}, read_handler
+        )
         assert read_result is not None
         assert read_result.status_code == 200
 
@@ -571,7 +583,7 @@ class TestKnowledgeHandlerIntegration:
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
             update_result = knowledge_handler.handle(
-                f"/api/knowledge/facts/{fact_id}", {}, update_handler
+                f"/api/v1/knowledge/facts/{fact_id}", {}, update_handler
             )
 
         assert update_result is not None
@@ -587,7 +599,7 @@ class TestKnowledgeHandlerIntegration:
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = ({"user_id": "test-user"}, None)
             delete_result = knowledge_handler.handle(
-                f"/api/knowledge/facts/{fact_id}", {}, delete_handler
+                f"/api/v1/knowledge/facts/{fact_id}", {}, delete_handler
             )
 
         assert delete_result is not None
@@ -595,7 +607,7 @@ class TestKnowledgeHandlerIntegration:
 
         # 5. Verify fact is gone
         verify_result = knowledge_handler.handle(
-            f"/api/knowledge/facts/{fact_id}", {}, read_handler
+            f"/api/v1/knowledge/facts/{fact_id}", {}, read_handler
         )
         assert verify_result.status_code == 404
 
@@ -620,47 +632,47 @@ class TestKnowledgeMoundHandlerCanHandle:
 
     def test_can_handle_mound_query(self, mound_handler):
         """Test can_handle returns True for mound query endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/query")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/query")
 
     def test_can_handle_mound_nodes(self, mound_handler):
         """Test can_handle returns True for mound nodes endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/nodes")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/nodes")
 
     def test_can_handle_mound_node_by_id(self, mound_handler):
         """Test can_handle returns True for mound node by ID endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/nodes/node-123")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/nodes/node-123")
 
     def test_can_handle_mound_node_relationships(self, mound_handler):
         """Test can_handle returns True for node relationships endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/nodes/node-123/relationships")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/nodes/node-123/relationships")
 
     def test_can_handle_mound_relationships(self, mound_handler):
         """Test can_handle returns True for mound relationships endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/relationships")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/relationships")
 
     def test_can_handle_mound_stats(self, mound_handler):
         """Test can_handle returns True for mound stats endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/stats")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/stats")
 
     def test_can_handle_mound_graph(self, mound_handler):
         """Test can_handle returns True for mound graph endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/graph/node-123")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/graph/node-123")
 
     def test_cannot_handle_non_mound(self, mound_handler):
         """Test can_handle returns False for non-mound endpoints."""
-        assert not mound_handler.can_handle("/api/knowledge/facts")
-        assert not mound_handler.can_handle("/api/debates")
+        assert not mound_handler.can_handle("/api/v1/knowledge/facts")
+        assert not mound_handler.can_handle("/api/v1/debates")
 
 
 class TestKnowledgeMoundNodeRelationships:
-    """Test GET /api/knowledge/mound/nodes/:id/relationships endpoint."""
+    """Test GET /api/v1/knowledge/mound/nodes/:id/relationships endpoint."""
 
     def test_get_node_relationships_mound_unavailable(self, mound_handler, mock_http_handler):
         """Test getting relationships when mound not available returns 503."""
         # Don't initialize mound
         with patch.object(mound_handler, "_get_mound", return_value=None):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/relationships", {}, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/node-123/relationships", {}, mock_http_handler
             )
 
         assert result is not None
@@ -675,7 +687,7 @@ class TestKnowledgeMoundNodeRelationships:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/nonexistent/relationships", {}, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/nonexistent/relationships", {}, mock_http_handler
             )
 
         assert result is not None
@@ -709,7 +721,7 @@ class TestKnowledgeMoundNodeRelationships:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/relationships", {}, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/node-123/relationships", {}, mock_http_handler
             )
 
         assert result is not None
@@ -740,7 +752,9 @@ class TestKnowledgeMoundNodeRelationships:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/relationships", query_params, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/node-123/relationships",
+                query_params,
+                mock_http_handler,
             )
 
         assert result is not None
@@ -768,7 +782,9 @@ class TestKnowledgeMoundNodeRelationships:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/nodes/node-123/relationships", query_params, mock_http_handler
+                "/api/v1/knowledge/mound/nodes/node-123/relationships",
+                query_params,
+                mock_http_handler,
             )
 
         assert result is not None
@@ -783,16 +799,18 @@ class TestKnowledgeMoundExport:
 
     def test_can_handle_export_d3(self, mound_handler):
         """Test can_handle returns True for D3 export endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/export/d3")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/export/d3")
 
     def test_can_handle_export_graphml(self, mound_handler):
         """Test can_handle returns True for GraphML export endpoint."""
-        assert mound_handler.can_handle("/api/knowledge/mound/export/graphml")
+        assert mound_handler.can_handle("/api/v1/knowledge/mound/export/graphml")
 
     def test_export_d3_mound_unavailable(self, mound_handler, mock_http_handler):
         """Test D3 export returns 503 when mound not available."""
         with patch.object(mound_handler, "_get_mound", return_value=None):
-            result = mound_handler.handle("/api/knowledge/mound/export/d3", {}, mock_http_handler)
+            result = mound_handler.handle(
+                "/api/v1/knowledge/mound/export/d3", {}, mock_http_handler
+            )
 
         assert result is not None
         assert result.status_code == 503
@@ -817,7 +835,9 @@ class TestKnowledgeMoundExport:
         mock_mound.export_graph_d3 = AsyncMock(return_value=mock_d3_result)
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
-            result = mound_handler.handle("/api/knowledge/mound/export/d3", {}, mock_http_handler)
+            result = mound_handler.handle(
+                "/api/v1/knowledge/mound/export/d3", {}, mock_http_handler
+            )
 
         assert result is not None
         assert result.status_code == 200
@@ -857,7 +877,7 @@ class TestKnowledgeMoundExport:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/export/d3", query_params, mock_http_handler
+                "/api/v1/knowledge/mound/export/d3", query_params, mock_http_handler
             )
 
         assert result is not None
@@ -878,7 +898,9 @@ class TestKnowledgeMoundExport:
         mock_mound.export_graph_d3 = AsyncMock(side_effect=Exception("Export failed"))
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
-            result = mound_handler.handle("/api/knowledge/mound/export/d3", {}, mock_http_handler)
+            result = mound_handler.handle(
+                "/api/v1/knowledge/mound/export/d3", {}, mock_http_handler
+            )
 
         assert result is not None
         assert result.status_code == 500
@@ -890,7 +912,7 @@ class TestKnowledgeMoundExport:
         """Test GraphML export returns 503 when mound not available."""
         with patch.object(mound_handler, "_get_mound", return_value=None):
             result = mound_handler.handle(
-                "/api/knowledge/mound/export/graphml", {}, mock_http_handler
+                "/api/v1/knowledge/mound/export/graphml", {}, mock_http_handler
             )
 
         assert result is not None
@@ -914,7 +936,7 @@ class TestKnowledgeMoundExport:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/export/graphml", {}, mock_http_handler
+                "/api/v1/knowledge/mound/export/graphml", {}, mock_http_handler
             )
 
         assert result is not None
@@ -941,7 +963,7 @@ class TestKnowledgeMoundExport:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/export/graphml", query_params, mock_http_handler
+                "/api/v1/knowledge/mound/export/graphml", query_params, mock_http_handler
             )
 
         assert result is not None
@@ -963,7 +985,7 @@ class TestKnowledgeMoundExport:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/export/graphml", {}, mock_http_handler
+                "/api/v1/knowledge/mound/export/graphml", {}, mock_http_handler
             )
 
         assert result is not None
@@ -984,7 +1006,7 @@ class TestKnowledgeMoundExport:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/export/d3", query_params, mock_http_handler
+                "/api/v1/knowledge/mound/export/d3", query_params, mock_http_handler
             )
 
         assert result is not None
@@ -1004,7 +1026,7 @@ class TestKnowledgeMoundExport:
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
-                "/api/knowledge/mound/export/d3", query_params, mock_http_handler
+                "/api/v1/knowledge/mound/export/d3", query_params, mock_http_handler
             )
 
         assert result is not None

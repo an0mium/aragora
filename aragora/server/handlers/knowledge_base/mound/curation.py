@@ -39,25 +39,25 @@ class CurationOperationsMixin:
         self, path: str, query_params: dict, handler: Any
     ) -> Optional[HandlerResult]:
         """Route curation-related requests."""
-        if path == "/api/knowledge/mound/curation/policy":
+        if path == "/api/v1/knowledge/mound/curation/policy":
             method = getattr(handler, "command", "GET")
             if method == "POST":
                 return self._handle_set_curation_policy(handler)
             return self._handle_get_curation_policy(query_params)
 
-        if path == "/api/knowledge/mound/curation/status":
+        if path == "/api/v1/knowledge/mound/curation/status":
             return self._handle_curation_status(query_params)
 
-        if path == "/api/knowledge/mound/curation/run":
+        if path == "/api/v1/knowledge/mound/curation/run":
             return self._handle_run_curation(handler)
 
-        if path == "/api/knowledge/mound/curation/history":
+        if path == "/api/v1/knowledge/mound/curation/history":
             return self._handle_curation_history(query_params)
 
-        if path == "/api/knowledge/mound/curation/scores":
+        if path == "/api/v1/knowledge/mound/curation/scores":
             return self._handle_quality_scores(query_params)
 
-        if path == "/api/knowledge/mound/curation/tiers":
+        if path == "/api/v1/knowledge/mound/curation/tiers":
             return self._handle_tier_distribution(query_params)
 
         return None

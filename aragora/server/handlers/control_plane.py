@@ -8,23 +8,23 @@ Provides REST API endpoints for the enterprise control plane:
 - Control plane statistics and metrics
 
 Endpoints:
-    GET  /api/control-plane/agents           - List registered agents
-    POST /api/control-plane/agents           - Register an agent
-    GET  /api/control-plane/agents/:id       - Get agent info
-    DELETE /api/control-plane/agents/:id     - Unregister agent
-    POST /api/control-plane/agents/:id/heartbeat - Send heartbeat
+    GET  /api/v1/control-plane/agents           - List registered agents
+    POST /api/v1/control-plane/agents           - Register an agent
+    GET  /api/v1/control-plane/agents/:id       - Get agent info
+    DELETE /api/v1/control-plane/agents/:id     - Unregister agent
+    POST /api/v1/control-plane/agents/:id/heartbeat - Send heartbeat
 
-    POST /api/control-plane/tasks            - Submit a task
-    GET  /api/control-plane/tasks/:id        - Get task status
-    POST /api/control-plane/tasks/:id/complete - Complete task
-    POST /api/control-plane/tasks/:id/fail   - Fail task
-    POST /api/control-plane/tasks/:id/cancel - Cancel task
+    POST /api/v1/control-plane/tasks            - Submit a task
+    GET  /api/v1/control-plane/tasks/:id        - Get task status
+    POST /api/v1/control-plane/tasks/:id/complete - Complete task
+    POST /api/v1/control-plane/tasks/:id/fail   - Fail task
+    POST /api/v1/control-plane/tasks/:id/cancel - Cancel task
 
-    GET  /api/control-plane/health           - System health
-    GET  /api/control-plane/health/:agent_id - Agent health
-    GET  /api/control-plane/stats            - Control plane statistics
-    GET  /api/control-plane/queue            - Job queue (pending/running tasks)
-    GET  /api/control-plane/metrics          - Dashboard metrics
+    GET  /api/v1/control-plane/health           - System health
+    GET  /api/v1/control-plane/health/:agent_id - Agent health
+    GET  /api/v1/control-plane/stats            - Control plane statistics
+    GET  /api/v1/control-plane/queue            - Job queue (pending/running tasks)
+    GET  /api/v1/control-plane/metrics          - Dashboard metrics
 """
 
 from __future__ import annotations
@@ -127,7 +127,7 @@ class ControlPlaneHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/control-plane/")
+        return path.startswith("/api/v1/control-plane/")
 
     # =========================================================================
     # GET Handlers
@@ -137,39 +137,39 @@ class ControlPlaneHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle GET requests."""
-        # /api/control-plane/agents
-        if path == "/api/control-plane/agents":
+        # /api/v1/control-plane/agents
+        if path == "/api/v1/control-plane/agents":
             return self._handle_list_agents(query_params)
 
-        # /api/control-plane/agents/:id
-        if path.startswith("/api/control-plane/agents/") and path.count("/") == 4:
+        # /api/v1/control-plane/agents/:id
+        if path.startswith("/api/v1/control-plane/agents/") and path.count("/") == 5:
             agent_id = path.split("/")[-1]
             return self._handle_get_agent(agent_id)
 
-        # /api/control-plane/tasks/:id
-        if path.startswith("/api/control-plane/tasks/") and path.count("/") == 4:
+        # /api/v1/control-plane/tasks/:id
+        if path.startswith("/api/v1/control-plane/tasks/") and path.count("/") == 5:
             task_id = path.split("/")[-1]
             return self._handle_get_task(task_id)
 
-        # /api/control-plane/health
-        if path == "/api/control-plane/health":
+        # /api/v1/control-plane/health
+        if path == "/api/v1/control-plane/health":
             return self._handle_system_health()
 
-        # /api/control-plane/health/:agent_id
-        if path.startswith("/api/control-plane/health/") and path.count("/") == 4:
+        # /api/v1/control-plane/health/:agent_id
+        if path.startswith("/api/v1/control-plane/health/") and path.count("/") == 5:
             agent_id = path.split("/")[-1]
             return self._handle_agent_health(agent_id)
 
-        # /api/control-plane/stats
-        if path == "/api/control-plane/stats":
+        # /api/v1/control-plane/stats
+        if path == "/api/v1/control-plane/stats":
             return self._handle_stats()
 
-        # /api/control-plane/queue
-        if path == "/api/control-plane/queue":
+        # /api/v1/control-plane/queue
+        if path == "/api/v1/control-plane/queue":
             return self._handle_get_queue(query_params)
 
-        # /api/control-plane/metrics
-        if path == "/api/control-plane/metrics":
+        # /api/v1/control-plane/metrics
+        if path == "/api/v1/control-plane/metrics":
             return self._handle_get_metrics()
 
         return None
@@ -408,14 +408,14 @@ class ControlPlaneHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
-        # /api/control-plane/agents
-        if path == "/api/control-plane/agents":
+        # /api/v1/control-plane/agents
+        if path == "/api/v1/control-plane/agents":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_register_agent(body, handler)
 
-        # /api/control-plane/agents/:id/heartbeat
+        # /api/v1/control-plane/agents/:id/heartbeat
         if path.endswith("/heartbeat") and "/agents/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
@@ -425,14 +425,14 @@ class ControlPlaneHandler(BaseHandler):
                     return err
                 return self._handle_heartbeat(agent_id, body, handler)
 
-        # /api/control-plane/tasks
-        if path == "/api/control-plane/tasks":
+        # /api/v1/control-plane/tasks
+        if path == "/api/v1/control-plane/tasks":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_submit_task(body, handler)
 
-        # /api/control-plane/tasks/:id/complete
+        # /api/v1/control-plane/tasks/:id/complete
         if path.endswith("/complete") and "/tasks/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
@@ -442,7 +442,7 @@ class ControlPlaneHandler(BaseHandler):
                     return err
                 return self._handle_complete_task(task_id, body, handler)
 
-        # /api/control-plane/tasks/:id/fail
+        # /api/v1/control-plane/tasks/:id/fail
         if path.endswith("/fail") and "/tasks/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
@@ -452,14 +452,14 @@ class ControlPlaneHandler(BaseHandler):
                     return err
                 return self._handle_fail_task(task_id, body, handler)
 
-        # /api/control-plane/tasks/:id/cancel
+        # /api/v1/control-plane/tasks/:id/cancel
         if path.endswith("/cancel") and "/tasks/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
                 task_id = parts[-2]
                 return self._handle_cancel_task(task_id, handler)
 
-        # /api/control-plane/tasks/:id/claim
+        # /api/v1/control-plane/tasks/:id/claim
         if path.endswith("/claim") and "/tasks/" in path:
             body, err = self.read_json_body_validated(handler)
             if err:
@@ -781,8 +781,8 @@ class ControlPlaneHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle DELETE requests."""
-        # /api/control-plane/agents/:id
-        if path.startswith("/api/control-plane/agents/") and path.count("/") == 4:
+        # /api/v1/control-plane/agents/:id
+        if path.startswith("/api/v1/control-plane/agents/") and path.count("/") == 5:
             agent_id = path.split("/")[-1]
             return self._handle_unregister_agent(agent_id, handler)
 

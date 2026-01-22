@@ -48,40 +48,40 @@ class TestConsensusHandlerCanHandle:
 
     def test_can_handle_similar(self, consensus_handler):
         """Test can_handle returns True for similar endpoint."""
-        assert consensus_handler.can_handle("/api/consensus/similar")
+        assert consensus_handler.can_handle("/api/v1/consensus/similar")
 
     def test_can_handle_settled(self, consensus_handler):
         """Test can_handle returns True for settled endpoint."""
-        assert consensus_handler.can_handle("/api/consensus/settled")
+        assert consensus_handler.can_handle("/api/v1/consensus/settled")
 
     def test_can_handle_stats(self, consensus_handler):
         """Test can_handle returns True for stats endpoint."""
-        assert consensus_handler.can_handle("/api/consensus/stats")
+        assert consensus_handler.can_handle("/api/v1/consensus/stats")
 
     def test_can_handle_dissents(self, consensus_handler):
         """Test can_handle returns True for dissents endpoint."""
-        assert consensus_handler.can_handle("/api/consensus/dissents")
+        assert consensus_handler.can_handle("/api/v1/consensus/dissents")
 
     def test_can_handle_contrarian_views(self, consensus_handler):
         """Test can_handle returns True for contrarian-views endpoint."""
-        assert consensus_handler.can_handle("/api/consensus/contrarian-views")
+        assert consensus_handler.can_handle("/api/v1/consensus/contrarian-views")
 
     def test_can_handle_risk_warnings(self, consensus_handler):
         """Test can_handle returns True for risk-warnings endpoint."""
-        assert consensus_handler.can_handle("/api/consensus/risk-warnings")
+        assert consensus_handler.can_handle("/api/v1/consensus/risk-warnings")
 
     def test_can_handle_seed_demo(self, consensus_handler):
         """Test can_handle returns True for seed-demo endpoint."""
-        assert consensus_handler.can_handle("/api/consensus/seed-demo")
+        assert consensus_handler.can_handle("/api/v1/consensus/seed-demo")
 
     def test_can_handle_domain(self, consensus_handler):
         """Test can_handle returns True for domain endpoint."""
-        assert consensus_handler.can_handle("/api/consensus/domain/software-engineering")
+        assert consensus_handler.can_handle("/api/v1/consensus/domain/software-engineering")
 
     def test_cannot_handle_unknown(self, consensus_handler):
         """Test can_handle returns False for unknown endpoint."""
-        assert not consensus_handler.can_handle("/api/consensus/unknown")
-        assert not consensus_handler.can_handle("/api/debates")
+        assert not consensus_handler.can_handle("/api/v1/consensus/unknown")
+        assert not consensus_handler.can_handle("/api/v1/debates")
 
 
 class TestConsensusHandlerSimilar:
@@ -89,7 +89,7 @@ class TestConsensusHandlerSimilar:
 
     def test_similar_missing_topic(self, consensus_handler, mock_http_handler):
         """Test similar endpoint requires topic parameter."""
-        result = consensus_handler.handle("/api/consensus/similar", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/similar", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -100,7 +100,7 @@ class TestConsensusHandlerSimilar:
         """Test similar endpoint rejects topics over 500 chars."""
         long_topic = "a" * 501
         result = consensus_handler.handle(
-            "/api/consensus/similar", {"topic": long_topic}, mock_http_handler
+            "/api/v1/consensus/similar", {"topic": long_topic}, mock_http_handler
         )
 
         assert result is not None
@@ -113,7 +113,7 @@ class TestConsensusHandlerSimilar:
         """Test similar endpoint with valid topic."""
         # This will fail if ConsensusMemory is not available, but that's expected
         result = consensus_handler.handle(
-            "/api/consensus/similar", {"topic": "rate limiting"}, mock_http_handler
+            "/api/v1/consensus/similar", {"topic": "rate limiting"}, mock_http_handler
         )
 
         assert result is not None
@@ -126,7 +126,7 @@ class TestConsensusHandlerSettled:
 
     def test_settled_default_params(self, consensus_handler, mock_http_handler):
         """Test settled endpoint with default parameters."""
-        result = consensus_handler.handle("/api/consensus/settled", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/settled", {}, mock_http_handler)
 
         assert result is not None
         # Either returns data or 503 if feature unavailable
@@ -135,7 +135,7 @@ class TestConsensusHandlerSettled:
     def test_settled_with_params(self, consensus_handler, mock_http_handler):
         """Test settled endpoint with custom parameters."""
         result = consensus_handler.handle(
-            "/api/consensus/settled", {"min_confidence": "0.9", "limit": "10"}, mock_http_handler
+            "/api/v1/consensus/settled", {"min_confidence": "0.9", "limit": "10"}, mock_http_handler
         )
 
         assert result is not None
@@ -147,7 +147,7 @@ class TestConsensusHandlerStats:
 
     def test_stats_endpoint(self, consensus_handler, mock_http_handler):
         """Test stats endpoint."""
-        result = consensus_handler.handle("/api/consensus/stats", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
 
         assert result is not None
         # Either returns data or 503 if feature unavailable
@@ -159,7 +159,7 @@ class TestConsensusHandlerDissents:
 
     def test_dissents_default(self, consensus_handler, mock_http_handler):
         """Test dissents endpoint with default parameters."""
-        result = consensus_handler.handle("/api/consensus/dissents", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/dissents", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code in [200, 400, 429, 500, 503]
@@ -167,7 +167,7 @@ class TestConsensusHandlerDissents:
     def test_dissents_with_topic(self, consensus_handler, mock_http_handler):
         """Test dissents endpoint with topic filter."""
         result = consensus_handler.handle(
-            "/api/consensus/dissents",
+            "/api/v1/consensus/dissents",
             {"topic": "caching strategies", "limit": "5"},
             mock_http_handler,
         )
@@ -178,7 +178,7 @@ class TestConsensusHandlerDissents:
     def test_dissents_with_domain(self, consensus_handler, mock_http_handler):
         """Test dissents endpoint with domain filter."""
         result = consensus_handler.handle(
-            "/api/consensus/dissents",
+            "/api/v1/consensus/dissents",
             {"domain": "software-engineering", "limit": "5"},
             mock_http_handler,
         )
@@ -192,7 +192,9 @@ class TestConsensusHandlerContrarianViews:
 
     def test_contrarian_views_default(self, consensus_handler, mock_http_handler):
         """Test contrarian-views endpoint with default parameters."""
-        result = consensus_handler.handle("/api/consensus/contrarian-views", {}, mock_http_handler)
+        result = consensus_handler.handle(
+            "/api/v1/consensus/contrarian-views", {}, mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code in [200, 400, 429, 500, 503]
@@ -200,7 +202,7 @@ class TestConsensusHandlerContrarianViews:
     def test_contrarian_views_with_topic(self, consensus_handler, mock_http_handler):
         """Test contrarian-views endpoint with topic filter."""
         result = consensus_handler.handle(
-            "/api/consensus/contrarian-views", {"topic": "microservices"}, mock_http_handler
+            "/api/v1/consensus/contrarian-views", {"topic": "microservices"}, mock_http_handler
         )
 
         assert result is not None
@@ -212,7 +214,7 @@ class TestConsensusHandlerRiskWarnings:
 
     def test_risk_warnings_default(self, consensus_handler, mock_http_handler):
         """Test risk-warnings endpoint with default parameters."""
-        result = consensus_handler.handle("/api/consensus/risk-warnings", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/risk-warnings", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code in [200, 400, 429, 500, 503]
@@ -220,7 +222,7 @@ class TestConsensusHandlerRiskWarnings:
     def test_risk_warnings_with_topic(self, consensus_handler, mock_http_handler):
         """Test risk-warnings endpoint with topic filter."""
         result = consensus_handler.handle(
-            "/api/consensus/risk-warnings",
+            "/api/v1/consensus/risk-warnings",
             {"topic": "authentication", "domain": "security"},
             mock_http_handler,
         )
@@ -235,7 +237,7 @@ class TestConsensusHandlerDomain:
     def test_domain_history(self, consensus_handler, mock_http_handler):
         """Test domain history endpoint."""
         result = consensus_handler.handle(
-            "/api/consensus/domain/software-engineering", {}, mock_http_handler
+            "/api/v1/consensus/domain/software-engineering", {}, mock_http_handler
         )
 
         assert result is not None
@@ -244,7 +246,7 @@ class TestConsensusHandlerDomain:
     def test_domain_history_with_limit(self, consensus_handler, mock_http_handler):
         """Test domain history endpoint with limit."""
         result = consensus_handler.handle(
-            "/api/consensus/domain/security", {"limit": "25"}, mock_http_handler
+            "/api/v1/consensus/domain/security", {"limit": "25"}, mock_http_handler
         )
 
         assert result is not None
@@ -256,7 +258,7 @@ class TestConsensusHandlerSeedDemo:
 
     def test_seed_demo(self, consensus_handler, mock_http_handler):
         """Test seed-demo endpoint."""
-        result = consensus_handler.handle("/api/consensus/seed-demo", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/seed-demo", {}, mock_http_handler)
 
         assert result is not None
         # Either returns data, 503 if feature unavailable, or 500 if fixtures fail
@@ -279,7 +281,7 @@ class TestConsensusHandlerRateLimiting:
             # Make several requests
             results = []
             for _ in range(10):
-                result = consensus_handler.handle("/api/consensus/stats", {}, mock_http_handler)
+                result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
                 results.append(result)
 
             # All should return something (either data or rate limit error)
@@ -297,13 +299,13 @@ class TestConsensusHandlerIntegration:
     def test_all_routes_reachable(self, consensus_handler, mock_http_handler):
         """Test all consensus routes are reachable."""
         routes_to_test = [
-            ("/api/consensus/similar", {"topic": "test topic"}),
-            ("/api/consensus/settled", {}),
-            ("/api/consensus/stats", {}),
-            ("/api/consensus/dissents", {}),
-            ("/api/consensus/contrarian-views", {}),
-            ("/api/consensus/risk-warnings", {}),
-            ("/api/consensus/domain/test-domain", {}),
+            ("/api/v1/consensus/similar", {"topic": "test topic"}),
+            ("/api/v1/consensus/settled", {}),
+            ("/api/v1/consensus/stats", {}),
+            ("/api/v1/consensus/dissents", {}),
+            ("/api/v1/consensus/contrarian-views", {}),
+            ("/api/v1/consensus/risk-warnings", {}),
+            ("/api/v1/consensus/domain/test-domain", {}),
         ]
 
         for path, params in routes_to_test:
@@ -322,7 +324,7 @@ class TestConsensusHandlerIntegration:
         """Test parameter validation across endpoints."""
         # Test limit clamping
         result = consensus_handler.handle(
-            "/api/consensus/settled",
+            "/api/v1/consensus/settled",
             {"limit": "1000"},  # Should be clamped to max
             mock_http_handler,
         )
@@ -330,7 +332,7 @@ class TestConsensusHandlerIntegration:
 
         # Test confidence clamping
         result = consensus_handler.handle(
-            "/api/consensus/settled",
+            "/api/v1/consensus/settled",
             {"min_confidence": "2.0"},  # Should be clamped to 1.0
             mock_http_handler,
         )

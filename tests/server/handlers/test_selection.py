@@ -53,40 +53,40 @@ class TestSelectionHandlerRouting:
 
     def test_can_handle_plugins_list(self, selection_handler):
         """Test that handler recognizes /api/selection/plugins route."""
-        assert selection_handler.can_handle("/api/selection/plugins") is True
+        assert selection_handler.can_handle("/api/v1/selection/plugins") is True
 
     def test_can_handle_defaults(self, selection_handler):
         """Test that handler recognizes /api/selection/defaults route."""
-        assert selection_handler.can_handle("/api/selection/defaults") is True
+        assert selection_handler.can_handle("/api/v1/selection/defaults") is True
 
     def test_can_handle_score(self, selection_handler):
         """Test that handler recognizes /api/selection/score route."""
-        assert selection_handler.can_handle("/api/selection/score") is True
+        assert selection_handler.can_handle("/api/v1/selection/score") is True
 
     def test_can_handle_team(self, selection_handler):
         """Test that handler recognizes /api/selection/team route."""
-        assert selection_handler.can_handle("/api/selection/team") is True
+        assert selection_handler.can_handle("/api/v1/selection/team") is True
 
     def test_can_handle_scorers_prefix(self, selection_handler):
         """Test that handler recognizes /api/selection/scorers/<name> routes."""
-        assert selection_handler.can_handle("/api/selection/scorers/default") is True
-        assert selection_handler.can_handle("/api/selection/scorers/composite") is True
+        assert selection_handler.can_handle("/api/v1/selection/scorers/default") is True
+        assert selection_handler.can_handle("/api/v1/selection/scorers/composite") is True
 
     def test_can_handle_team_selectors_prefix(self, selection_handler):
         """Test that handler recognizes /api/selection/team-selectors/<name> routes."""
-        assert selection_handler.can_handle("/api/selection/team-selectors/default") is True
-        assert selection_handler.can_handle("/api/selection/team-selectors/diverse") is True
+        assert selection_handler.can_handle("/api/v1/selection/team-selectors/default") is True
+        assert selection_handler.can_handle("/api/v1/selection/team-selectors/diverse") is True
 
     def test_can_handle_role_assigners_prefix(self, selection_handler):
         """Test that handler recognizes /api/selection/role-assigners/<name> routes."""
-        assert selection_handler.can_handle("/api/selection/role-assigners/default") is True
-        assert selection_handler.can_handle("/api/selection/role-assigners/adaptive") is True
+        assert selection_handler.can_handle("/api/v1/selection/role-assigners/default") is True
+        assert selection_handler.can_handle("/api/v1/selection/role-assigners/adaptive") is True
 
     def test_cannot_handle_unknown_path(self, selection_handler):
         """Test that handler rejects unknown paths."""
-        assert selection_handler.can_handle("/api/unknown") is False
-        assert selection_handler.can_handle("/api/debates") is False
-        assert selection_handler.can_handle("/api/selection") is False  # No trailing /
+        assert selection_handler.can_handle("/api/v1/unknown") is False
+        assert selection_handler.can_handle("/api/v1/debates") is False
+        assert selection_handler.can_handle("/api/v1/selection") is False  # No trailing /
 
 
 class TestListPlugins:
@@ -97,7 +97,7 @@ class TestListPlugins:
         # Reset rate limiter for clean test
         _selection_limiter._buckets.clear()
 
-        result = selection_handler.handle("/api/selection/plugins", {}, mock_http_handler)
+        result = selection_handler.handle("/api/v1/selection/plugins", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -110,7 +110,7 @@ class TestListPlugins:
         """List plugins should include built-in default plugins."""
         _selection_limiter._buckets.clear()
 
-        result = selection_handler.handle("/api/selection/plugins", {}, mock_http_handler)
+        result = selection_handler.handle("/api/v1/selection/plugins", {}, mock_http_handler)
 
         body = json.loads(result.body)
         # Check that at least default plugins are present
@@ -126,7 +126,7 @@ class TestGetDefaults:
         """Get defaults should return the default plugin for each category."""
         _selection_limiter._buckets.clear()
 
-        result = selection_handler.handle("/api/selection/defaults", {}, mock_http_handler)
+        result = selection_handler.handle("/api/v1/selection/defaults", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -144,12 +144,14 @@ class TestGetScorerInfo:
         _selection_limiter._buckets.clear()
 
         # Get the default scorer name first
-        defaults_result = selection_handler.handle("/api/selection/defaults", {}, mock_http_handler)
+        defaults_result = selection_handler.handle(
+            "/api/v1/selection/defaults", {}, mock_http_handler
+        )
         defaults = json.loads(defaults_result.body)
         scorer_name = defaults["scorer"]
 
         result = selection_handler.handle(
-            f"/api/selection/scorers/{scorer_name}", {}, mock_http_handler
+            f"/api/v1/selection/scorers/{scorer_name}", {}, mock_http_handler
         )
 
         assert result is not None
@@ -162,7 +164,7 @@ class TestGetScorerInfo:
         _selection_limiter._buckets.clear()
 
         result = selection_handler.handle(
-            "/api/selection/scorers/nonexistent_scorer", {}, mock_http_handler
+            "/api/v1/selection/scorers/nonexistent_scorer", {}, mock_http_handler
         )
 
         assert result is not None
@@ -178,12 +180,14 @@ class TestGetTeamSelectorInfo:
         """Get team selector info for existing selector should return details."""
         _selection_limiter._buckets.clear()
 
-        defaults_result = selection_handler.handle("/api/selection/defaults", {}, mock_http_handler)
+        defaults_result = selection_handler.handle(
+            "/api/v1/selection/defaults", {}, mock_http_handler
+        )
         defaults = json.loads(defaults_result.body)
         selector_name = defaults["team_selector"]
 
         result = selection_handler.handle(
-            f"/api/selection/team-selectors/{selector_name}", {}, mock_http_handler
+            f"/api/v1/selection/team-selectors/{selector_name}", {}, mock_http_handler
         )
 
         assert result is not None
@@ -194,7 +198,7 @@ class TestGetTeamSelectorInfo:
         _selection_limiter._buckets.clear()
 
         result = selection_handler.handle(
-            "/api/selection/team-selectors/nonexistent", {}, mock_http_handler
+            "/api/v1/selection/team-selectors/nonexistent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -208,12 +212,14 @@ class TestGetRoleAssignerInfo:
         """Get role assigner info for existing assigner should return details."""
         _selection_limiter._buckets.clear()
 
-        defaults_result = selection_handler.handle("/api/selection/defaults", {}, mock_http_handler)
+        defaults_result = selection_handler.handle(
+            "/api/v1/selection/defaults", {}, mock_http_handler
+        )
         defaults = json.loads(defaults_result.body)
         assigner_name = defaults["role_assigner"]
 
         result = selection_handler.handle(
-            f"/api/selection/role-assigners/{assigner_name}", {}, mock_http_handler
+            f"/api/v1/selection/role-assigners/{assigner_name}", {}, mock_http_handler
         )
 
         assert result is not None
@@ -224,7 +230,7 @@ class TestGetRoleAssignerInfo:
         _selection_limiter._buckets.clear()
 
         result = selection_handler.handle(
-            "/api/selection/role-assigners/nonexistent", {}, mock_http_handler
+            "/api/v1/selection/role-assigners/nonexistent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -242,7 +248,7 @@ class TestScoreAgents:
             {"task_description": "Implement a new feature for user authentication"}
         )
 
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -269,7 +275,7 @@ class TestScoreAgents:
             }
         )
 
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -282,7 +288,7 @@ class TestScoreAgents:
 
         handler = make_post_handler({})
 
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -297,7 +303,7 @@ class TestScoreAgents:
             {"task_description": "Test task", "scorer": "nonexistent_scorer"}
         )
 
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -314,7 +320,7 @@ class TestSelectTeam:
             {"task_description": "Design a distributed system", "team_size": 3}
         )
 
-        result = selection_handler.handle_post("/api/selection/team", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/team", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -327,7 +333,7 @@ class TestSelectTeam:
 
         handler = make_post_handler({"team_size": 3})
 
-        result = selection_handler.handle_post("/api/selection/team", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/team", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -345,7 +351,7 @@ class TestRateLimiting:
         for _ in range(105):  # Over the 100 limit
             _selection_limiter.is_allowed("127.0.0.1")
 
-        result = selection_handler.handle("/api/selection/plugins", {}, mock_http_handler)
+        result = selection_handler.handle("/api/v1/selection/plugins", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -360,10 +366,10 @@ class TestHandleReturnsNone:
         """Handle should return None for non-matching GET paths."""
         _selection_limiter._buckets.clear()
 
-        result = selection_handler.handle("/api/other", {}, mock_http_handler)
+        result = selection_handler.handle("/api/v1/other", {}, mock_http_handler)
         assert result is None
 
     def test_handle_post_returns_none_for_non_matching(self, selection_handler, mock_http_handler):
         """Handle_post should return None for non-matching POST paths."""
-        result = selection_handler.handle_post("/api/other", {}, mock_http_handler)
+        result = selection_handler.handle_post("/api/v1/other", {}, mock_http_handler)
         assert result is None

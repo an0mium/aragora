@@ -150,26 +150,27 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         # Handle job-specific endpoints
         if path.startswith("/api/v1/queue/jobs/"):
             parts = path.split("/")
+            # Parts: ['', 'api', 'v1', 'queue', 'jobs', ':id', ...]
 
-            # POST /api/queue/jobs/:id/retry
-            if len(parts) == 6 and parts[5] == "retry" and method == "POST":
-                job_id = parts[4]
+            # POST /api/v1/queue/jobs/:id/retry (7 parts)
+            if len(parts) == 7 and parts[6] == "retry" and method == "POST":
+                job_id = parts[5]
                 is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return await self._retry_job(job_id)
 
-            # GET /api/queue/jobs/:id
-            if len(parts) == 5 and method == "GET":
-                job_id = parts[4]
+            # GET /api/v1/queue/jobs/:id (6 parts)
+            if len(parts) == 6 and method == "GET":
+                job_id = parts[5]
                 is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return await self._get_job(job_id)
 
-            # DELETE /api/queue/jobs/:id
-            if len(parts) == 5 and method == "DELETE":
-                job_id = parts[4]
+            # DELETE /api/v1/queue/jobs/:id (6 parts)
+            if len(parts) == 6 and method == "DELETE":
+                job_id = parts[5]
                 is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)

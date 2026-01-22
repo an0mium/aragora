@@ -77,7 +77,7 @@ class BatchOperationsMixin:
                 "success": true,
                 "batch_id": "batch_abc123",
                 "items_queued": 10,
-                "status_url": "/api/debates/batch/batch_abc123/status"
+                "status_url": "/api/v1/debates/batch/batch_abc123/status"
             }
         """
         from aragora.config import MAX_CONCURRENT_DEBATES
@@ -242,7 +242,7 @@ class BatchOperationsMixin:
                     "success": True,
                     "batch_id": batch_id,
                     "items_queued": len(items),
-                    "status_url": f"/api/debates/batch/{batch_id}/status",
+                    "status_url": f"/api/v1/debates/batch/{batch_id}/status",
                 }
             )
 

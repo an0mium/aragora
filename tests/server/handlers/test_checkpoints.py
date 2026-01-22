@@ -58,39 +58,39 @@ class TestCheckpointHandlerRouting:
 
     def test_can_handle_checkpoints_list(self, checkpoint_handler):
         """Test that handler recognizes /api/checkpoints route."""
-        assert checkpoint_handler.can_handle("/api/checkpoints") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints") is True
 
     def test_can_handle_checkpoints_resumable(self, checkpoint_handler):
         """Test that handler recognizes /api/checkpoints/resumable route."""
-        assert checkpoint_handler.can_handle("/api/checkpoints/resumable") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints/resumable") is True
 
     def test_can_handle_checkpoint_by_id(self, checkpoint_handler):
         """Test that handler recognizes /api/checkpoints/{id} route."""
-        assert checkpoint_handler.can_handle("/api/checkpoints/cp-123") is True
-        assert checkpoint_handler.can_handle("/api/checkpoints/abc-def-ghi") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints/cp-123") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints/abc-def-ghi") is True
 
     def test_can_handle_checkpoint_resume(self, checkpoint_handler):
         """Test that handler recognizes /api/checkpoints/{id}/resume route."""
-        assert checkpoint_handler.can_handle("/api/checkpoints/cp-123/resume") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints/cp-123/resume") is True
 
     def test_can_handle_debate_checkpoints(self, checkpoint_handler):
         """Test that handler recognizes /api/debates/{id}/checkpoints route."""
-        assert checkpoint_handler.can_handle("/api/debates/deb-123/checkpoints") is True
+        assert checkpoint_handler.can_handle("/api/v1/debates/deb-123/checkpoints") is True
 
     def test_can_handle_debate_checkpoint_create(self, checkpoint_handler):
         """Test that handler recognizes /api/debates/{id}/checkpoint route."""
-        assert checkpoint_handler.can_handle("/api/debates/deb-123/checkpoint") is True
+        assert checkpoint_handler.can_handle("/api/v1/debates/deb-123/checkpoint") is True
 
     def test_can_handle_debate_checkpoint_pause(self, checkpoint_handler):
         """Test that handler recognizes /api/debates/{id}/checkpoint/pause route."""
-        assert checkpoint_handler.can_handle("/api/debates/deb-123/checkpoint/pause") is True
+        assert checkpoint_handler.can_handle("/api/v1/debates/deb-123/checkpoint/pause") is True
 
     def test_cannot_handle_unknown_path(self, checkpoint_handler):
         """Test that handler rejects unknown paths."""
-        assert checkpoint_handler.can_handle("/api/unknown") is False
-        assert checkpoint_handler.can_handle("/api/debates") is False
+        assert checkpoint_handler.can_handle("/api/v1/unknown") is False
+        assert checkpoint_handler.can_handle("/api/v1/debates") is False
         # Note: /api/debates/123 without /checkpoint is NOT handled by this handler
-        assert checkpoint_handler.can_handle("/api/debates/123") is False
+        assert checkpoint_handler.can_handle("/api/v1/debates/123") is False
 
 
 class TestListCheckpoints:
@@ -104,7 +104,7 @@ class TestListCheckpoints:
 
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
-            result = await checkpoint_handler.handle("/api/checkpoints", {}, mock_http_handler)
+            result = await checkpoint_handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -125,7 +125,7 @@ class TestListCheckpoints:
 
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
-            result = await checkpoint_handler.handle("/api/checkpoints", {}, mock_http_handler)
+            result = await checkpoint_handler.handle("/api/v1/checkpoints", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -147,7 +147,7 @@ class TestListCheckpoints:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
             result = await checkpoint_handler.handle(
-                "/api/checkpoints", {"status": "complete"}, mock_http_handler
+                "/api/v1/checkpoints", {"status": "complete"}, mock_http_handler
             )
 
         assert result is not None
@@ -165,7 +165,7 @@ class TestListCheckpoints:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
             result = await checkpoint_handler.handle(
-                "/api/checkpoints", {"limit": "3", "offset": "2"}, mock_http_handler
+                "/api/v1/checkpoints", {"limit": "3", "offset": "2"}, mock_http_handler
             )
 
         assert result is not None
@@ -185,7 +185,7 @@ class TestListResumableDebates:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.list_debates_with_checkpoints = AsyncMock(return_value=[])
             result = await checkpoint_handler.handle(
-                "/api/checkpoints/resumable", {}, mock_http_handler
+                "/api/v1/checkpoints/resumable", {}, mock_http_handler
             )
 
         assert result is not None
@@ -204,7 +204,7 @@ class TestListResumableDebates:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.list_debates_with_checkpoints = AsyncMock(return_value=debates)
             result = await checkpoint_handler.handle(
-                "/api/checkpoints/resumable", {}, mock_http_handler
+                "/api/v1/checkpoints/resumable", {}, mock_http_handler
             )
 
         assert result is not None
@@ -233,7 +233,7 @@ class TestGetCheckpoint:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
             result = await checkpoint_handler.handle(
-                "/api/checkpoints/cp-123", {}, mock_http_handler
+                "/api/v1/checkpoints/cp-123", {}, mock_http_handler
             )
 
         assert result is not None
@@ -251,7 +251,7 @@ class TestGetCheckpoint:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
             result = await checkpoint_handler.handle(
-                "/api/checkpoints/nonexistent", {}, mock_http_handler
+                "/api/v1/checkpoints/nonexistent", {}, mock_http_handler
             )
 
         assert result is not None
@@ -281,7 +281,7 @@ class TestResumeCheckpoint:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.resume_from_checkpoint = AsyncMock(return_value=mock_resumed)
             result = await checkpoint_handler.handle(
-                "/api/checkpoints/cp-123/resume", {}, handler, b'{"resumed_by": "user-1"}'
+                "/api/v1/checkpoints/cp-123/resume", {}, handler, b'{"resumed_by": "user-1"}'
             )
 
         assert result is not None
@@ -298,7 +298,7 @@ class TestResumeCheckpoint:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.resume_from_checkpoint = AsyncMock(return_value=None)
             result = await checkpoint_handler.handle(
-                "/api/checkpoints/nonexistent/resume", {}, handler, b"{}"
+                "/api/v1/checkpoints/nonexistent/resume", {}, handler, b"{}"
             )
 
         assert result is not None
@@ -320,7 +320,7 @@ class TestDeleteCheckpoint:
 
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
-            result = await checkpoint_handler.handle("/api/checkpoints/cp-123", {}, handler)
+            result = await checkpoint_handler.handle("/api/v1/checkpoints/cp-123", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -335,7 +335,7 @@ class TestDeleteCheckpoint:
 
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
-            result = await checkpoint_handler.handle("/api/checkpoints/nonexistent", {}, handler)
+            result = await checkpoint_handler.handle("/api/v1/checkpoints/nonexistent", {}, handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -357,7 +357,7 @@ class TestDebateCheckpoints:
         with patch.object(checkpoint_handler, "_get_checkpoint_manager") as mock_mgr:
             mock_mgr.return_value.store = mock_store
             result = await checkpoint_handler.handle(
-                "/api/debates/deb-123/checkpoints", {}, mock_http_handler
+                "/api/v1/debates/deb-123/checkpoints", {}, mock_http_handler
             )
 
         assert result is not None
@@ -373,7 +373,7 @@ class TestNotFoundHandling:
         # Note: can_handle returns True for this path, so handle() gets called
         # and should return 404 for unknown sub-paths
         result = await checkpoint_handler.handle(
-            "/api/checkpoints/cp-123/unknown", {}, mock_http_handler
+            "/api/v1/checkpoints/cp-123/unknown", {}, mock_http_handler
         )
 
         assert result is not None

@@ -1178,7 +1178,7 @@ class DebatesHandler(
     def handle_patch(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route PATCH requests to appropriate methods."""
         # Handle /api/debates/{id} pattern for updates
-        if path.startswith("/api/v1/debates/") and path.count("/") == 3:
+        if path.startswith("/api/v1/debates/") and path.count("/") == 4:
             debate_id, err = self._extract_debate_id(path)
             if err:
                 return error_response(err, 400)

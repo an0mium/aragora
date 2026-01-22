@@ -21,29 +21,29 @@ class TestDecisionHandlerRouting:
         from aragora.server.handlers.decision import DecisionHandler
 
         handler = DecisionHandler({})
-        assert handler.can_handle("/api/decisions") is True
+        assert handler.can_handle("/api/v1/decisions") is True
 
     def test_can_handle_decisions_with_id(self):
         """Test that handler matches /api/decisions/:id."""
         from aragora.server.handlers.decision import DecisionHandler
 
         handler = DecisionHandler({})
-        assert handler.can_handle("/api/decisions/req-123") is True
+        assert handler.can_handle("/api/v1/decisions/req-123") is True
 
     def test_can_handle_decisions_status(self):
         """Test that handler matches /api/decisions/:id/status."""
         from aragora.server.handlers.decision import DecisionHandler
 
         handler = DecisionHandler({})
-        assert handler.can_handle("/api/decisions/req-123/status") is True
+        assert handler.can_handle("/api/v1/decisions/req-123/status") is True
 
     def test_cannot_handle_other_paths(self):
         """Test that handler doesn't match other paths."""
         from aragora.server.handlers.decision import DecisionHandler
 
         handler = DecisionHandler({})
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/decision") is False  # No 's'
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/decision") is False  # No 's'
         assert handler.can_handle("/other/decisions") is False
 
 
@@ -60,7 +60,7 @@ class TestDecisionHandlerGet:
         # Patch the result store to use fallback
         with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
             handler = DecisionHandler({})
-            result = handler.handle("/api/decisions", {})
+            result = handler.handle("/api/v1/decisions", {})
 
             assert result is not None
             assert result.status_code == 200
@@ -77,7 +77,7 @@ class TestDecisionHandlerGet:
 
         with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
             handler = DecisionHandler({})
-            result = handler.handle("/api/decisions/nonexistent-123", {})
+            result = handler.handle("/api/v1/decisions/nonexistent-123", {})
 
             assert result is not None
             assert result.status_code == 404
@@ -96,7 +96,7 @@ class TestDecisionHandlerGet:
 
         with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
             handler = DecisionHandler({})
-            result = handler.handle("/api/decisions/test-req-456", {})
+            result = handler.handle("/api/v1/decisions/test-req-456", {})
 
             assert result is not None
             assert result.status_code == 200
@@ -118,7 +118,7 @@ class TestDecisionHandlerGet:
 
         with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
             handler = DecisionHandler({})
-            result = handler.handle("/api/decisions/poll-req-789/status", {})
+            result = handler.handle("/api/v1/decisions/poll-req-789/status", {})
 
             assert result is not None
             assert result.status_code == 200
@@ -135,7 +135,7 @@ class TestDecisionHandlerGet:
 
         with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
             handler = DecisionHandler({})
-            result = handler.handle("/api/decisions/missing/status", {})
+            result = handler.handle("/api/v1/decisions/missing/status", {})
 
             assert result is not None
             assert result.status_code == 200  # Returns status, not 404
@@ -162,7 +162,7 @@ class TestDecisionHandlerPost:
         }
         mock_handler.rfile.read.return_value = body_bytes
 
-        result = handler.handle_post("/api/decisions", {}, mock_handler)
+        result = handler.handle_post("/api/v1/decisions", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -187,7 +187,7 @@ class TestDecisionHandlerPost:
         }
         mock_handler.rfile.read.return_value = body_bytes
 
-        result = handler.handle_post("/api/decisions", {}, mock_handler)
+        result = handler.handle_post("/api/v1/decisions", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -240,7 +240,7 @@ class TestDecisionHandlerPost:
         }
         mock_handler.rfile.read.return_value = body_bytes
 
-        result = handler.handle_post("/api/decisions", {}, mock_handler)
+        result = handler.handle_post("/api/v1/decisions", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -269,7 +269,7 @@ class TestDecisionResultCache:
 
         with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
             handler = DecisionHandler({})
-            result = handler.handle("/api/decisions", {"limit": "3"})
+            result = handler.handle("/api/v1/decisions", {"limit": "3"})
 
             assert result is not None
             body = json.loads(result.body)

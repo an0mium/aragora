@@ -63,40 +63,40 @@ class TestCanHandle:
     def test_handles_disagreements_route(self):
         """Should handle /api/analytics/disagreements."""
         handler = create_analytics_handler()
-        assert handler.can_handle("/api/analytics/disagreements") is True
+        assert handler.can_handle("/api/v1/analytics/disagreements") is True
 
     def test_handles_role_rotation_route(self):
         """Should handle /api/analytics/role-rotation."""
         handler = create_analytics_handler()
-        assert handler.can_handle("/api/analytics/role-rotation") is True
+        assert handler.can_handle("/api/v1/analytics/role-rotation") is True
 
     def test_handles_early_stops_route(self):
         """Should handle /api/analytics/early-stops."""
         handler = create_analytics_handler()
-        assert handler.can_handle("/api/analytics/early-stops") is True
+        assert handler.can_handle("/api/v1/analytics/early-stops") is True
 
     def test_handles_consensus_quality_route(self):
         """Should handle /api/analytics/consensus-quality."""
         handler = create_analytics_handler()
-        assert handler.can_handle("/api/analytics/consensus-quality") is True
+        assert handler.can_handle("/api/v1/analytics/consensus-quality") is True
 
     def test_handles_ranking_stats_route(self):
         """Should handle /api/ranking/stats."""
         handler = create_analytics_handler()
-        assert handler.can_handle("/api/ranking/stats") is True
+        assert handler.can_handle("/api/v1/ranking/stats") is True
 
     def test_handles_memory_stats_route(self):
         """Should handle /api/memory/stats."""
         handler = create_analytics_handler()
-        assert handler.can_handle("/api/memory/stats") is True
+        assert handler.can_handle("/api/v1/memory/stats") is True
 
     def test_rejects_unknown_routes(self):
         """Should reject unknown routes."""
         handler = create_analytics_handler()
 
-        assert handler.can_handle("/api/unknown") is False
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/analytics/unknown") is False
+        assert handler.can_handle("/api/v1/unknown") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/analytics/unknown") is False
 
 
 # ===========================================================================
@@ -116,7 +116,7 @@ class TestRateLimiting:
 
         # Force rate limit by mocking is_allowed to return False
         with patch.object(_analytics_limiter, "is_allowed", return_value=False):
-            result = handler.handle("/api/analytics/disagreements", {}, mock_http)
+            result = handler.handle("/api/v1/analytics/disagreements", {}, mock_http)
 
         assert get_status(result) == 429
         assert "Rate limit" in get_body(result)["error"]
@@ -529,7 +529,7 @@ class TestRouteDispatching:
         mock_http = MockHandler()
 
         with patch.object(handler, "get_storage", return_value=None):
-            result = handler.handle("/api/analytics/disagreements", {}, mock_http)
+            result = handler.handle("/api/v1/analytics/disagreements", {}, mock_http)
 
         body = get_body(result)
         assert get_status(result) == 200
@@ -541,7 +541,7 @@ class TestRouteDispatching:
         mock_http = MockHandler()
 
         with patch.object(handler, "get_storage", return_value=None):
-            result = handler.handle("/api/analytics/role-rotation", {}, mock_http)
+            result = handler.handle("/api/v1/analytics/role-rotation", {}, mock_http)
 
         body = get_body(result)
         assert get_status(result) == 200
@@ -552,6 +552,6 @@ class TestRouteDispatching:
         handler = create_analytics_handler()
         mock_http = MockHandler()
 
-        result = handler.handle("/api/unknown/route", {}, mock_http)
+        result = handler.handle("/api/v1/unknown/route", {}, mock_http)
 
         assert result is None

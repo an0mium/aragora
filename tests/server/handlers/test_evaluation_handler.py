@@ -30,24 +30,24 @@ class TestEvaluationHandlerRouting:
 
     def test_can_handle_evaluate(self, handler):
         """Handler can handle evaluate endpoint."""
-        assert handler.can_handle("/api/evaluate")
+        assert handler.can_handle("/api/v1/evaluate")
 
     def test_can_handle_compare(self, handler):
         """Handler can handle compare endpoint."""
-        assert handler.can_handle("/api/evaluate/compare")
+        assert handler.can_handle("/api/v1/evaluate/compare")
 
     def test_can_handle_dimensions(self, handler):
         """Handler can handle dimensions endpoint."""
-        assert handler.can_handle("/api/evaluate/dimensions")
+        assert handler.can_handle("/api/v1/evaluate/dimensions")
 
     def test_can_handle_profiles(self, handler):
         """Handler can handle profiles endpoint."""
-        assert handler.can_handle("/api/evaluate/profiles")
+        assert handler.can_handle("/api/v1/evaluate/profiles")
 
     def test_cannot_handle_unknown(self, handler):
         """Handler cannot handle unknown paths."""
-        assert not handler.can_handle("/api/other")
-        assert not handler.can_handle("/api/evaluate/unknown")
+        assert not handler.can_handle("/api/v1/other")
+        assert not handler.can_handle("/api/v1/evaluate/unknown")
 
     def test_routes_list_complete(self, handler):
         """ROUTES list contains all expected endpoints."""
@@ -81,7 +81,7 @@ class TestEvaluationHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/evaluate/dimensions", {}, mock_http)
+        result = handler.handle("/api/v1/evaluate/dimensions", {}, mock_http)
 
         # Result should be returned (either rate limit, service unavailable, or success)
         assert result is not None
@@ -91,7 +91,7 @@ class TestEvaluationHandlerRouteDispatch:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/evaluate/profiles", {}, mock_http)
+        result = handler.handle("/api/v1/evaluate/profiles", {}, mock_http)
 
         assert result is not None
 
@@ -108,7 +108,7 @@ class TestEvaluationHandlerUnknownPath:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle("/api/other", {}, mock_http)
+        result = handler.handle("/api/v1/other", {}, mock_http)
 
         assert result is None
 
@@ -117,6 +117,6 @@ class TestEvaluationHandlerUnknownPath:
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/other", {}, mock_http)
+        result = handler.handle_post("/api/v1/other", {}, mock_http)
 
         assert result is None

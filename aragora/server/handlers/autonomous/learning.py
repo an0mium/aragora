@@ -44,11 +44,13 @@ class LearningHandler:
             learner = get_continuous_learner()
             ratings = learner.elo_updater.get_all_ratings()
 
-            return web.json_response({
-                "success": True,
-                "ratings": ratings,
-                "count": len(ratings),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "ratings": ratings,
+                    "count": len(ratings),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting ratings: {e}")
@@ -74,25 +76,31 @@ class LearningHandler:
             calibration = learner.get_calibration(agent_id)
 
             if not calibration:
-                return web.json_response({
-                    "success": True,
-                    "calibration": None,
-                    "message": "No calibration data for this agent",
-                })
+                return web.json_response(
+                    {
+                        "success": True,
+                        "calibration": None,
+                        "message": "No calibration data for this agent",
+                    }
+                )
 
-            return web.json_response({
-                "success": True,
-                "calibration": {
-                    "agent_id": calibration.agent_id,
-                    "elo_rating": calibration.elo_rating,
-                    "confidence_accuracy": calibration.confidence_accuracy,
-                    "topic_strengths": calibration.topic_strengths,
-                    "topic_weaknesses": calibration.topic_weaknesses,
-                    "last_updated": calibration.last_updated.isoformat() if calibration.last_updated else None,
-                    "total_debates": calibration.total_debates,
-                    "win_rate": calibration.win_rate,
-                },
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "calibration": {
+                        "agent_id": calibration.agent_id,
+                        "elo_rating": calibration.elo_rating,
+                        "confidence_accuracy": calibration.confidence_accuracy,
+                        "topic_strengths": calibration.topic_strengths,
+                        "topic_weaknesses": calibration.topic_weaknesses,
+                        "last_updated": calibration.last_updated.isoformat()
+                        if calibration.last_updated
+                        else None,
+                        "total_debates": calibration.total_debates,
+                        "win_rate": calibration.win_rate,
+                    },
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting calibration: {e}")
@@ -115,19 +123,23 @@ class LearningHandler:
             learner = get_continuous_learner()
             calibrations = learner.get_all_calibrations()
 
-            return web.json_response({
-                "success": True,
-                "calibrations": {
-                    agent_id: {
-                        "elo_rating": cal.elo_rating,
-                        "total_debates": cal.total_debates,
-                        "win_rate": cal.win_rate,
-                        "last_updated": cal.last_updated.isoformat() if cal.last_updated else None,
-                    }
-                    for agent_id, cal in calibrations.items()
-                },
-                "count": len(calibrations),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "calibrations": {
+                        agent_id: {
+                            "elo_rating": cal.elo_rating,
+                            "total_debates": cal.total_debates,
+                            "win_rate": cal.win_rate,
+                            "last_updated": cal.last_updated.isoformat()
+                            if cal.last_updated
+                            else None,
+                        }
+                        for agent_id, cal in calibrations.items()
+                    },
+                    "count": len(calibrations),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting calibrations: {e}")
@@ -180,18 +192,19 @@ class LearningHandler:
                 metadata=data.get("metadata"),
             )
 
-            return web.json_response({
-                "success": True,
-                "event": {
-                    "id": event.id,
-                    "event_type": event.event_type.value,
-                    "applied": event.applied,
-                },
-                "updated_ratings": {
-                    agent: learner.elo_updater.get_rating(agent)
-                    for agent in agents
-                },
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "event": {
+                        "id": event.id,
+                        "event_type": event.event_type.value,
+                        "applied": event.applied,
+                    },
+                    "updated_ratings": {
+                        agent: learner.elo_updater.get_rating(agent) for agent in agents
+                    },
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error recording debate outcome: {e}")
@@ -225,7 +238,10 @@ class LearningHandler:
 
             if not debate_id or not agent_id or not feedback_type:
                 return web.json_response(
-                    {"success": False, "error": "debate_id, agent_id, and feedback_type are required"},
+                    {
+                        "success": False,
+                        "error": "debate_id, agent_id, and feedback_type are required",
+                    },
                     status=400,
                 )
 
@@ -238,14 +254,16 @@ class LearningHandler:
                 metadata=data.get("metadata"),
             )
 
-            return web.json_response({
-                "success": True,
-                "event": {
-                    "id": event.id,
-                    "event_type": event.event_type.value,
-                    "applied": event.applied,
-                },
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "event": {
+                        "id": event.id,
+                        "event_type": event.event_type.value,
+                        "applied": event.applied,
+                    },
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error recording feedback: {e}")
@@ -273,24 +291,26 @@ class LearningHandler:
             learner = get_continuous_learner()
             patterns = learner.pattern_extractor.get_patterns(pattern_type)
 
-            return web.json_response({
-                "success": True,
-                "patterns": [
-                    {
-                        "id": p.id,
-                        "pattern_type": p.pattern_type,
-                        "description": p.description,
-                        "confidence": p.confidence,
-                        "evidence_count": p.evidence_count,
-                        "first_seen": p.first_seen.isoformat(),
-                        "last_seen": p.last_seen.isoformat(),
-                        "agents_involved": p.agents_involved,
-                        "topics": p.topics,
-                    }
-                    for p in patterns
-                ],
-                "count": len(patterns),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "patterns": [
+                        {
+                            "id": p.id,
+                            "pattern_type": p.pattern_type,
+                            "description": p.description,
+                            "confidence": p.confidence,
+                            "evidence_count": p.evidence_count,
+                            "first_seen": p.first_seen.isoformat(),
+                            "last_seen": p.last_seen.isoformat(),
+                            "agents_involved": p.agents_involved,
+                            "topics": p.topics,
+                        }
+                        for p in patterns
+                    ],
+                    "count": len(patterns),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting patterns: {e}")
@@ -313,10 +333,12 @@ class LearningHandler:
             learner = get_continuous_learner()
             summary = await learner.run_periodic_learning()
 
-            return web.json_response({
-                "success": True,
-                "summary": summary,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "summary": summary,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error running periodic learning: {e}")
@@ -326,7 +348,7 @@ class LearningHandler:
             )
 
     @staticmethod
-    def register_routes(app: web.Application, prefix: str = "/api/autonomous") -> None:
+    def register_routes(app: web.Application, prefix: str = "/api/v1/autonomous") -> None:
         """Register learning routes with the application."""
         app.router.add_get(
             f"{prefix}/learning/ratings",

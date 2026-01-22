@@ -33,30 +33,30 @@ class TestEmailHandler:
 
     def test_routes_defined(self):
         """Handler should define expected routes."""
-        assert "/api/email/prioritize" in EmailHandler.ROUTES
-        assert "/api/email/rank-inbox" in EmailHandler.ROUTES
-        assert "/api/email/feedback" in EmailHandler.ROUTES
-        assert "/api/email/inbox" in EmailHandler.ROUTES
-        assert "/api/email/config" in EmailHandler.ROUTES
+        assert "/api/v1/email/prioritize" in EmailHandler.ROUTES
+        assert "/api/v1/email/rank-inbox" in EmailHandler.ROUTES
+        assert "/api/v1/email/feedback" in EmailHandler.ROUTES
+        assert "/api/v1/email/inbox" in EmailHandler.ROUTES
+        assert "/api/v1/email/config" in EmailHandler.ROUTES
 
     def test_can_handle_static_routes(self):
         """Should handle static routes."""
         handler = EmailHandler({})
-        assert handler.can_handle("/api/email/prioritize") is True
-        assert handler.can_handle("/api/email/rank-inbox") is True
-        assert handler.can_handle("/api/email/feedback") is True
+        assert handler.can_handle("/api/v1/email/prioritize") is True
+        assert handler.can_handle("/api/v1/email/rank-inbox") is True
+        assert handler.can_handle("/api/v1/email/feedback") is True
 
     def test_can_handle_prefix_routes(self):
         """Should handle prefix routes like /api/email/context/:email."""
         handler = EmailHandler({})
-        assert handler.can_handle("/api/email/context/user@example.com") is True
+        assert handler.can_handle("/api/v1/email/context/user@example.com") is True
         # Note: Empty prefix path is handled by the handler (returns True)
 
     def test_cannot_handle_unknown_routes(self):
         """Should not handle unknown routes."""
         handler = EmailHandler({})
-        assert handler.can_handle("/api/unknown") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/unknown") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
 
 class TestHandlePrioritizeEmail:

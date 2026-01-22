@@ -241,7 +241,9 @@ def make_mock_handler(
     handler.command = method
     handler.headers = headers or {}
     handler.client_address = ("127.0.0.1", 12345)
-    handler.path = f"/api/billing/plans?{query_string}" if query_string else "/api/billing/plans"
+    handler.path = (
+        f"/api/v1/billing/plans?{query_string}" if query_string else "/api/v1/billing/plans"
+    )
 
     if body is not None:
         body_bytes = json.dumps(body).encode("utf-8")
@@ -288,28 +290,28 @@ class TestBillingHandlerRouting:
     """Tests for BillingHandler routing."""
 
     def test_can_handle_plans(self, billing_handler):
-        assert billing_handler.can_handle("/api/billing/plans") is True
+        assert billing_handler.can_handle("/api/v1/billing/plans") is True
 
     def test_can_handle_usage(self, billing_handler):
-        assert billing_handler.can_handle("/api/billing/usage") is True
+        assert billing_handler.can_handle("/api/v1/billing/usage") is True
 
     def test_can_handle_subscription(self, billing_handler):
-        assert billing_handler.can_handle("/api/billing/subscription") is True
+        assert billing_handler.can_handle("/api/v1/billing/subscription") is True
 
     def test_can_handle_checkout(self, billing_handler):
-        assert billing_handler.can_handle("/api/billing/checkout") is True
+        assert billing_handler.can_handle("/api/v1/billing/checkout") is True
 
     def test_can_handle_portal(self, billing_handler):
-        assert billing_handler.can_handle("/api/billing/portal") is True
+        assert billing_handler.can_handle("/api/v1/billing/portal") is True
 
     def test_can_handle_cancel(self, billing_handler):
-        assert billing_handler.can_handle("/api/billing/cancel") is True
+        assert billing_handler.can_handle("/api/v1/billing/cancel") is True
 
     def test_can_handle_webhook(self, billing_handler):
-        assert billing_handler.can_handle("/api/webhooks/stripe") is True
+        assert billing_handler.can_handle("/api/v1/webhooks/stripe") is True
 
     def test_cannot_handle_unknown(self, billing_handler):
-        assert billing_handler.can_handle("/api/other/endpoint") is False
+        assert billing_handler.can_handle("/api/v1/other/endpoint") is False
 
 
 # ===========================================================================
@@ -323,7 +325,7 @@ class TestBillingHandlerGetPlans:
     def test_get_plans_success(self, billing_handler):
         handler = make_mock_handler()
 
-        result = billing_handler.handle("/api/billing/plans", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/plans", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -340,7 +342,7 @@ class TestBillingHandlerGetPlans:
     def test_get_plans_wrong_method(self, billing_handler):
         handler = make_mock_handler(method="POST")
 
-        result = billing_handler.handle("/api/billing/plans", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/billing/plans", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 405
@@ -366,7 +368,7 @@ class TestBillingHandlerGetUsage:
         with patch.object(billing_handler, "_get_usage") as mock_method:
             mock_method.return_value = (json.dumps({"usage": {"debates_used": 25}}), 200)
 
-            result = billing_handler.handle("/api/billing/usage", {}, handler, "GET")
+            result = billing_handler.handle("/api/v1/billing/usage", {}, handler, "GET")
 
             assert result is not None
 
@@ -376,7 +378,7 @@ class TestBillingHandlerGetUsage:
 
         handler = make_mock_handler()
 
-        result = billing_handler.handle("/api/billing/usage", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/usage", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 429
@@ -411,7 +413,7 @@ class TestBillingHandlerGetSubscription:
 
             handler = make_mock_handler()
 
-            result = billing_handler.handle("/api/billing/subscription", {}, handler, "GET")
+            result = billing_handler.handle("/api/v1/billing/subscription", {}, handler, "GET")
 
             assert result is not None
 
@@ -454,7 +456,7 @@ class TestBillingHandlerCheckout:
                 method="POST",
             )
 
-            result = billing_handler.handle("/api/billing/checkout", {}, handler, "POST")
+            result = billing_handler.handle("/api/v1/billing/checkout", {}, handler, "POST")
 
             assert result is not None
 
@@ -476,7 +478,7 @@ class TestBillingHandlerPortal:
 
             handler = make_mock_handler({}, method="POST")
 
-            result = billing_handler.handle("/api/billing/portal", {}, handler, "POST")
+            result = billing_handler.handle("/api/v1/billing/portal", {}, handler, "POST")
 
             assert result is not None
 
@@ -495,7 +497,7 @@ class TestBillingHandlerCancel:
 
         handler = make_mock_handler(method="GET")
 
-        result = billing_handler.handle("/api/billing/cancel", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/cancel", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 405
@@ -515,7 +517,7 @@ class TestBillingHandlerResume:
 
         handler = make_mock_handler(method="GET")
 
-        result = billing_handler.handle("/api/billing/resume", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/resume", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 405
@@ -537,7 +539,7 @@ class TestBillingHandlerUsageExport:
 
         handler = make_mock_handler()
 
-        result = billing_handler.handle("/api/billing/usage/export", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/usage/export", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 401
@@ -559,7 +561,7 @@ class TestBillingHandlerUsageForecast:
 
         handler = make_mock_handler()
 
-        result = billing_handler.handle("/api/billing/usage/forecast", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/usage/forecast", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -575,7 +577,7 @@ class TestBillingHandlerUsageForecast:
 
         handler = make_mock_handler()
 
-        result = billing_handler.handle("/api/billing/usage/forecast", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/usage/forecast", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 401
@@ -597,7 +599,7 @@ class TestBillingHandlerInvoices:
 
         handler = make_mock_handler()
 
-        result = billing_handler.handle("/api/billing/invoices", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/invoices", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 401
@@ -613,7 +615,7 @@ class TestBillingHandlerInvoices:
 
         handler = make_mock_handler()
 
-        result = billing_handler.handle("/api/billing/invoices", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/invoices", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 404
@@ -634,7 +636,7 @@ class TestBillingHandlerWebhook:
         handler.rfile = BytesIO(b'{"type": "test"}')
         handler.client_address = ("127.0.0.1", 12345)
 
-        result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -654,7 +656,7 @@ class TestBillingHandlerWebhook:
         handler.rfile = BytesIO(b'{"type": "test"}')
         handler.client_address = ("127.0.0.1", 12345)
 
-        result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -681,7 +683,7 @@ class TestBillingHandlerWebhook:
         handler.rfile = BytesIO(b'{"type": "test"}')
         handler.client_address = ("127.0.0.1", 12345)
 
-        result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -706,7 +708,7 @@ class TestBillingHandlerWebhook:
         handler.rfile = BytesIO(b'{"type": "test"}')
         handler.client_address = ("127.0.0.1", 12345)
 
-        result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -739,7 +741,7 @@ class TestBillingHandlerWebhook:
         handler.rfile = BytesIO(b'{"type": "test"}')
         handler.client_address = ("127.0.0.1", 12345)
 
-        result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -785,7 +787,7 @@ class TestBillingHandlerWebhook:
         handler.rfile = BytesIO(b'{"type": "test"}')
         handler.client_address = ("127.0.0.1", 12345)
 
-        result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -808,7 +810,7 @@ class TestBillingHandlerWebhook:
         handler.rfile = BytesIO(b'{"type": "test"}')
         handler.client_address = ("127.0.0.1", 12345)
 
-        result = billing_handler.handle("/api/webhooks/stripe", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -830,7 +832,7 @@ class TestBillingHandlerAuditLog:
 
         handler = make_mock_handler(method="POST")
 
-        result = billing_handler.handle("/api/billing/audit-log", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/billing/audit-log", {}, handler, "POST")
 
         assert result is not None
         assert result.status_code == 405
@@ -855,6 +857,6 @@ class TestBillingHandlerServiceUnavailable:
 
             handler = make_mock_handler()
 
-            result = handler_ctx.handle("/api/billing/usage", {}, handler, "GET")
+            result = handler_ctx.handle("/api/v1/billing/usage", {}, handler, "GET")
 
             assert result is not None

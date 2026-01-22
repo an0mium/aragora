@@ -58,20 +58,20 @@ class TestGalleryHandlerRouting:
 
     def test_can_handle_gallery_list(self, gallery_handler):
         """Test that handler recognizes /api/gallery route."""
-        assert gallery_handler.can_handle("/api/gallery") is True
+        assert gallery_handler.can_handle("/api/v1/gallery") is True
 
     def test_can_handle_gallery_debate(self, gallery_handler):
         """Test that handler recognizes /api/gallery/:id route."""
-        assert gallery_handler.can_handle("/api/gallery/abc123/details") is True
+        assert gallery_handler.can_handle("/api/v1/gallery/abc123/details") is True
 
     def test_can_handle_gallery_embed(self, gallery_handler):
         """Test that handler recognizes /api/gallery/:id/embed route."""
-        assert gallery_handler.can_handle("/api/gallery/abc123/embed") is True
+        assert gallery_handler.can_handle("/api/v1/gallery/abc123/embed") is True
 
     def test_cannot_handle_unknown_route(self, gallery_handler):
         """Test that handler rejects unknown routes."""
-        assert gallery_handler.can_handle("/api/unknown") is False
-        assert gallery_handler.can_handle("/api/debates") is False
+        assert gallery_handler.can_handle("/api/v1/unknown") is False
+        assert gallery_handler.can_handle("/api/v1/debates") is False
 
 
 class TestStableIdGeneration:
@@ -129,7 +129,7 @@ class TestRateLimiting:
         for _ in range(60):
             _gallery_limiter.is_allowed("127.0.0.1")
 
-        result = gallery_handler.handle("/api/gallery", {}, mock_http_handler)
+        result = gallery_handler.handle("/api/v1/gallery", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -142,7 +142,7 @@ class TestGalleryList:
 
     def test_gallery_list_returns_result(self, gallery_handler, mock_http_handler):
         """Test gallery list returns a result."""
-        result = gallery_handler.handle("/api/gallery", {}, mock_http_handler)
+        result = gallery_handler.handle("/api/v1/gallery", {}, mock_http_handler)
         # Should return some result (empty list or actual debates)
         assert result is not None
         assert result.status_code in [200, 404, 500]

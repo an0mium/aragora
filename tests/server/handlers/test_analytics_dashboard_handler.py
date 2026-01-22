@@ -30,44 +30,44 @@ class TestAnalyticsDashboardHandlerRouting:
 
     def test_can_handle_summary(self, handler):
         """Handler can handle summary endpoint."""
-        assert handler.can_handle("/api/analytics/summary")
+        assert handler.can_handle("/api/v1/analytics/summary")
 
     def test_can_handle_trends(self, handler):
         """Handler can handle trends endpoint."""
-        assert handler.can_handle("/api/analytics/trends/findings")
+        assert handler.can_handle("/api/v1/analytics/trends/findings")
 
     def test_can_handle_remediation(self, handler):
         """Handler can handle remediation endpoint."""
-        assert handler.can_handle("/api/analytics/remediation")
+        assert handler.can_handle("/api/v1/analytics/remediation")
 
     def test_can_handle_agents(self, handler):
         """Handler can handle agents endpoint."""
-        assert handler.can_handle("/api/analytics/agents")
+        assert handler.can_handle("/api/v1/analytics/agents")
 
     def test_can_handle_cost(self, handler):
         """Handler can handle cost endpoint."""
-        assert handler.can_handle("/api/analytics/cost")
+        assert handler.can_handle("/api/v1/analytics/cost")
 
     def test_can_handle_compliance(self, handler):
         """Handler can handle compliance endpoint."""
-        assert handler.can_handle("/api/analytics/compliance")
+        assert handler.can_handle("/api/v1/analytics/compliance")
 
     def test_can_handle_heatmap(self, handler):
         """Handler can handle heatmap endpoint."""
-        assert handler.can_handle("/api/analytics/heatmap")
+        assert handler.can_handle("/api/v1/analytics/heatmap")
 
     def test_cannot_handle_unknown_path(self, handler):
         """Handler cannot handle unknown paths."""
-        assert not handler.can_handle("/api/analytics/unknown")
-        assert not handler.can_handle("/api/other")
+        assert not handler.can_handle("/api/v1/analytics/unknown")
+        assert not handler.can_handle("/api/v1/other")
 
     def test_routes_list_complete(self, handler):
         """ROUTES list contains all expected endpoints."""
         assert len(handler.ROUTES) == 14
-        assert "/api/analytics/summary" in handler.ROUTES
-        assert "/api/analytics/heatmap" in handler.ROUTES
-        assert "/api/analytics/tokens" in handler.ROUTES
-        assert "/api/analytics/flips/summary" in handler.ROUTES
+        assert "/api/v1/analytics/summary" in handler.ROUTES
+        assert "/api/v1/analytics/heatmap" in handler.ROUTES
+        assert "/api/v1/analytics/tokens" in handler.ROUTES
+        assert "/api/v1/analytics/flips/summary" in handler.ROUTES
 
 
 class TestAnalyticsDashboardHandlerUnknownPath:
@@ -81,7 +81,7 @@ class TestAnalyticsDashboardHandlerUnknownPath:
         """Unknown path returns None for dispatch to continue."""
         mock_http_handler = MagicMock()
 
-        result = handler.handle("/api/other/endpoint", {}, mock_http_handler)
+        result = handler.handle("/api/v1/other/endpoint", {}, mock_http_handler)
 
         assert result is None
 
@@ -98,7 +98,7 @@ class TestAnalyticsDashboardHandlerRouteDispatch:
         mock_http = MagicMock()
 
         # The method is protected by @require_user_auth so we get an auth error
-        result = handler.handle("/api/analytics/summary", {}, mock_http)
+        result = handler.handle("/api/v1/analytics/summary", {}, mock_http)
 
         # Result should be returned (either auth error or workspace_id error)
         assert result is not None
@@ -107,7 +107,7 @@ class TestAnalyticsDashboardHandlerRouteDispatch:
         """Handle dispatches /api/analytics/trends/findings to _get_finding_trends."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/analytics/trends/findings", {}, mock_http)
+        result = handler.handle("/api/v1/analytics/trends/findings", {}, mock_http)
 
         assert result is not None
 
@@ -115,7 +115,7 @@ class TestAnalyticsDashboardHandlerRouteDispatch:
         """Handle dispatches /api/analytics/remediation to _get_remediation_metrics."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/analytics/remediation", {}, mock_http)
+        result = handler.handle("/api/v1/analytics/remediation", {}, mock_http)
 
         assert result is not None
 
@@ -123,7 +123,7 @@ class TestAnalyticsDashboardHandlerRouteDispatch:
         """Handle dispatches /api/analytics/agents to _get_agent_metrics."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/analytics/agents", {}, mock_http)
+        result = handler.handle("/api/v1/analytics/agents", {}, mock_http)
 
         assert result is not None
 
@@ -131,7 +131,7 @@ class TestAnalyticsDashboardHandlerRouteDispatch:
         """Handle dispatches /api/analytics/cost to _get_cost_metrics."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/analytics/cost", {}, mock_http)
+        result = handler.handle("/api/v1/analytics/cost", {}, mock_http)
 
         assert result is not None
 
@@ -139,7 +139,7 @@ class TestAnalyticsDashboardHandlerRouteDispatch:
         """Handle dispatches /api/analytics/compliance to _get_compliance_scorecard."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/analytics/compliance", {}, mock_http)
+        result = handler.handle("/api/v1/analytics/compliance", {}, mock_http)
 
         assert result is not None
 
@@ -147,6 +147,6 @@ class TestAnalyticsDashboardHandlerRouteDispatch:
         """Handle dispatches /api/analytics/heatmap to _get_risk_heatmap."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/analytics/heatmap", {}, mock_http)
+        result = handler.handle("/api/v1/analytics/heatmap", {}, mock_http)
 
         assert result is not None

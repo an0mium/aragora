@@ -129,26 +129,30 @@ class MonitoringHandler:
             )
 
             if not trend:
-                return web.json_response({
-                    "success": True,
-                    "trend": None,
-                    "message": "Insufficient data for trend analysis",
-                })
+                return web.json_response(
+                    {
+                        "success": True,
+                        "trend": None,
+                        "message": "Insufficient data for trend analysis",
+                    }
+                )
 
-            return web.json_response({
-                "success": True,
-                "trend": {
-                    "metric_name": trend.metric_name,
-                    "direction": trend.direction.value,
-                    "current_value": trend.current_value,
-                    "previous_value": trend.previous_value,
-                    "change_percent": trend.change_percent,
-                    "period_start": trend.period_start.isoformat(),
-                    "period_end": trend.period_end.isoformat(),
-                    "data_points": trend.data_points,
-                    "confidence": trend.confidence,
-                },
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "trend": {
+                        "metric_name": trend.metric_name,
+                        "direction": trend.direction.value,
+                        "current_value": trend.current_value,
+                        "previous_value": trend.previous_value,
+                        "change_percent": trend.change_percent,
+                        "period_start": trend.period_start.isoformat(),
+                        "period_end": trend.period_end.isoformat(),
+                        "data_points": trend.data_points,
+                        "confidence": trend.confidence,
+                    },
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting trend: {e}")
@@ -171,20 +175,22 @@ class MonitoringHandler:
             trend_monitor = get_trend_monitor()
             trends = trend_monitor.get_all_trends()
 
-            return web.json_response({
-                "success": True,
-                "trends": {
-                    name: {
-                        "direction": trend.direction.value,
-                        "current_value": trend.current_value,
-                        "change_percent": trend.change_percent,
-                        "data_points": trend.data_points,
-                        "confidence": trend.confidence,
-                    }
-                    for name, trend in trends.items()
-                },
-                "count": len(trends),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "trends": {
+                        name: {
+                            "direction": trend.direction.value,
+                            "current_value": trend.current_value,
+                            "change_percent": trend.change_percent,
+                            "data_points": trend.data_points,
+                            "confidence": trend.confidence,
+                        }
+                        for name, trend in trends.items()
+                    },
+                    "count": len(trends),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting trends: {e}")
@@ -217,23 +223,25 @@ class MonitoringHandler:
                 metric_name=metric_name,
             )
 
-            return web.json_response({
-                "success": True,
-                "anomalies": [
-                    {
-                        "id": a.id,
-                        "metric_name": a.metric_name,
-                        "value": a.value,
-                        "expected_value": a.expected_value,
-                        "deviation": a.deviation,
-                        "timestamp": a.timestamp.isoformat(),
-                        "severity": a.severity.value,
-                        "description": a.description,
-                    }
-                    for a in anomalies
-                ],
-                "count": len(anomalies),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "anomalies": [
+                        {
+                            "id": a.id,
+                            "metric_name": a.metric_name,
+                            "value": a.value,
+                            "expected_value": a.expected_value,
+                            "deviation": a.deviation,
+                            "timestamp": a.timestamp.isoformat(),
+                            "severity": a.severity.value,
+                            "description": a.description,
+                        }
+                        for a in anomalies
+                    ],
+                    "count": len(anomalies),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting anomalies: {e}")
@@ -259,17 +267,21 @@ class MonitoringHandler:
             stats = anomaly_detector.get_baseline_stats(metric_name)
 
             if not stats:
-                return web.json_response({
-                    "success": True,
-                    "stats": None,
-                    "message": "Insufficient data for baseline statistics",
-                })
+                return web.json_response(
+                    {
+                        "success": True,
+                        "stats": None,
+                        "message": "Insufficient data for baseline statistics",
+                    }
+                )
 
-            return web.json_response({
-                "success": True,
-                "metric_name": metric_name,
-                "stats": stats,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "metric_name": metric_name,
+                    "stats": stats,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting baseline stats: {e}")
@@ -279,7 +291,7 @@ class MonitoringHandler:
             )
 
     @staticmethod
-    def register_routes(app: web.Application, prefix: str = "/api/autonomous") -> None:
+    def register_routes(app: web.Application, prefix: str = "/api/v1/autonomous") -> None:
         """Register monitoring routes with the application."""
         app.router.add_post(
             f"{prefix}/monitoring/record",

@@ -132,44 +132,44 @@ class TestControlPlaneHandlerCanHandle:
 
     def test_can_handle_agents(self, control_plane_handler):
         """Test can_handle returns True for agents endpoint."""
-        assert control_plane_handler.can_handle("/api/control-plane/agents")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/agents")
 
     def test_can_handle_agent_by_id(self, control_plane_handler):
         """Test can_handle returns True for agent by ID."""
-        assert control_plane_handler.can_handle("/api/control-plane/agents/test-agent")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/agents/test-agent")
 
     def test_can_handle_agent_heartbeat(self, control_plane_handler):
         """Test can_handle returns True for heartbeat endpoint."""
-        assert control_plane_handler.can_handle("/api/control-plane/agents/test-agent/heartbeat")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/agents/test-agent/heartbeat")
 
     def test_can_handle_tasks(self, control_plane_handler):
         """Test can_handle returns True for tasks endpoint."""
-        assert control_plane_handler.can_handle("/api/control-plane/tasks")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/tasks")
 
     def test_can_handle_task_by_id(self, control_plane_handler):
         """Test can_handle returns True for task by ID."""
-        assert control_plane_handler.can_handle("/api/control-plane/tasks/task-123")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/tasks/task-123")
 
     def test_can_handle_health(self, control_plane_handler):
         """Test can_handle returns True for health endpoint."""
-        assert control_plane_handler.can_handle("/api/control-plane/health")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/health")
 
     def test_can_handle_stats(self, control_plane_handler):
         """Test can_handle returns True for stats endpoint."""
-        assert control_plane_handler.can_handle("/api/control-plane/stats")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/stats")
 
     def test_can_handle_queue(self, control_plane_handler):
         """Test can_handle returns True for queue endpoint."""
-        assert control_plane_handler.can_handle("/api/control-plane/queue")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/queue")
 
     def test_can_handle_metrics(self, control_plane_handler):
         """Test can_handle returns True for metrics endpoint."""
-        assert control_plane_handler.can_handle("/api/control-plane/metrics")
+        assert control_plane_handler.can_handle("/api/v1/control-plane/metrics")
 
     def test_cannot_handle_unknown(self, control_plane_handler):
         """Test can_handle returns False for unknown endpoint."""
-        assert not control_plane_handler.can_handle("/api/unknown")
-        assert not control_plane_handler.can_handle("/api/debates")
+        assert not control_plane_handler.can_handle("/api/v1/unknown")
+        assert not control_plane_handler.can_handle("/api/v1/debates")
 
 
 class TestControlPlaneHandlerNoCoordinator:
@@ -177,7 +177,7 @@ class TestControlPlaneHandlerNoCoordinator:
 
     def test_list_agents_no_coordinator(self, control_plane_handler, mock_http_handler):
         """Test list agents returns 503 when coordinator not initialized."""
-        result = control_plane_handler.handle("/api/control-plane/agents", {}, mock_http_handler)
+        result = control_plane_handler.handle("/api/v1/control-plane/agents", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -188,7 +188,7 @@ class TestControlPlaneHandlerNoCoordinator:
     def test_get_agent_no_coordinator(self, control_plane_handler, mock_http_handler):
         """Test get agent returns 503 when coordinator not initialized."""
         result = control_plane_handler.handle(
-            "/api/control-plane/agents/test-agent", {}, mock_http_handler
+            "/api/v1/control-plane/agents/test-agent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -196,14 +196,14 @@ class TestControlPlaneHandlerNoCoordinator:
 
     def test_get_health_no_coordinator(self, control_plane_handler, mock_http_handler):
         """Test get health returns 503 when coordinator not initialized."""
-        result = control_plane_handler.handle("/api/control-plane/health", {}, mock_http_handler)
+        result = control_plane_handler.handle("/api/v1/control-plane/health", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
 
     def test_get_stats_no_coordinator(self, control_plane_handler, mock_http_handler):
         """Test get stats returns 503 when coordinator not initialized."""
-        result = control_plane_handler.handle("/api/control-plane/stats", {}, mock_http_handler)
+        result = control_plane_handler.handle("/api/v1/control-plane/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -216,7 +216,7 @@ class TestControlPlaneHandlerListAgents:
         """Test listing agents with coordinator."""
         ControlPlaneHandler.coordinator = mock_coordinator
 
-        result = control_plane_handler.handle("/api/control-plane/agents", {}, mock_http_handler)
+        result = control_plane_handler.handle("/api/v1/control-plane/agents", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -231,7 +231,7 @@ class TestControlPlaneHandlerListAgents:
         ControlPlaneHandler.coordinator = mock_coordinator
 
         result = control_plane_handler.handle(
-            "/api/control-plane/agents", {"capability": "debate"}, mock_http_handler
+            "/api/v1/control-plane/agents", {"capability": "debate"}, mock_http_handler
         )
 
         assert result is not None
@@ -247,7 +247,7 @@ class TestControlPlaneHandlerGetAgent:
         ControlPlaneHandler.coordinator = mock_coordinator
 
         result = control_plane_handler.handle(
-            "/api/control-plane/agents/test-agent", {}, mock_http_handler
+            "/api/v1/control-plane/agents/test-agent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -260,7 +260,7 @@ class TestControlPlaneHandlerGetAgent:
         mock_coordinator.get_agent = AsyncMock(return_value=None)
 
         result = control_plane_handler.handle(
-            "/api/control-plane/agents/nonexistent", {}, mock_http_handler
+            "/api/v1/control-plane/agents/nonexistent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -275,7 +275,7 @@ class TestControlPlaneHandlerGetTask:
         ControlPlaneHandler.coordinator = mock_coordinator
 
         result = control_plane_handler.handle(
-            "/api/control-plane/tasks/task-123", {}, mock_http_handler
+            "/api/v1/control-plane/tasks/task-123", {}, mock_http_handler
         )
 
         assert result is not None
@@ -288,7 +288,7 @@ class TestControlPlaneHandlerGetTask:
         mock_coordinator.get_task = AsyncMock(return_value=None)
 
         result = control_plane_handler.handle(
-            "/api/control-plane/tasks/nonexistent", {}, mock_http_handler
+            "/api/v1/control-plane/tasks/nonexistent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -302,7 +302,7 @@ class TestControlPlaneHandlerHealth:
         """Test getting system health status."""
         ControlPlaneHandler.coordinator = mock_coordinator
 
-        result = control_plane_handler.handle("/api/control-plane/health", {}, mock_http_handler)
+        result = control_plane_handler.handle("/api/v1/control-plane/health", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -314,7 +314,7 @@ class TestControlPlaneHandlerHealth:
         ControlPlaneHandler.coordinator = mock_coordinator
 
         result = control_plane_handler.handle(
-            "/api/control-plane/health/test-agent", {}, mock_http_handler
+            "/api/v1/control-plane/health/test-agent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -329,7 +329,7 @@ class TestControlPlaneHandlerHealth:
         mock_coordinator.get_agent_health.return_value = None
 
         result = control_plane_handler.handle(
-            "/api/control-plane/health/nonexistent", {}, mock_http_handler
+            "/api/v1/control-plane/health/nonexistent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -343,7 +343,7 @@ class TestControlPlaneHandlerStats:
         """Test getting control plane statistics."""
         ControlPlaneHandler.coordinator = mock_coordinator
 
-        result = control_plane_handler.handle("/api/control-plane/stats", {}, mock_http_handler)
+        result = control_plane_handler.handle("/api/v1/control-plane/stats", {}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result.body)
@@ -357,7 +357,9 @@ class TestControlPlaneHandlerMetrics:
         """Test getting dashboard metrics."""
         ControlPlaneHandler.coordinator = mock_coordinator
 
-        result = control_plane_handler.handle("/api/control-plane/metrics", {}, mock_http_handler)
+        result = control_plane_handler.handle(
+            "/api/v1/control-plane/metrics", {}, mock_http_handler
+        )
 
         assert result is not None
         body = json.loads(result.body)
@@ -381,7 +383,7 @@ class TestControlPlaneHandlerRegisterAgent:
             }
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/agents", {}, handler)
+        result = control_plane_handler.handle_post("/api/v1/control-plane/agents", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -398,7 +400,7 @@ class TestControlPlaneHandlerRegisterAgent:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/control-plane/agents", {}, handler)
+            result = control_plane_handler.handle_post("/api/v1/control-plane/agents", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -418,7 +420,7 @@ class TestControlPlaneHandlerRegisterAgent:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/control-plane/agents", {}, handler)
+            result = control_plane_handler.handle_post("/api/v1/control-plane/agents", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -442,7 +444,7 @@ class TestControlPlaneHandlerHeartbeat:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/agents/test-agent/heartbeat", {}, handler
+                "/api/v1/control-plane/agents/test-agent/heartbeat", {}, handler
             )
 
         assert result is not None
@@ -463,7 +465,7 @@ class TestControlPlaneHandlerHeartbeat:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/agents/nonexistent/heartbeat", {}, handler
+                "/api/v1/control-plane/agents/nonexistent/heartbeat", {}, handler
             )
 
         assert result is not None
@@ -483,7 +485,7 @@ class TestControlPlaneHandlerSubmitTask:
             }
         )
 
-        result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
+        result = control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -500,7 +502,7 @@ class TestControlPlaneHandlerSubmitTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
+            result = control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -519,7 +521,7 @@ class TestControlPlaneHandlerSubmitTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
+            result = control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -539,7 +541,7 @@ class TestControlPlaneHandlerSubmitTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/control-plane/tasks", {}, handler)
+            result = control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -562,7 +564,7 @@ class TestControlPlaneHandlerCompleteTask:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks/task-123/complete", {}, handler
+                "/api/v1/control-plane/tasks/task-123/complete", {}, handler
             )
 
         assert result is not None
@@ -583,7 +585,7 @@ class TestControlPlaneHandlerCompleteTask:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks/nonexistent/complete", {}, handler
+                "/api/v1/control-plane/tasks/nonexistent/complete", {}, handler
             )
 
         assert result is not None
@@ -607,7 +609,7 @@ class TestControlPlaneHandlerFailTask:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks/task-123/fail", {}, handler
+                "/api/v1/control-plane/tasks/task-123/fail", {}, handler
             )
 
         assert result is not None
@@ -628,7 +630,7 @@ class TestControlPlaneHandlerFailTask:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks/nonexistent/fail", {}, handler
+                "/api/v1/control-plane/tasks/nonexistent/fail", {}, handler
             )
 
         assert result is not None
@@ -647,7 +649,7 @@ class TestControlPlaneHandlerCancelTask:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks/task-123/cancel", {}, handler
+                "/api/v1/control-plane/tasks/task-123/cancel", {}, handler
             )
 
         assert result is not None
@@ -664,7 +666,7 @@ class TestControlPlaneHandlerCancelTask:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks/nonexistent/cancel", {}, handler
+                "/api/v1/control-plane/tasks/nonexistent/cancel", {}, handler
             )
 
         assert result is not None
@@ -681,7 +683,7 @@ class TestControlPlaneHandlerUnregisterAgent:
         ControlPlaneHandler.coordinator = mock_coordinator
 
         result = control_plane_handler.handle_delete(
-            "/api/control-plane/agents/test-agent", {}, mock_http_handler
+            "/api/v1/control-plane/agents/test-agent", {}, mock_http_handler
         )
 
         assert result is not None
@@ -697,7 +699,7 @@ class TestControlPlaneHandlerUnregisterAgent:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_delete(
-                "/api/control-plane/agents/test-agent", {}, mock_http_handler
+                "/api/v1/control-plane/agents/test-agent", {}, mock_http_handler
             )
 
         assert result is not None
@@ -715,7 +717,7 @@ class TestControlPlaneHandlerUnregisterAgent:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_delete(
-                "/api/control-plane/agents/nonexistent", {}, mock_http_handler
+                "/api/v1/control-plane/agents/nonexistent", {}, mock_http_handler
             )
 
         assert result is not None
@@ -743,7 +745,7 @@ class TestControlPlaneHandlerIntegration:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/agents", {}, register_handler
+                "/api/v1/control-plane/agents", {}, register_handler
             )
 
         assert result is not None
@@ -751,7 +753,7 @@ class TestControlPlaneHandlerIntegration:
 
         # Step 2: Get agent
         result = control_plane_handler.handle(
-            "/api/control-plane/agents/lifecycle-agent", {}, mock_http_handler
+            "/api/v1/control-plane/agents/lifecycle-agent", {}, mock_http_handler
         )
         assert result is not None
 
@@ -762,7 +764,7 @@ class TestControlPlaneHandlerIntegration:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/agents/lifecycle-agent/heartbeat", {}, heartbeat_handler
+                "/api/v1/control-plane/agents/lifecycle-agent/heartbeat", {}, heartbeat_handler
             )
 
         assert result is not None
@@ -774,7 +776,7 @@ class TestControlPlaneHandlerIntegration:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_delete(
-                "/api/control-plane/agents/lifecycle-agent", {}, mock_http_handler
+                "/api/v1/control-plane/agents/lifecycle-agent", {}, mock_http_handler
             )
 
         assert result is not None
@@ -798,7 +800,7 @@ class TestControlPlaneHandlerIntegration:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                "/api/control-plane/tasks", {}, submit_handler
+                "/api/v1/control-plane/tasks", {}, submit_handler
             )
 
         assert result is not None
@@ -819,7 +821,7 @@ class TestControlPlaneHandlerIntegration:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             result = control_plane_handler.handle_post(
-                f"/api/control-plane/tasks/{task_id}/complete", {}, complete_handler
+                f"/api/v1/control-plane/tasks/{task_id}/complete", {}, complete_handler
             )
 
         assert result is not None

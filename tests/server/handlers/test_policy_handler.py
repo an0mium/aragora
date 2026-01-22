@@ -32,40 +32,40 @@ class TestPolicyHandlerRouting:
 
     def test_can_handle_policies_base(self, handler):
         """Handler can handle policies base endpoint."""
-        assert handler.can_handle("/api/policies")
+        assert handler.can_handle("/api/v1/policies")
 
     def test_can_handle_policy_by_id(self, handler):
         """Handler can handle policy by ID."""
-        assert handler.can_handle("/api/policies/pol_123")
+        assert handler.can_handle("/api/v1/policies/pol_123")
 
     def test_can_handle_policy_toggle(self, handler):
         """Handler can handle policy toggle endpoint."""
-        assert handler.can_handle("/api/policies/pol_123/toggle")
+        assert handler.can_handle("/api/v1/policies/pol_123/toggle")
 
     def test_can_handle_policy_violations(self, handler):
         """Handler can handle policy violations endpoint."""
-        assert handler.can_handle("/api/policies/pol_123/violations")
+        assert handler.can_handle("/api/v1/policies/pol_123/violations")
 
     def test_can_handle_compliance_violations(self, handler):
         """Handler can handle compliance violations base."""
-        assert handler.can_handle("/api/compliance/violations")
+        assert handler.can_handle("/api/v1/compliance/violations")
 
     def test_can_handle_compliance_violation_by_id(self, handler):
         """Handler can handle compliance violation by ID."""
-        assert handler.can_handle("/api/compliance/violations/viol_123")
+        assert handler.can_handle("/api/v1/compliance/violations/viol_123")
 
     def test_can_handle_compliance_check(self, handler):
         """Handler can handle compliance check endpoint."""
-        assert handler.can_handle("/api/compliance/check")
+        assert handler.can_handle("/api/v1/compliance/check")
 
     def test_can_handle_compliance_stats(self, handler):
         """Handler can handle compliance stats endpoint."""
-        assert handler.can_handle("/api/compliance/stats")
+        assert handler.can_handle("/api/v1/compliance/stats")
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/other")
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/other")
 
 
 class TestPolicyHandlerRoutesAttribute:
@@ -77,19 +77,19 @@ class TestPolicyHandlerRoutesAttribute:
 
     def test_routes_contains_policies(self, handler):
         """ROUTES contains policies."""
-        assert "/api/policies" in handler.ROUTES
+        assert "/api/v1/policies" in handler.ROUTES
 
     def test_routes_contains_compliance_violations(self, handler):
         """ROUTES contains compliance violations."""
-        assert "/api/compliance/violations" in handler.ROUTES
+        assert "/api/v1/compliance/violations" in handler.ROUTES
 
     def test_routes_contains_compliance_check(self, handler):
         """ROUTES contains compliance check."""
-        assert "/api/compliance/check" in handler.ROUTES
+        assert "/api/v1/compliance/check" in handler.ROUTES
 
     def test_routes_contains_compliance_stats(self, handler):
         """ROUTES contains compliance stats."""
-        assert "/api/compliance/stats" in handler.ROUTES
+        assert "/api/v1/compliance/stats" in handler.ROUTES
 
 
 class TestPolicyHandlerPolicyEndpoints:
@@ -103,9 +103,9 @@ class TestPolicyHandlerPolicyEndpoints:
     async def test_list_policies_get(self, handler):
         """GET /api/policies routes to list handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/policies"
+        mock_http.path = "/api/v1/policies"
 
-        result = await handler.handle("/api/policies", "GET", mock_http)
+        result = await handler.handle("/api/v1/policies", "GET", mock_http)
 
         assert result is not None
 
@@ -113,11 +113,11 @@ class TestPolicyHandlerPolicyEndpoints:
     async def test_create_policy_post(self, handler):
         """POST /api/policies routes to create handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/policies"
+        mock_http.path = "/api/v1/policies"
         mock_http.rfile = MagicMock()
         mock_http.headers = {"Content-Length": "0"}
 
-        result = await handler.handle("/api/policies", "POST", mock_http)
+        result = await handler.handle("/api/v1/policies", "POST", mock_http)
 
         assert result is not None
 
@@ -125,9 +125,9 @@ class TestPolicyHandlerPolicyEndpoints:
     async def test_get_policy_by_id(self, handler):
         """GET /api/policies/:id routes to get handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/policies/pol_123"
+        mock_http.path = "/api/v1/policies/pol_123"
 
-        result = await handler.handle("/api/policies/pol_123", "GET", mock_http)
+        result = await handler.handle("/api/v1/policies/pol_123", "GET", mock_http)
 
         assert result is not None
 
@@ -135,9 +135,9 @@ class TestPolicyHandlerPolicyEndpoints:
     async def test_delete_policy(self, handler):
         """DELETE /api/policies/:id routes to delete handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/policies/pol_123"
+        mock_http.path = "/api/v1/policies/pol_123"
 
-        result = await handler.handle("/api/policies/pol_123", "DELETE", mock_http)
+        result = await handler.handle("/api/v1/policies/pol_123", "DELETE", mock_http)
 
         assert result is not None
 
@@ -145,11 +145,11 @@ class TestPolicyHandlerPolicyEndpoints:
     async def test_toggle_policy(self, handler):
         """POST /api/policies/:id/toggle routes to toggle handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/policies/pol_123/toggle"
+        mock_http.path = "/api/v1/policies/pol_123/toggle"
         mock_http.rfile = MagicMock()
         mock_http.headers = {"Content-Length": "0"}
 
-        result = await handler.handle("/api/policies/pol_123/toggle", "POST", mock_http)
+        result = await handler.handle("/api/v1/policies/pol_123/toggle", "POST", mock_http)
 
         assert result is not None
 
@@ -165,9 +165,9 @@ class TestPolicyHandlerComplianceEndpoints:
     async def test_list_violations(self, handler):
         """GET /api/compliance/violations routes to list handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/compliance/violations"
+        mock_http.path = "/api/v1/compliance/violations"
 
-        result = await handler.handle("/api/compliance/violations", "GET", mock_http)
+        result = await handler.handle("/api/v1/compliance/violations", "GET", mock_http)
 
         assert result is not None
 
@@ -175,9 +175,9 @@ class TestPolicyHandlerComplianceEndpoints:
     async def test_get_violation_by_id(self, handler):
         """GET /api/compliance/violations/:id routes to get handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/compliance/violations/viol_123"
+        mock_http.path = "/api/v1/compliance/violations/viol_123"
 
-        result = await handler.handle("/api/compliance/violations/viol_123", "GET", mock_http)
+        result = await handler.handle("/api/v1/compliance/violations/viol_123", "GET", mock_http)
 
         assert result is not None
 
@@ -185,11 +185,11 @@ class TestPolicyHandlerComplianceEndpoints:
     async def test_update_violation(self, handler):
         """PATCH /api/compliance/violations/:id routes to update handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/compliance/violations/viol_123"
+        mock_http.path = "/api/v1/compliance/violations/viol_123"
         mock_http.rfile = MagicMock()
         mock_http.headers = {"Content-Length": "0"}
 
-        result = await handler.handle("/api/compliance/violations/viol_123", "PATCH", mock_http)
+        result = await handler.handle("/api/v1/compliance/violations/viol_123", "PATCH", mock_http)
 
         assert result is not None
 
@@ -197,11 +197,11 @@ class TestPolicyHandlerComplianceEndpoints:
     async def test_compliance_check(self, handler):
         """POST /api/compliance/check routes to check handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/compliance/check"
+        mock_http.path = "/api/v1/compliance/check"
         mock_http.rfile = MagicMock()
         mock_http.headers = {"Content-Length": "0"}
 
-        result = await handler.handle("/api/compliance/check", "POST", mock_http)
+        result = await handler.handle("/api/v1/compliance/check", "POST", mock_http)
 
         assert result is not None
 
@@ -209,9 +209,9 @@ class TestPolicyHandlerComplianceEndpoints:
     async def test_compliance_stats(self, handler):
         """GET /api/compliance/stats routes to stats handler."""
         mock_http = MagicMock()
-        mock_http.path = "/api/compliance/stats"
+        mock_http.path = "/api/v1/compliance/stats"
 
-        result = await handler.handle("/api/compliance/stats", "GET", mock_http)
+        result = await handler.handle("/api/v1/compliance/stats", "GET", mock_http)
 
         assert result is not None
 
@@ -227,9 +227,9 @@ class TestPolicyHandlerValidation:
     async def test_invalid_policy_id_returns_error(self, handler):
         """Invalid policy ID returns 400 error or is not handled."""
         mock_http = MagicMock()
-        mock_http.path = "/api/policies/../etc/passwd"
+        mock_http.path = "/api/v1/policies/../etc/passwd"
 
-        result = await handler.handle("/api/policies/../etc/passwd", "GET", mock_http)
+        result = await handler.handle("/api/v1/policies/../etc/passwd", "GET", mock_http)
 
         # Handler may return None (not handled) or 400 error for path traversal attempt
         assert result is None or result.status_code == 400
@@ -238,9 +238,9 @@ class TestPolicyHandlerValidation:
     async def test_invalid_violation_id_returns_error(self, handler):
         """Invalid violation ID returns 400 error or is not handled."""
         mock_http = MagicMock()
-        mock_http.path = "/api/compliance/violations/../../../"
+        mock_http.path = "/api/v1/compliance/violations/../../../"
 
-        result = await handler.handle("/api/compliance/violations/../../../", "GET", mock_http)
+        result = await handler.handle("/api/v1/compliance/violations/../../../", "GET", mock_http)
 
         # Handler may return None (not handled) or 400 error
         assert result is None or result.status_code == 400
@@ -257,9 +257,9 @@ class TestPolicyHandlerUnknownRoutes:
     async def test_unknown_policy_route_returns_404(self, handler):
         """Unknown policy sub-route returns 404."""
         mock_http = MagicMock()
-        mock_http.path = "/api/policies/pol_123/unknown"
+        mock_http.path = "/api/v1/policies/pol_123/unknown"
 
-        result = await handler.handle("/api/policies/pol_123/unknown", "GET", mock_http)
+        result = await handler.handle("/api/v1/policies/pol_123/unknown", "GET", mock_http)
 
         # May return 404 or None depending on implementation
         assert result is None or result.status_code in (400, 404)

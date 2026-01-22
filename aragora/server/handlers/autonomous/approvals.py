@@ -44,24 +44,26 @@ class ApprovalHandler:
             flow = get_approval_flow()
             pending = flow.list_pending()
 
-            return web.json_response({
-                "success": True,
-                "pending": [
-                    {
-                        "id": req.id,
-                        "title": req.title,
-                        "description": req.description,
-                        "changes": req.changes,
-                        "risk_level": req.risk_level,
-                        "requested_at": req.requested_at.isoformat(),
-                        "requested_by": req.requested_by,
-                        "timeout_seconds": req.timeout_seconds,
-                        "metadata": req.metadata,
-                    }
-                    for req in pending
-                ],
-                "count": len(pending),
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "pending": [
+                        {
+                            "id": req.id,
+                            "title": req.title,
+                            "description": req.description,
+                            "changes": req.changes,
+                            "risk_level": req.risk_level,
+                            "requested_at": req.requested_at.isoformat(),
+                            "requested_by": req.requested_by,
+                            "timeout_seconds": req.timeout_seconds,
+                            "metadata": req.metadata,
+                        }
+                        for req in pending
+                    ],
+                    "count": len(pending),
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error listing pending approvals: {e}")
@@ -92,24 +94,26 @@ class ApprovalHandler:
                     status=404,
                 )
 
-            return web.json_response({
-                "success": True,
-                "request": {
-                    "id": req.id,
-                    "title": req.title,
-                    "description": req.description,
-                    "changes": req.changes,
-                    "risk_level": req.risk_level,
-                    "requested_at": req.requested_at.isoformat(),
-                    "requested_by": req.requested_by,
-                    "timeout_seconds": req.timeout_seconds,
-                    "status": req.status.value,
-                    "approved_by": req.approved_by,
-                    "approved_at": req.approved_at.isoformat() if req.approved_at else None,
-                    "rejection_reason": req.rejection_reason,
-                    "metadata": req.metadata,
-                },
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "request": {
+                        "id": req.id,
+                        "title": req.title,
+                        "description": req.description,
+                        "changes": req.changes,
+                        "risk_level": req.risk_level,
+                        "requested_at": req.requested_at.isoformat(),
+                        "requested_by": req.requested_by,
+                        "timeout_seconds": req.timeout_seconds,
+                        "status": req.status.value,
+                        "approved_by": req.approved_by,
+                        "approved_at": req.approved_at.isoformat() if req.approved_at else None,
+                        "rejection_reason": req.rejection_reason,
+                        "metadata": req.metadata,
+                    },
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error getting approval request: {e}")
@@ -140,15 +144,17 @@ class ApprovalHandler:
             flow = get_approval_flow()
             req = flow.approve(request_id, approved_by)
 
-            return web.json_response({
-                "success": True,
-                "request": {
-                    "id": req.id,
-                    "status": req.status.value,
-                    "approved_by": req.approved_by,
-                    "approved_at": req.approved_at.isoformat() if req.approved_at else None,
-                },
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "request": {
+                        "id": req.id,
+                        "status": req.status.value,
+                        "approved_by": req.approved_by,
+                        "approved_at": req.approved_at.isoformat() if req.approved_at else None,
+                    },
+                }
+            )
 
         except ValueError as e:
             return web.json_response(
@@ -186,15 +192,17 @@ class ApprovalHandler:
             flow = get_approval_flow()
             req = flow.reject(request_id, rejected_by, reason)
 
-            return web.json_response({
-                "success": True,
-                "request": {
-                    "id": req.id,
-                    "status": req.status.value,
-                    "approved_by": req.approved_by,
-                    "rejection_reason": req.rejection_reason,
-                },
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "request": {
+                        "id": req.id,
+                        "status": req.status.value,
+                        "approved_by": req.approved_by,
+                        "rejection_reason": req.rejection_reason,
+                    },
+                }
+            )
 
         except ValueError as e:
             return web.json_response(
@@ -209,7 +217,7 @@ class ApprovalHandler:
             )
 
     @staticmethod
-    def register_routes(app: web.Application, prefix: str = "/api/autonomous") -> None:
+    def register_routes(app: web.Application, prefix: str = "/api/v1/autonomous") -> None:
         """Register approval routes with the application."""
         app.router.add_get(
             f"{prefix}/approvals/pending",

@@ -44,7 +44,7 @@ def handler():
 def mock_http_handler():
     """Create a mock HTTP handler with headers."""
     handler = MagicMock()
-    handler.path = "/api/debates"
+    handler.path = "/api/v1/debates"
     handler.headers = {"Authorization": "Bearer test-token"}
     return handler
 
@@ -206,39 +206,39 @@ class TestDebatesHandlerRouting:
 
     def test_can_handle_debates_list(self, handler):
         """Test handler can handle /api/debates."""
-        assert handler.can_handle("/api/debates") is True
+        assert handler.can_handle("/api/v1/debates") is True
 
     def test_can_handle_debate_by_id(self, handler):
         """Test handler can handle /api/debates/{id}."""
-        assert handler.can_handle("/api/debates/test-123") is True
+        assert handler.can_handle("/api/v1/debates/test-123") is True
 
     def test_can_handle_debate_search(self, handler):
         """Test handler can handle /api/search."""
-        assert handler.can_handle("/api/search") is True
+        assert handler.can_handle("/api/v1/search") is True
 
     def test_can_handle_debate_slug(self, handler):
         """Test handler can handle /api/debates/slug/{slug}."""
-        assert handler.can_handle("/api/debates/slug/my-debate") is True
+        assert handler.can_handle("/api/v1/debates/slug/my-debate") is True
 
     def test_can_handle_meta_critique(self, handler):
         """Test handler can handle meta-critique endpoint."""
-        assert handler.can_handle("/api/debate/test-123/meta-critique") is True
+        assert handler.can_handle("/api/v1/debate/test-123/meta-critique") is True
 
     def test_can_handle_graph_stats(self, handler):
         """Test handler can handle graph stats endpoint."""
-        assert handler.can_handle("/api/debate/test-123/graph/stats") is True
+        assert handler.can_handle("/api/v1/debate/test-123/graph/stats") is True
 
     def test_cannot_handle_unrelated_path(self, handler):
         """Test handler rejects unrelated paths."""
-        assert handler.can_handle("/api/agents") is False
-        assert handler.can_handle("/api/health") is False
+        assert handler.can_handle("/api/v1/agents") is False
+        assert handler.can_handle("/api/v1/health") is False
 
     def test_requires_auth_for_protected_endpoints(self, handler):
         """Test auth requirement detection."""
-        assert handler._requires_auth("/api/debates") is True
-        assert handler._requires_auth("/api/debates/test/export/json") is True
-        assert handler._requires_auth("/api/debates/test/citations") is True
-        assert handler._requires_auth("/api/debates/test/fork") is True
+        assert handler._requires_auth("/api/v1/debates") is True
+        assert handler._requires_auth("/api/v1/debates/test/export/json") is True
+        assert handler._requires_auth("/api/v1/debates/test/citations") is True
+        assert handler._requires_auth("/api/v1/debates/test/fork") is True
 
     def test_suffix_routes_defined(self, handler):
         """Test SUFFIX_ROUTES table is properly defined."""
@@ -257,7 +257,7 @@ class TestDebatesHandlerListDebates:
         """Test list debates returns normalized response."""
         with patch.object(handler, "get_storage", return_value=mock_storage):
             with patch.object(handler, "_check_auth", return_value=None):
-                result = handler.handle("/api/debates", {}, mock_http_handler)
+                result = handler.handle("/api/v1/debates", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -270,7 +270,7 @@ class TestDebatesHandlerListDebates:
         """Test list debates respects limit parameter."""
         with patch.object(handler, "get_storage", return_value=mock_storage):
             with patch.object(handler, "_check_auth", return_value=None):
-                result = handler.handle("/api/debates", {"limit": "10"}, mock_http_handler)
+                result = handler.handle("/api/v1/debates", {"limit": "10"}, mock_http_handler)
 
         mock_storage.list_recent.assert_called_once()
         # Check limit was passed (clamped to max 100)
@@ -282,7 +282,7 @@ class TestDebatesHandlerListDebates:
         with patch.object(handler, "get_storage", return_value=mock_storage):
             with patch.object(handler, "_check_auth", return_value=None):
                 # Request 500, should be clamped to 100
-                result = handler.handle("/api/debates", {"limit": "500"}, mock_http_handler)
+                result = handler.handle("/api/v1/debates", {"limit": "500"}, mock_http_handler)
 
         assert result is not None
 
@@ -298,7 +298,7 @@ class TestDebatesHandlerSearch:
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
             with patch.object(handler, "get_current_user", return_value=None):
-                result = handler.handle("/api/search", {"q": "test query"}, mock_http_handler)
+                result = handler.handle("/api/v1/search", {"q": "test query"}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -310,7 +310,9 @@ class TestDebatesHandlerSearch:
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
             with patch.object(handler, "get_current_user", return_value=None):
-                result = handler.handle("/api/search", {"query": "alternative"}, mock_http_handler)
+                result = handler.handle(
+                    "/api/v1/search", {"query": "alternative"}, mock_http_handler
+                )
 
         assert result is not None
 
@@ -409,7 +411,7 @@ class TestDebatesHandlerMessages:
                 assert extra_params_fn is not None
                 # Test the extra params function
                 params = extra_params_fn(
-                    "/api/debates/test/messages", {"limit": "25", "offset": "10"}
+                    "/api/v1/debates/test/messages", {"limit": "25", "offset": "10"}
                 )
                 assert params["limit"] == 25
                 assert params["offset"] == 10
@@ -456,13 +458,13 @@ class TestDebatesHandlerBatchOperations:
 
     def test_batch_routes_defined(self, handler):
         """Test batch routes are in ROUTES."""
-        assert "/api/debates/batch" in handler.ROUTES
-        assert "/api/debates/batch/*/status" in handler.ROUTES
+        assert "/api/v1/debates/batch" in handler.ROUTES
+        assert "/api/v1/debates/batch/*/status" in handler.ROUTES
 
     def test_batch_endpoint_routing(self, handler, mock_http_handler):
         """Test batch endpoint is routed correctly."""
-        assert handler.can_handle("/api/debates/batch") is True
-        assert handler.can_handle("/api/debates/batch/") is True
+        assert handler.can_handle("/api/v1/debates/batch") is True
+        assert handler.can_handle("/api/v1/debates/batch/") is True
 
 
 class TestDebatesHandlerForkOperations:
@@ -470,11 +472,11 @@ class TestDebatesHandlerForkOperations:
 
     def test_fork_route_in_routes(self, handler):
         """Test fork route is defined."""
-        assert "/api/debates/*/fork" in handler.ROUTES
+        assert "/api/v1/debates/*/fork" in handler.ROUTES
 
     def test_fork_requires_auth(self, handler):
         """Test fork endpoint requires authentication."""
-        assert handler._requires_auth("/api/debates/test/fork") is True
+        assert handler._requires_auth("/api/v1/debates/test/fork") is True
 
 
 class TestDebatesHandlerEdgeCases:
@@ -491,7 +493,7 @@ class TestDebatesHandlerEdgeCases:
         with patch.object(handler, "get_storage", return_value=None):
             with patch.object(handler, "_check_auth", return_value=None):
                 # Should handle gracefully
-                result = handler.handle("/api/debates", {}, mock_http_handler)
+                result = handler.handle("/api/v1/debates", {}, mock_http_handler)
 
         # Should return error or empty result, not crash
         assert result is not None
@@ -501,7 +503,9 @@ class TestDebatesHandlerEdgeCases:
         with patch.object(handler, "get_storage", return_value=mock_storage):
             with patch.object(handler, "get_current_user", return_value=None):
                 # Query param as list (common in URL parsing)
-                result = handler.handle("/api/search", {"q": ["test", "query"]}, mock_http_handler)
+                result = handler.handle(
+                    "/api/v1/search", {"q": ["test", "query"]}, mock_http_handler
+                )
 
         assert result is not None
 

@@ -95,21 +95,21 @@ class TestPulseHandlerRouting:
         from aragora.server.handlers.features.pulse import PulseHandler
 
         handler = PulseHandler({})
-        assert handler.can_handle("/api/pulse/trending") is True
+        assert handler.can_handle("/api/v1/pulse/trending") is True
 
     def test_can_handle_suggest(self):
         """Test handler recognizes suggest endpoint."""
         from aragora.server.handlers.features.pulse import PulseHandler
 
         handler = PulseHandler({})
-        assert handler.can_handle("/api/pulse/suggest") is True
+        assert handler.can_handle("/api/v1/pulse/suggest") is True
 
     def test_can_handle_analytics(self):
         """Test handler recognizes analytics endpoint."""
         from aragora.server.handlers.features.pulse import PulseHandler
 
         handler = PulseHandler({})
-        assert handler.can_handle("/api/pulse/analytics") is True
+        assert handler.can_handle("/api/v1/pulse/analytics") is True
 
     def test_can_handle_scheduler_endpoints(self):
         """Test handler recognizes all scheduler endpoints."""
@@ -117,13 +117,13 @@ class TestPulseHandlerRouting:
 
         handler = PulseHandler({})
         scheduler_endpoints = [
-            "/api/pulse/scheduler/status",
-            "/api/pulse/scheduler/start",
-            "/api/pulse/scheduler/stop",
-            "/api/pulse/scheduler/pause",
-            "/api/pulse/scheduler/resume",
-            "/api/pulse/scheduler/config",
-            "/api/pulse/scheduler/history",
+            "/api/v1/pulse/scheduler/status",
+            "/api/v1/pulse/scheduler/start",
+            "/api/v1/pulse/scheduler/stop",
+            "/api/v1/pulse/scheduler/pause",
+            "/api/v1/pulse/scheduler/resume",
+            "/api/v1/pulse/scheduler/config",
+            "/api/v1/pulse/scheduler/history",
         ]
         for endpoint in scheduler_endpoints:
             assert handler.can_handle(endpoint) is True, f"Should handle {endpoint}"
@@ -133,24 +133,24 @@ class TestPulseHandlerRouting:
         from aragora.server.handlers.features.pulse import PulseHandler
 
         handler = PulseHandler({})
-        assert handler.can_handle("/api/other/endpoint") is False
+        assert handler.can_handle("/api/v1/other/endpoint") is False
 
     def test_routes_list(self):
         """Test ROUTES list contains expected endpoints."""
         from aragora.server.handlers.features.pulse import PulseHandler
 
         expected_routes = [
-            "/api/pulse/trending",
-            "/api/pulse/suggest",
-            "/api/pulse/analytics",
-            "/api/pulse/debate-topic",
-            "/api/pulse/scheduler/status",
-            "/api/pulse/scheduler/start",
-            "/api/pulse/scheduler/stop",
-            "/api/pulse/scheduler/pause",
-            "/api/pulse/scheduler/resume",
-            "/api/pulse/scheduler/config",
-            "/api/pulse/scheduler/history",
+            "/api/v1/pulse/trending",
+            "/api/v1/pulse/suggest",
+            "/api/v1/pulse/analytics",
+            "/api/v1/pulse/debate-topic",
+            "/api/v1/pulse/scheduler/status",
+            "/api/v1/pulse/scheduler/start",
+            "/api/v1/pulse/scheduler/stop",
+            "/api/v1/pulse/scheduler/pause",
+            "/api/v1/pulse/scheduler/resume",
+            "/api/v1/pulse/scheduler/config",
+            "/api/v1/pulse/scheduler/history",
         ]
         for route in expected_routes:
             assert route in PulseHandler.ROUTES
@@ -783,7 +783,7 @@ class TestPulseHandlerHandleMethods:
             "_get_trending_topics",
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
-            result = handler.handle("/api/pulse/trending", {}, mock_http)
+            result = handler.handle("/api/v1/pulse/trending", {}, mock_http)
 
             mock_method.assert_called_once_with(10)  # Default limit
 
@@ -799,7 +799,7 @@ class TestPulseHandlerHandleMethods:
             "_get_trending_topics",
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
-            result = handler.handle("/api/pulse/trending", {"limit": ["25"]}, mock_http)
+            result = handler.handle("/api/v1/pulse/trending", {"limit": ["25"]}, mock_http)
 
             mock_method.assert_called_once_with(25)
 
@@ -815,7 +815,7 @@ class TestPulseHandlerHandleMethods:
             "_get_trending_topics",
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
-            result = handler.handle("/api/pulse/trending", {"limit": ["100"]}, mock_http)
+            result = handler.handle("/api/v1/pulse/trending", {"limit": ["100"]}, mock_http)
 
             mock_method.assert_called_once_with(50)  # Capped at 50
 
@@ -832,7 +832,7 @@ class TestPulseHandlerHandleMethods:
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
             result = handler.handle(
-                "/api/pulse/suggest",
+                "/api/v1/pulse/suggest",
                 {"category": ["ai"]},
                 mock_http,
             )
@@ -851,7 +851,7 @@ class TestPulseHandlerHandleMethods:
             "_get_analytics",
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
-            result = handler.handle("/api/pulse/analytics", {}, mock_http)
+            result = handler.handle("/api/v1/pulse/analytics", {}, mock_http)
 
             mock_method.assert_called_once()
 
@@ -867,7 +867,7 @@ class TestPulseHandlerHandleMethods:
             "_get_scheduler_status",
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
-            result = handler.handle("/api/pulse/scheduler/status", {}, mock_http)
+            result = handler.handle("/api/v1/pulse/scheduler/status", {}, mock_http)
 
             mock_method.assert_called_once()
 
@@ -883,7 +883,7 @@ class TestPulseHandlerHandleMethods:
             "_get_scheduler_history",
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
-            result = handler.handle("/api/pulse/scheduler/history", {}, mock_http)
+            result = handler.handle("/api/v1/pulse/scheduler/history", {}, mock_http)
 
             mock_method.assert_called_once_with(50, 0, None)
 
@@ -894,7 +894,7 @@ class TestPulseHandlerHandleMethods:
         handler = PulseHandler({})
         mock_http = MockHandler()
 
-        result = handler.handle("/api/unknown", {}, mock_http)
+        result = handler.handle("/api/v1/unknown", {}, mock_http)
 
         assert result is None
 
@@ -910,7 +910,7 @@ class TestPulseHandlerHandleMethods:
             "_start_debate_on_topic",
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
-            result = handler.handle_post("/api/pulse/debate-topic", {}, mock_http)
+            result = handler.handle_post("/api/v1/pulse/debate-topic", {}, mock_http)
 
             mock_method.assert_called_once_with(mock_http)
 
@@ -922,10 +922,10 @@ class TestPulseHandlerHandleMethods:
         mock_http = MockHandler()
 
         controls = [
-            ("/api/pulse/scheduler/start", "_start_scheduler"),
-            ("/api/pulse/scheduler/stop", "_stop_scheduler"),
-            ("/api/pulse/scheduler/pause", "_pause_scheduler"),
-            ("/api/pulse/scheduler/resume", "_resume_scheduler"),
+            ("/api/v1/pulse/scheduler/start", "_start_scheduler"),
+            ("/api/v1/pulse/scheduler/stop", "_stop_scheduler"),
+            ("/api/v1/pulse/scheduler/pause", "_pause_scheduler"),
+            ("/api/v1/pulse/scheduler/resume", "_resume_scheduler"),
         ]
 
         for path, method_name in controls:
@@ -944,7 +944,7 @@ class TestPulseHandlerHandleMethods:
         handler = PulseHandler({})
         mock_http = MockHandler()
 
-        result = handler.handle_post("/api/unknown", {}, mock_http)
+        result = handler.handle_post("/api/v1/unknown", {}, mock_http)
 
         assert result is None
 
@@ -961,7 +961,7 @@ class TestPulseHandlerHandleMethods:
             return_value={"status": 200, "body": "{}"},
         ) as mock_method:
             result = handler.handle_patch(
-                "/api/pulse/scheduler/config",
+                "/api/v1/pulse/scheduler/config",
                 {},
                 mock_http,
             )
@@ -975,7 +975,7 @@ class TestPulseHandlerHandleMethods:
         handler = PulseHandler({})
         mock_http = MockHandler()
 
-        result = handler.handle_patch("/api/unknown", {}, mock_http)
+        result = handler.handle_patch("/api/v1/unknown", {}, mock_http)
 
         assert result is None
 
@@ -992,7 +992,7 @@ class TestCategoryValidation:
 
         # Invalid category with special characters
         result = handler.handle(
-            "/api/pulse/suggest",
+            "/api/v1/pulse/suggest",
             {"category": ["<script>alert(1)</script>"]},
             mock_http,
         )
@@ -1015,7 +1015,7 @@ class TestCategoryValidation:
                 return_value={"status": 200, "body": "{}"},
             ):
                 result = handler.handle(
-                    "/api/pulse/suggest",
+                    "/api/v1/pulse/suggest",
                     {"category": [category]},
                     mock_http,
                 )

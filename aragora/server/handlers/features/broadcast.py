@@ -89,14 +89,14 @@ class BroadcastHandler(BaseHandler):
         """Handle POST requests."""
         # Full pipeline
         if path.startswith("/api/v1/debates/") and path.endswith("/broadcast/full"):
-            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._run_full_pipeline(debate_id, query_params, handler)
 
         # Basic broadcast generation
         if path.startswith("/api/v1/debates/") and path.endswith("/broadcast"):
-            debate_id, err = self.extract_path_param(path, 2, "debate_id", SAFE_SLUG_PATTERN)
+            debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._generate_broadcast(debate_id, handler)

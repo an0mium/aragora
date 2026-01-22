@@ -89,42 +89,43 @@ class PolicyHandler(BaseHandler):
             "/api/v1/policies/compliance"
         ):
             parts = path.split("/")
+            # Parts: ["", "api", "v1", "policies", ":id", ...]
 
-            # POST /api/policies/:id/toggle
-            if len(parts) == 5 and parts[4] == "toggle" and method == "POST":
-                policy_id = parts[3]
+            # POST /api/v1/policies/:id/toggle (6 parts)
+            if len(parts) == 6 and parts[5] == "toggle" and method == "POST":
+                policy_id = parts[4]
                 is_valid, err = validate_path_segment(policy_id, "policy_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return await self._toggle_policy(policy_id, handler)
 
-            # GET /api/policies/:id/violations
-            if len(parts) == 5 and parts[4] == "violations" and method == "GET":
-                policy_id = parts[3]
+            # GET /api/v1/policies/:id/violations (6 parts)
+            if len(parts) == 6 and parts[5] == "violations" and method == "GET":
+                policy_id = parts[4]
                 is_valid, err = validate_path_segment(policy_id, "policy_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return self._get_policy_violations(policy_id, query_params)
 
-            # GET /api/policies/:id - Get policy
-            if len(parts) == 4 and method == "GET":
-                policy_id = parts[3]
+            # GET /api/v1/policies/:id - Get policy (5 parts)
+            if len(parts) == 5 and method == "GET":
+                policy_id = parts[4]
                 is_valid, err = validate_path_segment(policy_id, "policy_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return self._get_policy(policy_id)
 
-            # PATCH /api/policies/:id - Update policy
-            if len(parts) == 4 and method == "PATCH":
-                policy_id = parts[3]
+            # PATCH /api/v1/policies/:id - Update policy (5 parts)
+            if len(parts) == 5 and method == "PATCH":
+                policy_id = parts[4]
                 is_valid, err = validate_path_segment(policy_id, "policy_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return await self._update_policy(policy_id, handler)
 
-            # DELETE /api/policies/:id - Delete policy
-            if len(parts) == 4 and method == "DELETE":
-                policy_id = parts[3]
+            # DELETE /api/v1/policies/:id - Delete policy (5 parts)
+            if len(parts) == 5 and method == "DELETE":
+                policy_id = parts[4]
                 is_valid, err = validate_path_segment(policy_id, "policy_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
@@ -146,18 +147,19 @@ class PolicyHandler(BaseHandler):
 
         if path.startswith("/api/v1/compliance/violations/"):
             parts = path.split("/")
+            # Parts: ["", "api", "v1", "compliance", "violations", ":id"]
 
-            # GET /api/compliance/violations/:id - Get violation
-            if len(parts) == 5 and method == "GET":
-                violation_id = parts[4]
+            # GET /api/v1/compliance/violations/:id - Get violation (6 parts)
+            if len(parts) == 6 and method == "GET":
+                violation_id = parts[5]
                 is_valid, err = validate_path_segment(violation_id, "violation_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return self._get_violation(violation_id)
 
-            # PATCH /api/compliance/violations/:id - Update violation status
-            if len(parts) == 5 and method == "PATCH":
-                violation_id = parts[4]
+            # PATCH /api/v1/compliance/violations/:id - Update violation status (6 parts)
+            if len(parts) == 6 and method == "PATCH":
+                violation_id = parts[5]
                 is_valid, err = validate_path_segment(violation_id, "violation_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)

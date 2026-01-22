@@ -72,16 +72,16 @@ class OrganizationsHandler(SecureHandler):
     RESOURCE_TYPE = "organization"
 
     # Route patterns
-    ORG_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)$")
-    MEMBERS_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/members$")
-    INVITE_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/invite$")
-    INVITATIONS_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/invitations$")
-    INVITATION_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/invitations/([a-zA-Z0-9_-]+)$")
-    MEMBER_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)$")
-    ROLE_PATTERN = re.compile(r"^/api/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)/role$")
+    ORG_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)$")
+    MEMBERS_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/members$")
+    INVITE_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/invite$")
+    INVITATIONS_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/invitations$")
+    INVITATION_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/invitations/([a-zA-Z0-9_-]+)$")
+    MEMBER_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)$")
+    ROLE_PATTERN = re.compile(r"^/api/v1/org/([a-zA-Z0-9_-]+)/members/([a-zA-Z0-9_-]+)/role$")
     # User-facing invitation endpoints
-    PENDING_INVITATIONS_PATTERN = re.compile(r"^/api/invitations/pending$")
-    ACCEPT_INVITATION_PATTERN = re.compile(r"^/api/invitations/([a-zA-Z0-9_-]+)/accept$")
+    PENDING_INVITATIONS_PATTERN = re.compile(r"^/api/v1/invitations/pending$")
+    ACCEPT_INVITATION_PATTERN = re.compile(r"^/api/v1/invitations/([a-zA-Z0-9_-]+)/accept$")
 
     # Invitations are now stored in user_store (persistent SQLite storage)
 

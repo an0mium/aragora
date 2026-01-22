@@ -156,7 +156,7 @@ class MockUserStore:
 def make_mock_handler(
     body: dict | None = None,
     method: str = "GET",
-    path: str = "/api/gauntlet/run",
+    path: str = "/api/v1/gauntlet/run",
 ):
     """Create a mock HTTP handler."""
     handler = MagicMock()
@@ -207,28 +207,28 @@ class TestGauntletHandlerRouting:
     """Tests for GauntletHandler routing."""
 
     def test_can_handle_run_post(self, gauntlet_handler):
-        assert gauntlet_handler.can_handle("/api/gauntlet/run", "POST") is True
+        assert gauntlet_handler.can_handle("/api/v1/gauntlet/run", "POST") is True
 
     def test_can_handle_personas_get(self, gauntlet_handler):
-        assert gauntlet_handler.can_handle("/api/gauntlet/personas", "GET") is True
+        assert gauntlet_handler.can_handle("/api/v1/gauntlet/personas", "GET") is True
 
     def test_can_handle_results_get(self, gauntlet_handler):
-        assert gauntlet_handler.can_handle("/api/gauntlet/results", "GET") is True
+        assert gauntlet_handler.can_handle("/api/v1/gauntlet/results", "GET") is True
 
     def test_can_handle_status_get(self, gauntlet_handler):
-        assert gauntlet_handler.can_handle("/api/gauntlet/test123", "GET") is True
+        assert gauntlet_handler.can_handle("/api/v1/gauntlet/test123", "GET") is True
 
     def test_can_handle_receipt_get(self, gauntlet_handler):
-        assert gauntlet_handler.can_handle("/api/gauntlet/test123/receipt", "GET") is True
+        assert gauntlet_handler.can_handle("/api/v1/gauntlet/test123/receipt", "GET") is True
 
     def test_can_handle_heatmap_get(self, gauntlet_handler):
-        assert gauntlet_handler.can_handle("/api/gauntlet/test123/heatmap", "GET") is True
+        assert gauntlet_handler.can_handle("/api/v1/gauntlet/test123/heatmap", "GET") is True
 
     def test_can_handle_delete(self, gauntlet_handler):
-        assert gauntlet_handler.can_handle("/api/gauntlet/test123", "DELETE") is True
+        assert gauntlet_handler.can_handle("/api/v1/gauntlet/test123", "DELETE") is True
 
     def test_cannot_handle_other_paths(self, gauntlet_handler):
-        assert gauntlet_handler.can_handle("/api/debates", "GET") is False
+        assert gauntlet_handler.can_handle("/api/v1/debates", "GET") is False
 
 
 # ===========================================================================
@@ -249,7 +249,9 @@ class TestGauntletListPersonas:
 
                     handler = make_mock_handler()
 
-                    result = await gauntlet_handler.handle("/api/gauntlet/personas", "GET", handler)
+                    result = await gauntlet_handler.handle(
+                        "/api/v1/gauntlet/personas", "GET", handler
+                    )
 
                     assert result is not None
                     assert result.status_code == 200
@@ -285,12 +287,12 @@ class TestGauntletStartRun:
         with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
             handler = MagicMock()
             handler.command = "POST"
-            handler.path = "/api/gauntlet/run"
+            handler.path = "/api/v1/gauntlet/run"
             handler.headers = {"Content-Length": "5"}
             handler.rfile = BytesIO(b"invalid")
             handler.client_address = ("127.0.0.1", 12345)
 
-            result = await gauntlet_handler.handle("/api/gauntlet/run", "POST", handler)
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/run", "POST", handler)
 
             assert result is not None
             assert result.status_code == 400
@@ -312,7 +314,7 @@ class TestGauntletStartRun:
             with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
                 mock_auth.return_value = MockAuthContext()
 
-                result = await gauntlet_handler.handle("/api/gauntlet/run", "POST", handler)
+                result = await gauntlet_handler.handle("/api/v1/gauntlet/run", "POST", handler)
 
                 assert result is not None
                 assert result.status_code == 429
@@ -338,9 +340,11 @@ class TestGauntletGetStatus:
                 "created_at": datetime.now().isoformat(),
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123")
 
-            result = await gauntlet_handler.handle("/api/gauntlet/gauntlet-test123", "GET", handler)
+            result = await gauntlet_handler.handle(
+                "/api/v1/gauntlet/gauntlet-test123", "GET", handler
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -357,9 +361,11 @@ class TestGauntletGetStatus:
                 "result": {"verdict": "APPROVED"},
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123")
 
-            result = await gauntlet_handler.handle("/api/gauntlet/gauntlet-test123", "GET", handler)
+            result = await gauntlet_handler.handle(
+                "/api/v1/gauntlet/gauntlet-test123", "GET", handler
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -373,10 +379,10 @@ class TestGauntletGetStatus:
                 mock_storage_instance.get_inflight.return_value = None  # Also mock get_inflight
                 mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/gauntlet/gauntlet-nonexistent")
+                handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-nonexistent")
 
                 result = await gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-nonexistent", "GET", handler
+                    "/api/v1/gauntlet/gauntlet-nonexistent", "GET", handler
                 )
 
                 assert result is not None
@@ -385,9 +391,9 @@ class TestGauntletGetStatus:
     @pytest.mark.asyncio
     async def test_get_status_invalid_id(self, gauntlet_handler):
         with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            handler = make_mock_handler(path="/api/gauntlet/../etc/passwd")
+            handler = make_mock_handler(path="/api/v1/gauntlet/../etc/passwd")
 
-            result = await gauntlet_handler.handle("/api/gauntlet/../etc/passwd", "GET", handler)
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/../etc/passwd", "GET", handler)
 
             # Should reject invalid ID
             assert result is not None
@@ -411,10 +417,10 @@ class TestGauntletGetReceipt:
                 "status": "running",
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123/receipt")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/receipt")
 
             result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-test123/receipt", "GET", handler
+                "/api/v1/gauntlet/gauntlet-test123/receipt", "GET", handler
             )
 
             assert result is not None
@@ -442,10 +448,10 @@ class TestGauntletGetReceipt:
                 },
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123/receipt")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/receipt")
 
             result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-test123/receipt", "GET", handler
+                "/api/v1/gauntlet/gauntlet-test123/receipt", "GET", handler
             )
 
             assert result is not None
@@ -468,10 +474,10 @@ class TestGauntletGetHeatmap:
                 "status": "pending",
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123/heatmap")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/heatmap")
 
             result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-test123/heatmap", "GET", handler
+                "/api/v1/gauntlet/gauntlet-test123/heatmap", "GET", handler
             )
 
             assert result is not None
@@ -492,10 +498,10 @@ class TestGauntletGetHeatmap:
                 },
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123/heatmap")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/heatmap")
 
             result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-test123/heatmap", "GET", handler
+                "/api/v1/gauntlet/gauntlet-test123/heatmap", "GET", handler
             )
 
             assert result is not None
@@ -519,9 +525,9 @@ class TestGauntletListResults:
                 mock_storage_instance.count.return_value = 1
                 mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/gauntlet/results")
+                handler = make_mock_handler(path="/api/v1/gauntlet/results")
 
-                result = await gauntlet_handler.handle("/api/gauntlet/results", "GET", handler)
+                result = await gauntlet_handler.handle("/api/v1/gauntlet/results", "GET", handler)
 
                 assert result is not None
                 assert result.status_code == 200
@@ -538,9 +544,9 @@ class TestGauntletListResults:
                 mock_storage_instance.count.return_value = 0
                 mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/gauntlet/results?limit=10&offset=5")
+                handler = make_mock_handler(path="/api/v1/gauntlet/results?limit=10&offset=5")
 
-                result = await gauntlet_handler.handle("/api/gauntlet/results", "GET", handler)
+                result = await gauntlet_handler.handle("/api/v1/gauntlet/results", "GET", handler)
 
                 assert result is not None
                 assert result.status_code == 200
@@ -568,11 +574,11 @@ class TestGauntletCompareResults:
                 mock_storage.return_value = mock_storage_instance
 
                 handler = make_mock_handler(
-                    path="/api/gauntlet/gauntlet-test1/compare/gauntlet-test2"
+                    path="/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2"
                 )
 
                 result = await gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-test1/compare/gauntlet-test2", "GET", handler
+                    "/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2", "GET", handler
                 )
 
                 assert result is not None
@@ -587,11 +593,11 @@ class TestGauntletCompareResults:
                 mock_storage.return_value = mock_storage_instance
 
                 handler = make_mock_handler(
-                    path="/api/gauntlet/gauntlet-test1/compare/gauntlet-test2"
+                    path="/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2"
                 )
 
                 result = await gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-test1/compare/gauntlet-test2", "GET", handler
+                    "/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2", "GET", handler
                 )
 
                 assert result is not None
@@ -617,10 +623,12 @@ class TestGauntletDeleteResult:
                 mock_storage_instance.delete.return_value = True
                 mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123", method="DELETE")
+                handler = make_mock_handler(
+                    path="/api/v1/gauntlet/gauntlet-test123", method="DELETE"
+                )
 
                 result = await gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-test123", "DELETE", handler
+                    "/api/v1/gauntlet/gauntlet-test123", "DELETE", handler
                 )
 
                 assert result is not None
@@ -640,11 +648,11 @@ class TestGauntletDeleteResult:
                 mock_storage.return_value = mock_storage_instance
 
                 handler = make_mock_handler(
-                    path="/api/gauntlet/gauntlet-nonexistent", method="DELETE"
+                    path="/api/v1/gauntlet/gauntlet-nonexistent", method="DELETE"
                 )
 
                 result = await gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-nonexistent", "DELETE", handler
+                    "/api/v1/gauntlet/gauntlet-nonexistent", "DELETE", handler
                 )
 
                 assert result is not None
@@ -685,10 +693,10 @@ class TestGauntletExportReport:
                 },
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123/export")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/export")
 
             result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-test123/export", "GET", handler
+                "/api/v1/gauntlet/gauntlet-test123/export", "GET", handler
             )
 
             assert result is not None
@@ -705,10 +713,10 @@ class TestGauntletExportReport:
                 "status": "running",
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123/export")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/export")
 
             result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-test123/export", "GET", handler
+                "/api/v1/gauntlet/gauntlet-test123/export", "GET", handler
             )
 
             assert result is not None
@@ -773,9 +781,11 @@ class TestGauntletIdValidation:
     async def test_reject_path_traversal_id(self, gauntlet_handler):
         """Test that path traversal attempts are rejected."""
         with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            handler = make_mock_handler(path="/api/gauntlet/../../etc/passwd")
+            handler = make_mock_handler(path="/api/v1/gauntlet/../../etc/passwd")
 
-            result = await gauntlet_handler.handle("/api/gauntlet/../../etc/passwd", "GET", handler)
+            result = await gauntlet_handler.handle(
+                "/api/v1/gauntlet/../../etc/passwd", "GET", handler
+            )
 
             assert result is not None
             assert result.status_code == 400
@@ -790,10 +800,10 @@ class TestGauntletIdValidation:
                 "result": {},
             }
 
-            handler = make_mock_handler(path="/api/gauntlet/gauntlet-20240114120000-abc123")
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-20240114120000-abc123")
 
             result = await gauntlet_handler.handle(
-                "/api/gauntlet/gauntlet-20240114120000-abc123", "GET", handler
+                "/api/v1/gauntlet/gauntlet-20240114120000-abc123", "GET", handler
             )
 
             assert result is not None

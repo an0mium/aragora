@@ -48,16 +48,16 @@ class KMCheckpointHandler(BaseHandler):
     """Handler for Knowledge Mound checkpoint management endpoints."""
 
     routes = [
-        "/api/km/checkpoints",
-        "/api/km/checkpoints/compare",
+        "/api/v1/km/checkpoints",
+        "/api/v1/km/checkpoints/compare",
     ]
 
     # Dynamic routes handled via pattern matching in handle_*
     dynamic_routes = [
-        "/api/km/checkpoints/{name}",
-        "/api/km/checkpoints/{name}/restore",
-        "/api/km/checkpoints/{name}/compare",
-        "/api/km/checkpoints/{name}/download",
+        "/api/v1/km/checkpoints/{name}",
+        "/api/v1/km/checkpoints/{name}/restore",
+        "/api/v1/km/checkpoints/{name}/compare",
+        "/api/v1/km/checkpoints/{name}/download",
     ]
 
     def __init__(self):
@@ -392,12 +392,12 @@ class KMCheckpointHandler(BaseHandler):
         """Handle GET requests."""
         path = handler.path.split("?")[0]
 
-        if path == "/api/km/checkpoints":
+        if path == "/api/v1/km/checkpoints":
             return self._list_checkpoints(handler)
 
         # Handle /api/km/checkpoints/{name} or /api/km/checkpoints/{name}/compare
-        if path.startswith("/api/km/checkpoints/"):
-            parts = path.replace("/api/km/checkpoints/", "").split("/")
+        if path.startswith("/api/v1/km/checkpoints/"):
+            parts = path.replace("/api/v1/km/checkpoints/", "").split("/")
             name = parts[0]
 
             if len(parts) == 1:
@@ -417,15 +417,15 @@ class KMCheckpointHandler(BaseHandler):
             return error_response("Missing handler", status=500)
         path = handler.path.split("?")[0]
 
-        if path == "/api/km/checkpoints":
+        if path == "/api/v1/km/checkpoints":
             return self._create_checkpoint(handler)
 
-        if path == "/api/km/checkpoints/compare":
+        if path == "/api/v1/km/checkpoints/compare":
             return self._compare_checkpoints(handler)
 
         # Handle /api/km/checkpoints/{name}/restore
-        if path.startswith("/api/km/checkpoints/") and path.endswith("/restore"):
-            name = path.replace("/api/km/checkpoints/", "").replace("/restore", "")
+        if path.startswith("/api/v1/km/checkpoints/") and path.endswith("/restore"):
+            name = path.replace("/api/v1/km/checkpoints/", "").replace("/restore", "")
             return self._restore_checkpoint(handler, name)
 
         return error_response("Not found", status=404)
@@ -441,8 +441,8 @@ class KMCheckpointHandler(BaseHandler):
         path = handler.path.split("?")[0]
 
         # Handle /api/km/checkpoints/{name}
-        if path.startswith("/api/km/checkpoints/"):
-            name = path.replace("/api/km/checkpoints/", "")
+        if path.startswith("/api/v1/km/checkpoints/"):
+            name = path.replace("/api/v1/km/checkpoints/", "")
             if "/" not in name:  # Ensure it's just the name
                 return self._delete_checkpoint(handler, name)
 

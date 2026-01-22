@@ -383,7 +383,7 @@ class TestWebhookHandlerListEvents:
         from aragora.server.handlers.webhooks import WEBHOOK_EVENTS
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle("/api/webhooks/events", {}, handler)
+        result = webhook_handler.handle("/api/v1/webhooks/events", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -411,7 +411,7 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/webhooks", {}, handler)
+        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -430,7 +430,7 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/webhooks", {}, handler)
+        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
         assert b"URL is required" in result.body
@@ -448,7 +448,7 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/webhooks", {}, handler)
+        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
         assert b"http" in result.body.lower()
@@ -461,7 +461,7 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/webhooks", {}, handler)
+        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
         assert b"event" in result.body.lower()
@@ -479,7 +479,7 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/webhooks", {}, handler)
+        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
         assert b"Invalid event" in result.body
@@ -492,7 +492,7 @@ class TestWebhookHandlerList:
         """Should return empty list when no webhooks registered."""
         handler = MockHandler(headers={})
 
-        result = webhook_handler.handle("/api/webhooks", {}, handler)
+        result = webhook_handler.handle("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -507,7 +507,7 @@ class TestWebhookHandlerList:
         store.register(url="https://b.com", events=["debate_end"])
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle("/api/webhooks", {}, handler)
+        result = webhook_handler.handle("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -519,7 +519,7 @@ class TestWebhookHandlerList:
         store.register(url="https://a.com", events=["debate_start"])
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle("/api/webhooks", {}, handler)
+        result = webhook_handler.handle("/api/v1/webhooks", {}, handler)
 
         body = json.loads(result.body)
         for webhook in body["webhooks"]:
@@ -535,7 +535,7 @@ class TestWebhookHandlerGet:
         webhook = store.register(url="https://example.com", events=["debate_start"])
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle(f"/api/webhooks/{webhook.id}", {}, handler)
+        result = webhook_handler.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -544,7 +544,7 @@ class TestWebhookHandlerGet:
     def test_get_webhook_not_found(self, webhook_handler):
         """Should return 404 for non-existent webhook."""
         handler = MockHandler(headers={})
-        result = webhook_handler.handle("/api/webhooks/non-existent-id", {}, handler)
+        result = webhook_handler.handle("/api/v1/webhooks/non-existent-id", {}, handler)
 
         assert result.status_code == 404
 
@@ -558,7 +558,7 @@ class TestWebhookHandlerDelete:
         webhook = store.register(url="https://example.com", events=["debate_start"])
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle_delete(f"/api/webhooks/{webhook.id}", {}, handler)
+        result = webhook_handler.handle_delete(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -570,7 +570,7 @@ class TestWebhookHandlerDelete:
     def test_delete_webhook_not_found(self, webhook_handler):
         """Should return 404 when deleting non-existent webhook."""
         handler = MockHandler(headers={})
-        result = webhook_handler.handle_delete("/api/webhooks/non-existent-id", {}, handler)
+        result = webhook_handler.handle_delete("/api/v1/webhooks/non-existent-id", {}, handler)
 
         assert result.status_code == 404
 
@@ -589,7 +589,7 @@ class TestWebhookHandlerUpdate:
             body=body,
         )
 
-        result = webhook_handler.handle_patch(f"/api/webhooks/{webhook.id}", {}, handler)
+        result = webhook_handler.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
         assert result.status_code == 200
         response_body = json.loads(result.body)
@@ -604,7 +604,7 @@ class TestWebhookHandlerUpdate:
             body=body,
         )
 
-        result = webhook_handler.handle_patch("/api/webhooks/non-existent-id", {}, handler)
+        result = webhook_handler.handle_patch("/api/v1/webhooks/non-existent-id", {}, handler)
         assert result.status_code == 404
 
     def test_update_webhook_invalid_events(self, webhook_handler, server_context):
@@ -618,7 +618,7 @@ class TestWebhookHandlerUpdate:
             body=body,
         )
 
-        result = webhook_handler.handle_patch(f"/api/webhooks/{webhook.id}", {}, handler)
+        result = webhook_handler.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
         assert result.status_code == 400
 
 
@@ -628,7 +628,7 @@ class TestWebhookHandlerTest:
     def test_test_webhook_not_found(self, webhook_handler):
         """Should return 404 when testing non-existent webhook."""
         handler = MockHandler(headers={})
-        result = webhook_handler.handle_post("/api/webhooks/non-existent-id/test", {}, handler)
+        result = webhook_handler.handle_post("/api/v1/webhooks/non-existent-id/test", {}, handler)
         assert result.status_code == 404
 
     def test_test_webhook_success(self, webhook_handler, server_context):
@@ -642,7 +642,7 @@ class TestWebhookHandlerTest:
         with patch("aragora.events.dispatcher.dispatch_webhook") as mock_dispatch:
             mock_dispatch.return_value = (True, 200, None)
 
-            result = webhook_handler.handle_post(f"/api/webhooks/{webhook.id}/test", {}, handler)
+            result = webhook_handler.handle_post(f"/api/v1/webhooks/{webhook.id}/test", {}, handler)
 
             assert result.status_code == 200
             body = json.loads(result.body)
@@ -659,7 +659,7 @@ class TestWebhookHandlerTest:
         with patch("aragora.events.dispatcher.dispatch_webhook") as mock_dispatch:
             mock_dispatch.return_value = (False, 500, "Connection refused")
 
-            result = webhook_handler.handle_post(f"/api/webhooks/{webhook.id}/test", {}, handler)
+            result = webhook_handler.handle_post(f"/api/v1/webhooks/{webhook.id}/test", {}, handler)
 
             assert result.status_code == 502
             body = json.loads(result.body)
@@ -770,17 +770,21 @@ class TestWebhookRBAC:
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_register_webhook_rbac_denied(self, handler):
         """Register webhook should deny when RBAC denies."""
-        body = json.dumps({
-            "url": "https://example.com/webhook",
-            "events": ["debate_start"],
-        }).encode()
+        body = json.dumps(
+            {
+                "url": "https://example.com/webhook",
+                "events": ["debate_start"],
+            }
+        ).encode()
         mock_http = MockHandler(
             headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
             body=body,
         )
 
         with patch.object(handler, "get_current_user", return_value=MockUser()):
-            result = handler._handle_register_webhook({"url": "https://example.com", "events": ["debate_start"]}, mock_http)
+            result = handler._handle_register_webhook(
+                {"url": "https://example.com", "events": ["debate_start"]}, mock_http
+            )
             assert result.status_code == 403
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)

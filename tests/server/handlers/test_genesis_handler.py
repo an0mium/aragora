@@ -58,45 +58,45 @@ class TestGenesisHandlerRouting:
 
     def test_can_handle_stats(self, handler):
         """Handler can handle stats endpoint."""
-        assert handler.can_handle("/api/genesis/stats")
+        assert handler.can_handle("/api/v1/genesis/stats")
 
     def test_can_handle_events(self, handler):
         """Handler can handle events endpoint."""
-        assert handler.can_handle("/api/genesis/events")
+        assert handler.can_handle("/api/v1/genesis/events")
 
     def test_can_handle_genomes(self, handler):
         """Handler can handle genomes endpoint."""
-        assert handler.can_handle("/api/genesis/genomes")
+        assert handler.can_handle("/api/v1/genesis/genomes")
 
     def test_can_handle_genomes_top(self, handler):
         """Handler can handle top genomes endpoint."""
-        assert handler.can_handle("/api/genesis/genomes/top")
+        assert handler.can_handle("/api/v1/genesis/genomes/top")
 
     def test_can_handle_population(self, handler):
         """Handler can handle population endpoint."""
-        assert handler.can_handle("/api/genesis/population")
+        assert handler.can_handle("/api/v1/genesis/population")
 
     def test_can_handle_lineage_dynamic(self, handler):
         """Handler can handle dynamic lineage endpoint."""
-        assert handler.can_handle("/api/genesis/lineage/genome_123")
+        assert handler.can_handle("/api/v1/genesis/lineage/genome_123")
 
     def test_can_handle_tree_dynamic(self, handler):
         """Handler can handle dynamic tree endpoint."""
-        assert handler.can_handle("/api/genesis/tree/debate_123")
+        assert handler.can_handle("/api/v1/genesis/tree/debate_123")
 
     def test_can_handle_genome_by_id(self, handler):
         """Handler can handle genome by ID endpoint."""
-        assert handler.can_handle("/api/genesis/genomes/genome_abc")
+        assert handler.can_handle("/api/v1/genesis/genomes/genome_abc")
 
     def test_can_handle_descendants(self, handler):
         """Handler can handle descendants endpoint."""
-        assert handler.can_handle("/api/genesis/descendants/genome_123")
+        assert handler.can_handle("/api/v1/genesis/descendants/genome_123")
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/other")
-        assert not handler.can_handle("/api/genomes")
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/other")
+        assert not handler.can_handle("/api/v1/genomes")
 
 
 class TestGenesisHandlerRoutesAttribute:
@@ -108,23 +108,23 @@ class TestGenesisHandlerRoutesAttribute:
 
     def test_routes_contains_stats(self, handler):
         """ROUTES contains stats endpoint."""
-        assert "/api/genesis/stats" in handler.ROUTES
+        assert "/api/v1/genesis/stats" in handler.ROUTES
 
     def test_routes_contains_events(self, handler):
         """ROUTES contains events endpoint."""
-        assert "/api/genesis/events" in handler.ROUTES
+        assert "/api/v1/genesis/events" in handler.ROUTES
 
     def test_routes_contains_genomes(self, handler):
         """ROUTES contains genomes endpoint."""
-        assert "/api/genesis/genomes" in handler.ROUTES
+        assert "/api/v1/genesis/genomes" in handler.ROUTES
 
     def test_routes_contains_genomes_top(self, handler):
         """ROUTES contains top genomes endpoint."""
-        assert "/api/genesis/genomes/top" in handler.ROUTES
+        assert "/api/v1/genesis/genomes/top" in handler.ROUTES
 
     def test_routes_contains_population(self, handler):
         """ROUTES contains population endpoint."""
-        assert "/api/genesis/population" in handler.ROUTES
+        assert "/api/v1/genesis/population" in handler.ROUTES
 
 
 class TestGenesisHandlerStatsEndpoint:
@@ -137,7 +137,7 @@ class TestGenesisHandlerStatsEndpoint:
     def test_stats_returns_503_when_genesis_unavailable(self, handler, mock_http_handler):
         """Stats endpoint returns 503 when genesis module not available."""
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
-            result = handler.handle("/api/genesis/stats", {}, mock_http_handler)
+            result = handler.handle("/api/v1/genesis/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -156,7 +156,7 @@ class TestGenesisHandlerStatsEndpoint:
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
                 with patch("aragora.server.handlers.genesis.GenesisEventType") as mock_event_type:
                     mock_event_type.__iter__ = MagicMock(return_value=iter([]))
-                    result = handler.handle("/api/genesis/stats", {}, mock_http_handler)
+                    result = handler.handle("/api/v1/genesis/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -172,7 +172,7 @@ class TestGenesisHandlerStatsEndpoint:
             with patch(
                 "aragora.server.handlers.genesis.GenesisLedger", side_effect=Exception("DB error")
             ):
-                result = handler.handle("/api/genesis/stats", {}, mock_http_handler)
+                result = handler.handle("/api/v1/genesis/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 500
@@ -188,7 +188,7 @@ class TestGenesisHandlerEventsEndpoint:
     def test_events_returns_503_when_unavailable(self, handler, mock_http_handler):
         """Events endpoint returns 503 when genesis unavailable."""
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
-            result = handler.handle("/api/genesis/events", {}, mock_http_handler)
+            result = handler.handle("/api/v1/genesis/events", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -206,7 +206,7 @@ class TestGenesisHandlerEventsEndpoint:
 
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
-                result = handler.handle("/api/genesis/events", {}, mock_http_handler)
+                result = handler.handle("/api/v1/genesis/events", {}, mock_http_handler)
 
         assert result is not None
         # Either successful or 500 if ledger setup fails
@@ -228,7 +228,7 @@ class TestGenesisHandlerEventsEndpoint:
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
                 # Request 500 but should be capped to 100
                 result = handler.handle(
-                    "/api/genesis/events",
+                    "/api/v1/genesis/events",
                     {"limit": ["500"]},
                     mock_http_handler,
                 )
@@ -238,7 +238,7 @@ class TestGenesisHandlerEventsEndpoint:
     def test_events_with_event_type_filter(self, handler, mock_http_handler):
         """Events endpoint supports event_type filter."""
         result = handler.handle(
-            "/api/genesis/events",
+            "/api/v1/genesis/events",
             {"event_type": ["mutation"]},
             mock_http_handler,
         )
@@ -256,7 +256,7 @@ class TestGenesisHandlerEventsEndpoint:
                     side_effect=ValueError("Unknown"),
                 ):
                     result = handler.handle(
-                        "/api/genesis/events",
+                        "/api/v1/genesis/events",
                         {"event_type": ["invalid_type"]},
                         mock_http_handler,
                     )
@@ -275,7 +275,7 @@ class TestGenesisHandlerGenomesEndpoint:
     def test_genomes_returns_503_when_unavailable(self, handler, mock_http_handler):
         """Genomes endpoint returns 503 when genome module unavailable."""
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", False):
-            result = handler.handle("/api/genesis/genomes", {}, mock_http_handler)
+            result = handler.handle("/api/v1/genesis/genomes", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -294,7 +294,7 @@ class TestGenesisHandlerGenomesEndpoint:
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 result = handler.handle(
-                    "/api/genesis/genomes",
+                    "/api/v1/genesis/genomes",
                     {"limit": ["10"], "offset": ["5"]},
                     mock_http_handler,
                 )
@@ -315,7 +315,7 @@ class TestGenesisHandlerGenomesEndpoint:
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 result = handler.handle(
-                    "/api/genesis/genomes",
+                    "/api/v1/genesis/genomes",
                     {"limit": ["1000"]},
                     mock_http_handler,
                 )
@@ -338,7 +338,7 @@ class TestGenesisHandlerGenomeByIdEndpoint:
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 result = handler.handle(
-                    "/api/genesis/genomes/nonexistent_id",
+                    "/api/v1/genesis/genomes/nonexistent_id",
                     {},
                     mock_http_handler,
                 )
@@ -361,7 +361,7 @@ class TestGenesisHandlerGenomeByIdEndpoint:
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 result = handler.handle(
-                    "/api/genesis/genomes/test_genome_123",
+                    "/api/v1/genesis/genomes/test_genome_123",
                     {},
                     mock_http_handler,
                 )
@@ -375,7 +375,7 @@ class TestGenesisHandlerGenomeByIdEndpoint:
     def test_get_genome_path_traversal_blocked(self, handler, mock_http_handler):
         """Get genome blocks path traversal attempts."""
         result = handler.handle(
-            "/api/genesis/genomes/../etc/passwd",
+            "/api/v1/genesis/genomes/../etc/passwd",
             {},
             mock_http_handler,
         )
@@ -395,7 +395,7 @@ class TestGenesisHandlerLineageEndpoint:
         """Lineage endpoint returns 503 when genesis unavailable."""
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
             result = handler.handle(
-                "/api/genesis/lineage/test_genome",
+                "/api/v1/genesis/lineage/test_genome",
                 {},
                 mock_http_handler,
             )
@@ -411,7 +411,7 @@ class TestGenesisHandlerLineageEndpoint:
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
                 result = handler.handle(
-                    "/api/genesis/lineage/nonexistent",
+                    "/api/v1/genesis/lineage/nonexistent",
                     {},
                     mock_http_handler,
                 )
@@ -431,7 +431,7 @@ class TestGenesisHandlerLineageEndpoint:
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
                 result = handler.handle(
-                    "/api/genesis/lineage/gen2",
+                    "/api/v1/genesis/lineage/gen2",
                     {},
                     mock_http_handler,
                 )
@@ -455,7 +455,7 @@ class TestGenesisHandlerLineageEndpoint:
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
                 result = handler.handle(
-                    "/api/genesis/lineage/gen5",
+                    "/api/v1/genesis/lineage/gen5",
                     {"max_depth": ["3"]},
                     mock_http_handler,
                 )
@@ -478,7 +478,7 @@ class TestGenesisHandlerLineageEndpoint:
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
                 # Request max_depth=100 (should be clamped to 50)
                 result = handler.handle(
-                    "/api/genesis/lineage/gen1",
+                    "/api/v1/genesis/lineage/gen1",
                     {"max_depth": ["100"]},
                     mock_http_handler,
                 )
@@ -488,7 +488,7 @@ class TestGenesisHandlerLineageEndpoint:
     def test_lineage_path_traversal_blocked(self, handler, mock_http_handler):
         """Lineage endpoint blocks path traversal."""
         result = handler.handle(
-            "/api/genesis/lineage/../etc/passwd",
+            "/api/v1/genesis/lineage/../etc/passwd",
             {},
             mock_http_handler,
         )
@@ -508,7 +508,7 @@ class TestGenesisHandlerTreeEndpoint:
         """Tree endpoint returns 503 when genesis unavailable."""
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False):
             result = handler.handle(
-                "/api/genesis/tree/debate_123",
+                "/api/v1/genesis/tree/debate_123",
                 {},
                 mock_http_handler,
             )
@@ -530,7 +530,7 @@ class TestGenesisHandlerTreeEndpoint:
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger):
                 result = handler.handle(
-                    "/api/genesis/tree/debate_123",
+                    "/api/v1/genesis/tree/debate_123",
                     {},
                     mock_http_handler,
                 )
@@ -545,7 +545,7 @@ class TestGenesisHandlerTreeEndpoint:
     def test_tree_path_traversal_blocked(self, handler, mock_http_handler):
         """Tree endpoint blocks path traversal."""
         result = handler.handle(
-            "/api/genesis/tree/../etc/passwd",
+            "/api/v1/genesis/tree/../etc/passwd",
             {},
             mock_http_handler,
         )
@@ -565,7 +565,7 @@ class TestGenesisHandlerDescendantsEndpoint:
         """Descendants endpoint returns 503 when genome module unavailable."""
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", False):
             result = handler.handle(
-                "/api/genesis/descendants/genome_123",
+                "/api/v1/genesis/descendants/genome_123",
                 {},
                 mock_http_handler,
             )
@@ -581,7 +581,7 @@ class TestGenesisHandlerDescendantsEndpoint:
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 result = handler.handle(
-                    "/api/genesis/descendants/nonexistent",
+                    "/api/v1/genesis/descendants/nonexistent",
                     {},
                     mock_http_handler,
                 )
@@ -613,7 +613,7 @@ class TestGenesisHandlerDescendantsEndpoint:
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 result = handler.handle(
-                    "/api/genesis/descendants/root_genome",
+                    "/api/v1/genesis/descendants/root_genome",
                     {},
                     mock_http_handler,
                 )
@@ -642,7 +642,7 @@ class TestGenesisHandlerDescendantsEndpoint:
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 # Request max_depth=100 (should be clamped to 20)
                 result = handler.handle(
-                    "/api/genesis/descendants/root",
+                    "/api/v1/genesis/descendants/root",
                     {"max_depth": ["100"]},
                     mock_http_handler,
                 )
@@ -652,7 +652,7 @@ class TestGenesisHandlerDescendantsEndpoint:
     def test_descendants_path_traversal_blocked(self, handler, mock_http_handler):
         """Descendants endpoint blocks path traversal."""
         result = handler.handle(
-            "/api/genesis/descendants/../etc/passwd",
+            "/api/v1/genesis/descendants/../etc/passwd",
             {},
             mock_http_handler,
         )
@@ -673,7 +673,7 @@ class TestGenesisHandlerPopulationEndpoint:
         # PopulationManager is imported inside _get_population, so patch the module
         with patch.dict("sys.modules", {"aragora.genesis.breeding": None}):
             result = handler.handle(
-                "/api/genesis/population",
+                "/api/v1/genesis/population",
                 {},
                 mock_http_handler,
             )
@@ -707,7 +707,7 @@ class TestGenesisHandlerPopulationEndpoint:
 
         with patch("aragora.genesis.breeding.PopulationManager", return_value=mock_manager):
             result = handler.handle(
-                "/api/genesis/population",
+                "/api/v1/genesis/population",
                 {},
                 mock_http_handler,
             )
@@ -726,7 +726,7 @@ class TestGenesisHandlerTopGenomesEndpoint:
         """Top genomes endpoint returns 503 when genome module unavailable."""
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", False):
             result = handler.handle(
-                "/api/genesis/genomes/top",
+                "/api/v1/genesis/genomes/top",
                 {},
                 mock_http_handler,
             )
@@ -748,7 +748,7 @@ class TestGenesisHandlerTopGenomesEndpoint:
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 result = handler.handle(
-                    "/api/genesis/genomes/top",
+                    "/api/v1/genesis/genomes/top",
                     {},
                     mock_http_handler,
                 )
@@ -767,7 +767,7 @@ class TestGenesisHandlerTopGenomesEndpoint:
         with patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True):
             with patch("aragora.server.handlers.genesis.GenomeStore", return_value=mock_store):
                 result = handler.handle(
-                    "/api/genesis/genomes/top",
+                    "/api/v1/genesis/genomes/top",
                     {"limit": ["1000"]},
                     mock_http_handler,
                 )
@@ -788,7 +788,7 @@ class TestGenesisHandlerRateLimiting:
 
         # Simulate rate limit exceeded
         with patch.object(_genesis_limiter, "is_allowed", return_value=False):
-            result = handler.handle("/api/genesis/stats", {}, mock_http_handler)
+            result = handler.handle("/api/v1/genesis/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -800,7 +800,7 @@ class TestGenesisHandlerRateLimiting:
         """Multiple requests are tracked for rate limiting."""
         # Make several requests
         for _ in range(5):
-            result = handler.handle("/api/genesis/stats", {}, mock_http_handler)
+            result = handler.handle("/api/v1/genesis/stats", {}, mock_http_handler)
             assert result is not None
 
 
@@ -825,7 +825,7 @@ class TestGenesisHandlerInputValidation:
             if ".." in invalid_id:
                 # Path traversal specifically checked
                 result = handler.handle(
-                    f"/api/genesis/genomes/{invalid_id}",
+                    f"/api/v1/genesis/genomes/{invalid_id}",
                     {},
                     mock_http_handler,
                 )
@@ -835,7 +835,7 @@ class TestGenesisHandlerInputValidation:
     def test_invalid_debate_id_format(self, handler, mock_http_handler):
         """Invalid debate ID format returns 400."""
         result = handler.handle(
-            "/api/genesis/tree/../etc/passwd",
+            "/api/v1/genesis/tree/../etc/passwd",
             {},
             mock_http_handler,
         )
@@ -854,11 +854,11 @@ class TestGenesisHandlerIntegration:
     def test_all_static_routes_reachable(self, handler, mock_http_handler):
         """All static routes return a response."""
         static_routes = [
-            "/api/genesis/stats",
-            "/api/genesis/events",
-            "/api/genesis/genomes",
-            "/api/genesis/genomes/top",
-            "/api/genesis/population",
+            "/api/v1/genesis/stats",
+            "/api/v1/genesis/events",
+            "/api/v1/genesis/genomes",
+            "/api/v1/genesis/genomes/top",
+            "/api/v1/genesis/population",
         ]
 
         for route in static_routes:
@@ -876,10 +876,10 @@ class TestGenesisHandlerIntegration:
     def test_all_dynamic_routes_reachable(self, handler, mock_http_handler):
         """All dynamic routes return a response."""
         dynamic_routes = [
-            "/api/genesis/lineage/test_genome",
-            "/api/genesis/tree/test_debate",
-            "/api/genesis/genomes/specific_genome",
-            "/api/genesis/descendants/test_genome",
+            "/api/v1/genesis/lineage/test_genome",
+            "/api/v1/genesis/tree/test_debate",
+            "/api/v1/genesis/genomes/specific_genome",
+            "/api/v1/genesis/descendants/test_genome",
         ]
 
         for route in dynamic_routes:
@@ -896,7 +896,7 @@ class TestGenesisHandlerIntegration:
 
     def test_handle_returns_none_for_unknown(self, handler, mock_http_handler):
         """Handle returns None for unknown paths."""
-        result = handler.handle("/api/unknown", {}, mock_http_handler)
+        result = handler.handle("/api/v1/unknown", {}, mock_http_handler)
         assert result is None
 
     def test_handler_inherits_from_base(self, handler):

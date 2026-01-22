@@ -63,27 +63,27 @@ class TestIntrospectionHandlerCanHandle:
 
     def test_can_handle_all(self, introspection_handler):
         """Test can_handle returns True for /all endpoint."""
-        assert introspection_handler.can_handle("/api/introspection/all")
+        assert introspection_handler.can_handle("/api/v1/introspection/all")
 
     def test_can_handle_leaderboard(self, introspection_handler):
         """Test can_handle returns True for /leaderboard endpoint."""
-        assert introspection_handler.can_handle("/api/introspection/leaderboard")
+        assert introspection_handler.can_handle("/api/v1/introspection/leaderboard")
 
     def test_can_handle_agents(self, introspection_handler):
         """Test can_handle returns True for /agents endpoint."""
-        assert introspection_handler.can_handle("/api/introspection/agents")
+        assert introspection_handler.can_handle("/api/v1/introspection/agents")
 
     def test_can_handle_agents_with_name(self, introspection_handler):
         """Test can_handle returns True for /agents/{name} endpoint."""
-        assert introspection_handler.can_handle("/api/introspection/agents/claude")
-        assert introspection_handler.can_handle("/api/introspection/agents/gemini")
-        assert introspection_handler.can_handle("/api/introspection/agents/grok")
+        assert introspection_handler.can_handle("/api/v1/introspection/agents/claude")
+        assert introspection_handler.can_handle("/api/v1/introspection/agents/gemini")
+        assert introspection_handler.can_handle("/api/v1/introspection/agents/grok")
 
     def test_cannot_handle_unknown(self, introspection_handler):
         """Test can_handle returns False for unknown endpoint."""
-        assert not introspection_handler.can_handle("/api/unknown")
-        assert not introspection_handler.can_handle("/api/introspection/unknown")
-        assert not introspection_handler.can_handle("/api/introspection/snapshot")
+        assert not introspection_handler.can_handle("/api/v1/unknown")
+        assert not introspection_handler.can_handle("/api/v1/introspection/unknown")
+        assert not introspection_handler.can_handle("/api/v1/introspection/snapshot")
 
 
 class TestIntrospectionHandlerRoutesAttribute:
@@ -91,19 +91,19 @@ class TestIntrospectionHandlerRoutesAttribute:
 
     def test_routes_contains_all(self, introspection_handler):
         """ROUTES contains /all endpoint."""
-        assert "/api/introspection/all" in introspection_handler.ROUTES
+        assert "/api/v1/introspection/all" in introspection_handler.ROUTES
 
     def test_routes_contains_leaderboard(self, introspection_handler):
         """ROUTES contains /leaderboard endpoint."""
-        assert "/api/introspection/leaderboard" in introspection_handler.ROUTES
+        assert "/api/v1/introspection/leaderboard" in introspection_handler.ROUTES
 
     def test_routes_contains_agents(self, introspection_handler):
         """ROUTES contains /agents endpoint."""
-        assert "/api/introspection/agents" in introspection_handler.ROUTES
+        assert "/api/v1/introspection/agents" in introspection_handler.ROUTES
 
     def test_routes_contains_agents_wildcard(self, introspection_handler):
         """ROUTES contains /agents/* wildcard."""
-        assert "/api/introspection/agents/*" in introspection_handler.ROUTES
+        assert "/api/v1/introspection/agents/*" in introspection_handler.ROUTES
 
 
 # ============================================================================
@@ -117,7 +117,9 @@ class TestIntrospectionHandlerAllEndpoint:
     def test_all_returns_503_when_unavailable(self, introspection_handler, mock_http_handler):
         """All endpoint returns 503 when introspection unavailable."""
         with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False):
-            result = introspection_handler.handle("/api/introspection/all", {}, mock_http_handler)
+            result = introspection_handler.handle(
+                "/api/v1/introspection/all", {}, mock_http_handler
+            )
 
         assert result is not None
         assert result.status_code == 503
@@ -136,7 +138,7 @@ class TestIntrospectionHandlerAllEndpoint:
                 return_value=mock_snapshot,
             ):
                 result = introspection_handler.handle(
-                    "/api/introspection/all",
+                    "/api/v1/introspection/all",
                     {},
                     mock_http_handler,
                 )
@@ -159,7 +161,7 @@ class TestIntrospectionHandlerLeaderboardEndpoint:
         """Leaderboard endpoint returns 503 when introspection unavailable."""
         with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False):
             result = introspection_handler.handle(
-                "/api/introspection/leaderboard", {}, mock_http_handler
+                "/api/v1/introspection/leaderboard", {}, mock_http_handler
             )
 
         assert result is not None
@@ -176,7 +178,7 @@ class TestIntrospectionHandlerLeaderboardEndpoint:
                 return_value=mock_snapshot,
             ):
                 result = introspection_handler.handle(
-                    "/api/introspection/leaderboard",
+                    "/api/v1/introspection/leaderboard",
                     {},
                     mock_http_handler,
                 )
@@ -195,7 +197,7 @@ class TestIntrospectionHandlerLeaderboardEndpoint:
                 return_value=mock_snapshot,
             ):
                 result = introspection_handler.handle(
-                    "/api/introspection/leaderboard",
+                    "/api/v1/introspection/leaderboard",
                     {"limit": "5"},
                     mock_http_handler,
                 )
@@ -214,7 +216,7 @@ class TestIntrospectionHandlerLeaderboardEndpoint:
                 return_value=mock_snapshot,
             ):
                 result = introspection_handler.handle(
-                    "/api/introspection/leaderboard",
+                    "/api/v1/introspection/leaderboard",
                     {"limit": "100"},  # Exceeds cap
                     mock_http_handler,
                 )
@@ -234,7 +236,7 @@ class TestIntrospectionHandlerAgentsEndpoint:
     def test_agents_returns_list(self, introspection_handler, mock_http_handler):
         """Agents endpoint returns list of available agents."""
         result = introspection_handler.handle(
-            "/api/introspection/agents",
+            "/api/v1/introspection/agents",
             {},
             mock_http_handler,
         )
@@ -258,7 +260,7 @@ class TestIntrospectionHandlerAgentByNameEndpoint:
         """Agent endpoint returns 503 when introspection unavailable."""
         with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False):
             result = introspection_handler.handle(
-                "/api/introspection/agents/claude", {}, mock_http_handler
+                "/api/v1/introspection/agents/claude", {}, mock_http_handler
             )
 
         assert result is not None
@@ -268,7 +270,7 @@ class TestIntrospectionHandlerAgentByNameEndpoint:
         """Agent endpoint validates agent name format."""
         # Path traversal attempt should be rejected
         result = introspection_handler.handle(
-            "/api/introspection/agents/../etc/passwd",
+            "/api/v1/introspection/agents/../etc/passwd",
             {},
             mock_http_handler,
         )
@@ -291,7 +293,7 @@ class TestIntrospectionHandlerAgentByNameEndpoint:
                 return_value=mock_snapshot,
             ):
                 result = introspection_handler.handle(
-                    "/api/introspection/agents/claude",
+                    "/api/v1/introspection/agents/claude",
                     {},
                     mock_http_handler,
                 )
@@ -309,7 +311,7 @@ class TestIntrospectionHandlerAgentByNameEndpoint:
                 return_value=None,
             ):
                 result = introspection_handler.handle(
-                    "/api/introspection/agents/unknown",
+                    "/api/v1/introspection/agents/unknown",
                     {},
                     mock_http_handler,
                 )
@@ -330,9 +332,9 @@ class TestIntrospectionHandlerRateLimiting:
         """Exceeding rate limit returns 429."""
         # Make 20 requests (limit) then one more
         for _ in range(20):
-            introspection_handler.handle("/api/introspection/agents", {}, mock_http_handler)
+            introspection_handler.handle("/api/v1/introspection/agents", {}, mock_http_handler)
 
-        result = introspection_handler.handle("/api/introspection/agents", {}, mock_http_handler)
+        result = introspection_handler.handle("/api/v1/introspection/agents", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -354,7 +356,7 @@ class TestIntrospectionHandlerErrorHandling:
                 side_effect=Exception("Test error"),
             ):
                 result = introspection_handler.handle(
-                    "/api/introspection/agents/claude",
+                    "/api/v1/introspection/agents/claude",
                     {},
                     mock_http_handler,
                 )
@@ -365,7 +367,7 @@ class TestIntrospectionHandlerErrorHandling:
     def test_unknown_route_returns_none(self, introspection_handler, mock_http_handler):
         """Unknown routes return None to allow other handlers."""
         result = introspection_handler.handle(
-            "/api/introspection/unknown",
+            "/api/v1/introspection/unknown",
             {},
             mock_http_handler,
         )
@@ -394,7 +396,7 @@ class TestIntrospectionHandlerInputValidation:
 
         for name in invalid_names:
             result = introspection_handler.handle(
-                f"/api/introspection/agents/{name}",
+                f"/api/v1/introspection/agents/{name}",
                 {},
                 mock_http_handler,
             )
@@ -416,7 +418,7 @@ class TestIntrospectionHandlerInputValidation:
                 return_value=MagicMock(to_dict=lambda: {"agent_name": "claude"}),
             ):
                 result = introspection_handler.handle(
-                    "/api/introspection/agents/claude/../../../etc/passwd",
+                    "/api/v1/introspection/agents/claude/../../../etc/passwd",
                     {},
                     mock_http_handler,
                 )
@@ -436,7 +438,7 @@ class TestIntrospectionHandlerIntegration:
     def test_handle_returns_none_for_unknown(self, introspection_handler, mock_http_handler):
         """Handler returns None for paths it cannot handle."""
         result = introspection_handler.handle(
-            "/api/debates",
+            "/api/v1/debates",
             {},
             mock_http_handler,
         )
@@ -457,7 +459,7 @@ class TestIntrospectionHandlerIntegration:
             ):
                 # List agents
                 list_result = introspection_handler.handle(
-                    "/api/introspection/agents",
+                    "/api/v1/introspection/agents",
                     {},
                     mock_http_handler,
                 )
@@ -466,7 +468,7 @@ class TestIntrospectionHandlerIntegration:
 
                 # Get specific agent
                 agent_result = introspection_handler.handle(
-                    "/api/introspection/agents/claude",
+                    "/api/v1/introspection/agents/claude",
                     {},
                     mock_http_handler,
                 )
@@ -475,7 +477,7 @@ class TestIntrospectionHandlerIntegration:
 
                 # Get leaderboard
                 leaderboard_result = introspection_handler.handle(
-                    "/api/introspection/leaderboard",
+                    "/api/v1/introspection/leaderboard",
                     {},
                     mock_http_handler,
                 )

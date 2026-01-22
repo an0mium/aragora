@@ -11,10 +11,10 @@ Common patterns:
         return ExampleHandler(server_context=mock_server_context)
 
     def test_can_handle_route(handler):
-        assert handler.can_handle("/api/example") is True
+        assert handler.can_handle("/api/v1/example") is True
 
     def test_endpoint(handler, mock_http_handler):
-        result = handler.handle("/api/example", {}, mock_http_handler, "GET")
+        result = handler.handle("/api/v1/example", {}, mock_http_handler, "GET")
         assert result.status_code == 200
         body = parse_handler_response(result)
         assert "data" in body
@@ -43,7 +43,7 @@ def parse_handler_response(result) -> Dict[str, Any]:
         Parsed JSON dict, or empty dict if parsing fails
 
     Example:
-        result = handler.handle("/api/test", {}, mock_http, "GET")
+        result = handler.handle("/api/v1/test", {}, mock_http, "GET")
         body = parse_handler_response(result)
         assert body["status"] == "ok"
     """
@@ -137,7 +137,7 @@ def mock_http_handler():
                 body={"name": "test"},
                 headers={"Authorization": "Bearer token123"}
             )
-            result = handler.handle("/api/resource", {}, http, "POST")
+            result = handler.handle("/api/v1/resource", {}, http, "POST")
     """
 
     def _create_handler(
@@ -599,10 +599,10 @@ class HandlerTestCase:
                 return MyHandler(server_context=mock_server_context)
 
             def test_can_handle(self, handler):
-                self.assert_can_handle(handler, "/api/my/resource")
+                self.assert_can_handle(handler, "/api/v1/my/resource")
 
             def test_get_resource(self, handler, mock_http_get):
-                result = handler.handle("/api/my/resource", {}, mock_http_get, "GET")
+                result = handler.handle("/api/v1/my/resource", {}, mock_http_get, "GET")
                 self.assert_success_with_keys(result, ["id", "name"])
     """
 

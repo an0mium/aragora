@@ -37,25 +37,25 @@ class TestAuditingHandlerRouting:
 
     def test_can_handle_capability_probe(self, handler):
         """Handler can handle capability-probe endpoint."""
-        assert handler.can_handle("/api/debates/capability-probe")
+        assert handler.can_handle("/api/v1/debates/capability-probe")
 
     def test_can_handle_deep_audit(self, handler):
         """Handler can handle deep-audit endpoint."""
-        assert handler.can_handle("/api/debates/deep-audit")
+        assert handler.can_handle("/api/v1/debates/deep-audit")
 
     def test_can_handle_attack_types(self, handler):
         """Handler can handle attack-types endpoint."""
-        assert handler.can_handle("/api/redteam/attack-types")
+        assert handler.can_handle("/api/v1/redteam/attack-types")
 
     def test_can_handle_red_team(self, handler):
         """Handler can handle red-team endpoint with debate ID."""
-        assert handler.can_handle("/api/debates/debate_123/red-team")
+        assert handler.can_handle("/api/v1/debates/debate_123/red-team")
 
     def test_cannot_handle_other_paths(self, handler):
         """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/other")
-        assert not handler.can_handle("/api/debates/123")
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/other")
+        assert not handler.can_handle("/api/v1/debates/123")
 
 
 class TestAuditingHandlerRoutesAttribute:
@@ -67,15 +67,15 @@ class TestAuditingHandlerRoutesAttribute:
 
     def test_routes_contains_capability_probe(self, handler):
         """ROUTES contains capability-probe."""
-        assert "/api/debates/capability-probe" in handler.ROUTES
+        assert "/api/v1/debates/capability-probe" in handler.ROUTES
 
     def test_routes_contains_deep_audit(self, handler):
         """ROUTES contains deep-audit."""
-        assert "/api/debates/deep-audit" in handler.ROUTES
+        assert "/api/v1/debates/deep-audit" in handler.ROUTES
 
     def test_routes_contains_attack_types(self, handler):
         """ROUTES contains attack-types."""
-        assert "/api/redteam/attack-types" in handler.ROUTES
+        assert "/api/v1/redteam/attack-types" in handler.ROUTES
 
 
 class TestAuditingHandlerRouteDispatch:
@@ -89,7 +89,7 @@ class TestAuditingHandlerRouteDispatch:
         """Handle dispatches capability-probe to correct method."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/debates/capability-probe", {}, mock_http)
+        result = handler.handle("/api/v1/debates/capability-probe", {}, mock_http)
 
         # Should return a result (permission error expected)
         assert result is not None
@@ -98,7 +98,7 @@ class TestAuditingHandlerRouteDispatch:
         """Handle dispatches deep-audit to correct method."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/debates/deep-audit", {}, mock_http)
+        result = handler.handle("/api/v1/debates/deep-audit", {}, mock_http)
 
         assert result is not None
 
@@ -106,7 +106,7 @@ class TestAuditingHandlerRouteDispatch:
         """Handle dispatches attack-types to correct method."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/redteam/attack-types", {}, mock_http)
+        result = handler.handle("/api/v1/redteam/attack-types", {}, mock_http)
 
         assert result is not None
 
@@ -114,7 +114,7 @@ class TestAuditingHandlerRouteDispatch:
         """Handle dispatches red-team to correct method."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/debates/debate_123/red-team", {}, mock_http)
+        result = handler.handle("/api/v1/debates/debate_123/red-team", {}, mock_http)
 
         assert result is not None
 
@@ -122,7 +122,7 @@ class TestAuditingHandlerRouteDispatch:
         """Handle returns None for unknown paths."""
         mock_http = MagicMock()
 
-        result = handler.handle("/api/other", {}, mock_http)
+        result = handler.handle("/api/v1/other", {}, mock_http)
 
         assert result is None
 

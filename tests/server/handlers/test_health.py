@@ -48,20 +48,20 @@ class TestHealthHandler:
 
     def test_can_handle_api_health(self, health_handler):
         """Test that handler recognizes /api/health route."""
-        assert health_handler.can_handle("/api/health") is True
+        assert health_handler.can_handle("/api/v1/health") is True
 
     def test_can_handle_api_health_detailed(self, health_handler):
         """Test that handler recognizes /api/health/detailed route."""
-        assert health_handler.can_handle("/api/health/detailed") is True
+        assert health_handler.can_handle("/api/v1/health/detailed") is True
 
     def test_can_handle_api_health_deep(self, health_handler):
         """Test that handler recognizes /api/health/deep route."""
-        assert health_handler.can_handle("/api/health/deep") is True
+        assert health_handler.can_handle("/api/v1/health/deep") is True
 
     def test_cannot_handle_unknown_path(self, health_handler):
         """Test that handler rejects unknown paths."""
         assert health_handler.can_handle("/unknown") is False
-        assert health_handler.can_handle("/api/debates") is False
+        assert health_handler.can_handle("/api/v1/debates") is False
 
 
 class TestLivenessProbe:
@@ -126,7 +126,7 @@ class TestComprehensiveHealthCheck:
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/health", {}, None)
+                    result = health_handler.handle("/api/v1/health", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -140,7 +140,7 @@ class TestComprehensiveHealthCheck:
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/health", {}, None)
+                    result = health_handler.handle("/api/v1/health", {}, None)
 
         body = json.loads(result.body)
         assert "uptime_seconds" in body
@@ -151,7 +151,7 @@ class TestComprehensiveHealthCheck:
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/health", {}, None)
+                    result = health_handler.handle("/api/v1/health", {}, None)
 
         body = json.loads(result.body)
         assert "response_time_ms" in body
@@ -166,7 +166,7 @@ class TestDetailedHealthCheck:
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/health/detailed", {}, None)
+                    result = health_handler.handle("/api/v1/health/detailed", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -183,7 +183,7 @@ class TestDeepHealthCheck:
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/health/deep", {}, None)
+                    result = health_handler.handle("/api/v1/health/deep", {}, None)
 
         assert result is not None
         body = json.loads(result.body)
@@ -196,7 +196,7 @@ class TestDeepHealthCheck:
         with patch.object(health_handler, "get_storage", return_value=None):
             with patch.object(health_handler, "get_elo_system", return_value=None):
                 with patch.object(health_handler, "get_nomic_dir", return_value=None):
-                    result = health_handler.handle("/api/health/deep", {}, None)
+                    result = health_handler.handle("/api/v1/health/deep", {}, None)
 
         body = json.loads(result.body)
         assert "ai_providers" in body["checks"]

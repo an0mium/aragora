@@ -29,7 +29,7 @@ def parse_response(result):
 def mock_http_handler():
     """Create a mock HTTP handler with headers and unique IP per test."""
     handler = MagicMock()
-    handler.path = "/api/evidence"
+    handler.path = "/api/v1/evidence"
     # Use unique IP per test to avoid rate limiting
     unique_ip = f"10.{uuid.uuid4().hex[:2]}.{uuid.uuid4().hex[:2]}.{uuid.uuid4().hex[:2]}"
     handler.headers = {"X-Forwarded-For": unique_ip}
@@ -114,20 +114,20 @@ class TestEvidenceHandlerRouting:
         from aragora.server.handlers.features.evidence import EvidenceHandler
 
         handler = EvidenceHandler({})
-        assert handler.can_handle("/api/evidence") is True
-        assert handler.can_handle("/api/evidence/123") is True
-        assert handler.can_handle("/api/evidence/statistics") is True
-        assert handler.can_handle("/api/evidence/debate/d-123") is True
-        assert handler.can_handle("/api/evidence/search") is True
+        assert handler.can_handle("/api/v1/evidence") is True
+        assert handler.can_handle("/api/v1/evidence/123") is True
+        assert handler.can_handle("/api/v1/evidence/statistics") is True
+        assert handler.can_handle("/api/v1/evidence/debate/d-123") is True
+        assert handler.can_handle("/api/v1/evidence/search") is True
 
     def test_cannot_handle_other_paths(self):
         """Test can_handle returns False for non-evidence paths."""
         from aragora.server.handlers.features.evidence import EvidenceHandler
 
         handler = EvidenceHandler({})
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/health") is False
-        assert handler.can_handle("/api/leaderboard") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/health") is False
+        assert handler.can_handle("/api/v1/leaderboard") is False
 
 
 class TestListEvidence:
@@ -135,7 +135,7 @@ class TestListEvidence:
 
     def test_list_evidence_success(self, handler, mock_http_handler):
         """Test listing evidence returns paginated results."""
-        result = handler.handle("/api/evidence", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -150,7 +150,7 @@ class TestListEvidence:
         self, handler, mock_http_handler, mock_evidence_store
     ):
         """Test listing with source filter passes to store."""
-        result = handler.handle("/api/evidence", {"source": "arxiv"}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence", {"source": "arxiv"}, mock_http_handler)
 
         assert result is not None
         mock_evidence_store.search_evidence.assert_called()
@@ -161,7 +161,7 @@ class TestListEvidence:
         self, handler, mock_http_handler, mock_evidence_store
     ):
         """Test listing with minimum reliability filter."""
-        result = handler.handle("/api/evidence", {"min_reliability": "0.8"}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence", {"min_reliability": "0.8"}, mock_http_handler)
 
         assert result is not None
         mock_evidence_store.search_evidence.assert_called()
@@ -170,7 +170,9 @@ class TestListEvidence:
 
     def test_list_evidence_pagination(self, handler, mock_http_handler):
         """Test pagination parameters are handled."""
-        result = handler.handle("/api/evidence", {"limit": "10", "offset": "20"}, mock_http_handler)
+        result = handler.handle(
+            "/api/v1/evidence", {"limit": "10", "offset": "20"}, mock_http_handler
+        )
 
         assert result is not None
         data = parse_response(result)
@@ -184,7 +186,7 @@ class TestGetEvidence:
 
     def test_get_evidence_success(self, handler, mock_http_handler):
         """Test getting specific evidence by ID."""
-        result = handler.handle("/api/evidence/ev-1", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence/ev-1", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -196,7 +198,7 @@ class TestGetEvidence:
         """Test 404 when evidence not found."""
         mock_evidence_store.get_evidence.return_value = None
 
-        result = handler.handle("/api/evidence/nonexistent", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence/nonexistent", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -205,7 +207,7 @@ class TestGetEvidence:
 
     def test_get_evidence_invalid_id(self, handler, mock_http_handler):
         """Test validation of evidence ID format."""
-        result = handler.handle("/api/evidence/invalid<>id", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence/invalid<>id", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -216,7 +218,7 @@ class TestGetStatistics:
 
     def test_get_statistics_success(self, handler, mock_http_handler):
         """Test getting evidence store statistics."""
-        result = handler.handle("/api/evidence/statistics", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence/statistics", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -225,7 +227,7 @@ class TestGetStatistics:
 
     def test_statistics_includes_breakdown(self, handler, mock_http_handler):
         """Test statistics include source and reliability breakdown."""
-        result = handler.handle("/api/evidence/statistics", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence/statistics", {}, mock_http_handler)
 
         data = parse_response(result)
         assert "by_source" in data["statistics"]
@@ -237,7 +239,7 @@ class TestGetDebateEvidence:
 
     def test_get_debate_evidence_success(self, handler, mock_http_handler):
         """Test getting evidence for a specific debate."""
-        result = handler.handle("/api/evidence/debate/debate-123", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence/debate/debate-123", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -248,7 +250,7 @@ class TestGetDebateEvidence:
     def test_get_debate_evidence_with_round(self, handler, mock_http_handler, mock_evidence_store):
         """Test filtering debate evidence by round."""
         result = handler.handle(
-            "/api/evidence/debate/debate-123", {"round": "2"}, mock_http_handler
+            "/api/v1/evidence/debate/debate-123", {"round": "2"}, mock_http_handler
         )
 
         assert result is not None
@@ -256,7 +258,7 @@ class TestGetDebateEvidence:
 
     def test_get_debate_evidence_invalid_id(self, handler, mock_http_handler):
         """Test validation of debate ID format."""
-        result = handler.handle("/api/evidence/debate/bad<>id", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence/debate/bad<>id", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -275,7 +277,7 @@ class TestSearchEvidence:
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": "machine learning"}, None)
-            result = handler.handle_post("/api/evidence/search", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -287,7 +289,7 @@ class TestSearchEvidence:
         """Test error when query is empty."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": ""}, None)
-            result = handler.handle_post("/api/evidence/search", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -306,7 +308,7 @@ class TestSearchEvidence:
                 },
                 None,
             )
-            result = handler.handle_post("/api/evidence/search", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         mock_evidence_store.search_evidence.assert_called()
@@ -321,7 +323,7 @@ class TestCollectEvidence:
         """Test collecting evidence for a task."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"task": "research AI safety"}, None)
-            result = handler.handle_post("/api/evidence/collect", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -334,7 +336,7 @@ class TestCollectEvidence:
         """Test error when task is empty."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"task": ""}, None)
-            result = handler.handle_post("/api/evidence/collect", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -346,7 +348,7 @@ class TestCollectEvidence:
                 {"task": "test task", "debate_id": "debate-123", "round": 1},
                 None,
             )
-            result = handler.handle_post("/api/evidence/collect", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -362,7 +364,7 @@ class TestCollectEvidence:
                 {"task": "test", "connectors": ["arxiv", "wikipedia"]},
                 None,
             )
-            result = handler.handle_post("/api/evidence/collect", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
 
         assert result is not None
 
@@ -374,7 +376,9 @@ class TestAssociateEvidence:
         """Test associating evidence with a debate."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"evidence_ids": ["ev-1", "ev-2"]}, None)
-            result = handler.handle_post("/api/evidence/debate/debate-123", {}, mock_http_handler)
+            result = handler.handle_post(
+                "/api/v1/evidence/debate/debate-123", {}, mock_http_handler
+            )
 
         assert result is not None
         data = parse_response(result)
@@ -386,7 +390,9 @@ class TestAssociateEvidence:
         """Test error when evidence_ids is empty."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"evidence_ids": []}, None)
-            result = handler.handle_post("/api/evidence/debate/debate-123", {}, mock_http_handler)
+            result = handler.handle_post(
+                "/api/v1/evidence/debate/debate-123", {}, mock_http_handler
+            )
 
         assert result is not None
         assert result.status_code == 400
@@ -398,7 +404,9 @@ class TestAssociateEvidence:
                 {"evidence_ids": ["ev-1"], "round": 2},
                 None,
             )
-            result = handler.handle_post("/api/evidence/debate/debate-123", {}, mock_http_handler)
+            result = handler.handle_post(
+                "/api/v1/evidence/debate/debate-123", {}, mock_http_handler
+            )
 
         assert result is not None
         mock_evidence_store.save_evidence.assert_called()
@@ -409,7 +417,7 @@ class TestDeleteEvidence:
 
     def test_delete_evidence_success(self, handler, mock_http_handler):
         """Test deleting evidence by ID."""
-        result = handler.handle_delete("/api/evidence/ev-1", {}, mock_http_handler)
+        result = handler.handle_delete("/api/v1/evidence/ev-1", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -420,14 +428,14 @@ class TestDeleteEvidence:
         """Test 404 when evidence not found for deletion."""
         mock_evidence_store.delete_evidence.return_value = False
 
-        result = handler.handle_delete("/api/evidence/nonexistent", {}, mock_http_handler)
+        result = handler.handle_delete("/api/v1/evidence/nonexistent", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 404
 
     def test_delete_evidence_invalid_id(self, handler, mock_http_handler):
         """Test validation of evidence ID for deletion."""
-        result = handler.handle_delete("/api/evidence/bad<>id", {}, mock_http_handler)
+        result = handler.handle_delete("/api/v1/evidence/bad<>id", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -440,7 +448,7 @@ class TestRateLimiting:
         """Test normal read traffic is allowed."""
         # First few requests should succeed
         for _ in range(5):
-            result = handler.handle("/api/evidence/statistics", {}, mock_http_handler)
+            result = handler.handle("/api/v1/evidence/statistics", {}, mock_http_handler)
             assert result is not None
             assert result.status_code == 200
 
@@ -448,7 +456,7 @@ class TestRateLimiting:
         """Test normal write traffic is allowed."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": "test"}, None)
-            result = handler.handle_post("/api/evidence/search", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
             assert result is not None
 
 
@@ -459,7 +467,7 @@ class TestErrorHandling:
         """Test handling of invalid JSON in request body."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = (None, MagicMock(status_code=400))
-            result = handler.handle_post("/api/evidence/search", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -468,7 +476,7 @@ class TestErrorHandling:
         """Test 500 returned when collection fails."""
         # Create a fresh mock handler with unique IP
         fresh_handler = MagicMock()
-        fresh_handler.path = "/api/evidence/collect"
+        fresh_handler.path = "/api/v1/evidence/collect"
         unique_ip = f"172.{uuid.uuid4().hex[:2]}.{uuid.uuid4().hex[:2]}.{uuid.uuid4().hex[:2]}"
         fresh_handler.headers = {"X-Forwarded-For": unique_ip}
         fresh_handler.client_address = (unique_ip, 8080)
@@ -477,7 +485,7 @@ class TestErrorHandling:
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"task": "test"}, None)
-            result = handler.handle_post("/api/evidence/collect", {}, fresh_handler)
+            result = handler.handle_post("/api/v1/evidence/collect", {}, fresh_handler)
 
         assert result is not None
         # Rate limit (429) is acceptable if tests are running quickly
@@ -490,7 +498,7 @@ class TestEdgeCases:
     def test_evidence_with_special_characters_in_id(self, handler, mock_http_handler):
         """Test handling of special characters in evidence ID."""
         # Should reject IDs with special characters
-        result = handler.handle("/api/evidence/ev-123!@#", {}, mock_http_handler)
+        result = handler.handle("/api/v1/evidence/ev-123!@#", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 400
 
@@ -499,7 +507,7 @@ class TestEdgeCases:
         long_query = "a" * 10000
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": long_query}, None)
-            result = handler.handle_post("/api/evidence/search", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         # Should succeed (length validation is in store layer)
         assert result is not None
@@ -510,7 +518,7 @@ class TestEdgeCases:
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": "nonexistent topic"}, None)
-            result = handler.handle_post("/api/evidence/search", {}, mock_http_handler)
+            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         # Check if rate limited first

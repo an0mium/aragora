@@ -55,42 +55,42 @@ class TestConsensusHandlerRouting:
 
     def test_can_handle_similar(self, consensus_handler):
         """Test that handler recognizes /api/consensus/similar route."""
-        assert consensus_handler.can_handle("/api/consensus/similar") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/similar") is True
 
     def test_can_handle_settled(self, consensus_handler):
         """Test that handler recognizes /api/consensus/settled route."""
-        assert consensus_handler.can_handle("/api/consensus/settled") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/settled") is True
 
     def test_can_handle_stats(self, consensus_handler):
         """Test that handler recognizes /api/consensus/stats route."""
-        assert consensus_handler.can_handle("/api/consensus/stats") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/stats") is True
 
     def test_can_handle_dissents(self, consensus_handler):
         """Test that handler recognizes /api/consensus/dissents route."""
-        assert consensus_handler.can_handle("/api/consensus/dissents") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/dissents") is True
 
     def test_can_handle_contrarian_views(self, consensus_handler):
         """Test that handler recognizes /api/consensus/contrarian-views route."""
-        assert consensus_handler.can_handle("/api/consensus/contrarian-views") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/contrarian-views") is True
 
     def test_can_handle_risk_warnings(self, consensus_handler):
         """Test that handler recognizes /api/consensus/risk-warnings route."""
-        assert consensus_handler.can_handle("/api/consensus/risk-warnings") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/risk-warnings") is True
 
     def test_can_handle_seed_demo(self, consensus_handler):
         """Test that handler recognizes /api/consensus/seed-demo route."""
-        assert consensus_handler.can_handle("/api/consensus/seed-demo") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/seed-demo") is True
 
     def test_can_handle_domain_pattern(self, consensus_handler):
         """Test that handler recognizes domain pattern routes."""
-        assert consensus_handler.can_handle("/api/consensus/domain/technology") is True
-        assert consensus_handler.can_handle("/api/consensus/domain/science") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/domain/technology") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/domain/science") is True
 
     def test_cannot_handle_unknown_route(self, consensus_handler):
         """Test that handler rejects unknown routes."""
-        assert consensus_handler.can_handle("/api/unknown") is False
-        assert consensus_handler.can_handle("/api/debates") is False
-        assert consensus_handler.can_handle("/api/consensus") is False
+        assert consensus_handler.can_handle("/api/v1/unknown") is False
+        assert consensus_handler.can_handle("/api/v1/debates") is False
+        assert consensus_handler.can_handle("/api/v1/consensus") is False
 
 
 class TestSimilarDebatesEndpoint:
@@ -98,7 +98,7 @@ class TestSimilarDebatesEndpoint:
 
     def test_similar_requires_topic(self, consensus_handler, mock_http_handler):
         """Test that similar endpoint requires topic parameter."""
-        result = consensus_handler.handle("/api/consensus/similar", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/similar", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 400
         body = parse_response(result)
@@ -108,7 +108,7 @@ class TestSimilarDebatesEndpoint:
         """Test that similar endpoint rejects overly long topics."""
         long_topic = "x" * 501
         result = consensus_handler.handle(
-            "/api/consensus/similar", {"topic": long_topic}, mock_http_handler
+            "/api/v1/consensus/similar", {"topic": long_topic}, mock_http_handler
         )
         assert result is not None
         assert result.status_code == 400
@@ -139,7 +139,7 @@ class TestSimilarDebatesEndpoint:
         mock_memory.find_similar_debates.return_value = [mock_similar]
 
         result = consensus_handler.handle(
-            "/api/consensus/similar", {"topic": "AI"}, mock_http_handler
+            "/api/v1/consensus/similar", {"topic": "AI"}, mock_http_handler
         )
 
         assert result is not None
@@ -175,7 +175,7 @@ class TestSettledTopicsEndpoint:
         mock_conn.__exit__ = MagicMock(return_value=False)
         mock_db_conn.return_value = mock_conn
 
-        result = consensus_handler.handle("/api/consensus/settled", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/settled", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -212,7 +212,7 @@ class TestConsensusStatsEndpoint:
         mock_conn.__exit__ = MagicMock(return_value=False)
         mock_db_conn.return_value = mock_conn
 
-        result = consensus_handler.handle("/api/consensus/stats", {}, mock_http_handler)
+        result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -233,7 +233,7 @@ class TestRateLimiting:
             _consensus_limiter.is_allowed("127.0.0.1")
 
         result = consensus_handler.handle(
-            "/api/consensus/similar", {"topic": "test"}, mock_http_handler
+            "/api/v1/consensus/similar", {"topic": "test"}, mock_http_handler
         )
 
         assert result is not None
@@ -250,7 +250,7 @@ class TestDomainHistoryEndpoint:
         # Test with missing feature - should return error about feature
         with patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False):
             result = consensus_handler.handle(
-                "/api/consensus/domain/technology", {}, mock_http_handler
+                "/api/v1/consensus/domain/technology", {}, mock_http_handler
             )
             assert result is not None
             # Either feature unavailable error or successful empty response
@@ -280,7 +280,7 @@ class TestParameterValidation:
         mock_db_conn.return_value = mock_conn
 
         result = consensus_handler.handle(
-            "/api/consensus/settled",
+            "/api/v1/consensus/settled",
             {"limit": "999"},  # Way over max of 100
             mock_http_handler,
         )
@@ -309,7 +309,7 @@ class TestParameterValidation:
 
         # Test with invalid value (should be clamped to 1.0)
         result = consensus_handler.handle(
-            "/api/consensus/settled",
+            "/api/v1/consensus/settled",
             {"min_confidence": "2.0"},
             mock_http_handler,
         )

@@ -38,7 +38,7 @@ def handler():
 def mock_http_handler():
     """Create a mock HTTP handler."""
     handler = MagicMock()
-    handler.path = "/api/verify/history"
+    handler.path = "/api/v1/verify/history"
     return handler
 
 
@@ -206,7 +206,7 @@ class TestHistoryEndpoints:
         result = await handler.handle_async(
             mock_http_handler,
             "GET",
-            "/api/verify/history",
+            "/api/v1/verify/history",
             query_params={},
         )
 
@@ -225,7 +225,7 @@ class TestHistoryEndpoints:
         result = await handler.handle_async(
             mock_http_handler,
             "GET",
-            "/api/verify/history",
+            "/api/v1/verify/history",
             query_params={},
         )
 
@@ -245,7 +245,7 @@ class TestHistoryEndpoints:
         result = await handler.handle_async(
             mock_http_handler,
             "GET",
-            "/api/verify/history",
+            "/api/v1/verify/history",
             query_params={"limit": ["10"], "offset": ["0"]},
         )
 
@@ -266,7 +266,7 @@ class TestHistoryEndpoints:
         result = await handler.handle_async(
             mock_http_handler,
             "GET",
-            "/api/verify/history",
+            "/api/v1/verify/history",
             query_params={"status": ["proof_found"]},
         )
 
@@ -288,7 +288,7 @@ class TestHistoryEndpoints:
         result = await handler.handle_async(
             mock_http_handler,
             "GET",
-            f"/api/verify/history/{entry_id}",
+            f"/api/v1/verify/history/{entry_id}",
         )
 
         assert result.status_code == 200
@@ -303,7 +303,7 @@ class TestHistoryEndpoints:
         result = await handler.handle_async(
             mock_http_handler,
             "GET",
-            "/api/verify/history/nonexistent123",
+            "/api/v1/verify/history/nonexistent123",
         )
 
         assert result.status_code == 404
@@ -327,7 +327,7 @@ class TestHistoryEndpoints:
         result = await handler.handle_async(
             mock_http_handler,
             "GET",
-            f"/api/verify/history/{entry_id}/tree",
+            f"/api/v1/verify/history/{entry_id}/tree",
         )
 
         assert result.status_code == 200
@@ -353,7 +353,7 @@ class TestHistoryEndpoints:
         result = await handler.handle_async(
             mock_http_handler,
             "GET",
-            f"/api/verify/history/{entry_id}/tree",
+            f"/api/v1/verify/history/{entry_id}/tree",
         )
 
         assert result.status_code == 200

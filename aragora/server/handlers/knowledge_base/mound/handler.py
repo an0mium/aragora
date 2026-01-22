@@ -569,31 +569,33 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def _handle_node_routes(
         self, path: str, query_params: dict, handler: Any
     ) -> Optional[HandlerResult]:
-        """Handle /api/knowledge/mound/nodes/:id routes."""
+        """Handle /api/v1/knowledge/mound/nodes/:id routes."""
         parts = path.strip("/").split("/")
-        if len(parts) >= 5:
-            node_id = parts[4]
+        # Path: /api/v1/knowledge/mound/nodes/:id
+        # parts: [api, v1, knowledge, mound, nodes, :id, ...]
+        if len(parts) >= 6:
+            node_id = parts[5]
             method = getattr(handler, "command", "GET")
 
-            # /api/knowledge/mound/nodes/:id/relationships
-            if len(parts) >= 6 and parts[5] == "relationships":
+            # /api/v1/knowledge/mound/nodes/:id/relationships (7 parts)
+            if len(parts) >= 7 and parts[6] == "relationships":
                 return self._handle_get_node_relationships(node_id, query_params)
 
-            # /api/knowledge/mound/nodes/:id/visibility
-            if len(parts) >= 6 and parts[5] == "visibility":
+            # /api/v1/knowledge/mound/nodes/:id/visibility (7 parts)
+            if len(parts) >= 7 and parts[6] == "visibility":
                 if method == "PUT":
                     return self._handle_set_visibility(node_id, handler)
                 return self._handle_get_visibility(node_id)
 
-            # /api/knowledge/mound/nodes/:id/access
-            if len(parts) >= 6 and parts[5] == "access":
+            # /api/v1/knowledge/mound/nodes/:id/access (7 parts)
+            if len(parts) >= 7 and parts[6] == "access":
                 if method == "POST":
                     return self._handle_grant_access(node_id, handler)
                 elif method == "DELETE":
                     return self._handle_revoke_access(node_id, handler)
                 return self._handle_list_access_grants(node_id, query_params)
 
-            # /api/knowledge/mound/nodes/:id - Get specific node
+            # /api/v1/knowledge/mound/nodes/:id - Get specific node (6 parts)
             return self._handle_get_node(node_id)
         return error_response("Invalid node path", 400)
 

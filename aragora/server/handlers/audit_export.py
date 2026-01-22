@@ -290,10 +290,10 @@ async def handle_audit_verify(request: web.Request) -> web.Response:
 
 def register_handlers(app: web.Application) -> None:
     """Register audit handlers."""
-    app.router.add_get("/api/audit/events", handle_audit_events)
-    app.router.add_get("/api/audit/stats", handle_audit_stats)
-    app.router.add_post("/api/audit/export", handle_audit_export)
-    app.router.add_post("/api/audit/verify", handle_audit_verify)
+    app.router.add_get("/api/v1/audit/events", handle_audit_events)
+    app.router.add_get("/api/v1/audit/stats", handle_audit_stats)
+    app.router.add_post("/api/v1/audit/export", handle_audit_export)
+    app.router.add_post("/api/v1/audit/verify", handle_audit_verify)
 
 
 __all__ = [

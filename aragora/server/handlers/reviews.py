@@ -31,7 +31,7 @@ REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
 class ReviewsHandler(BaseHandler):
     """Handler for serving shareable code reviews."""
 
-    prefix = "/api/reviews"
+    prefix = "/api/v1/reviews"
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the request."""

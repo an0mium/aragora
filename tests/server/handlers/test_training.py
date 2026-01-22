@@ -44,34 +44,34 @@ class TestTrainingHandlerCanHandle:
     def test_can_handle_sft_export(self):
         """Should handle SFT export path."""
         handler = TrainingHandler({})
-        assert handler.can_handle("/api/training/export/sft") is True
+        assert handler.can_handle("/api/v1/training/export/sft") is True
 
     def test_can_handle_dpo_export(self):
         """Should handle DPO export path."""
         handler = TrainingHandler({})
-        assert handler.can_handle("/api/training/export/dpo") is True
+        assert handler.can_handle("/api/v1/training/export/dpo") is True
 
     def test_can_handle_gauntlet_export(self):
         """Should handle Gauntlet export path."""
         handler = TrainingHandler({})
-        assert handler.can_handle("/api/training/export/gauntlet") is True
+        assert handler.can_handle("/api/v1/training/export/gauntlet") is True
 
     def test_can_handle_stats(self):
         """Should handle stats path."""
         handler = TrainingHandler({})
-        assert handler.can_handle("/api/training/stats") is True
+        assert handler.can_handle("/api/v1/training/stats") is True
 
     def test_can_handle_formats(self):
         """Should handle formats path."""
         handler = TrainingHandler({})
-        assert handler.can_handle("/api/training/formats") is True
+        assert handler.can_handle("/api/v1/training/formats") is True
 
     def test_cannot_handle_unknown_path(self):
         """Should not handle unknown paths."""
         handler = TrainingHandler({})
-        assert handler.can_handle("/api/training/unknown") is False
-        assert handler.can_handle("/api/other/path") is False
-        assert handler.can_handle("/api/training") is False
+        assert handler.can_handle("/api/v1/training/unknown") is False
+        assert handler.can_handle("/api/v1/other/path") is False
+        assert handler.can_handle("/api/v1/training") is False
 
 
 class TestTrainingHandlerRoutes:
@@ -79,11 +79,11 @@ class TestTrainingHandlerRoutes:
 
     def test_routes_constant_has_all_endpoints(self):
         """ROUTES should have all expected endpoints."""
-        assert "/api/training/export/sft" in TrainingHandler.ROUTES
-        assert "/api/training/export/dpo" in TrainingHandler.ROUTES
-        assert "/api/training/export/gauntlet" in TrainingHandler.ROUTES
-        assert "/api/training/stats" in TrainingHandler.ROUTES
-        assert "/api/training/formats" in TrainingHandler.ROUTES
+        assert "/api/v1/training/export/sft" in TrainingHandler.ROUTES
+        assert "/api/v1/training/export/dpo" in TrainingHandler.ROUTES
+        assert "/api/v1/training/export/gauntlet" in TrainingHandler.ROUTES
+        assert "/api/v1/training/stats" in TrainingHandler.ROUTES
+        assert "/api/v1/training/formats" in TrainingHandler.ROUTES
 
     def test_routes_map_to_handler_methods(self):
         """Each route should map to a valid method."""
@@ -98,13 +98,13 @@ class TestTrainingHandlerFormats:
     def test_handle_formats_returns_result(self):
         """handle_formats should return a result."""
         handler = TrainingHandler({})
-        result = handler.handle_formats("/api/training/formats", {}, None)
+        result = handler.handle_formats("/api/v1/training/formats", {}, None)
         assert result is not None
 
     def test_handle_formats_has_expected_structure(self):
         """Formats response should have expected keys."""
         handler = TrainingHandler({})
-        result = handler.handle_formats("/api/training/formats", {}, None)
+        result = handler.handle_formats("/api/v1/training/formats", {}, None)
         # Result is a HandlerResult, need to check body
         assert result.status_code == 200
         import json
@@ -117,7 +117,7 @@ class TestTrainingHandlerFormats:
     def test_handle_formats_includes_sft(self):
         """Formats should include SFT description."""
         handler = TrainingHandler({})
-        result = handler.handle_formats("/api/training/formats", {}, None)
+        result = handler.handle_formats("/api/v1/training/formats", {}, None)
         import json
 
         body = json.loads(result.body.decode("utf-8"))
@@ -128,7 +128,7 @@ class TestTrainingHandlerFormats:
     def test_handle_formats_includes_dpo(self):
         """Formats should include DPO description."""
         handler = TrainingHandler({})
-        result = handler.handle_formats("/api/training/formats", {}, None)
+        result = handler.handle_formats("/api/v1/training/formats", {}, None)
         import json
 
         body = json.loads(result.body.decode("utf-8"))
@@ -138,7 +138,7 @@ class TestTrainingHandlerFormats:
     def test_handle_formats_includes_gauntlet(self):
         """Formats should include Gauntlet description."""
         handler = TrainingHandler({})
-        result = handler.handle_formats("/api/training/formats", {}, None)
+        result = handler.handle_formats("/api/v1/training/formats", {}, None)
         import json
 
         body = json.loads(result.body.decode("utf-8"))
@@ -148,7 +148,7 @@ class TestTrainingHandlerFormats:
     def test_output_formats_include_json_jsonl(self):
         """Output formats should include json and jsonl."""
         handler = TrainingHandler({})
-        result = handler.handle_formats("/api/training/formats", {}, None)
+        result = handler.handle_formats("/api/v1/training/formats", {}, None)
         import json
 
         body = json.loads(result.body.decode("utf-8"))
@@ -193,13 +193,13 @@ class TestTrainingHandlerHandle:
     def test_handle_unknown_path_returns_none(self):
         """Unknown path should return None."""
         handler = TrainingHandler({})
-        result = handler.handle("/api/unknown", {}, None)
+        result = handler.handle("/api/v1/unknown", {}, None)
         assert result is None
 
     def test_handle_formats_dispatches_correctly(self):
         """Should dispatch formats path to handle_formats."""
         handler = TrainingHandler({})
-        result = handler.handle("/api/training/formats", {}, None)
+        result = handler.handle("/api/v1/training/formats", {}, None)
         assert result is not None
         assert result.status_code == 200
 
@@ -210,13 +210,13 @@ class TestTrainingHandlerStats:
     def test_handle_stats_returns_result(self):
         """handle_stats should return a result."""
         handler = TrainingHandler({})
-        result = handler.handle_stats("/api/training/stats", {}, None)
+        result = handler.handle_stats("/api/v1/training/stats", {}, None)
         assert result is not None
 
     def test_handle_stats_has_available_exporters(self):
         """Stats response should list available exporters."""
         handler = TrainingHandler({})
-        result = handler.handle_stats("/api/training/stats", {}, None)
+        result = handler.handle_stats("/api/v1/training/stats", {}, None)
         import json
 
         body = json.loads(result.body.decode("utf-8"))
@@ -226,7 +226,7 @@ class TestTrainingHandlerStats:
     def test_handle_stats_has_export_directory(self):
         """Stats response should include export directory."""
         handler = TrainingHandler({})
-        result = handler.handle_stats("/api/training/stats", {}, None)
+        result = handler.handle_stats("/api/v1/training/stats", {}, None)
         import json
 
         body = json.loads(result.body.decode("utf-8"))
@@ -235,7 +235,7 @@ class TestTrainingHandlerStats:
     def test_handle_stats_has_exported_files(self):
         """Stats response should list exported files."""
         handler = TrainingHandler({})
-        result = handler.handle_stats("/api/training/stats", {}, None)
+        result = handler.handle_stats("/api/v1/training/stats", {}, None)
         import json
 
         body = json.loads(result.body.decode("utf-8"))

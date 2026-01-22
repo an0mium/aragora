@@ -115,7 +115,7 @@ class PluginsHandler(BaseHandler):
 
         # Get plugin details: /api/plugins/{name}
         if path.startswith("/api/v1/plugins/") and not path.endswith(("/run", "/install")):
-            plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
+            plugin_name, err = self.extract_path_param(path, 3, "plugin_name")
             if err:
                 return err
             return self._get_plugin(plugin_name)
@@ -130,14 +130,14 @@ class PluginsHandler(BaseHandler):
 
         # Run plugin: /api/plugins/{name}/run
         if path.startswith("/api/v1/plugins/") and path.endswith("/run"):
-            plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
+            plugin_name, err = self.extract_path_param(path, 3, "plugin_name")
             if err:
                 return err
             return self._run_plugin(plugin_name, handler)
 
         # Install plugin: /api/plugins/{name}/install
         if path.startswith("/api/v1/plugins/") and path.endswith("/install"):
-            plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
+            plugin_name, err = self.extract_path_param(path, 3, "plugin_name")
             if err:
                 return err
             return self._install_plugin(plugin_name, handler)
@@ -148,7 +148,7 @@ class PluginsHandler(BaseHandler):
         """Route DELETE requests to appropriate methods."""
         # Uninstall plugin: /api/plugins/{name}/install
         if path.startswith("/api/v1/plugins/") and path.endswith("/install"):
-            plugin_name, err = self.extract_path_param(path, 2, "plugin_name")
+            plugin_name, err = self.extract_path_param(path, 3, "plugin_name")
             if err:
                 return err
             return self._uninstall_plugin(plugin_name, handler)

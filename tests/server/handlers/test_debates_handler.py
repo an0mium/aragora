@@ -49,39 +49,39 @@ class TestDebatesHandlerRoutes:
 
     def test_debates_list_route_in_routes(self, handler):
         """Debates list route is in ROUTES."""
-        assert "/api/debates" in handler.ROUTES
+        assert "/api/v1/debates" in handler.ROUTES
 
     def test_debate_post_route_in_routes(self, handler):
         """Legacy debate POST route is in ROUTES."""
-        assert "/api/debate" in handler.ROUTES
+        assert "/api/v1/debate" in handler.ROUTES
 
     def test_batch_route_in_routes(self, handler):
         """Batch route is in ROUTES."""
-        assert "/api/debates/batch" in handler.ROUTES
+        assert "/api/v1/debates/batch" in handler.ROUTES
 
     def test_search_route_in_routes(self, handler):
         """Search route is in ROUTES."""
-        assert "/api/search" in handler.ROUTES
+        assert "/api/v1/search" in handler.ROUTES
 
     def test_impasse_route_pattern_in_routes(self, handler):
         """Impasse route pattern is in ROUTES."""
-        assert "/api/debates/*/impasse" in handler.ROUTES
+        assert "/api/v1/debates/*/impasse" in handler.ROUTES
 
     def test_convergence_route_pattern_in_routes(self, handler):
         """Convergence route pattern is in ROUTES."""
-        assert "/api/debates/*/convergence" in handler.ROUTES
+        assert "/api/v1/debates/*/convergence" in handler.ROUTES
 
     def test_citations_route_pattern_in_routes(self, handler):
         """Citations route pattern is in ROUTES."""
-        assert "/api/debates/*/citations" in handler.ROUTES
+        assert "/api/v1/debates/*/citations" in handler.ROUTES
 
     def test_fork_route_pattern_in_routes(self, handler):
         """Fork route pattern is in ROUTES."""
-        assert "/api/debates/*/fork" in handler.ROUTES
+        assert "/api/v1/debates/*/fork" in handler.ROUTES
 
     def test_messages_route_pattern_in_routes(self, handler):
         """Messages route pattern is in ROUTES."""
-        assert "/api/debates/*/messages" in handler.ROUTES
+        assert "/api/v1/debates/*/messages" in handler.ROUTES
 
 
 class TestDebatesHandlerAuthRequiredEndpoints:
@@ -100,11 +100,11 @@ class TestDebatesHandlerAuthRequiredEndpoints:
 
     def test_debates_list_requires_auth(self, handler):
         """Debates list endpoint requires auth."""
-        assert "/api/debates" in handler.AUTH_REQUIRED_ENDPOINTS
+        assert "/api/v1/debates" in handler.AUTH_REQUIRED_ENDPOINTS
 
     def test_batch_requires_auth(self, handler):
         """Batch endpoint requires auth."""
-        assert "/api/debates/batch" in handler.AUTH_REQUIRED_ENDPOINTS
+        assert "/api/v1/debates/batch" in handler.AUTH_REQUIRED_ENDPOINTS
 
     def test_export_requires_auth(self, handler):
         """Export endpoint requires auth."""
@@ -127,55 +127,55 @@ class TestDebatesHandlerCanHandle:
 
     def test_can_handle_debates_list(self, handler):
         """Handler can handle /api/debates."""
-        assert handler.can_handle("/api/debates") is True
+        assert handler.can_handle("/api/v1/debates") is True
 
     def test_can_handle_debate_post(self, handler):
         """Handler can handle /api/debate (legacy POST)."""
-        assert handler.can_handle("/api/debate") is True
+        assert handler.can_handle("/api/v1/debate") is True
 
     def test_can_handle_search(self, handler):
         """Handler can handle /api/search."""
-        assert handler.can_handle("/api/search") is True
+        assert handler.can_handle("/api/v1/search") is True
 
     def test_can_handle_debate_by_id(self, handler):
         """Handler can handle /api/debates/{id}."""
-        assert handler.can_handle("/api/debates/debate_123") is True
+        assert handler.can_handle("/api/v1/debates/debate_123") is True
 
     def test_can_handle_debate_impasse(self, handler):
         """Handler can handle impasse endpoint."""
-        assert handler.can_handle("/api/debates/debate_123/impasse") is True
+        assert handler.can_handle("/api/v1/debates/debate_123/impasse") is True
 
     def test_can_handle_debate_convergence(self, handler):
         """Handler can handle convergence endpoint."""
-        assert handler.can_handle("/api/debates/debate_123/convergence") is True
+        assert handler.can_handle("/api/v1/debates/debate_123/convergence") is True
 
     def test_can_handle_debate_citations(self, handler):
         """Handler can handle citations endpoint."""
-        assert handler.can_handle("/api/debates/debate_123/citations") is True
+        assert handler.can_handle("/api/v1/debates/debate_123/citations") is True
 
     def test_can_handle_debate_messages(self, handler):
         """Handler can handle messages endpoint."""
-        assert handler.can_handle("/api/debates/debate_123/messages") is True
+        assert handler.can_handle("/api/v1/debates/debate_123/messages") is True
 
     def test_can_handle_debate_fork(self, handler):
         """Handler can handle fork endpoint."""
-        assert handler.can_handle("/api/debates/debate_123/fork") is True
+        assert handler.can_handle("/api/v1/debates/debate_123/fork") is True
 
     def test_can_handle_meta_critique(self, handler):
         """Handler can handle meta-critique endpoint."""
-        assert handler.can_handle("/api/debate/debate_123/meta-critique") is True
+        assert handler.can_handle("/api/v1/debate/debate_123/meta-critique") is True
 
     def test_can_handle_graph_stats(self, handler):
         """Handler can handle graph stats endpoint."""
-        assert handler.can_handle("/api/debate/debate_123/graph/stats") is True
+        assert handler.can_handle("/api/v1/debate/debate_123/graph/stats") is True
 
     def test_cannot_handle_unrelated_path(self, handler):
         """Handler does not handle unrelated paths."""
-        assert handler.can_handle("/api/agents") is False
+        assert handler.can_handle("/api/v1/agents") is False
 
     def test_cannot_handle_partial_path(self, handler):
         """Handler does not handle partial paths."""
-        assert handler.can_handle("/api/debat") is False
+        assert handler.can_handle("/api/v1/debat") is False
 
 
 class TestDebatesHandlerRequiresAuth:
@@ -190,27 +190,27 @@ class TestDebatesHandlerRequiresAuth:
 
     def test_debates_list_requires_auth(self, handler):
         """Debates list path requires auth."""
-        assert handler._requires_auth("/api/debates") is True
+        assert handler._requires_auth("/api/v1/debates") is True
 
     def test_batch_requires_auth(self, handler):
         """Batch path requires auth."""
-        assert handler._requires_auth("/api/debates/batch") is True
+        assert handler._requires_auth("/api/v1/debates/batch") is True
 
     def test_export_requires_auth(self, handler):
         """Export path requires auth."""
-        assert handler._requires_auth("/api/debates/123/export/json") is True
+        assert handler._requires_auth("/api/v1/debates/123/export/json") is True
 
     def test_fork_requires_auth(self, handler):
         """Fork path requires auth."""
-        assert handler._requires_auth("/api/debates/123/fork") is True
+        assert handler._requires_auth("/api/v1/debates/123/fork") is True
 
     def test_impasse_path_contains_debates_requires_auth(self, handler):
         """Impasse path contains /api/debates so it requires auth."""
         # Note: _requires_auth checks if any AUTH_REQUIRED pattern is in the path
         # Since /api/debates is in AUTH_REQUIRED_ENDPOINTS, any path containing it
         # will require auth. This is by design for enumeration protection.
-        result = handler._requires_auth("/api/debates/123/impasse")
-        # Should require auth because it contains "/api/debates"
+        result = handler._requires_auth("/api/v1/debates/123/impasse")
+        # Should require auth because it contains "/api/v1/debates"
         assert result is True
 
 
@@ -469,7 +469,7 @@ class TestDebatesHandlerDispatchSuffixRoute:
     def test_dispatch_returns_none_for_unknown_suffix(self, handler):
         """Returns None for unknown suffix."""
         result = handler._dispatch_suffix_route(
-            "/api/debates/123/unknown",
+            "/api/v1/debates/123/unknown",
             {},
             MagicMock(),
         )
@@ -482,7 +482,7 @@ class TestDebatesHandlerDispatchSuffixRoute:
             with patch.object(handler, "_extract_debate_id") as mock_extract:
                 mock_extract.return_value = ("debate_123", None)
                 handler._dispatch_suffix_route(
-                    "/api/debates/debate_123/impasse",
+                    "/api/v1/debates/debate_123/impasse",
                     {},
                     MagicMock(),
                 )

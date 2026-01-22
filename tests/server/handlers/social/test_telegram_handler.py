@@ -79,7 +79,7 @@ def mock_http_handler():
     """Create a mock HTTP handler."""
     return MockHandler(
         headers={"Content-Type": "application/json", "Content-Length": "0"},
-        path="/api/integrations/telegram/status",
+        path="/api/v1/integrations/telegram/status",
     )
 
 
@@ -93,20 +93,20 @@ class TestRouting:
 
     def test_can_handle_status(self, handler):
         """Test handler recognizes status endpoint."""
-        assert handler.can_handle("/api/integrations/telegram/status") is True
+        assert handler.can_handle("/api/v1/integrations/telegram/status") is True
 
     def test_can_handle_webhook(self, handler):
         """Test handler recognizes webhook endpoint."""
-        assert handler.can_handle("/api/integrations/telegram/webhook") is True
+        assert handler.can_handle("/api/v1/integrations/telegram/webhook") is True
 
     def test_can_handle_set_webhook(self, handler):
         """Test handler recognizes set-webhook endpoint."""
-        assert handler.can_handle("/api/integrations/telegram/set-webhook") is True
+        assert handler.can_handle("/api/v1/integrations/telegram/set-webhook") is True
 
     def test_cannot_handle_unknown(self, handler):
         """Test handler rejects unknown endpoints."""
-        assert handler.can_handle("/api/integrations/telegram/unknown") is False
-        assert handler.can_handle("/api/other/endpoint") is False
+        assert handler.can_handle("/api/v1/integrations/telegram/unknown") is False
+        assert handler.can_handle("/api/v1/other/endpoint") is False
 
     def test_routes_defined(self, handler):
         """Test handler has ROUTES defined."""
@@ -138,7 +138,7 @@ class TestStatusEndpoint:
 
     def test_get_status(self, handler, mock_http_handler):
         """Test getting status."""
-        result = handler.handle("/api/integrations/telegram/status", {}, mock_http_handler)
+        result = handler.handle("/api/v1/integrations/telegram/status", {}, mock_http_handler)
 
         assert result is not None
         data = json.loads(get_body(result))
@@ -150,7 +150,7 @@ class TestStatusEndpoint:
 
     def test_status_fields_are_booleans(self, handler, mock_http_handler):
         """Test status fields are booleans."""
-        result = handler.handle("/api/integrations/telegram/status", {}, mock_http_handler)
+        result = handler.handle("/api/v1/integrations/telegram/status", {}, mock_http_handler)
         data = json.loads(get_body(result))
 
         assert isinstance(data["enabled"], bool)
@@ -169,10 +169,10 @@ class TestWebhookEndpoint:
         """Test webhook endpoint rejects GET."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json"},
-            path="/api/integrations/telegram/webhook",
+            path="/api/v1/integrations/telegram/webhook",
             method="GET",
         )
-        result = handler.handle("/api/integrations/telegram/webhook", {}, mock_http)
+        result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http)
 
         # Should return method not allowed
         assert result is not None
@@ -191,7 +191,7 @@ class TestWebhookEndpoint:
         )
 
         with patch.object(handler, "_verify_secret", return_value=True):
-            result = handler.handle("/api/integrations/telegram/webhook", {}, mock_http)
+            result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http)
 
         assert result is not None
         data = json.loads(get_body(result))
@@ -199,16 +199,18 @@ class TestWebhookEndpoint:
 
     def test_webhook_handles_message(self, handler):
         """Test webhook handles message update."""
-        body = json.dumps({
-            "update_id": 12345,
-            "message": {
-                "message_id": 1,
-                "from": {"id": 123, "username": "testuser"},
-                "chat": {"id": 456, "type": "private"},
-                "date": 1234567890,
-                "text": "/help",
-            },
-        }).encode()
+        body = json.dumps(
+            {
+                "update_id": 12345,
+                "message": {
+                    "message_id": 1,
+                    "from": {"id": 123, "username": "testuser"},
+                    "chat": {"id": 456, "type": "private"},
+                    "date": 1234567890,
+                    "text": "/help",
+                },
+            }
+        ).encode()
 
         mock_http = MockHandler(
             headers={
@@ -221,7 +223,7 @@ class TestWebhookEndpoint:
 
         with patch.object(handler, "_verify_secret", return_value=True):
             with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
-                result = handler.handle("/api/integrations/telegram/webhook", {}, mock_http)
+                result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http)
 
         assert result is not None
         data = json.loads(get_body(result))
@@ -239,7 +241,7 @@ class TestWebhookEndpoint:
         )
 
         with patch.object(handler, "_verify_secret", return_value=True):
-            result = handler.handle("/api/integrations/telegram/webhook", {}, mock_http)
+            result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http)
 
         # Should still return ok to acknowledge receipt
         assert result is not None
@@ -335,8 +337,7 @@ class TestDebateCommand:
         """Test debate command with valid topic."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
             result = handler._command_debate(
-                123, 456, "user",
-                "Should artificial intelligence be regulated by governments?"
+                123, 456, "user", "Should artificial intelligence be regulated by governments?"
             )
 
         # Should send acknowledgment and queue debate
@@ -369,8 +370,7 @@ class TestGauntletCommand:
         """Test gauntlet command with valid statement."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
             result = handler._command_gauntlet(
-                123, 456, "user",
-                "We should migrate our monolith to microservices architecture"
+                123, 456, "user", "We should migrate our monolith to microservices architecture"
             )
 
         # Should send acknowledgment and queue gauntlet
@@ -534,6 +534,7 @@ class TestFactory:
         """Test get_telegram_handler returns consistent instance."""
         # Reset global state
         import aragora.server.handlers.social.telegram as tg
+
         tg._telegram_handler = None
 
         handler1 = get_telegram_handler({})
@@ -544,6 +545,7 @@ class TestFactory:
     def test_get_telegram_handler_creates_instance(self):
         """Test get_telegram_handler creates instance."""
         import aragora.server.handlers.social.telegram as tg
+
         tg._telegram_handler = None
 
         handler = get_telegram_handler({})
@@ -572,7 +574,7 @@ class TestIntegration:
         mock_http = MockHandler(method="POST")
 
         with patch.object(handler, "handle", return_value={"ok": True}) as mock_handle:
-            handler.handle_post("/api/integrations/telegram/status", {}, mock_http)
+            handler.handle_post("/api/v1/integrations/telegram/status", {}, mock_http)
             mock_handle.assert_called_once()
 
 
@@ -651,12 +653,14 @@ class TestErrorHandling:
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_response = AsyncMock()
             mock_response.status = 429
-            mock_response.json = AsyncMock(return_value={
-                "ok": False,
-                "error_code": 429,
-                "description": "Too Many Requests",
-                "parameters": {"retry_after": 30},
-            })
+            mock_response.json = AsyncMock(
+                return_value={
+                    "ok": False,
+                    "error_code": 429,
+                    "description": "Too Many Requests",
+                    "parameters": {"retry_after": 30},
+                }
+            )
 
             mock_session = AsyncMock()
             mock_session.post = AsyncMock(return_value=mock_response)
@@ -731,7 +735,7 @@ class TestExtendedErrorScenarios:
         )
 
         with patch.object(handler, "_verify_secret", return_value=True):
-            result = handler.handle("/api/integrations/telegram/webhook", {}, mock_http)
+            result = handler.handle("/api/v1/integrations/telegram/webhook", {}, mock_http)
 
         assert result is not None
         data = json.loads(get_body(result))

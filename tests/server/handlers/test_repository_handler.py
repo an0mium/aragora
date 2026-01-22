@@ -95,28 +95,28 @@ class TestRepositoryHandlerRouting:
 
     def test_can_handle_index(self, repository_handler):
         """Test that handler recognizes /api/repository/index route."""
-        assert repository_handler.can_handle("/api/repository/index") is True
+        assert repository_handler.can_handle("/api/v1/repository/index") is True
 
     def test_can_handle_incremental(self, repository_handler):
         """Test that handler recognizes /api/repository/incremental route."""
-        assert repository_handler.can_handle("/api/repository/incremental") is True
+        assert repository_handler.can_handle("/api/v1/repository/incremental") is True
 
     def test_can_handle_status(self, repository_handler):
         """Test that handler recognizes /api/repository/:id/status route."""
-        assert repository_handler.can_handle("/api/repository/repo-123/status") is True
+        assert repository_handler.can_handle("/api/v1/repository/repo-123/status") is True
 
     def test_can_handle_entities(self, repository_handler):
         """Test that handler recognizes /api/repository/:id/entities route."""
-        assert repository_handler.can_handle("/api/repository/repo-123/entities") is True
+        assert repository_handler.can_handle("/api/v1/repository/repo-123/entities") is True
 
     def test_can_handle_graph(self, repository_handler):
         """Test that handler recognizes /api/repository/:id/graph route."""
-        assert repository_handler.can_handle("/api/repository/repo-123/graph") is True
+        assert repository_handler.can_handle("/api/v1/repository/repo-123/graph") is True
 
     def test_cannot_handle_unknown(self, repository_handler):
         """Test that handler rejects unknown paths."""
-        assert repository_handler.can_handle("/api/debates") is False
-        assert repository_handler.can_handle("/api/health") is False
+        assert repository_handler.can_handle("/api/v1/debates") is False
+        assert repository_handler.can_handle("/api/v1/health") is False
 
 
 class TestIndexRepository:
@@ -131,7 +131,7 @@ class TestIndexRepository:
             return_value=mock_orchestrator,
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/index"
+            mock_handler.path = "/api/v1/repository/index"
             mock_handler.headers = {"Content-Length": "100"}
             mock_handler.rfile.read.return_value = json.dumps(
                 {
@@ -140,7 +140,9 @@ class TestIndexRepository:
                 }
             ).encode()
 
-            result = await repository_handler.handle("/api/repository/index", "POST", mock_handler)
+            result = await repository_handler.handle(
+                "/api/v1/repository/index", "POST", mock_handler
+            )
 
             assert result is not None
             body = json.loads(result.body)
@@ -156,11 +158,13 @@ class TestIndexRepository:
             return_value=MagicMock(),
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/index"
+            mock_handler.path = "/api/v1/repository/index"
             mock_handler.headers = {"Content-Length": "2"}
             mock_handler.rfile.read.return_value = b"{}"
 
-            result = await repository_handler.handle("/api/repository/index", "POST", mock_handler)
+            result = await repository_handler.handle(
+                "/api/v1/repository/index", "POST", mock_handler
+            )
 
             assert result is not None
             body = json.loads(result.body)
@@ -179,7 +183,7 @@ class TestIncrementalUpdate:
             return_value=mock_orchestrator,
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/incremental"
+            mock_handler.path = "/api/v1/repository/incremental"
             mock_handler.headers = {"Content-Length": "100"}
             mock_handler.rfile.read.return_value = json.dumps(
                 {
@@ -189,7 +193,7 @@ class TestIncrementalUpdate:
             ).encode()
 
             result = await repository_handler.handle(
-                "/api/repository/incremental", "POST", mock_handler
+                "/api/v1/repository/incremental", "POST", mock_handler
             )
 
             assert result is not None
@@ -209,10 +213,10 @@ class TestGetStatus:
             return_value=mock_orchestrator,
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/repo-123/status"
+            mock_handler.path = "/api/v1/repository/repo-123/status"
 
             result = await repository_handler.handle(
-                "/api/repository/repo-123/status", "GET", mock_handler
+                "/api/v1/repository/repo-123/status", "GET", mock_handler
             )
 
             assert result is not None
@@ -223,10 +227,10 @@ class TestGetStatus:
     async def test_get_status_invalid_id(self, repository_handler):
         """Test that invalid repository ID returns error."""
         mock_handler = MagicMock()
-        mock_handler.path = "/api/repository/<script>/status"
+        mock_handler.path = "/api/v1/repository/<script>/status"
 
         result = await repository_handler.handle(
-            "/api/repository/<script>/status", "GET", mock_handler
+            "/api/v1/repository/<script>/status", "GET", mock_handler
         )
 
         assert result is not None
@@ -247,10 +251,10 @@ class TestListEntities:
             return_value=mock_orchestrator,
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/repo-123/entities"
+            mock_handler.path = "/api/v1/repository/repo-123/entities"
 
             result = await repository_handler.handle(
-                "/api/repository/repo-123/entities", "GET", mock_handler
+                "/api/v1/repository/repo-123/entities", "GET", mock_handler
             )
 
             assert result is not None
@@ -266,10 +270,10 @@ class TestListEntities:
             return_value=mock_orchestrator,
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/repo-123/entities?type=class&limit=10"
+            mock_handler.path = "/api/v1/repository/repo-123/entities?type=class&limit=10"
 
             result = await repository_handler.handle(
-                "/api/repository/repo-123/entities", "GET", mock_handler
+                "/api/v1/repository/repo-123/entities", "GET", mock_handler
             )
 
             assert result is not None
@@ -287,10 +291,10 @@ class TestGetGraph:
             return_value=mock_orchestrator,
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/repo-123/graph"
+            mock_handler.path = "/api/v1/repository/repo-123/graph"
 
             result = await repository_handler.handle(
-                "/api/repository/repo-123/graph", "GET", mock_handler
+                "/api/v1/repository/repo-123/graph", "GET", mock_handler
             )
 
             assert result is not None
@@ -311,10 +315,10 @@ class TestDeleteRepository:
             return_value=mock_orchestrator,
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/repo-123"
+            mock_handler.path = "/api/v1/repository/repo-123"
 
             result = await repository_handler.handle(
-                "/api/repository/repo-123", "DELETE", mock_handler
+                "/api/v1/repository/repo-123", "DELETE", mock_handler
             )
 
             assert result is not None
@@ -334,7 +338,7 @@ class TestOrchestratorUnavailable:
             return_value=None,
         ):
             mock_handler = MagicMock()
-            mock_handler.path = "/api/repository/index"
+            mock_handler.path = "/api/v1/repository/index"
             mock_handler.headers = {"Content-Length": "50"}
             mock_handler.rfile.read.return_value = json.dumps(
                 {
@@ -342,7 +346,9 @@ class TestOrchestratorUnavailable:
                 }
             ).encode()
 
-            result = await repository_handler.handle("/api/repository/index", "POST", mock_handler)
+            result = await repository_handler.handle(
+                "/api/v1/repository/index", "POST", mock_handler
+            )
 
             assert result is not None
             body = json.loads(result.body)
@@ -357,10 +363,10 @@ class TestPathValidation:
         """Test that path traversal attempts are rejected."""
         mock_handler = MagicMock()
         # Path with traversal - results in many path segments, doesn't match routes
-        mock_handler.path = "/api/repository/../../../etc/passwd/status"
+        mock_handler.path = "/api/v1/repository/../../../etc/passwd/status"
 
         result = await repository_handler.handle(
-            "/api/repository/../../../etc/passwd/status", "GET", mock_handler
+            "/api/v1/repository/../../../etc/passwd/status", "GET", mock_handler
         )
 
         assert result is not None
@@ -372,10 +378,10 @@ class TestPathValidation:
         """Test that script injection attempts are rejected."""
         mock_handler = MagicMock()
         # Note: </script> contains '/' which splits into extra path segments
-        mock_handler.path = "/api/repository/<script>alert(1)</script>/status"
+        mock_handler.path = "/api/v1/repository/<script>alert(1)</script>/status"
 
         result = await repository_handler.handle(
-            "/api/repository/<script>alert(1)</script>/status", "GET", mock_handler
+            "/api/v1/repository/<script>alert(1)</script>/status", "GET", mock_handler
         )
 
         assert result is not None

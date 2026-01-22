@@ -105,39 +105,39 @@ class TestCanHandle:
     def test_handles_google_auth(self):
         """Should handle /api/auth/oauth/google."""
         handler = create_oauth_handler()
-        assert handler.can_handle("/api/auth/oauth/google") is True
+        assert handler.can_handle("/api/v1/auth/oauth/google") is True
 
     def test_handles_google_callback(self):
         """Should handle /api/auth/oauth/google/callback."""
         handler = create_oauth_handler()
-        assert handler.can_handle("/api/auth/oauth/google/callback") is True
+        assert handler.can_handle("/api/v1/auth/oauth/google/callback") is True
 
     def test_handles_link(self):
         """Should handle /api/auth/oauth/link."""
         handler = create_oauth_handler()
-        assert handler.can_handle("/api/auth/oauth/link") is True
+        assert handler.can_handle("/api/v1/auth/oauth/link") is True
 
     def test_handles_unlink(self):
         """Should handle /api/auth/oauth/unlink."""
         handler = create_oauth_handler()
-        assert handler.can_handle("/api/auth/oauth/unlink") is True
+        assert handler.can_handle("/api/v1/auth/oauth/unlink") is True
 
     def test_handles_providers(self):
         """Should handle /api/auth/oauth/providers."""
         handler = create_oauth_handler()
-        assert handler.can_handle("/api/auth/oauth/providers") is True
+        assert handler.can_handle("/api/v1/auth/oauth/providers") is True
 
     def test_handles_user_providers(self):
         """Should handle /api/user/oauth-providers."""
         handler = create_oauth_handler()
-        assert handler.can_handle("/api/user/oauth-providers") is True
+        assert handler.can_handle("/api/v1/user/oauth-providers") is True
 
     def test_rejects_unknown_routes(self):
         """Should reject unknown routes."""
         handler = create_oauth_handler()
-        assert handler.can_handle("/api/auth/oauth/facebook") is False
-        assert handler.can_handle("/api/auth/login") is False
-        assert handler.can_handle("/api/oauth") is False
+        assert handler.can_handle("/api/v1/auth/oauth/facebook") is False
+        assert handler.can_handle("/api/v1/auth/login") is False
+        assert handler.can_handle("/api/v1/oauth") is False
 
 
 # ===========================================================================
@@ -156,7 +156,7 @@ class TestRateLimiting:
         mock_http = MockHandler(client_address=("192.168.1.100", 12345))
 
         with patch.object(_oauth_limiter, "is_allowed", return_value=False):
-            result = handler.handle("/api/auth/oauth/google", {}, mock_http, "GET")
+            result = handler.handle("/api/v1/auth/oauth/google", {}, mock_http, "GET")
 
         assert get_status(result) == 429
         assert "Rate limit" in get_body(result)["error"]
@@ -523,7 +523,7 @@ class TestRouteDispatching:
 
         with patch.object(handler, "_handle_google_auth_start") as mock_method:
             mock_method.return_value = MagicMock(status_code=302, body=b"")
-            handler.handle("/api/auth/oauth/google", {}, mock_http, "GET")
+            handler.handle("/api/v1/auth/oauth/google", {}, mock_http, "GET")
 
             mock_method.assert_called_once()
 
@@ -534,7 +534,7 @@ class TestRouteDispatching:
 
         with patch.object(handler, "_handle_google_callback") as mock_method:
             mock_method.return_value = MagicMock(status_code=302, body=b"")
-            handler.handle("/api/auth/oauth/google/callback", {}, mock_http, "GET")
+            handler.handle("/api/v1/auth/oauth/google/callback", {}, mock_http, "GET")
 
             mock_method.assert_called_once()
 
@@ -545,7 +545,7 @@ class TestRouteDispatching:
 
         with patch.object(handler, "_handle_link_account") as mock_method:
             mock_method.return_value = MagicMock(status_code=200, body=b"{}")
-            handler.handle("/api/auth/oauth/link", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/oauth/link", {}, mock_http, "POST")
 
             mock_method.assert_called_once()
 
@@ -556,7 +556,7 @@ class TestRouteDispatching:
 
         with patch.object(handler, "_handle_unlink_account") as mock_method:
             mock_method.return_value = MagicMock(status_code=200, body=b"{}")
-            handler.handle("/api/auth/oauth/unlink", {}, mock_http, "DELETE")
+            handler.handle("/api/v1/auth/oauth/unlink", {}, mock_http, "DELETE")
 
             mock_method.assert_called_once()
 
@@ -565,6 +565,6 @@ class TestRouteDispatching:
         handler = create_oauth_handler()
         mock_http = MockHandler(method="PATCH")
 
-        result = handler.handle("/api/auth/oauth/google", {}, mock_http, "PATCH")
+        result = handler.handle("/api/v1/auth/oauth/google", {}, mock_http, "PATCH")
 
         assert get_status(result) == 405

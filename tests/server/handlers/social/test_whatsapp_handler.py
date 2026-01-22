@@ -81,7 +81,7 @@ def mock_http_handler():
     """Create a mock HTTP handler."""
     return MockHandler(
         headers={"Content-Type": "application/json", "Content-Length": "0"},
-        path="/api/integrations/whatsapp/status",
+        path="/api/v1/integrations/whatsapp/status",
     )
 
 
@@ -95,16 +95,16 @@ class TestRouting:
 
     def test_can_handle_status(self, handler):
         """Test handler recognizes status endpoint."""
-        assert handler.can_handle("/api/integrations/whatsapp/status") is True
+        assert handler.can_handle("/api/v1/integrations/whatsapp/status") is True
 
     def test_can_handle_webhook(self, handler):
         """Test handler recognizes webhook endpoint."""
-        assert handler.can_handle("/api/integrations/whatsapp/webhook") is True
+        assert handler.can_handle("/api/v1/integrations/whatsapp/webhook") is True
 
     def test_cannot_handle_unknown(self, handler):
         """Test handler rejects unknown endpoints."""
-        assert handler.can_handle("/api/integrations/whatsapp/unknown") is False
-        assert handler.can_handle("/api/other/endpoint") is False
+        assert handler.can_handle("/api/v1/integrations/whatsapp/unknown") is False
+        assert handler.can_handle("/api/v1/other/endpoint") is False
 
     def test_routes_defined(self, handler):
         """Test handler has ROUTES defined."""
@@ -136,7 +136,7 @@ class TestStatusEndpoint:
 
     def test_get_status(self, handler, mock_http_handler):
         """Test getting status."""
-        result = handler.handle("/api/integrations/whatsapp/status", {}, mock_http_handler)
+        result = handler.handle("/api/v1/integrations/whatsapp/status", {}, mock_http_handler)
 
         assert result is not None
         data = json.loads(get_body(result))
@@ -149,7 +149,7 @@ class TestStatusEndpoint:
 
     def test_status_fields_are_booleans(self, handler, mock_http_handler):
         """Test status fields are booleans."""
-        result = handler.handle("/api/integrations/whatsapp/status", {}, mock_http_handler)
+        result = handler.handle("/api/v1/integrations/whatsapp/status", {}, mock_http_handler)
         data = json.loads(get_body(result))
 
         assert isinstance(data["enabled"], bool)
@@ -169,7 +169,7 @@ class TestWebhookVerification:
         """Test successful webhook verification."""
         mock_http = MockHandler(
             headers={"Content-Type": "text/plain"},
-            path="/api/integrations/whatsapp/webhook",
+            path="/api/v1/integrations/whatsapp/webhook",
             method="GET",
         )
 
@@ -179,7 +179,7 @@ class TestWebhookVerification:
             "hub.challenge": "challenge_string_123",
         }
 
-        result = handler.handle("/api/integrations/whatsapp/webhook", query_params, mock_http)
+        result = handler.handle("/api/v1/integrations/whatsapp/webhook", query_params, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 200
@@ -190,7 +190,7 @@ class TestWebhookVerification:
         """Test webhook verification with wrong token."""
         mock_http = MockHandler(
             headers={"Content-Type": "text/plain"},
-            path="/api/integrations/whatsapp/webhook",
+            path="/api/v1/integrations/whatsapp/webhook",
             method="GET",
         )
 
@@ -200,7 +200,7 @@ class TestWebhookVerification:
             "hub.challenge": "challenge_string_123",
         }
 
-        result = handler.handle("/api/integrations/whatsapp/webhook", query_params, mock_http)
+        result = handler.handle("/api/v1/integrations/whatsapp/webhook", query_params, mock_http)
 
         assert result is not None
         assert get_status_code(result) in (400, 403)
@@ -209,7 +209,7 @@ class TestWebhookVerification:
         """Test webhook verification with wrong mode."""
         mock_http = MockHandler(
             headers={"Content-Type": "text/plain"},
-            path="/api/integrations/whatsapp/webhook",
+            path="/api/v1/integrations/whatsapp/webhook",
             method="GET",
         )
 
@@ -219,7 +219,7 @@ class TestWebhookVerification:
             "hub.challenge": "challenge_string_123",
         }
 
-        result = handler.handle("/api/integrations/whatsapp/webhook", query_params, mock_http)
+        result = handler.handle("/api/v1/integrations/whatsapp/webhook", query_params, mock_http)
 
         assert result is not None
         assert get_status_code(result) in (400, 403)
@@ -245,7 +245,7 @@ class TestWebhookPost:
             method="POST",
         )
 
-        result = handler.handle("/api/integrations/whatsapp/webhook", {}, mock_http)
+        result = handler.handle("/api/v1/integrations/whatsapp/webhook", {}, mock_http)
 
         assert result is not None
         data = json.loads(get_body(result))
@@ -253,24 +253,34 @@ class TestWebhookPost:
 
     def test_webhook_handles_message(self, handler):
         """Test webhook handles incoming message."""
-        body = json.dumps({
-            "object": "whatsapp_business_account",
-            "entry": [{
-                "id": "123",
-                "changes": [{
-                    "value": {
-                        "messaging_product": "whatsapp",
-                        "contacts": [{"wa_id": "15551234567", "profile": {"name": "Test User"}}],
-                        "messages": [{
-                            "from": "15551234567",
-                            "type": "text",
-                            "text": {"body": "help"},
-                        }],
-                    },
-                    "field": "messages",
-                }],
-            }],
-        }).encode()
+        body = json.dumps(
+            {
+                "object": "whatsapp_business_account",
+                "entry": [
+                    {
+                        "id": "123",
+                        "changes": [
+                            {
+                                "value": {
+                                    "messaging_product": "whatsapp",
+                                    "contacts": [
+                                        {"wa_id": "15551234567", "profile": {"name": "Test User"}}
+                                    ],
+                                    "messages": [
+                                        {
+                                            "from": "15551234567",
+                                            "type": "text",
+                                            "text": {"body": "help"},
+                                        }
+                                    ],
+                                },
+                                "field": "messages",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ).encode()
 
         mock_http = MockHandler(
             headers={
@@ -282,7 +292,7 @@ class TestWebhookPost:
         )
 
         with patch("aragora.server.handlers.social.whatsapp.create_tracked_task"):
-            result = handler.handle("/api/integrations/whatsapp/webhook", {}, mock_http)
+            result = handler.handle("/api/v1/integrations/whatsapp/webhook", {}, mock_http)
 
         assert result is not None
         data = json.loads(get_body(result))
@@ -299,7 +309,7 @@ class TestWebhookPost:
             method="POST",
         )
 
-        result = handler.handle("/api/integrations/whatsapp/webhook", {}, mock_http)
+        result = handler.handle("/api/v1/integrations/whatsapp/webhook", {}, mock_http)
 
         # Should still return ok to acknowledge receipt
         assert result is not None
@@ -335,9 +345,7 @@ class TestTextMessageHandling:
         """Test handling 'debate' command."""
         with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
             handler._handle_text_message(
-                "15551234567",
-                "Test User",
-                "debate Should AI be regulated?"
+                "15551234567", "Test User", "debate Should AI be regulated?"
             )
 
         # Should not send immediate response (debate handler manages it)
@@ -356,7 +364,7 @@ class TestTextMessageHandling:
             handler._handle_text_message(
                 "15551234567",
                 "Test User",
-                "This is a longer message that could potentially be a debate topic"
+                "This is a longer message that could potentially be a debate topic",
             )
 
         mock_task.assert_called_once()
@@ -422,9 +430,7 @@ class TestDebateCommand:
         """Test debate with valid topic."""
         with patch("aragora.server.handlers.social.whatsapp.create_tracked_task") as mock_task:
             handler._command_debate(
-                "15551234567",
-                "User",
-                "Should artificial intelligence be regulated by governments?"
+                "15551234567", "User", "Should artificial intelligence be regulated by governments?"
             )
 
         # Should send acknowledgment and queue debate
@@ -460,7 +466,7 @@ class TestGauntletCommand:
             handler._command_gauntlet(
                 "15551234567",
                 "User",
-                "We should migrate our monolith to microservices architecture"
+                "We should migrate our monolith to microservices architecture",
             )
 
         # Should send acknowledgment and queue gauntlet
@@ -489,9 +495,7 @@ class TestInteractiveReplies:
 
         with patch.object(handler, "_process_button_click") as mock_process:
             handler._handle_interactive_reply("15551234567", "User", message)
-            mock_process.assert_called_once_with(
-                "15551234567", "User", "vote_agree_debate123"
-            )
+            mock_process.assert_called_once_with("15551234567", "User", "vote_agree_debate123")
 
     def test_handle_interactive_reply_list(self, handler):
         """Test list reply handling."""
@@ -507,9 +511,7 @@ class TestInteractiveReplies:
 
         with patch.object(handler, "_process_button_click") as mock_process:
             handler._handle_interactive_reply("15551234567", "User", message)
-            mock_process.assert_called_once_with(
-                "15551234567", "User", "details_debate123"
-            )
+            mock_process.assert_called_once_with("15551234567", "User", "details_debate123")
 
 
 # ===========================================================================
@@ -610,6 +612,7 @@ class TestFactory:
         """Test get_whatsapp_handler returns consistent instance."""
         # Reset global state
         import aragora.server.handlers.social.whatsapp as wa
+
         wa._whatsapp_handler = None
 
         handler1 = get_whatsapp_handler({})
@@ -620,6 +623,7 @@ class TestFactory:
     def test_get_whatsapp_handler_creates_instance(self):
         """Test get_whatsapp_handler creates instance."""
         import aragora.server.handlers.social.whatsapp as wa
+
         wa._whatsapp_handler = None
 
         handler = get_whatsapp_handler({})
@@ -648,17 +652,19 @@ class TestIntegration:
         mock_http = MockHandler(method="POST")
 
         with patch.object(handler, "handle", return_value={"ok": True}) as mock_handle:
-            handler.handle_post("/api/integrations/whatsapp/status", {}, mock_http)
+            handler.handle_post("/api/v1/integrations/whatsapp/status", {}, mock_http)
             mock_handle.assert_called_once()
 
     def test_full_webhook_flow(self, handler):
         """Test full webhook message flow."""
         # Step 1: Verify webhook
-        verify_result = handler._verify_webhook({
-            "hub.mode": "subscribe",
-            "hub.verify_token": WHATSAPP_VERIFY_TOKEN,
-            "hub.challenge": "test_challenge",
-        })
+        verify_result = handler._verify_webhook(
+            {
+                "hub.mode": "subscribe",
+                "hub.verify_token": WHATSAPP_VERIFY_TOKEN,
+                "hub.challenge": "test_challenge",
+            }
+        )
         assert verify_result["status"] == 200
         assert verify_result["body"] == "test_challenge"
 
@@ -741,7 +747,7 @@ class TestExtendedErrors:
             method="POST",
         )
 
-        result = handler.handle("/api/integrations/whatsapp/webhook", {}, mock_http)
+        result = handler.handle("/api/v1/integrations/whatsapp/webhook", {}, mock_http)
         assert result is not None
         data = json.loads(get_body(result))
         assert data.get("status") == "ok"

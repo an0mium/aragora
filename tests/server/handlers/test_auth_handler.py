@@ -48,55 +48,55 @@ class TestAuthHandlerRoutes:
 
     def test_register_route_in_routes(self, handler):
         """Register route is in ROUTES."""
-        assert "/api/auth/register" in handler.ROUTES
+        assert "/api/v1/auth/register" in handler.ROUTES
 
     def test_login_route_in_routes(self, handler):
         """Login route is in ROUTES."""
-        assert "/api/auth/login" in handler.ROUTES
+        assert "/api/v1/auth/login" in handler.ROUTES
 
     def test_logout_route_in_routes(self, handler):
         """Logout route is in ROUTES."""
-        assert "/api/auth/logout" in handler.ROUTES
+        assert "/api/v1/auth/logout" in handler.ROUTES
 
     def test_logout_all_route_in_routes(self, handler):
         """Logout-all route is in ROUTES."""
-        assert "/api/auth/logout-all" in handler.ROUTES
+        assert "/api/v1/auth/logout-all" in handler.ROUTES
 
     def test_refresh_route_in_routes(self, handler):
         """Refresh route is in ROUTES."""
-        assert "/api/auth/refresh" in handler.ROUTES
+        assert "/api/v1/auth/refresh" in handler.ROUTES
 
     def test_revoke_route_in_routes(self, handler):
         """Revoke route is in ROUTES."""
-        assert "/api/auth/revoke" in handler.ROUTES
+        assert "/api/v1/auth/revoke" in handler.ROUTES
 
     def test_me_route_in_routes(self, handler):
         """Me route is in ROUTES."""
-        assert "/api/auth/me" in handler.ROUTES
+        assert "/api/v1/auth/me" in handler.ROUTES
 
     def test_password_route_in_routes(self, handler):
         """Password route is in ROUTES."""
-        assert "/api/auth/password" in handler.ROUTES
+        assert "/api/v1/auth/password" in handler.ROUTES
 
     def test_api_key_route_in_routes(self, handler):
         """API key route is in ROUTES."""
-        assert "/api/auth/api-key" in handler.ROUTES
+        assert "/api/v1/auth/api-key" in handler.ROUTES
 
     def test_mfa_routes_in_routes(self, handler):
         """MFA routes are in ROUTES."""
-        assert "/api/auth/mfa/setup" in handler.ROUTES
-        assert "/api/auth/mfa/enable" in handler.ROUTES
-        assert "/api/auth/mfa/disable" in handler.ROUTES
-        assert "/api/auth/mfa/verify" in handler.ROUTES
-        assert "/api/auth/mfa/backup-codes" in handler.ROUTES
+        assert "/api/v1/auth/mfa/setup" in handler.ROUTES
+        assert "/api/v1/auth/mfa/enable" in handler.ROUTES
+        assert "/api/v1/auth/mfa/disable" in handler.ROUTES
+        assert "/api/v1/auth/mfa/verify" in handler.ROUTES
+        assert "/api/v1/auth/mfa/backup-codes" in handler.ROUTES
 
     def test_sessions_route_in_routes(self, handler):
         """Sessions route is in ROUTES."""
-        assert "/api/auth/sessions" in handler.ROUTES
+        assert "/api/v1/auth/sessions" in handler.ROUTES
 
     def test_sessions_wildcard_in_routes(self, handler):
         """Sessions wildcard route is in ROUTES."""
-        assert "/api/auth/sessions/*" in handler.ROUTES
+        assert "/api/v1/auth/sessions/*" in handler.ROUTES
 
 
 class TestAuthHandlerCanHandle:
@@ -111,47 +111,49 @@ class TestAuthHandlerCanHandle:
 
     def test_can_handle_register(self, handler):
         """Handler can handle register endpoint."""
-        assert handler.can_handle("/api/auth/register") is True
+        assert handler.can_handle("/api/v1/auth/register") is True
 
     def test_can_handle_login(self, handler):
         """Handler can handle login endpoint."""
-        assert handler.can_handle("/api/auth/login") is True
+        assert handler.can_handle("/api/v1/auth/login") is True
 
     def test_can_handle_logout(self, handler):
         """Handler can handle logout endpoint."""
-        assert handler.can_handle("/api/auth/logout") is True
+        assert handler.can_handle("/api/v1/auth/logout") is True
 
     def test_can_handle_me(self, handler):
         """Handler can handle me endpoint."""
-        assert handler.can_handle("/api/auth/me") is True
+        assert handler.can_handle("/api/v1/auth/me") is True
 
     def test_can_handle_mfa_setup(self, handler):
         """Handler can handle MFA setup endpoint."""
-        assert handler.can_handle("/api/auth/mfa/setup") is True
+        assert handler.can_handle("/api/v1/auth/mfa/setup") is True
 
     def test_can_handle_sessions(self, handler):
         """Handler can handle sessions endpoint."""
-        assert handler.can_handle("/api/auth/sessions") is True
+        assert handler.can_handle("/api/v1/auth/sessions") is True
 
     def test_can_handle_session_id(self, handler):
         """Handler can handle session ID endpoint (wildcard)."""
-        assert handler.can_handle("/api/auth/sessions/abc123") is True
+        assert handler.can_handle("/api/v1/auth/sessions/abc123") is True
 
     def test_can_handle_session_uuid(self, handler):
         """Handler can handle session UUID endpoint."""
-        assert handler.can_handle("/api/auth/sessions/550e8400-e29b-41d4-a716-446655440000") is True
+        assert (
+            handler.can_handle("/api/v1/auth/sessions/550e8400-e29b-41d4-a716-446655440000") is True
+        )
 
     def test_cannot_handle_unrelated_path(self, handler):
         """Handler does not handle unrelated paths."""
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
     def test_cannot_handle_partial_auth_path(self, handler):
         """Handler does not handle partial auth paths."""
-        assert handler.can_handle("/api/auth") is False
+        assert handler.can_handle("/api/v1/auth") is False
 
     def test_cannot_handle_auth_unknown(self, handler):
         """Handler does not handle unknown auth endpoints."""
-        assert handler.can_handle("/api/auth/unknown") is False
+        assert handler.can_handle("/api/v1/auth/unknown") is False
 
 
 class TestAuthHandlerRouting:
@@ -179,35 +181,35 @@ class TestAuthHandlerRouting:
         """Register POST routes to _handle_register."""
         with patch.object(handler, "_handle_register") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/register", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/register", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_login_routes_to_handler(self, handler, mock_http):
         """Login POST routes to _handle_login."""
         with patch.object(handler, "_handle_login") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/login", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/login", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_logout_routes_to_handler(self, handler, mock_http):
         """Logout POST routes to _handle_logout."""
         with patch.object(handler, "_handle_logout") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/logout", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/logout", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_logout_all_routes_to_handler(self, handler, mock_http):
         """Logout-all POST routes to _handle_logout_all."""
         with patch.object(handler, "_handle_logout_all") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/logout-all", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/logout-all", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_refresh_routes_to_handler(self, handler, mock_http):
         """Refresh POST routes to _handle_refresh."""
         with patch.object(handler, "_handle_refresh") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/refresh", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/refresh", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_me_get_routes_to_handler(self, handler, mock_http):
@@ -215,7 +217,7 @@ class TestAuthHandlerRouting:
         mock_http.command = "GET"
         with patch.object(handler, "_handle_get_me") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/me", {}, mock_http, "GET")
+            handler.handle("/api/v1/auth/me", {}, mock_http, "GET")
             mock_method.assert_called_once()
 
     def test_me_put_routes_to_handler(self, handler, mock_http):
@@ -223,28 +225,28 @@ class TestAuthHandlerRouting:
         mock_http.command = "PUT"
         with patch.object(handler, "_handle_update_me") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/me", {}, mock_http, "PUT")
+            handler.handle("/api/v1/auth/me", {}, mock_http, "PUT")
             mock_method.assert_called_once()
 
     def test_password_routes_to_handler(self, handler, mock_http):
         """Password POST routes to _handle_change_password."""
         with patch.object(handler, "_handle_change_password") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/password", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/password", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_revoke_routes_to_handler(self, handler, mock_http):
         """Revoke POST routes to _handle_revoke_token."""
         with patch.object(handler, "_handle_revoke_token") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/revoke", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/revoke", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_api_key_post_routes_to_handler(self, handler, mock_http):
         """API key POST routes to _handle_generate_api_key."""
         with patch.object(handler, "_handle_generate_api_key") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/api-key", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/api-key", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_api_key_delete_routes_to_handler(self, handler, mock_http):
@@ -252,42 +254,42 @@ class TestAuthHandlerRouting:
         mock_http.command = "DELETE"
         with patch.object(handler, "_handle_revoke_api_key") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/api-key", {}, mock_http, "DELETE")
+            handler.handle("/api/v1/auth/api-key", {}, mock_http, "DELETE")
             mock_method.assert_called_once()
 
     def test_mfa_setup_routes_to_handler(self, handler, mock_http):
         """MFA setup POST routes to _handle_mfa_setup."""
         with patch.object(handler, "_handle_mfa_setup") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/setup", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/mfa/setup", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_mfa_enable_routes_to_handler(self, handler, mock_http):
         """MFA enable POST routes to _handle_mfa_enable."""
         with patch.object(handler, "_handle_mfa_enable") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/enable", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/mfa/enable", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_mfa_disable_routes_to_handler(self, handler, mock_http):
         """MFA disable POST routes to _handle_mfa_disable."""
         with patch.object(handler, "_handle_mfa_disable") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/disable", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/mfa/disable", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_mfa_verify_routes_to_handler(self, handler, mock_http):
         """MFA verify POST routes to _handle_mfa_verify."""
         with patch.object(handler, "_handle_mfa_verify") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/verify", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/mfa/verify", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_mfa_backup_routes_to_handler(self, handler, mock_http):
         """MFA backup codes POST routes to _handle_mfa_backup_codes."""
         with patch.object(handler, "_handle_mfa_backup_codes") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/mfa/backup-codes", {}, mock_http, "POST")
+            handler.handle("/api/v1/auth/mfa/backup-codes", {}, mock_http, "POST")
             mock_method.assert_called_once()
 
     def test_sessions_get_routes_to_handler(self, handler, mock_http):
@@ -295,7 +297,7 @@ class TestAuthHandlerRouting:
         mock_http.command = "GET"
         with patch.object(handler, "_handle_list_sessions") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/sessions", {}, mock_http, "GET")
+            handler.handle("/api/v1/auth/sessions", {}, mock_http, "GET")
             mock_method.assert_called_once()
 
     def test_session_delete_routes_to_handler(self, handler, mock_http):
@@ -303,13 +305,13 @@ class TestAuthHandlerRouting:
         mock_http.command = "DELETE"
         with patch.object(handler, "_handle_revoke_session") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/sessions/abc123", {}, mock_http, "DELETE")
+            handler.handle("/api/v1/auth/sessions/abc123", {}, mock_http, "DELETE")
             mock_method.assert_called_once_with(mock_http, "abc123")
 
     def test_unknown_method_returns_405(self, handler, mock_http):
         """Unknown method returns 405 error."""
         mock_http.command = "PATCH"
-        result = handler.handle("/api/auth/register", {}, mock_http, "PATCH")
+        result = handler.handle("/api/v1/auth/register", {}, mock_http, "PATCH")
         assert result is not None
         assert result.status_code == 405
 
@@ -416,7 +418,7 @@ class TestAuthHandlerSessionExtraction:
 
         with patch.object(handler, "_handle_revoke_session") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle("/api/auth/sessions/session123", {}, mock_http, "DELETE")
+            handler.handle("/api/v1/auth/sessions/session123", {}, mock_http, "DELETE")
             mock_method.assert_called_with(mock_http, "session123")
 
     def test_extracts_uuid_session_id(self, handler):
@@ -427,7 +429,7 @@ class TestAuthHandlerSessionExtraction:
 
         with patch.object(handler, "_handle_revoke_session") as mock_method:
             mock_method.return_value = MagicMock()
-            handler.handle(f"/api/auth/sessions/{uuid}", {}, mock_http, "DELETE")
+            handler.handle(f"/api/v1/auth/sessions/{uuid}", {}, mock_http, "DELETE")
             mock_method.assert_called_with(mock_http, uuid)
 
 
@@ -467,8 +469,8 @@ class TestAuthHandlerMFARoutes:
 
         # All MFA routes should exist
         assert len(mfa_routes) == 5
-        assert "/api/auth/mfa/setup" in mfa_routes
-        assert "/api/auth/mfa/enable" in mfa_routes
-        assert "/api/auth/mfa/disable" in mfa_routes
-        assert "/api/auth/mfa/verify" in mfa_routes
-        assert "/api/auth/mfa/backup-codes" in mfa_routes
+        assert "/api/v1/auth/mfa/setup" in mfa_routes
+        assert "/api/v1/auth/mfa/enable" in mfa_routes
+        assert "/api/v1/auth/mfa/disable" in mfa_routes
+        assert "/api/v1/auth/mfa/verify" in mfa_routes
+        assert "/api/v1/auth/mfa/backup-codes" in mfa_routes

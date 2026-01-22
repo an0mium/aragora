@@ -84,16 +84,16 @@ class TestEvolutionHandlerRouting:
 
     def test_can_handle_evolution_paths(self, evolution_handler):
         """Test handler recognizes evolution paths."""
-        assert evolution_handler.can_handle("/api/evolution/ab-tests") is True
-        assert evolution_handler.can_handle("/api/evolution/ab-tests/") is True
-        assert evolution_handler.can_handle("/api/evolution/ab-tests/test-123") is True
-        assert evolution_handler.can_handle("/api/evolution/ab-tests/gpt-4/active") is True
+        assert evolution_handler.can_handle("/api/v1/evolution/ab-tests") is True
+        assert evolution_handler.can_handle("/api/v1/evolution/ab-tests/") is True
+        assert evolution_handler.can_handle("/api/v1/evolution/ab-tests/test-123") is True
+        assert evolution_handler.can_handle("/api/v1/evolution/ab-tests/gpt-4/active") is True
 
     def test_cannot_handle_non_evolution_paths(self, evolution_handler):
         """Test handler rejects non-evolution paths."""
-        assert evolution_handler.can_handle("/api/debates") is False
-        assert evolution_handler.can_handle("/api/admin/users") is False
-        assert evolution_handler.can_handle("/api/memory/tiers") is False
+        assert evolution_handler.can_handle("/api/v1/debates") is False
+        assert evolution_handler.can_handle("/api/v1/admin/users") is False
+        assert evolution_handler.can_handle("/api/v1/memory/tiers") is False
 
 
 # ===========================================================================
@@ -112,7 +112,7 @@ class TestModuleNotAvailable:
             handler_obj = EvolutionABTestingHandler({})
             http_handler = make_mock_handler()
 
-            result = handler_obj.handle("/api/evolution/ab-tests", {}, http_handler)
+            result = handler_obj.handle("/api/v1/evolution/ab-tests", {}, http_handler)
 
             assert result is not None
             assert get_status(result) == 503
@@ -127,7 +127,7 @@ class TestModuleNotAvailable:
             handler_obj = EvolutionABTestingHandler({})
             http_handler = make_mock_handler(body={}, method="POST")
 
-            result = handler_obj.handle_post("/api/evolution/ab-tests", {}, http_handler)
+            result = handler_obj.handle_post("/api/v1/evolution/ab-tests", {}, http_handler)
 
             assert result is not None
             assert get_status(result) == 503
@@ -140,7 +140,9 @@ class TestModuleNotAvailable:
             handler_obj = EvolutionABTestingHandler({})
             http_handler = make_mock_handler(method="DELETE")
 
-            result = handler_obj.handle_delete("/api/evolution/ab-tests/test-1", {}, http_handler)
+            result = handler_obj.handle_delete(
+                "/api/v1/evolution/ab-tests/test-1", {}, http_handler
+            )
 
             assert result is not None
             assert get_status(result) == 503
@@ -160,7 +162,7 @@ class TestPathValidation:
 
         # Path traversal attempt
         result = evolution_handler.handle(
-            "/api/evolution/ab-tests/../../../etc/passwd", {}, http_handler
+            "/api/v1/evolution/ab-tests/../../../etc/passwd", {}, http_handler
         )
 
         # Should return 400 for invalid path segment
@@ -172,7 +174,7 @@ class TestPathValidation:
         http_handler = make_mock_handler()
 
         # This should be handled by the list_tests endpoint
-        result = evolution_handler.handle("/api/evolution/ab-tests/", {}, http_handler)
+        result = evolution_handler.handle("/api/v1/evolution/ab-tests/", {}, http_handler)
 
         # Should return tests list (or error if not configured)
         assert result is not None
