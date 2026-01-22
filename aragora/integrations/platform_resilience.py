@@ -202,9 +202,9 @@ class PlatformResilience:
         for platform, ph in health.items():
             circuit_states[platform] = {
                 "status": ph.status.value,
-                "consecutive_failures": ph.consecutive_failures,
-                "total_requests": ph.total_requests,
-                "total_failures": ph.total_failures,
+                "consecutive_failures": ph.consecutive_failures,  # type: ignore[attr-defined]
+                "total_requests": ph.total_requests,  # type: ignore[attr-defined]
+                "total_failures": ph.total_failures,  # type: ignore[attr-defined]
             }
 
         return {
@@ -735,7 +735,7 @@ def record_platform_request(
     Integrates with the existing observability/metrics infrastructure.
     """
     try:
-        from aragora.observability.metrics.core import (
+        from aragora.observability.metrics.core import (  # type: ignore[attr-defined]
             counter_inc,
             histogram_observe,
         )

@@ -634,19 +634,19 @@ def parse_raw_email(raw_data: bytes) -> InboundEmail:
             elif content_type == "text/plain":
                 payload = part.get_payload(decode=True)
                 if payload:
-                    body_plain = payload.decode("utf-8", errors="replace")
+                    body_plain = payload.decode("utf-8", errors="replace")  # type: ignore[union-attr]
             elif content_type == "text/html":
                 payload = part.get_payload(decode=True)
                 if payload:
-                    body_html = payload.decode("utf-8", errors="replace")
+                    body_html = payload.decode("utf-8", errors="replace")  # type: ignore[union-attr]
     else:
         content_type = msg.get_content_type()
         payload = msg.get_payload(decode=True)
         if payload:
             if content_type == "text/html":
-                body_html = payload.decode("utf-8", errors="replace")
+                body_html = payload.decode("utf-8", errors="replace")  # type: ignore[union-attr]
             else:
-                body_plain = payload.decode("utf-8", errors="replace")
+                body_plain = payload.decode("utf-8", errors="replace")  # type: ignore[union-attr]
 
     # Parse From header
     from_header = msg.get("From", "")
@@ -967,7 +967,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         from aragora.debate.event_bus import get_event_bus
 
         event_bus = get_event_bus()
-        await event_bus.emit(
+        await event_bus.emit(  # type: ignore[arg-type]
             "user_input",
             {
                 "debate_id": debate_id,

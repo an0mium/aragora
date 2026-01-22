@@ -14,7 +14,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from aragora.integrations.webhooks import WebhookDispatcher, get_dispatcher as get_webhook_dispatcher
+from aragora.integrations.webhooks import (
+    WebhookDispatcher,
+    get_dispatcher as get_webhook_dispatcher,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +104,7 @@ class ReceiptWebhookNotifier:
     def _emit(self, payload: ReceiptWebhookPayload) -> None:
         """Emit a webhook event via the dispatcher."""
         try:
-            self.dispatcher.emit(payload.event_type, payload.to_dict())
+            self.dispatcher.emit(payload.event_type, payload.to_dict())  # type: ignore[attr-defined]
             logger.debug(
                 f"Emitted receipt webhook: {payload.event_type} "
                 f"for receipt {payload.receipt_id}"
@@ -136,9 +139,9 @@ class ReceiptWebhookNotifier:
         if agents:
             metadata["agents"] = agents
         if rounds is not None:
-            metadata["rounds"] = rounds
+            metadata["rounds"] = rounds  # type: ignore[assignment]
         if findings_count is not None:
-            metadata["findings_count"] = findings_count
+            metadata["findings_count"] = findings_count  # type: ignore[assignment]
 
         payload = ReceiptWebhookPayload(
             event_type="receipt_generated",
@@ -227,7 +230,7 @@ class ReceiptWebhookNotifier:
         """
         metadata = {"allow_download": allow_download}
         if expires_at:
-            metadata["expires_at"] = expires_at
+            metadata["expires_at"] = expires_at  # type: ignore[assignment]
 
         payload = ReceiptWebhookPayload(
             event_type="receipt_shared",

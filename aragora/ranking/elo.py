@@ -904,7 +904,7 @@ class EloSystem:
                     agent_rating = ratings.get(agent_name)
                     if agent_rating:
                         new_elo = agent_rating.elo + elo_change
-                        self._km_adapter.store_rating(
+                        self._km_adapter.store_rating(  # type: ignore[call-arg]
                             agent_name=agent_name,
                             elo=new_elo,
                             domain=domain,

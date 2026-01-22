@@ -71,8 +71,8 @@ try:
     RESILIENCE_AVAILABLE = True
 except ImportError:
     RESILIENCE_AVAILABLE = False
-    CircuitBreaker = None  # type: ignore[misc]
-    CircuitOpenError = Exception  # type: ignore[misc]
+    CircuitBreaker = None  # type: ignore[misc,assignment]
+    CircuitOpenError = Exception  # type: ignore[misc,assignment]
     get_circuit_breaker = None
     logger.debug("resilience module not available, circuit breaker disabled")
 
@@ -398,7 +398,7 @@ async def acquire_connection_resilient(
             acquire_start = time.time()
 
             # asyncpg's acquire() supports timeout parameter
-            async with asyncio.timeout(timeout):
+            async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
                 async with pool.acquire() as conn:
                     # Track successful acquisition
                     wait_time = time.time() - acquire_start

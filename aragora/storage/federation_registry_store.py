@@ -898,7 +898,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
                         updated_at = NOW()
                     WHERE region_id = $3 AND workspace_id = $4
                 """
-                params = (now, nodes_synced, region_id, ws_id)
+                params = (now, nodes_synced, region_id, ws_id)  # type: ignore[assignment]
         else:  # pull
             if error:
                 sql = """
@@ -917,7 +917,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
                         updated_at = NOW()
                     WHERE region_id = $3 AND workspace_id = $4
                 """
-                params = (now, nodes_synced, region_id, ws_id)
+                params = (now, nodes_synced, region_id, ws_id)  # type: ignore[assignment]
 
         async with self._pool.acquire() as conn:
             await conn.execute(sql, *params)

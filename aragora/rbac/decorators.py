@@ -129,7 +129,7 @@ def require_permission(
 
             # Check permission
             perm_checker = checker or get_permission_checker()
-            decision = perm_checker.check_permission(context, permission_key, resource_id)
+            decision = perm_checker.check_permission(context, permission_key, resource_id)  # type: ignore[arg-type]
 
             if not decision.allowed:
                 if on_denied:
@@ -153,7 +153,7 @@ def require_permission(
 
             # Check permission
             perm_checker = checker or get_permission_checker()
-            decision = perm_checker.check_permission(context, permission_key, resource_id)
+            decision = perm_checker.check_permission(context, permission_key, resource_id)  # type: ignore[arg-type]
 
             if not decision.allowed:
                 if on_denied:

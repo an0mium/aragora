@@ -1975,9 +1975,9 @@ class PostgresUserStore:
     ) -> Optional[OrganizationInvitation]:
         """Get pending invitation asynchronously."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
+            row = await conn.fetchrow(  # type: ignore[attr-defined]
                 f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
-                   WHERE org_id = $1 AND email = $2 AND status = 'pending'""",  # type: ignore[attr-defined]
+                   WHERE org_id = $1 AND email = $2 AND status = 'pending'""",
                 org_id,
                 email,
             )
@@ -2011,9 +2011,9 @@ class PostgresUserStore:
     ) -> list[OrganizationInvitation]:
         """Get all pending invitations asynchronously."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
+            rows = await conn.fetch(  # type: ignore[attr-defined]
                 f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
-                   WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",  # type: ignore[attr-defined]
+                   WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",
                 email,
             )
             return [self._row_to_invitation(row) for row in rows]
@@ -2232,18 +2232,18 @@ class PostgresUserStore:
                 total_row = await conn.fetchrow(
                     "SELECT COUNT(*) FROM organizations WHERE tier = $1", tier_filter
                 )
-                rows = await conn.fetch(
+                rows = await conn.fetch(  # type: ignore[attr-defined]
                     f"""SELECT {self._ORG_COLUMNS} FROM organizations WHERE tier = $1
-                       ORDER BY created_at DESC LIMIT $2 OFFSET $3""",  # type: ignore[attr-defined]
+                       ORDER BY created_at DESC LIMIT $2 OFFSET $3""",
                     tier_filter,
                     limit,
                     offset,
                 )
             else:
                 total_row = await conn.fetchrow("SELECT COUNT(*) FROM organizations")
-                rows = await conn.fetch(
+                rows = await conn.fetch(  # type: ignore[attr-defined]
                     f"""SELECT {self._ORG_COLUMNS} FROM organizations
-                       ORDER BY created_at DESC LIMIT $1 OFFSET $2""",  # type: ignore[attr-defined]
+                       ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
                     limit,
                     offset,
                 )

@@ -387,7 +387,7 @@ class BeliefNetwork:
             return []
 
         try:
-            return self._km_adapter.search_beliefs(
+            return self._km_adapter.search_beliefs(  # type: ignore[attr-defined]
                 query=topic,
                 limit=limit,
                 min_confidence=min_confidence,
@@ -417,7 +417,7 @@ class BeliefNetwork:
             return []
 
         try:
-            return self._km_adapter.search_cruxes(
+            return self._km_adapter.search_cruxes(  # type: ignore[attr-defined]
                 query=topic,
                 limit=limit,
             )
@@ -639,7 +639,7 @@ class BeliefNetwork:
                 confidence = max(node.posterior.p_true, node.posterior.p_false)
                 if confidence >= self._km_min_confidence:
                     try:
-                        self._km_adapter.store_belief(
+                        self._km_adapter.store_belief(  # type: ignore[attr-defined]
                             belief_id=node.node_id,
                             claim_id=node.claim_id,
                             statement=node.claim_statement,
