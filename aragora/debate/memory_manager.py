@@ -487,7 +487,7 @@ class MemoryManager:
                     }
                 )
 
-            self.event_emitter.emit(
+            self.event_emitter.emit(  # type: ignore[unused-coroutine]
                 StreamEvent(
                     type=StreamEventType.EVIDENCE_FOUND,
                     loop_id=self.loop_id,
@@ -620,7 +620,7 @@ class MemoryManager:
             if self.event_emitter:
                 from aragora.server.stream import StreamEvent, StreamEventType
 
-                self.event_emitter.emit(
+                self.event_emitter.emit(  # type: ignore[unused-coroutine]
                     StreamEvent(
                         type=StreamEventType.MEMORY_RECALL,
                         loop_id=self.loop_id,

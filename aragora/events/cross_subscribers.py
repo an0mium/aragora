@@ -856,7 +856,7 @@ class CrossSubscriberManager:
                     "node_type": node_type,
                     "workspace_id": workspace_id,
                 }
-                memory.store(  # type: ignore[call-arg]
+                memory.store(  # type: ignore[call-arg,unused-coroutine]
                     content=memory_content,
                     importance=0.6,  # Default importance for knowledge references
                     metadata=metadata,
@@ -938,7 +938,7 @@ class CrossSubscriberManager:
                     "confidence": confidence,
                     "type": "evidence_insight",
                 }
-                memory.store(  # type: ignore[call-arg]
+                memory.store(  # type: ignore[call-arg,unused-coroutine]
                     content=insight_content,
                     importance=confidence,
                     metadata=metadata,
@@ -1071,7 +1071,7 @@ class CrossSubscriberManager:
 
             # Use ContinuumAdapter to convert and store
             adapter = ContinuumAdapter()  # type: ignore[call-arg]
-            adapter.sync_memory_to_mound(  # type: ignore[call-arg]
+            adapter.sync_memory_to_mound(  # type: ignore[call-arg,unused-coroutine]
                 content=content,
                 importance=importance,
                 tier=tier,

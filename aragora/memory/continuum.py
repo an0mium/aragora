@@ -505,7 +505,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             try:
                 from aragora.events.types import StreamEvent, StreamEventType
 
-                self.event_emitter.emit(
+                self.event_emitter.emit(  # type: ignore[unused-coroutine]
                     StreamEvent(
                         type=StreamEventType.MEMORY_STORED,
                         data={
@@ -997,7 +997,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 for e in entries:
                     tier_counts[e.tier.value] = tier_counts.get(e.tier.value, 0) + 1
 
-                self.event_emitter.emit(
+                self.event_emitter.emit(  # type: ignore[unused-coroutine]
                     StreamEvent(
                         type=StreamEventType.MEMORY_RECALL,
                         data={
@@ -1017,7 +1017,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 from aragora.events.types import StreamEventType as CrossEventType
 
                 for entry in entries:
-                    self.event_emitter.emit(
+                    self.event_emitter.emit(  # type: ignore[unused-coroutine]
                         CrossEvent(
                             type=CrossEventType.MEMORY_RETRIEVED,
                             data={

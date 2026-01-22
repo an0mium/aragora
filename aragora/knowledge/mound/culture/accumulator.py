@@ -231,7 +231,7 @@ class CultureAccumulator:
         try:
             from aragora.events.types import StreamEvent, StreamEventType
 
-            self._mound.event_emitter.emit(
+            self._mound.event_emitter.emit(  # type: ignore[unused-coroutine]
                 StreamEvent(
                     type=StreamEventType.MOUND_UPDATED,
                     data={
@@ -473,9 +473,9 @@ class CultureAccumulator:
                     last_observed_at=datetime.now(),
                     contributing_debates=[observation.debate_id],
                 )
-                self._patterns[workspace_id][CulturePatternType.DEBATE_DYNAMICS][
-                    pattern_key
-                ] = pattern
+                self._patterns[workspace_id][CulturePatternType.DEBATE_DYNAMICS][pattern_key] = (
+                    pattern
+                )
                 patterns.append(pattern)
 
         return patterns

@@ -32,6 +32,8 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: aragora
+      # Allow 45s for graceful shutdown: 5s preStop + 30s server shutdown + 10s buffer
+      terminationGracePeriodSeconds: 45
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -122,6 +124,17 @@ spec:
             capabilities:
               drop:
                 - ALL
+
+          # Graceful shutdown - allow in-flight requests to complete
+          lifecycle:
+            preStop:
+              exec:
+                # Give time for load balancer to drain connections before SIGTERM
+                # Server has 30s graceful shutdown sequence built-in
+                command:
+                  - /bin/sh
+                  - -c
+                  - "sleep 5"
 
         # Fluent Bit sidecar for log aggregation
         - name: fluent-bit

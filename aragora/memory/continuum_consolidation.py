@@ -40,7 +40,7 @@ def emit_tier_event(
             else StreamEventType.MEMORY_TIER_DEMOTION
         )
 
-        cms.event_emitter.emit(
+        cms.event_emitter.emit(  # type: ignore[unused-coroutine]
             StreamEvent(
                 type=stream_type,
                 data={
