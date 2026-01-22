@@ -117,6 +117,11 @@ class ResponseHelpersMixin(_HTTPHandlerProtocol if TYPE_CHECKING else object):
         # Security: Validate origin against centralized allowlist
         request_origin = self.headers.get("Origin", "")
 
+        # Debug logging
+        logger.debug(
+            f"[CORS] Origin header: {repr(request_origin)}, is_allowed: {cors_config.is_origin_allowed(request_origin)}"
+        )
+
         if cors_config.is_origin_allowed(request_origin):
             self.send_header("Access-Control-Allow-Origin", request_origin)
             # Allow credentials (cookies, authorization headers) for authenticated requests
