@@ -125,12 +125,10 @@ class AwsKmsProvider(KmsProvider):
         if self._client is None:
             try:
                 import boto3
+
                 self._client = boto3.client("kms", region_name=self.region)
             except ImportError:
-                raise ImportError(
-                    "boto3 is required for AWS KMS. "
-                    "Install with: pip install boto3"
-                )
+                raise ImportError("boto3 is required for AWS KMS. Install with: pip install boto3")
         return self._client
 
     async def get_encryption_key(self, key_id: str) -> bytes:
@@ -219,7 +217,6 @@ class AzureKeyVaultProvider(KmsProvider):
             try:
                 from azure.identity import DefaultAzureCredential
                 from azure.keyvault.keys import KeyClient
-                from azure.keyvault.keys.crypto import CryptographyClient
 
                 credential = DefaultAzureCredential()
                 self._client = KeyClient(
@@ -336,6 +333,7 @@ class GcpKmsProvider(KmsProvider):
         if self._client is None:
             try:
                 from google.cloud import kms
+
                 self._client = kms.KeyManagementServiceClient()
             except ImportError:
                 raise ImportError(
@@ -392,9 +390,7 @@ class GcpKmsProvider(KmsProvider):
         """Get metadata about a GCP KMS key."""
         client = self._get_client()
 
-        response = client.get_crypto_key(
-            request={"name": self._get_key_name(key_id)}
-        )
+        response = client.get_crypto_key(request={"name": self._get_key_name(key_id)})
 
         return KmsKeyMetadata(
             key_id=response.name.split("/")[-1],
@@ -429,6 +425,7 @@ class LocalKmsProvider(KmsProvider):
         """Return the local master key."""
         if self._master_key is None:
             import secrets
+
             self._master_key = secrets.token_bytes(32)
             logger.warning(
                 "No ARAGORA_ENCRYPTION_KEY set - generated ephemeral key. "

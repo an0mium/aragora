@@ -418,7 +418,10 @@ class TestCommandInjectionPrevention:
 
         # Test that safe command works
         result = subprocess.run(
-            safe_cmd, capture_output=True, text=True, shell=False  # Explicit shell=False
+            safe_cmd,
+            capture_output=True,
+            text=True,
+            shell=False,  # Explicit shell=False
         )
         assert result.returncode == 0
         assert "hello world" in result.stdout

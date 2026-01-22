@@ -495,8 +495,7 @@ def rotate_and_reencrypt_store(
         result.total_records = len(records)
 
         logger.info(
-            f"Starting key rotation re-encryption for {store_name}: "
-            f"{result.total_records} records"
+            f"Starting key rotation re-encryption for {store_name}: {result.total_records} records"
         )
 
         for record in records:

@@ -23,6 +23,7 @@ class TestEncryptionServiceLifecycle:
         """Service should initialize with ARAGORA_ENCRYPTION_KEY."""
         # Reset singleton
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.security.encryption import get_encryption_service
@@ -34,6 +35,7 @@ class TestEncryptionServiceLifecycle:
     def test_service_generates_ephemeral_key_without_env(self):
         """Service should generate ephemeral key when no env key set."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         # Temporarily remove env key
@@ -53,6 +55,7 @@ class TestEncryptionServiceLifecycle:
     def test_key_rotation(self):
         """Key rotation should create new version while keeping old for decryption."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.security.encryption import EncryptionService
@@ -80,6 +83,7 @@ class TestEncryptionServiceLifecycle:
     def test_encryption_with_associated_data(self):
         """AAD should prevent ciphertext from being used with wrong context."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.security.encryption import EncryptionService
@@ -105,6 +109,7 @@ class TestFieldLevelEncryption:
     def test_encrypt_fields_marks_encrypted(self):
         """Encrypted fields should be marked with _encrypted flag."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.security.encryption import EncryptionService
@@ -129,6 +134,7 @@ class TestFieldLevelEncryption:
     def test_decrypt_fields_restores_values(self):
         """Decrypted fields should restore original values."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.security.encryption import EncryptionService
@@ -150,6 +156,7 @@ class TestFieldLevelEncryption:
     def test_encrypt_fields_with_aad(self):
         """Field encryption with AAD should bind to record ID."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.security.encryption import EncryptionService
@@ -177,8 +184,14 @@ class TestEncryptedFieldsUtility:
         from aragora.storage.encrypted_fields import SENSITIVE_FIELDS
 
         expected = {
-            "access_token", "refresh_token", "api_key", "secret",
-            "password", "auth_token", "bot_token", "webhook_url",
+            "access_token",
+            "refresh_token",
+            "api_key",
+            "secret",
+            "password",
+            "auth_token",
+            "bot_token",
+            "webhook_url",
         }
         for field in expected:
             assert field in SENSITIVE_FIELDS
@@ -187,6 +200,7 @@ class TestEncryptedFieldsUtility:
         """encrypt_sensitive should auto-detect sensitive fields."""
         # Reset encryption service
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import encrypt_sensitive
@@ -213,6 +227,7 @@ class TestEncryptedFieldsUtility:
     def test_decrypt_sensitive_restores_values(self):
         """decrypt_sensitive should restore original values."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import encrypt_sensitive, decrypt_sensitive
@@ -231,6 +246,7 @@ class TestEncryptedFieldsUtility:
     def test_handles_none_values(self):
         """None values should not be encrypted."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import encrypt_sensitive
@@ -253,6 +269,7 @@ class TestEncryptedFieldsUtility:
     def test_is_field_encrypted_helper(self):
         """is_field_encrypted should detect encrypted fields."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import (
@@ -270,6 +287,7 @@ class TestEncryptedFieldsUtility:
     def test_get_encrypted_field_names_helper(self):
         """get_encrypted_field_names should list encrypted fields."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import (
@@ -292,6 +310,7 @@ class TestEncryptionEdgeCases:
     def test_unicode_data(self):
         """Unicode data should encrypt/decrypt correctly."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import encrypt_sensitive, decrypt_sensitive
@@ -305,6 +324,7 @@ class TestEncryptionEdgeCases:
     def test_special_characters(self):
         """Special characters should encrypt/decrypt correctly."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import encrypt_sensitive, decrypt_sensitive
@@ -318,6 +338,7 @@ class TestEncryptionEdgeCases:
     def test_large_data(self):
         """Large data should encrypt/decrypt correctly."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import encrypt_sensitive, decrypt_sensitive
@@ -334,6 +355,7 @@ class TestEncryptionEdgeCases:
     def test_mixed_encrypted_unencrypted(self):
         """Mix of encrypted and unencrypted fields should work."""
         import aragora.security.encryption as enc_module
+
         enc_module._encryption_service = None
 
         from aragora.storage.encrypted_fields import encrypt_sensitive, decrypt_sensitive
@@ -399,7 +421,9 @@ class TestEncryptionEnforcement:
 
         # Mock crypto unavailable + encryption required
         with patch("aragora.storage.integration_store.CRYPTO_AVAILABLE", False):
-            with patch("aragora.storage.integration_store.is_encryption_required", return_value=True):
+            with patch(
+                "aragora.storage.integration_store.is_encryption_required", return_value=True
+            ):
                 with pytest.raises(EncryptionError) as exc_info:
                     _encrypt_settings(settings, "user1", "slack")
 
@@ -416,7 +440,9 @@ class TestEncryptionEnforcement:
         # Mock encryption service failure + encryption required
         with patch("aragora.storage.integration_store.get_encryption_service") as mock_svc:
             mock_svc.side_effect = RuntimeError("Key not found")
-            with patch("aragora.storage.integration_store.is_encryption_required", return_value=True):
+            with patch(
+                "aragora.storage.integration_store.is_encryption_required", return_value=True
+            ):
                 with pytest.raises(EncryptionError) as exc_info:
                     _encrypt_settings(settings, "user1", "slack")
 
@@ -431,7 +457,9 @@ class TestEncryptionEnforcement:
         # Mock encryption service failure + encryption NOT required (default)
         with patch("aragora.storage.integration_store.get_encryption_service") as mock_svc:
             mock_svc.side_effect = RuntimeError("Key not found")
-            with patch("aragora.storage.integration_store.is_encryption_required", return_value=False):
+            with patch(
+                "aragora.storage.integration_store.is_encryption_required", return_value=False
+            ):
                 result = _encrypt_settings(settings, "user1", "slack")
 
                 # Should return original plaintext data
@@ -446,7 +474,9 @@ class TestEncryptionEnforcement:
 
         # Mock crypto unavailable + encryption required
         with patch("aragora.storage.gmail_token_store.CRYPTO_AVAILABLE", False):
-            with patch("aragora.storage.gmail_token_store.is_encryption_required", return_value=True):
+            with patch(
+                "aragora.storage.gmail_token_store.is_encryption_required", return_value=True
+            ):
                 with pytest.raises(EncryptionError) as exc_info:
                     _encrypt_token(token, "user123")
 
@@ -461,7 +491,9 @@ class TestEncryptionEnforcement:
 
         # Mock crypto unavailable + encryption required
         with patch("aragora.connectors.enterprise.sync_store.CRYPTO_AVAILABLE", False):
-            with patch("aragora.connectors.enterprise.sync_store.is_encryption_required", return_value=True):
+            with patch(
+                "aragora.connectors.enterprise.sync_store.is_encryption_required", return_value=True
+            ):
                 with pytest.raises(EncryptionError) as exc_info:
                     _encrypt_config(config, use_encryption=True, connector_id="salesforce")
 
