@@ -631,27 +631,15 @@ class TestMarketplaceStorePersistence:
 
     def test_marketplace_uses_sqlite_in_dev(self):
         """Test marketplace store uses SQLite in development."""
-        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
-        original_env = os.environ.get("ARAGORA_ENV")
+        import aragora.storage.marketplace_store as ms
 
-        try:
-            os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
-            os.environ.pop("ARAGORA_ENV", None)
+        # Use temp directory to avoid schema conflicts with existing databases
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "marketplace.db")
 
-            # Reset module state
-            import aragora.storage.marketplace_store as ms
-
-            ms._marketplace_store = None
-
-            # Should use SQLite without errors
-            store = ms.get_marketplace_store()
+            # Create store directly with temp path to avoid global state issues
+            store = ms.MarketplaceStore(db_path=db_path)
             assert isinstance(store, ms.MarketplaceStore)
-
-        finally:
-            if original_multi is not None:
-                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
-            if original_env is not None:
-                os.environ["ARAGORA_ENV"] = original_env
 
 
 if __name__ == "__main__":

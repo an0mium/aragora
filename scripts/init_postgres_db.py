@@ -193,6 +193,11 @@ async def main():
         help="Use consolidated schema file instead of individual stores",
     )
     parser.add_argument(
+        "--alembic",
+        action="store_true",
+        help="Run Alembic migrations after initialization (requires alembic)",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
