@@ -70,6 +70,27 @@ dev = [
     "mutmut>=3.0,<4.0",
     "pre-commit>=3.6,<4.0",  # Git hooks for code quality
 ]
+# Test dependencies - install with: pip install -e ".[test]"
+# This includes all optional dependencies needed for full test coverage
+test = [
+    "aragora[dev]",  # Include dev dependencies
+    # Database and persistence
+    "aiosqlite>=0.19,<1.0",  # Async SQLite for persistence tests
+    "supabase>=2.0,<3.0",  # Supabase client tests
+    "redis>=5.0.0,<8.0",  # Redis store tests
+    # Auth and security
+    "PyJWT>=2.8,<3.0",  # JWT verification tests
+    # Transcription and media
+    "yt-dlp>=2024.1,<2027.0",  # YouTube transcription tests
+    "tiktoken>=0.5,<1.0",  # Token counter tests
+    "openai>=1.0,<2.0",  # Whisper backend tests
+    # Integrations
+    "twilio>=8.0,<10.0",  # Twilio voice tests
+    "mcp>=1.0,<2.0",  # MCP server tests
+    "langchain>=0.1,<1.0",  # LangChain integration tests
+    # Document processing
+    "weaviate-client>=4.0,<5.0",  # Weaviate indexing tests
+]
 monitoring = [
     "prometheus-client>=0.19,<1.0",
     "sentry-sdk>=2.0,<3.0",
@@ -144,7 +165,7 @@ control-plane = [
     "networkx>=3.0,<4.0",  # DAG workflow representation
 ]
 all = [
-    "aragora[dev,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,rlm]",
+    "aragora[test,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,rlm,postgres,observability]",
 ]
 
 [project.scripts]

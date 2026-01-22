@@ -526,13 +526,13 @@ class TestSyncJobRecovery:
                 """
                 INSERT INTO connectors
                 (id, connector_type, name, config_json, status, created_at, updated_at)
-                VALUES ('c1', 'github', 'Test', '{}', 'active', '2024-01-01T00:00:00', '2024-01-01T00:00:00')
+                VALUES ('c1', 'github', 'Test', '{}', 'active', '2024-01-01T00:00:00+00:00', '2024-01-01T00:00:00+00:00')
                 """
             )
             await conn.execute(
                 """
                 INSERT INTO sync_jobs (id, connector_id, status, started_at)
-                VALUES ('job-1', 'c1', 'running', '2024-01-01T00:00:00')
+                VALUES ('job-1', 'c1', 'running', '2024-01-01T00:00:00+00:00')
                 """
             )
             await conn.commit()
