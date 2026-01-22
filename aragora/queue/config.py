@@ -56,6 +56,9 @@ class QueueConfig:
     worker_block_ms: int = field(
         default_factory=lambda: int(os.getenv("ARAGORA_QUEUE_WORKER_BLOCK_MS", "5000"))
     )
+    poll_interval_seconds: float = field(
+        default_factory=lambda: float(os.getenv("ARAGORA_QUEUE_POLL_INTERVAL", "1.0"))
+    )
 
     # Consumer group settings
     consumer_group: str = field(

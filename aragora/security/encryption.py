@@ -467,6 +467,25 @@ class EncryptionService:
         """Decrypt and return as string."""
         return self.decrypt(encrypted, associated_data).decode("utf-8")
 
+    def decrypt_value(
+        self,
+        encrypted: Union[EncryptedData, str, bytes],
+        associated_data: Optional[Union[str, bytes]] = None,
+    ) -> str:
+        """Decrypt a stored value (alias for decrypt_string).
+
+        This method is used by key rotation to decrypt stored encrypted values
+        that are stored as base64 strings in the database.
+
+        Args:
+            encrypted: Encrypted data (EncryptedData, base64 string, or bytes)
+            associated_data: Optional AAD for verification
+
+        Returns:
+            Decrypted plaintext string
+        """
+        return self.decrypt_string(encrypted, associated_data)
+
     def encrypt_fields(
         self,
         record: dict[str, Any],
@@ -624,6 +643,16 @@ class EncryptionService:
     def get_active_key_id(self) -> Optional[str]:
         """Get the active key ID."""
         return self._active_key_id
+
+    def get_active_key(self) -> Optional[EncryptionKey]:
+        """Get the active encryption key (with metadata, for rotation checks).
+
+        Returns:
+            The active EncryptionKey, or None if no key is active.
+        """
+        if self._active_key_id is None:
+            return None
+        return self._keys.get(self._active_key_id)
 
 
 # Singleton service instance

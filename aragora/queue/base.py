@@ -132,13 +132,21 @@ class JobQueue(ABC):
     """
 
     @abstractmethod
-    async def enqueue(self, job: Job, priority: int = 0) -> str:
+    async def enqueue(
+        self,
+        job: Job,
+        priority: int = 0,
+        queue_name: Optional[str] = None,
+        delay_seconds: float = 0,
+    ) -> str:
         """
         Add a job to the queue.
 
         Args:
             job: The job to enqueue
             priority: Job priority (higher = more important)
+            queue_name: Optional queue name for multi-queue systems
+            delay_seconds: Delay before job becomes available
 
         Returns:
             The job ID
@@ -146,13 +154,19 @@ class JobQueue(ABC):
         pass
 
     @abstractmethod
-    async def dequeue(self, worker_id: str, timeout_ms: int = 5000) -> Optional[Job]:
+    async def dequeue(
+        self,
+        worker_id: str,
+        timeout_ms: int = 5000,
+        queue_name: Optional[str] = None,
+    ) -> Optional[Job]:
         """
         Get the next job from the queue.
 
         Args:
             worker_id: ID of the worker requesting work
             timeout_ms: How long to block waiting for a job
+            queue_name: Optional queue name for multi-queue workers
 
         Returns:
             A job if available, None otherwise
@@ -239,3 +253,45 @@ class JobQueue(ABC):
     async def close(self) -> None:
         """Close the queue connection."""
         pass
+
+    async def complete(
+        self,
+        job_id: str,
+        result: Optional[Dict[str, Any]] = None,
+        status: Optional["JobStatus"] = None,
+    ) -> bool:
+        """
+        Mark a job as completed successfully.
+
+        Default implementation uses ack(). Override for custom completion logic.
+
+        Args:
+            job_id: The job ID to complete
+            result: Optional result data to store
+            status: Optional status to set (defaults to COMPLETED)
+
+        Returns:
+            True if completed, False if job not found
+        """
+        return await self.ack(job_id)
+
+    async def fail(
+        self,
+        job_id: str,
+        error: str,
+        requeue: bool = False,
+    ) -> bool:
+        """
+        Mark a job as failed.
+
+        Default implementation uses nack(). Override for custom failure logic.
+
+        Args:
+            job_id: The job ID that failed
+            error: Error message describing the failure
+            requeue: Whether to requeue for retry
+
+        Returns:
+            True if processed, False if job not found
+        """
+        return await self.nack(job_id, requeue=requeue)
