@@ -683,19 +683,6 @@ export default function PolicyPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/">
-              <AsciiBannerCompact connected={true} />
-            </Link>
-            <div className="flex items-center gap-4">
-              <BackendSelector />
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-
         <div className="container mx-auto px-4 py-8">
           {/* Title */}
           <div className="flex items-center justify-between mb-8">

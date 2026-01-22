@@ -42,62 +42,6 @@ export default function QualityPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/">
-              <AsciiBannerCompact connected={true} />
-            </Link>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [DASHBOARD]
-              </Link>
-              <Link
-                href="/analytics"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [ANALYTICS]
-              </Link>
-              <Link
-                href="/insights"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [INSIGHTS]
-              </Link>
-              <Link
-                href="/leaderboard"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [RANKS]
-              </Link>
-              <Link
-                href="/scheduler"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [SCHEDULER]
-              </Link>
-              <Link
-                href="/selection"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [SELECTION]
-              </Link>
-              <Link
-                href="/ml"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [ML]
-              </Link>
-              <BackendSelector compact />
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-
-        {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
             <h1 className="text-2xl font-mono text-acid-green mb-2">

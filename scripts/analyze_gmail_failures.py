@@ -375,11 +375,23 @@ async def search_failure_emails(
 
     while total_fetched < max_results:
         batch_size = min(100, max_results - total_fetched)
-        messages, page_token = await connector.list_messages(
-            query=query,
-            max_results=batch_size,
-            page_token=page_token,
-        )
+        try:
+            messages, page_token = await connector.list_messages(
+                query=query,
+                max_results=batch_size,
+                page_token=page_token,
+            )
+        except Exception as e:
+            error_msg = str(e)
+            print(f"\n  ERROR listing messages: {e}")
+            if "403" in error_msg:
+                print("\n  403 Forbidden when listing messages. Possible causes:")
+                print("  1. Gmail API not enabled in Google Cloud Console")
+                print("  2. OAuth consent screen in 'Testing' mode without you as test user")
+                print("  3. The authenticated account doesn't have Gmail access")
+                print("\n  Try enabling Gmail API at:")
+                print("     https://console.cloud.google.com/apis/library/gmail.googleapis.com")
+            return []
 
         if not messages:
             break
@@ -663,6 +675,24 @@ async def main():
             if not success:
                 print(f"Skipping {account} due to OAuth failure")
                 continue
+
+        # Test API access first
+        print(f"\nTesting Gmail API access for {account}...")
+        try:
+            profile = await connector.get_user_info()
+            print(f"  Connected as: {profile.get('emailAddress', 'unknown')}")
+        except Exception as e:
+            error_msg = str(e)
+            print(f"\n  ERROR: Gmail API access failed: {e}")
+            if "403" in error_msg:
+                print("\n  Possible causes of 403 Forbidden:")
+                print("  1. Gmail API not enabled - Enable at:")
+                print("     https://console.cloud.google.com/apis/library/gmail.googleapis.com")
+                print("  2. OAuth consent screen in 'Testing' mode - Add yourself as test user:")
+                print("     https://console.cloud.google.com/apis/credentials/consent")
+                print("  3. Google Workspace admin policy blocking the app")
+            print(f"\nSkipping {account}")
+            continue
 
         # Search for failures
         print(f"\nSearching {account} for Aragora failure emails...")

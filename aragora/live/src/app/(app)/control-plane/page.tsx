@@ -301,49 +301,15 @@ export default function ControlPlanePage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/">
-              <AsciiBannerCompact connected={true} />
-            </Link>
-            <div className="flex items-center gap-4">
-              {usingMockData && (
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-900/20 border border-yellow-600/30 rounded text-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                  <span className="font-mono text-yellow-400">DEMO MODE</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                {wsConnected ? (
-                  <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" title="WebSocket connected" />
-                ) : (
-                  <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-success animate-pulse' : 'bg-text-muted'}`} />
-                )}
-                <button
-                  onClick={() => {
-                    if (wsConnected) {
-                      setUseWebSocket(!useWebSocket);
-                    } else {
-                      setAutoRefresh(!autoRefresh);
-                    }
-                  }}
-                  className="text-xs font-mono text-text-muted hover:text-text transition-colors"
-                >
-                  {wsConnected ? 'WS LIVE' : autoRefresh ? 'POLLING' : 'PAUSED'}
-                </button>
-              </div>
-              <Link
-                href="/admin"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-              >
-                [ADMIN]
-              </Link>
-              <BackendSelector compact />
-              <ThemeToggle />
+        {/* Demo Mode Indicator */}
+        {usingMockData && (
+          <div className="bg-yellow-900/20 border-b border-yellow-600/30 py-2">
+            <div className="container mx-auto px-4 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+              <span className="font-mono text-xs text-yellow-400">DEMO MODE</span>
             </div>
           </div>
-        </header>
+        )}
 
         {/* Sub Navigation */}
         <div className="border-b border-acid-green/20 bg-surface/40">

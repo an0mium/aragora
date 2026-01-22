@@ -525,7 +525,7 @@ class RLMHandler(BaseHandler):
 
             # Check training support
             try:
-                from aragora.rlm.training.trainer import RLMTrainer  # noqa: F401
+                from aragora.rlm.training.trainer import RLMTrainer  # type: ignore[attr-defined]  # noqa: F401
 
                 features.append("training")
             except ImportError:
