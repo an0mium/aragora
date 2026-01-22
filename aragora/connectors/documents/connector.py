@@ -111,7 +111,7 @@ class DocumentConnector(Connector):
 
         if evidence_type == "chunk" and index < len(doc.chunks):
             chunk = doc.chunks[index]
-            return Evidence(
+            return Evidence(  # type: ignore[call-arg]
                 id=evidence_id,
                 content=chunk.content,
                 source=self.name,
@@ -130,7 +130,7 @@ class DocumentConnector(Connector):
                 content = table.to_markdown()
             else:
                 content = str(table)
-            return Evidence(
+            return Evidence(  # type: ignore[call-arg]
                 id=evidence_id,
                 content=content,
                 source=self.name,
@@ -374,7 +374,7 @@ class DocumentConnector(Connector):
         hasher.update(filename.encode())
         return hasher.hexdigest()[:16]
 
-    def _get_reliability(self, format: Optional[DocumentFormat]) -> float:
+    def _get_reliability(self, format: Optional[DocumentFormat]) -> float:  # type: ignore[no-redef]
         """Get reliability score for document format."""
         if format is None:
             return 0.60

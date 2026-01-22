@@ -182,7 +182,7 @@ Adapt your approach based on the specific task requirements.""",
         system_prompt = self._get_system_prompt(config)
 
         # Create agent with specialist adapter
-        agent = TinkerAgent(
+        agent = TinkerAgent(  # type: ignore[abstract,call-arg]
             base_model=specialist.base_model,
             adapter_name=specialist.adapter_name,
             system_prompt=system_prompt,

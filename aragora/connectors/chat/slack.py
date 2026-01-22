@@ -177,6 +177,98 @@ class SlackConnector(ChatPlatformConnector):
         headers.update(build_trace_headers())
         return headers
 
+    async def _slack_api_request(
+        self,
+        endpoint: str,
+        payload: dict[str, Any],
+        operation: str = "api_call",
+    ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+        """
+        Make a Slack API request with circuit breaker, retry, and timeout.
+
+        Centralizes the resilience pattern for all Slack API calls.
+
+        Args:
+            endpoint: API endpoint (e.g., "chat.postMessage")
+            payload: JSON payload to send
+            operation: Operation name for logging
+
+        Returns:
+            Tuple of (success, response_data, error_message)
+        """
+        if not HTTPX_AVAILABLE:
+            return False, None, "httpx not available"
+
+        # Check circuit breaker
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            remaining = self._circuit_breaker.cooldown_remaining()
+            return False, None, f"Circuit breaker open (retry in {remaining:.0f}s)"
+
+        last_error: Optional[str] = None
+        url = f"{SLACK_API_BASE}/{endpoint}"
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.post(
+                        url,
+                        headers=self._get_headers(),
+                        json=payload,
+                    )
+                    data = response.json()
+
+                    if data.get("ok"):
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_success()
+                        return True, data, None
+                    else:
+                        error = data.get("error", "Unknown error")
+                        last_error = error
+
+                        # Check if retryable
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                logger.warning(
+                                    f"Slack {operation} retryable error: {error} "
+                                    f"(attempt {attempt + 1}/{self._max_retries})"
+                                )
+                                await _exponential_backoff(attempt)
+                                continue
+
+                        # Non-retryable error
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return False, data, error
+
+            except httpx.TimeoutException:
+                last_error = f"Request timeout after {self._timeout}s"
+                if attempt < self._max_retries - 1:
+                    logger.warning(
+                        f"Slack {operation} timeout (attempt {attempt + 1}/{self._max_retries})"
+                    )
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except httpx.ConnectError as e:
+                last_error = f"Connection error: {e}"
+                if attempt < self._max_retries - 1:
+                    logger.warning(
+                        f"Slack {operation} connection error (attempt {attempt + 1}/{self._max_retries})"
+                    )
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                last_error = str(e)
+                logger.error(f"Slack {operation} error: {e}")
+                # Don't retry on unexpected errors
+                break
+
+        # All retries exhausted
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return False, None, last_error or "Unknown error"
+
     async def send_message(
         self,
         channel_id: str,

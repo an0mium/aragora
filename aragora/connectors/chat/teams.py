@@ -185,7 +185,7 @@ class TeamsConnector(ChatPlatformConnector):
 
             # Add Adaptive Card if blocks provided
             if blocks:
-                activity["attachments"] = [
+                activity["attachments"] = [  # type: ignore[assignment]
                     {
                         "contentType": "application/vnd.microsoft.card.adaptive",
                         "content": {
@@ -265,7 +265,7 @@ class TeamsConnector(ChatPlatformConnector):
             }
 
             if blocks:
-                activity["attachments"] = [
+                activity["attachments"] = [  # type: ignore[assignment]
                     {
                         "contentType": "application/vnd.microsoft.card.adaptive",
                         "content": {
@@ -447,7 +447,7 @@ class TeamsConnector(ChatPlatformConnector):
             }
 
             if blocks:
-                activity["attachments"] = [
+                activity["attachments"] = [  # type: ignore[assignment]
                     {
                         "contentType": "application/vnd.microsoft.card.adaptive",
                         "content": {

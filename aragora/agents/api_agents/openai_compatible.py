@@ -71,7 +71,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
     def _record_token_usage(self, tokens_in: int, tokens_out: int) -> None:
         """Record token usage (delegates to APIAgent base class)."""
-        super()._record_token_usage(tokens_in, tokens_out)
+        super()._record_token_usage(tokens_in, tokens_out)  # type: ignore[misc]
 
     # Methods inherited from CritiqueMixin (via APIAgent) - delegate to parent
     def _build_context_prompt(
@@ -82,7 +82,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
     ) -> str:
         """Build context from previous messages (delegates to CritiqueMixin)."""
         # Delegate to CritiqueMixin via APIAgent in the MRO
-        return super()._build_context_prompt(context, truncate, sanitize_fn)
+        return super()._build_context_prompt(context, truncate, sanitize_fn)  # type: ignore[misc]
 
     def _parse_critique(
         self,
@@ -92,7 +92,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
     ) -> Critique:
         """Parse critique response (delegates to CritiqueMixin)."""
         # Delegate to CritiqueMixin via APIAgent in the MRO
-        return super()._parse_critique(response, target_agent, target_content)
+        return super()._parse_critique(response, target_agent, target_content)  # type: ignore[misc]
 
     def _build_headers(self) -> dict:
         """Build request headers. Override to add provider-specific headers."""

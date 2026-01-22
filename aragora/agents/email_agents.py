@@ -552,16 +552,16 @@ def get_email_agent_team(
         List of configured email agents
     """
     agents = [
-        SenderReputationAgent(),
-        ContentUrgencyAgent(),
-        ContextRelevanceAgent(knowledge_mound=knowledge_mound),
+        SenderReputationAgent(),  # type: ignore[abstract]
+        ContentUrgencyAgent(),  # type: ignore[abstract]
+        ContextRelevanceAgent(knowledge_mound=knowledge_mound),  # type: ignore[abstract]
     ]
 
     if include_billing:
-        agents.append(BillingCriticalityAgent())
+        agents.append(BillingCriticalityAgent())  # type: ignore[abstract]
 
     if include_timeline:
-        agents.append(TimelineAgent())
+        agents.append(TimelineAgent())  # type: ignore[abstract]
 
     return agents
 

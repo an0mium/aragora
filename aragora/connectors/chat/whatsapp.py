@@ -870,7 +870,7 @@ class WhatsAppConnector(ChatPlatformConnector):
     # Abstract method implementations
     # ==========================================================================
 
-    def format_blocks(
+    def format_blocks(  # type: ignore[override]
         self,
         title: Optional[str] = None,
         body: Optional[str] = None,

@@ -479,9 +479,12 @@ class OIDCProvider(SSOProvider):
 
         jwks_uri = await self._get_endpoint("jwks_uri")
         if not jwks_uri:
-            # Decode without validation (not recommended)
-            logger.warning("No JWKS URI - decoding ID token without signature validation")
-            return jwt.decode(id_token, options={"verify_signature": False})
+            # SECURITY: Fail closed - never accept unverified tokens
+            logger.error("JWKS URI not available - cannot verify ID token signature")
+            raise SSOAuthenticationError(
+                "ID token validation failed: JWKS URI not configured. "
+                "Configure issuer_url or jwks_uri for secure token validation."
+            )
 
         # Get or create JWKS client
         if not self._jwks_client:

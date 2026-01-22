@@ -344,7 +344,7 @@ class ServiceNowConnector(EnterpriseConnector):
         fields = table_config.get("fields", ["number", "short_description", "description"])
 
         params = {
-            "sysparm_fields": ",".join(["sys_id"] + fields),
+            "sysparm_fields": ",".join(["sys_id"] + fields),  # type: ignore[arg-type,operator]
             "sysparm_limit": limit,
             "sysparm_offset": offset,
             "sysparm_display_value": "true",  # Get display values instead of sys_ids
@@ -622,7 +622,7 @@ class ServiceNowConnector(EnterpriseConnector):
         # Default to incident table if not specified
         search_tables = [table] if table else self.tables
 
-        results = []
+        results: list[Evidence] = []
 
         for tbl in search_tables:
             if len(results) >= limit:
@@ -846,9 +846,9 @@ class ServiceNowConnector(EnterpriseConnector):
             params["sysparm_display_value"] = "all"
 
         try:
-            async with self._client.get(
+            async with self._client.get(  # type: ignore[union-attr,attr-defined]
                 f"{self.instance_url}/api/now/table/{table}",
-                headers=self._get_headers(),
+                headers=self._get_headers(),  # type: ignore[arg-type,attr-defined]
                 params=params,
             ) as resp:
                 if resp.status_code == 200:

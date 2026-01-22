@@ -26,14 +26,12 @@ try:
     HAS_JWT = True
 except ImportError:
     jwt = None
-    PyJWKClient = None
-    PyJWTError = Exception
+    PyJWKClient = None  # type: ignore[misc,assignment]
+    PyJWTError = Exception  # type: ignore[misc,assignment]
     HAS_JWT = False
 
 # Microsoft Bot Framework OpenID configuration
-MICROSOFT_OPENID_METADATA_URL = (
-    "https://login.botframework.com/v1/.well-known/openidconfiguration"
-)
+MICROSOFT_OPENID_METADATA_URL = "https://login.botframework.com/v1/.well-known/openidconfiguration"
 MICROSOFT_JWKS_URI = "https://login.botframework.com/v1/.well-known/keys"
 MICROSOFT_VALID_ISSUERS = [
     "https://api.botframework.com",
@@ -120,20 +118,20 @@ class JWTVerifier:
             JWTVerificationResult with validation status and claims
         """
         if not HAS_JWT:
-            logger.warning("PyJWT not available - accepting token without verification")
+            logger.error("PyJWT not available - cannot verify token (fail-closed)")
             return JWTVerificationResult(
-                valid=True,
+                valid=False,
                 claims={},
-                error="PyJWT not available - token accepted without verification",
+                error="PyJWT library not available - install pyjwt for token verification",
             )
 
         jwks_client = self._get_microsoft_jwks_client()
         if jwks_client is None:
-            logger.warning("Could not create JWKS client - accepting token")
+            logger.error("Could not create JWKS client - cannot verify token (fail-closed)")
             return JWTVerificationResult(
-                valid=True,
+                valid=False,
                 claims={},
-                error="JWKS client unavailable",
+                error="JWKS client unavailable - cannot verify token signature",
             )
 
         try:
@@ -189,20 +187,20 @@ class JWTVerifier:
             JWTVerificationResult with validation status and claims
         """
         if not HAS_JWT:
-            logger.warning("PyJWT not available - accepting token without verification")
+            logger.error("PyJWT not available - cannot verify token (fail-closed)")
             return JWTVerificationResult(
-                valid=True,
+                valid=False,
                 claims={},
-                error="PyJWT not available - token accepted without verification",
+                error="PyJWT library not available - install pyjwt for token verification",
             )
 
         jwks_client = self._get_google_jwks_client()
         if jwks_client is None:
-            logger.warning("Could not create JWKS client - accepting token")
+            logger.error("Could not create JWKS client - cannot verify token (fail-closed)")
             return JWTVerificationResult(
-                valid=True,
+                valid=False,
                 claims={},
-                error="JWKS client unavailable",
+                error="JWKS client unavailable - cannot verify token signature",
             )
 
         try:
@@ -227,6 +225,13 @@ class JWTVerifier:
                 options["verify_aud"] = True
                 decode_kwargs["audience"] = project_id
             else:
+                # SECURITY WARNING: Skipping audience validation allows tokens
+                # intended for other applications to be accepted. This should
+                # only be used in development. In production, always provide project_id.
+                logger.warning(
+                    "SECURITY: Skipping JWT audience validation - "
+                    "provide project_id for secure token verification"
+                )
                 options["verify_aud"] = False
 
             # Decode and verify the token

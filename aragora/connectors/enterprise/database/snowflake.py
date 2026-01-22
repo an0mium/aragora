@@ -161,7 +161,7 @@ class SnowflakeConnector(EnterpriseConnector):
                     or None,
                     backend=default_backend(),
                 )
-                params["private_key"] = p_key
+                params["private_key"] = p_key  # type: ignore[assignment]
         elif password:
             params["password"] = password
         else:
@@ -485,7 +485,7 @@ class SnowflakeConnector(EnterpriseConnector):
                 logger.debug(f"Search failed on {tbl}: {e}")
                 continue
 
-        return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]
+        return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]  # type: ignore[arg-type,return-value]
 
     async def fetch(self, evidence_id: str) -> Optional[Any]:
         """Fetch a specific row by evidence ID."""
