@@ -126,7 +126,7 @@ class LocalEmbeddingService:
         """Get embedding dimension (lazy loaded)."""
         if self._dimension is None:
             self._ensure_model_loaded()
-            self._dimension = self._model.get_sentence_embedding_dimension()
+            self._dimension = self._model.get_sentence_embedding_dimension()  # type: ignore[union-attr]
         return self._dimension
 
     def _ensure_model_loaded(self) -> None:
@@ -141,7 +141,7 @@ class LocalEmbeddingService:
                     device=self.config.device,
                     cache_folder=self.config.cache_folder,
                 )
-                self._dimension = self._model.get_sentence_embedding_dimension()
+                self._dimension = self._model.get_sentence_embedding_dimension()  # type: ignore[union-attr]
                 logger.info(f"Model loaded: {self.model_name} ({self._dimension} dimensions)")
             except ImportError:
                 raise ImportError(
@@ -159,7 +159,7 @@ class LocalEmbeddingService:
             Embedding vector as list of floats
         """
         self._ensure_model_loaded()
-        embedding = self._model.encode(
+        embedding = self._model.encode(  # type: ignore[union-attr]
             text,
             normalize_embeddings=self.config.normalize,
             show_progress_bar=False,
@@ -179,7 +179,7 @@ class LocalEmbeddingService:
             return []
 
         self._ensure_model_loaded()
-        embeddings = self._model.encode(
+        embeddings = self._model.encode(  # type: ignore[union-attr]
             list(texts),
             normalize_embeddings=self.config.normalize,
             batch_size=self.config.batch_size,

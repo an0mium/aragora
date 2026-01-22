@@ -215,12 +215,12 @@ class VerticalFineTuningPipeline:
                 trust_remote_code=True,
             )
 
-            if self._tokenizer.pad_token is None:
-                self._tokenizer.pad_token = self._tokenizer.eos_token
+            if self._tokenizer.pad_token is None:  # type: ignore[union-attr]
+                self._tokenizer.pad_token = self._tokenizer.eos_token  # type: ignore[union-attr]
 
             # Enable gradient checkpointing
             if self.config.gradient_checkpointing:
-                self._model.gradient_checkpointing_enable()
+                self._model.gradient_checkpointing_enable()  # type: ignore[union-attr]
 
             logger.info("Base model loaded successfully")
 
@@ -377,7 +377,7 @@ class VerticalFineTuningPipeline:
             DatasetDict with train and eval splits
         """
         try:
-            from datasets import Dataset, DatasetDict
+            from datasets import Dataset
 
             if not self._training_examples:
                 raise ValueError("No training examples added")
@@ -418,7 +418,7 @@ class VerticalFineTuningPipeline:
             Training metrics
         """
         try:
-            from transformers import TrainingArguments, Trainer, DataCollatorForLanguageModeling
+            from transformers import TrainingArguments
             from trl import SFTTrainer
 
             if self._model is None or self._tokenizer is None:
