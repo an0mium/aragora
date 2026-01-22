@@ -119,9 +119,7 @@ class RoutingWorker:
 
         # Wait for active jobs to complete on shutdown
         if self._active_jobs:
-            logger.info(
-                f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs"
-            )
+            logger.info(f"[{self.worker_id}] Waiting for {len(self._active_jobs)} active jobs")
             await asyncio.gather(*self._active_jobs.values(), return_exceptions=True)
 
         logger.info(f"[{self.worker_id}] Worker stopped")
@@ -133,15 +131,11 @@ class RoutingWorker:
 
     def _cleanup_completed_tasks(self) -> None:
         """Remove completed tasks from tracking dict."""
-        completed = [
-            job_id for job_id, task in self._active_jobs.items() if task.done()
-        ]
+        completed = [job_id for job_id, task in self._active_jobs.items() if task.done()]
         for job_id in completed:
             task = self._active_jobs.pop(job_id)
             if task.exception():
-                logger.warning(
-                    f"[{self.worker_id}] Job {job_id} failed: {task.exception()}"
-                )
+                logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
 
     async def _process_job(self, job: QueuedJob) -> None:
         """Process a single routing job."""
@@ -169,9 +163,7 @@ class RoutingWorker:
                         "duration_seconds": duration,
                     },
                 )
-                logger.info(
-                    f"[{self.worker_id}] Delivered job {job.id} in {duration:.1f}s"
-                )
+                logger.info(f"[{self.worker_id}] Delivered job {job.id} in {duration:.1f}s")
             else:
                 # Delivery failed, retry if attempts remain
                 should_retry = job.attempts < job.max_attempts
@@ -226,7 +218,7 @@ class RoutingWorker:
 
     async def _route_email_result(self, job: QueuedJob) -> bool:
         """Route a result via email reply."""
-        from aragora.integrations.email_reply_loop import send_debate_result_email
+        from aragora.integrations.email_reply_loop import send_debate_result_email  # type: ignore[attr-defined]
 
         payload = job.payload
         debate_id = payload.get("debate_id")

@@ -204,7 +204,7 @@ class ConsensusHealingWorker:
 
         try:
             # Try to use consensus memory if available
-            from aragora.memory.consensus import get_consensus_memory
+            from aragora.memory.consensus import get_consensus_memory  # type: ignore[attr-defined]
 
             memory = get_consensus_memory()
 
