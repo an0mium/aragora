@@ -646,16 +646,16 @@ class NotificationConfigStore:
         rows = cursor.fetchall()
 
         recipients = []
-        for row in rows:  # type: ignore[union-attr]
+        for row in rows:
             recipients.append(
                 StoredEmailRecipient(
-                    org_id=row["org_id"],  # type: ignore[index]
-                    email=row["email"],  # type: ignore[index]
-                    name=row["name"],  # type: ignore[index]
-                    preferences=json.loads(row["preferences_json"])  # type: ignore[index]
-                    if row["preferences_json"]  # type: ignore[index]
+                    org_id=row["org_id"],  # type: ignore[call-overload]
+                    email=row["email"],  # type: ignore[call-overload]
+                    name=row["name"],  # type: ignore[call-overload]
+                    preferences=json.loads(row["preferences_json"])  # type: ignore[call-overload]
+                    if row["preferences_json"]  # type: ignore[call-overload]
                     else {},
-                    created_at=row["created_at"],  # type: ignore[index]
+                    created_at=row["created_at"],  # type: ignore[call-overload]
                 )
             )
         return recipients
