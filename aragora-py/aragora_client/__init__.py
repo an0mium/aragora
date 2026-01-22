@@ -1,7 +1,7 @@
 """
 Aragora Python SDK.
 
-A Python client for the Aragora multi-agent debate framework.
+A Python client for the Aragora control plane for multi-agent deliberation.
 
 Example:
     >>> from aragora_client import AragoraClient

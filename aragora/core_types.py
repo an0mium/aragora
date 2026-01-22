@@ -1,5 +1,5 @@
 """
-Core abstractions for the Aragora adversarial validation engine (multi-agent debate framework).
+Core abstractions for the Aragora control plane for multi-agent deliberation.
 """
 
 from __future__ import annotations

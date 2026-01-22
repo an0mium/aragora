@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Aragora CLI - Omnivorous Multi Agent Decision Making Engine
+Aragora CLI - Control Plane for Multi-Agent Deliberation
+
+Orchestrate multi-agent deliberation across your organization's knowledge and channels.
 
 Usage:
     aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3

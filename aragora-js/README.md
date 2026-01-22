@@ -1,6 +1,6 @@
 # @aragora/sdk
 
-TypeScript/JavaScript SDK for the Aragora multi-agent debate framework.
+TypeScript/JavaScript SDK for the Aragora control plane for multi-agent deliberation across organizational knowledge and channels.
 
 ## Installation
 

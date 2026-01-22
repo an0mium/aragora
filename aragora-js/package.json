@@ -1,7 +1,7 @@
 {
   "name": "@aragora/sdk",
   "version": "2.1.10",
-  "description": "TypeScript/JavaScript SDK for Aragora multi-agent debate framework",
+  "description": "TypeScript/JavaScript SDK for the Aragora control plane for multi-agent deliberation",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",

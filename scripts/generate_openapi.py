@@ -282,7 +282,7 @@ def generate_openapi_schema() -> Dict[str, Any]:
         "openapi": "3.0.3",
         "info": {
             "title": "Aragora API",
-            "description": "AI multi-agent debate framework API. Auto-generated from handler code.",
+            "description": "Aragora control plane API for multi-agent deliberation. Auto-generated from handler code.",
             "version": API_VERSION,
             "contact": {"name": "Aragora Team"},
             "license": {"name": "MIT"},

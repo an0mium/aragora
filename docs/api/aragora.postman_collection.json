@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "aragora-api-collection",
     "name": "Aragora API",
-    "description": "AI red team / decision stress-test API for Aragora LiveWire. Provides endpoints for gauntlet runs, debate-backed decision receipts, agent rankings, consensus tracking, and real-time collaboration.",
+    "description": "Aragora control plane API for multi-agent deliberation. Provides endpoints for debates, decision receipts with audit trails, gauntlet stress-testing, agent rankings, consensus tracking, and real-time collaboration across organizational knowledge and channels.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": "1.0.0"
   },
