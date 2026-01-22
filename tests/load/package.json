@@ -1,0 +1,19 @@
+{
+  "name": "@aragora/load-tests",
+  "version": "1.0.0",
+  "description": "K6 load testing suite for Aragora",
+  "private": true,
+  "scripts": {
+    "test:smoke": "k6 run --env TARGET_ENV=local scenarios/api-baseline.js --vus 5 --duration 1m",
+    "test:baseline": "k6 run --env TARGET_ENV=local scenarios/api-baseline.js",
+    "test:websocket": "k6 run --env TARGET_ENV=local scenarios/websocket-streaming.js",
+    "test:stress": "k6 run --env TARGET_ENV=local scenarios/stress-test.js",
+    "test:staging": "k6 run --env TARGET_ENV=staging scenarios/api-baseline.js",
+    "test:prod-smoke": "k6 run --env TARGET_ENV=production scenarios/api-baseline.js --vus 5 --duration 1m",
+    "report": "k6 run --out json=results.json scenarios/api-baseline.js && node scripts/generate-report.js"
+  },
+  "devDependencies": {},
+  "engines": {
+    "k6": ">=0.47.0"
+  }
+}
