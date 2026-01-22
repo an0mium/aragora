@@ -204,7 +204,7 @@ class VerticalFineTuningPipeline:
             if bnb_config:
                 model_kwargs["quantization_config"] = bnb_config
 
-            self._model = AutoModelForCausalLM.from_pretrained(
+            self._model = AutoModelForCausalLM.from_pretrained(  # type: ignore[assignment]
                 self.config.base_model_id,
                 **model_kwargs,
             )
@@ -215,12 +215,12 @@ class VerticalFineTuningPipeline:
                 trust_remote_code=True,
             )
 
-            if self._tokenizer.pad_token is None:  # type: ignore[union-attr]
-                self._tokenizer.pad_token = self._tokenizer.eos_token  # type: ignore[union-attr]
+            if self._tokenizer.pad_token is None:  # type: ignore[union-attr,attr-defined]
+                self._tokenizer.pad_token = self._tokenizer.eos_token  # type: ignore[union-attr,attr-defined]
 
             # Enable gradient checkpointing
             if self.config.gradient_checkpointing:
-                self._model.gradient_checkpointing_enable()  # type: ignore[union-attr]
+                self._model.gradient_checkpointing_enable()  # type: ignore[union-attr,attr-defined]
 
             logger.info("Base model loaded successfully")
 

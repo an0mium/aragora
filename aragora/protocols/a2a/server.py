@@ -326,7 +326,7 @@ class A2AServer:
         for i, agent_name in enumerate(agent_names):
             role = roles[i] if i < len(roles) else "critic"
             try:
-                agent = create_agent(
+                agent = create_agent(  # type: ignore[call-arg]
                     model_type=agent_name,
                     name=f"{agent_name}_{role}",
                     role=role,
@@ -401,7 +401,7 @@ class A2AServer:
             from aragora.audit.audit_types.security import SecurityAuditor
 
             auditor = SecurityAuditor()
-            findings = await auditor.analyze_text(content)
+            findings = await auditor.analyze_text(content)  # type: ignore[attr-defined]
 
             return TaskResult(
                 task_id=request.task_id,

@@ -357,10 +357,10 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                 Platform.DISCORD: InputSource.DISCORD,
                 Platform.TEAMS: InputSource.TEAMS,
                 Platform.SLACK: InputSource.SLACK,
-                Platform.TELEGRAM: InputSource.TELEGRAM,
-                Platform.WHATSAPP: InputSource.WHATSAPP,
+                Platform.TELEGRAM: InputSource.TELEGRAM,  # type: ignore[attr-defined]
+                Platform.WHATSAPP: InputSource.WHATSAPP,  # type: ignore[attr-defined]
             }
-            source = platform_to_source.get(ctx.platform, InputSource.API)
+            source = platform_to_source.get(ctx.platform, InputSource.API)  # type: ignore[attr-defined]
 
             response_channel = ResponseChannel(
                 platform=ctx.platform.value,
@@ -385,17 +385,15 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
             router = get_decision_router()
             result = await router.route(request)
 
-            if result.debate_id:
+            if result.debate_id:  # type: ignore[attr-defined]
                 return CommandResult.ok(
                     f"Debate started on: **{topic}**\n"
-                    f"Debate ID: `{result.debate_id}`\n"
-                    f"View at: {api_base.replace('http://', 'https://')}/debate/{result.debate_id}",
-                    data={"debate_id": result.debate_id},
+                    f"Debate ID: `{result.debate_id}`\n"  # type: ignore[attr-defined]
+                    f"View at: {api_base.replace('http://', 'https://')}/debate/{result.debate_id}",  # type: ignore[attr-defined]
+                    data={"debate_id": result.debate_id},  # type: ignore[attr-defined]
                 )
             else:
-                return CommandResult.fail(
-                    result.error or "Failed to start debate via router"
-                )
+                return CommandResult.fail(result.error or "Failed to start debate via router")
 
         except ImportError:
             logger.debug("DecisionRouter not available, falling back to HTTP")

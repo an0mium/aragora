@@ -847,11 +847,11 @@ class RLMChunking(ChunkingStrategy):
             for node in context.levels[level]:
                 # Determine chunk type based on level
                 if level == AbstractionLevel.FULL:
-                    chunk_type = ChunkType.TEXT
+                    chunk_type = ChunkType.TEXT  # type: ignore[attr-defined]
                 elif level in (AbstractionLevel.DETAILED, AbstractionLevel.SUMMARY):
-                    chunk_type = ChunkType.SUMMARY
+                    chunk_type = ChunkType.SUMMARY  # type: ignore[attr-defined]
                 else:
-                    chunk_type = ChunkType.ABSTRACT
+                    chunk_type = ChunkType.ABSTRACT  # type: ignore[attr-defined]
 
                 # Build metadata with hierarchy info
                 chunk_metadata = {
@@ -1054,7 +1054,7 @@ class HierarchicalChunkNavigator:
 
         search_chunks = self._chunks.values()
         if level:
-            search_chunks = self.get_level(level)
+            search_chunks = self.get_level(level)  # type: ignore[assignment]
 
         for chunk in search_chunks:
             content_terms = set(chunk.content.lower().split())

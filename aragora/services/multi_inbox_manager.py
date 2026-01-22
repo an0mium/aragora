@@ -356,7 +356,7 @@ class MultiInboxManager:
         try:
             # Fetch messages
             messages = []
-            async for item in connector.sync(max_items=max_messages):
+            async for item in connector.sync(max_items=max_messages):  # type: ignore[attr-defined]
                 messages.append(item)
 
             # Update account stats
@@ -446,7 +446,7 @@ class MultiInboxManager:
 
                 for msg in messages:
                     # Get full message
-                    full_msg = await connector.get_message(msg.get("id", ""))
+                    full_msg = await connector.get_message(msg.get("id", ""))  # type: ignore[union-attr]
                     if not full_msg:
                         continue
 

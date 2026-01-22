@@ -382,7 +382,7 @@ class PulseDebateScheduler:
             return []
 
         try:
-            return self._km_adapter.search_past_debates(
+            return self._km_adapter.search_past_debates(  # type: ignore[call-arg]
                 query=topic,
                 limit=limit,
             )
@@ -609,7 +609,8 @@ class PulseDebateScheduler:
         if past_debates:
             # Check if any recent debate reached consensus on this topic
             recent_consensus = [
-                d for d in past_debates
+                d
+                for d in past_debates
                 if d.get("consensus_reached") and d.get("confidence", 0) >= 0.7
             ]
             if recent_consensus:
@@ -674,7 +675,7 @@ class PulseDebateScheduler:
 
                         # Store debate outcome if consensus was reached
                         if consensus_reached:
-                            self._km_adapter.store_debate_outcome(
+                            self._km_adapter.store_debate_outcome(  # type: ignore[attr-defined]
                                 debate_id=debate_id,
                                 topic=topic.topic,
                                 platform=topic.platform,

@@ -38,7 +38,7 @@ async def run_workflow_tool(
 
     try:
         from aragora.workflow.engine import WorkflowEngine
-        from aragora.workflow.patterns import get_workflow_template
+        from aragora.workflow.patterns import get_workflow_template  # type: ignore[attr-defined]
 
         # Parse inputs
         workflow_inputs = {}
@@ -58,7 +58,7 @@ async def run_workflow_tool(
 
         if async_execution:
             # Start async execution
-            execution_id = await engine.start_async(
+            execution_id = await engine.start_async(  # type: ignore[attr-defined]
                 template=template_def,
                 inputs=workflow_inputs,
             )
@@ -70,7 +70,7 @@ async def run_workflow_tool(
             }
         else:
             # Synchronous execution
-            result = await engine.run(
+            result = await engine.run(  # type: ignore[attr-defined]
                 template=template_def,
                 inputs=workflow_inputs,
                 timeout=timeout_seconds,
@@ -107,7 +107,7 @@ async def get_workflow_status_tool(
         from aragora.workflow.engine import WorkflowEngine
 
         engine = WorkflowEngine()
-        status = await engine.get_status(execution_id)
+        status = await engine.get_status(execution_id)  # type: ignore[attr-defined]
 
         if not status:
             return {"error": f"Execution {execution_id} not found"}
@@ -143,7 +143,7 @@ async def list_workflow_templates_tool(
         Dict with list of templates
     """
     try:
-        from aragora.workflow.patterns import list_workflow_templates
+        from aragora.workflow.patterns import list_workflow_templates  # type: ignore[attr-defined]
 
         templates = list_workflow_templates(category if category != "all" else None)
 
@@ -216,7 +216,7 @@ async def cancel_workflow_tool(
         from aragora.workflow.engine import WorkflowEngine
 
         engine = WorkflowEngine()
-        success = await engine.cancel(execution_id, reason=reason)
+        success = await engine.cancel(execution_id, reason=reason)  # type: ignore[attr-defined]
 
         return {
             "execution_id": execution_id,

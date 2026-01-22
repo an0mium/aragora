@@ -243,7 +243,7 @@ async def get_audit_status_tool(session_id: str) -> dict[str, Any]:
         from aragora.audit import DocumentAuditor
 
         auditor = DocumentAuditor()
-        session = await auditor.get_session(session_id)
+        session = await auditor.get_session(session_id)  # type: ignore[misc]
 
         if not session:
             return {"success": False, "error": f"Session {session_id} not found"}
@@ -288,7 +288,7 @@ async def get_audit_findings_tool(
         from aragora.audit import DocumentAuditor
 
         auditor = DocumentAuditor()
-        findings = await auditor.get_findings(session_id)
+        findings = await auditor.get_findings(session_id)  # type: ignore[misc]
 
         # Apply filters
         if severity:

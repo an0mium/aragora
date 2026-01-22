@@ -40,7 +40,7 @@ async def query_knowledge_tool(
     results: List[Dict[str, Any]] = []
 
     try:
-        from aragora.knowledge.mound.core import get_knowledge_mound
+        from aragora.knowledge.mound.core import get_knowledge_mound  # type: ignore[attr-defined]
 
         mound = get_knowledge_mound()
 
@@ -62,11 +62,13 @@ async def query_knowledge_tool(
                 "node_type": node.node_type,
                 "confidence": node.confidence,
                 "tier": node.tier,
-                "created_at": node.created_at.isoformat() if hasattr(node.created_at, 'isoformat') else str(node.created_at),
+                "created_at": node.created_at.isoformat()
+                if hasattr(node.created_at, "isoformat")
+                else str(node.created_at),
                 "topics": node.topics[:5] if node.topics else [],
             }
 
-            if include_relationships and hasattr(node, 'relationships'):
+            if include_relationships and hasattr(node, "relationships"):
                 result["relationships"] = [
                     {
                         "type": rel.type,
@@ -133,7 +135,7 @@ async def store_knowledge_tool(
         return {"error": "Confidence must be between 0 and 1"}
 
     try:
-        from aragora.knowledge.mound.core import get_knowledge_mound
+        from aragora.knowledge.mound.core import get_knowledge_mound  # type: ignore[attr-defined]
 
         mound = get_knowledge_mound()
 
@@ -150,7 +152,9 @@ async def store_knowledge_tool(
             metadata={
                 "source_debate_id": source_debate_id,
                 "stored_via": "mcp_tool",
-            } if source_debate_id else {"stored_via": "mcp_tool"},
+            }
+            if source_debate_id
+            else {"stored_via": "mcp_tool"},
         )
 
         return {
@@ -178,7 +182,7 @@ async def get_knowledge_stats_tool() -> Dict[str, Any]:
         Dict with node counts, tier utilization, and health metrics
     """
     try:
-        from aragora.knowledge.mound.core import get_knowledge_mound
+        from aragora.knowledge.mound.core import get_knowledge_mound  # type: ignore[attr-defined]
 
         mound = get_knowledge_mound()
         stats = await mound.get_stats()
@@ -312,14 +316,16 @@ def _format_receipt_markdown(receipt: Dict[str, Any]) -> str:
 - Protocol: {receipt['process']['protocol']}
 """
 
-    if receipt.get('proofs'):
+    if receipt.get("proofs"):
         md += f"\n## Proofs\n\n{len(receipt['proofs'])} formal proofs available\n"
 
-    if receipt.get('evidence'):
+    if receipt.get("evidence"):
         md += f"\n## Evidence\n\n{len(receipt['evidence'])} evidence items cited\n"
 
-    if receipt.get('verification'):
-        md += f"\n## Verification\n\nVerified via {receipt['verification']['verification_method']}\n"
+    if receipt.get("verification"):
+        md += (
+            f"\n## Verification\n\nVerified via {receipt['verification']['verification_method']}\n"
+        )
 
     return md
 

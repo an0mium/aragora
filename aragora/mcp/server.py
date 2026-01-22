@@ -28,7 +28,7 @@ try:
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
-    Server = None  # type: ignore[assignment]
+    Server = None  # type: ignore[assignment,misc]
     stdio_server = None  # type: ignore[assignment]
 
 
@@ -102,9 +102,9 @@ class AragoraMCPServer:
                     input_schema["required"] = required
 
                 tools.append(
-                    Tool(
-                        name=meta["name"],
-                        description=meta["description"],
+                    Tool(  # type: ignore[arg-type]
+                        name=meta["name"],  # type: ignore[arg-type]
+                        description=meta["description"],  # type: ignore[arg-type]
                         inputSchema=input_schema,
                     )
                 )
@@ -166,8 +166,8 @@ class AragoraMCPServer:
             resources = []
             for debate_id, debate_data in self._debates_cache.items():
                 resources.append(
-                    Resource(
-                        uri=f"debate://{debate_id}",
+                    Resource(  # type: ignore[arg-type]
+                        uri=f"debate://{debate_id}",  # type: ignore[arg-type]
                         name=f"Debate: {debate_data.get('task', 'Unknown')[:50]}",
                         description=f"Debate result from {debate_data.get('timestamp', 'unknown time')}",
                         mimeType="application/json",

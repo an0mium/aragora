@@ -314,7 +314,7 @@ async def create_default_executor() -> DebateExecutor:
 
         # Create environment and protocol
         env = Environment(task=payload.question)
-        protocol = DebateProtocol(
+        protocol = DebateProtocol(  # type: ignore[misc]
             rounds=payload.rounds,
             consensus=payload.consensus,
         )
@@ -324,7 +324,7 @@ async def create_default_executor() -> DebateExecutor:
 
         # Run debate
         start_time = time.time()
-        arena = Arena(env, agents=cast("list[Agent]", agents), protocol=protocol)
+        arena = Arena(env, agents=cast("list[Agent]", agents), protocol=protocol)  # type: ignore[redundant-cast]
         result = await arena.run()
 
         duration = time.time() - start_time

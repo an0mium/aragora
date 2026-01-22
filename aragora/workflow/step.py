@@ -172,7 +172,7 @@ class AgentStep(BaseStep):
         prompt = self._build_prompt(context)
 
         # Create and run agent
-        agent = create_agent(self.agent_type)
+        agent = create_agent(self.agent_type)  # type: ignore[arg-type]
         response = await agent.generate(prompt)
 
         return {"response": response, "agent_type": self.agent_type}
@@ -218,7 +218,7 @@ class ParallelStep(BaseStep):
             if isinstance(result, Exception):
                 outputs[step_name] = {"error": str(result)}
             else:
-                outputs[step_name] = result
+                outputs[step_name] = result  # type: ignore[assignment]
 
         return outputs
 

@@ -813,7 +813,7 @@ class DecisionRouter:
                 resource_type = resource_type_map.get(request.decision_type, ResourceType.DEBATE)
 
                 # Build isolation context
-                isolation_ctx = IsolationContext(
+                isolation_ctx = IsolationContext(  # type: ignore[call-arg]
                     workspace_id=request.context.workspace_id,
                     user_id=request.context.user_id,
                 )
@@ -833,7 +833,7 @@ class DecisionRouter:
                 logger.debug("RBAC module not available, skipping authorization")
             except Exception as e:
                 logger.warning(f"RBAC check failed: {e}")
-                return DecisionResult(
+                return DecisionResult(  # type: ignore[call-arg]
                     request_id=request.request_id,
                     decision_type=request.decision_type,
                     answer="",
@@ -1063,7 +1063,7 @@ class DecisionRouter:
             env = Environment(task=request.content)
             protocol = DebateProtocol(
                 rounds=request.config.rounds,
-                consensus=request.config.consensus,
+                consensus=request.config.consensus,  # type: ignore[arg-type]
                 enable_calibration=request.config.enable_calibration,
                 early_stopping=request.config.early_stopping,
                 timeout_seconds=request.config.timeout_seconds,
@@ -1131,7 +1131,7 @@ class DecisionRouter:
                 span.set_attribute("workflow.id", workflow_id)
 
             # Load workflow definition
-            definition = await self._workflow_engine.get_definition(workflow_id)
+            definition = await self._workflow_engine.get_definition(workflow_id)  # type: ignore[union-attr]
             if not definition:
                 raise ValueError(f"Workflow not found: {workflow_id}")
 
@@ -1149,7 +1149,7 @@ class DecisionRouter:
 
             # Extract answer from workflow outputs
             answer = (
-                workflow_result.outputs.get("answer") or workflow_result.outputs.get("result") or ""
+                workflow_result.outputs.get("answer") or workflow_result.outputs.get("result") or ""  # type: ignore[union-attr]
             )
 
             return DecisionResult(

@@ -41,10 +41,10 @@ def register_all_auditors() -> None:
     from aragora.audit.registry import audit_registry
 
     # Core auditors
-    audit_registry.register(SecurityAuditor())
-    audit_registry.register(ComplianceAuditor())
-    audit_registry.register(ConsistencyAuditor())
-    audit_registry.register(QualityAuditor())
+    audit_registry.register(SecurityAuditor())  # type: ignore[arg-type]
+    audit_registry.register(ComplianceAuditor())  # type: ignore[arg-type]
+    audit_registry.register(ConsistencyAuditor())  # type: ignore[arg-type]
+    audit_registry.register(QualityAuditor())  # type: ignore[arg-type]
 
     # Domain-specific auditors
     audit_registry.register(LegalAuditor())

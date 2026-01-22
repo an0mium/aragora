@@ -575,7 +575,7 @@ class MLFallbackService:
                 if self._embedding_service is None:
                     from aragora.ml.embeddings import LocalEmbeddingService
 
-                    self._embedding_service = LocalEmbeddingService()
+                    self._embedding_service = LocalEmbeddingService()  # type: ignore[assignment]
 
                 emb1 = await self._embedding_service.embed(text1)  # type: ignore[attr-defined]
                 emb2 = await self._embedding_service.embed(text2)  # type: ignore[attr-defined]
@@ -627,7 +627,7 @@ class MLFallbackService:
                 if self._consensus_predictor is None:
                     from aragora.ml.consensus_predictor import ConsensusPredictor
 
-                    self._consensus_predictor = ConsensusPredictor()
+                    self._consensus_predictor = ConsensusPredictor()  # type: ignore[assignment]
 
                 # Try ML prediction
                 prediction = self._consensus_predictor.predict(  # type: ignore[attr-defined]
@@ -670,7 +670,7 @@ class MLFallbackService:
                 if self._quality_scorer is None:
                     from aragora.ml.quality_scorer import QualityScorer
 
-                    self._quality_scorer = QualityScorer()
+                    self._quality_scorer = QualityScorer()  # type: ignore[assignment]
 
                 score = self._quality_scorer.score(text)  # type: ignore[attr-defined]
 

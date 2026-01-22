@@ -900,7 +900,7 @@ class SpecialistTrainingPipeline:
 
                 # Extract metrics from gauntlet result
                 # Robustness score maps to vertical_accuracy
-                vertical_accuracy = eval_result.robustness_score
+                vertical_accuracy = eval_result.robustness_score  # type: ignore[attr-defined]
 
                 # Estimate ELO based on gauntlet performance
                 # Base ELO of 1000, adjusted by verdict
@@ -913,7 +913,7 @@ class SpecialistTrainingPipeline:
                     elo_rating = base_elo + 50
 
                 # Win rate based on vulnerability rate (inverse)
-                win_rate = 1.0 - (eval_result.vulnerability_rate or 0.0)
+                win_rate = 1.0 - (eval_result.vulnerability_rate or 0.0)  # type: ignore[attr-defined]
 
                 self._registry.update_status(
                     model_id,

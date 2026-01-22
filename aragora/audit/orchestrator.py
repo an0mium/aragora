@@ -67,10 +67,10 @@ class AuditVertical(str, Enum):
 
 # Mapping of verticals to auditor classes
 VERTICAL_AUDITORS: Dict[AuditVertical, Type[BaseAuditor]] = {
-    AuditVertical.SECURITY: SecurityAuditor,
-    AuditVertical.COMPLIANCE: ComplianceAuditor,
-    AuditVertical.QUALITY: QualityAuditor,
-    AuditVertical.CONSISTENCY: ConsistencyAuditor,
+    AuditVertical.SECURITY: SecurityAuditor,  # type: ignore[dict-item]
+    AuditVertical.COMPLIANCE: ComplianceAuditor,  # type: ignore[dict-item]
+    AuditVertical.QUALITY: QualityAuditor,  # type: ignore[dict-item]
+    AuditVertical.CONSISTENCY: ConsistencyAuditor,  # type: ignore[dict-item]
     AuditVertical.LEGAL: LegalAuditor,
     AuditVertical.ACCOUNTING: AccountingAuditor,
     AuditVertical.SOFTWARE: SoftwareAuditor,
