@@ -602,6 +602,17 @@ module = [
     "aragora.rbac.models",
     "aragora.rbac.defaults",
     "aragora.billing.jwt_auth",
+    # Added strict - Phase 29 workflow engine hardening (Jan 2026)
+    "aragora.workflow.types",
+    "aragora.workflow.step",
+    "aragora.workflow.engine",
+    "aragora.workflow.checkpoint_store",
+    "aragora.workflow.safe_eval",
+    "aragora.workflow.queue.task",
+    "aragora.workflow.queue.queue",
+    "aragora.workflow.queue.persistent_queue",
+    "aragora.workflow.queue.executor",
+    "aragora.workflow.queue.scheduler",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

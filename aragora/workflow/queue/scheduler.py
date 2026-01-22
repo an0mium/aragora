@@ -83,7 +83,7 @@ class DependencyGraph:
     for scheduling.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # task_id -> set of task IDs it depends on
         self._dependencies: Dict[str, Set[str]] = defaultdict(set)
         # task_id -> set of task IDs that depend on it

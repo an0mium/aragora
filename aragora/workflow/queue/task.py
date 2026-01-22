@@ -105,7 +105,7 @@ class WorkflowTask:
         step_config: Optional[Dict[str, Any]] = None,
         depends_on: Optional[List[str]] = None,
         priority: TaskPriority = TaskPriority.NORMAL,
-        **kwargs,
+        **kwargs: Any,
     ) -> WorkflowTask:
         """Create a new workflow task with auto-generated ID."""
         return cls(

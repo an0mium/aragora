@@ -715,7 +715,7 @@ class PostgresCheckpointStore:
             Most recent WorkflowCheckpoint or None
         """
         try:
-            async with asyncio.timeout(DEFAULT_CONNECTION_TIMEOUT):
+            async with asyncio.timeout(DEFAULT_CONNECTION_TIMEOUT):  # type: ignore[attr-defined]
                 async with self._pool.acquire() as conn:
                     row = await asyncio.wait_for(
                         conn.fetchrow(
