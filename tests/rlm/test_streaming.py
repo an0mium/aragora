@@ -485,3 +485,244 @@ class TestStreamEventOrdering:
         start_idx = event_types.index(RLMStreamEventType.QUERY_START)
         complete_idx = event_types.index(RLMStreamEventType.QUERY_COMPLETE)
         assert start_idx < complete_idx
+
+
+# =============================================================================
+# StreamingRLMQuery Tests (from streaming.py)
+# =============================================================================
+
+
+class TestStreamingRLMQueryModule:
+    """Tests for StreamingRLMQuery from aragora.rlm.streaming module."""
+
+    @pytest.fixture
+    def streaming_context(self):
+        """Create context for streaming tests."""
+        abstract_node = AbstractionNode(
+            id="abstract_1",
+            content="Technical doc about architecture.",
+            level=AbstractionLevel.ABSTRACT,
+            token_count=10,
+        )
+        summary_node = AbstractionNode(
+            id="summary_1",
+            content="Covers patterns like Factory and Observer.",
+            level=AbstractionLevel.SUMMARY,
+            token_count=15,
+        )
+        detailed_node = AbstractionNode(
+            id="detailed_1",
+            content="Factory pattern: encapsulates object creation.\nObserver pattern: one-to-many dependency.",
+            level=AbstractionLevel.DETAILED,
+            token_count=50,
+        )
+        return RLMContext(
+            original_content="Full document content here.",
+            original_tokens=150,
+            levels={
+                AbstractionLevel.ABSTRACT: [abstract_node],
+                AbstractionLevel.SUMMARY: [summary_node],
+                AbstractionLevel.DETAILED: [detailed_node],
+            },
+        )
+
+    def test_stream_mode_enum(self):
+        """Test StreamMode enum values."""
+        from aragora.rlm.streaming import StreamMode
+
+        assert StreamMode.TOP_DOWN.value == "top_down"
+        assert StreamMode.BOTTOM_UP.value == "bottom_up"
+        assert StreamMode.TARGETED.value == "targeted"
+        assert StreamMode.PROGRESSIVE.value == "progressive"
+
+    def test_stream_config_defaults(self):
+        """Test StreamConfig default values."""
+        from aragora.rlm.streaming import StreamConfig, StreamMode
+
+        config = StreamConfig()
+        assert config.mode == StreamMode.TOP_DOWN
+        assert config.chunk_size == 500
+        assert config.delay_between_levels == 0.0
+        assert config.include_metadata is True
+        assert config.timeout == 30.0
+
+    def test_stream_chunk_creation(self):
+        """Test StreamChunk dataclass."""
+        from aragora.rlm.streaming import StreamChunk
+
+        chunk = StreamChunk(
+            level="SUMMARY",
+            content="Test content",
+            token_count=25,
+            is_final=False,
+            metadata={"key": "value"},
+        )
+
+        assert chunk.level == "SUMMARY"
+        assert chunk.content == "Test content"
+        assert chunk.token_count == 25
+        assert chunk.is_final is False
+        assert chunk.metadata["key"] == "value"
+        assert chunk.timestamp > 0
+
+    def test_streaming_query_initialization(self, streaming_context):
+        """Test StreamingRLMQuery initialization."""
+        from aragora.rlm.streaming import StreamingRLMQuery
+
+        query = StreamingRLMQuery(streaming_context)
+
+        assert query.context == streaming_context
+        assert query._started is False
+        assert query._completed is False
+
+    def test_streaming_query_level_order_top_down(self, streaming_context):
+        """Test level order in TOP_DOWN mode."""
+        from aragora.rlm.streaming import StreamingRLMQuery, StreamConfig, StreamMode
+
+        config = StreamConfig(mode=StreamMode.TOP_DOWN)
+        query = StreamingRLMQuery(streaming_context, config)
+
+        order = query._get_level_order()
+        assert order == ["ABSTRACT", "SUMMARY", "DETAILED", "FULL"]
+
+    def test_streaming_query_level_order_bottom_up(self, streaming_context):
+        """Test level order in BOTTOM_UP mode."""
+        from aragora.rlm.streaming import StreamingRLMQuery, StreamConfig, StreamMode
+
+        config = StreamConfig(mode=StreamMode.BOTTOM_UP)
+        query = StreamingRLMQuery(streaming_context, config)
+
+        order = query._get_level_order()
+        assert order == ["FULL", "DETAILED", "SUMMARY", "ABSTRACT"]
+
+    def test_streaming_query_estimate_tokens(self, streaming_context):
+        """Test token estimation."""
+        from aragora.rlm.streaming import StreamingRLMQuery
+
+        query = StreamingRLMQuery(streaming_context)
+
+        assert query._estimate_tokens("") == 0
+        assert query._estimate_tokens("1234") == 1
+        assert query._estimate_tokens("12345678") == 2
+        assert query._estimate_tokens("x" * 100) == 25
+
+    @pytest.mark.asyncio
+    async def test_streaming_query_stream_all(self, streaming_context):
+        """Test stream_all yields chunks."""
+        from aragora.rlm.streaming import StreamingRLMQuery, StreamChunk
+
+        query = StreamingRLMQuery(streaming_context)
+        chunks = []
+
+        async for chunk in query.stream_all():
+            chunks.append(chunk)
+
+        assert len(chunks) >= 1
+        assert all(isinstance(c, StreamChunk) for c in chunks)
+        assert query._started is True
+
+    @pytest.mark.asyncio
+    async def test_streaming_query_final_chunk_marked(self, streaming_context):
+        """Test last chunk is marked as final."""
+        from aragora.rlm.streaming import StreamingRLMQuery
+
+        query = StreamingRLMQuery(streaming_context)
+        chunks = []
+
+        async for chunk in query.stream_all():
+            chunks.append(chunk)
+
+        if chunks:
+            assert chunks[-1].is_final is True
+            for chunk in chunks[:-1]:
+                assert chunk.is_final is False
+
+    @pytest.mark.asyncio
+    async def test_streaming_query_drill_down(self, streaming_context):
+        """Test drill_down yields level/content tuples."""
+        from aragora.rlm.streaming import StreamingRLMQuery
+
+        query = StreamingRLMQuery(streaming_context)
+        results = []
+
+        async for level, content in query.drill_down():
+            results.append((level, content))
+
+        assert len(results) >= 1
+        for level, content in results:
+            assert isinstance(level, str)
+            assert isinstance(content, str)
+
+    @pytest.mark.asyncio
+    async def test_streaming_query_search(self, streaming_context):
+        """Test search returns relevant snippets."""
+        from aragora.rlm.streaming import StreamingRLMQuery
+
+        query = StreamingRLMQuery(streaming_context)
+        results = await query.search("Factory", level="DETAILED")
+
+        assert isinstance(results, list)
+
+    def test_streaming_filter_by_query(self, streaming_context):
+        """Test _filter_by_query filters paragraphs."""
+        from aragora.rlm.streaming import StreamingRLMQuery
+
+        query = StreamingRLMQuery(streaming_context)
+
+        content = """
+        First paragraph about Factory pattern.
+
+        Second paragraph about Observer.
+
+        Third paragraph about both Factory and Observer.
+        """
+
+        filtered = query._filter_by_query(content, "Factory")
+        assert "Factory" in filtered
+
+    @pytest.mark.asyncio
+    async def test_stream_context_function(self, streaming_context):
+        """Test stream_context convenience function."""
+        from aragora.rlm.streaming import stream_context, StreamChunk
+
+        chunks = []
+        async for chunk in stream_context(streaming_context):
+            chunks.append(chunk)
+
+        assert len(chunks) >= 1
+        assert all(isinstance(c, StreamChunk) for c in chunks)
+
+    @pytest.mark.asyncio
+    async def test_quick_summary_function(self, streaming_context):
+        """Test quick_summary convenience function."""
+        from aragora.rlm.streaming import quick_summary
+
+        summary = await quick_summary(streaming_context)
+        assert isinstance(summary, str)
+
+    @pytest.mark.asyncio
+    async def test_progressive_load_function(self, streaming_context):
+        """Test progressive_load calls callback."""
+        from aragora.rlm.streaming import progressive_load
+
+        results = []
+
+        def on_level(level: str, content: str):
+            results.append((level, content))
+
+        await progressive_load(streaming_context, on_level, delay=0.0)
+
+        assert len(results) >= 1
+
+    @pytest.mark.asyncio
+    async def test_streaming_context_iterator(self, streaming_context):
+        """Test StreamingContextIterator as async context manager."""
+        from aragora.rlm.streaming import StreamingContextIterator, StreamChunk
+
+        chunks = []
+        async with StreamingContextIterator(streaming_context) as stream:
+            async for chunk in stream:
+                chunks.append(chunk)
+
+        assert len(chunks) >= 1
+        assert all(isinstance(c, StreamChunk) for c in chunks)
