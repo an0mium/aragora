@@ -836,7 +836,7 @@ class AccessReviewScheduler:
                 summary["by_status"][status] = 0  # type: ignore[index]
             summary["by_status"][status] += 1  # type: ignore[index]
 
-            summary["unique_users"].add(item.user_id)  # type: ignore[union-attr]
+            summary["unique_users"].add(item.user_id)  # type: ignore[attr-defined]
 
             if item.last_used and item.last_used < stale_threshold:
                 summary["stale_count"] += 1  # type: ignore[operator]

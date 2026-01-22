@@ -185,7 +185,7 @@ class MarketplaceClient:
         review: Optional[str] = None,
     ) -> dict[str, Any]:
         """Rate a template."""
-        data = {"score": score}
+        data: dict[str, Any] = {"score": score}
         if review:
             data["review"] = review
         return await self._request("POST", f"/templates/{template_id}/ratings", data=data)
