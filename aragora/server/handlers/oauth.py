@@ -76,6 +76,47 @@ def _get_github_client_secret() -> str:
     return _get_secret("GITHUB_OAUTH_CLIENT_SECRET", "")
 
 
+def _get_microsoft_client_id() -> str:
+    return _get_secret("MICROSOFT_OAUTH_CLIENT_ID", "")
+
+
+def _get_microsoft_client_secret() -> str:
+    return _get_secret("MICROSOFT_OAUTH_CLIENT_SECRET", "")
+
+
+def _get_microsoft_tenant() -> str:
+    """Get Microsoft tenant ID (default: 'common' for multi-tenant)."""
+    return _get_secret("MICROSOFT_OAUTH_TENANT", "common")
+
+
+def _get_apple_client_id() -> str:
+    return _get_secret("APPLE_OAUTH_CLIENT_ID", "")
+
+
+def _get_apple_team_id() -> str:
+    return _get_secret("APPLE_TEAM_ID", "")
+
+
+def _get_apple_key_id() -> str:
+    return _get_secret("APPLE_KEY_ID", "")
+
+
+def _get_apple_private_key() -> str:
+    return _get_secret("APPLE_PRIVATE_KEY", "")
+
+
+def _get_oidc_issuer() -> str:
+    return _get_secret("OIDC_ISSUER", "")
+
+
+def _get_oidc_client_id() -> str:
+    return _get_secret("OIDC_CLIENT_ID", "")
+
+
+def _get_oidc_client_secret() -> str:
+    return _get_secret("OIDC_CLIENT_SECRET", "")
+
+
 def _get_google_redirect_uri() -> str:
     val = _get_secret("GOOGLE_OAUTH_REDIRECT_URI", "")
     if val:
@@ -92,6 +133,33 @@ def _get_github_redirect_uri() -> str:
     if _is_production():
         return ""
     return "http://localhost:8080/api/auth/oauth/github/callback"
+
+
+def _get_microsoft_redirect_uri() -> str:
+    val = _get_secret("MICROSOFT_OAUTH_REDIRECT_URI", "")
+    if val:
+        return val
+    if _is_production():
+        return ""
+    return "http://localhost:8080/api/auth/oauth/microsoft/callback"
+
+
+def _get_apple_redirect_uri() -> str:
+    val = _get_secret("APPLE_OAUTH_REDIRECT_URI", "")
+    if val:
+        return val
+    if _is_production():
+        return ""
+    return "http://localhost:8080/api/auth/oauth/apple/callback"
+
+
+def _get_oidc_redirect_uri() -> str:
+    val = _get_secret("OIDC_REDIRECT_URI", "")
+    if val:
+        return val
+    if _is_production():
+        return ""
+    return "http://localhost:8080/api/auth/oauth/oidc/callback"
 
 
 def _get_oauth_success_url() -> str:
@@ -187,6 +255,17 @@ GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_USERINFO_URL = "https://api.github.com/user"
 GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
+
+# Microsoft OAuth endpoints (Azure AD v2.0)
+# Note: {tenant} is replaced at runtime with the configured tenant
+MICROSOFT_AUTH_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
+MICROSOFT_TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+MICROSOFT_USERINFO_URL = "https://graph.microsoft.com/v1.0/me"
+
+# Apple OAuth endpoints
+APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
+APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"
+APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
 
 # State management - uses Redis in production, falls back to in-memory
 # Import from dedicated state store module
@@ -376,6 +455,12 @@ class OAuthHandler(SecureHandler):
         "/api/auth/oauth/google/callback",
         "/api/auth/oauth/github",
         "/api/auth/oauth/github/callback",
+        "/api/auth/oauth/microsoft",
+        "/api/auth/oauth/microsoft/callback",
+        "/api/auth/oauth/apple",
+        "/api/auth/oauth/apple/callback",
+        "/api/auth/oauth/oidc",
+        "/api/auth/oauth/oidc/callback",
         "/api/auth/oauth/link",
         "/api/auth/oauth/unlink",
         "/api/auth/oauth/providers",
@@ -410,6 +495,24 @@ class OAuthHandler(SecureHandler):
 
         if path == "/api/auth/oauth/github/callback" and method == "GET":
             return self._handle_github_callback(handler, query_params)
+
+        if path == "/api/auth/oauth/microsoft" and method == "GET":
+            return self._handle_microsoft_auth_start(handler, query_params)
+
+        if path == "/api/auth/oauth/microsoft/callback" and method == "GET":
+            return self._handle_microsoft_callback(handler, query_params)
+
+        if path == "/api/auth/oauth/apple" and method == "GET":
+            return self._handle_apple_auth_start(handler, query_params)
+
+        if path == "/api/auth/oauth/apple/callback" and method in ("GET", "POST"):
+            return self._handle_apple_callback(handler, query_params)
+
+        if path == "/api/auth/oauth/oidc" and method == "GET":
+            return self._handle_oidc_auth_start(handler, query_params)
+
+        if path == "/api/auth/oauth/oidc/callback" and method == "GET":
+            return self._handle_oidc_callback(handler, query_params)
 
         if path == "/api/auth/oauth/link" and method == "POST":
             return self._handle_link_account(handler)
@@ -863,6 +966,567 @@ class OAuthHandler(SecureHandler):
             email_verified=email_verified,
         )
 
+    # =========================================================================
+    # Microsoft OAuth
+    # =========================================================================
+
+    @handle_errors("Microsoft OAuth start")
+    @log_request("Microsoft OAuth start")
+    def _handle_microsoft_auth_start(self, handler, query_params: dict) -> HandlerResult:
+        """Redirect user to Microsoft OAuth consent screen."""
+        microsoft_client_id = _get_microsoft_client_id()
+        if not microsoft_client_id:
+            return error_response("Microsoft OAuth not configured", 503)
+
+        oauth_success_url = _get_oauth_success_url()
+        redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
+
+        if not _validate_redirect_url(redirect_url):
+            return error_response("Invalid redirect URL", 400)
+
+        user_id = None
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if auth_ctx.is_authenticated:
+            user_id = auth_ctx.user_id
+
+        state = _generate_state(user_id=user_id, redirect_url=redirect_url)
+
+        tenant = _get_microsoft_tenant()
+        auth_url_base = MICROSOFT_AUTH_URL_TEMPLATE.format(tenant=tenant)
+
+        params = {
+            "client_id": microsoft_client_id,
+            "redirect_uri": _get_microsoft_redirect_uri(),
+            "response_type": "code",
+            "scope": "openid email profile User.Read",
+            "state": state,
+            "response_mode": "query",
+        }
+        auth_url = f"{auth_url_base}?{urlencode(params)}"
+
+        return HandlerResult(
+            status_code=302,
+            content_type="text/html",
+            body=f'<html><head><meta http-equiv="refresh" content="0;url={auth_url}"></head></html>'.encode(),
+            headers={"Location": auth_url},
+        )
+
+    @handle_errors("Microsoft OAuth callback")
+    @log_request("Microsoft OAuth callback")
+    def _handle_microsoft_callback(self, handler, query_params: dict) -> HandlerResult:
+        """Handle Microsoft OAuth callback."""
+        error = _get_param(query_params, "error")
+        if error:
+            error_desc = _get_param(query_params, "error_description", error)
+            logger.warning(f"Microsoft OAuth error: {error} - {error_desc}")
+            return self._redirect_with_error(f"OAuth error: {error_desc}")
+
+        state = _get_param(query_params, "state")
+        if not state:
+            return self._redirect_with_error("Missing state parameter")
+
+        state_data = _validate_state(state)
+        if state_data is None:
+            return self._redirect_with_error("Invalid or expired state")
+
+        code = _get_param(query_params, "code")
+        if not code:
+            return self._redirect_with_error("Missing authorization code")
+
+        try:
+            token_data = self._exchange_microsoft_code(code)
+        except Exception as e:
+            logger.error(f"Microsoft token exchange failed: {e}")
+            return self._redirect_with_error("Failed to exchange authorization code")
+
+        access_token = token_data.get("access_token")
+        if not access_token:
+            return self._redirect_with_error("No access token received")
+
+        try:
+            user_info = self._get_microsoft_user_info(access_token)
+        except Exception as e:
+            logger.error(f"Failed to get Microsoft user info: {e}")
+            return self._redirect_with_error("Failed to get user info")
+
+        return self._complete_oauth_flow(user_info, state_data)
+
+    def _exchange_microsoft_code(self, code: str) -> dict:
+        """Exchange Microsoft authorization code for access token."""
+        import urllib.request
+
+        tenant = _get_microsoft_tenant()
+        token_url = MICROSOFT_TOKEN_URL_TEMPLATE.format(tenant=tenant)
+
+        data = urlencode(
+            {
+                "code": code,
+                "client_id": _get_microsoft_client_id(),
+                "client_secret": _get_microsoft_client_secret(),
+                "redirect_uri": _get_microsoft_redirect_uri(),
+                "grant_type": "authorization_code",
+            }
+        ).encode()
+
+        req = urllib.request.Request(
+            token_url,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            return json.loads(response.read().decode())
+
+    def _get_microsoft_user_info(self, access_token: str) -> OAuthUserInfo:
+        """Get user info from Microsoft Graph API."""
+        import urllib.request
+
+        req = urllib.request.Request(
+            MICROSOFT_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            user_data = json.loads(response.read().decode())
+
+        email = user_data.get("mail") or user_data.get("userPrincipalName", "")
+        if not email or "@" not in email:
+            raise ValueError("Could not retrieve email from Microsoft")
+
+        return OAuthUserInfo(
+            provider="microsoft",
+            provider_user_id=user_data["id"],
+            email=email,
+            name=user_data.get("displayName", email.split("@")[0]),
+            picture=None,  # Microsoft Graph requires separate call for photo
+            email_verified=True,  # Microsoft validates emails
+        )
+
+    # =========================================================================
+    # Apple OAuth (Sign in with Apple)
+    # =========================================================================
+
+    @handle_errors("Apple OAuth start")
+    @log_request("Apple OAuth start")
+    def _handle_apple_auth_start(self, handler, query_params: dict) -> HandlerResult:
+        """Redirect user to Apple OAuth consent screen."""
+        apple_client_id = _get_apple_client_id()
+        if not apple_client_id:
+            return error_response("Apple OAuth not configured", 503)
+
+        oauth_success_url = _get_oauth_success_url()
+        redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
+
+        if not _validate_redirect_url(redirect_url):
+            return error_response("Invalid redirect URL", 400)
+
+        user_id = None
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if auth_ctx.is_authenticated:
+            user_id = auth_ctx.user_id
+
+        state = _generate_state(user_id=user_id, redirect_url=redirect_url)
+
+        params = {
+            "client_id": apple_client_id,
+            "redirect_uri": _get_apple_redirect_uri(),
+            "response_type": "code id_token",
+            "scope": "name email",
+            "state": state,
+            "response_mode": "form_post",  # Apple requires form_post
+        }
+        auth_url = f"{APPLE_AUTH_URL}?{urlencode(params)}"
+
+        return HandlerResult(
+            status_code=302,
+            content_type="text/html",
+            body=f'<html><head><meta http-equiv="refresh" content="0;url={auth_url}"></head></html>'.encode(),
+            headers={"Location": auth_url},
+        )
+
+    @handle_errors("Apple OAuth callback")
+    @log_request("Apple OAuth callback")
+    def _handle_apple_callback(self, handler, query_params: dict) -> HandlerResult:
+        """Handle Apple OAuth callback (POST with form data)."""
+        # Apple uses form_post, so we need to read POST body
+        body_data = {}
+        if hasattr(handler, "request") and handler.request.body:
+            from urllib.parse import parse_qs
+
+            body_data = parse_qs(handler.request.body.decode())
+            body_data = {k: v[0] if v else "" for k, v in body_data.items()}
+
+        # Merge with query params (for GET fallback)
+        all_params = {**query_params, **body_data}
+
+        error = all_params.get("error")
+        if error:
+            return self._redirect_with_error(f"Apple OAuth error: {error}")
+
+        state = all_params.get("state")
+        if not state:
+            return self._redirect_with_error("Missing state parameter")
+
+        state_data = _validate_state(state)
+        if state_data is None:
+            return self._redirect_with_error("Invalid or expired state")
+
+        code = all_params.get("code")
+        id_token = all_params.get("id_token")
+
+        if not code and not id_token:
+            return self._redirect_with_error("Missing authorization code or id_token")
+
+        # Apple provides user info only on first authorization
+        user_data_str = all_params.get("user", "{}")
+        try:
+            user_data = json.loads(user_data_str) if user_data_str else {}
+        except json.JSONDecodeError:
+            user_data = {}
+
+        try:
+            if code:
+                token_data = self._exchange_apple_code(code)
+                id_token = token_data.get("id_token", id_token)
+
+            user_info = self._parse_apple_id_token(id_token, user_data)
+        except Exception as e:
+            logger.error(f"Apple OAuth processing failed: {e}")
+            return self._redirect_with_error("Failed to process Apple sign-in")
+
+        return self._complete_oauth_flow(user_info, state_data)
+
+    def _exchange_apple_code(self, code: str) -> dict:
+        """Exchange Apple authorization code for tokens."""
+        import urllib.request
+
+        client_secret = self._generate_apple_client_secret()
+
+        data = urlencode(
+            {
+                "code": code,
+                "client_id": _get_apple_client_id(),
+                "client_secret": client_secret,
+                "redirect_uri": _get_apple_redirect_uri(),
+                "grant_type": "authorization_code",
+            }
+        ).encode()
+
+        req = urllib.request.Request(
+            APPLE_TOKEN_URL,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            return json.loads(response.read().decode())
+
+    def _generate_apple_client_secret(self) -> str:
+        """Generate Apple client secret JWT."""
+        try:
+            import jwt
+        except ImportError:
+            raise ValueError("PyJWT required for Apple OAuth. Install with: pip install PyJWT")
+
+        team_id = _get_apple_team_id()
+        key_id = _get_apple_key_id()
+        private_key = _get_apple_private_key()
+        client_id = _get_apple_client_id()
+
+        if not all([team_id, key_id, private_key, client_id]):
+            raise ValueError("Apple OAuth not fully configured")
+
+        now = int(time.time())
+        payload = {
+            "iss": team_id,
+            "iat": now,
+            "exp": now + 86400 * 180,  # 180 days max
+            "aud": "https://appleid.apple.com",
+            "sub": client_id,
+        }
+
+        return jwt.encode(payload, private_key, algorithm="ES256", headers={"kid": key_id})
+
+    def _parse_apple_id_token(self, id_token: str, user_data: dict) -> OAuthUserInfo:
+        """Parse Apple ID token to extract user info."""
+        import base64
+
+        # Decode JWT payload (Apple signs it, but we trust it from their endpoint)
+        parts = id_token.split(".")
+        if len(parts) != 3:
+            raise ValueError("Invalid Apple ID token format")
+
+        # Decode payload with padding
+        payload_b64 = parts[1]
+        padding = 4 - len(payload_b64) % 4
+        if padding != 4:
+            payload_b64 += "=" * padding
+
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+
+        email = payload.get("email", "")
+        email_verified = payload.get("email_verified", False)
+        sub = payload.get("sub", "")
+
+        if not email:
+            raise ValueError("No email in Apple ID token")
+
+        # Apple only sends name on first auth, stored in user_data
+        name_data = user_data.get("name", {})
+        name = ""
+        if name_data:
+            first = name_data.get("firstName", "")
+            last = name_data.get("lastName", "")
+            name = f"{first} {last}".strip()
+        if not name:
+            name = email.split("@")[0]
+
+        return OAuthUserInfo(
+            provider="apple",
+            provider_user_id=sub,
+            email=email,
+            name=name,
+            picture=None,  # Apple doesn't provide profile pictures
+            email_verified=email_verified == "true" or email_verified is True,
+        )
+
+    # =========================================================================
+    # Generic OIDC Provider
+    # =========================================================================
+
+    @handle_errors("OIDC OAuth start")
+    @log_request("OIDC OAuth start")
+    def _handle_oidc_auth_start(self, handler, query_params: dict) -> HandlerResult:
+        """Redirect user to generic OIDC provider."""
+        oidc_issuer = _get_oidc_issuer()
+        oidc_client_id = _get_oidc_client_id()
+
+        if not oidc_issuer or not oidc_client_id:
+            return error_response("OIDC provider not configured", 503)
+
+        oauth_success_url = _get_oauth_success_url()
+        redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
+
+        if not _validate_redirect_url(redirect_url):
+            return error_response("Invalid redirect URL", 400)
+
+        user_id = None
+        from aragora.billing.jwt_auth import extract_user_from_request
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if auth_ctx.is_authenticated:
+            user_id = auth_ctx.user_id
+
+        state = _generate_state(user_id=user_id, redirect_url=redirect_url)
+
+        # Discover OIDC endpoints
+        discovery = self._get_oidc_discovery(oidc_issuer)
+        auth_endpoint = discovery.get("authorization_endpoint")
+
+        if not auth_endpoint:
+            return error_response("OIDC discovery failed", 503)
+
+        params = {
+            "client_id": oidc_client_id,
+            "redirect_uri": _get_oidc_redirect_uri(),
+            "response_type": "code",
+            "scope": "openid email profile",
+            "state": state,
+        }
+        auth_url = f"{auth_endpoint}?{urlencode(params)}"
+
+        return HandlerResult(
+            status_code=302,
+            content_type="text/html",
+            body=f'<html><head><meta http-equiv="refresh" content="0;url={auth_url}"></head></html>'.encode(),
+            headers={"Location": auth_url},
+        )
+
+    @handle_errors("OIDC OAuth callback")
+    @log_request("OIDC OAuth callback")
+    def _handle_oidc_callback(self, handler, query_params: dict) -> HandlerResult:
+        """Handle generic OIDC callback."""
+        error = _get_param(query_params, "error")
+        if error:
+            error_desc = _get_param(query_params, "error_description", error)
+            return self._redirect_with_error(f"OIDC error: {error_desc}")
+
+        state = _get_param(query_params, "state")
+        if not state:
+            return self._redirect_with_error("Missing state parameter")
+
+        state_data = _validate_state(state)
+        if state_data is None:
+            return self._redirect_with_error("Invalid or expired state")
+
+        code = _get_param(query_params, "code")
+        if not code:
+            return self._redirect_with_error("Missing authorization code")
+
+        oidc_issuer = _get_oidc_issuer()
+        discovery = self._get_oidc_discovery(oidc_issuer)
+
+        try:
+            token_data = self._exchange_oidc_code(code, discovery)
+        except Exception as e:
+            logger.error(f"OIDC token exchange failed: {e}")
+            return self._redirect_with_error("Failed to exchange authorization code")
+
+        access_token = token_data.get("access_token")
+        id_token = token_data.get("id_token")
+
+        try:
+            user_info = self._get_oidc_user_info(access_token, id_token, discovery)
+        except Exception as e:
+            logger.error(f"Failed to get OIDC user info: {e}")
+            return self._redirect_with_error("Failed to get user info")
+
+        return self._complete_oauth_flow(user_info, state_data)
+
+    def _get_oidc_discovery(self, issuer: str) -> dict:
+        """Fetch OIDC discovery document."""
+        import urllib.request
+
+        discovery_url = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
+
+        try:
+            req = urllib.request.Request(discovery_url)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return json.loads(response.read().decode())
+        except Exception as e:
+            logger.error(f"OIDC discovery failed: {e}")
+            return {}
+
+    def _exchange_oidc_code(self, code: str, discovery: dict) -> dict:
+        """Exchange OIDC authorization code for tokens."""
+        import urllib.request
+
+        token_endpoint = discovery.get("token_endpoint")
+        if not token_endpoint:
+            raise ValueError("No token endpoint in OIDC discovery")
+
+        data = urlencode(
+            {
+                "code": code,
+                "client_id": _get_oidc_client_id(),
+                "client_secret": _get_oidc_client_secret(),
+                "redirect_uri": _get_oidc_redirect_uri(),
+                "grant_type": "authorization_code",
+            }
+        ).encode()
+
+        req = urllib.request.Request(
+            token_endpoint,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        with urllib.request.urlopen(req, timeout=10) as response:
+            return json.loads(response.read().decode())
+
+    def _get_oidc_user_info(
+        self, access_token: str, id_token: str, discovery: dict
+    ) -> OAuthUserInfo:
+        """Get user info from OIDC userinfo endpoint or id_token."""
+        import base64
+        import urllib.request
+
+        userinfo_endpoint = discovery.get("userinfo_endpoint")
+        user_data = {}
+
+        # Try userinfo endpoint first
+        if userinfo_endpoint and access_token:
+            try:
+                req = urllib.request.Request(
+                    userinfo_endpoint,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    user_data = json.loads(response.read().decode())
+            except Exception as e:
+                logger.warning(f"OIDC userinfo failed, falling back to id_token: {e}")
+
+        # Fall back to id_token claims
+        if not user_data and id_token:
+            parts = id_token.split(".")
+            if len(parts) == 3:
+                payload_b64 = parts[1]
+                padding = 4 - len(payload_b64) % 4
+                if padding != 4:
+                    payload_b64 += "=" * padding
+                user_data = json.loads(base64.urlsafe_b64decode(payload_b64))
+
+        email = user_data.get("email", "")
+        if not email:
+            raise ValueError("No email in OIDC response")
+
+        sub = user_data.get("sub", "")
+        if not sub:
+            raise ValueError("No subject in OIDC response")
+
+        return OAuthUserInfo(
+            provider="oidc",
+            provider_user_id=sub,
+            email=email,
+            name=user_data.get("name", email.split("@")[0]),
+            picture=user_data.get("picture"),
+            email_verified=user_data.get("email_verified", False),
+        )
+
+    # =========================================================================
+    # Common OAuth Flow Completion
+    # =========================================================================
+
+    def _complete_oauth_flow(self, user_info: OAuthUserInfo, state_data: dict) -> HandlerResult:
+        """Complete OAuth flow - create/login user and redirect with tokens."""
+        user_store = self._get_user_store()
+        if not user_store:
+            return self._redirect_with_error("User service unavailable")
+
+        # Check if this is account linking
+        linking_user_id = state_data.get("user_id")
+        if linking_user_id:
+            return self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
+
+        # Check if user exists by OAuth provider ID
+        user = self._find_user_by_oauth(user_store, user_info)
+
+        if not user:
+            # Check if email already registered
+            user = user_store.get_user_by_email(user_info.email)
+            if user:
+                self._link_oauth_to_user(user_store, user.id, user_info)
+            else:
+                user = self._create_oauth_user(user_store, user_info)
+
+        if not user:
+            return self._redirect_with_error("Failed to create user account")
+
+        # Update last login
+        user_store.update_user(user.id, last_login_at=time.time())
+
+        # Create tokens
+        from aragora.billing.jwt_auth import create_token_pair
+
+        tokens = create_token_pair(
+            user_id=user.id,
+            email=user.email,
+            org_id=user.org_id,
+            role=user.role,
+        )
+
+        logger.info(f"OAuth login: {user.email} via {user_info.provider}")
+
+        redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
+        return self._redirect_with_tokens(redirect_url, tokens)
+
     def _find_user_by_oauth(self, user_store, user_info: OAuthUserInfo):
         """Find user by OAuth provider ID."""
         # Look for user with matching OAuth link
@@ -1001,6 +1665,36 @@ class OAuthHandler(SecureHandler):
                 }
             )
 
+        if _get_microsoft_client_id():
+            providers.append(
+                {
+                    "id": "microsoft",
+                    "name": "Microsoft",
+                    "enabled": True,
+                    "auth_url": "/api/auth/oauth/microsoft",
+                }
+            )
+
+        if _get_apple_client_id():
+            providers.append(
+                {
+                    "id": "apple",
+                    "name": "Apple",
+                    "enabled": True,
+                    "auth_url": "/api/auth/oauth/apple",
+                }
+            )
+
+        if _get_oidc_issuer() and _get_oidc_client_id():
+            providers.append(
+                {
+                    "id": "oidc",
+                    "name": "SSO",
+                    "enabled": True,
+                    "auth_url": "/api/auth/oauth/oidc",
+                }
+            )
+
         return json_response({"providers": providers})
 
     @handle_errors("get user OAuth providers")
@@ -1037,7 +1731,7 @@ class OAuthHandler(SecureHandler):
             return error_response("Invalid JSON body", 400)
 
         provider = body.get("provider", "").lower()
-        if provider not in ["google", "github"]:
+        if provider not in ["google", "github", "microsoft", "apple", "oidc"]:
             return error_response("Unsupported provider", 400)
 
         # Return the auth URL for the provider
@@ -1093,7 +1787,7 @@ class OAuthHandler(SecureHandler):
             return error_response("Invalid JSON body", 400)
 
         provider = body.get("provider", "").lower()
-        if provider not in ["google", "github"]:
+        if provider not in ["google", "github", "microsoft", "apple", "oidc"]:
             return error_response("Unsupported provider", 400)
 
         # Get user
