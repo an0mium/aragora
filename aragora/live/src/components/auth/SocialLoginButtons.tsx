@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '@/config';
 
 interface Provider {
   id: string;
@@ -42,9 +43,8 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   useEffect(() => {
     const fetchProviders = async () => {
       try {
-        // Use relative URL in production (with Next.js rewrites), or explicit URL in dev
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
-        const response = await fetch(`${apiBase}/api/auth/oauth/providers`);
+        // Use explicit API URL from config (handles production vs dev)
+        const response = await fetch(`${API_BASE_URL}/api/auth/oauth/providers`);
         if (response.ok) {
           const data = await response.json();
           setProviders(data.providers || []);
@@ -66,11 +66,9 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   const handleOAuthClick = (provider: Provider) => {
     // Build callback URL for the current origin
     const callbackUrl = `${window.location.origin}/auth/callback`;
-    // Use relative URL in production (with Next.js rewrites), or explicit URL in dev
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
 
-    // Redirect to OAuth provider via our API
-    window.location.href = `${apiBase}${provider.auth_url}?redirect_url=${encodeURIComponent(callbackUrl)}`;
+    // Redirect to OAuth provider via our API (uses explicit API URL from config)
+    window.location.href = `${API_BASE_URL}${provider.auth_url}?redirect_url=${encodeURIComponent(callbackUrl)}`;
   };
 
   // Don't render anything while loading or if no providers
