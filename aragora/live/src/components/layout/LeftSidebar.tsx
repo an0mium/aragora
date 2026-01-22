@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLayout } from '@/context/LayoutContext';
 import { useAuth } from '@/context/AuthContext';
+import { API_BASE_URL } from '@/config';
 import { useProgressiveMode, ProgressiveMode } from '@/context/ProgressiveModeContext';
 import { ModeSelector } from '@/components/ui/FeatureCard';
 
@@ -160,8 +161,8 @@ export function LeftSidebar() {
       <div className="border-t border-[var(--border)] p-3">
         {/* Login link when not authenticated */}
         {!isAuthenticated && (
-          <Link
-            href="/api/auth/oauth/google"
+          <a
+            href={`${API_BASE_URL}/api/auth/oauth/google?redirect_url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/auth/callback' : '')}`}
             onClick={() => isMobile && closeLeftSidebar()}
             className="flex items-center gap-2 px-3 py-2 mb-3 rounded-md bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
             title={leftSidebarCollapsed ? 'Login with Google' : undefined}
@@ -170,7 +171,7 @@ export function LeftSidebar() {
             {!leftSidebarCollapsed && (
               <span className="text-sm font-medium">Login with Google</span>
             )}
-          </Link>
+          </a>
         )}
 
         {/* Show user info when authenticated */}

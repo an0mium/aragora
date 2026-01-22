@@ -10,6 +10,7 @@ import { SyncProgressBar } from '@/components/inbox/SyncProgressBar';
 import { PriorityInboxList } from '@/components/inbox/PriorityInboxList';
 import { InboxQueryPanel } from '@/components/inbox/InboxQueryPanel';
 import { useAuth } from '@/context/AuthContext';
+import { API_BASE_URL } from '@/config';
 
 interface GmailStatus {
   connected: boolean;
@@ -309,13 +310,13 @@ export default function InboxPage() {
             </div>
             {error.toLowerCase().includes('authentication') && !user && (
               <div className="mt-2 pt-2 border-t border-acid-red/20">
-                <Link
-                  href="/api/auth/oauth/google"
+                <a
+                  href={`${API_BASE_URL}/api/auth/oauth/google?redirect_url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/auth/callback' : '')}`}
                   className="inline-flex items-center gap-2 text-accent hover:text-accent/80"
                 >
                   <span>→</span>
                   <span>Login with Google to continue</span>
-                </Link>
+                </a>
               </div>
             )}
           </div>
@@ -474,13 +475,13 @@ export default function InboxPage() {
                 <p className="text-muted text-xs mb-4">
                   You need to be logged in to connect your Gmail account. This ensures your emails are securely linked to your account.
                 </p>
-                <Link
-                  href="/api/auth/oauth/google"
+                <a
+                  href={`${API_BASE_URL}/api/auth/oauth/google?redirect_url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/auth/callback' : '')}`}
                   className="inline-flex items-center gap-2 px-6 py-2.5 bg-accent/20 hover:bg-accent/30 border border-accent/40 rounded-md text-accent font-mono text-sm transition-colors"
                 >
                   <span>→</span>
                   <span>Login with Google</span>
-                </Link>
+                </a>
               </div>
             )}
 

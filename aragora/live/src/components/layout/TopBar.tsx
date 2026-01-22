@@ -6,6 +6,7 @@ import { useLayout } from '@/context/LayoutContext';
 import { useCommandPalette } from '@/context/CommandPaletteContext';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { API_BASE_URL } from '@/config';
 
 export function TopBar() {
   const { isMobile, toggleLeftSidebar, toggleRightSidebar, rightSidebarOpen } = useLayout();
@@ -84,14 +85,14 @@ export function TopBar() {
             </button>
           </div>
         ) : (
-          <Link
-            href="/api/auth/oauth/google"
+          <a
+            href={`${API_BASE_URL}/api/auth/oauth/google?redirect_url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/auth/callback' : '')}`}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20 border border-[var(--accent)]/30 rounded-md transition-colors"
             title="Login with Google"
           >
             <span className="text-[var(--accent)] font-mono text-sm">→</span>
             <span className="text-[var(--accent)] text-xs font-medium hidden sm:inline">Login</span>
-          </Link>
+          </a>
         )}
       </div>
     </header>
