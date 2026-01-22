@@ -23,26 +23,26 @@ class TestDebateProtocol:
         """Default values should be sensible."""
         protocol = DebateProtocol()
 
-        # Core defaults
-        assert protocol.topology == "round-robin"
-        assert protocol.rounds == 5
-        assert protocol.consensus == "majority"
+        # Core defaults (updated for 8-round structured format)
+        assert protocol.topology == "all-to-all"
+        assert protocol.rounds == 8
+        assert protocol.consensus == "judge"
         assert protocol.consensus_threshold == 0.6
 
         # Role and voting defaults
         assert protocol.allow_abstain is True
         assert protocol.require_reasoning is True
-        assert protocol.proposer_count == 1
+        assert protocol.proposer_count == -1  # All agents propose in 8-round format
         assert protocol.critic_count == -1  # All non-proposers
 
-        # Early stopping defaults
+        # Early stopping defaults (higher thresholds for structured debates)
         assert protocol.early_stopping is True
-        assert protocol.early_stop_threshold == 0.66
-        assert protocol.min_rounds_before_early_stop == 2
+        assert protocol.early_stop_threshold == 0.95
+        assert protocol.min_rounds_before_early_stop == 7
 
-        # Convergence defaults
+        # Convergence defaults (higher threshold for quality)
         assert protocol.convergence_detection is True
-        assert protocol.convergence_threshold == 0.85
+        assert protocol.convergence_threshold == 0.95
         assert protocol.divergence_threshold == 0.40
 
         # Role rotation defaults
@@ -116,11 +116,11 @@ class TestDebateProtocol:
 
         protocol = DebateProtocol()
 
-        # Uses config constants for consistent timeout hierarchy
-        assert protocol.timeout_seconds == DEBATE_TIMEOUT_SECONDS  # 15 min default
-        assert (
-            protocol.round_timeout_seconds == AGENT_TIMEOUT_SECONDS + 60
-        )  # Agent timeout + margin
+        # Uses max of 1200 or config constant for structured debates
+        assert protocol.timeout_seconds == max(1200, DEBATE_TIMEOUT_SECONDS)  # 20 min minimum
+        assert protocol.round_timeout_seconds == max(
+            90, AGENT_TIMEOUT_SECONDS + 60
+        )  # Agent timeout + margin, min 90s
 
 
 # =============================================================================
