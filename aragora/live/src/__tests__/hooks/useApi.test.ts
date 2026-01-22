@@ -1,4 +1,4 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useApi } from '@/hooks/useApi';
 import { fetchWithRetry } from '@/lib/retry';
 

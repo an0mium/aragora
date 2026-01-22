@@ -112,15 +112,15 @@ class KMCheckpointHandler(BaseHandler):
                 {
                     "checkpoints": [
                         {
-                            "name": cp.name,  # type: ignore[union-attr]
-                            "description": cp.description,  # type: ignore[union-attr]
-                            "created_at": cp.created_at.isoformat(),  # type: ignore[union-attr]
-                            "node_count": cp.node_count,  # type: ignore[union-attr]
-                            "size_bytes": cp.size_bytes,  # type: ignore[union-attr]
-                            "compressed": cp.compressed,  # type: ignore[union-attr]
-                            "tags": cp.tags,  # type: ignore[union-attr]
+                            "name": cp.name,  # type: ignore[attr-defined]
+                            "description": cp.description,  # type: ignore[attr-defined]
+                            "created_at": cp.created_at.isoformat(),  # type: ignore[attr-defined]
+                            "node_count": cp.node_count,  # type: ignore[attr-defined]
+                            "size_bytes": cp.size_bytes,  # type: ignore[attr-defined]
+                            "compressed": cp.compressed,  # type: ignore[attr-defined]
+                            "tags": cp.tags,  # type: ignore[attr-defined]
                         }
-                        for cp in checkpoints  # type: ignore[union-attr]
+                        for cp in checkpoints  # type: ignore[attr-defined]
                     ],
                     "total": len(checkpoints),  # type: ignore[arg-type]
                 }
@@ -167,18 +167,18 @@ class KMCheckpointHandler(BaseHandler):
                     description=description,
                     tags=tags,
                 )
-                ctx["size_bytes"] = metadata.size_bytes  # type: ignore[union-attr]
+                ctx["size_bytes"] = metadata.size_bytes  # type: ignore[attr-defined]
 
             success = True
             return success_response(  # type: ignore[call-arg]
                 {
-                    "name": metadata.name,  # type: ignore[union-attr]
-                    "description": metadata.description,  # type: ignore[union-attr]
-                    "created_at": metadata.created_at.isoformat(),  # type: ignore[union-attr]
-                    "node_count": metadata.node_count,  # type: ignore[union-attr]
-                    "size_bytes": metadata.size_bytes,  # type: ignore[union-attr]
-                    "compressed": metadata.compressed,  # type: ignore[union-attr]
-                    "tags": metadata.tags,  # type: ignore[union-attr]
+                    "name": metadata.name,  # type: ignore[attr-defined]
+                    "description": metadata.description,  # type: ignore[attr-defined]
+                    "created_at": metadata.created_at.isoformat(),  # type: ignore[attr-defined]
+                    "node_count": metadata.node_count,  # type: ignore[attr-defined]
+                    "size_bytes": metadata.size_bytes,  # type: ignore[attr-defined]
+                    "compressed": metadata.compressed,  # type: ignore[attr-defined]
+                    "tags": metadata.tags,  # type: ignore[attr-defined]
                 },
                 status=201,
             )
@@ -298,19 +298,19 @@ class KMCheckpointHandler(BaseHandler):
             from aragora.observability.metrics import record_checkpoint_restore_result  # type: ignore[attr-defined]
 
             record_checkpoint_restore_result(
-                nodes_restored=result.nodes_restored,  # type: ignore[union-attr]
-                nodes_skipped=result.nodes_skipped,  # type: ignore[union-attr]
-                errors=len(result.errors),  # type: ignore[union-attr]
+                nodes_restored=result.nodes_restored,  # type: ignore[attr-defined]
+                nodes_skipped=result.nodes_skipped,  # type: ignore[attr-defined]
+                errors=len(result.errors),  # type: ignore[attr-defined]
             )
 
             return success_response(
                 {
-                    "checkpoint_name": result.checkpoint_name,  # type: ignore[union-attr]
+                    "checkpoint_name": result.checkpoint_name,  # type: ignore[attr-defined]
                     "strategy": strategy,
-                    "nodes_restored": result.nodes_restored,  # type: ignore[union-attr]
-                    "nodes_skipped": result.nodes_skipped,  # type: ignore[union-attr]
-                    "errors": result.errors[:10],  # type: ignore[union-attr]
-                    "error_count": len(result.errors),  # type: ignore[union-attr]
+                    "nodes_restored": result.nodes_restored,  # type: ignore[attr-defined]
+                    "nodes_skipped": result.nodes_skipped,  # type: ignore[attr-defined]
+                    "errors": result.errors[:10],  # type: ignore[attr-defined]
+                    "error_count": len(result.errors),  # type: ignore[attr-defined]
                 }
             )
         except ValueError as e:

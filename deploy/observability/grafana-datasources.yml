@@ -15,3 +15,48 @@ datasources:
       manageAlerts: true
       prometheusType: Prometheus
       prometheusVersion: "2.47.0"
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: jaeger
+          matcherRegex: '"correlation_id":"([a-f0-9-]+)"'
+          name: TraceID
+          url: '$${__value.raw}'
+
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: true
+        query: '{job="aragora"} |= "$${__trace.traceId}"'
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        tags:
+          - key: service.name
+            value: service
+          - key: http.method
+            value: method
+        queries:
+          - name: Request Rate
+            query: 'sum(rate(aragora_api_requests_total{service="$${__tags.service}"}[5m]))'
+          - name: Error Rate
+            query: 'sum(rate(aragora_api_requests_total{service="$${__tags.service}",status="error"}[5m]))'
+      nodeGraph:
+        enabled: true

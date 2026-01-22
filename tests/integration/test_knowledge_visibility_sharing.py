@@ -167,11 +167,27 @@ def mock_handler(mock_user):
 
 
 def make_handler_with_body(data: dict, user: Any = None) -> MagicMock:
-    """Create a mock handler with JSON body."""
+    """Create a mock handler with JSON body.
+
+    Creates a mock that properly handles body reading with seek support.
+    """
     body = json.dumps(data).encode("utf-8")
     handler = MagicMock()
     handler.headers = {"Content-Length": str(len(body))}
-    handler.rfile = BytesIO(body)
+
+    # Create BytesIO that resets position on each read for test reliability
+    rfile = BytesIO(body)
+
+    # Store original read to wrap it
+    original_read = rfile.read
+
+    def read_with_reset(size=-1):
+        """Read that ensures stream is at start before reading."""
+        rfile.seek(0)
+        return original_read(size)
+
+    rfile.read = read_with_reset
+    handler.rfile = rfile
     return handler
 
 
@@ -291,7 +307,6 @@ class TestVisibilityOperations:
         mock_mound.grant_access.assert_called_once()
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="TODO: fix mock handler body reading - fails in CI")
     async def test_grant_access_with_expiry(self, mock_mound, mock_user):
         """Test granting access with expiration."""
         from aragora.server.handlers.knowledge_base.mound.visibility import (
@@ -306,7 +321,7 @@ class TestVisibilityOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat() + "Z"
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
         http_handler = make_handler_with_body(
             {
                 "grantee_type": "workspace",
@@ -813,7 +828,6 @@ class TestFederationOperations:
         assert response["direction"] == "pull"
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="TODO: fix mock handler body reading - fails in CI")
     async def test_sync_with_since_filter(self, mock_mound, mock_user):
         """Test syncing with a since timestamp filter."""
         from aragora.server.handlers.knowledge_base.mound.federation import (
@@ -828,7 +842,7 @@ class TestFederationOperations:
                 return mock_user, None
 
         handler_instance = TestHandler()
-        since_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat() + "Z"
+        since_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         http_handler = make_handler_with_body(
             {
                 "region_id": "us-west-2",

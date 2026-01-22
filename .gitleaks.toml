@@ -17,6 +17,8 @@ regexes = [
     '''your-api-key''',
     '''<your-.*>''',
     '''YOUR_.*''',
+    # WebSocket RFC test nonce (base64 of "the sample nonce")
+    '''dGhlIHNhbXBsZSBub25jZQ==''',
 ]
 paths = [
     '''.*_test\.py$''',

@@ -13,6 +13,8 @@ Access the tools:
 - **Prometheus**: http://localhost:9090
 - **Grafana**: http://localhost:3000 (admin/admin)
 - **Alertmanager**: http://localhost:9093
+- **Jaeger**: http://localhost:16686 (distributed tracing)
+- **Loki**: http://localhost:3100 (log aggregation)
 
 ---
 
@@ -30,14 +32,27 @@ Access the tools:
                                     └────────▲────────┘
                                              │
 ┌──────────────┐                    ┌────────┴────────┐
-│   Aragora    │──────metrics──────▶│   Prometheus    │
-│   API/WS     │      /metrics      │    :9090        │
-│   :8080      │                    └────────┬────────┘
-└──────────────┘                             │
-                                    ┌────────▼────────┐
-┌──────────────┐                    │    Grafana      │
-│    Redis     │──────metrics──────▶│    :3000        │
-│   :6379      │      :9121         └─────────────────┘
+│   Aragora    │──────metrics──────▶│   Prometheus    │◀──────probes──────┐
+│   API/WS     │      /metrics      │    :9090        │                   │
+│   :8080      │                    └────────┬────────┘          ┌────────┴────────┐
+└──────┬───────┘                             │                   │    Blackbox     │
+       │                            ┌────────▼────────┐          │    :9115        │
+       │                            │    Grafana      │          └─────────────────┘
+       │                            │    :3000        │
+       │                            └──────┬─┬────────┘
+       │                                   │ │
+       │  ┌──────────────────────────────┬─┘ └──────────────────────────┐
+       │  │                              │                              │
+       │  ▼                              ▼                              ▼
+┌──────┴──────┐                 ┌────────────────┐              ┌──────────────┐
+│   Jaeger    │                 │      Loki      │◀─────logs────│   Promtail   │
+│   :16686    │                 │     :3100      │              │   :9080      │
+└─────────────┘                 └────────────────┘              └──────────────┘
+  (traces)                         (logs)                        (log shipper)
+
+┌──────────────┐
+│    Redis     │──────metrics──────▶ (to Prometheus)
+│   :6379      │      :9121
 └──────────────┘
 ```
 
@@ -84,6 +99,9 @@ Pre-configured alerts organized by category:
 | **Certificates** | `TLSCertificateExpiringSoon`, `TLSCertificateExpired` | Critical/Warning |
 | **Billing** | `StripeWebhookFailures`, `BillingSubscriptionSyncLag` | Warning |
 | **Nomic Loop** | `NomicLoopStuck`, `NomicLoopFailureRate` | Warning |
+| **Synthetic** | `SyntheticHealthProbeFailed`, `SyntheticAPIProbeFailed`, `SyntheticSSLCertExpiringSoon` | Critical/Warning |
+| **Loki** | `LokiIngestionDrop`, `LokiQueryLatencyHigh` | Warning |
+| **Jaeger** | `JaegerSpanDropRateHigh`, `JaegerCollectorQueueFull` | Warning |
 
 ### Grafana Dashboards
 
@@ -96,6 +114,7 @@ Located in `../grafana/dashboards/`:
 | `api-latency.json` | API latency breakdown | Latency debugging |
 | `agent-performance.json` | Per-agent metrics | Agent troubleshooting |
 | `slo-tracking.json` | SLO compliance | Reliability reporting |
+| `synthetic-monitoring.json` | Blackbox probes & SSL | Uptime monitoring |
 
 **Import to Grafana:**
 ```bash
@@ -222,6 +241,139 @@ data:
   production-operations.json: |
     # Paste dashboard JSON here
 ```
+
+---
+
+## Distributed Tracing (Jaeger)
+
+Jaeger provides distributed tracing for request flows across services.
+
+### Configuration
+
+Tracing is configured via environment variables:
+```bash
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+OTEL_SERVICE_NAME=aragora
+OTEL_SAMPLE_RATE=0.1  # Sample 10% of traces
+```
+
+### Features
+
+- **Trace Visualization**: Follow requests through the entire system
+- **Latency Analysis**: Identify slow spans and bottlenecks
+- **Error Tracking**: Find where errors originate
+- **Service Dependencies**: Visualize service-to-service calls
+
+### Useful Operations
+
+```bash
+# Check Jaeger health
+curl http://localhost:16686/api/services
+
+# Find traces for a specific operation
+# Use the Jaeger UI at http://localhost:16686
+```
+
+### Trace-Log Correlation
+
+Grafana is configured to link traces to logs via correlation IDs. When viewing a trace in Jaeger, you can jump directly to related logs in Loki.
+
+---
+
+## Log Aggregation (Loki + Promtail)
+
+Loki provides log aggregation and Promtail ships logs to Loki.
+
+### Configuration Files
+
+- `loki-config.yml`: Loki storage and retention settings
+- `promtail-config.yml`: Log source configuration
+
+### Log Sources
+
+Promtail collects logs from:
+1. **Aragora application logs** (`/app/logs/*.log`) - JSON structured
+2. **Audit logs** (`/app/logs/audit/*.log`) - Security events
+3. **System logs** (`/var/log/syslog`) - OS-level events
+4. **Docker container logs** - When running in containers
+
+### Querying Logs
+
+Use LogQL in Grafana:
+```logql
+# All error logs
+{job="aragora"} |= "ERROR"
+
+# Logs for a specific debate
+{job="aragora"} | json | debate_id="abc123"
+
+# Authentication failures
+{job="aragora"} | json | level="ERROR" component="auth"
+
+# Logs with correlation ID (for tracing)
+{job="aragora"} |= "correlation_id=\"xyz789\""
+```
+
+### Retention
+
+Loki is configured with:
+- 30-day retention period
+- Auto-compaction enabled
+- 168-hour reject window for old samples
+
+---
+
+## Synthetic Monitoring (Blackbox Exporter)
+
+Blackbox exporter performs synthetic probes to verify endpoint availability.
+
+### Probe Types
+
+| Module | Purpose |
+|--------|---------|
+| `http_2xx` | HTTP endpoint availability |
+| `http_health` | Health endpoint with body check |
+| `http_websocket` | WebSocket upgrade verification |
+| `tcp_connect` | TCP connectivity |
+| `http_ssl_cert` | SSL certificate expiry |
+
+### Monitored Endpoints
+
+Default probes (configured in `prometheus.yml`):
+- Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`
+- API endpoints: `/api/agents`, `/api/debates`, `/api/memory/stats`
+- WebSocket: `/ws`
+
+### Adding Custom Probes
+
+Add to `prometheus.yml`:
+```yaml
+- job_name: 'blackbox-custom'
+  metrics_path: /probe
+  params:
+    module: [http_2xx]
+  static_configs:
+    - targets:
+        - https://your-endpoint.com/api
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: blackbox-exporter:9115
+```
+
+### Dashboard
+
+The `synthetic-monitoring.json` dashboard provides:
+- Endpoint status (UP/DOWN)
+- Probe latency trends
+- SSL certificate expiry countdown
+- HTTP response codes
+- DNS lookup times
+- Request phase breakdown (connect, TLS, processing, transfer)
 
 ---
 
@@ -547,4 +699,4 @@ curl -X DELETE http://admin:admin@localhost:3000/api/dashboards/uid/OLD_UID
 
 ---
 
-*Last updated: 2026-01-13*
+*Last updated: 2026-01-21*

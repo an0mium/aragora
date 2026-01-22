@@ -80,6 +80,11 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         "/api/queue/jobs/*/retry",
         "/api/queue/stats",
         "/api/queue/workers",
+        "/api/queue/dlq",
+        "/api/queue/dlq/requeue",
+        "/api/queue/dlq/*/requeue",
+        "/api/queue/cleanup",
+        "/api/queue/stale",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -107,6 +112,32 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         # GET /api/queue/workers
         if path == "/api/queue/workers" and method == "GET":
             return await self._get_workers()
+
+        # GET /api/queue/dlq (list dead-letter queue jobs)
+        if path == "/api/queue/dlq" and method == "GET":
+            return await self._list_dlq(query_params)
+
+        # POST /api/queue/dlq/requeue (requeue all DLQ jobs)
+        if path == "/api/queue/dlq/requeue" and method == "POST":
+            return await self._requeue_all_dlq()
+
+        # POST /api/queue/dlq/:id/requeue (requeue specific DLQ job)
+        if path.startswith("/api/queue/dlq/") and path.endswith("/requeue") and method == "POST":
+            parts = path.split("/")
+            if len(parts) == 6:
+                job_id = parts[4]
+                is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
+                if not is_valid:
+                    return error_response(err, 400)
+                return await self._requeue_dlq_job(job_id)
+
+        # POST /api/queue/cleanup (cleanup old completed jobs)
+        if path == "/api/queue/cleanup" and method == "POST":
+            return await self._cleanup_jobs(query_params)
+
+        # GET /api/queue/stale (list stale/stuck jobs)
+        if path == "/api/queue/stale" and method == "GET":
+            return await self._list_stale_jobs(query_params)
 
         # POST /api/queue/jobs (submit new job)
         if path == "/api/queue/jobs" and method == "POST":

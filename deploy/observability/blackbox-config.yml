@@ -1,0 +1,126 @@
+# Blackbox exporter configuration for Aragora synthetic monitoring
+#
+# Reference: https://github.com/prometheus/blackbox_exporter
+
+modules:
+  # HTTP endpoint checks
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      method: GET
+      follow_redirects: true
+      preferred_ip_protocol: "ip4"
+      ip_protocol_fallback: true
+
+  http_2xx_post:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 201, 202]
+      method: POST
+      headers:
+        Content-Type: application/json
+      follow_redirects: true
+      preferred_ip_protocol: "ip4"
+
+  # Health endpoint check
+  http_health:
+    prober: http
+    timeout: 3s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      method: GET
+      fail_if_body_not_matches_regexp:
+        - '"status":\s*"(healthy|ok)"'
+
+  # API authentication check
+  http_api_auth:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 401]  # 401 means auth is working
+      method: GET
+      fail_if_not_ssl: false
+      preferred_ip_protocol: "ip4"
+
+  # WebSocket connectivity check
+  http_websocket:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1"]
+      method: GET
+      headers:
+        Upgrade: websocket
+        Connection: Upgrade
+        Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+        Sec-WebSocket-Version: "13"
+      valid_status_codes: [101]  # Switching Protocols
+
+  # TCP connectivity check
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: "ip4"
+      ip_protocol_fallback: true
+
+  # TCP with TLS
+  tcp_tls:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: "ip4"
+      tls: true
+      tls_config:
+        insecure_skip_verify: false
+
+  # DNS resolution check
+  dns_lookup:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: "aragora.ai"
+      query_type: "A"
+      valid_rcodes:
+        - NOERROR
+
+  # ICMP ping check
+  icmp_check:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: "ip4"
+      ip_protocol_fallback: true
+
+  # SSL certificate expiry check (30 days warning)
+  http_ssl_cert:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      fail_if_ssl: false
+      fail_if_not_ssl: true
+      tls_config:
+        insecure_skip_verify: false
+      preferred_ip_protocol: "ip4"
+
+  # Aragora debate API check
+  http_debate_api:
+    prober: http
+    timeout: 15s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 201, 202]
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: '{"task": "ping", "protocol": {"rounds": 1}}'
+      fail_if_body_not_matches_regexp:
+        - '"status":\s*"(success|pending|queued)"'

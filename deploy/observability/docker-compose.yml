@@ -88,10 +88,76 @@ services:
     profiles:
       - redis
 
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.51
+    container_name: aragora-jaeger
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC receiver
+      - "4318:4318"     # OTLP HTTP receiver
+      - "14268:14268"   # Jaeger thrift HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - SPAN_STORAGE_TYPE=badger
+      - BADGER_EPHEMERAL=false
+      - BADGER_DIRECTORY_VALUE=/badger/data
+      - BADGER_DIRECTORY_KEY=/badger/key
+    volumes:
+      - jaeger-data:/badger
+    restart: unless-stopped
+    networks:
+      - observability
+
+  # Loki for log aggregation
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: aragora-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - observability
+
+  # Promtail for log shipping
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: aragora-promtail
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - ../../logs:/app/logs:ro
+    command: -config.file=/etc/promtail/config.yml
+    restart: unless-stopped
+    networks:
+      - observability
+    depends_on:
+      - loki
+
+  # Blackbox exporter for synthetic monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: aragora-blackbox
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox-config.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    restart: unless-stopped
+    networks:
+      - observability
+
 volumes:
   prometheus-data:
   grafana-data:
   alertmanager-data:
+  jaeger-data:
+  loki-data:
 
 networks:
   observability:

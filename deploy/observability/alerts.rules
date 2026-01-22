@@ -929,3 +929,197 @@ groups:
         annotations:
           summary: "Bot webhook signature verification failures"
           description: "Multiple webhook signature verification failures. Possible attack or misconfiguration."
+
+  - name: aragora_synthetic_monitoring
+    interval: 30s
+    rules:
+      # Health endpoint probe failure
+      - alert: SyntheticHealthProbeFailed
+        expr: |
+          probe_success{job="blackbox-health"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: synthetic
+        annotations:
+          summary: "Health endpoint probe failed"
+          description: "Health probe to {{ $labels.instance }} is failing. Service may be down."
+          runbook_url: "https://docs.aragora.ai/runbooks/synthetic-probe"
+
+      # API endpoint probe failure
+      - alert: SyntheticAPIProbeFailed
+        expr: |
+          probe_success{job="blackbox-api"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: synthetic
+        annotations:
+          summary: "API endpoint probe failed"
+          description: "API probe to {{ $labels.instance }} is failing."
+
+      # WebSocket probe failure
+      - alert: SyntheticWebSocketFailed
+        expr: |
+          probe_success{job="blackbox-websocket"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: synthetic
+        annotations:
+          summary: "WebSocket probe failed"
+          description: "WebSocket upgrade probe is failing. Real-time features may be unavailable."
+
+      # Probe latency too high
+      - alert: SyntheticProbeHighLatency
+        expr: |
+          probe_duration_seconds{job=~"blackbox-.*"} > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: synthetic
+        annotations:
+          summary: "Synthetic probe high latency"
+          description: "Probe to {{ $labels.instance }} is taking {{ $value | printf \"%.2f\" }}s."
+
+      # SSL certificate expiring (from blackbox probe)
+      - alert: SyntheticSSLCertExpiringSoon
+        expr: |
+          (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 5m
+        labels:
+          severity: warning
+          component: synthetic
+        annotations:
+          summary: "SSL certificate expiring within 14 days"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | printf \"%.1f\" }} days."
+
+      # SSL certificate critical
+      - alert: SyntheticSSLCertCritical
+        expr: |
+          (probe_ssl_earliest_cert_expiry - time()) / 86400 < 3
+        for: 5m
+        labels:
+          severity: critical
+          component: synthetic
+        annotations:
+          summary: "SSL certificate expiring within 3 days"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | printf \"%.1f\" }} days. URGENT renewal required."
+
+      # DNS resolution failure
+      - alert: SyntheticDNSResolutionFailed
+        expr: |
+          probe_dns_lookup_time_seconds == 0 and probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: synthetic
+        annotations:
+          summary: "DNS resolution failed"
+          description: "DNS resolution for {{ $labels.instance }} is failing."
+
+      # HTTP status code unexpected
+      - alert: SyntheticHTTPStatusUnexpected
+        expr: |
+          probe_http_status_code{job=~"blackbox-.*"} >= 400
+        for: 5m
+        labels:
+          severity: warning
+          component: synthetic
+        annotations:
+          summary: "Unexpected HTTP status code"
+          description: "Probe to {{ $labels.instance }} returned status {{ $value }}."
+
+      # All probes failing (widespread outage)
+      - alert: SyntheticAllProbesFailing
+        expr: |
+          count(probe_success{job=~"blackbox-.*"} == 0)
+          /
+          count(probe_success{job=~"blackbox-.*"}) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          component: synthetic
+        annotations:
+          summary: "Multiple synthetic probes failing"
+          description: "More than 50% of synthetic probes are failing. Possible widespread outage."
+
+      # Probe flapping (intermittent issues)
+      - alert: SyntheticProbeFlapping
+        expr: |
+          changes(probe_success{job=~"blackbox-.*"}[15m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: synthetic
+        annotations:
+          summary: "Synthetic probe flapping"
+          description: "Probe to {{ $labels.instance }} is flapping ({{ $value | printf \"%.0f\" }} state changes in 15m)."
+
+  - name: aragora_loki
+    interval: 60s
+    rules:
+      # Loki ingestion rate drop
+      - alert: LokiIngestionDrop
+        expr: |
+          sum(rate(loki_distributor_lines_received_total[5m])) < 1
+        for: 10m
+        labels:
+          severity: warning
+          component: loki
+        annotations:
+          summary: "Loki log ingestion dropped"
+          description: "Loki is not receiving logs. Check Promtail and log sources."
+
+      # Loki query latency high
+      - alert: LokiQueryLatencyHigh
+        expr: |
+          histogram_quantile(0.99, sum(rate(loki_request_duration_seconds_bucket{route=~"loki_api_v1_query.*"}[5m])) by (le)) > 30
+        for: 10m
+        labels:
+          severity: warning
+          component: loki
+        annotations:
+          summary: "Loki query latency high"
+          description: "Loki P99 query latency is {{ $value | printf \"%.1f\" }}s."
+
+      # Loki ingester disk full
+      - alert: LokiIngesterDiskFull
+        expr: |
+          loki_ingester_memory_chunks / loki_ingester_memory_chunks_max > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: loki
+        annotations:
+          summary: "Loki ingester memory nearly full"
+          description: "Loki ingester is using 90% of available memory chunks."
+
+  - name: aragora_jaeger
+    interval: 60s
+    rules:
+      # Jaeger span drop rate high
+      - alert: JaegerSpanDropRateHigh
+        expr: |
+          sum(rate(jaeger_agent_reporter_spans_dropped_total[5m]))
+          /
+          sum(rate(jaeger_agent_reporter_spans_submitted_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: jaeger
+        annotations:
+          summary: "Jaeger dropping spans"
+          description: "Jaeger is dropping more than 5% of spans."
+
+      # Jaeger collector queue full
+      - alert: JaegerCollectorQueueFull
+        expr: |
+          jaeger_collector_queue_length / jaeger_collector_queue_capacity > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: jaeger
+        annotations:
+          summary: "Jaeger collector queue nearly full"
+          description: "Jaeger collector queue is at 90% capacity. Traces may be lost."

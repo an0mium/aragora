@@ -54,9 +54,16 @@ class TestDiscordConnectorInit:
         assert headers["Content-Type"] == "application/json"
 
 
-@pytest.mark.skip(reason="TODO: fix mock status_code comparison - AsyncMock not int")
 class TestDiscordSendMessage:
     """Tests for send_message method."""
+
+    def _create_mock_client(self, mock_response):
+        """Helper to create properly configured httpx mock."""
+        mock_client_instance = MagicMock()
+        mock_client_instance.request = AsyncMock(return_value=mock_response)
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+        return mock_client_instance
 
     @pytest.mark.asyncio
     async def test_send_simple_message(self):
@@ -66,18 +73,17 @@ class TestDiscordSendMessage:
         connector = DiscordConnector(bot_token="test-token")
 
         mock_response = MagicMock()
-        mock_response.status_code = 200  # Explicit integer, not AsyncMock
+        mock_response.status_code = 200
+        mock_response.text = ""
         mock_response.json.return_value = {
             "id": "123456789",
             "channel_id": "987654321",
         }
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
-            )
+        mock_client_instance = self._create_mock_client(mock_response)
 
+        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             result = await connector.send_message(
                 channel_id="987654321",
                 text="Hello, Discord!",
@@ -94,13 +100,13 @@ class TestDiscordSendMessage:
         connector = DiscordConnector(bot_token="test-token")
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"id": "123", "channel_id": "456"}
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(return_value=mock_response)
+        mock_client_instance = self._create_mock_client(mock_response)
 
+        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             embeds = [
                 {
                     "title": "Debate Result",
@@ -114,9 +120,10 @@ class TestDiscordSendMessage:
                 blocks=embeds,
             )
 
-            # Verify embeds were included
-            call_kwargs = mock_instance.post.call_args[1]
-            payload = call_kwargs["json"]
+            # Verify request was called with correct method
+            call_kwargs = mock_client_instance.request.call_args[1]
+            assert call_kwargs["method"] == "POST"
+            payload = json.loads(call_kwargs["content"])
             assert payload["embeds"] == embeds
 
         assert result.success is True
@@ -129,13 +136,13 @@ class TestDiscordSendMessage:
         connector = DiscordConnector(bot_token="test-token")
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"id": "123", "channel_id": "456"}
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(return_value=mock_response)
+        mock_client_instance = self._create_mock_client(mock_response)
 
+        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             components = [
                 {
                     "type": 1,  # Action row
@@ -156,8 +163,8 @@ class TestDiscordSendMessage:
                 components=components,
             )
 
-            call_kwargs = mock_instance.post.call_args[1]
-            payload = call_kwargs["json"]
+            call_kwargs = mock_client_instance.request.call_args[1]
+            payload = json.loads(call_kwargs["content"])
             assert payload["components"] == components
 
         assert result.success is True
@@ -169,11 +176,12 @@ class TestDiscordSendMessage:
 
         connector = DiscordConnector(bot_token="test-token")
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                side_effect=Exception("Rate limited")
-            )
+        mock_client_instance = MagicMock()
+        mock_client_instance.request = AsyncMock(side_effect=Exception("Rate limited"))
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
 
+        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             result = await connector.send_message(
                 channel_id="invalid",
                 text="Test",
@@ -194,13 +202,16 @@ class TestDiscordUpdateMessage:
         connector = DiscordConnector(bot_token="test-token")
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"id": "123", "channel_id": "456"}
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.patch = AsyncMock(return_value=mock_response)
+        mock_client_instance = MagicMock()
+        mock_client_instance.request = AsyncMock(return_value=mock_response)
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
 
+        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             result = await connector.update_message(
                 channel_id="456",
                 message_id="123",
@@ -208,8 +219,9 @@ class TestDiscordUpdateMessage:
             )
 
             # Verify PATCH to correct endpoint
-            call_args = mock_instance.patch.call_args
-            assert "/channels/456/messages/123" in call_args[0][0]
+            call_kwargs = mock_client_instance.request.call_args[1]
+            assert call_kwargs["method"] == "PATCH"
+            assert "/channels/456/messages/123" in call_kwargs["url"]
 
         assert result.success is True
 
@@ -228,18 +240,21 @@ class TestDiscordDeleteMessage:
         mock_response.status_code = 204
         mock_response.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.delete = AsyncMock(return_value=mock_response)
+        mock_client_instance = MagicMock()
+        mock_client_instance.request = AsyncMock(return_value=mock_response)
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
 
+        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             result = await connector.delete_message(
                 channel_id="456",
                 message_id="123",
             )
 
             # Verify DELETE to correct endpoint
-            call_args = mock_instance.delete.call_args
-            assert "/channels/456/messages/123" in call_args[0][0]
+            call_kwargs = mock_client_instance.request.call_args[1]
+            assert call_kwargs["method"] == "DELETE"
+            assert "/channels/456/messages/123" in call_kwargs["url"]
 
         assert result is True
 
@@ -250,11 +265,12 @@ class TestDiscordDeleteMessage:
 
         connector = DiscordConnector(bot_token="test-token")
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.delete = AsyncMock(
-                side_effect=Exception("Not found")
-            )
+        mock_client_instance = MagicMock()
+        mock_client_instance.request = AsyncMock(side_effect=Exception("Not found"))
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
 
+        with patch("httpx.AsyncClient", return_value=mock_client_instance):
             result = await connector.delete_message(
                 channel_id="456",
                 message_id="invalid",
@@ -285,9 +301,7 @@ class TestDiscordWithoutDependencies:
             connector_module = __import__(
                 "aragora.connectors.chat.discord", fromlist=["DiscordConnector"]
             )
-            patched_connector = connector_module.DiscordConnector(
-                bot_token="test-token"
-            )
+            patched_connector = connector_module.DiscordConnector(bot_token="test-token")
 
             result = await patched_connector.send_message(
                 channel_id="123",

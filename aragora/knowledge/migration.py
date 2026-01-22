@@ -249,7 +249,7 @@ class KnowledgeMoundMigrator:
 
                     # Check for duplicates if enabled
                     if self._skip_duplicates:
-                        existing = await self._mound.query_nodes(  # type: ignore[arg-type]
+                        existing = await self._mound.query_nodes(  # type: ignore[arg-type,misc]
                             workspace_id=workspace_id,
                             limit=1,
                         )
@@ -259,7 +259,7 @@ class KnowledgeMoundMigrator:
                             continue
 
                     # Add to mound
-                    node_id = await self._mound.add_node(node, deduplicate=True)  # type: ignore[call-arg]
+                    node_id = await self._mound.add_node(node, deduplicate=True)  # type: ignore[call-arg,misc]
                     result.node_ids.append(node_id)
                     result.migrated_count += 1
 
@@ -377,7 +377,7 @@ class KnowledgeMoundMigrator:
                 try:
                     # Create main consensus node
                     consensus_node = self._consensus_record_to_node(record, workspace_id)
-                    consensus_id = await self._mound.add_node(consensus_node, deduplicate=True)  # type: ignore[call-arg]
+                    consensus_id = await self._mound.add_node(consensus_node, deduplicate=True)  # type: ignore[call-arg,misc]
                     result.node_ids.append(consensus_id)
                     result.migrated_count += 1
 
@@ -401,32 +401,32 @@ class KnowledgeMoundMigrator:
                                 "consensus_id": record.id,
                             },
                         )
-                        claim_id = await self._mound.add_node(claim_node, deduplicate=True)  # type: ignore[call-arg]
+                        claim_id = await self._mound.add_node(claim_node, deduplicate=True)  # type: ignore[call-arg,misc]
                         result.node_ids.append(claim_id)
 
                         # Add "supports" relationship
-                        rel_id = await self._mound.add_relationship(  # type: ignore[call-arg]
+                        rel_id = await self._mound.add_relationship(  # type: ignore[call-arg,misc]
                             from_node_id=claim_id,
                             to_node_id=consensus_id,
                             relationship_type="supports",
                             strength=0.9,
                             created_by="migration",
                         )
-                        result.relationship_ids.append(rel_id)
+                        result.relationship_ids.append(rel_id)  # type: ignore[arg-type]
 
                     # Migrate dissent records if enabled
                     if include_dissent:
                         for dissent_id in record.dissent_ids:
-                            dissent = source.get_dissent(dissent_id)
+                            dissent = source.get_dissent(dissent_id)  # type: ignore[attr-defined]
                             if dissent:
                                 dissent_node = self._dissent_record_to_node(dissent, workspace_id)
-                                d_node_id = await self._mound.add_node(  # type: ignore[call-arg]
+                                d_node_id = await self._mound.add_node(  # type: ignore[call-arg,misc]
                                     dissent_node, deduplicate=True
                                 )
                                 result.node_ids.append(d_node_id)
 
                                 # Add "contradicts" relationship
-                                rel_id = await self._mound.add_relationship(  # type: ignore[call-arg]
+                                rel_id = await self._mound.add_relationship(  # type: ignore[call-arg,misc]
                                     from_node_id=d_node_id,
                                     to_node_id=consensus_id,
                                     relationship_type="contradicts",

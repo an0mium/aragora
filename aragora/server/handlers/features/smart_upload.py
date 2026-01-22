@@ -30,11 +30,11 @@ try:
     from ..base import (
         BaseHandler,
         HandlerResult,
-        auto_error_response,
+        auto_error_response,  # noqa: F401
         error_response,
         json_response,
     )
-    from ..utils.rate_limit import rate_limit
+    from ..utils.rate_limit import rate_limit  # noqa: F401
 
     HANDLER_BASE_AVAILABLE = True
 except ImportError:
@@ -305,7 +305,7 @@ async def _transcribe_audio_video(
 
         try:
             # Transcribe
-            transcription = await connector.transcribe(
+            transcription = await connector.transcribe(  # type: ignore[call-arg]
                 audio_path=tmp_path,
                 language=options.get("language"),
                 prompt=options.get("prompt"),
@@ -313,7 +313,7 @@ async def _transcribe_audio_video(
 
             return {
                 "transcription": transcription.text,
-                "duration": transcription.duration,
+                "duration": transcription.duration,  # type: ignore[attr-defined]
                 "language": transcription.language,
                 "segments": [
                     {
@@ -562,7 +562,7 @@ async def _expand_archive(
     elif ext in (".tar", ".gz", ".tgz"):
         try:
             mode = "r:gz" if ext in (".gz", ".tgz") else "r"
-            with tarfile.open(fileobj=io.BytesIO(content), mode=mode) as tf:
+            with tarfile.open(fileobj=io.BytesIO(content), mode=mode) as tf:  # type: ignore[call-overload]
                 for member in tf.getmembers():
                     files.append(
                         {
