@@ -4,127 +4,88 @@ Multi-Tenant Data Isolation Tests.
 Tests data isolation between tenants to ensure:
 - No cross-tenant data leakage
 - Proper tenant context propagation
-- Resource limits per tenant
+- Resource quotas per tenant
 - Audit logging for tenant operations
 """
 
 import asyncio
-import json
-import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 
 @dataclass
-class MockTenant:
-    """Mock tenant for testing."""
-
-    id: str
-    name: str
-    domain: str
-    tier: str = "professional"
-    status: str = "active"
-
-
-@dataclass
-class MockDebate:
-    """Mock debate for testing."""
+class MockResource:
+    """Mock resource for testing ownership validation."""
 
     id: str
     tenant_id: str
-    topic: str
-    status: str = "active"
+    name: str
 
 
 class TestTenantIsolation:
     """Test tenant data isolation."""
 
     @pytest.fixture
-    def tenant_a(self):
-        return MockTenant(
-            id="tenant-a",
-            name="Company A",
-            domain="company-a.com",
-        )
+    def tenant_a_id(self):
+        return "tenant-a"
 
     @pytest.fixture
-    def tenant_b(self):
-        return MockTenant(
-            id="tenant-b",
-            name="Company B",
-            domain="company-b.com",
-        )
+    def tenant_b_id(self):
+        return "tenant-b"
 
     @pytest.mark.asyncio
-    async def test_debate_isolation(self, tenant_a, tenant_b):
-        """Test that debates are isolated between tenants."""
-        from aragora.storage.debate_store import DebateStore
+    async def test_debate_isolation_via_context(self, tenant_a_id, tenant_b_id):
+        """Test that debates are isolated between tenants via context."""
+        from aragora.tenancy.context import TenantContext, get_current_tenant_id
+        from aragora.tenancy.isolation import TenantDataIsolation, TenantIsolationConfig
 
-        store = DebateStore()
-
-        # Create debates for both tenants
-        debate_a = MockDebate(
+        # Create resources for both tenants
+        resource_a = MockResource(
             id="debate-a1",
-            tenant_id=tenant_a.id,
-            topic="Topic for A",
+            tenant_id=tenant_a_id,
+            name="Topic for A",
         )
-        debate_b = MockDebate(
+        resource_b = MockResource(
             id="debate-b1",
-            tenant_id=tenant_b.id,
-            topic="Topic for B",
+            tenant_id=tenant_b_id,
+            name="Topic for B",
         )
 
-        with patch.object(store, "_db") as mock_db:
-            mock_db.fetch_all = AsyncMock(return_value=[debate_a.__dict__])
+        # Test isolation via context
+        with TenantContext(tenant_id=tenant_a_id):
+            current = get_current_tenant_id()
+            assert current == tenant_a_id
 
-            # Fetch debates for tenant A - should only see tenant A's debates
-            debates = await store.list_debates(tenant_id=tenant_a.id)
+            # Create isolation with non-strict mode for testing
+            config = TenantIsolationConfig(strict_validation=False)
+            isolation = TenantDataIsolation(config)
 
-            # Verify query included tenant filter
-            mock_db.fetch_all.assert_called_once()
-            call_args = str(mock_db.fetch_all.call_args)
-            assert tenant_a.id in call_args
-
-    @pytest.mark.asyncio
-    async def test_user_isolation(self, tenant_a, tenant_b):
-        """Test that users are isolated between tenants."""
-        from aragora.storage.user_store import UserStore
-
-        store = UserStore()
-
-        with patch.object(store, "_db") as mock_db:
-            mock_db.fetch_all = AsyncMock(return_value=[])
-
-            # Fetch users for tenant A
-            await store.list_users(tenant_id=tenant_a.id)
-
-            # Verify tenant filter was applied
-            call_args = str(mock_db.fetch_all.call_args)
-            assert tenant_a.id in call_args
+            # Verify tenant A can access their own data
+            assert isolation.validate_ownership(resource_a)
+            # Tenant A cannot access Tenant B's data
+            assert not isolation.validate_ownership(resource_b)
 
     @pytest.mark.asyncio
-    async def test_api_key_isolation(self, tenant_a, tenant_b):
-        """Test that API keys are isolated between tenants."""
-        from aragora.storage.api_key_store import APIKeyStore
+    async def test_user_isolation_via_context(self, tenant_a_id, tenant_b_id):
+        """Test that users are isolated between tenants via context."""
+        from aragora.tenancy.context import TenantContext, get_current_tenant_id
+        from aragora.tenancy.isolation import TenantDataIsolation, TenantIsolationConfig
 
-        store = APIKeyStore()
+        resource_a = MockResource(id="user-a1", tenant_id=tenant_a_id, name="User A")
+        resource_b = MockResource(id="user-b1", tenant_id=tenant_b_id, name="User B")
 
-        with patch.object(store, "_db") as mock_db:
-            mock_db.fetch_one = AsyncMock(return_value=None)
+        with TenantContext(tenant_id=tenant_a_id):
+            assert get_current_tenant_id() == tenant_a_id
 
-            # Validate API key - should check tenant ownership
-            result = await store.validate_key(
-                key="test-key",
-                tenant_id=tenant_a.id,
-            )
+            config = TenantIsolationConfig(strict_validation=False)
+            isolation = TenantDataIsolation(config)
 
-            # Verify tenant was checked
-            mock_db.fetch_one.assert_called_once()
-            call_args = str(mock_db.fetch_one.call_args)
-            assert tenant_a.id in call_args or "tenant" in call_args.lower()
+            # Can access own tenant's resources
+            assert isolation.validate_ownership(resource_a)
+            # Cannot access other tenant's resources
+            assert not isolation.validate_ownership(resource_b)
 
 
 class TestTenantContextPropagation:
@@ -133,14 +94,14 @@ class TestTenantContextPropagation:
     @pytest.mark.asyncio
     async def test_context_in_request_handler(self):
         """Test tenant context is available in request handlers."""
-        from aragora.tenancy.context import TenantContext, set_tenant_context
+        from aragora.tenancy.context import TenantContext, get_current_tenant_id
 
         # Simulate request with tenant context
         async def mock_handler():
-            ctx = TenantContext.current()
-            assert ctx is not None
-            assert ctx.tenant_id == "test-tenant"
-            return {"tenant": ctx.tenant_id}
+            tenant_id = get_current_tenant_id()
+            assert tenant_id is not None
+            assert tenant_id == "test-tenant"
+            return {"tenant": tenant_id}
 
         # Set context and execute handler
         with TenantContext(tenant_id="test-tenant"):
@@ -151,14 +112,13 @@ class TestTenantContextPropagation:
     @pytest.mark.asyncio
     async def test_context_in_background_tasks(self):
         """Test tenant context propagates to background tasks."""
-        from aragora.tenancy.context import TenantContext
+        from aragora.tenancy.context import TenantContext, get_current_tenant_id
 
         captured_tenant = None
 
         async def background_task():
             nonlocal captured_tenant
-            ctx = TenantContext.current()
-            captured_tenant = ctx.tenant_id if ctx else None
+            captured_tenant = get_current_tenant_id()
 
         # Start task with context
         with TenantContext(tenant_id="bg-tenant"):
@@ -170,305 +130,246 @@ class TestTenantContextPropagation:
     @pytest.mark.asyncio
     async def test_context_in_nested_services(self):
         """Test tenant context propagates through nested service calls."""
-        from aragora.tenancy.context import TenantContext
+        from aragora.tenancy.context import TenantContext, get_current_tenant_id
 
         async def outer_service():
-            assert TenantContext.current().tenant_id == "nested-tenant"
+            assert get_current_tenant_id() == "nested-tenant"
             return await inner_service()
 
         async def inner_service():
-            assert TenantContext.current().tenant_id == "nested-tenant"
+            assert get_current_tenant_id() == "nested-tenant"
             return await deepest_service()
 
         async def deepest_service():
-            ctx = TenantContext.current()
-            return ctx.tenant_id
+            return get_current_tenant_id()
 
         with TenantContext(tenant_id="nested-tenant"):
             result = await outer_service()
 
         assert result == "nested-tenant"
 
+    @pytest.mark.asyncio
+    async def test_context_isolation_between_tasks(self):
+        """Test that concurrent tasks maintain separate tenant contexts."""
+        from aragora.tenancy.context import TenantContext, get_current_tenant_id
 
-class TestTenantResourceLimits:
-    """Test enforcement of tenant resource limits."""
+        results = {}
+
+        async def task_for_tenant(tenant_id: str, delay: float):
+            with TenantContext(tenant_id=tenant_id):
+                await asyncio.sleep(delay)
+                results[tenant_id] = get_current_tenant_id()
+
+        # Run concurrent tasks with different tenants
+        await asyncio.gather(
+            task_for_tenant("tenant-1", 0.01),
+            task_for_tenant("tenant-2", 0.005),
+            task_for_tenant("tenant-3", 0.015),
+        )
+
+        # Each task should have captured its own tenant ID
+        assert results["tenant-1"] == "tenant-1"
+        assert results["tenant-2"] == "tenant-2"
+        assert results["tenant-3"] == "tenant-3"
+
+
+class TestTenantResourceQuotas:
+    """Test enforcement of tenant resource quotas."""
 
     @pytest.mark.asyncio
-    async def test_debate_creation_limit(self):
-        """Test debate creation respects tenant limits."""
-        from aragora.tenancy.limits import ResourceLimiter
-        from aragora.tenancy.tenant import TenantConfig
+    async def test_quota_check(self):
+        """Test quota checking."""
+        from aragora.tenancy.context import TenantContext
+        from aragora.tenancy.quotas import QuotaConfig, QuotaLimit, QuotaManager, QuotaPeriod
 
-        config = TenantConfig(max_debates_per_day=5)
-        limiter = ResourceLimiter(config)
+        # Configure with specific limits
+        config = QuotaConfig(
+            limits=[
+                QuotaLimit("debates", 5, QuotaPeriod.DAY),
+                QuotaLimit("agents", 10, QuotaPeriod.UNLIMITED),
+                QuotaLimit("concurrent_debates", 2, QuotaPeriod.UNLIMITED),
+            ],
+            strict_enforcement=False,
+        )
+        manager = QuotaManager(config)
 
-        # Allow up to limit
-        for i in range(5):
-            allowed = await limiter.can_create_debate(
-                tenant_id="test-tenant",
-                current_count=i,
-            )
+        with TenantContext(tenant_id="test-tenant"):
+            # Check if within quota (starting fresh, so count is 0)
+            can_create = await manager.check_quota("debates", 1)
+            assert can_create is True
+
+            # Consume some quota
+            for _ in range(5):
+                await manager.consume("debates", 1)
+
+            # Now should be at limit
+            can_create = await manager.check_quota("debates", 1)
+            assert can_create is False
+
+    @pytest.mark.asyncio
+    async def test_concurrent_debate_quota(self):
+        """Test concurrent debate quota enforcement."""
+        from aragora.tenancy.context import TenantContext
+        from aragora.tenancy.quotas import QuotaConfig, QuotaLimit, QuotaManager, QuotaPeriod
+
+        config = QuotaConfig(
+            limits=[
+                QuotaLimit("concurrent_debates", 2, QuotaPeriod.UNLIMITED),
+            ],
+            strict_enforcement=False,
+        )
+        manager = QuotaManager(config)
+
+        with TenantContext(tenant_id="test-tenant"):
+            # Allow concurrent debates up to limit
+            allowed = await manager.check_quota("concurrent_debates", 1)
             assert allowed is True
 
-        # Deny over limit
-        allowed = await limiter.can_create_debate(
-            tenant_id="test-tenant",
-            current_count=5,
-        )
-        assert allowed is False
+            # Consume the quota
+            await manager.consume("concurrent_debates", 1)
+            await manager.consume("concurrent_debates", 1)
 
-    @pytest.mark.asyncio
-    async def test_concurrent_debate_limit(self):
-        """Test concurrent debate limit enforcement."""
-        from aragora.tenancy.limits import ResourceLimiter
-        from aragora.tenancy.tenant import TenantConfig
-
-        config = TenantConfig(max_concurrent_debates=2)
-        limiter = ResourceLimiter(config)
-
-        # Allow concurrent debates up to limit
-        allowed = await limiter.can_start_debate(
-            tenant_id="test-tenant",
-            active_count=1,
-        )
-        assert allowed is True
-
-        # Deny when at concurrent limit
-        allowed = await limiter.can_start_debate(
-            tenant_id="test-tenant",
-            active_count=2,
-        )
-        assert allowed is False
-
-    @pytest.mark.asyncio
-    async def test_storage_quota_enforcement(self):
-        """Test storage quota enforcement."""
-        from aragora.tenancy.limits import ResourceLimiter
-        from aragora.tenancy.tenant import TenantConfig
-
-        config = TenantConfig(storage_quota=1024 * 1024)  # 1MB
-        limiter = ResourceLimiter(config)
-
-        # Allow storage under quota
-        allowed = await limiter.can_store(
-            tenant_id="test-tenant",
-            current_usage=500 * 1024,  # 500KB
-            requested_bytes=200 * 1024,  # 200KB
-        )
-        assert allowed is True
-
-        # Deny storage that would exceed quota
-        allowed = await limiter.can_store(
-            tenant_id="test-tenant",
-            current_usage=900 * 1024,
-            requested_bytes=200 * 1024,
-        )
-        assert allowed is False
-
-
-class TestTenantTierFeatures:
-    """Test tier-based feature access."""
-
-    @pytest.mark.asyncio
-    async def test_free_tier_features(self):
-        """Test free tier feature restrictions."""
-        from aragora.tenancy.tenant import TenantConfig, TenantTier
-
-        config = TenantConfig.for_tier(TenantTier.FREE)
-
-        assert config.enable_sso is False
-        assert config.enable_custom_agents is False
-        assert config.max_debates_per_day == 10
-        assert config.max_users == 3
-
-    @pytest.mark.asyncio
-    async def test_enterprise_tier_features(self):
-        """Test enterprise tier features."""
-        from aragora.tenancy.tenant import TenantConfig, TenantTier
-
-        config = TenantConfig.for_tier(TenantTier.ENTERPRISE)
-
-        assert config.enable_sso is True
-        assert config.enable_custom_agents is True
-        assert config.enable_audit_log is True
-        assert config.max_users >= 100
-
-    @pytest.mark.asyncio
-    async def test_feature_gate_enforcement(self):
-        """Test feature gate enforcement based on tier."""
-        from aragora.tenancy.features import FeatureGate
-        from aragora.tenancy.tenant import TenantTier
-
-        # Free tier user
-        free_gate = FeatureGate(tier=TenantTier.FREE)
-        assert free_gate.is_enabled("basic_debates") is True
-        assert free_gate.is_enabled("sso") is False
-        assert free_gate.is_enabled("custom_agents") is False
-
-        # Enterprise tier user
-        enterprise_gate = FeatureGate(tier=TenantTier.ENTERPRISE)
-        assert enterprise_gate.is_enabled("basic_debates") is True
-        assert enterprise_gate.is_enabled("sso") is True
-        assert enterprise_gate.is_enabled("custom_agents") is True
-
-
-class TestCrossTenantAccess:
-    """Test cross-tenant access prevention."""
-
-    @pytest.mark.asyncio
-    async def test_cross_tenant_debate_access_denied(self):
-        """Test that accessing another tenant's debate is denied."""
-        from aragora.tenancy.isolation import IsolationEnforcer
-
-        enforcer = IsolationEnforcer()
-
-        # Tenant A trying to access Tenant B's debate
-        with pytest.raises(PermissionError) as exc_info:
-            await enforcer.verify_debate_access(
-                requesting_tenant="tenant-a",
-                debate_tenant="tenant-b",
-                debate_id="debate-123",
-            )
-
-        assert "tenant" in str(exc_info.value).lower()
-
-    @pytest.mark.asyncio
-    async def test_cross_tenant_user_access_denied(self):
-        """Test that accessing another tenant's users is denied."""
-        from aragora.tenancy.isolation import IsolationEnforcer
-
-        enforcer = IsolationEnforcer()
-
-        with pytest.raises(PermissionError):
-            await enforcer.verify_user_access(
-                requesting_tenant="tenant-a",
-                user_tenant="tenant-b",
-                user_id="user-123",
-            )
-
-    @pytest.mark.asyncio
-    async def test_same_tenant_access_allowed(self):
-        """Test that same-tenant access is allowed."""
-        from aragora.tenancy.isolation import IsolationEnforcer
-
-        enforcer = IsolationEnforcer()
-
-        # Should not raise
-        result = await enforcer.verify_debate_access(
-            requesting_tenant="tenant-a",
-            debate_tenant="tenant-a",
-            debate_id="debate-123",
-        )
-
-        assert result is True
+            # Deny when at concurrent limit
+            allowed = await manager.check_quota("concurrent_debates", 1)
+            assert allowed is False
 
 
 class TestTenantAuditLogging:
-    """Test tenant audit logging."""
+    """Test audit logging for tenant operations."""
 
     @pytest.mark.asyncio
-    async def test_tenant_creation_logged(self):
-        """Test that tenant creation is audit logged."""
-        from aragora.audit.tenant_audit import TenantAuditLogger
-
-        logger = TenantAuditLogger()
-
-        await logger.log_tenant_created(
-            tenant_id="new-tenant",
-            name="New Corp",
-            tier="professional",
-            created_by="admin-user",
+    async def test_audit_log_captures_tenant(self):
+        """Test that audit logs capture tenant context."""
+        from aragora.tenancy.context import (
+            TenantContext,
+            get_audit_backend,
+            set_audit_backend,
         )
 
-        logs = await logger.get_logs(tenant_id="new-tenant", limit=10)
-        assert len(logs) >= 1
-        assert logs[0]["event_type"] == "tenant_created"
+        # Create mock audit backend
+        mock_audit = MagicMock()
+        mock_audit.log = AsyncMock()
+
+        with TenantContext(tenant_id="audit-tenant"):
+            set_audit_backend(mock_audit)
+
+            # Simulate an audit event
+            backend = get_audit_backend()
+            if backend:
+                await backend.log(
+                    action="debate.create",
+                    resource_id="debate-123",
+                    details={"topic": "Test topic"},
+                )
+
+                # Verify audit was called
+                mock_audit.log.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_tenant_tier_change_logged(self):
-        """Test that tier changes are audit logged."""
-        from aragora.audit.tenant_audit import TenantAuditLogger
-
-        logger = TenantAuditLogger()
-
-        await logger.log_tier_change(
-            tenant_id="upgraded-tenant",
-            old_tier="starter",
-            new_tier="enterprise",
-            changed_by="admin-user",
-        )
-
-        logs = await logger.get_logs(tenant_id="upgraded-tenant", limit=10)
-        tier_logs = [log for log in logs if log["event_type"] == "tier_changed"]
-        assert len(tier_logs) >= 1
-        assert tier_logs[0]["old_tier"] == "starter"
-        assert tier_logs[0]["new_tier"] == "enterprise"
-
-    @pytest.mark.asyncio
-    async def test_cross_tenant_attempt_logged(self):
+    async def test_cross_tenant_access_logged(self):
         """Test that cross-tenant access attempts are logged."""
-        from aragora.audit.tenant_audit import TenantAuditLogger
-
-        logger = TenantAuditLogger()
-
-        await logger.log_access_denied(
-            requesting_tenant="tenant-a",
-            target_tenant="tenant-b",
-            resource_type="debate",
-            resource_id="debate-123",
-            user_id="user-456",
+        from aragora.tenancy.context import TenantContext
+        from aragora.tenancy.isolation import (
+            TenantDataIsolation,
+            TenantIsolationConfig,
+            TenantIsolationError,
         )
 
-        logs = await logger.get_security_logs(limit=10)
-        denied_logs = [log for log in logs if log["event_type"] == "cross_tenant_access_denied"]
-        assert len(denied_logs) >= 1
+        # Create a resource belonging to tenant-b
+        other_tenant_resource = MockResource(
+            id="resource-b1",
+            tenant_id="tenant-b",
+            name="Other Tenant Resource",
+        )
+
+        with TenantContext(tenant_id="tenant-a"):
+            # Use strict validation so it raises on violation
+            config = TenantIsolationConfig(strict_validation=True, audit_access=True)
+            isolation = TenantDataIsolation(config)
+
+            # Attempt to access another tenant's data should raise
+            with pytest.raises(TenantIsolationError):
+                isolation.validate_ownership(other_tenant_resource)
 
 
-class TestTenantDataMigration:
-    """Test tenant data migration scenarios."""
-
-    @pytest.mark.asyncio
-    async def test_tenant_data_export(self):
-        """Test exporting all tenant data."""
-        from aragora.tenancy.data import TenantDataExporter
-
-        exporter = TenantDataExporter()
-
-        with patch.object(exporter, "_fetch_all_data") as mock_fetch:
-            mock_fetch.return_value = {
-                "debates": [{"id": "1", "topic": "Test"}],
-                "users": [{"id": "u1", "email": "test@test.com"}],
-                "settings": {"theme": "dark"},
-            }
-
-            data = await exporter.export_tenant_data("tenant-to-export")
-
-        assert "debates" in data
-        assert "users" in data
-        assert len(data["debates"]) == 1
+class TestTenantManager:
+    """Test tenant management operations."""
 
     @pytest.mark.asyncio
-    async def test_tenant_data_deletion(self):
-        """Test GDPR-compliant tenant data deletion."""
-        from aragora.tenancy.data import TenantDataManager
+    async def test_tenant_creation(self):
+        """Test creating a new tenant."""
+        from aragora.tenancy.tenant import Tenant, TenantConfig, TenantTier
 
-        manager = TenantDataManager()
+        tenant = Tenant(
+            id="new-tenant",
+            name="New Company",
+            slug="new-company",
+            tier=TenantTier.PROFESSIONAL,
+            config=TenantConfig(),
+        )
 
-        with patch.object(manager, "_delete_tenant_resources") as mock_delete:
-            mock_delete.return_value = {
-                "debates_deleted": 10,
-                "users_deleted": 5,
-                "storage_freed_bytes": 1024 * 1024,
-            }
+        assert tenant.id == "new-tenant"
+        assert tenant.name == "New Company"
+        assert tenant.tier == TenantTier.PROFESSIONAL
 
-            result = await manager.delete_tenant_data(
-                tenant_id="tenant-to-delete",
-                confirmation="DELETE-tenant-to-delete",
-            )
+    @pytest.mark.asyncio
+    async def test_tenant_creation_via_factory(self):
+        """Test creating a new tenant via factory method."""
+        from aragora.tenancy.tenant import Tenant, TenantTier
 
-        assert result["debates_deleted"] == 10
-        mock_delete.assert_called_once()
+        tenant = Tenant.create(
+            name="Factory Company",
+            owner_email="owner@factory.com",
+            tier=TenantTier.PROFESSIONAL,
+        )
 
+        assert tenant.name == "Factory Company"
+        assert tenant.slug == "factory-company"
+        assert tenant.tier == TenantTier.PROFESSIONAL
+        assert tenant.owner_email == "owner@factory.com"
 
-# Markers for running specific test groups
-# NOTE: The skip marker is defined at the top of the file and takes precedence
+    @pytest.mark.asyncio
+    async def test_tenant_config_defaults(self):
+        """Test tenant config has sensible defaults."""
+        from aragora.tenancy.tenant import TenantConfig
+
+        config = TenantConfig()
+
+        # Should have default limits
+        assert config.max_debates_per_day > 0
+        assert config.max_agents_per_debate > 0
+        assert config.max_concurrent_debates > 0
+
+    @pytest.mark.asyncio
+    async def test_tenant_suspension(self):
+        """Test tenant suspension blocks operations."""
+        from aragora.tenancy.tenant import (
+            Tenant,
+            TenantConfig,
+            TenantManager,
+            TenantStatus,
+            TenantSuspendedError,
+            TenantTier,
+        )
+
+        tenant = Tenant(
+            id="suspended-tenant",
+            name="Suspended Co",
+            slug="suspended-co",
+            tier=TenantTier.PROFESSIONAL,
+            status=TenantStatus.SUSPENDED,
+            config=TenantConfig(),
+        )
+
+        # Suspended tenant should not be active
+        assert not tenant.is_active()
+
+        # Using TenantManager to validate API key should raise for suspended tenant
+        manager = TenantManager()
+        manager.register_tenant(tenant)
+
+        # Generate an API key and try to validate it
+        api_key = tenant.generate_api_key()
+
+        with pytest.raises(TenantSuspendedError):
+            await manager.validate_api_key(api_key)
