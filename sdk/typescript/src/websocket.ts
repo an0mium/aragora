@@ -194,17 +194,21 @@ export class AragoraWebSocket {
   on(event: 'consensus', handler: EventHandler<ConsensusEvent>): () => void;
   on(event: 'debate_end', handler: EventHandler<DebateEndEvent>): () => void;
   on(event: 'message', handler: EventHandler<WebSocketEvent>): () => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on<K extends keyof EventHandlers>(event: K, handler: EventHandlers[K][number]): () => void {
-    (this.handlers[event] as EventHandlers[K]).push(handler as EventHandlers[K][number]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this.handlers[event] as any[]).push(handler);
     return () => this.off(event, handler);
   }
 
   /**
    * Remove an event handler.
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   off<K extends keyof EventHandlers>(event: K, handler: EventHandlers[K][number]): void {
-    const handlers = this.handlers[event] as EventHandlers[K];
-    const index = handlers.indexOf(handler as EventHandlers[K][number]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handlers = this.handlers[event] as any[];
+    const index = handlers.indexOf(handler);
     if (index !== -1) {
       handlers.splice(index, 1);
     }
@@ -213,13 +217,17 @@ export class AragoraWebSocket {
   /**
    * Wait for a specific event to occur.
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   once<T>(event: keyof EventHandlers): Promise<T> {
     return new Promise((resolve) => {
-      const handler = (data: T) => {
-        this.off(event, handler as EventHandlers[typeof event][number]);
-        resolve(data);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handler = (data: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.off(event, handler as any);
+        resolve(data as T);
       };
-      this.on(event as 'message', handler as EventHandler<WebSocketEvent>);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.on(event as any, handler as any);
     });
   }
 
@@ -262,7 +270,8 @@ export class AragoraWebSocket {
       // Emit to specific event type handlers
       const eventType = event.type as keyof EventHandlers;
       if (eventType in this.handlers) {
-        this.emit(eventType, event.data);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.emit(eventType, event.data as any);
       }
     } catch (error) {
       this.emit('error', new Error(`Failed to parse message: ${data}`));

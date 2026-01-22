@@ -72,7 +72,7 @@ export class AragoraError extends Error {
   }
 
   static fromResponse(status: number, body: ApiError): AragoraError {
-    return new AragoraError(body.error, body.code, status, body.trace_id, body);
+    return new AragoraError(body.error, body.code, status, body.trace_id, body as unknown as Record<string, unknown>);
   }
 }
 
@@ -89,6 +89,7 @@ export interface PaginatedResponse<T> {
 }
 
 export interface PaginationParams {
+  [key: string]: string | number | boolean | undefined;
   offset?: number;
   limit?: number;
 }

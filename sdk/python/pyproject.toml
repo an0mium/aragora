@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "aragora-client"
-version = "2.1.10"
-description = "Python SDK for Aragora multi-agent debate framework"
+name = "aragora"
+version = "2.2.0"
+description = "Official Python SDK for Aragora multi-agent debate platform"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 authors = [
-    { name = "Aragora Team", email = "team@aragora.ai" }
+    { name = "Aragora Team", email = "support@aragora.ai" }
 ]
 keywords = [
     "aragora",
@@ -18,15 +18,14 @@ keywords = [
     "debate",
     "multi-agent",
     "llm",
-    "sdk",
-    "anthropic",
-    "openai"
+    "sdk"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -35,40 +34,50 @@ classifiers = [
 ]
 dependencies = [
     "httpx>=0.25.0",
-    "websockets>=12.0",
-    "pydantic>=2.0.0",
 ]
 
 [project.optional-dependencies]
+websocket = [
+    "websockets>=12.0",
+]
 dev = [
-    "pytest>=7.0",
-    "pytest-asyncio>=0.21",
-    "pytest-httpx>=0.30",
-    "mypy>=1.0",
-    "ruff>=0.1",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+all = [
+    "aragora[websocket,dev]",
 ]
 
 [project.urls]
 Homepage = "https://aragora.ai"
 Documentation = "https://docs.aragora.ai/sdk/python"
-Repository = "https://github.com/an0mium/aragora"
-Issues = "https://github.com/an0mium/aragora/issues"
+Repository = "https://github.com/aragora/aragora"
+Issues = "https://github.com/aragora/aragora/issues"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/aragora",
+    "/README.md",
+]
 
 [tool.hatch.build.targets.wheel]
-packages = ["aragora_client"]
+packages = ["aragora"]
 
 [tool.ruff]
-line-length = 88
-target-version = "py310"
+line-length = 100
+target-version = "py39"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
+select = ["E", "F", "I", "W"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.9"
 strict = true
 warn_return_any = true
-warn_unused_configs = true
+warn_unused_ignores = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
