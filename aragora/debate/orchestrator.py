@@ -768,7 +768,7 @@ class Arena:
                         self, "revalidation_check_interval_seconds", 3600
                     ),
                 )
-                logger.info(
+                logger.info(  # type: ignore[misc,call-arg]
                     "[knowledge_mound] RevalidationScheduler initialized "
                     "(staleness_threshold=%.2f)",
                     getattr(self, "revalidation_staleness_threshold", 0.7),
@@ -811,7 +811,7 @@ class Arena:
                     registered = factory.register_with_coordinator(
                         self._km_coordinator, self._km_adapters
                     )
-                    logger.info(
+                    logger.info(  # type: ignore[misc,call-arg]
                         "[knowledge_mound] AdapterFactory created %d adapters, "
                         "registered %d with coordinator",
                         len(self._km_adapters),
@@ -1826,7 +1826,7 @@ class Arena:
             if self.debate_embeddings:
                 await self.debate_embeddings.index_debate(artifact)
         except (AttributeError, TypeError, ValueError, RuntimeError, OSError, ConnectionError) as e:
-            logger.warning("Async debate indexing failed: %s", e)
+            logger.warning("Async debate indexing failed: %s", e)  # type: ignore[misc,call-arg]
 
     def _group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
         """

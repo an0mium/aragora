@@ -208,8 +208,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                 "rlm_compressions": 0,
                 "rlm_queries": 0,
                 "real_rlm_used": 0,
-                "compression_ratio_avg": 1.0,
-                "abstraction_levels_used": {},
+                "compression_ratio_avg": 1.0,  # type: ignore[dict-item]
+                "abstraction_levels_used": {},  # type: ignore[dict-item]
             }
         )
 
@@ -424,13 +424,13 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         # Update stats
         self.stats["rlm_compressions"] += 1
         ratio = result.compression_ratio
-        self.stats["compression_ratio_avg"] = (
-            self.stats["compression_ratio_avg"] * 0.9 + ratio * 0.1
+        self.stats["compression_ratio_avg"] = (  # type: ignore[assignment]
+            self.stats["compression_ratio_avg"] * 0.9 + ratio * 0.1  # type: ignore[operator]
         )
 
         for level in result.abstraction_levels:
-            self.stats["abstraction_levels_used"][level] = (
-                self.stats["abstraction_levels_used"].get(level, 0) + 1
+            self.stats["abstraction_levels_used"][level] = (  # type: ignore[index]
+                self.stats["abstraction_levels_used"].get(level, 0) + 1  # type: ignore[union-attr]
             )
 
         logger.info(

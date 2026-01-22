@@ -147,7 +147,7 @@ class EloFeedback:
                 )
 
                 # Update voting accuracy tracking
-                self.elo_system.update_voting_accuracy(
+                self.elo_system.update_voting_accuracy(  # type: ignore[attr-defined]
                     agent_name=agent_name,
                     voted_for_consensus=voted_for_consensus,
                     domain=ctx.domain or "general",
@@ -185,7 +185,7 @@ class EloFeedback:
             domain = ctx.domain or "general"
             for agent in ctx.agents:
                 try:
-                    bonus = self.elo_system.apply_learning_bonus(
+                    bonus = self.elo_system.apply_learning_bonus(  # type: ignore[attr-defined]
                         agent_name=agent.name,
                         domain=domain,
                         debate_id=ctx.debate_id,

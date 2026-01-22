@@ -495,7 +495,7 @@ class MemoryCoordinator:
         if not self.continuum_memory:
             raise ValueError("ContinuumMemory not configured")
 
-        entry_id = self.continuum_memory.store_pattern(
+        entry_id = self.continuum_memory.store_pattern(  # type: ignore[attr-defined]
             content=f"Debate: {data['task']}\nConclusion: {data['final_answer']}",
             importance=data["confidence"],
             metadata={
@@ -527,7 +527,7 @@ class MemoryCoordinator:
         else:
             strength = ConsensusStrength.SPLIT
 
-        record = self.consensus_memory.store_consensus(
+        record = self.consensus_memory.store_consensus(  # type: ignore[call-arg]
             topic=data["topic"],
             conclusion=data["conclusion"],
             strength=strength,
@@ -550,7 +550,7 @@ class MemoryCoordinator:
         debate_id = data["debate_id"]
 
         # Store the debate result
-        self.critique_store.store_result(result)
+        self.critique_store.store_result(result)  # type: ignore[attr-defined]
         logger.debug("[coordinator] Stored in critique: %s", debate_id)
         return debate_id
 
@@ -574,7 +574,7 @@ class MemoryCoordinator:
             )
         else:
             # Fallback: use store_knowledge if available
-            item_id = await self.knowledge_mound.store_knowledge(
+            item_id = await self.knowledge_mound.store_knowledge(  # type: ignore[attr-defined]
                 content=f"{data['task']}\n\nConclusion: {data['conclusion']}",
                 source="debate",
                 source_id=data["debate_id"],

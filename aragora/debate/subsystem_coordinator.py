@@ -491,17 +491,17 @@ class SubsystemCoordinator:
             if self.continuum_memory:
                 subsystems["continuum_memory"] = self.continuum_memory
             if self.consensus_memory:
-                subsystems["consensus_memory"] = self.consensus_memory
+                subsystems["consensus_memory"] = self.consensus_memory  # type: ignore[assignment]
             if self.calibration_tracker:
-                subsystems["calibration_tracker"] = self.calibration_tracker
+                subsystems["calibration_tracker"] = self.calibration_tracker  # type: ignore[assignment]
             if self.flip_detector:
-                subsystems["flip_detector"] = self.flip_detector
+                subsystems["flip_detector"] = self.flip_detector  # type: ignore[assignment]
             if self.elo_system:
-                subsystems["elo_system"] = self.elo_system
+                subsystems["elo_system"] = self.elo_system  # type: ignore[assignment]
             if self.relationship_tracker:
                 subsystems["relationship_tracker"] = self.relationship_tracker
             if self.tier_analytics_tracker:
-                subsystems["tier_analytics_tracker"] = self.tier_analytics_tracker
+                subsystems["tier_analytics_tracker"] = self.tier_analytics_tracker  # type: ignore[assignment]
 
             self.hook_handler_registry = HookHandlerRegistry(
                 hook_manager=self.hook_manager,

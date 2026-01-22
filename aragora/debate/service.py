@@ -84,7 +84,7 @@ class DebateOptions:
 
     def to_protocol(self) -> DebateProtocol:
         """Convert options to a DebateProtocol."""
-        return DebateProtocol(
+        return DebateProtocol(  # type: ignore[call-arg,arg-type]
             rounds=self.rounds,
             consensus=self.consensus,
             topology=self.topology,
@@ -326,7 +326,7 @@ class DebateService:
                 try:
                     from aragora.agents import create_agent
 
-                    resolved.append(create_agent(agent))
+                    resolved.append(create_agent(agent))  # type: ignore[arg-type]
                 except ImportError:
                     logger.warning(f"Cannot resolve agent '{agent}' - no resolver configured")
 

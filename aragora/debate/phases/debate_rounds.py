@@ -492,8 +492,8 @@ class DebateRoundsPhase:
         if round_num < total_rounds:
             if await self._should_terminate(ctx, round_num):
                 # Signal early termination by setting a flag
-                ctx.result.metadata = ctx.result.metadata or {}
-                ctx.result.metadata["early_termination"] = True
+                ctx.result.metadata = ctx.result.metadata or {}  # type: ignore[attr-defined]
+                ctx.result.metadata["early_termination"] = True  # type: ignore[attr-defined]
 
     def _get_critics(self, ctx: "DebateContext") -> list["Agent"]:
         """Get and filter critics for the round."""
@@ -636,7 +636,7 @@ class DebateRoundsPhase:
                 # Create placeholder critique so the debate can continue
                 from aragora.core import Critique
 
-                placeholder_critique = Critique(
+                placeholder_critique = Critique(  # type: ignore[call-arg]
                     agent=critic.name,
                     target_agent=proposal_agent,
                     issues=["[Critique unavailable - agent timed out or encountered an error]"],
@@ -1112,14 +1112,14 @@ class DebateRoundsPhase:
                     agent=agent,
                     current_proposal=proposals.get(agent.name, ""),
                     all_proposals=proposals,
-                    critiques=ctx.critiques,
+                    critiques=ctx.critiques,  # type: ignore[attr-defined]
                     round_num=round_num,
                 )
 
                 # Generate final synthesis with timeout
                 final_proposal = await asyncio.wait_for(
-                    self._generate_revision(agent, prompt, ctx.context_messages),
-                    timeout=self.agent_timeout,
+                    self._generate_revision(agent, prompt, ctx.context_messages),  # type: ignore[attr-defined]
+                    timeout=self.agent_timeout,  # type: ignore[attr-defined]
                 )
 
                 if final_proposal:

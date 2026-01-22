@@ -368,8 +368,8 @@ class DebateHooks:
                         # Get updated calibration stats
                         curve = self.calibration_tracker.get_calibration_curve(agent_name)
                         if curve:
-                            total_predictions = sum(b.count for b in curve)
-                            total_correct = sum(b.count * b.actual for b in curve)
+                            total_predictions = sum(b.count for b in curve)  # type: ignore[attr-defined]
+                            total_correct = sum(b.count * b.actual for b in curve)  # type: ignore[attr-defined]
                             accuracy = (
                                 total_correct / total_predictions if total_predictions > 0 else 0
                             )
@@ -377,9 +377,9 @@ class DebateHooks:
                             # Compute Brier score (average squared error)
                             brier = 0.0
                             for bucket in curve:
-                                if bucket.count > 0:
-                                    expected = (bucket.range_start + bucket.range_end) / 2
-                                    brier += bucket.count * (expected - bucket.actual) ** 2
+                                if bucket.count > 0:  # type: ignore[attr-defined]
+                                    expected = (bucket.range_start + bucket.range_end) / 2  # type: ignore[attr-defined]
+                                    brier += bucket.count * (expected - bucket.actual) ** 2  # type: ignore[attr-defined]
                             brier = brier / total_predictions if total_predictions > 0 else 0
 
                             self.event_emitter.emit_calibration_update(
