@@ -63,9 +63,11 @@ class TestAnalyticsDashboardHandlerRouting:
 
     def test_routes_list_complete(self, handler):
         """ROUTES list contains all expected endpoints."""
-        assert len(handler.ROUTES) == 7
+        assert len(handler.ROUTES) == 14
         assert "/api/analytics/summary" in handler.ROUTES
         assert "/api/analytics/heatmap" in handler.ROUTES
+        assert "/api/analytics/tokens" in handler.ROUTES
+        assert "/api/analytics/flips/summary" in handler.ROUTES
 
 
 class TestAnalyticsDashboardHandlerUnknownPath:
