@@ -1,0 +1,201 @@
+name: Multi-Region Deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'deploy/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+      regions:
+        description: 'Regions to deploy (comma-separated or "all")'
+        required: true
+        default: 'all'
+        type: string
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: aragora
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f deploy/Dockerfile.backend .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  deploy-us-east-2:
+    needs: build
+    runs-on: ubuntu-latest
+    if: contains(github.event.inputs.regions, 'us-east-2') || github.event.inputs.regions == 'all' || github.event_name == 'push'
+    environment: production-us-east-2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name aragora-us-east-2 --region us-east-2
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+
+      - name: Deploy to us-east-2
+        run: |
+          helm upgrade --install aragora deploy/kubernetes/helm/aragora \
+            -f deploy/kubernetes/helm/aragora/values.yaml \
+            -f deploy/kubernetes/helm/aragora/values-us-east-2.yaml \
+            --set backend.image.tag=${{ needs.build.outputs.image_tag }} \
+            --set worker.image.tag=${{ needs.build.outputs.image_tag }} \
+            --namespace aragora \
+            --create-namespace \
+            --wait --timeout 10m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/aragora-backend -n aragora --timeout=5m
+          kubectl get pods -n aragora
+
+  deploy-eu-west-1:
+    needs: [build, deploy-us-east-2]
+    runs-on: ubuntu-latest
+    if: contains(github.event.inputs.regions, 'eu-west-1') || github.event.inputs.regions == 'all' || github.event_name == 'push'
+    environment: production-eu-west-1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name aragora-eu-west-1 --region eu-west-1
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+
+      - name: Deploy to eu-west-1
+        run: |
+          helm upgrade --install aragora deploy/kubernetes/helm/aragora \
+            -f deploy/kubernetes/helm/aragora/values.yaml \
+            -f deploy/kubernetes/helm/aragora/values-eu-west-1.yaml \
+            --set backend.image.tag=${{ needs.build.outputs.image_tag }} \
+            --set worker.image.tag=${{ needs.build.outputs.image_tag }} \
+            --namespace aragora \
+            --create-namespace \
+            --wait --timeout 10m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/aragora-backend -n aragora --timeout=5m
+
+  deploy-ap-south-1:
+    needs: [build, deploy-us-east-2]
+    runs-on: ubuntu-latest
+    if: contains(github.event.inputs.regions, 'ap-south-1') || github.event.inputs.regions == 'all' || github.event_name == 'push'
+    environment: production-ap-south-1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name aragora-ap-south-1 --region ap-south-1
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+
+      - name: Deploy to ap-south-1
+        run: |
+          helm upgrade --install aragora deploy/kubernetes/helm/aragora \
+            -f deploy/kubernetes/helm/aragora/values.yaml \
+            -f deploy/kubernetes/helm/aragora/values-ap-south-1.yaml \
+            --set backend.image.tag=${{ needs.build.outputs.image_tag }} \
+            --set worker.image.tag=${{ needs.build.outputs.image_tag }} \
+            --namespace aragora \
+            --create-namespace \
+            --wait --timeout 10m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/aragora-backend -n aragora --timeout=5m
+
+  post-deploy:
+    needs: [deploy-us-east-2, deploy-eu-west-1, deploy-ap-south-1]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Notify deployment status
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Multi-region deployment completed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Aragora Multi-Region Deployment*\n• us-east-2: ${{ needs.deploy-us-east-2.result }}\n• eu-west-1: ${{ needs.deploy-eu-west-1.result }}\n• ap-south-1: ${{ needs.deploy-ap-south-1.result }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
