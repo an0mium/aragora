@@ -44,6 +44,9 @@ class AnalyticsDashboardHandler(BaseHandler):
         "/api/analytics/cost",
         "/api/analytics/compliance",
         "/api/analytics/heatmap",
+        "/api/analytics/tokens",
+        "/api/analytics/tokens/trends",
+        "/api/analytics/tokens/providers",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -67,6 +70,12 @@ class AnalyticsDashboardHandler(BaseHandler):
             return self._get_compliance_scorecard(query_params)
         elif path == "/api/analytics/heatmap":
             return self._get_risk_heatmap(query_params)
+        elif path == "/api/analytics/tokens":
+            return self._get_token_usage(query_params)
+        elif path == "/api/analytics/tokens/trends":
+            return self._get_token_trends(query_params)
+        elif path == "/api/analytics/tokens/providers":
+            return self._get_provider_breakdown(query_params)
 
         return None
 
@@ -454,3 +463,287 @@ class AnalyticsDashboardHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Unexpected error getting risk heatmap: {e}")
             return error_response(safe_error_message(e, "risk heatmap"), 500)
+
+    @require_user_auth
+    @handle_errors("get token usage")
+    def _get_token_usage(self, query_params: dict, user=None) -> HandlerResult:
+        """
+        Get token usage summary.
+
+        Query params:
+        - org_id: Organization ID (required)
+        - days: Number of days to look back (default: 30)
+
+        Response:
+        {
+            "org_id": "...",
+            "period": {"start": "...", "end": "..."},
+            "total_tokens_in": 500000,
+            "total_tokens_out": 100000,
+            "total_cost_usd": "125.50",
+            "cost_by_provider": {"anthropic": "80.00", "openai": "45.50"},
+            "top_models": [{"model": "claude-opus-4", "tokens": 400000, "cost": "60.00"}]
+        }
+        """
+        org_id = query_params.get("org_id")
+        if not org_id:
+            return error_response("org_id is required", 400)
+
+        try:
+            days = int(query_params.get("days", "30"))
+        except ValueError:
+            days = 30
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            from aragora.billing.usage import UsageTracker
+
+            tracker = UsageTracker()
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            summary = tracker.get_summary(org_id, period_start, period_end)
+
+            return json_response(
+                {
+                    "org_id": org_id,
+                    "period": {
+                        "start": period_start.isoformat(),
+                        "end": period_end.isoformat(),
+                        "days": days,
+                    },
+                    "total_tokens_in": summary.total_tokens_in,
+                    "total_tokens_out": summary.total_tokens_out,
+                    "total_tokens": summary.total_tokens_in + summary.total_tokens_out,
+                    "total_cost_usd": str(summary.total_cost_usd),
+                    "total_debates": summary.total_debates,
+                    "total_agent_calls": summary.total_agent_calls,
+                    "cost_by_provider": {k: str(v) for k, v in summary.cost_by_provider.items()},
+                    "debates_by_day": summary.debates_by_day,
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Unexpected error getting token usage: {e}")
+            return error_response(safe_error_message(e, "token usage"), 500)
+
+    @require_user_auth
+    @handle_errors("get token trends")
+    def _get_token_trends(self, query_params: dict, user=None) -> HandlerResult:
+        """
+        Get token usage trends over time.
+
+        Query params:
+        - org_id: Organization ID (required)
+        - days: Number of days to look back (default: 30)
+        - granularity: 'day' or 'hour' (default: 'day')
+
+        Response:
+        {
+            "org_id": "...",
+            "granularity": "day",
+            "data_points": [
+                {"date": "2026-01-15", "tokens_in": 10000, "tokens_out": 2000, "cost": "1.50"},
+                ...
+            ]
+        }
+        """
+        org_id = query_params.get("org_id")
+        if not org_id:
+            return error_response("org_id is required", 400)
+
+        try:
+            days = int(query_params.get("days", "30"))
+        except ValueError:
+            days = 30
+
+        granularity = query_params.get("granularity", "day")
+        if granularity not in ("day", "hour"):
+            granularity = "day"
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            from aragora.billing.usage import UsageTracker
+
+            tracker = UsageTracker()
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            data_points = []
+            with tracker._connection() as conn:
+                if granularity == "day":
+                    date_format = "DATE(created_at)"
+                else:
+                    date_format = "strftime('%Y-%m-%d %H:00', created_at)"
+
+                rows = conn.execute(
+                    f"""
+                    SELECT
+                        {date_format} as period,
+                        SUM(tokens_in) as tokens_in,
+                        SUM(tokens_out) as tokens_out,
+                        SUM(CAST(cost_usd AS REAL)) as cost,
+                        COUNT(*) as event_count
+                    FROM usage_events
+                    WHERE org_id = ?
+                        AND created_at >= ?
+                        AND created_at <= ?
+                    GROUP BY {date_format}
+                    ORDER BY period
+                    """,
+                    (org_id, period_start.isoformat(), period_end.isoformat()),
+                ).fetchall()
+
+                for row in rows:
+                    data_points.append(
+                        {
+                            "period": row["period"],
+                            "tokens_in": row["tokens_in"] or 0,
+                            "tokens_out": row["tokens_out"] or 0,
+                            "total_tokens": (row["tokens_in"] or 0) + (row["tokens_out"] or 0),
+                            "cost_usd": f"{row['cost'] or 0:.4f}",
+                            "event_count": row["event_count"],
+                        }
+                    )
+
+            return json_response(
+                {
+                    "org_id": org_id,
+                    "granularity": granularity,
+                    "period": {
+                        "start": period_start.isoformat(),
+                        "end": period_end.isoformat(),
+                        "days": days,
+                    },
+                    "data_points": data_points,
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Unexpected error getting token trends: {e}")
+            return error_response(safe_error_message(e, "token trends"), 500)
+
+    @require_user_auth
+    @handle_errors("get provider breakdown")
+    def _get_provider_breakdown(self, query_params: dict, user=None) -> HandlerResult:
+        """
+        Get detailed breakdown by provider and model.
+
+        Query params:
+        - org_id: Organization ID (required)
+        - days: Number of days to look back (default: 30)
+
+        Response:
+        {
+            "org_id": "...",
+            "providers": [
+                {
+                    "provider": "anthropic",
+                    "total_tokens": 500000,
+                    "total_cost": "80.00",
+                    "models": [
+                        {"model": "claude-opus-4", "tokens_in": 400000, "tokens_out": 50000, "cost": "60.00"},
+                        {"model": "claude-sonnet-4", "tokens_in": 40000, "tokens_out": 10000, "cost": "20.00"}
+                    ]
+                },
+                ...
+            ]
+        }
+        """
+        org_id = query_params.get("org_id")
+        if not org_id:
+            return error_response("org_id is required", 400)
+
+        try:
+            days = int(query_params.get("days", "30"))
+        except ValueError:
+            days = 30
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            from aragora.billing.usage import UsageTracker
+
+            tracker = UsageTracker()
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            providers = {}
+            with tracker._connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT
+                        provider,
+                        model,
+                        SUM(tokens_in) as tokens_in,
+                        SUM(tokens_out) as tokens_out,
+                        SUM(CAST(cost_usd AS REAL)) as cost,
+                        COUNT(*) as call_count
+                    FROM usage_events
+                    WHERE org_id = ?
+                        AND created_at >= ?
+                        AND created_at <= ?
+                        AND provider IS NOT NULL
+                        AND provider != ''
+                    GROUP BY provider, model
+                    ORDER BY cost DESC
+                    """,
+                    (org_id, period_start.isoformat(), period_end.isoformat()),
+                ).fetchall()
+
+                for row in rows:
+                    provider = row["provider"] or "unknown"
+                    if provider not in providers:
+                        providers[provider] = {
+                            "provider": provider,
+                            "total_tokens_in": 0,
+                            "total_tokens_out": 0,
+                            "total_cost": 0.0,
+                            "models": [],
+                        }
+
+                    tokens_in = row["tokens_in"] or 0
+                    tokens_out = row["tokens_out"] or 0
+                    cost = row["cost"] or 0.0
+
+                    providers[provider]["total_tokens_in"] += tokens_in
+                    providers[provider]["total_tokens_out"] += tokens_out
+                    providers[provider]["total_cost"] += cost
+                    providers[provider]["models"].append(
+                        {
+                            "model": row["model"] or "unknown",
+                            "tokens_in": tokens_in,
+                            "tokens_out": tokens_out,
+                            "total_tokens": tokens_in + tokens_out,
+                            "cost_usd": f"{cost:.4f}",
+                            "call_count": row["call_count"],
+                        }
+                    )
+
+            # Format totals
+            result_providers = []
+            for p in providers.values():
+                p["total_tokens"] = p["total_tokens_in"] + p["total_tokens_out"]
+                p["total_cost"] = f"{p['total_cost']:.4f}"
+                result_providers.append(p)
+
+            # Sort by total cost
+            result_providers.sort(key=lambda x: float(x["total_cost"]), reverse=True)
+
+            return json_response(
+                {
+                    "org_id": org_id,
+                    "period": {
+                        "start": period_start.isoformat(),
+                        "end": period_end.isoformat(),
+                        "days": days,
+                    },
+                    "providers": result_providers,
+                }
+            )
+
+        except Exception as e:
+            logger.exception(f"Unexpected error getting provider breakdown: {e}")
+            return error_response(safe_error_message(e, "provider breakdown"), 500)
