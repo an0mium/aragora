@@ -201,32 +201,28 @@ class TeamsConnector(ChatPlatformConnector):
             if thread_id:
                 activity["replyToId"] = thread_id
 
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{base_url}/v3/conversations/{conv_id}/activities",
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type": "application/json",
-                    },
-                    json=activity,
-                )
+            # Use shared HTTP helper with retry and circuit breaker
+            success, data, error = await self._http_request(
+                method="POST",
+                url=f"{base_url}/v3/conversations/{conv_id}/activities",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json=activity,
+                operation="send_message",
+            )
 
-                # Check for rate limiting or service unavailable
-                if response.status_code in (429, 503):
-                    self._record_failure(Exception(f"HTTP {response.status_code}"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=f"Service unavailable or rate limited: {response.status_code}",
-                    )
-
-                response.raise_for_status()
-                data = response.json()
-
-                self._record_success()
+            if success and data:
                 return SendMessageResponse(
                     success=True,
                     message_id=data.get("id"),
                     channel_id=conv_id,
+                )
+            else:
+                return SendMessageResponse(
+                    success=False,
+                    error=error or "Unknown error",
                 )
 
         except Exception as e:
@@ -281,31 +277,28 @@ class TeamsConnector(ChatPlatformConnector):
                     }
                 ]
 
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.put(
-                    f"{base_url}/v3/conversations/{channel_id}/activities/{message_id}",
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type": "application/json",
-                    },
-                    json=activity,
-                )
+            # Use shared HTTP helper with retry and circuit breaker
+            success, _, error = await self._http_request(
+                method="PUT",
+                url=f"{base_url}/v3/conversations/{channel_id}/activities/{message_id}",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json=activity,
+                operation="update_message",
+            )
 
-                # Check for rate limiting or service unavailable
-                if response.status_code in (429, 503):
-                    self._record_failure(Exception(f"HTTP {response.status_code}"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=f"Service unavailable or rate limited: {response.status_code}",
-                    )
-
-                response.raise_for_status()
-
-                self._record_success()
+            if success:
                 return SendMessageResponse(
                     success=True,
                     message_id=message_id,
                     channel_id=channel_id,
+                )
+            else:
+                return SendMessageResponse(
+                    success=False,
+                    error=error or "Unknown error",
                 )
 
         except Exception as e:
