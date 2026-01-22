@@ -320,8 +320,15 @@ class GmailConnector(EnterpriseConnector):
         params: Optional[Dict[str, Any]] = None,
         json_data: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Make a request to Gmail API."""
+        """Make a request to Gmail API with circuit breaker protection."""
         import httpx
+
+        # Check circuit breaker first
+        if not self.check_circuit_breaker():
+            cb_status = self.get_circuit_breaker_status()
+            raise ConnectionError(
+                f"Circuit breaker open for Gmail. Cooldown: {cb_status.get('cooldown_seconds', 60)}s"
+            )
 
         token = await self._get_access_token()
         headers = {
@@ -331,20 +338,36 @@ class GmailConnector(EnterpriseConnector):
 
         url = f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}{endpoint}"
 
-        async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method,
-                url,
-                headers=headers,
-                params=params,
-                json=json_data,
-                timeout=60,
-            )
-            if response.status_code >= 400:
-                # Log the full error response for debugging
-                logger.error(f"Gmail API error {response.status_code}: {response.text}")
-            response.raise_for_status()
-            return response.json() if response.content else {}
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.request(
+                    method,
+                    url,
+                    headers=headers,
+                    params=params,
+                    json=json_data,
+                    timeout=60,
+                )
+                if response.status_code >= 400:
+                    # Log the full error response for debugging
+                    logger.error(f"Gmail API error {response.status_code}: {response.text}")
+                    # Record failure for circuit breaker on 5xx errors or rate limits
+                    if response.status_code >= 500 or response.status_code == 429:
+                        self.record_failure()
+                response.raise_for_status()
+                self.record_success()
+                return response.json() if response.content else {}
+        except httpx.TimeoutException as e:
+            self.record_failure()
+            logger.error(f"Gmail API timeout: {e}")
+            raise
+        except httpx.HTTPStatusError:
+            # Already handled above
+            raise
+        except Exception as e:
+            self.record_failure()
+            logger.error(f"Gmail API error: {e}")
+            raise
 
     def _get_client(self):
         """Get HTTP client context manager for API requests."""
@@ -859,26 +882,43 @@ class GmailConnector(EnterpriseConnector):
         # Encode message
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
 
-        # Send via Gmail API
-        async with self._get_client() as client:
-            response = await client.post(
-                f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/send",
-                headers={"Authorization": f"Bearer {self._access_token}"},
-                json={"raw": raw_message},
+        # Check circuit breaker first
+        if not self.check_circuit_breaker():
+            cb_status = self.get_circuit_breaker_status()
+            raise ConnectionError(
+                f"Circuit breaker open for Gmail. Cooldown: {cb_status.get('cooldown_seconds', 60)}s"
             )
 
-            if response.status_code != 200:
-                error = response.json().get("error", {})
-                raise RuntimeError(f"Failed to send email: {error.get('message', response.text)}")
+        # Send via Gmail API
+        try:
+            async with self._get_client() as client:
+                response = await client.post(
+                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/send",
+                    headers={"Authorization": f"Bearer {self._access_token}"},
+                    json={"raw": raw_message},
+                )
 
-            result = response.json()
-            logger.info(f"[Gmail] Sent message: {result.get('id')}")
+                if response.status_code != 200:
+                    error = response.json().get("error", {})
+                    if response.status_code >= 500 or response.status_code == 429:
+                        self.record_failure()
+                    raise RuntimeError(
+                        f"Failed to send email: {error.get('message', response.text)}"
+                    )
 
-            return {
-                "message_id": result.get("id"),
-                "thread_id": result.get("threadId"),
-                "success": True,
-            }
+                self.record_success()
+                result = response.json()
+                logger.info(f"[Gmail] Sent message: {result.get('id')}")
+
+                return {
+                    "message_id": result.get("id"),
+                    "thread_id": result.get("threadId"),
+                    "success": True,
+                }
+        except Exception as e:
+            if not isinstance(e, RuntimeError):
+                self.record_failure()
+            raise
 
     async def reply_to_message(
         self,
@@ -947,32 +987,49 @@ class GmailConnector(EnterpriseConnector):
         # Encode message
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
 
+        # Check circuit breaker first
+        if not self.check_circuit_breaker():
+            cb_status = self.get_circuit_breaker_status()
+            raise ConnectionError(
+                f"Circuit breaker open for Gmail. Cooldown: {cb_status.get('cooldown_seconds', 60)}s"
+            )
+
         # Send via Gmail API (include threadId to maintain thread)
-        async with self._get_client() as client:
-            response = await client.post(
-                f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/send",
-                headers={"Authorization": f"Bearer {self._access_token}"},
-                json={
-                    "raw": raw_message,
-                    "threadId": original.thread_id,
-                },
-            )
+        try:
+            async with self._get_client() as client:
+                response = await client.post(
+                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/send",
+                    headers={"Authorization": f"Bearer {self._access_token}"},
+                    json={
+                        "raw": raw_message,
+                        "threadId": original.thread_id,
+                    },
+                )
 
-            if response.status_code != 200:
-                error = response.json().get("error", {})
-                raise RuntimeError(f"Failed to send reply: {error.get('message', response.text)}")
+                if response.status_code != 200:
+                    error = response.json().get("error", {})
+                    if response.status_code >= 500 or response.status_code == 429:
+                        self.record_failure()
+                    raise RuntimeError(
+                        f"Failed to send reply: {error.get('message', response.text)}"
+                    )
 
-            result = response.json()
-            logger.info(
-                f"[Gmail] Sent reply: {result.get('id')} in thread {result.get('threadId')}"
-            )
+                self.record_success()
+                result = response.json()
+                logger.info(
+                    f"[Gmail] Sent reply: {result.get('id')} in thread {result.get('threadId')}"
+                )
 
-            return {
-                "message_id": result.get("id"),
-                "thread_id": result.get("threadId"),
-                "in_reply_to": original_message_id,
-                "success": True,
-            }
+                return {
+                    "message_id": result.get("id"),
+                    "thread_id": result.get("threadId"),
+                    "in_reply_to": original_message_id,
+                    "success": True,
+                }
+        except Exception as e:
+            if not isinstance(e, RuntimeError):
+                self.record_failure()
+            raise
 
     def _message_to_sync_item(self, msg: EmailMessage) -> SyncItem:
         """Convert EmailMessage to SyncItem for Knowledge Mound ingestion."""
