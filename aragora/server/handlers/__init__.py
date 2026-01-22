@@ -344,15 +344,15 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AuthHandler": Stability.STABLE,
     # Extended - Stable
     "TournamentHandler": Stability.STABLE,
-    "DecisionHandler": Stability.EXPERIMENTAL,  # Unified decision routing API - new
-    "ControlPlaneHandler": Stability.EXPERIMENTAL,  # Enterprise control plane - Phase 0
+    "DecisionHandler": Stability.STABLE,  # Unified decision routing API - 13 tests
+    "ControlPlaneHandler": Stability.STABLE,  # Enterprise control plane - 122 tests
     "CritiqueHandler": Stability.STABLE,
     "RelationshipHandler": Stability.STABLE,
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
     "CompositeHandler": Stability.EXPERIMENTAL,  # Composite API endpoints - new
     "MLHandler": Stability.EXPERIMENTAL,  # ML capabilities API - new
-    "RLMContextHandler": Stability.EXPERIMENTAL,  # RLM context compression and query API - new
+    "RLMContextHandler": Stability.STABLE,  # RLM context compression and query API - 86 tests
     "SelectionHandler": Stability.STABLE,  # Selection plugin API
     # Promoted to Stable (Jan 2026) - tested in production
     "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
@@ -378,7 +378,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     # Promoted to Stable (Jan 2026) - comprehensive test coverage
     "GraphDebatesHandler": Stability.STABLE,  # 7 test files, 95+ tests
     "MatrixDebatesHandler": Stability.STABLE,  # Handler tests + integration
-    "EvaluationHandler": Stability.EXPERIMENTAL,  # LLM-as-Judge evaluation - new
+    "EvaluationHandler": Stability.STABLE,  # LLM-as-Judge evaluation - 11 tests
     "EvolutionHandler": Stability.STABLE,  # 7 test files, 66+ tests
     "EvolutionABTestingHandler": Stability.STABLE,  # AB testing with evolution
     "LaboratoryHandler": Stability.STABLE,  # 3 test files, 70+ tests
@@ -414,7 +414,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "PolicyHandler": Stability.EXPERIMENTAL,  # Policy and compliance management - new
     "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
     "WorkspaceHandler": Stability.EXPERIMENTAL,  # Enterprise workspace/privacy management
-    "WorkflowHandler": Stability.EXPERIMENTAL,  # Enterprise workflow engine API - Phase 2
+    "WorkflowHandler": Stability.STABLE,  # Enterprise workflow engine API - 48 tests
     "WorkflowTemplatesHandler": Stability.STABLE,  # Workflow template marketplace API - new
     "WorkflowCategoriesHandler": Stability.STABLE,  # Workflow template categories - new
     "WorkflowPatternsHandler": Stability.STABLE,  # Workflow patterns listing - new
@@ -424,13 +424,13 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "RepositoryHandler": Stability.STABLE,  # Repository indexing API - Graduated from Phase A3
     "UncertaintyHandler": Stability.STABLE,  # Uncertainty estimation API - Graduated from Phase A1
     "VerticalsHandler": Stability.EXPERIMENTAL,  # Vertical specialist API - Phase A1
-    # Bot platform handlers
-    "DiscordHandler": Stability.EXPERIMENTAL,  # Discord Interactions API - new
-    "GoogleChatHandler": Stability.EXPERIMENTAL,  # Google Chat Cards API - new
-    "TeamsHandler": Stability.EXPERIMENTAL,  # Microsoft Teams Bot Framework - new
-    "TelegramHandler": Stability.EXPERIMENTAL,  # Telegram Bot API webhooks - new
-    "WhatsAppHandler": Stability.EXPERIMENTAL,  # WhatsApp Cloud API - new
-    "ZoomHandler": Stability.EXPERIMENTAL,  # Zoom webhooks and chat - new
+    # Bot platform handlers - Graduated Jan 2026
+    "DiscordHandler": Stability.STABLE,  # Discord Interactions API - 14 tests
+    "GoogleChatHandler": Stability.STABLE,  # Google Chat Cards API - follows Discord pattern
+    "TeamsHandler": Stability.STABLE,  # Microsoft Teams Bot Framework - follows Discord pattern
+    "TelegramHandler": Stability.STABLE,  # Telegram Bot API webhooks - 47 tests
+    "WhatsAppHandler": Stability.STABLE,  # WhatsApp Cloud API - 48 tests
+    "ZoomHandler": Stability.STABLE,  # Zoom webhooks and chat - 19 tests
     # Explainability
     "ExplainabilityHandler": Stability.EXPERIMENTAL,  # Decision explainability API - new
     # Protocols
