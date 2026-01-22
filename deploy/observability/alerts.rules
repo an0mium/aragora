@@ -719,3 +719,213 @@ groups:
         annotations:
           summary: "High memory eviction rate"
           description: "Memory is being evicted at a high rate. May affect debate continuity."
+
+  - name: aragora_rlm
+    interval: 30s
+    rules:
+      # RLM compression latency breach
+      - alert: SLORLMCompressionBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_rlm_compression_seconds_bucket[5m])) * 1000 > 1500
+        for: 5m
+        labels:
+          severity: warning
+          slo: rlm_compression
+        annotations:
+          summary: "RLM compression P99 latency breach"
+          description: "RLM compression P99 latency exceeds 1500ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # RLM streaming TTFT breach
+      - alert: SLORLMStreamingBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_rlm_streaming_ttft_seconds_bucket[5m])) * 1000 > 800
+        for: 5m
+        labels:
+          severity: warning
+          slo: rlm_streaming
+        annotations:
+          summary: "RLM streaming TTFT P99 breach"
+          description: "RLM time-to-first-token exceeds 800ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # RLM query latency breach
+      - alert: SLORLMQueryBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_rlm_query_seconds_bucket[5m])) * 1000 > 1200
+        for: 5m
+        labels:
+          severity: warning
+          slo: rlm_query
+        annotations:
+          summary: "RLM query P99 latency breach"
+          description: "RLM query P99 latency exceeds 1200ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # RLM cache miss rate high
+      - alert: RLMCacheMissRateHigh
+        expr: |
+          sum(rate(aragora_rlm_cache_misses_total[5m]))
+          /
+          sum(rate(aragora_rlm_cache_requests_total[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: rlm
+        annotations:
+          summary: "High RLM cache miss rate"
+          description: "RLM cache miss rate is above 50%. Consider tuning cache size."
+
+  - name: aragora_workflow
+    interval: 30s
+    rules:
+      # Workflow execution latency breach
+      - alert: SLOWorkflowExecutionBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_workflow_step_duration_seconds_bucket[5m])) * 1000 > 5000
+        for: 5m
+        labels:
+          severity: warning
+          slo: workflow_execution
+        annotations:
+          summary: "Workflow step P99 latency breach"
+          description: "Workflow step P99 latency exceeds 5s SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Workflow checkpoint latency breach
+      - alert: SLOWorkflowCheckpointBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_workflow_checkpoint_seconds_bucket[5m])) * 1000 > 500
+        for: 5m
+        labels:
+          severity: warning
+          slo: workflow_checkpoint
+        annotations:
+          summary: "Workflow checkpoint P99 latency breach"
+          description: "Workflow checkpoint P99 latency exceeds 500ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Workflow failures
+      - alert: WorkflowHighFailureRate
+        expr: |
+          sum(rate(aragora_workflow_failures_total[15m]))
+          /
+          sum(rate(aragora_workflow_executions_total[15m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: workflow
+        annotations:
+          summary: "High workflow failure rate"
+          description: "More than 10% of workflows are failing. Current: {{ $value | printf \"%.1f\" }}%"
+
+      # Stale workflows (stuck in running state)
+      - alert: WorkflowStuck
+        expr: |
+          aragora_workflow_running_duration_seconds > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: workflow
+        annotations:
+          summary: "Workflow stuck in running state"
+          description: "Workflow {{ $labels.workflow_id }} has been running for over 1 hour."
+
+  - name: aragora_control_plane
+    interval: 30s
+    rules:
+      # Leader election latency breach
+      - alert: SLOControlPlaneLeaderElectionBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_control_plane_leader_election_seconds_bucket[5m])) * 1000 > 1000
+        for: 5m
+        labels:
+          severity: warning
+          slo: control_plane_leader
+        annotations:
+          summary: "Leader election P99 latency breach"
+          description: "Leader election P99 latency exceeds 1000ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Config sync latency breach
+      - alert: SLOControlPlaneConfigSyncBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_control_plane_config_sync_seconds_bucket[5m])) * 1000 > 500
+        for: 5m
+        labels:
+          severity: warning
+          slo: control_plane_config
+        annotations:
+          summary: "Config sync P99 latency breach"
+          description: "Config sync P99 latency exceeds 500ms SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Leader failover
+      - alert: ControlPlaneLeaderFailover
+        expr: |
+          increase(aragora_control_plane_leader_changes_total[5m]) > 2
+        for: 2m
+        labels:
+          severity: warning
+          component: control_plane
+        annotations:
+          summary: "Frequent control plane leader failovers"
+          description: "Control plane leader has changed {{ $value | printf \"%.0f\" }} times in 5 minutes."
+
+      # No leader elected
+      - alert: ControlPlaneNoLeader
+        expr: |
+          aragora_control_plane_has_leader == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: control_plane
+        annotations:
+          summary: "No control plane leader"
+          description: "Control plane has no elected leader. Cluster coordination may fail."
+
+  - name: aragora_bot_platforms
+    interval: 30s
+    rules:
+      # Bot response latency breach
+      - alert: SLOBotResponseBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_bot_response_seconds_bucket[5m])) * 1000 > 3000
+        for: 5m
+        labels:
+          severity: warning
+          slo: bot_response
+        annotations:
+          summary: "Bot response P99 latency breach"
+          description: "Bot platform {{ $labels.platform }} P99 response exceeds 3s SLO. Current: {{ $value | printf \"%.0f\" }}ms"
+
+      # Bot webhook latency breach (critical for Slack 3s limit)
+      - alert: SLOBotWebhookBreach
+        expr: |
+          histogram_quantile(0.99, rate(aragora_bot_webhook_ack_seconds_bucket[5m])) * 1000 > 2500
+        for: 2m
+        labels:
+          severity: critical
+          slo: bot_webhook
+        annotations:
+          summary: "Bot webhook acknowledgment approaching timeout"
+          description: "Bot platform {{ $labels.platform }} webhook ack P99 is {{ $value | printf \"%.0f\" }}ms. Risk of platform timeouts."
+
+      # Platform-specific failures
+      - alert: BotPlatformHighErrorRate
+        expr: |
+          sum by (platform) (rate(aragora_bot_errors_total[15m]))
+          /
+          sum by (platform) (rate(aragora_bot_requests_total[15m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: bot
+        annotations:
+          summary: "High error rate for {{ $labels.platform }}"
+          description: "Bot platform {{ $labels.platform }} has >10% error rate."
+
+      # Bot webhook verification failures
+      - alert: BotWebhookVerificationFailures
+        expr: |
+          sum(rate(aragora_bot_webhook_verification_failures_total[15m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: bot
+        annotations:
+          summary: "Bot webhook signature verification failures"
+          description: "Multiple webhook signature verification failures. Possible attack or misconfiguration."
