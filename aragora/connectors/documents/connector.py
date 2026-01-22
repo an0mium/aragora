@@ -208,7 +208,7 @@ class DocumentConnector(Connector):
 
             # Search in tables
             for j, table in enumerate(doc.tables):
-                table_str = str(table.data).lower()
+                table_str = str(table.data).lower()  # type: ignore[union-attr]
                 term_matches = sum(1 for term in query_terms if term in table_str)
                 if term_matches == 0:
                     continue
@@ -216,7 +216,7 @@ class DocumentConnector(Connector):
                 relevance = term_matches / len(query_terms)
 
                 # Format table as text
-                table_content = self._format_table(table.data, table.headers)
+                table_content = self._format_table(table.data, table.headers)  # type: ignore[union-attr]
 
                 results.append(
                     {
@@ -232,8 +232,8 @@ class DocumentConnector(Connector):
                         "metadata": {
                             "doc_id": doc_id,
                             "table_index": j,
-                            "page": table.page,
-                            "caption": table.caption,
+                            "page": table.page,  # type: ignore[union-attr]
+                            "caption": table.caption,  # type: ignore[union-attr]
                             "filename": doc.filename,
                         },
                     }
@@ -460,7 +460,7 @@ class DocumentEvidence:
 
         # Create snippets from tables
         for j, table in enumerate(doc.tables):
-            table_text = DocumentEvidence._format_table_text(table.data, table.headers)
+            table_text = DocumentEvidence._format_table_text(table.data, table.headers)  # type: ignore[union-attr]
             if len(table_text) > max_snippet_length:
                 table_text = table_text[:max_snippet_length] + "..."
 
@@ -474,8 +474,8 @@ class DocumentEvidence:
                 "metadata": {
                     "filename": doc.filename,
                     "format": doc.format.value if doc.format else "unknown",
-                    "page": table.page,
-                    "caption": table.caption,
+                    "page": table.page,  # type: ignore[union-attr]
+                    "caption": table.caption,  # type: ignore[union-attr]
                     "table_index": j,
                     "total_tables": len(doc.tables),
                 },
