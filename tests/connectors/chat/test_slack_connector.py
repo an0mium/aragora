@@ -985,3 +985,356 @@ class TestSlackBlockKitFormatting:
         assert button["type"] == "button"
         assert button["url"] == "https://example.com/details"
         assert "action_id" not in button  # URL buttons don't have action_id
+
+
+class TestSlackReactions:
+    """Tests for Slack emoji reaction operations."""
+
+    @pytest.mark.asyncio
+    async def test_add_reaction_success(self):
+        """Should add reaction to message."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"ok": True}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.add_reaction(
+                channel_id="C123",
+                message_id="1234567890.123456",
+                emoji="thumbsup",
+            )
+
+            assert result is True
+            mock_client.post.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_add_reaction_already_reacted(self):
+        """Should return True if already reacted."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"ok": False, "error": "already_reacted"}
+        mock_response.status_code = 200
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.add_reaction(
+                channel_id="C123",
+                message_id="1234567890.123456",
+                emoji=":thumbsup:",  # Test colon stripping
+            )
+
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_remove_reaction_success(self):
+        """Should remove reaction from message."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"ok": True}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.remove_reaction(
+                channel_id="C123",
+                message_id="1234567890.123456",
+                emoji="thumbsup",
+            )
+
+            assert result is True
+
+
+class TestSlackChannelUserDiscovery:
+    """Tests for channel and user discovery."""
+
+    @pytest.mark.asyncio
+    async def test_list_channels_success(self):
+        """Should list workspace channels."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "channels": [
+                {
+                    "id": "C123",
+                    "name": "general",
+                    "is_private": False,
+                    "is_archived": False,
+                    "is_member": True,
+                    "num_members": 42,
+                    "topic": {"value": "General discussions"},
+                    "purpose": {"value": "Company-wide announcements"},
+                },
+                {
+                    "id": "C456",
+                    "name": "random",
+                    "is_private": False,
+                    "is_archived": False,
+                    "is_member": True,
+                    "num_members": 35,
+                },
+            ],
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            channels = await connector.list_channels()
+
+            assert len(channels) == 2
+            assert channels[0].id == "C123"
+            assert channels[0].name == "general"
+            assert channels[0].metadata["num_members"] == 42
+
+    @pytest.mark.asyncio
+    async def test_list_users_success(self):
+        """Should list workspace users."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "members": [
+                {
+                    "id": "U123",
+                    "name": "john.doe",
+                    "is_bot": False,
+                    "deleted": False,
+                    "is_admin": True,
+                    "is_owner": False,
+                    "tz": "America/New_York",
+                    "profile": {
+                        "display_name": "John Doe",
+                        "real_name": "John Doe",
+                        "email": "john@example.com",
+                        "title": "Engineer",
+                        "image_72": "https://example.com/avatar.jpg",
+                    },
+                },
+                {
+                    "id": "UBOT",
+                    "name": "slackbot",
+                    "is_bot": True,
+                    "deleted": False,
+                    "profile": {},
+                },
+            ],
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            users = await connector.list_users(include_bots=False)
+
+            # Should exclude bots
+            assert len(users) == 1
+            assert users[0].id == "U123"
+            assert users[0].username == "john.doe"
+            assert users[0].display_name == "John Doe"
+            assert users[0].metadata["email"] == "john@example.com"
+
+    @pytest.mark.asyncio
+    async def test_list_users_include_bots(self):
+        """Should include bots when requested."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "members": [
+                {"id": "U123", "name": "user", "is_bot": False, "deleted": False, "profile": {}},
+                {"id": "UBOT", "name": "bot", "is_bot": True, "deleted": False, "profile": {}},
+            ],
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            users = await connector.list_users(include_bots=True)
+
+            assert len(users) == 2
+
+
+class TestSlackMentionFormatting:
+    """Tests for mention formatting helpers."""
+
+    def test_format_user_mention(self):
+        """Should format user mention correctly."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        mention = SlackConnector.format_user_mention("U123ABC")
+        assert mention == "<@U123ABC>"
+
+    def test_format_channel_mention(self):
+        """Should format channel mention correctly."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        mention = SlackConnector.format_channel_mention("C456DEF")
+        assert mention == "<#C456DEF>"
+
+
+class TestSlackModalOperations:
+    """Tests for modal/view operations."""
+
+    @pytest.mark.asyncio
+    async def test_open_modal_success(self):
+        """Should open modal and return view ID."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "view": {"id": "V123ABC"},
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            view_id = await connector.open_modal(
+                trigger_id="trigger123",
+                view={
+                    "type": "modal",
+                    "title": {"type": "plain_text", "text": "Test Modal"},
+                    "blocks": [],
+                },
+            )
+
+            assert view_id == "V123ABC"
+
+    @pytest.mark.asyncio
+    async def test_update_modal_success(self):
+        """Should update existing modal."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"ok": True}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            success = await connector.update_modal(
+                view_id="V123ABC",
+                view={"type": "modal", "blocks": []},
+            )
+
+            assert success is True
+
+
+class TestSlackPinnedMessages:
+    """Tests for pinned message operations."""
+
+    @pytest.mark.asyncio
+    async def test_pin_message_success(self):
+        """Should pin message to channel."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"ok": True}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.pin_message(
+                channel_id="C123",
+                message_id="1234567890.123456",
+            )
+
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_unpin_message_success(self):
+        """Should unpin message from channel."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"ok": True}
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await connector.unpin_message(
+                channel_id="C123",
+                message_id="1234567890.123456",
+            )
+
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_get_pinned_messages_success(self):
+        """Should get pinned messages in channel."""
+        from aragora.connectors.chat.slack import SlackConnector
+
+        connector = SlackConnector(bot_token="xoxb-test")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "ok": True,
+            "items": [
+                {
+                    "type": "message",
+                    "message": {
+                        "ts": "1234567890.123456",
+                        "user": "U123",
+                        "text": "This is pinned!",
+                    },
+                },
+            ],
+        }
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            messages = await connector.get_pinned_messages(channel_id="C123")
+
+            assert len(messages) == 1
+            assert messages[0].content == "This is pinned!"
+            assert messages[0].metadata.get("pinned") is True

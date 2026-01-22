@@ -1582,3 +1582,736 @@ class SlackConnector(ChatPlatformConnector):
         if self._circuit_breaker:
             self._circuit_breaker.record_failure()
         return []
+
+    # =========================================================================
+    # Reactions / Emoji Support
+    # =========================================================================
+
+    async def add_reaction(
+        self,
+        channel_id: str,
+        message_id: str,
+        emoji: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Add an emoji reaction to a message.
+
+        Args:
+            channel_id: Channel containing the message
+            message_id: Timestamp of the message (Slack uses ts as message ID)
+            emoji: Emoji name without colons (e.g., "thumbsup" not ":thumbsup:")
+            **kwargs: Additional parameters
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack reactions")
+            return False
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.post(
+                        f"{SLACK_API_BASE}/reactions.add",
+                        headers=self._get_headers(),
+                        json={
+                            "channel": channel_id,
+                            "timestamp": message_id,
+                            "name": emoji.strip(":"),
+                        },
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        # "already_reacted" is not really a failure
+                        if error == "already_reacted":
+                            return True
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack add_reaction error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return False
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+                    return True
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack add_reaction error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return False
+
+    async def remove_reaction(
+        self,
+        channel_id: str,
+        message_id: str,
+        emoji: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Remove an emoji reaction from a message.
+
+        Args:
+            channel_id: Channel containing the message
+            message_id: Timestamp of the message
+            emoji: Emoji name without colons
+            **kwargs: Additional parameters
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack reactions")
+            return False
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.post(
+                        f"{SLACK_API_BASE}/reactions.remove",
+                        headers=self._get_headers(),
+                        json={
+                            "channel": channel_id,
+                            "timestamp": message_id,
+                            "name": emoji.strip(":"),
+                        },
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        # "no_reaction" is not really a failure
+                        if error == "no_reaction":
+                            return True
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack remove_reaction error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return False
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+                    return True
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack remove_reaction error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return False
+
+    # =========================================================================
+    # Channel & User Discovery
+    # =========================================================================
+
+    async def list_channels(
+        self,
+        exclude_archived: bool = True,
+        types: str = "public_channel,private_channel",
+        limit: int = 100,
+        **kwargs: Any,
+    ) -> list[ChatChannel]:
+        """List channels in the workspace.
+
+        Args:
+            exclude_archived: Whether to exclude archived channels
+            types: Comma-separated channel types (public_channel, private_channel)
+            limit: Maximum number of channels to return
+            **kwargs: Additional parameters
+
+        Returns:
+            List of ChatChannel objects
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack list_channels")
+            return []
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.get(
+                        f"{SLACK_API_BASE}/conversations.list",
+                        headers=self._get_headers(),
+                        params={
+                            "exclude_archived": str(exclude_archived).lower(),
+                            "types": types,
+                            "limit": limit,
+                        },
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack list_channels error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return []
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+
+                    channels = []
+                    for ch in data.get("channels", []):
+                        channels.append(
+                            ChatChannel(
+                                id=ch.get("id", ""),
+                                platform=self.platform_name,
+                                name=ch.get("name"),
+                                metadata={
+                                    "is_private": ch.get("is_private", False),
+                                    "is_archived": ch.get("is_archived", False),
+                                    "is_member": ch.get("is_member", False),
+                                    "num_members": ch.get("num_members", 0),
+                                    "topic": ch.get("topic", {}).get("value"),
+                                    "purpose": ch.get("purpose", {}).get("value"),
+                                },
+                            )
+                        )
+                    return channels
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack list_channels error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return []
+
+    async def list_users(
+        self,
+        limit: int = 100,
+        include_bots: bool = False,
+        **kwargs: Any,
+    ) -> list[ChatUser]:
+        """List users in the workspace.
+
+        Args:
+            limit: Maximum number of users to return
+            include_bots: Whether to include bot users
+            **kwargs: Additional parameters
+
+        Returns:
+            List of ChatUser objects
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack list_users")
+            return []
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.get(
+                        f"{SLACK_API_BASE}/users.list",
+                        headers=self._get_headers(),
+                        params={"limit": limit},
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack list_users error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return []
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+
+                    users = []
+                    for member in data.get("members", []):
+                        # Skip bots if not requested
+                        if not include_bots and member.get("is_bot", False):
+                            continue
+                        # Skip deleted users
+                        if member.get("deleted", False):
+                            continue
+
+                        profile = member.get("profile", {})
+                        users.append(
+                            ChatUser(
+                                id=member.get("id", ""),
+                                platform=self.platform_name,
+                                username=member.get("name"),
+                                display_name=profile.get("display_name")
+                                or profile.get("real_name"),
+                                avatar_url=profile.get("image_72"),
+                                metadata={
+                                    "email": profile.get("email"),
+                                    "title": profile.get("title"),
+                                    "is_admin": member.get("is_admin", False),
+                                    "is_owner": member.get("is_owner", False),
+                                    "tz": member.get("tz"),
+                                },
+                            )
+                        )
+                    return users
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack list_users error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return []
+
+    # =========================================================================
+    # User Mention Helpers
+    # =========================================================================
+
+    @staticmethod
+    def format_user_mention(user_id: str) -> str:
+        """Format a user mention for Slack messages.
+
+        Args:
+            user_id: The Slack user ID (e.g., "U123ABC")
+
+        Returns:
+            Formatted mention string (e.g., "<@U123ABC>")
+        """
+        return f"<@{user_id}>"
+
+    @staticmethod
+    def format_channel_mention(channel_id: str) -> str:
+        """Format a channel mention for Slack messages.
+
+        Args:
+            channel_id: The Slack channel ID (e.g., "C123ABC")
+
+        Returns:
+            Formatted mention string (e.g., "<#C123ABC>")
+        """
+        return f"<#{channel_id}>"
+
+    # =========================================================================
+    # Modal / View Support
+    # =========================================================================
+
+    async def open_modal(
+        self,
+        trigger_id: str,
+        view: dict[str, Any],
+        **kwargs: Any,
+    ) -> Optional[str]:
+        """Open a modal view.
+
+        Args:
+            trigger_id: Trigger ID from interaction payload (valid for 3 seconds)
+            view: Modal view payload following Slack Block Kit spec
+            **kwargs: Additional parameters
+
+        Returns:
+            View ID if successful, None otherwise
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack open_modal")
+            return None
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.post(
+                        f"{SLACK_API_BASE}/views.open",
+                        headers=self._get_headers(),
+                        json={
+                            "trigger_id": trigger_id,
+                            "view": view,
+                        },
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack open_modal error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return None
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+                    return data.get("view", {}).get("id")
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack open_modal error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return None
+
+    async def update_modal(
+        self,
+        view_id: str,
+        view: dict[str, Any],
+        view_hash: Optional[str] = None,
+        **kwargs: Any,
+    ) -> bool:
+        """Update an existing modal view.
+
+        Args:
+            view_id: ID of the view to update
+            view: Updated view payload
+            view_hash: Optional view hash for optimistic locking
+            **kwargs: Additional parameters
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack update_modal")
+            return False
+
+        for attempt in range(self._max_retries):
+            try:
+                payload: dict[str, Any] = {
+                    "view_id": view_id,
+                    "view": view,
+                }
+                if view_hash:
+                    payload["hash"] = view_hash
+
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.post(
+                        f"{SLACK_API_BASE}/views.update",
+                        headers=self._get_headers(),
+                        json=payload,
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack update_modal error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return False
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+                    return True
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack update_modal error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return False
+
+    # =========================================================================
+    # Pinned Messages
+    # =========================================================================
+
+    async def pin_message(
+        self,
+        channel_id: str,
+        message_id: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Pin a message to a channel.
+
+        Args:
+            channel_id: Channel ID
+            message_id: Message timestamp
+            **kwargs: Additional parameters
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack pin_message")
+            return False
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.post(
+                        f"{SLACK_API_BASE}/pins.add",
+                        headers=self._get_headers(),
+                        json={
+                            "channel": channel_id,
+                            "timestamp": message_id,
+                        },
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        # "already_pinned" is not really a failure
+                        if error == "already_pinned":
+                            return True
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack pin_message error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return False
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+                    return True
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack pin_message error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return False
+
+    async def unpin_message(
+        self,
+        channel_id: str,
+        message_id: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Unpin a message from a channel.
+
+        Args:
+            channel_id: Channel ID
+            message_id: Message timestamp
+            **kwargs: Additional parameters
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack unpin_message")
+            return False
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.post(
+                        f"{SLACK_API_BASE}/pins.remove",
+                        headers=self._get_headers(),
+                        json={
+                            "channel": channel_id,
+                            "timestamp": message_id,
+                        },
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        # "no_pin" is not really a failure
+                        if error == "no_pin":
+                            return True
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack unpin_message error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return False
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+                    return True
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack unpin_message error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return False
+
+    async def get_pinned_messages(
+        self,
+        channel_id: str,
+        **kwargs: Any,
+    ) -> list[ChatMessage]:
+        """Get pinned messages in a channel.
+
+        Args:
+            channel_id: Channel ID
+            **kwargs: Additional parameters
+
+        Returns:
+            List of pinned ChatMessage objects
+        """
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for Slack connector")
+
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            logger.warning("Circuit breaker open for Slack get_pinned_messages")
+            return []
+
+        for attempt in range(self._max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.get(
+                        f"{SLACK_API_BASE}/pins.list",
+                        headers=self._get_headers(),
+                        params={"channel": channel_id},
+                    )
+                    data = response.json()
+
+                    if not data.get("ok"):
+                        error = data.get("error", "")
+                        if _is_retryable_error(response.status_code, error):
+                            if attempt < self._max_retries - 1:
+                                await _exponential_backoff(attempt)
+                                continue
+                        logger.error(f"Slack get_pinned_messages error: {error}")
+                        if self._circuit_breaker:
+                            self._circuit_breaker.record_failure()
+                        return []
+
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
+
+                    messages = []
+                    for item in data.get("items", []):
+                        if item.get("type") != "message":
+                            continue
+                        msg_data = item.get("message", {})
+                        channel = ChatChannel(
+                            id=channel_id,
+                            platform=self.platform_name,
+                        )
+                        user = ChatUser(
+                            id=msg_data.get("user", ""),
+                            platform=self.platform_name,
+                        )
+                        messages.append(
+                            ChatMessage(
+                                id=msg_data.get("ts", ""),
+                                platform=self.platform_name,
+                                channel=channel,
+                                author=user,
+                                content=msg_data.get("text", ""),
+                                timestamp=datetime.fromtimestamp(
+                                    float(msg_data.get("ts", "0").split(".")[0])
+                                ),
+                                metadata={"pinned": True},
+                            )
+                        )
+                    return messages
+
+            except httpx.TimeoutException:
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+            except Exception as e:
+                logger.error(f"Slack get_pinned_messages error: {e}")
+                if attempt < self._max_retries - 1:
+                    await _exponential_backoff(attempt)
+                    continue
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure()
+        return []
+
+
+__all__ = ["SlackConnector"]
