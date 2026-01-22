@@ -176,7 +176,7 @@ class CrossPollinationMetricsHandler(BaseHandler):
 
             metrics_text = get_cross_pollination_metrics_text()
 
-            return {
+            return {  # type: ignore[return-value]
                 "status": 200,
                 "headers": {
                     "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
@@ -352,7 +352,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
                 ranking_adapter = getattr(manager, "_ranking_adapter", None)
                 if ranking_adapter is None:
                     ranking_adapter = RankingAdapter()
-                    manager._ranking_adapter = ranking_adapter
+                    manager._ranking_adapter = ranking_adapter  # type: ignore[attr-defined]
 
                 stats = ranking_adapter.get_stats()
                 expertise_count = stats.get("total_expertise_records", 0)
@@ -379,7 +379,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
                 rlm_adapter = getattr(manager, "_rlm_adapter", None)
                 if rlm_adapter is None:
                     rlm_adapter = RlmAdapter()
-                    manager._rlm_adapter = rlm_adapter
+                    manager._rlm_adapter = rlm_adapter  # type: ignore[attr-defined]
 
                 stats = rlm_adapter.get_stats()
                 patterns_count = stats.get("total_patterns", 0)
@@ -408,7 +408,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
 
                 for adapter_name, result in results.items():
                     status = result.get("status", "unknown")
-                    record_km_adapter_sync(adapter_name, "to_mound", status, duration_ms / 1000)
+                    record_km_adapter_sync(adapter_name, "to_mound", status, duration_ms / 1000)  # type: ignore[arg-type]
             except ImportError:
                 pass
 
@@ -595,15 +595,15 @@ def register_routes(router, server_context: Optional[Any] = None) -> None:
         server_context: Optional server context for handlers
     """
     # Create handler instances with context
-    stats_handler = CrossPollinationStatsHandler(server_context or {})
-    subscribers_handler = CrossPollinationSubscribersHandler(server_context or {})
-    bridge_handler = CrossPollinationBridgeHandler(server_context or {})
-    metrics_handler = CrossPollinationMetricsHandler(server_context or {})
-    reset_handler = CrossPollinationResetHandler(server_context or {})
-    km_handler = CrossPollinationKMHandler(server_context or {})
-    km_sync_handler = CrossPollinationKMSyncHandler(server_context or {})
-    km_staleness_handler = CrossPollinationKMStalenessHandler(server_context or {})
-    km_culture_handler = CrossPollinationKMCultureHandler(server_context or {})
+    stats_handler = CrossPollinationStatsHandler(server_context or {})  # type: ignore[arg-type]
+    subscribers_handler = CrossPollinationSubscribersHandler(server_context or {})  # type: ignore[arg-type]
+    bridge_handler = CrossPollinationBridgeHandler(server_context or {})  # type: ignore[arg-type]
+    metrics_handler = CrossPollinationMetricsHandler(server_context or {})  # type: ignore[arg-type]
+    reset_handler = CrossPollinationResetHandler(server_context or {})  # type: ignore[arg-type]
+    km_handler = CrossPollinationKMHandler(server_context or {})  # type: ignore[arg-type]
+    km_sync_handler = CrossPollinationKMSyncHandler(server_context or {})  # type: ignore[arg-type]
+    km_staleness_handler = CrossPollinationKMStalenessHandler(server_context or {})  # type: ignore[arg-type]
+    km_culture_handler = CrossPollinationKMCultureHandler(server_context or {})  # type: ignore[arg-type]
 
     routes = [
         ("GET", "/api/cross-pollination/stats", stats_handler.get),
