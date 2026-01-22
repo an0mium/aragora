@@ -51,10 +51,10 @@ export function Footer() {
       {/* Main Footer */}
       <div className="text-acid-green/50 mb-4">{'═'.repeat(50)}</div>
       <p className="text-acid-green font-bold mb-1">
-        {'>'} ARAGORA // AI RED TEAM & DECISION STRESS-TEST ENGINE
+        {'>'} ARAGORA // CONTROL PLANE FOR MULTI-AGENT DELIBERATION
       </p>
       <p className="text-text-muted/70 text-[11px] italic max-w-md mx-auto mb-4">
-        &quot;The self-evolving debate engine behind defensible decisions.&quot;
+        &quot;Orchestrating AI deliberation across org knowledge and channels.&quot;
       </p>
       <div className="flex justify-center gap-4 text-text-muted/50 mb-4">
         {FOOTER_LINKS.map((link, idx) => (

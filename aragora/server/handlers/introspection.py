@@ -91,8 +91,10 @@ class IntrospectionHandler(BaseHandler):
         elif path == "/api/v1/introspection/agents":
             return self._list_agents()
         elif path.startswith("/api/v1/introspection/agents/"):
-            # Path: /api/introspection/agents/{name} -> stripped path index 3 is name
-            agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
+            # Path: /api/v1/introspection/agents/{name}
+            # After strip().split("/") = ["api", "v1", "introspection", "agents", "{name}"]
+            # Agent name is at index 4
+            agent, err = self.extract_path_param(path, 4, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             return self._get_agent_introspection(agent)

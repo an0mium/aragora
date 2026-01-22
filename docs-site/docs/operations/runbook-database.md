@@ -267,6 +267,6 @@ If database issues persist after following this runbook:
 
 ## Related Runbooks
 
-- [Deployment](../RUNBOOK_DEPLOYMENT.md)
-- [Incident Response](../RUNBOOK_INCIDENT.md)
-- [Provider Failure](../RUNBOOK_PROVIDER_FAILURE.md)
+- [Deployment](./runbook-deployment)
+- [Incident Response](./runbook-incident)
+- [Provider Failure](./runbook-provider)

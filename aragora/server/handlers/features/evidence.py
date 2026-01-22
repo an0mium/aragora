@@ -215,9 +215,11 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         if path == "/api/v1/evidence/statistics":
             return self._handle_statistics()
 
-        # GET /api/evidence/debate/:debate_id
+        # GET /api/v1/evidence/debate/:debate_id
+        # After strip().split("/") = ["api", "v1", "evidence", "debate", "{debate_id}"]
+        # debate_id is at index 4
         if path.startswith("/api/v1/evidence/debate/"):
-            debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_ID_PATTERN)
+            debate_id, err = self.extract_path_param(path, 4, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_debate_evidence(debate_id, query_params)
@@ -259,9 +261,10 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 return err
             return self._handle_collect(body)
 
-        # POST /api/evidence/debate/:debate_id
+        # POST /api/v1/evidence/debate/:debate_id
+        # debate_id is at index 4
         if path.startswith("/api/v1/evidence/debate/"):
-            debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_ID_PATTERN)
+            debate_id, err = self.extract_path_param(path, 4, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
             body, err = self.read_json_body_validated(handler)

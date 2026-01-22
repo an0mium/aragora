@@ -304,10 +304,10 @@ class WhatsAppHandler(BaseHandler):
         """Send welcome message."""
         self._send_message(
             to_number,
-            "Welcome to Aragora - Omnivorous Multi Agent Decision Making Engine!\n\n"
-            "I harness the collective intelligence of Claude, GPT, Gemini, Grok, and more "
-            "to help you make better decisions through structured debate.\n\n"
-            "Just send me a question and I'll start a multi-agent debate!\n\n"
+            "Welcome to Aragora - Control plane for multi-agent deliberation!\n\n"
+            "I orchestrate 15+ AI models (Claude, GPT, Gemini, Grok and more) "
+            "to debate and deliver defensible decisions.\n\n"
+            "Just send me a question and I'll start a multi-agent deliberation!\n\n"
             "Commands:\n"
             "/debate <question> - Start a debate\n"
             "/status - Check system status\n"

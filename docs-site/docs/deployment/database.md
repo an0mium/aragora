@@ -14,8 +14,8 @@ Aragora uses a dual-storage architecture: SQLite for local development and persi
 | Document | Purpose |
 |----------|---------|
 | **DATABASE.md** (this) | Architecture and configuration |
-| [DATABASE_SETUP.md](./DATABASE_SETUP.md) | Installation and setup guide |
-| [ENVIRONMENT.md](./ENVIRONMENT.md) | Environment variables reference |
+| [DATABASE_SETUP.md](./database-setup) | Installation and setup guide |
+| [ENVIRONMENT.md](../getting-started/environment) | Environment variables reference |
 
 ## Quick Reference
 

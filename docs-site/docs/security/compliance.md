@@ -84,7 +84,7 @@ Exports include:
 - Usage summary
 
 For manual requests: privacy@aragora.ai (processed within 30 days).
-See [DSAR_WORKFLOW.md](../DSAR_WORKFLOW.md) for detailed procedures.
+See [DSAR_WORKFLOW.md](./dsar) for detailed procedures.
 
 #### Right to Erasure (Art. 17)
 
@@ -528,12 +528,12 @@ curl -X POST /api/v2/admin/users \
 
 ## Related Documentation
 
-- [SECURITY.md](../SECURITY.md) - Security policies and controls
-- [DISASTER_RECOVERY.md](../DISASTER_RECOVERY.md) - Backup and recovery procedures
-- [DATABASE.md](../DATABASE.md) - Data storage and encryption
-- [DATA_RESIDENCY.md](../DATA_RESIDENCY.md) - Data location and transfer policies
-- [DATA_CLASSIFICATION.md](../DATA_CLASSIFICATION.md) - Data classification levels
-- [PRIVACY_POLICY.md](../PRIVACY_POLICY.md) - Privacy policy
-- [DSAR_WORKFLOW.md](../DSAR_WORKFLOW.md) - Data subject access request procedures
-- [BREACH_NOTIFICATION_SLA.md](../BREACH_NOTIFICATION_SLA.md) - Breach response timelines
-- [REMOTE_WORK_SECURITY.md](../REMOTE_WORK_SECURITY.md) - Remote access security
+- [SECURITY.md](./overview) - Security policies and controls
+- [DISASTER_RECOVERY.md](../deployment/disaster-recovery) - Backup and recovery procedures
+- [DATABASE.md](../deployment/database) - Data storage and encryption
+- [DATA_RESIDENCY.md](./data-residency) - Data location and transfer policies
+- [DATA_CLASSIFICATION.md](./data-classification) - Data classification levels
+- [PRIVACY_POLICY.md](./privacy-policy) - Privacy policy
+- [DSAR_WORKFLOW.md](./dsar) - Data subject access request procedures
+- [BREACH_NOTIFICATION_SLA.md](./breach-notification) - Breach response timelines
+- [REMOTE_WORK_SECURITY.md](./remote-work) - Remote access security

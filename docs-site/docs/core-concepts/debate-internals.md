@@ -397,7 +397,7 @@ The debate engine emits events via WebSocket:
 
 ## See Also
 
-- [DEBATE_PHASES.md](../DEBATE_PHASES.md) - Phase system details
-- [TRICKSTER.md](../TRICKSTER.md) - Hollow consensus detection
-- [CONSENSUS.md](algorithms/CONSENSUS.md) - Consensus algorithms
-- [CONVERGENCE.md](algorithms/CONVERGENCE.md) - Convergence detection
+- [DEBATE_PHASES.md](./debates) - Phase system details
+- [TRICKSTER.md](../advanced/trickster) - Hollow consensus detection
+- [CONSENSUS.md](./consensus) - Consensus algorithms
+- [CONVERGENCE.md](./convergence-algorithm) - Convergence detection

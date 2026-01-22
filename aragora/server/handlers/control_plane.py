@@ -20,6 +20,10 @@ Endpoints:
     POST /api/v1/control-plane/tasks/:id/fail   - Fail task
     POST /api/v1/control-plane/tasks/:id/cancel - Cancel task
 
+    POST /api/v1/control-plane/deliberations      - Run or queue a deliberation
+    GET  /api/v1/control-plane/deliberations/:id  - Get deliberation result
+    GET  /api/v1/control-plane/deliberations/:id/status - Get deliberation status
+
     GET  /api/v1/control-plane/health           - System health
     GET  /api/v1/control-plane/health/:agent_id - Agent health
     GET  /api/v1/control-plane/stats            - Control plane statistics
@@ -137,6 +141,15 @@ class ControlPlaneHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle GET requests."""
+        # /api/v1/control-plane/deliberations/:id[/status]
+        if path.startswith("/api/v1/control-plane/deliberations/"):
+            parts = path.split("/")
+            if len(parts) >= 6:
+                request_id = parts[5]
+                if len(parts) >= 7 and parts[6] == "status":
+                    return self._handle_get_deliberation_status(request_id, handler)
+                return self._handle_get_deliberation(request_id, handler)
+
         # /api/v1/control-plane/agents
         if path == "/api/v1/control-plane/agents":
             return self._handle_list_agents(query_params)
@@ -234,6 +247,35 @@ class ControlPlaneHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error getting task {task_id}: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
+
+    def _handle_get_deliberation(self, request_id: str, handler: Any) -> HandlerResult:
+        """Get a deliberation result by request ID."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
+        from aragora.core.decision_results import get_decision_result
+
+        result = get_decision_result(request_id)
+        if result:
+            return json_response(result)
+        return error_response("Deliberation not found", 404)
+
+    def _handle_get_deliberation_status(self, request_id: str, handler: Any) -> HandlerResult:
+        """Get deliberation status for polling."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
+        from aragora.core.decision_results import get_decision_status
+
+        return json_response(get_decision_status(request_id))
 
     def _handle_system_health(self) -> HandlerResult:
         """Get system health status."""
@@ -408,6 +450,13 @@ class ControlPlaneHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
+        # /api/v1/control-plane/deliberations
+        if path == "/api/v1/control-plane/deliberations":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_submit_deliberation(body, handler)
+
         # /api/v1/control-plane/agents
         if path == "/api/v1/control-plane/agents":
             body, err = self.read_json_body_validated(handler)
@@ -605,6 +654,124 @@ class ControlPlaneHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error submitting task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
+
+    def _handle_submit_deliberation(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
+        """Submit a deliberation (sync or async via control plane)."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:tasks"):
+            return error_response("Permission denied: controlplane:tasks required", 403)
+
+        coordinator = self._get_coordinator()
+        if not coordinator:
+            return error_response("Control plane not initialized", 503)
+
+        if not body.get("content"):
+            return error_response("Missing required field: content", 400)
+
+        try:
+            from aragora.core.decision import DecisionRequest
+            from aragora.billing.auth import extract_user_from_request
+
+            headers = {}
+            if hasattr(handler, "headers"):
+                headers = dict(handler.headers)
+
+            request = DecisionRequest.from_http(body, headers)
+
+            auth_ctx = extract_user_from_request(handler)
+            if auth_ctx.authenticated:
+                if not request.context.user_id:
+                    request.context.user_id = auth_ctx.user_id
+                if not request.context.workspace_id:
+                    request.context.workspace_id = auth_ctx.org_id
+        except ValueError as e:
+            return error_response(f"Invalid request: {e}", 400)
+        except Exception as e:
+            logger.warning(f"Failed to parse deliberation request: {e}")
+            return error_response(f"Failed to parse request: {e}", 400)
+
+        async_mode = bool(body.get("async", False)) or body.get("mode") == "async"
+        priority = body.get("priority", "normal")
+        required_capabilities = body.get("required_capabilities") or ["deliberation"]
+        timeout_seconds = body.get("timeout_seconds")
+
+        if async_mode:
+            try:
+                from aragora.control_plane.scheduler import TaskPriority
+
+                priority_enum = TaskPriority[priority.upper()]
+
+                task_id = _run_async(
+                    coordinator.submit_task(
+                        task_type="deliberation",
+                        payload=request.to_dict(),
+                        required_capabilities=required_capabilities,
+                        priority=priority_enum,
+                        timeout_seconds=timeout_seconds,
+                        metadata={"request_id": request.request_id},
+                    )
+                )
+
+                self._emit_event(
+                    "emit_task_submitted",
+                    task_id=task_id,
+                    task_type="deliberation",
+                    priority=priority,
+                    required_capabilities=required_capabilities,
+                )
+
+                return json_response(
+                    {
+                        "task_id": task_id,
+                        "request_id": request.request_id,
+                        "status": "queued",
+                    },
+                    status=202,
+                )
+            except KeyError:
+                return error_response(f"Invalid priority: {priority}", 400)
+            except Exception as e:
+                logger.error(f"Error submitting deliberation: {e}")
+                return error_response(safe_error_message(e, "control plane"), 500)
+
+        try:
+            import asyncio
+            from aragora.control_plane.deliberation import (
+                run_deliberation,
+                record_deliberation_error,
+            )
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(run_deliberation(request))
+            finally:
+                loop.close()
+
+            return json_response(
+                {
+                    "request_id": request.request_id,
+                    "status": "completed" if result.success else "failed",
+                    "decision_type": result.decision_type.value,
+                    "answer": result.answer,
+                    "confidence": result.confidence,
+                    "consensus_reached": result.consensus_reached,
+                    "reasoning": result.reasoning,
+                    "evidence_used": result.evidence_used,
+                    "duration_seconds": result.duration_seconds,
+                    "error": result.error,
+                }
+            )
+        except asyncio.TimeoutError:
+            record_deliberation_error(request.request_id, "Deliberation timed out", "timeout")
+            return error_response("Deliberation request timed out", 408)
+        except Exception as e:
+            logger.exception(f"Deliberation failed: {e}")
+            record_deliberation_error(request.request_id, str(e))
+            return error_response(f"Deliberation failed: {e}", 500)
 
     def _handle_claim_task(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
         """Claim a task for an agent."""

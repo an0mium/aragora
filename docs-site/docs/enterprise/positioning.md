@@ -25,16 +25,17 @@ Aragora is the control plane for multi-agent deliberation—orchestrating 15+ AI
 
 | Category | Description |
 |----------|-------------|
-| **Primary** | AI Decision Validation Platform |
-| **Secondary** | Enterprise AI Governance / Adversarial Testing |
-| **Technical** | Multi-Agent Debate Orchestration Engine |
+| **Primary** | Control Plane for Multi-Agent Deliberation |
+| **Secondary** | Decision Assurance Platform for High-Stakes Teams |
+| **Technical** | Enterprise AI Orchestration with Institutional Memory |
 
 ### What Aragora Is NOT
 
-- **Not a chatbot** - Produces structured decision records, not conversations
-- **Not a code generator** - Validates and stress-tests, not creates
-- **Not AutoGen/CrewAI** - Adversarial (debate), not cooperative (collaboration)
-- **Not a single-model wrapper** - Requires heterogeneous AI providers
+- **Not a chatbot** - Structured deliberation protocol with phases, roles, and evidence chains
+- **Not a copilot** - Institutional learning that ACCUMULATES organizational knowledge
+- **Not single-model** - Heterogeneous 15+ provider ensemble that argues toward truth
+- **Not stateless** - Remembers outcomes, builds knowledge graphs, improves itself
+- **Not text-only** - Multimodal ingestion (25+ formats) + multi-channel bidirectional output
 
 ---
 

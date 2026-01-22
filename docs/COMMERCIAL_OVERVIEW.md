@@ -1,12 +1,12 @@
-# Aragora - Omnivorous Multi Agent Decision Making Platform
+# Aragora - Control Plane for Multi-Agent Deliberation
 
-*Version 2.0 | Commercial Overview*
+*Version 2.1 | Commercial Overview*
 
 ## Executive Summary
 
-Aragora is an **omnivorous multi-agent decision making engine** that harnesses diverse AI models for collaborative decision making through structured debate. Rather than trusting a single AI to evaluate your specifications, architectures, or policies, Aragora orchestrates heterogeneous AI agents (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) to discuss, critique, and synthesize positions—producing **audit-ready Decision Receipts** for regulated environments.
+Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
-**The product is not debate. The product is a defensible decision record.**
+Unlike chatbots, Aragora builds institutional memory with full audit trails. **Deliberation is the engine. The product is a defensible decision record.**
 
 ---
 

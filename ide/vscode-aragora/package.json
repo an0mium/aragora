@@ -1,7 +1,7 @@
 {
   "name": "aragora",
   "displayName": "Aragora",
-  "description": "Multi-agent AI debate framework for VS Code",
+  "description": "Control plane for multi-agent deliberation - VS Code integration",
   "version": "0.1.0",
   "publisher": "aragora",
   "engines": {

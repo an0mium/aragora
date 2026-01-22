@@ -1,10 +1,10 @@
 """
-Bot webhook handlers for chat platform integrations.
+Bot integrations for Aragora control plane.
 
-Provides HTTP endpoints for receiving webhooks from Discord, Teams, Telegram,
-WhatsApp, and Zoom - enabling bidirectional human-AI communication.
+Aragora delivers deliberation results wherever your team works:
+Discord, Teams, Telegram, WhatsApp, Zoom, and more.
 
-Aragora is omnivorous by design: query from any channel, get multi-agent consensus.
+Query from any channel, get defensible decisions with multi-agent consensus.
 """
 
 from aragora.server.handlers.bots.discord import DiscordHandler

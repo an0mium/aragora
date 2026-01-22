@@ -1,0 +1,20 @@
+{
+  "id": "advanced/genesis",
+  "title": "Genesis - Evolutionary Agent System",
+  "description": "Genesis - Evolutionary Agent System",
+  "source": "@site/docs/advanced/genesis.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/genesis",
+  "permalink": "/docs/advanced/genesis",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/genesis.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Genesis - Evolutionary Agent System",
+    "description": "Genesis - Evolutionary Agent System"
+  }
+}

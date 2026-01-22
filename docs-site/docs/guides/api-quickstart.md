@@ -216,10 +216,10 @@ ws.onmessage = (event) => {
 
 ## Next Steps
 
-- [Full API Reference](./API_REFERENCE.md)
-- [Architecture Overview](./ARCHITECTURE.md)
-- [Environment Variables](./ENVIRONMENT.md)
-- [Feature Documentation](./FEATURES.md)
+- [Full API Reference](../api/reference)
+- [Architecture Overview](../core-concepts/architecture)
+- [Environment Variables](../getting-started/environment)
+- [Feature Documentation](./features)
 
 ## Support
 

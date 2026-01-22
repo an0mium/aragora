@@ -425,6 +425,6 @@ class SandboxResult:
 
 ## See Also
 
-- [Verification Module](aragora/verification/) - Source code
-- [Sandbox Security](./SECURITY.md#proof-sandbox) - Security details
-- [WebSocket Events](./WEBSOCKET_EVENTS.md#verification-events) - Streaming events
+- [Verification Module](../aragora/verification/) - Source code
+- [Sandbox Security](../security/overview#proof-sandbox) - Security details
+- [WebSocket Events](../guides/websocket-events#verification-events) - Streaming events

@@ -16,8 +16,8 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
     title: 'Welcome to Aragora',
-    description: 'Aragora is an AI debate arena where multiple AI agents critique and improve each other\'s reasoning. Use it to stress-test your decisions before committing.',
-    tip: 'Think of it as a red team for your technical decisions.',
+    description: 'Aragora is the control plane for multi-agent deliberation. Multiple AI agents debate your questions and deliver defensible decisions with full audit trails.',
+    tip: 'Think of it as decision assurance for high-stakes teams.',
   },
   {
     id: 'first-debate',

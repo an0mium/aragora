@@ -320,14 +320,14 @@ class TelegramHandler(BaseHandler):
         """Handle /start command."""
         self._send_message(
             chat_id,
-            "Welcome to Aragora - Omnivorous Multi Agent Decision Making Engine!\n\n"
-            "I harness the collective intelligence of Claude, GPT, Gemini, Grok, and more "
-            "to help you make better decisions through structured debate.\n\n"
+            "Welcome to Aragora - Control plane for multi-agent deliberation!\n\n"
+            "I orchestrate 15+ AI models (Claude, GPT, Gemini, Grok and more) "
+            "to debate and deliver defensible decisions.\n\n"
             "Commands:\n"
-            "/debate <question> - Start a multi-agent debate\n"
+            "/debate <question> - Start a multi-agent deliberation\n"
             "/status - Check system status\n"
             "/help - Show this help\n\n"
-            "Or just send me a question and I'll debate it!",
+            "Or just send me a question and I'll deliberate!",
         )
         return json_response({"ok": True})
 

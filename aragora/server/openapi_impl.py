@@ -34,9 +34,9 @@ def generate_openapi_schema() -> dict[str, Any]:
         "openapi": "3.0.3",
         "info": {
             "title": "Aragora API",
-            "description": "AI red team / decision stress-test API for Aragora LiveWire. "
-            "Provides endpoints for gauntlet runs, debate-backed decision receipts, "
-            "agent rankings, consensus tracking, and real-time collaboration.",
+            "description": "Control plane for multi-agent deliberation across org knowledge and channels. "
+            "Orchestrate 15+ AI models to debate your organization's knowledge and deliver "
+            "defensible decisions with full audit trails.",
             "version": API_VERSION,
             "contact": {"name": "Aragora Team"},
             "license": {"name": "MIT"},

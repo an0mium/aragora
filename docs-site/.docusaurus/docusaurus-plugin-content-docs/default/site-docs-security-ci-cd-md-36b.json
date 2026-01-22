@@ -11,8 +11,8 @@
   "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/ci-cd.md",
   "tags": [],
   "version": "current",
-  "lastUpdatedBy": null,
-  "lastUpdatedAt": null,
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769103634000,
   "frontMatter": {
     "title": "CI/CD Security Guide",
     "description": "CI/CD Security Guide"

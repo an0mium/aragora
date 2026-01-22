@@ -5,7 +5,7 @@ description: Aragora API Discovery Guide
 
 # Aragora API Discovery Guide
 
-> **Note:** For the complete API documentation, see **[API_REFERENCE.md](./API_REFERENCE.md)**. This guide focuses on powerful but underutilized endpoints that aren't yet integrated into the frontend.
+> **Note:** For the complete API documentation, see **[API_REFERENCE.md](./reference)**. This guide focuses on powerful but underutilized endpoints that aren't yet integrated into the frontend.
 
 This guide documents powerful but underutilized API endpoints. These endpoints provide access to sophisticated capabilities that are fully implemented but not yet integrated into the frontend.
 

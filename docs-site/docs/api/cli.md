@@ -5,7 +5,7 @@ description: Aragora CLI Reference
 
 # Aragora CLI Reference
 
-Complete command-line interface reference for Aragora - Omnivorous Multi Agent Decision Making Engine.
+Complete command-line interface reference for Aragora - Control Plane for Multi-Agent Deliberation.
 
 ## Installation
 
@@ -44,7 +44,7 @@ repo root, set `ARAGORA_DATA_DIR` and pass `--db "$ARAGORA_DATA_DIR/agora_memory
 | `OLLAMA_MODEL` | Default Ollama model | `llama3.2` |
 | `DEEPSEEK_API_KEY` | DeepSeek CLI key (`deepseek-cli`) | - |
 
-See [ENVIRONMENT](../ENVIRONMENT.md) for the full configuration reference.
+See [ENVIRONMENT](../getting-started/environment) for the full configuration reference.
 
 ---
 
@@ -885,7 +885,7 @@ aragora doctor --validate
 
 ## See Also
 
-- [Getting Started Guide](../GETTING_STARTED.md)
-- [Agent Selection Guide](../AGENT_SELECTION.md)
-- [MCP Integration](../MCP_INTEGRATION.md)
-- [API Reference](../API_REFERENCE.md)
+- [Getting Started Guide](GETTING_STARTED.md)
+- [Agent Selection Guide](../core-concepts/agent-selection)
+- [MCP Integration](../guides/mcp-integration)
+- [API Reference](./reference)

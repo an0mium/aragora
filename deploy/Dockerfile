@@ -106,8 +106,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Labels for container metadata
 LABEL org.opencontainers.image.title="Aragora" \
-      org.opencontainers.image.description="Multi-agent debate framework" \
-      org.opencontainers.image.version="2.0.3" \
+      org.opencontainers.image.description="Control plane for multi-agent deliberation across org knowledge and channels" \
+      org.opencontainers.image.version="2.1.10" \
       org.opencontainers.image.vendor="Aragora" \
       org.opencontainers.image.source="https://github.com/aragora/aragora"
 

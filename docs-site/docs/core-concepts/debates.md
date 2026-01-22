@@ -295,6 +295,6 @@ async def _with_timeout(self, coro, agent_name: str, timeout: float = 90.0):
 
 ## See Also
 
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - System overview
-- [MEMORY_STRATEGY.md](../MEMORY_STRATEGY.md) - Memory tier details
-- [API_REFERENCE.md](../API_REFERENCE.md) - HTTP/WebSocket API
+- [ARCHITECTURE.md](./architecture) - System overview
+- [MEMORY_STRATEGY.md](./memory-strategy) - Memory tier details
+- [API_REFERENCE.md](../api/reference) - HTTP/WebSocket API

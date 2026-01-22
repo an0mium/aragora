@@ -1,6 +1,6 @@
 # Aragora Agents
 
-Aragora is a multi-agent debate framework implementing dialectical reasoning through a society of heterogeneous AI agents. This document describes the agent system architecture.
+Aragora is the control plane for multi-agent deliberation across organizational knowledge and channels. It implements structured deliberation through a society of heterogeneous AI agents. This document describes the agent system architecture.
 
 ## Agent Types
 

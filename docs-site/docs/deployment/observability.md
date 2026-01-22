@@ -648,6 +648,6 @@ curl http://localhost:9090/metrics
 
 ## See Also
 
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - Kubernetes deployment
+- [DEPLOYMENT.md](./overview) - Kubernetes deployment
 - [RATE_LIMITING.md](./RATE_LIMITING.md) - Rate limiting configuration
-- [SECURITY.md](./SECURITY.md) - Security configuration
+- [SECURITY.md](../security/overview) - Security configuration

@@ -538,4 +538,4 @@ PRAGMA cache_size = -64000;         # 64MB cache
 
 ## Backup Procedures
 
-See [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md) for backup and restoration procedures.
+See [DISASTER_RECOVERY.md](./disaster-recovery) for backup and restoration procedures.

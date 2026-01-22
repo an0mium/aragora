@@ -8,11 +8,13 @@
 
 ## Executive Summary
 
-**Aragora is an AI red team and decision stress-test engine** that attacks high-stakes plans (specs, architectures, policies, code) and produces audit-ready Decision Receipts with evidence and dissent trails.
+**Aragora is the control plane for multi-agent deliberation across organizational knowledge and channels.** It orchestrates 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
-> "Aragora attacks your plan before reality does."
+> "Aragora: Control plane for multi-agent deliberation across org knowledge and channels."
 
-Debate is the internal combustion engine. The product is a defensible decision record.
+Deliberation is the internal engine. The product is a defensible decision record with full audit trails.
+
+**For high-stakes teams** in legal, finance, compliance, and security—where "the AI said so" isn't good enough—Aragora provides decision assurance with receipts.
 
 ---
 

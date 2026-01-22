@@ -245,7 +245,7 @@ kubectl apply -f deploy/k8s/migration-job.yaml --dry-run=client -o yaml | \
 kubectl -n aragora logs job/aragora-migrate-status
 ```
 
-For more database setup details, see [POSTGRESQL_MIGRATION.md](../POSTGRESQL_MIGRATION.md).
+For more database setup details, see [POSTGRESQL_MIGRATION.md](./postgresql-migration).
 
 ## Environment Variables
 

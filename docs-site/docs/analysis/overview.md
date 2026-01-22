@@ -315,6 +315,6 @@ else:
 
 ## See Also
 
-- [Knowledge Mound](../KNOWLEDGE_MOUND.md) - Unified knowledge storage
-- [Document Processing](../DOCUMENTS.md) - Document upload and chunking
-- [API Reference](../API_REFERENCE.md) - Full API documentation
+- [Knowledge Mound](../core-concepts/knowledge-mound) - Unified knowledge storage
+- [Document Processing](../guides/documents) - Document upload and chunking
+- [API Reference](../api/reference) - Full API documentation

@@ -153,7 +153,7 @@ export default function HubPage() {
             What do you want to do?
           </h1>
           <p className="text-lg text-text-muted max-w-2xl mx-auto">
-            Aragora is a multi-agent debate platform. Choose a use case below or start with a quick debate.
+            Aragora is the control plane for multi-agent deliberation. Choose a use case below or start with a quick debate.
           </p>
         </div>
 

@@ -1,0 +1,20 @@
+{
+  "id": "operations/overview",
+  "title": "Aragora Operations Runbook",
+  "description": "Aragora Operations Runbook",
+  "source": "@site/docs/operations/overview.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/overview",
+  "permalink": "/docs/operations/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Operations Runbook",
+    "description": "Aragora Operations Runbook"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "deployment/postgresql-migration",
+  "title": "PostgreSQL Migration Guide",
+  "description": "PostgreSQL Migration Guide",
+  "source": "@site/docs/deployment/postgresql-migration.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/postgresql-migration",
+  "permalink": "/docs/deployment/postgresql-migration",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/postgresql-migration.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "PostgreSQL Migration Guide",
+    "description": "PostgreSQL Migration Guide"
+  }
+}

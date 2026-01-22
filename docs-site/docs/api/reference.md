@@ -15,11 +15,11 @@ This document describes the HTTP and WebSocket APIs for the Aragora AI red team 
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
 | **API_REFERENCE.md** (this) | Complete endpoint catalog | Primary reference for all endpoints |
-| [API_EXAMPLES.md](./API_EXAMPLES.md) | Runnable code examples | Learning API patterns |
-| [API_RATE_LIMITS.md](./API_RATE_LIMITS.md) | Rate limiting details | Understanding throttling |
-| [API_VERSIONING.md](./API_VERSIONING.md) | Version strategy | API migration planning |
-| [API_STABILITY.md](./API_STABILITY.md) | Stability guarantees | Production decisions |
-| [WEBSOCKET_EVENTS.md](./WEBSOCKET_EVENTS.md) | WebSocket event types | Real-time integration |
+| [API_EXAMPLES.md](./examples) | Runnable code examples | Learning API patterns |
+| [API_RATE_LIMITS.md](./rate-limits) | Rate limiting details | Understanding throttling |
+| [API_VERSIONING.md](./versioning) | Version strategy | API migration planning |
+| [API_STABILITY.md](./stability) | Stability guarantees | Production decisions |
+| [WEBSOCKET_EVENTS.md](../guides/websocket-events) | WebSocket event types | Real-time integration |
 
 ## Endpoint Usage Status
 

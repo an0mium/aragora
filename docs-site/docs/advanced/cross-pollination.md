@@ -57,7 +57,7 @@ Import the Grafana dashboard from `deploy/grafana/dashboards/cross-pollination.j
 - ELO adjustments
 - Evidence quality bonuses
 
-See [OBSERVABILITY.md](./OBSERVABILITY.md#cross-pollination-metrics) for Prometheus metrics.
+See [OBSERVABILITY.md](../deployment/observability-setup#cross-pollination-metrics) for Prometheus metrics.
 
 ## Overview
 

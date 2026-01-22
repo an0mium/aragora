@@ -556,7 +556,7 @@ JWT authentication and Stripe integration for paid tiers.
 | `STRIPE_PRICE_PROFESSIONAL` | For billing | Price ID for Professional tier | - |
 | `STRIPE_PRICE_ENTERPRISE` | For billing | Price ID for Enterprise tier | - |
 
-See [BILLING.md](./BILLING.md) for subscription tiers and usage tracking.
+See [BILLING.md](../enterprise/billing) for subscription tiers and usage tracking.
 
 ### Billing Notifications
 
@@ -750,7 +750,7 @@ Configuration for debate-to-podcast conversion.
 | `ARAGORA_TTS_TIMEOUT` | Optional | TTS generation timeout (seconds) | `60` |
 | `ARAGORA_TTS_RETRIES` | Optional | TTS retry attempts | `3` |
 
-See [BROADCAST.md](./BROADCAST.md) for the complete audio pipeline documentation.
+See [BROADCAST.md](../guides/broadcast) for the complete audio pipeline documentation.
 
 ## Transcription (Speech-to-Text)
 
@@ -847,7 +847,7 @@ Slack integration uses the existing `SLACK_*` variables with additional bidirect
 - `/aragora status` - Check system health
 - `/aragora help` - List available commands
 
-See [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) for detailed setup guides.
+See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
 
 ## Debug & Logging
 

@@ -1,16 +1,16 @@
 # Aragora: Commercial Positioning & Value Proposition
 
-**Structured Multi-Agent Debate for High-Stakes AI Decisions**
+**Control Plane for Multi-Agent Deliberation Across Org Knowledge and Channels**
 
-*Version 1.5 | January 2026*
+*Version 2.0 | January 2026*
 
 ---
 
 ## Executive Summary
 
-Aragora is an adversarial multi-agent debate platform that stress-tests decisions, code, and policies before they ship. Unlike cooperative AI frameworks that help agents work together, Aragora makes agents argue against each other to surface blind spots, validate assumptions, and produce audit-ready decision records.
+Aragora is the control plane for multi-agent deliberation—orchestrating 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike chatbots and single-model wrappers, Aragora builds institutional memory with full audit trails.
 
-**Key Value:** Replace expensive human expert review ($15K-$100K per decision) with automated adversarial validation that runs in 15-45 minutes and produces compliance-ready artifacts.
+**Key Value:** Replace expensive human expert review ($15K-$100K per decision) with orchestrated multi-agent deliberation that runs in 15-45 minutes, produces compliance-ready Decision Receipts, and builds organizational knowledge over time.
 
 ---
 
@@ -20,16 +20,17 @@ Aragora is an adversarial multi-agent debate platform that stress-tests decision
 
 | Category | Description |
 |----------|-------------|
-| **Primary** | AI Decision Validation Platform |
-| **Secondary** | Enterprise AI Governance / Adversarial Testing |
-| **Technical** | Multi-Agent Debate Orchestration Engine |
+| **Primary** | Control Plane for Multi-Agent Deliberation |
+| **Secondary** | Decision Assurance Platform for High-Stakes Teams |
+| **Technical** | Enterprise AI Orchestration with Institutional Memory |
 
 ### What Aragora Is NOT
 
-- **Not a chatbot** - Produces structured decision records, not conversations
-- **Not a code generator** - Validates and stress-tests, not creates
-- **Not AutoGen/CrewAI** - Adversarial (debate), not cooperative (collaboration)
-- **Not a single-model wrapper** - Requires heterogeneous AI providers
+- **Not a chatbot** - Structured deliberation protocol with phases, roles, and evidence chains
+- **Not a copilot** - Institutional learning that ACCUMULATES organizational knowledge
+- **Not single-model** - Heterogeneous 15+ provider ensemble that argues toward truth
+- **Not stateless** - Remembers outcomes, builds knowledge graphs, improves itself
+- **Not text-only** - Multimodal ingestion (25+ formats) + multi-channel bidirectional output
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  "id": "guides/queue",
+  "title": "Message Queue System",
+  "description": "Message Queue System",
+  "source": "@site/docs/guides/queue.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/queue",
+  "permalink": "/docs/guides/queue",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/queue.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Message Queue System",
+    "description": "Message Queue System"
+  }
+}

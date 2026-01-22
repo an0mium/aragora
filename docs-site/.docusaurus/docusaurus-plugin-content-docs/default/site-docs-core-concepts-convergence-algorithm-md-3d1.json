@@ -1,0 +1,20 @@
+{
+  "id": "core-concepts/convergence-algorithm",
+  "title": "Convergence Detection",
+  "description": "Convergence Detection",
+  "source": "@site/docs/core-concepts/convergence-algorithm.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/convergence-algorithm",
+  "permalink": "/docs/core-concepts/convergence-algorithm",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/convergence-algorithm.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Convergence Detection",
+    "description": "Convergence Detection"
+  }
+}

@@ -132,6 +132,36 @@ async def control_plane_example():
 asyncio.run(control_plane_example())
 ```
 
+### Control Plane Deliberation
+
+```python
+async def control_plane_deliberation():
+    """Run a deliberation via the control plane (sync or async)."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        # Submit a deliberation (async)
+        response = await client.post("/api/control-plane/deliberations", json={
+            "content": "Evaluate the rollout risk for this migration plan",
+            "decision_type": "debate",
+            "async": True,
+            "priority": "high",
+            "required_capabilities": ["deliberation"],
+        })
+        payload = response.json()
+        request_id = payload["request_id"]
+
+        # Poll for completion
+        while True:
+            status_response = await client.get(
+                f"/api/control-plane/deliberations/{request_id}/status"
+            )
+            status = status_response.json()
+            if status["status"] in ("completed", "failed"):
+                break
+            await asyncio.sleep(1)
+
+asyncio.run(control_plane_deliberation())
+```
+
 ### Gauntlet Compliance Audit
 
 ```python

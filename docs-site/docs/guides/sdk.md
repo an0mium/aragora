@@ -450,8 +450,8 @@ asyncio.run(analyze_decision())
 
 ## Related Documentation
 
-- [API Reference](../API_REFERENCE.md) - Full REST API documentation
-- [WebSocket Events](../WEBSOCKET_EVENTS.md) - Real-time streaming events
-- [Gauntlet Guide](../GAUNTLET.md) - Adversarial validation details
-- [Graph Debates](../GRAPH_DEBATES.md) - Branching debate documentation
-- [Matrix Debates](../MATRIX_DEBATES.md) - Parallel scenario debates
+- [API Reference](../api/reference) - Full REST API documentation
+- [WebSocket Events](./websocket-events) - Real-time streaming events
+- [Gauntlet Guide](./gauntlet) - Adversarial validation details
+- [Graph Debates](./graph-debates) - Branching debate documentation
+- [Matrix Debates](./matrix-debates) - Parallel scenario debates

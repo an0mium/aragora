@@ -11,8 +11,8 @@
   "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/control-plane.md",
   "tags": [],
   "version": "current",
-  "lastUpdatedBy": null,
-  "lastUpdatedAt": null,
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769103634000,
   "frontMatter": {
     "title": "Control Plane Guide",
     "description": "Control Plane Guide"

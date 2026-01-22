@@ -301,6 +301,6 @@ sudo systemctl start aragora
 
 ## Related Runbooks
 
-- [Provider Failure](../RUNBOOK_PROVIDER_FAILURE.md)
-- [Database Issues](../RUNBOOK_DATABASE_ISSUES.md)
-- [Incident Response](../RUNBOOK_INCIDENT.md)
+- [Provider Failure](./runbook-provider)
+- [Database Issues](./runbook-database)
+- [Incident Response](./runbook-incident)

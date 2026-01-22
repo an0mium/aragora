@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aragora"
 version = "2.1.10"
-description = "Omnivorous Multi Agent Decision Making Engine - Collaborative decision making through structured debate with diverse AI models"
+description = "Control plane for multi-agent deliberation across org knowledge and channels"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -16,12 +16,14 @@ authors = [
 keywords = [
     "ai",
     "multi-agent",
-    "debate",
+    "control-plane",
+    "deliberation",
     "llm",
     "claude",
     "gpt",
     "consensus",
-    "self-improvement",
+    "enterprise",
+    "decision-assurance",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

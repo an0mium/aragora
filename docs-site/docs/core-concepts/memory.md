@@ -5,7 +5,7 @@ description: Memory Tier Operations Guide
 
 # Memory Tier Operations Guide
 
-This guide covers operational aspects of the Continuum Memory System for SREs and operators. For developer documentation, see [MEMORY_STRATEGY.md](../MEMORY_STRATEGY.md).
+This guide covers operational aspects of the Continuum Memory System for SREs and operators. For developer documentation, see [MEMORY_STRATEGY.md](./memory-strategy).
 
 ## Tier Overview
 
@@ -282,7 +282,7 @@ hyperparams = {
 
 ## See Also
 
-- [MEMORY_STRATEGY.md](../MEMORY_STRATEGY.md) - Developer architecture documentation
-- [MEMORY_ANALYTICS.md](../MEMORY_ANALYTICS.md) - Analytics and ROI tracking
-- [DATABASE.md](../DATABASE.md) - Database operations guide
-- [OPERATIONS.md](../OPERATIONS.md) - General operations runbook
+- [MEMORY_STRATEGY.md](./memory-strategy) - Developer architecture documentation
+- [MEMORY_ANALYTICS.md](./memory-analytics) - Analytics and ROI tracking
+- [DATABASE.md](../deployment/database) - Database operations guide
+- [OPERATIONS.md](../operations/overview) - General operations runbook

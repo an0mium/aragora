@@ -1,0 +1,20 @@
+{
+  "id": "deployment/observability-setup",
+  "title": "Observability Guide",
+  "description": "Observability Guide",
+  "source": "@site/docs/deployment/observability-setup.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/observability-setup",
+  "permalink": "/docs/deployment/observability-setup",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/observability-setup.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Observability Guide",
+    "description": "Observability Guide"
+  }
+}

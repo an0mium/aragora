@@ -480,6 +480,6 @@ CREATE TABLE usage_monthly (
 
 ## See Also
 
-- [API Reference](../API_REFERENCE.md) - Authentication endpoints
-- [Environment Variables](../ENVIRONMENT.md) - Full configuration reference
-- [Architecture](../ARCHITECTURE.md) - System overview
+- [API Reference](../api/reference) - Authentication endpoints
+- [Environment Variables](../getting-started/environment) - Full configuration reference
+- [Architecture](../core-concepts/architecture) - System overview

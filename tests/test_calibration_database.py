@@ -12,12 +12,6 @@ Tests cover:
 
 import os
 import pytest
-
-# Skip entire module - all tests fail due to sqlite3.Row vs tuple comparison
-pytest.skip(
-    "CalibrationDatabase tests have sqlite3.Row vs tuple comparison issues",
-    allow_module_level=True,
-)
 import sqlite3
 import tempfile
 import threading
@@ -141,7 +135,6 @@ class TestConnectionContextManager:
             assert count == 0
 
 
-@pytest.mark.skip(reason="Transaction tests fail in CI - sqlite3.Row comparison issue")
 class TestTransactionContextManager:
     """Tests for transaction() context manager."""
 
@@ -179,15 +172,13 @@ class TestTransactionContextManager:
             conn.execute("INSERT INTO test_items (name, value) VALUES (?, ?)", ("item2", 20.0))
             conn.execute("UPDATE test_items SET value = value * 2 WHERE name = ?", ("item1",))
 
-        with db.connection() as conn:
-            cursor = conn.execute("SELECT name, value FROM test_items ORDER BY name")
-            rows = cursor.fetchall()
-            assert len(rows) == 2
-            assert rows[0] == ("item1", 20.0)  # Updated
-            assert rows[1] == ("item2", 20.0)
+        # Use fetch_all() which returns proper tuples
+        rows = db.fetch_all("SELECT name, value FROM test_items ORDER BY name")
+        assert len(rows) == 2
+        assert rows[0] == ("item1", 20.0)  # Updated
+        assert rows[1] == ("item2", 20.0)
 
 
-@pytest.mark.skip(reason="FetchOne tests fail in CI - sqlite3.Row comparison issue")
 class TestFetchOne:
     """Tests for fetch_one() method."""
 
@@ -216,7 +207,6 @@ class TestFetchOne:
         assert row[0] == 1
 
 
-@pytest.mark.skip(reason="FetchAll tests fail in CI - sqlite3.Row comparison issue")
 class TestFetchAll:
     """Tests for fetch_all() method."""
 

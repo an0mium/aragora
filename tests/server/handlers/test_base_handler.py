@@ -394,8 +394,14 @@ class TestBaseHandlerPathExtraction:
         from aragora.server.handlers.base import BaseHandler
 
         handler = BaseHandler({})
+        # Path: /api/v1/debates/debate-123/messages
+        # Parts: ["", "api", "v1", "debates", "debate-123", "messages"]
+        # Index:   0     1      2        3             4           5
+        # Note: extract_path_param uses strip("/").split("/")
+        # After strip: ["api", "v1", "debates", "debate-123", "messages"]
+        # Index 3 is "debate-123"
         value, err = handler.extract_path_param(
-            "/api/v1/debates/debate-123/messages", 2, "debate_id"
+            "/api/v1/debates/debate-123/messages", 3, "debate_id"
         )
         assert value == "debate-123"
         assert err is None
@@ -405,7 +411,8 @@ class TestBaseHandlerPathExtraction:
         from aragora.server.handlers.base import BaseHandler
 
         handler = BaseHandler({})
-        value, err = handler.extract_path_param("/api/v1/debates", 5, "missing")
+        # /api/v1/debates -> ["api", "v1", "debates"] (3 elements, index 4 doesn't exist)
+        value, err = handler.extract_path_param("/api/v1/debates", 4, "missing")
         assert value is None
         assert err is not None
         assert err.status_code == 400
@@ -416,7 +423,9 @@ class TestBaseHandlerPathExtraction:
 
         handler = BaseHandler({})
         # Double slash creates empty segment
-        value, err = handler.extract_path_param("/api/v1//debates", 1, "empty")
+        # Path: /api/v1//debates -> strip("/").split("/") = ["api", "v1", "", "debates"]
+        # Index 2 is the empty segment
+        value, err = handler.extract_path_param("/api/v1//debates", 2, "empty")
         assert value is None
         assert err is not None
 
@@ -425,12 +434,15 @@ class TestBaseHandlerPathExtraction:
         from aragora.server.handlers.base import BaseHandler, SAFE_ID_PATTERN
 
         handler = BaseHandler({})
+        # Path: /api/v1/debates/debate-123/rounds/5
+        # After strip: ["api", "v1", "debates", "debate-123", "rounds", "5"]
+        # Index:          0      1        2            3          4       5
         params, err = handler.extract_path_params(
             "/api/v1/debates/debate-123/rounds/5",
             [
-                (2, "debate_id", SAFE_ID_PATTERN),
-                (3, "resource", None),
-                (4, "round_num", None),
+                (3, "debate_id", SAFE_ID_PATTERN),
+                (4, "resource", None),
+                (5, "round_num", None),
             ],
         )
         assert err is None
@@ -443,10 +455,12 @@ class TestBaseHandlerPathExtraction:
         from aragora.server.handlers.base import BaseHandler
 
         handler = BaseHandler({})
+        # Path: /api/v1/debates -> ["api", "v1", "debates"] (3 elements)
+        # Index 3 doesn't exist, so it should fail
         params, err = handler.extract_path_params(
             "/api/v1/debates",
             [
-                (2, "debate_id", None),
+                (3, "debate_id", None),  # This fails (index out of bounds)
                 (10, "nonexistent", None),  # This would fail if reached
             ],
         )

@@ -7,7 +7,7 @@
 
 ## Vision
 
-Aragora is the platform for AI-powered collaborative reasoning. We enable heterogeneous AI agents to debate, synthesize, and converge on high-quality solutions through structured multi-agent discourse.
+Aragora is the control plane for multi-agent deliberation across organizational knowledge and channels. We orchestrate heterogeneous AI agents to debate, synthesize, and deliver defensible decisions through structured deliberation—building institutional memory with full audit trails.
 
 ---
 

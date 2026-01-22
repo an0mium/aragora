@@ -429,6 +429,6 @@ aragora gauntlet input.md --agents anthropic-api,openrouter
 
 ## Related Documentation
 
-- [Formal Verification](./FORMAL_VERIFICATION.md) - Z3/Lean integration details
-- [Security](./SECURITY.md) - Security best practices
-- [API Reference](./API_REFERENCE.md) - Full API documentation
+- [Formal Verification](../advanced/formal-verification) - Z3/Lean integration details
+- [Security](../security/overview) - Security best practices
+- [API Reference](../api/reference) - Full API documentation

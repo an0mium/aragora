@@ -35,8 +35,16 @@
               "path": "/docs/advanced/cross-pollination"
             },
             {
+              "id": "advanced/evolution-patterns",
+              "path": "/docs/advanced/evolution-patterns"
+            },
+            {
               "id": "advanced/formal-verification",
               "path": "/docs/advanced/formal-verification"
+            },
+            {
+              "id": "advanced/genesis",
+              "path": "/docs/advanced/genesis"
             },
             {
               "id": "advanced/index",
@@ -207,6 +215,10 @@
               "sidebar": "gettingStartedSidebar"
             },
             {
+              "id": "core-concepts/convergence-algorithm",
+              "path": "/docs/core-concepts/convergence-algorithm"
+            },
+            {
               "id": "core-concepts/debate-internals",
               "path": "/docs/core-concepts/debate-internals"
             },
@@ -214,6 +226,10 @@
               "id": "core-concepts/debates",
               "path": "/docs/core-concepts/debates",
               "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "core-concepts/elo-calibration",
+              "path": "/docs/core-concepts/elo-calibration"
             },
             {
               "id": "core-concepts/index",
@@ -228,6 +244,10 @@
               "id": "core-concepts/memory",
               "path": "/docs/core-concepts/memory",
               "sidebar": "gettingStartedSidebar"
+            },
+            {
+              "id": "core-concepts/memory-analytics",
+              "path": "/docs/core-concepts/memory-analytics"
             },
             {
               "id": "core-concepts/memory-strategy",
@@ -284,8 +304,16 @@
               "path": "/docs/deployment/observability"
             },
             {
+              "id": "deployment/observability-setup",
+              "path": "/docs/deployment/observability-setup"
+            },
+            {
               "id": "deployment/overview",
               "path": "/docs/deployment/overview"
+            },
+            {
+              "id": "deployment/postgresql-migration",
+              "path": "/docs/deployment/postgresql-migration"
             },
             {
               "id": "deployment/redis",
@@ -303,6 +331,10 @@
               "id": "deployment/scaling",
               "path": "/docs/deployment/scaling",
               "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "deployment/secrets-management",
+              "path": "/docs/deployment/secrets-management"
             },
             {
               "id": "deployment/security",
@@ -452,6 +484,10 @@
               "sidebar": "guidesSidebar"
             },
             {
+              "id": "guides/features",
+              "path": "/docs/guides/features"
+            },
+            {
               "id": "guides/gauntlet",
               "path": "/docs/guides/gauntlet"
             },
@@ -473,13 +509,29 @@
               "path": "/docs/guides/matrix-debates"
             },
             {
+              "id": "guides/mcp-advanced",
+              "path": "/docs/guides/mcp-advanced"
+            },
+            {
+              "id": "guides/mcp-integration",
+              "path": "/docs/guides/mcp-integration"
+            },
+            {
               "id": "guides/pulse",
               "path": "/docs/guides/pulse"
+            },
+            {
+              "id": "guides/queue",
+              "path": "/docs/guides/queue"
             },
             {
               "id": "guides/sdk",
               "path": "/docs/guides/sdk",
               "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/verticals",
+              "path": "/docs/guides/verticals"
             },
             {
               "id": "guides/websocket-events",
@@ -499,6 +551,18 @@
               "path": "/docs/operations/"
             },
             {
+              "id": "operations/overview",
+              "path": "/docs/operations/overview"
+            },
+            {
+              "id": "operations/performance-targets",
+              "path": "/docs/operations/performance-targets"
+            },
+            {
+              "id": "operations/production-readiness",
+              "path": "/docs/operations/production-readiness"
+            },
+            {
               "id": "operations/runbook-database",
               "path": "/docs/operations/runbook-database"
             },
@@ -513,6 +577,10 @@
             {
               "id": "operations/runbook-provider",
               "path": "/docs/operations/runbook-provider"
+            },
+            {
+              "id": "operations/troubleshooting",
+              "path": "/docs/operations/troubleshooting"
             },
             {
               "id": "security/authentication",

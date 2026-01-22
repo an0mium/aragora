@@ -1,6 +1,6 @@
 # Aragora CLI Reference
 
-Complete command-line interface reference for Aragora - Omnivorous Multi Agent Decision Making Engine.
+Complete command-line interface reference for Aragora - Control Plane for Multi-Agent Deliberation.
 
 ## Installation
 

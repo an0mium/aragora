@@ -1,0 +1,20 @@
+{
+  "id": "guides/mcp-advanced",
+  "title": "MCP Advanced Integration Guide",
+  "description": "MCP Advanced Integration Guide",
+  "source": "@site/docs/guides/mcp-advanced.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/mcp-advanced",
+  "permalink": "/docs/guides/mcp-advanced",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/mcp-advanced.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "MCP Advanced Integration Guide",
+    "description": "MCP Advanced Integration Guide"
+  }
+}

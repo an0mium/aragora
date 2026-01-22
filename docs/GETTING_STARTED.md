@@ -3,7 +3,7 @@
 > **Last Updated:** 2026-01-18
 
 
-**Aragora** is an Omnivorous Multi Agent Decision Making Engine that harnesses diverse AI models for collaborative decision making through structured debate. This is the canonical onboarding guide.
+**Aragora** is the control plane for multi-agent deliberation across organizational knowledge and channels. It orchestrates diverse AI models to debate your data and deliver defensible decisions wherever your team works. This is the canonical onboarding guide.
 
 **Choose your path:**
 - [Quick Start](#quick-start) - Get running in 5 minutes

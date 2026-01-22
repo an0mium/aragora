@@ -1,0 +1,20 @@
+{
+  "id": "core-concepts/elo-calibration",
+  "title": "ELO Rating and Calibration System",
+  "description": "ELO Rating and Calibration System",
+  "source": "@site/docs/core-concepts/elo-calibration.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/elo-calibration",
+  "permalink": "/docs/core-concepts/elo-calibration",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/elo-calibration.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "ELO Rating and Calibration System",
+    "description": "ELO Rating and Calibration System"
+  }
+}

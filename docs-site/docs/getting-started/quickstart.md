@@ -157,12 +157,12 @@ python scripts/verify_system_health.py
 
 | Document | Purpose |
 |----------|---------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture overview |
-| [API_REFERENCE.md](./API_REFERENCE.md) | REST API documentation |
-| [POSTGRESQL_MIGRATION.md](./POSTGRESQL_MIGRATION.md) | PostgreSQL setup guide |
-| [AGENT_DEVELOPMENT.md](./AGENT_DEVELOPMENT.md) | Creating custom agents |
+| [ARCHITECTURE.md](../core-concepts/architecture) | System architecture overview |
+| [API_REFERENCE.md](../api/reference) | REST API documentation |
+| [POSTGRESQL_MIGRATION.md](../deployment/postgresql-migration) | PostgreSQL setup guide |
+| [AGENT_DEVELOPMENT.md](../core-concepts/agent-development) | Creating custom agents |
 | [RLM_GUIDE.md](./RLM_GUIDE.md) | Recursive Language Model usage |
-| [MEMORY_TIERS.md](./MEMORY_TIERS.md) | Memory system design |
+| [MEMORY_TIERS.md](../core-concepts/memory) | Memory system design |
 
 ## Metrics
 
@@ -177,5 +177,5 @@ Metrics are organized by domain in `aragora/observability/metrics/`:
 ## Getting Help
 
 - Check [CLAUDE.md](../CLAUDE.md) for AI assistant context
-- See [docs/STATUS.md](./STATUS.md) for feature implementation status
+- See [docs/STATUS.md](../contributing/status) for feature implementation status
 - Review [docs/ADR/](./ADR/) for architectural decisions

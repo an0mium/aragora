@@ -8,7 +8,7 @@ description: Aragora Architecture
 > **Last Updated:** 2026-01-21
 
 
-This document describes the high-level architecture of aragora, the AI red team / decision stress-test platform. The multi-agent debate system is the engine that powers adversarial validation.
+This document describes the high-level architecture of Aragora, the control plane for multi-agent deliberation across organizational knowledge and channels. The multi-agent debate system is the engine that powers adversarial validation and decision assurance.
 
 ## System Overview
 
@@ -524,7 +524,7 @@ Full Model Context Protocol implementation with 8 tools and 4 resource templates
 | `consensus://\{id\}` | Formal verification proofs |
 | `trending://topics` | Pulse trending topics |
 
-See [MCP_INTEGRATION.md](./MCP_INTEGRATION.md) for details.
+See [MCP_INTEGRATION.md](../guides/mcp-integration) for details.
 
 ### Nomic Loop Hardening
 

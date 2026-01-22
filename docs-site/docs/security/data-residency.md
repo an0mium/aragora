@@ -358,8 +358,8 @@ eu-rep@aragora.ai
 
 ## Related Documents
 
-- [Privacy Policy](./PRIVACY_POLICY.md)
-- [Data Classification Policy](./DATA_CLASSIFICATION.md)
-- [DSAR Workflow](./DSAR_WORKFLOW.md)
-- [Breach Notification SLA](./BREACH_NOTIFICATION_SLA.md)
+- [Privacy Policy](./privacy-policy)
+- [Data Classification Policy](./data-classification)
+- [DSAR Workflow](./dsar)
+- [Breach Notification SLA](./breach-notification)
 - [Incident Response Plan](./INCIDENT_RESPONSE.md)

@@ -464,6 +464,6 @@ arena = Arena(env, agents, event_hooks=hooks, event_emitter=emitter)
 
 ## Related Documentation
 
-- [WebSocket Events](../WEBSOCKET_EVENTS.md) - Real-time event streaming
-- [API Reference](../API_REFERENCE.md) - REST API endpoints
-- [Environment Variables](../ENVIRONMENT.md) - Configuration reference
+- [WebSocket Events](./websocket-events) - Real-time event streaming
+- [API Reference](../api/reference) - REST API endpoints
+- [Environment Variables](../getting-started/environment) - Configuration reference

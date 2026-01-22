@@ -1,6 +1,6 @@
 # Aragora VS Code Extension
 
-Multi-agent AI debate framework integration for Visual Studio Code.
+Control plane for multi-agent deliberation - Visual Studio Code integration.
 
 ## Features
 

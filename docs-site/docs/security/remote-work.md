@@ -151,7 +151,7 @@ Do NOT access Aragora systems from:
 
 ### 1. Data Classification Compliance
 
-Remote workers must follow the [Data Classification Policy](./DATA_CLASSIFICATION.md):
+Remote workers must follow the [Data Classification Policy](./data-classification):
 
 | Classification | Remote Work Rules |
 |----------------|-------------------|
@@ -314,7 +314,7 @@ Request exceptions via security@aragora.ai:
 
 ## Related Documents
 
-- [Data Classification Policy](./DATA_CLASSIFICATION.md)
-- [Data Residency Policy](./DATA_RESIDENCY.md)
+- [Data Classification Policy](./data-classification)
+- [Data Residency Policy](./data-residency)
 - [Incident Response Plan](./INCIDENT_RESPONSE.md)
-- [Privacy Policy](./PRIVACY_POLICY.md)
+- [Privacy Policy](./privacy-policy)

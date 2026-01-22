@@ -1,7 +1,7 @@
 {
   "name": "aragora-live",
   "version": "0.1.0",
-  "description": "Omnivorous Multi Agent Decision Making Engine - Collaborative multi-agent decision making powered by diverse AI models",
+  "description": "Control Plane for Multi-Agent Deliberation - Orchestrate AI debate across org knowledge and channels",
   "private": true,
   "scripts": {
     "dev": "next dev",

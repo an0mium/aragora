@@ -121,11 +121,12 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         if path == "/api/v1/queue/dlq/requeue" and method == "POST":
             return await self._requeue_all_dlq()
 
-        # POST /api/queue/dlq/:id/requeue (requeue specific DLQ job)
+        # POST /api/v1/queue/dlq/:id/requeue (requeue specific DLQ job)
+        # Parts: ["", "api", "v1", "queue", "dlq", "{job_id}", "requeue"]
         if path.startswith("/api/v1/queue/dlq/") and path.endswith("/requeue") and method == "POST":
             parts = path.split("/")
-            if len(parts) == 6:
-                job_id = parts[4]
+            if len(parts) == 7:
+                job_id = parts[5]
                 is_valid, err = validate_path_segment(job_id, "job_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)

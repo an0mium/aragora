@@ -1,0 +1,20 @@
+{
+  "id": "operations/performance-targets",
+  "title": "Performance Targets & SLO Definitions",
+  "description": "Performance Targets & SLO Definitions",
+  "source": "@site/docs/operations/performance-targets.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/performance-targets",
+  "permalink": "/docs/operations/performance-targets",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/performance-targets.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Performance Targets & SLO Definitions",
+    "description": "Performance Targets & SLO Definitions"
+  }
+}

@@ -1,15 +1,17 @@
-# aragora (Agent Agora): Omnivorous Multi Agent Decision Making Engine
+# Aragora: Control Plane for Multi-Agent Deliberation
 
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/an0mium/aragora/branch/main/graph/badge.svg)](https://codecov.io/gh/an0mium/aragora)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Aragora is an **omnivorous multi-agent decision making engine**. It harnesses the collective intelligence of diverse AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to reach well-reasoned conclusions through structured debate.
+**Aragora is the control plane for multi-agent deliberation across organizational knowledge and channels.**
 
-**Omnivorous by design**: Aragora ingests information from many sources (documents, APIs, databases, web) and communicates bidirectionally across multiple channels (web, Slack, Telegram, WhatsApp, voice). Ask questions wherever you are; get answers backed by multi-agent consensus.
+It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, Telegram, WhatsApp, voice).
 
-Debate is the engine. The product is a defensible decision record.
+**Omnivorous by design**: Aragora ingests 25+ document formats, images, audio, and video from 24 data connectors. Results route automatically to the originating channel—ask questions wherever you are, get answers backed by multi-agent consensus.
+
+**Unlike chatbots**, Aragora builds institutional memory with full audit trails. Deliberation is the engine. The product is a defensible decision record.
 
 **Domain**: [aragora.ai](https://aragora.ai) (available)
 

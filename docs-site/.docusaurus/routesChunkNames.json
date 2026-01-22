@@ -5,528 +5,596 @@
       "plugin": "c141421f"
     }
   },
-  "/docs-a3d": {
+  "/docs-d2e": {
     "__comp": "5e95c892",
     "__context": {
       "plugin": "aba21aa0"
     }
   },
-  "/docs-537": {
+  "/docs-653": {
     "__comp": "a7bd4aaa",
     "__props": "0058b4c6"
   },
-  "/docs-173": {
+  "/docs-489": {
     "__comp": "a94703ab"
   },
-  "/docs/admin/-e56": {
+  "/docs/admin/-314": {
     "__comp": "17896441",
     "content": "7e2fa856"
   },
-  "/docs/admin/ab-testing-29b": {
+  "/docs/admin/ab-testing-803": {
     "__comp": "17896441",
     "content": "a029c69c"
   },
-  "/docs/admin/nomic-loop-f3c": {
+  "/docs/admin/nomic-loop-064": {
     "__comp": "17896441",
     "content": "4115aa41"
   },
-  "/docs/admin/overview-d61": {
+  "/docs/admin/overview-b3a": {
     "__comp": "17896441",
     "content": "feaa56c9"
   },
-  "/docs/advanced/-1a5": {
+  "/docs/advanced/-9e2": {
     "__comp": "17896441",
     "content": "99f49855"
   },
-  "/docs/advanced/cross-functional-1a3": {
+  "/docs/advanced/cross-functional-43e": {
     "__comp": "17896441",
     "content": "486cd265"
   },
-  "/docs/advanced/cross-pollination-c3c": {
+  "/docs/advanced/cross-pollination-9e1": {
     "__comp": "17896441",
     "content": "8982ae3a"
   },
-  "/docs/advanced/formal-verification-ae2": {
+  "/docs/advanced/evolution-patterns-d65": {
+    "__comp": "17896441",
+    "content": "ff92b45e"
+  },
+  "/docs/advanced/formal-verification-ff8": {
     "__comp": "17896441",
     "content": "2521ebc9"
   },
-  "/docs/advanced/trickster-f04": {
+  "/docs/advanced/genesis-005": {
+    "__comp": "17896441",
+    "content": "41d6a001"
+  },
+  "/docs/advanced/trickster-5d5": {
     "__comp": "17896441",
     "content": "2724015c"
   },
-  "/docs/analysis/-373": {
+  "/docs/analysis/-0c0": {
     "__comp": "17896441",
     "content": "c670dcf4"
   },
-  "/docs/analysis/benchmarks-198": {
+  "/docs/analysis/benchmarks-854": {
     "__comp": "17896441",
     "content": "e2867f19"
   },
-  "/docs/analysis/overview-79c": {
+  "/docs/analysis/overview-3d8": {
     "__comp": "17896441",
     "content": "4d0d8286"
   },
-  "/docs/api-reference/-b91": {
+  "/docs/api-reference/-135": {
     "__comp": "17896441",
     "content": "f2da1fd8"
   },
-  "/docs/api-reference/agents/list-07a": {
+  "/docs/api-reference/agents/list-101": {
     "__comp": "17896441",
     "content": "1fe870bf"
   },
-  "/docs/api-reference/agents/overview-743": {
+  "/docs/api-reference/agents/overview-853": {
     "__comp": "17896441",
     "content": "d6023877"
   },
-  "/docs/api-reference/agents/stats-c8d": {
+  "/docs/api-reference/agents/stats-ce0": {
     "__comp": "17896441",
     "content": "8389ced9"
   },
-  "/docs/api-reference/debates/consensus-d6c": {
+  "/docs/api-reference/debates/consensus-b6b": {
     "__comp": "17896441",
     "content": "af93757c"
   },
-  "/docs/api-reference/debates/create-85a": {
+  "/docs/api-reference/debates/create-396": {
     "__comp": "17896441",
     "content": "d6f03272"
   },
-  "/docs/api-reference/debates/get-3de": {
+  "/docs/api-reference/debates/get-1ee": {
     "__comp": "17896441",
     "content": "8526e88d"
   },
-  "/docs/api-reference/debates/list-8f9": {
+  "/docs/api-reference/debates/list-6ba": {
     "__comp": "17896441",
     "content": "ed96a987"
   },
-  "/docs/api-reference/debates/overview-a13": {
+  "/docs/api-reference/debates/overview-a95": {
     "__comp": "17896441",
     "content": "f6f8cfc6"
   },
-  "/docs/api-reference/knowledge/overview-bc5": {
+  "/docs/api-reference/knowledge/overview-615": {
     "__comp": "17896441",
     "content": "5067a720"
   },
-  "/docs/api-reference/knowledge/query-0ce": {
+  "/docs/api-reference/knowledge/query-e67": {
     "__comp": "17896441",
     "content": "fba04dd9"
   },
-  "/docs/api-reference/knowledge/store-197": {
+  "/docs/api-reference/knowledge/store-3d3": {
     "__comp": "17896441",
     "content": "c7c09590"
   },
-  "/docs/api-reference/workflows/execute-37f": {
+  "/docs/api-reference/workflows/execute-a4f": {
     "__comp": "17896441",
     "content": "510d33ee"
   },
-  "/docs/api-reference/workflows/overview-743": {
+  "/docs/api-reference/workflows/overview-621": {
     "__comp": "17896441",
     "content": "df467ea9"
   },
-  "/docs/api/-eb9": {
+  "/docs/api/-077": {
     "__comp": "17896441",
     "content": "5e8c322a"
   },
-  "/docs/api/cli-a62": {
+  "/docs/api/cli-d04": {
     "__comp": "17896441",
     "content": "26a8c297"
   },
-  "/docs/api/discovery-63d": {
+  "/docs/api/discovery-a23": {
     "__comp": "17896441",
     "content": "c4e30220"
   },
-  "/docs/api/endpoints-88b": {
+  "/docs/api/endpoints-565": {
     "__comp": "17896441",
     "content": "d04023df"
   },
-  "/docs/api/examples-971": {
+  "/docs/api/examples-a0f": {
     "__comp": "17896441",
     "content": "71038ced"
   },
-  "/docs/api/rate-limits-554": {
+  "/docs/api/rate-limits-a86": {
     "__comp": "17896441",
     "content": "1614d357"
   },
-  "/docs/api/reference-dee": {
+  "/docs/api/reference-770": {
     "__comp": "17896441",
     "content": "47b0b88f"
   },
-  "/docs/api/stability-ba6": {
+  "/docs/api/stability-e7e": {
     "__comp": "17896441",
     "content": "36ca37ae"
   },
-  "/docs/api/versioning-82c": {
+  "/docs/api/versioning-2da": {
     "__comp": "17896441",
     "content": "0a2a5424"
   },
-  "/docs/contributing/-e0c": {
+  "/docs/contributing/-13a": {
     "__comp": "17896441",
     "content": "234918e4"
   },
-  "/docs/contributing/dependencies-2da": {
+  "/docs/contributing/dependencies-209": {
     "__comp": "17896441",
     "content": "8dfebed9"
   },
-  "/docs/contributing/deprecation-767": {
+  "/docs/contributing/deprecation-eb4": {
     "__comp": "17896441",
     "content": "56c8db51"
   },
-  "/docs/contributing/guide-a01": {
+  "/docs/contributing/guide-ae4": {
     "__comp": "17896441",
     "content": "4c3722f7"
   },
-  "/docs/contributing/status-e09": {
+  "/docs/contributing/status-d87": {
     "__comp": "17896441",
     "content": "7d940878"
   },
-  "/docs/core-concepts/-61e": {
+  "/docs/core-concepts/-f69": {
     "__comp": "17896441",
     "content": "6e438c5b"
   },
-  "/docs/core-concepts/agent-development-eea": {
+  "/docs/core-concepts/agent-development-489": {
     "__comp": "17896441",
     "content": "862fed74"
   },
-  "/docs/core-concepts/agent-selection-d3b": {
+  "/docs/core-concepts/agent-selection-ebb": {
     "__comp": "17896441",
     "content": "a7129174"
   },
-  "/docs/core-concepts/agents-51b": {
+  "/docs/core-concepts/agents-069": {
     "__comp": "17896441",
     "content": "4c31371d"
   },
-  "/docs/core-concepts/architecture-ec8": {
+  "/docs/core-concepts/architecture-b11": {
     "__comp": "17896441",
     "content": "b15f9166"
   },
-  "/docs/core-concepts/consensus-55a": {
+  "/docs/core-concepts/consensus-966": {
     "__comp": "17896441",
     "content": "25a7294e"
   },
-  "/docs/core-concepts/debate-internals-3a2": {
+  "/docs/core-concepts/convergence-algorithm-789": {
+    "__comp": "17896441",
+    "content": "3d1eefe2"
+  },
+  "/docs/core-concepts/debate-internals-7a7": {
     "__comp": "17896441",
     "content": "35d80600"
   },
-  "/docs/core-concepts/debates-991": {
+  "/docs/core-concepts/debates-aa2": {
     "__comp": "17896441",
     "content": "b243d665"
   },
-  "/docs/core-concepts/knowledge-mound-e9f": {
+  "/docs/core-concepts/elo-calibration-822": {
+    "__comp": "17896441",
+    "content": "68db7029"
+  },
+  "/docs/core-concepts/knowledge-mound-2b6": {
     "__comp": "17896441",
     "content": "bdff2aef"
   },
-  "/docs/core-concepts/memory-ac0": {
+  "/docs/core-concepts/memory-134": {
     "__comp": "17896441",
     "content": "5b3430d9"
   },
-  "/docs/core-concepts/memory-strategy-262": {
+  "/docs/core-concepts/memory-analytics-8df": {
+    "__comp": "17896441",
+    "content": "477eb117"
+  },
+  "/docs/core-concepts/memory-strategy-4eb": {
     "__comp": "17896441",
     "content": "75b33a33"
   },
-  "/docs/core-concepts/reasoning-3d3": {
+  "/docs/core-concepts/reasoning-044": {
     "__comp": "17896441",
     "content": "bae004cb"
   },
-  "/docs/deployment/-cf8": {
+  "/docs/deployment/-9db": {
     "__comp": "17896441",
     "content": "df7910db"
   },
-  "/docs/deployment/capacity-planning-b8c": {
+  "/docs/deployment/capacity-planning-40f": {
     "__comp": "17896441",
     "content": "c14aa7b2"
   },
-  "/docs/deployment/database-866": {
+  "/docs/deployment/database-932": {
     "__comp": "17896441",
     "content": "051626c7"
   },
-  "/docs/deployment/database-consolidation-7af": {
+  "/docs/deployment/database-consolidation-c69": {
     "__comp": "17896441",
     "content": "a89f2f49"
   },
-  "/docs/deployment/database-schema-36e": {
+  "/docs/deployment/database-schema-393": {
     "__comp": "17896441",
     "content": "cda63a1a"
   },
-  "/docs/deployment/database-setup-ca0": {
+  "/docs/deployment/database-setup-217": {
     "__comp": "17896441",
     "content": "77e58ab2"
   },
-  "/docs/deployment/disaster-recovery-38f": {
+  "/docs/deployment/disaster-recovery-ef1": {
     "__comp": "17896441",
     "content": "e5cce4d4"
   },
-  "/docs/deployment/docker-7ce": {
+  "/docs/deployment/docker-9a4": {
     "__comp": "17896441",
     "content": "ff8b1e34"
   },
-  "/docs/deployment/dr-drills-a04": {
+  "/docs/deployment/dr-drills-d5d": {
     "__comp": "17896441",
     "content": "cd41819e"
   },
-  "/docs/deployment/kubernetes-3a7": {
+  "/docs/deployment/kubernetes-003": {
     "__comp": "17896441",
     "content": "04da809a"
   },
-  "/docs/deployment/observability-45f": {
+  "/docs/deployment/observability-e01": {
     "__comp": "17896441",
     "content": "db0900ae"
   },
-  "/docs/deployment/overview-669": {
+  "/docs/deployment/observability-setup-411": {
+    "__comp": "17896441",
+    "content": "a145a035"
+  },
+  "/docs/deployment/overview-efa": {
     "__comp": "17896441",
     "content": "69425d0e"
   },
-  "/docs/deployment/redis-e05": {
+  "/docs/deployment/postgresql-migration-63b": {
+    "__comp": "17896441",
+    "content": "ccfa51f6"
+  },
+  "/docs/deployment/redis-5f0": {
     "__comp": "17896441",
     "content": "9158e4ef"
   },
-  "/docs/deployment/redis-ha-5dc": {
+  "/docs/deployment/redis-ha-d7d": {
     "__comp": "17896441",
     "content": "01375ef5"
   },
-  "/docs/deployment/runbook-75d": {
+  "/docs/deployment/runbook-94b": {
     "__comp": "17896441",
     "content": "b3d22375"
   },
-  "/docs/deployment/scaling-9ef": {
+  "/docs/deployment/scaling-941": {
     "__comp": "17896441",
     "content": "bdbc3a07"
   },
-  "/docs/deployment/security-8ad": {
+  "/docs/deployment/secrets-management-c43": {
+    "__comp": "17896441",
+    "content": "b3c6a6ba"
+  },
+  "/docs/deployment/security-5c9": {
     "__comp": "17896441",
     "content": "6911e679"
   },
-  "/docs/enterprise/-de8": {
+  "/docs/enterprise/-583": {
     "__comp": "17896441",
     "content": "ca1ac85d"
   },
-  "/docs/enterprise/audit-logs-504": {
+  "/docs/enterprise/audit-logs-b78": {
     "__comp": "17896441",
     "content": "6467f2e5"
   },
-  "/docs/enterprise/billing-d47": {
+  "/docs/enterprise/billing-2ec": {
     "__comp": "17896441",
     "content": "fc7e5b38"
   },
-  "/docs/enterprise/billing-units-d96": {
+  "/docs/enterprise/billing-units-7a5": {
     "__comp": "17896441",
     "content": "33f92506"
   },
-  "/docs/enterprise/commercial-overview-dbe": {
+  "/docs/enterprise/commercial-overview-71e": {
     "__comp": "17896441",
     "content": "238952e1"
   },
-  "/docs/enterprise/compliance-6a6": {
+  "/docs/enterprise/compliance-f75": {
     "__comp": "17896441",
     "content": "1f88a165"
   },
-  "/docs/enterprise/control-plane-51f": {
+  "/docs/enterprise/control-plane-2cf": {
     "__comp": "17896441",
     "content": "c7064a74"
   },
-  "/docs/enterprise/control-plane-feasibility-f04": {
+  "/docs/enterprise/control-plane-feasibility-032": {
     "__comp": "17896441",
     "content": "abc7f87f"
   },
-  "/docs/enterprise/features-587": {
+  "/docs/enterprise/features-091": {
     "__comp": "17896441",
     "content": "f96fb247"
   },
-  "/docs/enterprise/governance-680": {
+  "/docs/enterprise/governance-015": {
     "__comp": "17896441",
     "content": "fd491669"
   },
-  "/docs/enterprise/incident-response-49f": {
+  "/docs/enterprise/incident-response-20a": {
     "__comp": "17896441",
     "content": "1ef2f874"
   },
-  "/docs/enterprise/multi-tenancy-7ac": {
+  "/docs/enterprise/multi-tenancy-b8e": {
     "__comp": "17896441",
     "content": "4ad63b38"
   },
-  "/docs/enterprise/positioning-d36": {
+  "/docs/enterprise/positioning-d4e": {
     "__comp": "17896441",
     "content": "9fcf1570"
   },
-  "/docs/enterprise/sso-154": {
+  "/docs/enterprise/sso-b7f": {
     "__comp": "17896441",
     "content": "03677f94"
   },
-  "/docs/enterprise/support-843": {
+  "/docs/enterprise/support-b2a": {
     "__comp": "17896441",
     "content": "bf243adf"
   },
-  "/docs/getting-started/-309": {
+  "/docs/getting-started/-7d4": {
     "__comp": "17896441",
     "content": "54c82979"
   },
-  "/docs/getting-started/configuration-11c": {
+  "/docs/getting-started/configuration-e73": {
     "__comp": "17896441",
     "content": "009f1e98"
   },
-  "/docs/getting-started/environment-7fb": {
+  "/docs/getting-started/environment-855": {
     "__comp": "17896441",
     "content": "7ce23dae"
   },
-  "/docs/getting-started/first-debate-fd7": {
+  "/docs/getting-started/first-debate-53d": {
     "__comp": "17896441",
     "content": "cdbc302c"
   },
-  "/docs/getting-started/installation-c80": {
+  "/docs/getting-started/installation-40d": {
     "__comp": "17896441",
     "content": "54f44165"
   },
-  "/docs/getting-started/introduction-39d": {
+  "/docs/getting-started/introduction-ec1": {
     "__comp": "17896441",
     "content": "9ff4038f"
   },
-  "/docs/getting-started/quickstart-ebb": {
+  "/docs/getting-started/quickstart-454": {
     "__comp": "17896441",
     "content": "fbd7a87c"
   },
-  "/docs/guides/-09f": {
+  "/docs/guides/-39b": {
     "__comp": "17896441",
     "content": "d03241c9"
   },
-  "/docs/guides/api-quickstart-69d": {
+  "/docs/guides/api-quickstart-d7b": {
     "__comp": "17896441",
     "content": "019e6926"
   },
-  "/docs/guides/api-usage-e8b": {
+  "/docs/guides/api-usage-1b6": {
     "__comp": "17896441",
     "content": "e689722c"
   },
-  "/docs/guides/automation-9be": {
+  "/docs/guides/automation-2c0": {
     "__comp": "17896441",
     "content": "3600a2bb"
   },
-  "/docs/guides/bot-integrations-24e": {
+  "/docs/guides/bot-integrations-d50": {
     "__comp": "17896441",
     "content": "b792c660"
   },
-  "/docs/guides/broadcast-1f7": {
+  "/docs/guides/broadcast-60e": {
     "__comp": "17896441",
     "content": "c0531f11"
   },
-  "/docs/guides/chat-connector-053": {
+  "/docs/guides/chat-connector-9a5": {
     "__comp": "17896441",
     "content": "8b5fa18a"
   },
-  "/docs/guides/connector-troubleshooting-236": {
+  "/docs/guides/connector-troubleshooting-f2b": {
     "__comp": "17896441",
     "content": "a0c8aae8"
   },
-  "/docs/guides/connectors-cbd": {
+  "/docs/guides/connectors-058": {
     "__comp": "17896441",
     "content": "61ca3a0f"
   },
-  "/docs/guides/connectors-setup-9b0": {
+  "/docs/guides/connectors-setup-aab": {
     "__comp": "17896441",
     "content": "328c9b73"
   },
-  "/docs/guides/custom-agents-d7b": {
+  "/docs/guides/custom-agents-666": {
     "__comp": "17896441",
     "content": "5e4411aa"
   },
-  "/docs/guides/evidence-ec2": {
+  "/docs/guides/evidence-d0c": {
     "__comp": "17896441",
     "content": "ee96ec0d"
   },
-  "/docs/guides/gauntlet-dfe": {
+  "/docs/guides/features-07e": {
+    "__comp": "17896441",
+    "content": "9e06e485"
+  },
+  "/docs/guides/gauntlet-24e": {
     "__comp": "17896441",
     "content": "a8eb38a6"
   },
-  "/docs/guides/graph-debates-d34": {
+  "/docs/guides/graph-debates-d98": {
     "__comp": "17896441",
     "content": "24e52d39"
   },
-  "/docs/guides/integrations-20a": {
+  "/docs/guides/integrations-8fe": {
     "__comp": "17896441",
     "content": "cba035d2"
   },
-  "/docs/guides/matrix-debates-5cc": {
+  "/docs/guides/matrix-debates-4dd": {
     "__comp": "17896441",
     "content": "0bd9606f"
   },
-  "/docs/guides/pulse-fe3": {
+  "/docs/guides/mcp-advanced-a64": {
+    "__comp": "17896441",
+    "content": "2514702d"
+  },
+  "/docs/guides/mcp-integration-9ec": {
+    "__comp": "17896441",
+    "content": "b9b89239"
+  },
+  "/docs/guides/pulse-3ed": {
     "__comp": "17896441",
     "content": "51a0f3e6"
   },
-  "/docs/guides/sdk-6be": {
+  "/docs/guides/queue-2c3": {
+    "__comp": "17896441",
+    "content": "d4dfc628"
+  },
+  "/docs/guides/sdk-89f": {
     "__comp": "17896441",
     "content": "c57ff1f6"
   },
-  "/docs/guides/websocket-events-40c": {
+  "/docs/guides/verticals-497": {
+    "__comp": "17896441",
+    "content": "1800c053"
+  },
+  "/docs/guides/websocket-events-a95": {
     "__comp": "17896441",
     "content": "1e86e2d3"
   },
-  "/docs/guides/workflows-39d": {
+  "/docs/guides/workflows-a24": {
     "__comp": "17896441",
     "content": "174d028f"
   },
-  "/docs/operations/-cce": {
+  "/docs/operations/-424": {
     "__comp": "17896441",
     "content": "43dbf703"
   },
-  "/docs/operations/alert-runbooks-cb4": {
+  "/docs/operations/alert-runbooks-1f4": {
     "__comp": "17896441",
     "content": "8deae496"
   },
-  "/docs/operations/runbook-database-b8e": {
+  "/docs/operations/overview-899": {
+    "__comp": "17896441",
+    "content": "36829d2b"
+  },
+  "/docs/operations/performance-targets-4a8": {
+    "__comp": "17896441",
+    "content": "be356c78"
+  },
+  "/docs/operations/production-readiness-d17": {
+    "__comp": "17896441",
+    "content": "80a786f0"
+  },
+  "/docs/operations/runbook-database-964": {
     "__comp": "17896441",
     "content": "6a781b0d"
   },
-  "/docs/operations/runbook-deployment-0d4": {
+  "/docs/operations/runbook-deployment-1eb": {
     "__comp": "17896441",
     "content": "c6c14710"
   },
-  "/docs/operations/runbook-incident-e6a": {
+  "/docs/operations/runbook-incident-0ae": {
     "__comp": "17896441",
     "content": "05a304a7"
   },
-  "/docs/operations/runbook-provider-b9c": {
+  "/docs/operations/runbook-provider-a36": {
     "__comp": "17896441",
     "content": "af15c130"
   },
-  "/docs/security/-c69": {
+  "/docs/operations/troubleshooting-851": {
+    "__comp": "17896441",
+    "content": "2db7685e"
+  },
+  "/docs/security/-52c": {
     "__comp": "17896441",
     "content": "9297eaeb"
   },
-  "/docs/security/authentication-56a": {
+  "/docs/security/authentication-f91": {
     "__comp": "17896441",
     "content": "7fff8ac1"
   },
-  "/docs/security/breach-notification-a8a": {
+  "/docs/security/breach-notification-4e4": {
     "__comp": "17896441",
     "content": "ce41f192"
   },
-  "/docs/security/ci-cd-de2": {
+  "/docs/security/ci-cd-b43": {
     "__comp": "17896441",
     "content": "36b1219c"
   },
-  "/docs/security/compliance-013": {
+  "/docs/security/compliance-6ac": {
     "__comp": "17896441",
     "content": "f1acdf0f"
   },
-  "/docs/security/data-classification-2e8": {
+  "/docs/security/data-classification-913": {
     "__comp": "17896441",
     "content": "40c67052"
   },
-  "/docs/security/data-residency-2eb": {
+  "/docs/security/data-residency-0e9": {
     "__comp": "17896441",
     "content": "4e1ea913"
   },
-  "/docs/security/dsar-07e": {
+  "/docs/security/dsar-213": {
     "__comp": "17896441",
     "content": "74004e46"
   },
-  "/docs/security/overview-d01": {
+  "/docs/security/overview-3e7": {
     "__comp": "17896441",
     "content": "3592d2f2"
   },
-  "/docs/security/privacy-policy-f2f": {
+  "/docs/security/privacy-policy-724": {
     "__comp": "17896441",
     "content": "8ca24599"
   },
-  "/docs/security/remote-work-f9a": {
+  "/docs/security/remote-work-fff": {
     "__comp": "17896441",
     "content": "745a6282"
   }

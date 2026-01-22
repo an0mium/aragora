@@ -263,19 +263,24 @@ class TestBeliefHandlerExtractDebateId:
 
     def test_extract_debate_id_from_cruxes_path(self, handler):
         """Extract debate ID from cruxes path."""
-        # Use internal method if available
-        debate_id = handler._extract_debate_id("/api/v1/belief-network/abc123/cruxes", 3)
+        # split("/") gives: ["", "api", "v1", "belief-network", "abc123", "cruxes"]
+        # Index 4 is "abc123"
+        debate_id = handler._extract_debate_id("/api/v1/belief-network/abc123/cruxes", 4)
         assert debate_id == "abc123"
 
     def test_extract_debate_id_from_graph_stats_path(self, handler):
         """Extract debate ID from graph-stats path."""
-        debate_id = handler._extract_debate_id("/api/v1/debate/xyz789/graph-stats", 3)
+        # split("/") gives: ["", "api", "v1", "debate", "xyz789", "graph-stats"]
+        # Index 4 is "xyz789"
+        debate_id = handler._extract_debate_id("/api/v1/debate/xyz789/graph-stats", 4)
         assert debate_id == "xyz789"
 
     def test_extract_debate_id_invalid_returns_none(self, handler):
         """Invalid debate ID extraction returns None."""
-        # Path traversal attempt
-        debate_id = handler._extract_debate_id("/api/v1/belief-network/../etc/cruxes", 3)
+        # Path traversal attempt - ".." is not a valid debate ID
+        # split("/") gives: ["", "api", "v1", "belief-network", "..", "etc", "cruxes"]
+        # Index 4 is ".." which fails validation
+        debate_id = handler._extract_debate_id("/api/v1/belief-network/../etc/cruxes", 4)
         # Should return None for invalid path
         assert debate_id is None
 

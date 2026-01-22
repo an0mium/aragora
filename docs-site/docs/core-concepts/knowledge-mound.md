@@ -378,7 +378,7 @@ aragora knowledge process document.pdf
 aragora knowledge jobs
 ```
 
-See [CLI Reference](CLI_REFERENCE.md#knowledge---knowledge-base-operations) for full command documentation.
+See [CLI Reference](../api/cli#knowledge---knowledge-base-operations) for full command documentation.
 
 ---
 
@@ -1119,7 +1119,7 @@ Adapters sync in priority order (highest first). This ensures critical data is p
 ## See Also
 
 - [ADR-014: Knowledge Mound Architecture](ADR/014-knowledge-mound-architecture.md)
-- [Verticals Documentation](../VERTICALS.md)
-- [Memory Systems](../MEMORY.md)
-- [Evidence Collection](../EVIDENCE.md)
-- [API Reference](../API_REFERENCE.md)
+- [Verticals Documentation](../guides/verticals)
+- [Memory Systems](./memory)
+- [Evidence Collection](../guides/evidence)
+- [API Reference](../api/reference)

@@ -83,23 +83,23 @@ class EvolutionABTestingHandler(BaseHandler):
 
         # Parse path segments
         parts = path.rstrip("/").split("/")
-        # /api/evolution/ab-tests/{id}
-        # parts: ['', 'api', 'evolution', 'ab-tests', '{id}', ...]
+        # /api/v1/evolution/ab-tests/{id}
+        # parts: ['', 'api', 'v1', 'evolution', 'ab-tests', '{id}', ...]
 
-        if len(parts) >= 5:
-            segment = parts[4]
+        if len(parts) >= 6:
+            segment = parts[5]
 
             # Validate path segment before using in queries
             valid, err = validate_path_segment(segment, "id_or_agent")
             if not valid:
                 return error_response(err or "Invalid path segment", 400)
 
-            # GET /api/evolution/ab-tests/{agent}/active
-            if len(parts) == 6 and parts[5] == "active":
+            # GET /api/v1/evolution/ab-tests/{agent}/active
+            if len(parts) == 7 and parts[6] == "active":
                 return self._get_active_test(segment)
 
-            # GET /api/evolution/ab-tests/{id}
-            if len(parts) == 5:
+            # GET /api/v1/evolution/ab-tests/{id}
+            if len(parts) == 6:
                 return self._get_test(segment)
 
         return None

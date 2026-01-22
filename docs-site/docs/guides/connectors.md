@@ -9,7 +9,7 @@ Aragora is **omnivorous by design**—it ingests information from many sources t
 
 **Input Sources**: Documents, APIs, databases, web searches, academic papers, news, social media, financial filings, and more.
 
-> **Full documentation**: See [Evidence System Guide](../EVIDENCE.md) for detailed usage examples.
+> **Full documentation**: See [Evidence System Guide](./evidence) for detailed usage examples.
 
 ## Quick Reference
 
@@ -192,6 +192,6 @@ class MyConnector(BaseConnector):
 
 ## See Also
 
-- [Evidence System Guide](../EVIDENCE.md) - Full connector documentation with examples
-- [Pulse System](../PULSE.md) - Trending topic integration using connectors
-- [API Endpoints](../API_ENDPOINTS.md) - REST API for evidence collection
+- [Evidence System Guide](./evidence) - Full connector documentation with examples
+- [Pulse System](./pulse) - Trending topic integration using connectors
+- [API Endpoints](../api/endpoints) - REST API for evidence collection

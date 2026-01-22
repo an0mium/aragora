@@ -724,5 +724,5 @@ def test_quality_filter():
 
 ## See Also
 
-- [Evidence System Guide](../EVIDENCE.md) - External data integration
-- [API Reference](../API_REFERENCE.md) - REST API endpoints
+- [Evidence System Guide](./evidence) - External data integration
+- [API Reference](../api/reference) - REST API endpoints

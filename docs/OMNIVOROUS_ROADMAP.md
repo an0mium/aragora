@@ -1,14 +1,14 @@
-# Aragora: Omnivorous Multi-Agent Decision Making Engine
+# Aragora: Control Plane for Multi-Agent Deliberation
 
 ## Mission Statement
 
-Aragora is an **omnivorous multi-agent decision making engine** - a system designed to:
+Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels** - a system designed to:
 
-1. **Ingest broadly**: Accept inputs from any source - text, voice, documents, APIs, chat platforms, real-time data feeds
-2. **Reason deeply**: Leverage diverse AI models in structured debate to reach well-reasoned conclusions
-3. **Respond bidirectionally**: Deliver outputs through multiple channels - text, voice, webhooks, notifications
+1. **Ingest broadly**: Accept inputs from any source - 25+ document formats, databases, APIs, chat platforms, voice, real-time data feeds
+2. **Deliberate deeply**: Orchestrate 15+ AI models in structured debate to reach well-reasoned conclusions with full audit trails
+3. **Deliver anywhere**: Route outputs through multiple channels - Slack, Teams, Discord, Telegram, WhatsApp, voice, webhooks
 
-The "omnivorous" nature means Aragora can consume and process information from virtually any source, while the multi-agent architecture ensures robust reasoning through collaborative debate.
+Unlike chatbots, Aragora builds institutional memory that compounds over time. The control plane architecture orchestrates knowledge and communication channels across your organization.
 
 ---
 

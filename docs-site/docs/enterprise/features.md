@@ -7,7 +7,7 @@ description: Aragora Enterprise Features
 
 *Comprehensive reference for enterprise-grade capabilities*
 
-This document details the enterprise-specific features available in Aragora, organized by category. For commercial positioning and readiness assessment, see [COMMERCIAL_OVERVIEW.md](../COMMERCIAL_OVERVIEW.md).
+This document details the enterprise-specific features available in Aragora, organized by category. For commercial positioning and readiness assessment, see [COMMERCIAL_OVERVIEW.md](./commercial-overview).
 
 ---
 
@@ -566,7 +566,7 @@ configure_audit(
 
 ## Support
 
-For enterprise support inquiries, see the [ENTERPRISE_SUPPORT.md](../ENTERPRISE_SUPPORT.md) document.
+For enterprise support inquiries, see the [ENTERPRISE_SUPPORT.md](./support) document.
 
 ---
 

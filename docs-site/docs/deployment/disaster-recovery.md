@@ -1000,9 +1000,9 @@ asyncio.run(validate())
 
 ## Related Documentation
 
-- [SECURITY.md](../SECURITY.md) - Security policies and incident response
-- [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) - Common issues and solutions
-- [RUNBOOK.md](../RUNBOOK.md) - Operational procedures
-- [DATABASE.md](../DATABASE.md) - Database operations and encryption
-- [SECRETS_MANAGEMENT.md](../SECRETS_MANAGEMENT.md) - Encryption key management
-- [QUEUE.md](../QUEUE.md) - Job queue operations
+- [SECURITY.md](../security/overview) - Security policies and incident response
+- [TROUBLESHOOTING.md](../operations/troubleshooting) - Common issues and solutions
+- [RUNBOOK.md](RUNBOOK.md) - Operational procedures
+- [DATABASE.md](./database) - Database operations and encryption
+- [SECRETS_MANAGEMENT.md](./secrets-management) - Encryption key management
+- [QUEUE.md](../guides/queue) - Job queue operations

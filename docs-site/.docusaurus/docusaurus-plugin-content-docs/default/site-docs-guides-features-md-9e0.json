@@ -1,0 +1,20 @@
+{
+  "id": "guides/features",
+  "title": "Aragora Feature Documentation",
+  "description": "Aragora Feature Documentation",
+  "source": "@site/docs/guides/features.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/features",
+  "permalink": "/docs/guides/features",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/features.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Feature Documentation",
+    "description": "Aragora Feature Documentation"
+  }
+}

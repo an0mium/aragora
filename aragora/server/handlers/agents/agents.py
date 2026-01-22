@@ -177,33 +177,35 @@ class AgentsHandler(BaseHandler):
         return None
 
     def _handle_agent_endpoint(self, path: str, query_params: dict) -> Optional[HandlerResult]:
-        """Handle /api/agent/{name}/* endpoints."""
+        """Handle /api/v1/agent/{name}/* endpoints."""
         parts = path.split("/")
-        if len(parts) < 4:
+        # Parts: ["", "api", "v1", "agent", "{name}", ...]
+        if len(parts) < 5:
             return error_response("Invalid agent path", 400)
 
-        # Extract and validate agent name
-        agent_name, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
+        # Extract and validate agent name (index 4 for versioned path)
+        agent_name, err = self.extract_path_param(path, 4, "agent", SAFE_AGENT_PATTERN)
         if err:
             return err
 
-        # Head-to-head: /api/agent/{name}/head-to-head/{opponent}
-        if len(parts) >= 6 and parts[4] == "head-to-head":
-            opponent, err = self.extract_path_param(path, 4, "opponent", SAFE_AGENT_PATTERN)
+        # Head-to-head: /api/v1/agent/{name}/head-to-head/{opponent}
+        # Parts: ["", "api", "v1", "agent", "{name}", "head-to-head", "{opponent}"]
+        if len(parts) >= 7 and parts[5] == "head-to-head":
+            opponent, err = self.extract_path_param(path, 6, "opponent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             return self._get_head_to_head(agent_name, opponent)
 
-        # Opponent briefing: /api/agent/{name}/opponent-briefing/{opponent}
-        if len(parts) >= 6 and parts[4] == "opponent-briefing":
-            opponent, err = self.extract_path_param(path, 4, "opponent", SAFE_AGENT_PATTERN)
+        # Opponent briefing: /api/v1/agent/{name}/opponent-briefing/{opponent}
+        if len(parts) >= 7 and parts[5] == "opponent-briefing":
+            opponent, err = self.extract_path_param(path, 6, "opponent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             return self._get_opponent_briefing(agent_name, opponent)
 
-        # Other endpoints: /api/agent/{name}/{endpoint}
-        if len(parts) >= 5:
-            endpoint = parts[4]
+        # Other endpoints: /api/v1/agent/{name}/{endpoint}
+        if len(parts) >= 6:
+            endpoint = parts[5]
             return self._dispatch_agent_endpoint(agent_name, endpoint, query_params)
 
         return None

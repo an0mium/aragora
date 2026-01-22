@@ -1,6 +1,8 @@
 # Aragora Governance
 
-How rule changes are processed, who signs off, and how to recover from bad updates.
+**Policy enforcement, RBAC, and audit logging for the multi-agent deliberation control plane**
+
+How rule changes are processed, who signs off, and how to recover from bad updates. This document covers the governance framework for Aragora's control plane, ensuring compliance, security, and accountability for enterprise deployments.
 
 ## Governance Philosophy
 

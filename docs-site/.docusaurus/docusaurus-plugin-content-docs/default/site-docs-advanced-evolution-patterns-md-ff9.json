@@ -1,0 +1,20 @@
+{
+  "id": "advanced/evolution-patterns",
+  "title": "Evolution Patterns",
+  "description": "Evolution Patterns",
+  "source": "@site/docs/advanced/evolution-patterns.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/evolution-patterns",
+  "permalink": "/docs/advanced/evolution-patterns",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/evolution-patterns.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Evolution Patterns",
+    "description": "Evolution Patterns"
+  }
+}

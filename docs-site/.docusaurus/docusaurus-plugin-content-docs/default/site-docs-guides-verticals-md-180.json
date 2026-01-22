@@ -1,0 +1,20 @@
+{
+  "id": "guides/verticals",
+  "title": "Vertical Specialists",
+  "description": "Vertical Specialists",
+  "source": "@site/docs/guides/verticals.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/verticals",
+  "permalink": "/docs/guides/verticals",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/verticals.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Vertical Specialists",
+    "description": "Vertical Specialists"
+  }
+}

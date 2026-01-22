@@ -402,6 +402,6 @@ Slack: Notify team of new knowledge
 
 ## See Also
 
-- [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) - Chat platform integrations
-- [API_REFERENCE.md](./API_REFERENCE.md) - Full API documentation
+- [BOT_INTEGRATIONS.md](./bot-integrations) - Chat platform integrations
+- [API_REFERENCE.md](../api/reference) - Full API documentation
 - [WEBHOOKS.md](./WEBHOOKS.md) - Webhook configuration guide

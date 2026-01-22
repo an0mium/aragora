@@ -395,6 +395,64 @@ Response:
 }
 ```
 
+### Deliberations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/control-plane/deliberations` | Run or queue a deliberation |
+| `GET` | `/api/control-plane/deliberations/:id` | Get deliberation result |
+| `GET` | `/api/control-plane/deliberations/:id/status` | Get deliberation status |
+
+#### Submit Deliberation (Sync)
+
+```bash
+curl -X POST http://localhost:8080/api/control-plane/deliberations \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Assess the security risk of this API design",
+    "decision_type": "debate",
+    "priority": "high",
+    "response_channels": [{"platform": "http_api"}]
+  }'
+```
+
+#### Submit Deliberation (Async)
+
+```bash
+curl -X POST http://localhost:8080/api/control-plane/deliberations \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Review this architecture for scalability risks",
+    "decision_type": "debate",
+    "async": true,
+    "priority": "high",
+    "required_capabilities": ["deliberation"]
+  }'
+```
+
+Response:
+```json
+{
+  "task_id": "task_abc123",
+  "request_id": "req_xyz789",
+  "status": "queued"
+}
+```
+
+#### Run a Deliberation Worker
+
+```bash
+python scripts/control_plane_deliberation_worker.py --agent-id deliberation-worker-1
+```
+
+#### Poll Status
+
+```bash
+curl http://localhost:8080/api/control-plane/deliberations/req_xyz789/status
+```
+
 ### Health
 
 | Method | Endpoint | Description |

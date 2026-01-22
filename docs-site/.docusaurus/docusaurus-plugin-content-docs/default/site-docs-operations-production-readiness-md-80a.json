@@ -1,0 +1,20 @@
+{
+  "id": "operations/production-readiness",
+  "title": "Production Readiness Checklist",
+  "description": "Production Readiness Checklist",
+  "source": "@site/docs/operations/production-readiness.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/production-readiness",
+  "permalink": "/docs/operations/production-readiness",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/production-readiness.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Production Readiness Checklist",
+    "description": "Production Readiness Checklist"
+  }
+}

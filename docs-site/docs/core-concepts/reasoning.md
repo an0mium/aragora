@@ -239,6 +239,6 @@ The reasoning module is exposed via the BeliefHandler:
 
 ## See Also
 
-- [DEBATE_INTERNALS.md](../DEBATE_INTERNALS.md) - Core debate architecture
-- [EVIDENCE.md](../EVIDENCE.md) - Evidence collection system
-- [FORMAL_VERIFICATION.md](../FORMAL_VERIFICATION.md) - Claim verification
+- [DEBATE_INTERNALS.md](./debate-internals) - Core debate architecture
+- [EVIDENCE.md](../guides/evidence) - Evidence collection system
+- [FORMAL_VERIFICATION.md](../advanced/formal-verification) - Claim verification

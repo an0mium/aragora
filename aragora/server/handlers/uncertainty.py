@@ -64,21 +64,23 @@ class UncertaintyHandler(BaseHandler):
         if path == "/api/v1/uncertainty/followups" and method == "POST":
             return await self._generate_followups(handler)
 
-        # GET /api/uncertainty/debate/:id
+        # GET /api/v1/uncertainty/debate/:id
+        # Parts: ["", "api", "v1", "uncertainty", "debate", "{debate_id}"]
         if path.startswith("/api/v1/uncertainty/debate/") and method == "GET":
             parts = path.split("/")
-            if len(parts) == 5:
-                debate_id = parts[4]
+            if len(parts) == 6:
+                debate_id = parts[5]
                 is_valid, err = validate_path_segment(debate_id, "debate_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)
                 return await self._get_debate_uncertainty(debate_id)
 
-        # GET /api/uncertainty/agent/:id
+        # GET /api/v1/uncertainty/agent/:id
+        # Parts: ["", "api", "v1", "uncertainty", "agent", "{agent_id}"]
         if path.startswith("/api/v1/uncertainty/agent/") and method == "GET":
             parts = path.split("/")
-            if len(parts) == 5:
-                agent_id = parts[4]
+            if len(parts) == 6:
+                agent_id = parts[5]
                 is_valid, err = validate_path_segment(agent_id, "agent_id", SAFE_ID_PATTERN)
                 if not is_valid:
                     return error_response(err, 400)

@@ -35,6 +35,33 @@ function GitHubIcon() {
   );
 }
 
+// Microsoft icon SVG
+function MicrosoftIcon() {
+  return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z" />
+    </svg>
+  );
+}
+
+// Apple icon SVG
+function AppleIcon() {
+  return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+    </svg>
+  );
+}
+
+// Generic SSO/OIDC icon
+function SSOIcon() {
+  return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+    </svg>
+  );
+}
+
 export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +129,9 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
           >
             {provider.id === 'google' && <GoogleIcon />}
             {provider.id === 'github' && <GitHubIcon />}
+            {provider.id === 'microsoft' && <MicrosoftIcon />}
+            {provider.id === 'apple' && <AppleIcon />}
+            {provider.id === 'oidc' && <SSOIcon />}
             <span>
               {actionText} with {provider.name}
             </span>

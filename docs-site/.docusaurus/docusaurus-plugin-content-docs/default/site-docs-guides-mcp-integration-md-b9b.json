@@ -1,0 +1,20 @@
+{
+  "id": "guides/mcp-integration",
+  "title": "MCP Integration Guide",
+  "description": "MCP Integration Guide",
+  "source": "@site/docs/guides/mcp-integration.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/mcp-integration",
+  "permalink": "/docs/guides/mcp-integration",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/mcp-integration.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "MCP Integration Guide",
+    "description": "MCP Integration Guide"
+  }
+}
