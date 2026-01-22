@@ -202,6 +202,7 @@ from aragora.server.validation import (
     validate_agent_name,
     validate_debate_id,
     validate_path_segment,
+    validate_string,
 )
 
 # Rate limiting is available from aragora.server.middleware.rate_limit
@@ -258,6 +259,7 @@ __all__ = [
     "SAFE_AGENT_PATTERN",
     "validate_agent_name",
     "validate_debate_id",
+    "validate_string",
     "feature_unavailable_response",
     # Parameter extraction helpers
     "get_int_param",

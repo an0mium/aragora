@@ -148,6 +148,46 @@ def validate_string_field(
     return ValidationResult(is_valid=True)
 
 
+def validate_string(
+    value: Optional[str],
+    field_name: str,
+    pattern: Optional[re.Pattern] = None,
+    min_length: int = 0,
+    max_length: int = 1000,
+) -> tuple[bool, Optional[str]]:
+    """Validate a string value directly.
+
+    Unlike validate_string_field which operates on a dict, this validates
+    a single value and returns a tuple for easier inline usage.
+
+    Args:
+        value: String value to validate
+        field_name: Field name for error messages
+        pattern: Optional regex pattern to match
+        min_length: Minimum string length
+        max_length: Maximum string length
+
+    Returns:
+        Tuple of (is_valid: bool, error_message: Optional[str])
+    """
+    if value is None:
+        return False, f"Missing required field: {field_name}"
+
+    if not isinstance(value, str):
+        return False, f"Field '{field_name}' must be a string"
+
+    if len(value) < min_length:
+        return False, f"Field '{field_name}' must be at least {min_length} characters"
+
+    if len(value) > max_length:
+        return False, f"Field '{field_name}' must be at most {max_length} characters"
+
+    if pattern and not pattern.match(value):
+        return False, f"Field '{field_name}' has invalid format"
+
+    return True, None
+
+
 def validate_int_field(
     data: dict,
     field: str,

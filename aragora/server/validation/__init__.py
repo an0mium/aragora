@@ -50,6 +50,7 @@ from .core import (
     validate_json_body,
     validate_list_field,
     validate_required_fields,
+    validate_string,
     validate_string_field,
 )
 
@@ -158,6 +159,7 @@ __all__ = [
     "validate_json_body",
     "validate_content_type",
     "validate_required_fields",
+    "validate_string",
     "validate_string_field",
     "validate_int_field",
     "validate_float_field",
