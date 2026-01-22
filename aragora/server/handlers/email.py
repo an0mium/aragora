@@ -829,33 +829,39 @@ async def handle_remove_vip(
     global _prioritizer
 
     try:
-        if user_id not in _user_configs:
-            return {
-                "success": True,
-                "removed": None,
-            }
+        # Thread-safe config update
+        with _user_configs_lock:
+            if user_id not in _user_configs:
+                return {
+                    "success": True,
+                    "removed": None,
+                }
 
-        config = _user_configs[user_id]
-        removed = {"email": None, "domain": None}
+            config = _user_configs[user_id]
+            removed = {"email": None, "domain": None}
 
-        if email and "vip_addresses" in config:
-            if email in config["vip_addresses"]:
-                config["vip_addresses"].remove(email)
-                removed["email"] = email
+            if email and "vip_addresses" in config:
+                if email in config["vip_addresses"]:
+                    config["vip_addresses"].remove(email)
+                    removed["email"] = email
 
-        if domain and "vip_domains" in config:
-            if domain in config["vip_domains"]:
-                config["vip_domains"].remove(domain)
-                removed["domain"] = domain
+            if domain and "vip_domains" in config:
+                if domain in config["vip_domains"]:
+                    config["vip_domains"].remove(domain)
+                    removed["domain"] = domain
 
-        # Reset prioritizer
-        _prioritizer = None
+            result_addresses = list(config.get("vip_addresses", []))
+            result_domains = list(config.get("vip_domains", []))
+
+        # Reset prioritizer (thread-safe)
+        with _prioritizer_lock:
+            _prioritizer = None
 
         return {
             "success": True,
             "removed": removed,
-            "vip_addresses": config.get("vip_addresses", []),
-            "vip_domains": config.get("vip_domains", []),
+            "vip_addresses": result_addresses,
+            "vip_domains": result_domains,
         }
 
     except Exception as e:
