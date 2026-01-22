@@ -156,8 +156,30 @@ export function LeftSidebar() {
         {renderSection('Advanced', advancedItems, 'advanced')}
       </div>
 
-      {/* Bottom: Mode Selector + Collapse Toggle */}
+      {/* Bottom: Login/User + Mode Selector + Collapse Toggle */}
       <div className="border-t border-[var(--border)] p-3">
+        {/* Login link when not authenticated */}
+        {!isAuthenticated && (
+          <Link
+            href="/api/auth/oauth/google"
+            onClick={() => isMobile && closeLeftSidebar()}
+            className="flex items-center gap-2 px-3 py-2 mb-3 rounded-md bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
+            title={leftSidebarCollapsed ? 'Login with Google' : undefined}
+          >
+            <span className="font-mono text-lg">→</span>
+            {!leftSidebarCollapsed && (
+              <span className="text-sm font-medium">Login with Google</span>
+            )}
+          </Link>
+        )}
+
+        {/* Show user info when authenticated */}
+        {isAuthenticated && user && !leftSidebarCollapsed && (
+          <div className="px-3 py-2 mb-3 text-xs text-[var(--text-muted)]">
+            <span className="text-[var(--acid-green)]">●</span> {user.email || user.name || 'Logged in'}
+          </div>
+        )}
+
         {!leftSidebarCollapsed && (
           <div className="mb-3">
             <ModeSelector compact />

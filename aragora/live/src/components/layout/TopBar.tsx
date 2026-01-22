@@ -4,11 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import { useLayout } from '@/context/LayoutContext';
 import { useCommandPalette } from '@/context/CommandPaletteContext';
+import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 export function TopBar() {
   const { isMobile, toggleLeftSidebar, toggleRightSidebar, rightSidebarOpen } = useLayout();
   const { open: openCommandPalette } = useCommandPalette();
+  const { isAuthenticated, user, logout } = useAuth();
 
   return (
     <header className="fixed top-0 left-0 right-0 h-12 bg-[var(--surface)] border-b border-[var(--border)] z-50 flex items-center px-3 gap-3">
@@ -66,13 +68,31 @@ export function TopBar() {
         {/* Theme toggle */}
         <ThemeToggle />
 
-        {/* User menu placeholder */}
-        <button
-          className="p-2 hover:bg-[var(--surface-elevated)] rounded transition-colors"
-          aria-label="User menu"
-        >
-          <span className="text-[var(--text-muted)] font-mono">◯</span>
-        </button>
+        {/* Login/User menu */}
+        {isAuthenticated ? (
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline text-xs text-[var(--text-muted)] truncate max-w-[120px]">
+              {user?.email || user?.name}
+            </span>
+            <button
+              onClick={() => logout?.()}
+              className="p-2 hover:bg-[var(--surface-elevated)] rounded transition-colors"
+              aria-label="Logout"
+              title="Logout"
+            >
+              <span className="text-[var(--acid-green)] font-mono">●</span>
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/api/auth/oauth/google"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20 border border-[var(--accent)]/30 rounded-md transition-colors"
+            title="Login with Google"
+          >
+            <span className="text-[var(--accent)] font-mono text-sm">→</span>
+            <span className="text-[var(--accent)] text-xs font-medium hidden sm:inline">Login</span>
+          </Link>
+        )}
       </div>
     </header>
   );

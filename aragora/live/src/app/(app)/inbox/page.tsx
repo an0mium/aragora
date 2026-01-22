@@ -162,12 +162,14 @@ export default function InboxPage() {
         if (legacyResponse.ok) {
           const data = await legacyResponse.json();
           window.location.href = data.url;
+        } else if (legacyResponse.status === 401) {
+          setError('Authentication required. Please login first to connect Gmail.');
         } else {
-          setError('Failed to start connection');
+          setError('Failed to start connection. Please try again.');
         }
       }
     } catch (err) {
-      setError('Failed to connect to Gmail');
+      setError('Failed to connect to Gmail. Please check your connection and try again.');
     }
   }, [backendConfig.api, userId, tokens?.access_token]);
 
@@ -295,14 +297,27 @@ export default function InboxPage() {
 
       <main>
         {error && (
-          <div className="mb-4 p-3 bg-acid-red/10 border border-acid-red/30 rounded text-acid-red font-mono text-sm">
-            {error}
-            <button
-              onClick={() => setError(null)}
-              className="ml-4 text-acid-red/70 hover:text-acid-red"
-            >
-              [X]
-            </button>
+          <div className="mb-4 p-3 bg-acid-red/10 border border-acid-red/30 rounded font-mono text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-acid-red">{error}</span>
+              <button
+                onClick={() => setError(null)}
+                className="text-acid-red/70 hover:text-acid-red"
+              >
+                [X]
+              </button>
+            </div>
+            {error.toLowerCase().includes('authentication') && !user && (
+              <div className="mt-2 pt-2 border-t border-acid-red/20">
+                <Link
+                  href="/api/auth/oauth/google"
+                  className="inline-flex items-center gap-2 text-accent hover:text-accent/80"
+                >
+                  <span>→</span>
+                  <span>Login with Google to continue</span>
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -449,14 +464,38 @@ export default function InboxPage() {
                 ⚪ Defer - Newsletters, bulk mail
               </div>
             </div>
-            {status?.configured !== false ? (
+
+            {/* Authentication required message */}
+            {!user && (
+              <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg max-w-md mx-auto">
+                <p className="text-amber-400 font-mono text-sm mb-3">
+                  🔐 Login required to connect Gmail
+                </p>
+                <p className="text-muted text-xs mb-4">
+                  You need to be logged in to connect your Gmail account. This ensures your emails are securely linked to your account.
+                </p>
+                <Link
+                  href="/api/auth/oauth/google"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-accent/20 hover:bg-accent/30 border border-accent/40 rounded-md text-accent font-mono text-sm transition-colors"
+                >
+                  <span>→</span>
+                  <span>Login with Google</span>
+                </Link>
+              </div>
+            )}
+
+            {/* Connect button (only when authenticated) */}
+            {user && status?.configured !== false && (
               <button
                 onClick={handleConnect}
                 className="btn btn-primary px-8 py-3"
               >
                 Connect Gmail Account
               </button>
-            ) : (
+            )}
+
+            {/* Not configured message */}
+            {user && status?.configured === false && (
               <div className="text-muted font-mono text-sm">
                 Gmail integration is not configured. Set GMAIL_CLIENT_ID and
                 GMAIL_CLIENT_SECRET environment variables.
