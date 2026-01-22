@@ -42,7 +42,8 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   useEffect(() => {
     const fetchProviders = async () => {
       try {
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+        // Use relative URL in production (with Next.js rewrites), or explicit URL in dev
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
         const response = await fetch(`${apiBase}/api/auth/oauth/providers`);
         if (response.ok) {
           const data = await response.json();
@@ -65,7 +66,8 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   const handleOAuthClick = (provider: Provider) => {
     // Build callback URL for the current origin
     const callbackUrl = `${window.location.origin}/auth/callback`;
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    // Use relative URL in production (with Next.js rewrites), or explicit URL in dev
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
 
     // Redirect to OAuth provider via our API
     window.location.href = `${apiBase}${provider.auth_url}?redirect_url=${encodeURIComponent(callbackUrl)}`;

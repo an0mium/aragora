@@ -28,26 +28,23 @@ function isProductionEnvironment(): boolean {
   );
 }
 
-// CRITICAL: Fail fast in production if required env vars are missing
+// Configuration validation
+// In production: API calls use relative URLs (via Next.js rewrites), WS needs explicit URL
+// In development: Both default to localhost
 if (typeof window !== 'undefined') {
   const isProd = isProductionEnvironment();
 
-  if (isProd && (!_API_BASE_URL || !_WS_URL)) {
-    // In production, throw error to prevent silent failures
-    const missing = [];
-    if (!_API_BASE_URL) missing.push('NEXT_PUBLIC_API_URL');
-    if (!_WS_URL) missing.push('NEXT_PUBLIC_WS_URL');
-
+  if (isProd && !_WS_URL) {
+    // WebSocket URL is required in production (can't use rewrites for WS)
     console.error(
-      `[Aragora] CRITICAL: Missing required environment variables in production: ${missing.join(', ')}. ` +
-      'The application cannot connect to backend services. Please configure these in your deployment.'
+      '[Aragora] CRITICAL: NEXT_PUBLIC_WS_URL not set in production. ' +
+      'WebSocket features will not work. Please configure this in your deployment.'
     );
-    // Show user-visible error instead of silent failure
     if (document.body) {
       const errorBanner = document.createElement('div');
       errorBanner.id = 'aragora-config-error';
       errorBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:12px;text-align:center;z-index:99999;font-family:monospace;';
-      errorBanner.textContent = `Configuration Error: Missing ${missing.join(', ')}. Contact your administrator.`;
+      errorBanner.textContent = 'Configuration Error: Missing NEXT_PUBLIC_WS_URL. Contact your administrator.';
       document.body.prepend(errorBanner);
     }
   } else if (!isProd) {
@@ -65,7 +62,9 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export const API_BASE_URL = _API_BASE_URL || 'http://localhost:8080';
+// In production, use relative URLs (Next.js rewrites proxy to backend)
+// In development, default to localhost:8080
+export const API_BASE_URL = _API_BASE_URL ?? (typeof window !== 'undefined' && isProductionEnvironment() ? '' : 'http://localhost:8080');
 export const WS_URL = _WS_URL || 'ws://localhost:8765/ws';
 export const CONTROL_PLANE_WS_URL = _CONTROL_PLANE_WS_URL || 'ws://localhost:8766/api/control-plane/stream';
 export const NOMIC_LOOP_WS_URL = _NOMIC_LOOP_WS_URL || 'ws://localhost:8767/api/nomic/stream';
