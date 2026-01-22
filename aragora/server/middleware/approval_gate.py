@@ -181,10 +181,7 @@ async def create_approval_request(
     """
     request_id = str(uuid.uuid4())
 
-    checklist_items = [
-        ApprovalChecklistItem(label=item)
-        for item in (checklist or [])
-    ]
+    checklist_items = [ApprovalChecklistItem(label=item) for item in (checklist or [])]
 
     request = OperationApprovalRequest(
         id=request_id,
@@ -299,8 +296,7 @@ async def resolve_approval(
     _record_approval_resolved(request)
 
     logger.info(
-        f"Approval request {request_id} resolved: {request.state.value} "
-        f"by {approver_id}"
+        f"Approval request {request_id} resolved: {request.state.value} " f"by {approver_id}"
     )
 
     return True
@@ -401,7 +397,9 @@ def require_approval(
                 request = await get_approval_request(approval_id)
                 if request and request.state == ApprovalState.APPROVED:
                     # Approval is valid, proceed
-                    logger.info(f"Executing approved operation {operation} (approval: {approval_id})")
+                    logger.info(
+                        f"Executing approved operation {operation} (approval: {approval_id})"
+                    )
                     return await func(*args, **kwargs)
                 elif request and request.state == ApprovalState.REJECTED:
                     raise ApprovalDeniedError(request, request.rejection_reason or "")
@@ -445,7 +443,11 @@ def require_approval(
 
 
 async def _persist_approval_request(request: OperationApprovalRequest) -> None:
-    """Persist approval request to governance store."""
+    """Persist approval request to governance store.
+
+    Raises:
+        DistributedStateError: If distributed state required but persistence fails.
+    """
     try:
         from aragora.storage.governance_store import get_governance_store
 
@@ -469,12 +471,23 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
                 "org_id": request.org_id,
                 "context": request.context,
                 "checklist": [
-                    {"label": c.label, "required": c.required}
-                    for c in request.checklist
+                    {"label": c.label, "required": c.required} for c in request.checklist
                 ],
             },
         )
     except Exception as e:
+        # In distributed mode, persistence failure is critical
+        from aragora.control_plane.leader import (
+            DistributedStateError,
+            is_distributed_state_required,
+        )
+
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "approval_gate",
+                f"Failed to persist approval request: {e}. "
+                "Approvals must be persisted in distributed deployments.",
+            )
         logger.warning(f"Failed to persist approval request: {e}")
 
 
@@ -665,9 +678,7 @@ async def recover_pending_approvals() -> int:
                 logger.warning(f"Failed to recover approval {record.approval_id}: {e}")
 
         if recovered > 0 or expired > 0:
-            logger.info(
-                f"Approval gate recovery: {recovered} pending restored, {expired} expired"
-            )
+            logger.info(f"Approval gate recovery: {recovered} pending restored, {expired} expired")
 
         return recovered
 

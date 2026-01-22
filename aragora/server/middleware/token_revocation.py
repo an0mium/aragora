@@ -272,6 +272,9 @@ def get_revocation_store() -> RevocationStore:
     Get the global revocation store.
 
     Uses Redis if REDIS_URL is set, otherwise in-memory.
+
+    Raises:
+        DistributedStateError: If distributed state is required but Redis unavailable.
     """
     global _revocation_store
     if _revocation_store is None:
@@ -283,9 +286,34 @@ def get_revocation_store() -> RevocationStore:
                         _revocation_store = RedisRevocationStore(redis_url)
                         logger.info("token_revocation using Redis store")
                     except ImportError:
+                        # Check if distributed state is required
+                        from aragora.control_plane.leader import (
+                            DistributedStateError,
+                            is_distributed_state_required,
+                        )
+
+                        if is_distributed_state_required():
+                            raise DistributedStateError(
+                                "token_revocation",
+                                "Redis not available for distributed token revocation",
+                            )
                         _revocation_store = InMemoryRevocationStore()
-                        logger.info("token_revocation using in-memory store (redis not available)")
+                        logger.warning(
+                            "token_revocation using in-memory store (redis not available). "
+                            "Token revocations will not be shared across instances."
+                        )
                 else:
+                    # No Redis URL - check if distributed state is required
+                    from aragora.control_plane.leader import (
+                        DistributedStateError,
+                        is_distributed_state_required,
+                    )
+
+                    if is_distributed_state_required():
+                        raise DistributedStateError(
+                            "token_revocation",
+                            "REDIS_URL not configured for distributed token revocation",
+                        )
                     _revocation_store = InMemoryRevocationStore()
                     logger.debug("token_revocation using in-memory store")
     return _revocation_store
