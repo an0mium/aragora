@@ -14,6 +14,13 @@ The facade is composed from modular mixins:
 - ops/culture.py: Culture accumulation and management
 - ops/sync.py: Cross-system synchronization
 
+Phase A2 Operations:
+- ops/contradiction.py: Contradiction detection and resolution
+- ops/confidence_decay.py: Dynamic confidence adjustment over time
+- ops/governance.py: RBAC and audit trail logging
+- ops/analytics.py: Coverage, usage, and quality analytics
+- ops/extraction.py: Knowledge extraction from debates
+
 Usage:
     from aragora.knowledge.mound import KnowledgeMound, MoundConfig
 
@@ -62,6 +69,13 @@ from aragora.knowledge.mound.ops.federation import KnowledgeFederationMixin
 from aragora.knowledge.mound.ops.dedup import DedupOperationsMixin
 from aragora.knowledge.mound.ops.pruning import PruningOperationsMixin
 from aragora.knowledge.mound.ops.auto_curation import AutoCurationMixin
+
+# Phase A2 Operations
+from aragora.knowledge.mound.ops.contradiction import ContradictionOperationsMixin
+from aragora.knowledge.mound.ops.confidence_decay import ConfidenceDecayMixin
+from aragora.knowledge.mound.ops.governance import GovernanceMixin
+from aragora.knowledge.mound.ops.analytics import AnalyticsMixin
+from aragora.knowledge.mound.ops.extraction import ExtractionMixin
 from aragora.knowledge.mound.types import MoundConfig
 
 
@@ -78,6 +92,12 @@ class KnowledgeMound(
     DedupOperationsMixin,
     PruningOperationsMixin,
     AutoCurationMixin,
+    # Phase A2 Mixins
+    ContradictionOperationsMixin,
+    ConfidenceDecayMixin,
+    GovernanceMixin,
+    AnalyticsMixin,
+    ExtractionMixin,
     KnowledgeMoundCore,
 ):
     """
@@ -108,6 +128,14 @@ class KnowledgeMound(
     - DedupOperationsMixin: find_duplicates, merge_duplicates, get_dedup_report
     - PruningOperationsMixin: prune_workspace, get_prunable_items, set_pruning_policy
     - AutoCurationMixin: run_curation, set_curation_policy, calculate_quality_score
+
+    Phase A2 Mixins:
+    - ContradictionOperationsMixin: detect_contradictions, resolve_contradiction
+    - ConfidenceDecayMixin: apply_confidence_decay, record_confidence_event
+    - GovernanceMixin: create_role, assign_role, check_permission, log_audit
+    - AnalyticsMixin: analyze_coverage, analyze_usage, capture_quality_snapshot
+    - ExtractionMixin: extract_from_debate, promote_extracted_knowledge
+
     - KnowledgeMoundCore: initialize, close, session, get_stats, storage adapters
     """
 
