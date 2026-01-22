@@ -51,6 +51,13 @@ export default function ControlPlanePage() {
   const [usingMockData, setUsingMockData] = useState(false);
   const [useWebSocket] = useState(true);
   const [selectedVertical, setSelectedVertical] = useState<string | null>(null);
+  const [deliberationInput, setDeliberationInput] = useState('');
+  const [deliberationDecisionType, setDeliberationDecisionType] = useState('debate');
+  const [deliberationAsync, setDeliberationAsync] = useState(false);
+  const [deliberationLoading, setDeliberationLoading] = useState(false);
+  const [deliberationResult, setDeliberationResult] = useState<Record<string, unknown> | null>(null);
+  const [deliberationStatus, setDeliberationStatus] = useState<Record<string, unknown> | null>(null);
+  const [deliberationError, setDeliberationError] = useState<string | null>(null);
   const [verticalsData, setVerticalsData] = useState<Array<{
     vertical_id: string;
     display_name: string;
@@ -126,6 +133,58 @@ export default function ControlPlanePage() {
       found_by: (e.data.agent_id as string) || 'unknown',
       timestamp: new Date(e.timestamp * 1000).toISOString(),
     }));
+
+  const submitDeliberation = useCallback(async () => {
+    if (!deliberationInput.trim()) return;
+    setDeliberationLoading(true);
+    setDeliberationError(null);
+    setDeliberationStatus(null);
+    setDeliberationResult(null);
+    try {
+      const response = await fetch(`${backendConfig.api}/api/control-plane/deliberations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: deliberationInput.trim(),
+          decision_type: deliberationDecisionType,
+          async: deliberationAsync,
+          priority: 'high',
+          response_channels: [{ platform: 'http_api' }],
+          required_capabilities: ['deliberation'],
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Deliberation request failed');
+      }
+      setDeliberationResult(data);
+    } catch (err) {
+      setDeliberationError(err instanceof Error ? err.message : 'Deliberation request failed');
+    } finally {
+      setDeliberationLoading(false);
+    }
+  }, [backendConfig.api, deliberationAsync, deliberationDecisionType, deliberationInput]);
+
+  const checkDeliberationStatus = useCallback(async () => {
+    const requestId = deliberationResult?.request_id as string | undefined;
+    if (!requestId) return;
+    setDeliberationLoading(true);
+    setDeliberationError(null);
+    try {
+      const response = await fetch(
+        `${backendConfig.api}/api/control-plane/deliberations/${requestId}/status`
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Status check failed');
+      }
+      setDeliberationStatus(data);
+    } catch (err) {
+      setDeliberationError(err instanceof Error ? err.message : 'Status check failed');
+    } finally {
+      setDeliberationLoading(false);
+    }
+  }, [backendConfig.api, deliberationResult]);
 
   // Fetch agents from control plane API
   const fetchAgents = useCallback(async () => {
@@ -464,6 +523,95 @@ export default function ControlPlanePage() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* Deliberation Console */}
+                    <div className="card">
+                      <div className="p-4 border-b border-border">
+                        <h2 className="font-mono text-sm text-acid-green">Deliberation Console</h2>
+                        <p className="text-text-muted text-xs font-mono mt-1">
+                          Submit deliberations to the control plane and capture decision receipts.
+                        </p>
+                      </div>
+                      <div className="p-4 space-y-4">
+                        <textarea
+                          className="w-full min-h-[120px] bg-surface border border-border rounded p-3 text-sm font-mono text-text"
+                          placeholder="Describe the decision to deliberate..."
+                          value={deliberationInput}
+                          onChange={(event) => setDeliberationInput(event.target.value)}
+                        />
+                        <div className="flex flex-wrap items-center gap-4">
+                          <label className="text-xs font-mono text-text-muted">
+                            Decision Type
+                            <select
+                              className="ml-2 bg-surface border border-border rounded px-2 py-1 text-xs text-text"
+                              value={deliberationDecisionType}
+                              onChange={(event) => setDeliberationDecisionType(event.target.value)}
+                            >
+                              <option value="auto">AUTO</option>
+                              <option value="debate">DEBATE</option>
+                              <option value="gauntlet">GAUNTLET</option>
+                              <option value="workflow">WORKFLOW</option>
+                              <option value="quick">QUICK</option>
+                            </select>
+                          </label>
+                          <label className="flex items-center gap-2 text-xs font-mono text-text-muted">
+                            <input
+                              type="checkbox"
+                              className="accent-acid-green"
+                              checked={deliberationAsync}
+                              onChange={(event) => setDeliberationAsync(event.target.checked)}
+                            />
+                            ASYNC
+                          </label>
+                          <button
+                            className="ml-auto px-3 py-1.5 rounded border border-acid-green text-acid-green text-xs font-mono hover:bg-acid-green/10 disabled:opacity-50"
+                            onClick={submitDeliberation}
+                            disabled={deliberationLoading || !deliberationInput.trim()}
+                          >
+                            {deliberationLoading ? 'SUBMITTING...' : 'RUN DELIBERATION'}
+                          </button>
+                        </div>
+                        {deliberationError && (
+                          <div className="text-crimson text-xs font-mono">{deliberationError}</div>
+                        )}
+                        {deliberationResult && (
+                          <div className="bg-surface border border-border rounded p-3 text-xs font-mono text-text-muted space-y-2">
+                            <div className="text-text">
+                              Status: {String(deliberationResult.status || 'unknown')}
+                            </div>
+                            {Boolean(deliberationResult.request_id) && (
+                              <div>Request ID: {String(deliberationResult.request_id)}</div>
+                            )}
+                            {Boolean(deliberationResult.task_id) && (
+                              <div>Task ID: {String(deliberationResult.task_id)}</div>
+                            )}
+                            {Boolean(deliberationResult.decision_type) && (
+                              <div>Decision Type: {String(deliberationResult.decision_type)}</div>
+                            )}
+                            {deliberationResult.confidence !== undefined && (
+                              <div>Confidence: {String(deliberationResult.confidence)}</div>
+                            )}
+                            {deliberationResult.consensus_reached !== undefined && (
+                              <div>Consensus: {String(deliberationResult.consensus_reached)}</div>
+                            )}
+                            {Boolean(deliberationResult.request_id) && (
+                              <button
+                                className="mt-2 px-2 py-1 border border-border rounded text-xs text-text-muted hover:text-text"
+                                onClick={checkDeliberationStatus}
+                                disabled={deliberationLoading}
+                              >
+                                Check Status
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {deliberationStatus && (
+                          <div className="text-xs font-mono text-text-muted">
+                            Status Update: {String(deliberationStatus.status || 'unknown')}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
