@@ -659,7 +659,9 @@ async def handle_get_config(
 
     GET /api/email/config
     """
-    config = _user_configs.get(user_id, {})
+    # Thread-safe read with snapshot
+    with _user_configs_lock:
+        config = _user_configs.get(user_id, {}).copy()
 
     return {
         "success": True,
