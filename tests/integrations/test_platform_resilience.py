@@ -73,10 +73,9 @@ class TestDistributedRateLimiter:
         assert limiter.allow(ip2).allowed
         assert limiter.allow(ip2).allowed
 
-    @pytest.mark.skip(reason="PlatformRateLimitResult not exported from rate_limit module")
     def test_rate_limit_result_headers(self):
         """Rate limit result should generate proper headers."""
-        from aragora.server.middleware.rate_limit import PlatformRateLimitResult
+        from aragora.server.middleware.rate_limit.platform_limiter import PlatformRateLimitResult
 
         # Use PlatformRateLimitResult which has to_headers method
         result = PlatformRateLimitResult(
