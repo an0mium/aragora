@@ -243,6 +243,36 @@ class TestPruningOperationsMixin:
                 self._staleness_detector = MagicMock()
                 self._staleness_detector.get_stale_nodes = AsyncMock(return_value=[])
 
+            async def _archive_node_with_reason(self, node_id: str, workspace_id: str, reason: str):
+                """Mock archive node."""
+                await self._store.archive_node(node_id)
+
+            async def _delete_node(self, node_id: str):
+                """Mock delete node."""
+                await self._store.delete_node(node_id)
+
+            async def _get_node(self, node_id: str):
+                """Mock get node."""
+                return await self._store.get_node(node_id)
+
+            async def _update_node(self, node_id: str, updates: dict):
+                """Mock update node."""
+                await self._store.update_node(node_id, updates)
+
+            async def _save_prune_history(self, history: PruneHistory):
+                """Mock save prune history."""
+                await self._store.save_prune_history(history)
+
+            async def _get_prune_history(
+                self, workspace_id: str, limit: int = 100, since: datetime = None
+            ):
+                """Mock get prune history."""
+                return await self._store.get_prune_history(workspace_id, limit)
+
+            async def _restore_archived_node(self, node_id: str, workspace_id: str):
+                """Mock restore archived node."""
+                return await self._store.restore_archived_node(node_id)
+
         return MockMound()
 
     @pytest.mark.asyncio
@@ -346,6 +376,23 @@ class TestDedupOperationsMixin:
                 self._store.delete_node = AsyncMock()
                 self._store.get_nodes_by_content_hash = AsyncMock(return_value={})
                 self._store.get_node = AsyncMock()
+                # Meta store for content hash lookups
+                self._meta_store = MagicMock()
+                self._meta_store.get_nodes_by_content_hash_async = AsyncMock(return_value={})
+
+            async def _get_nodes_by_content_hash(self, workspace_id: str):
+                """Mock implementation of content hash lookup."""
+                if hasattr(self._meta_store, "get_nodes_by_content_hash_async"):
+                    return await self._meta_store.get_nodes_by_content_hash_async(workspace_id)
+                return {}
+
+            async def _get_nodes_for_workspace(self, workspace_id: str, limit: int = 100):
+                """Mock get nodes for workspace."""
+                return await self._store.get_nodes_for_workspace(workspace_id, limit)
+
+            async def _count_nodes(self, workspace_id: str):
+                """Mock count nodes."""
+                return await self._store.count_nodes(workspace_id)
 
         return MockMound()
 
@@ -366,7 +413,8 @@ class TestDedupOperationsMixin:
     @pytest.mark.asyncio
     async def test_auto_merge_exact_duplicates_dry_run(self, mock_mound):
         """Should report duplicates in dry run mode."""
-        mock_mound._store.get_nodes_by_content_hash = AsyncMock(
+        # Set on _meta_store since _get_nodes_by_content_hash uses that
+        mock_mound._meta_store.get_nodes_by_content_hash_async = AsyncMock(
             return_value={
                 "hash1": ["id1", "id2", "id3"],  # 2 duplicates
                 "hash2": ["id4"],  # No duplicates

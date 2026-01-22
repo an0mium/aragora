@@ -1,2 +1,5 @@
-export * from './api-types';
-export * from './client';
+/**
+ * Backwards-compatible re-export.
+ * The SDK source is now in ./src/
+ */
+export * from './src/index';
