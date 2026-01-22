@@ -62,6 +62,18 @@ class DocumentFormat(str, Enum):
     # Code
     CODE = "code"
 
+    # Notebooks and interactive formats
+    IPYNB = "ipynb"  # Jupyter notebooks
+
+    # E-books
+    EPUB = "epub"  # Electronic publication
+    MOBI = "mobi"  # Kindle format
+
+    # Archives
+    ZIP = "zip"
+    TAR = "tar"
+    GZIP = "gzip"
+
     UNKNOWN = "unknown"
 
 
@@ -162,6 +174,17 @@ EXTENSION_MAP: Dict[str, DocumentFormat] = {
     ".rs": DocumentFormat.CODE,
     ".rb": DocumentFormat.CODE,
     ".php": DocumentFormat.CODE,
+    # Notebooks
+    ".ipynb": DocumentFormat.IPYNB,
+    # E-books
+    ".epub": DocumentFormat.EPUB,
+    ".mobi": DocumentFormat.MOBI,
+    # Archives
+    ".zip": DocumentFormat.ZIP,
+    ".tar": DocumentFormat.TAR,
+    ".gz": DocumentFormat.GZIP,
+    ".tgz": DocumentFormat.TAR,
+    ".tar.gz": DocumentFormat.TAR,
 }
 
 
@@ -274,6 +297,14 @@ class DocumentParser:
                 return self._parse_xml(content_bytes)
             elif format == DocumentFormat.CSV:
                 return self._parse_csv(content_bytes)
+            elif format == DocumentFormat.IPYNB:
+                return self._parse_jupyter(content_bytes)
+            elif format == DocumentFormat.EPUB:
+                return self._parse_epub(content_bytes)
+            elif format == DocumentFormat.MOBI:
+                return self._parse_mobi(content_bytes)
+            elif format in (DocumentFormat.ZIP, DocumentFormat.TAR, DocumentFormat.GZIP):
+                return self._parse_archive(content_bytes, format)
             else:
                 # Default to plain text
                 return self._parse_text(content_bytes, format)
@@ -362,9 +393,7 @@ class DocumentParser:
 
             if self.extract_metadata and reader.metadata:
                 metadata = {
-                    k.lstrip("/"): v
-                    for k, v in reader.metadata.items()
-                    if isinstance(v, str)
+                    k.lstrip("/"): v for k, v in reader.metadata.items() if isinstance(v, str)
                 }
 
             for i, page in enumerate(reader.pages[: self.max_pages]):
@@ -430,7 +459,9 @@ class DocumentParser:
                 if text:
                     all_text.append(text)
                     # Detect headings
-                    chunk_type = "heading" if para.style and "Heading" in para.style.name else "paragraph"
+                    chunk_type = (
+                        "heading" if para.style and "Heading" in para.style.name else "paragraph"
+                    )
                     chunks.append(
                         DocumentChunk(
                             content=text,
@@ -449,9 +480,7 @@ class DocumentParser:
                     if table_data:
                         tables.append(table_data)
                         table_text = "\n".join("\t".join(row) for row in table_data)
-                        chunks.append(
-                            DocumentChunk(content=table_text, chunk_type="table")
-                        )
+                        chunks.append(DocumentChunk(content=table_text, chunk_type="table"))
 
             return ParsedDocument(
                 content="\n\n".join(all_text)[: self.max_content_size],
@@ -784,6 +813,318 @@ class DocumentParser:
                 errors=[str(e)],
             )
 
+    def _parse_jupyter(self, content: bytes) -> ParsedDocument:
+        """Parse Jupyter notebook (.ipynb) files."""
+        chunks: List[DocumentChunk] = []
+        all_text: List[str] = []
+        metadata: Dict[str, Any] = {}
+        errors: List[str] = []
+
+        try:
+            notebook = json.loads(content.decode("utf-8"))
+            metadata = notebook.get("metadata", {})
+
+            # Extract kernel info
+            kernel_info = metadata.get("kernelspec", {})
+            if kernel_info:
+                metadata["kernel"] = kernel_info.get("display_name", "Unknown")
+
+            cells = notebook.get("cells", [])
+            for i, cell in enumerate(cells):
+                cell_type = cell.get("cell_type", "code")
+                source = cell.get("source", [])
+
+                # Handle source as list or string
+                if isinstance(source, list):
+                    cell_content = "".join(source)
+                else:
+                    cell_content = source
+
+                if not cell_content.strip():
+                    continue
+
+                # Format based on cell type
+                if cell_type == "markdown":
+                    all_text.append(cell_content)
+                    chunks.append(
+                        DocumentChunk(
+                            content=cell_content,
+                            chunk_type="markdown",
+                            metadata={"cell_index": i, "cell_type": "markdown"},
+                        )
+                    )
+                elif cell_type == "code":
+                    # Include code with syntax marker
+                    code_block = f"```python\n{cell_content}\n```"
+                    all_text.append(code_block)
+                    chunks.append(
+                        DocumentChunk(
+                            content=cell_content,
+                            chunk_type="code",
+                            metadata={"cell_index": i, "cell_type": "code"},
+                        )
+                    )
+
+                    # Also extract outputs if present
+                    outputs = cell.get("outputs", [])
+                    for output in outputs:
+                        output_type = output.get("output_type", "")
+                        if output_type == "stream":
+                            text = "".join(output.get("text", []))
+                            if text.strip():
+                                all_text.append(f"Output:\n{text}")
+                        elif output_type in ("execute_result", "display_data"):
+                            data = output.get("data", {})
+                            if "text/plain" in data:
+                                text = "".join(data["text/plain"])
+                                if text.strip():
+                                    all_text.append(f"Output:\n{text}")
+                elif cell_type == "raw":
+                    all_text.append(cell_content)
+                    chunks.append(
+                        DocumentChunk(
+                            content=cell_content,
+                            chunk_type="text",
+                            metadata={"cell_index": i, "cell_type": "raw"},
+                        )
+                    )
+
+            return ParsedDocument(
+                content="\n\n".join(all_text)[: self.max_content_size],
+                chunks=chunks,
+                format=DocumentFormat.IPYNB,
+                metadata=metadata,
+                errors=errors,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to parse Jupyter notebook: {e}")
+            return ParsedDocument(
+                content="",
+                format=DocumentFormat.IPYNB,
+                errors=[str(e)],
+            )
+
+    def _parse_epub(self, content: bytes) -> ParsedDocument:
+        """Parse EPUB e-book files."""
+        chunks: List[DocumentChunk] = []
+        all_text: List[str] = []
+        metadata: Dict[str, Any] = {}
+        errors: List[str] = []
+
+        try:
+            import ebooklib
+            from ebooklib import epub
+            from bs4 import BeautifulSoup
+
+            book = epub.read_epub(io.BytesIO(content))
+
+            # Extract metadata
+            if book.get_metadata("DC", "title"):
+                metadata["title"] = book.get_metadata("DC", "title")[0][0]
+            if book.get_metadata("DC", "creator"):
+                metadata["author"] = book.get_metadata("DC", "creator")[0][0]
+            if book.get_metadata("DC", "language"):
+                metadata["language"] = book.get_metadata("DC", "language")[0][0]
+            if book.get_metadata("DC", "publisher"):
+                metadata["publisher"] = book.get_metadata("DC", "publisher")[0][0]
+
+            # Extract chapters/content
+            chapter_num = 0
+            for item in book.get_items():
+                if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                    chapter_num += 1
+                    html_content = item.get_content().decode("utf-8", errors="ignore")
+                    soup = BeautifulSoup(html_content, "html.parser")
+
+                    # Get chapter title if available
+                    title = soup.find(["h1", "h2", "h3"])
+                    chapter_title = title.get_text().strip() if title else f"Chapter {chapter_num}"
+
+                    # Extract text
+                    text = soup.get_text(separator="\n", strip=True)
+                    if text:
+                        all_text.append(f"## {chapter_title}\n\n{text}")
+                        chunks.append(
+                            DocumentChunk(
+                                content=text,
+                                chunk_type="chapter",
+                                section=chapter_title,
+                                metadata={"chapter": chapter_num},
+                            )
+                        )
+
+            return ParsedDocument(
+                content="\n\n".join(all_text)[: self.max_content_size],
+                chunks=chunks,
+                format=DocumentFormat.EPUB,
+                title=metadata.get("title"),
+                metadata=metadata,
+                pages=chapter_num,
+                errors=errors,
+            )
+
+        except ImportError:
+            errors.append(
+                "ebooklib not installed. Install with: pip install ebooklib beautifulsoup4"
+            )
+            return ParsedDocument(
+                content="",
+                format=DocumentFormat.EPUB,
+                errors=errors,
+            )
+        except Exception as e:
+            logger.error(f"Failed to parse EPUB: {e}")
+            return ParsedDocument(
+                content="",
+                format=DocumentFormat.EPUB,
+                errors=[str(e)],
+            )
+
+    def _parse_mobi(self, content: bytes) -> ParsedDocument:
+        """Parse MOBI/Kindle e-book files."""
+        errors: List[str] = []
+
+        try:
+            import mobi
+
+            # mobi library extracts to a temp directory
+            import tempfile
+            import os
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                mobi_path = os.path.join(tmpdir, "book.mobi")
+                with open(mobi_path, "wb") as f:
+                    f.write(content)
+
+                # Extract MOBI to get HTML content
+                tempdir, extracted = mobi.extract(mobi_path)
+
+                # Read the extracted HTML
+                html_path = os.path.join(tempdir, extracted)
+                if os.path.exists(html_path):
+                    with open(html_path, "rb") as f:
+                        html_content = f.read()
+
+                    # Parse as HTML
+                    return self._parse_html(html_content)
+
+            return ParsedDocument(
+                content="",
+                format=DocumentFormat.MOBI,
+                errors=["Could not extract MOBI content"],
+            )
+
+        except ImportError:
+            errors.append("mobi not installed. Install with: pip install mobi")
+            return ParsedDocument(
+                content="",
+                format=DocumentFormat.MOBI,
+                errors=errors,
+            )
+        except Exception as e:
+            logger.error(f"Failed to parse MOBI: {e}")
+            return ParsedDocument(
+                content="",
+                format=DocumentFormat.MOBI,
+                errors=[str(e)],
+            )
+
+    def _parse_archive(self, content: bytes, format: DocumentFormat) -> ParsedDocument:
+        """Parse archive files (ZIP, TAR, GZIP) and extract documents."""
+        chunks: List[DocumentChunk] = []
+        all_text: List[str] = []
+        metadata: Dict[str, Any] = {"files": []}
+        errors: List[str] = []
+        tables: List[Union[DocumentTable, List[List[str]]]] = []
+
+        try:
+            import zipfile
+            import tarfile
+            import gzip
+
+            extracted_docs: List[ParsedDocument] = []
+
+            if format == DocumentFormat.ZIP:
+                with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
+                    for name in zf.namelist():
+                        if name.endswith("/"):  # Skip directories
+                            continue
+                        # Check if it's a supported format
+                        ext = Path(name).suffix.lower()
+                        if ext in EXTENSION_MAP and ext not in (".zip", ".tar", ".gz"):
+                            try:
+                                file_content = zf.read(name)
+                                doc = self.parse(file_content, filename=name)
+                                doc.filename = name  # Ensure filename is set
+                                extracted_docs.append(doc)
+                                metadata["files"].append(name)
+                            except Exception as e:
+                                errors.append(f"Failed to extract {name}: {e}")
+
+            elif format in (DocumentFormat.TAR, DocumentFormat.GZIP):
+                # Handle .tar.gz and .tar
+                mode = (
+                    "r:gz" if format == DocumentFormat.GZIP or content[:2] == b"\x1f\x8b" else "r"
+                )
+                try:
+                    with tarfile.open(fileobj=io.BytesIO(content), mode=mode) as tf:
+                        for member in tf.getmembers():
+                            if member.isfile():
+                                ext = Path(member.name).suffix.lower()
+                                if ext in EXTENSION_MAP and ext not in (
+                                    ".zip",
+                                    ".tar",
+                                    ".gz",
+                                    ".tgz",
+                                ):
+                                    try:
+                                        f = tf.extractfile(member)
+                                        if f:
+                                            file_content = f.read()
+                                            doc = self.parse(file_content, filename=member.name)
+                                            doc.filename = member.name  # Ensure filename is set
+                                            extracted_docs.append(doc)
+                                            metadata["files"].append(member.name)
+                                    except Exception as e:
+                                        errors.append(f"Failed to extract {member.name}: {e}")
+                except tarfile.ReadError:
+                    # Try as plain gzip (single file)
+                    try:
+                        decompressed = gzip.decompress(content)
+                        # Try to parse as text
+                        return self._parse_text(decompressed)
+                    except Exception as e:
+                        errors.append(f"Failed to decompress gzip: {e}")
+
+            # Combine all extracted documents
+            for doc in extracted_docs:
+                if doc.content:
+                    all_text.append(f"--- File: {doc.filename or 'unknown'} ---\n{doc.content}")
+                chunks.extend(doc.chunks)
+                tables.extend(doc.tables)
+                if doc.errors:
+                    errors.extend(doc.errors)
+
+            metadata["file_count"] = len(extracted_docs)
+
+            return ParsedDocument(
+                content="\n\n".join(all_text)[: self.max_content_size],
+                chunks=chunks,
+                format=format,
+                metadata=metadata,
+                tables=tables,
+                errors=errors,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to parse archive: {e}")
+            return ParsedDocument(
+                content="",
+                format=format,
+                errors=[str(e)],
+            )
+
     def _parse_text(
         self, content: bytes, format: DocumentFormat = DocumentFormat.TXT
     ) -> ParsedDocument:
@@ -831,6 +1172,7 @@ __all__ = [
     "DocumentParser",
     "DocumentFormat",
     "DocumentChunk",
+    "DocumentTable",
     "ParsedDocument",
     "parse_document",
     "EXTENSION_MAP",
