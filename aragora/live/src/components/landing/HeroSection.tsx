@@ -52,7 +52,22 @@ export function HeroSection({
 
       {error && (
         <div className="w-full max-w-3xl mb-6 bg-warning/10 border border-warning/30 p-4 flex items-center justify-between">
-          <span className="text-warning font-mono text-sm">{error}</span>
+          <span className="text-warning font-mono text-sm">
+            {error.toLowerCase().includes('authentication') || error.toLowerCase().includes('unauthorized') ? (
+              <>
+                Please{' '}
+                <a
+                  href="/login"
+                  className="underline hover:text-warning/80 font-bold"
+                >
+                  Log In
+                </a>
+                {' '}to start a deliberation.
+              </>
+            ) : (
+              error
+            )}
+          </span>
           <button
             onClick={onDismissError}
             className="text-warning hover:text-warning/80"
