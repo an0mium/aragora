@@ -158,7 +158,7 @@ class PreDebateResearcher:
         """
         try:
             # Offload to thread pool to avoid blocking the event loop
-            response = await asyncio.to_thread(
+            response = await asyncio.to_thread(  # type: ignore[arg-type]
                 self.anthropic_client.messages.create,
                 model=RESEARCH_MODEL,
                 max_tokens=100,
@@ -173,7 +173,7 @@ Respond with just "yes" or "no".""",
                     }
                 ],
             )
-            content = response.content[0].text.strip().lower()
+            content = response.content[0].text.strip().lower()  # type: ignore[union-attr]
             return content.startswith("yes")
         except Exception as e:
             logger.warning(f"LLM classification failed: {e}")
@@ -486,7 +486,7 @@ Focus on facts, not opinions. Include relevant dates and specifics.""",
                 ],
             )
 
-            result.summary = response.content[0].text
+            result.summary = response.content[0].text  # type: ignore[union-attr]
 
         except Exception as e:
             logger.warning(f"[research] Summary generation failed: {e}")
@@ -518,7 +518,7 @@ Note: Clearly indicate if certain information may be outdated or requires verifi
                 ],
             )
 
-            summary = response.content[0].text
+            summary = response.content[0].text  # type: ignore[union-attr]
             return ResearchResult(
                 query=question,
                 summary=f"## Background Context (from AI knowledge)\n\n{summary}\n\n*Note: This context is based on AI training data. For the most current information, external verification is recommended.*",

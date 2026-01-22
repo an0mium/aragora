@@ -138,7 +138,6 @@ const STATUS_TEXT_COLORS: Record<TaskStatus, string> = {
 
 export function ExecutionMonitor({
   workflows = MOCK_WORKFLOWS,
-  selectedWorkflowId,
   onWorkflowSelect,
   onTaskClick,
 }: ExecutionMonitorProps) {
