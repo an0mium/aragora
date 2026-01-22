@@ -106,13 +106,52 @@ class SecretManager:
     1. AWS Secrets Manager (if enabled)
     2. Environment variables
     3. Default values (for non-sensitive config)
+
+    Features:
+    - Automatic cache expiration based on TTL
+    - Audit logging for secret access (SOC 2 compliance)
+    - Thread-safe secret access
     """
 
     def __init__(self, config: SecretsConfig | None = None):
         self.config = config or SecretsConfig.from_env()
         self._aws_client: Any = None
         self._cached_secrets: dict[str, str] = {}
+        self._cache_timestamp: float = 0.0
         self._initialized = False
+        self._lock = threading.Lock()
+        self._access_log: list[dict[str, Any]] = []
+        self._max_access_log_size = 1000
+
+    def _is_cache_expired(self) -> bool:
+        """Check if the secret cache has expired."""
+        import time
+
+        if self._cache_timestamp == 0.0:
+            return True
+        elapsed = time.time() - self._cache_timestamp
+        return elapsed > self.config.cache_ttl_seconds
+
+    def _log_access(self, secret_name: str, source: str, success: bool) -> None:
+        """Log secret access for audit purposes (SOC 2 compliance)."""
+        import time
+
+        entry = {
+            "timestamp": time.time(),
+            "secret_name": secret_name,
+            "source": source,  # "aws", "env", "default"
+            "success": success,
+        }
+        with self._lock:
+            self._access_log.append(entry)
+            # Trim log if too large
+            if len(self._access_log) > self._max_access_log_size:
+                self._access_log = self._access_log[-self._max_access_log_size // 2 :]
+
+    def get_access_log(self) -> list[dict[str, Any]]:
+        """Get the access log for audit purposes."""
+        with self._lock:
+            return list(self._access_log)
 
     def _get_aws_client(self) -> Any:
         """Lazily initialize AWS Secrets Manager client."""
@@ -168,15 +207,42 @@ class SecretManager:
                 logger.error(f"Unexpected error loading secrets: {e}")
             return {}
 
-    def _initialize(self) -> None:
-        """Initialize the secret manager (load from AWS if enabled)."""
-        if self._initialized:
-            return
+    def _initialize(self, force_refresh: bool = False) -> None:
+        """Initialize the secret manager (load from AWS if enabled).
 
-        if self.config.use_aws:
+        Args:
+            force_refresh: Force reload from AWS even if cache is valid
+        """
+        import time
+
+        with self._lock:
+            # First initialization
+            if not self._initialized:
+                if self.config.use_aws:
+                    self._cached_secrets = self._load_from_aws()
+                    self._cache_timestamp = time.time()
+                    logger.debug(
+                        f"Secrets cache initialized, TTL: {self.config.cache_ttl_seconds}s"
+                    )
+                self._initialized = True
+                return
+
+            # Already initialized - check if refresh needed (only for AWS)
+            if not self.config.use_aws:
+                return  # No AWS, no refresh needed
+
+            needs_refresh = force_refresh or self._is_cache_expired()
+            if not needs_refresh:
+                return
+
             self._cached_secrets = self._load_from_aws()
+            self._cache_timestamp = time.time()
+            logger.debug(f"Secrets cache refreshed, TTL: {self.config.cache_ttl_seconds}s")
 
-        self._initialized = True
+    def refresh(self) -> None:
+        """Force refresh secrets from AWS (for manual rotation)."""
+        self._initialize(force_refresh=True)
+        logger.info("Secrets manually refreshed")
 
     def get(self, name: str, default: str | None = None) -> str | None:
         """
@@ -193,14 +259,20 @@ class SecretManager:
 
         # 1. Check AWS cache first
         if name in self._cached_secrets:
+            self._log_access(name, "aws", True)
             return self._cached_secrets[name]
 
         # 2. Fall back to environment variable
         env_value = os.environ.get(name)
         if env_value is not None:
+            self._log_access(name, "env", True)
             return env_value
 
         # 3. Return default
+        if default is not None:
+            self._log_access(name, "default", True)
+        else:
+            self._log_access(name, "not_found", False)
         return default
 
     def get_required(self, name: str) -> str:
@@ -323,3 +395,21 @@ def get_required_secret(name: str) -> str:
 def clear_secret_cache() -> None:
     """Clear the secret cache (for testing or secret rotation)."""
     reset_secret_manager()
+
+
+def refresh_secrets() -> None:
+    """Force refresh secrets from AWS Secrets Manager.
+
+    Call this after rotating secrets in AWS to ensure the application
+    picks up the new values immediately.
+    """
+    get_secret_manager().refresh()
+
+
+def get_secret_access_log() -> list[dict[str, Any]]:
+    """Get the secret access log for audit purposes (SOC 2 compliance).
+
+    Returns:
+        List of access log entries with timestamp, secret_name, source, and success.
+    """
+    return get_secret_manager().get_access_log()

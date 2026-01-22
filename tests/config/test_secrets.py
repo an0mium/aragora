@@ -203,9 +203,12 @@ class TestSecretManagerAWS:
 
     def test_aws_cache_takes_precedence_over_env(self):
         """AWS cached secrets take precedence over environment variables."""
+        import time
+
         config = SecretsConfig(use_aws=True)
         manager = SecretManager(config)
         manager._cached_secrets = {"DUAL_SECRET": "aws_value"}
+        manager._cache_timestamp = time.time()  # Set timestamp to prevent cache expiration
         manager._initialized = True
 
         with patch.dict(os.environ, {"DUAL_SECRET": "env_value"}):

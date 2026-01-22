@@ -33,6 +33,7 @@ from .base import (
     get_int_param,
     get_string_param,
     json_response,
+    validate_string,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -55,6 +56,7 @@ class PersonaHandler(BaseHandler):
 
     ROUTES = [
         "/api/personas",
+        "/api/personas/options",
         "/api/agent/*/persona",
         "/api/agent/*/grounded-persona",
         "/api/agent/*/identity-prompt",
@@ -65,7 +67,7 @@ class PersonaHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path == "/api/personas":
+        if path in ("/api/personas", "/api/personas/options"):
             return True
         if path.startswith("/api/agent/") and any(
             path.endswith(suffix)
@@ -92,6 +94,10 @@ class PersonaHandler(BaseHandler):
         # List all personas
         if path == "/api/personas":
             return self._get_all_personas()
+
+        # Get available traits and expertise domains
+        if path == "/api/personas/options":
+            return self._get_persona_options()
 
         # Agent-specific endpoints
         if path.startswith("/api/agent/"):
@@ -329,3 +335,200 @@ class PersonaHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error getting accuracy for {agent}: {e}", exc_info=True)
             return error_response("Failed to get accuracy", 500)
+
+    def _get_persona_options(self) -> HandlerResult:
+        """Get available traits and expertise domains for persona creation."""
+        try:
+            from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS
+
+            return json_response(
+                {
+                    "traits": PERSONALITY_TRAITS,
+                    "expertise_domains": EXPERTISE_DOMAINS,
+                }
+            )
+        except ImportError:
+            return json_response({"traits": [], "expertise_domains": []})
+
+    # =========================================================================
+    # POST Handlers
+    # =========================================================================
+
+    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+        """Handle POST requests for persona endpoints."""
+        client_ip = get_client_ip(handler)
+        if not _persona_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded", 429)
+
+        # Create new persona
+        if path == "/api/personas":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._create_persona(body)
+
+        return None
+
+    def _create_persona(self, body: dict) -> HandlerResult:
+        """Create a new agent persona."""
+        persona_manager = self.get_persona_manager()
+        if not persona_manager:
+            return error_response("Persona management not configured", 503)
+
+        # Validate required fields
+        agent_name = body.get("agent_name", "").strip()
+        if not agent_name:
+            return error_response("agent_name is required", 400)
+
+        valid, err_msg = validate_string(agent_name, "agent_name", SAFE_AGENT_PATTERN, 1, 64)
+        if not valid:
+            return error_response(err_msg or "Invalid agent name", 400)
+
+        description = body.get("description", "")
+        traits = body.get("traits", [])
+        expertise = body.get("expertise", {})
+
+        # Validate types
+        if not isinstance(traits, list):
+            return error_response("traits must be a list", 400)
+        if not isinstance(expertise, dict):
+            return error_response("expertise must be a dict", 400)
+
+        try:
+            persona = persona_manager.create_persona(
+                agent_name=agent_name,
+                description=description,
+                traits=traits,
+                expertise=expertise,
+            )
+            return json_response(
+                {
+                    "success": True,
+                    "persona": {
+                        "agent_name": persona.agent_name,
+                        "description": persona.description,
+                        "traits": persona.traits,
+                        "expertise": persona.expertise,
+                        "created_at": persona.created_at,
+                        "updated_at": persona.updated_at,
+                    },
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error creating persona: {e}", exc_info=True)
+            return error_response("Failed to create persona", 500)
+
+    # =========================================================================
+    # PUT Handlers
+    # =========================================================================
+
+    def handle_put(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+        """Handle PUT requests for persona endpoints."""
+        client_ip = get_client_ip(handler)
+        if not _persona_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded", 429)
+
+        # Update agent persona
+        if path.startswith("/api/agent/") and path.endswith("/persona"):
+            agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+            if err:
+                return err
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._update_persona(agent, body)
+
+        return None
+
+    def _update_persona(self, agent: str, body: dict) -> HandlerResult:
+        """Update an existing agent persona."""
+        persona_manager = self.get_persona_manager()
+        if not persona_manager:
+            return error_response("Persona management not configured", 503)
+
+        # Check persona exists
+        existing = persona_manager.get_persona(agent)
+        if not existing:
+            return error_response(f"No persona found for agent '{agent}'", 404)
+
+        description = body.get("description", existing.description)
+        traits = body.get("traits", existing.traits)
+        expertise = body.get("expertise", existing.expertise)
+
+        # Validate types
+        if not isinstance(traits, list):
+            return error_response("traits must be a list", 400)
+        if not isinstance(expertise, dict):
+            return error_response("expertise must be a dict", 400)
+
+        try:
+            persona = persona_manager.create_persona(
+                agent_name=agent,
+                description=description,
+                traits=traits,
+                expertise=expertise,
+            )
+            return json_response(
+                {
+                    "success": True,
+                    "persona": {
+                        "agent_name": persona.agent_name,
+                        "description": persona.description,
+                        "traits": persona.traits,
+                        "expertise": persona.expertise,
+                        "created_at": persona.created_at,
+                        "updated_at": persona.updated_at,
+                    },
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error updating persona for {agent}: {e}", exc_info=True)
+            return error_response("Failed to update persona", 500)
+
+    # =========================================================================
+    # DELETE Handlers
+    # =========================================================================
+
+    def handle_delete(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+        """Handle DELETE requests for persona endpoints."""
+        client_ip = get_client_ip(handler)
+        if not _persona_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded", 429)
+
+        # Delete agent persona
+        if path.startswith("/api/agent/") and path.endswith("/persona"):
+            agent, err = self.extract_path_param(path, 2, "agent", SAFE_AGENT_PATTERN)
+            if err:
+                return err
+            return self._delete_persona(agent)
+
+        return None
+
+    def _delete_persona(self, agent: str) -> HandlerResult:
+        """Delete an agent persona."""
+        persona_manager = self.get_persona_manager()
+        if not persona_manager:
+            return error_response("Persona management not configured", 503)
+
+        # Check persona exists
+        existing = persona_manager.get_persona(agent)
+        if not existing:
+            return error_response(f"No persona found for agent '{agent}'", 404)
+
+        try:
+            # Delete from database
+            with persona_manager.connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM personas WHERE agent_name = ?", (agent,))
+                cursor.execute("DELETE FROM performance_history WHERE agent_name = ?", (agent,))
+                conn.commit()
+
+            return json_response(
+                {
+                    "success": True,
+                    "message": f"Persona for agent '{agent}' deleted",
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error deleting persona for {agent}: {e}", exc_info=True)
+            return error_response("Failed to delete persona", 500)
