@@ -561,3 +561,308 @@ class QueueHandler(BaseHandler, PaginatedHandlerMixin):
         except Exception as e:
             logger.exception(f"Unexpected error cancelling job {job_id}: {e}")
             return error_response(safe_error_message(e, "cancel job"), 500)
+
+    async def _list_dlq(self, query_params: Dict[str, Any]) -> HandlerResult:
+        """
+        List jobs in the dead-letter queue (failed with max retries exceeded).
+
+        Query params:
+        - limit: Max jobs to return (default: 50, max: 100)
+        - offset: Pagination offset (default: 0)
+
+        Response:
+        {
+            "jobs": [
+                {
+                    "job_id": "...",
+                    "job_type": "debate",
+                    "status": "failed",
+                    "attempts": 3,
+                    "max_attempts": 3,
+                    "error": "...",
+                    "created_at": "...",
+                    "failed_at": "...",
+                    "age_hours": 24.5
+                }
+            ],
+            "total": 15,
+            "limit": 50,
+            "offset": 0
+        }
+        """
+        queue = await _get_queue()
+        if queue is None:
+            return error_response("Queue not available", 503)
+
+        limit = min(int(query_params.get("limit", ["50"])[0]), 100)
+        offset = int(query_params.get("offset", ["0"])[0])
+
+        try:
+            from aragora.queue import JobStatus
+
+            # Get all failed jobs where attempts >= max_attempts
+            all_jobs = await queue.list_jobs(status=JobStatus.FAILED, limit=500)
+
+            dlq_jobs = []
+            for job in all_jobs:
+                if job.attempts >= job.max_attempts:
+                    age_hours = 0.0
+                    if job.completed_at:
+                        age_hours = (datetime.now().timestamp() - job.completed_at) / 3600
+
+                    dlq_jobs.append(
+                        {
+                            "job_id": job.id,
+                            "job_type": job.job_type,
+                            "status": job.status.value,
+                            "attempts": job.attempts,
+                            "max_attempts": job.max_attempts,
+                            "error": job.error,
+                            "created_at": datetime.fromtimestamp(job.created_at).isoformat(),
+                            "failed_at": (
+                                datetime.fromtimestamp(job.completed_at).isoformat()
+                                if job.completed_at
+                                else None
+                            ),
+                            "age_hours": round(age_hours, 1),
+                            "payload": job.payload,
+                        }
+                    )
+
+            # Apply pagination
+            total = len(dlq_jobs)
+            dlq_jobs = dlq_jobs[offset : offset + limit]
+
+            return json_response(
+                {
+                    "jobs": dlq_jobs,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to list DLQ due to connection error: {e}")
+            return error_response(safe_error_message(e, "list DLQ"), 503)
+        except Exception as e:
+            logger.exception(f"Unexpected error listing DLQ: {e}")
+            return error_response(safe_error_message(e, "list DLQ"), 500)
+
+    async def _requeue_dlq_job(self, job_id: str) -> HandlerResult:
+        """Requeue a specific job from the DLQ."""
+        queue = await _get_queue()
+        if queue is None:
+            return error_response("Queue not available", 503)
+
+        try:
+            from aragora.queue import JobStatus
+
+            job = await queue.get_status(job_id)
+            if job is None:
+                return error_response(f"Job not found: {job_id}", 404)
+
+            if job.status != JobStatus.FAILED:
+                return error_response(
+                    f"Job is not in DLQ (status: {job.status.value})",
+                    400,
+                )
+
+            # Reset job and requeue
+            job.status = JobStatus.PENDING
+            job.attempts = 0
+            job.error = None
+            job.started_at = None
+            job.completed_at = None
+            job.worker_id = None
+            job.metadata["requeued_from_dlq"] = True
+            job.metadata["requeued_at"] = datetime.now().isoformat()
+
+            await queue.enqueue(job, priority=job.priority)
+
+            return json_response(
+                {
+                    "job_id": job_id,
+                    "status": "pending",
+                    "message": "Job requeued from DLQ",
+                }
+            )
+
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to requeue DLQ job {job_id}: {e}")
+            return error_response(safe_error_message(e, "requeue DLQ job"), 503)
+        except Exception as e:
+            logger.exception(f"Unexpected error requeuing DLQ job {job_id}: {e}")
+            return error_response(safe_error_message(e, "requeue DLQ job"), 500)
+
+    async def _requeue_all_dlq(self) -> HandlerResult:
+        """Requeue all jobs from the DLQ."""
+        queue = await _get_queue()
+        if queue is None:
+            return error_response("Queue not available", 503)
+
+        try:
+            from aragora.queue import JobStatus
+
+            # Get all failed jobs
+            all_jobs = await queue.list_jobs(status=JobStatus.FAILED, limit=1000)
+
+            requeued = 0
+            errors = []
+
+            for job in all_jobs:
+                if job.attempts >= job.max_attempts:
+                    try:
+                        job.status = JobStatus.PENDING
+                        job.attempts = 0
+                        job.error = None
+                        job.started_at = None
+                        job.completed_at = None
+                        job.worker_id = None
+                        job.metadata["requeued_from_dlq"] = True
+                        job.metadata["requeued_at"] = datetime.now().isoformat()
+
+                        await queue.enqueue(job, priority=job.priority)
+                        requeued += 1
+                    except Exception as e:
+                        errors.append({"job_id": job.id, "error": str(e)})
+
+            return json_response(
+                {
+                    "requeued": requeued,
+                    "errors": len(errors),
+                    "error_details": errors[:10],  # First 10 errors
+                    "message": f"Requeued {requeued} jobs from DLQ",
+                }
+            )
+
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to requeue all DLQ: {e}")
+            return error_response(safe_error_message(e, "requeue all DLQ"), 503)
+        except Exception as e:
+            logger.exception(f"Unexpected error requeuing all DLQ: {e}")
+            return error_response(safe_error_message(e, "requeue all DLQ"), 500)
+
+    async def _cleanup_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
+        """
+        Cleanup old completed/failed jobs.
+
+        Query params:
+        - older_than_days: Delete jobs older than N days (default: 7)
+        - status: Status to cleanup ('completed', 'failed', 'all') (default: 'completed')
+        - dry_run: If 'true', only count jobs without deleting (default: 'false')
+        """
+        queue = await _get_queue()
+        if queue is None:
+            return error_response("Queue not available", 503)
+
+        older_than_days = int(query_params.get("older_than_days", ["7"])[0])
+        status_filter = query_params.get("status", ["completed"])[0]
+        dry_run = query_params.get("dry_run", ["false"])[0].lower() == "true"
+
+        try:
+            from aragora.queue import JobStatus
+
+            cutoff = datetime.now().timestamp() - (older_than_days * 86400)
+            deleted = 0
+            scanned = 0
+
+            statuses_to_check = []
+            if status_filter == "all":
+                statuses_to_check = [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]
+            elif status_filter == "completed":
+                statuses_to_check = [JobStatus.COMPLETED]
+            elif status_filter == "failed":
+                statuses_to_check = [JobStatus.FAILED]
+            else:
+                return error_response(f"Invalid status: {status_filter}", 400)
+
+            for status in statuses_to_check:
+                jobs = await queue.list_jobs(status=status, limit=1000)
+                for job in jobs:
+                    scanned += 1
+                    job_time = job.completed_at or job.created_at
+                    if job_time < cutoff:
+                        if not dry_run:
+                            try:
+                                await queue.delete(job.id)
+                                deleted += 1
+                            except Exception as e:
+                                logger.warning(f"Failed to delete job {job.id}: {e}")
+                        else:
+                            deleted += 1
+
+            return json_response(
+                {
+                    "scanned": scanned,
+                    "deleted": deleted if not dry_run else 0,
+                    "would_delete": deleted if dry_run else None,
+                    "older_than_days": older_than_days,
+                    "status_filter": status_filter,
+                    "dry_run": dry_run,
+                }
+            )
+
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to cleanup jobs: {e}")
+            return error_response(safe_error_message(e, "cleanup jobs"), 503)
+        except Exception as e:
+            logger.exception(f"Unexpected error cleaning up jobs: {e}")
+            return error_response(safe_error_message(e, "cleanup jobs"), 500)
+
+    async def _list_stale_jobs(self, query_params: Dict[str, Any]) -> HandlerResult:
+        """
+        List stale/stuck jobs (processing for too long).
+
+        Query params:
+        - stale_minutes: Consider job stale after N minutes (default: 60)
+        - limit: Max jobs to return (default: 50)
+        """
+        queue = await _get_queue()
+        if queue is None:
+            return error_response("Queue not available", 503)
+
+        stale_minutes = int(query_params.get("stale_minutes", ["60"])[0])
+        limit = min(int(query_params.get("limit", ["50"])[0]), 100)
+
+        try:
+            from aragora.queue import JobStatus
+
+            cutoff = datetime.now().timestamp() - (stale_minutes * 60)
+            stale_jobs = []
+
+            # Check processing jobs
+            processing = await queue.list_jobs(status=JobStatus.PROCESSING, limit=500)
+            for job in processing:
+                if job.started_at and job.started_at < cutoff:
+                    duration_minutes = (datetime.now().timestamp() - job.started_at) / 60
+                    stale_jobs.append(
+                        {
+                            "job_id": job.id,
+                            "job_type": job.job_type,
+                            "status": job.status.value,
+                            "worker_id": job.worker_id,
+                            "started_at": datetime.fromtimestamp(job.started_at).isoformat(),
+                            "duration_minutes": round(duration_minutes, 1),
+                            "attempts": job.attempts,
+                        }
+                    )
+
+            # Sort by duration (longest first)
+            stale_jobs.sort(key=lambda j: j["duration_minutes"], reverse=True)
+            stale_jobs = stale_jobs[:limit]
+
+            return json_response(
+                {
+                    "jobs": stale_jobs,
+                    "total": len(stale_jobs),
+                    "stale_threshold_minutes": stale_minutes,
+                }
+            )
+
+        except (ConnectionError, OSError, TimeoutError) as e:
+            logger.error(f"Failed to list stale jobs: {e}")
+            return error_response(safe_error_message(e, "list stale jobs"), 503)
+        except Exception as e:
+            logger.exception(f"Unexpected error listing stale jobs: {e}")
+            return error_response(safe_error_message(e, "list stale jobs"), 500)
