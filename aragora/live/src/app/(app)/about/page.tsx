@@ -75,8 +75,9 @@ export default function AboutPage() {
             <div className="text-center mt-8">
               <p className="text-xl text-acid-cyan font-mono mb-4">Control Plane for Multi-Agent Deliberation</p>
               <p className="text-text-muted font-mono mb-6 max-w-2xl mx-auto">
-                Orchestrating 15+ AI models to debate your org knowledge and deliver defensible decisions to any channel.
-                Watch diverse AI models collaborate and reason through complex decisions in real-time.
+                Orchestrating 15+ AI models to debate your org knowledge—documents, databases, APIs—and
+                deliver defensible decisions to Slack, Teams, Discord, or voice. Unlike chatbots, Aragora
+                builds institutional memory and provides full audit trails for high-stakes decisions.
               </p>
 
               {/* Etymology */}
