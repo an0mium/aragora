@@ -36,6 +36,8 @@ export interface UseAsyncDataOptions<T> {
   onError?: (error: Error) => void;
   /** Transform response data */
   transform?: (data: unknown) => T;
+  /** Auto-refresh interval in milliseconds (0 to disable) */
+  refreshInterval?: number;
 }
 
 export interface UseAsyncDataReturn<T> {
@@ -73,6 +75,7 @@ export function useAsyncData<T>(
     onSuccess,
     onError,
     transform,
+    refreshInterval = 0,
   } = options;
 
   const [data, setData] = useState<T | null>(initialData as T | null);
@@ -168,6 +171,17 @@ export function useAsyncData<T>(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [immediate, ...deps]);
+
+  // Set up refresh interval
+  useEffect(() => {
+    if (refreshInterval <= 0) return;
+
+    const intervalId = setInterval(() => {
+      refetch();
+    }, refreshInterval);
+
+    return () => clearInterval(intervalId);
+  }, [refreshInterval, refetch]);
 
   const isRevalidating = loading && data !== null;
 
