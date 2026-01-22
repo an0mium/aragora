@@ -121,6 +121,7 @@ class MetricsHandler(BaseHandler):
         "/api/metrics/verification",
         "/api/metrics/system",
         "/api/metrics/background",
+        "/api/metrics/debate",
         "/metrics",  # Prometheus-format endpoint
     ]
 
@@ -169,6 +170,10 @@ class MetricsHandler(BaseHandler):
 
         if path == "/api/metrics/background":
             return self._get_background_stats()
+
+        if path == "/api/metrics/debate":
+            debate_id = query_params.get("debate_id", [None])[0]
+            return self._get_debate_perf_stats(debate_id)
 
         if path == "/metrics":
             return self._get_prometheus_metrics()
@@ -416,6 +421,47 @@ class MetricsHandler(BaseHandler):
         except (RuntimeError, AttributeError) as e:
             logger.error("Failed to get background stats: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get background stats"), 500)
+
+    def _get_debate_perf_stats(self, debate_id: Optional[str] = None) -> HandlerResult:
+        """Get debate performance statistics.
+
+        Returns metrics from the DebatePerformanceMonitor including:
+        - Slow debate history
+        - Currently active slow debates
+        - Per-debate insights (if debate_id provided)
+
+        Args:
+            debate_id: Optional specific debate to get insights for
+        """
+        try:
+            from aragora.debate.performance_monitor import get_debate_monitor
+
+            monitor = get_debate_monitor()
+
+            # If specific debate requested, return detailed insights
+            if debate_id:
+                insights = monitor.get_performance_insights(debate_id)
+                return json_response(insights)
+
+            # Otherwise return summary stats
+            stats = {
+                "slow_debates_history": monitor.get_slow_debates(limit=20),
+                "current_slow_debates": monitor.get_current_slow_debates(),
+                "slow_round_threshold_seconds": monitor.slow_round_threshold,
+                "active_debate_count": len(monitor._active_debates),
+            }
+            return json_response(stats)
+        except ImportError:
+            return json_response(
+                {
+                    "slow_debates_history": [],
+                    "current_slow_debates": [],
+                    "message": "Debate performance monitor not available",
+                }
+            )
+        except (RuntimeError, AttributeError) as e:
+            logger.error("Failed to get debate performance stats: %s", e, exc_info=True)
+            return error_response(safe_error_message(e, "get debate stats"), 500)
 
     def _get_database_sizes(self) -> dict[str, Any]:
         """Get database file sizes."""

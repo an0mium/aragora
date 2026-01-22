@@ -334,149 +334,166 @@ class DebateRoundsPhase:
 
             logger.info(f"round_start round={round_num}")
 
-            # Track round start time for slow debate detection
-            _round_start_time = time.time()
+            # Track round with performance monitor for detailed phase metrics
+            with perf_monitor.track_round(ctx.debate_id, round_num):
+                await self._execute_round(ctx, perf_monitor, round_num, rounds)
 
-            # Trigger PRE_ROUND hook if hook_manager is available
-            if ctx.hook_manager:
-                try:
-                    await ctx.hook_manager.trigger("pre_round", ctx=ctx, round_num=round_num)
-                except Exception as e:
-                    logger.debug(f"PRE_ROUND hook failed: {e}")
+    async def _execute_round(
+        self,
+        ctx: "DebateContext",
+        perf_monitor,
+        round_num: int,
+        total_rounds: int,
+    ) -> None:
+        """Execute a single debate round with performance tracking."""
+        result = ctx.result
 
-            # Emit heartbeat at round start
-            self._emit_heartbeat(f"round_{round_num}", "starting")
+        # Track round start time for slow debate detection
+        _round_start_time = time.time()
 
-            # Update role assignments
-            if self._update_role_assignments:
-                self._update_role_assignments(round_num=round_num)
+        # Trigger PRE_ROUND hook if hook_manager is available
+        if ctx.hook_manager:
+            try:
+                await ctx.hook_manager.trigger("pre_round", ctx=ctx, round_num=round_num)
+            except Exception as e:
+                logger.debug(f"PRE_ROUND hook failed: {e}")
 
-            # Notify spectator
-            if self._notify_spectator:
-                self._notify_spectator(
-                    "round",
-                    details=f"Starting Round {round_num}",
-                    agent="system",
-                )
+        # Emit heartbeat at round start
+        self._emit_heartbeat(f"round_{round_num}", "starting")
 
-            # Rotate stances if asymmetric debate
-            if self.protocol:
-                if self.protocol.asymmetric_stances and self.protocol.rotate_stances:
-                    if self._assign_stances:
-                        self._assign_stances(round_num)
-                        stances_str = ", ".join(f"{a.name}:{a.stance}" for a in ctx.agents)
-                        logger.debug(f"stances_rotated stances={stances_str}")
+        # Update role assignments
+        if self._update_role_assignments:
+            self._update_role_assignments(round_num=round_num)
 
-            # Emit round start event
-            if "on_round_start" in self.hooks:
-                self.hooks["on_round_start"](round_num)
-
-            # Record round start
-            if self.recorder:
-                try:
-                    self.recorder.record_phase_change(f"round_{round_num}_start")
-                except Exception as e:
-                    logger.debug(f"Recorder error for round start: {e}")
-
-            # Await background research/evidence before round 1 critiques
-            # This ensures research context is available for critique prompts
-            if round_num == 1 and self._context_initializer:
-                await self._context_initializer.await_background_context(ctx)
-
-            # Compress context messages using RLM after threshold rounds
-            # This keeps context manageable for long debates
-            if self._compress_context and round_num >= self._rlm_compression_round_threshold:
-                await self._compress_debate_context(ctx, round_num)
-
-            # Round 7 special handling: Final Synthesis
-            # Each agent synthesizes the discussion and revises their proposal to final form
-            # This skips the normal critique/revision cycle
-            if self.protocol and self.protocol.use_structured_phases and round_num == 7:
-                round_phase = self.protocol.get_round_phase(round_num)
-                if round_phase and "Final Synthesis" in round_phase.name:
-                    logger.info(f"round_7_final_synthesis agents={len(ctx.proposers)}")
-                    await self._execute_final_synthesis_round(ctx, round_num)
-                    result.rounds_used = round_num
-                    continue  # Skip normal critique/revision, move to Round 8
-
-            # Get and filter critics
-            critics = self._get_critics(ctx)
-
-            # Critique phase
-            await self._critique_phase(ctx, critics, round_num)
-
-            # Refresh evidence based on claims made in critiques and proposals
-            await self._refresh_evidence_for_round(ctx, round_num)
-
-            # Revision phase
-            await self._revision_phase(ctx, critics, round_num)
-
-            # Track novelty of revised proposals
-            self._convergence_tracker.track_novelty(ctx, round_num)
-
-            result.rounds_used = round_num
-
-            # Create checkpoint after each round
-            if self._checkpoint_callback:
-                try:
-                    await self._checkpoint_callback(ctx, round_num)
-                except Exception as e:
-                    logger.debug(f"Checkpoint failed for round {round_num}: {e}")
-
-            # Trigger POST_ROUND hook if hook_manager is available
-            if ctx.hook_manager:
-                try:
-                    await ctx.hook_manager.trigger(
-                        "post_round",
-                        ctx=ctx,
-                        round_num=round_num,
-                        proposals=ctx.proposals,
-                    )
-                except Exception as e:
-                    logger.debug(f"POST_ROUND hook failed: {e}")
-
-            # Emit heartbeat before convergence check
-            self._emit_heartbeat(f"round_{round_num}", "checking_convergence")
-
-            # Convergence detection
-            convergence_result = self._convergence_tracker.check_convergence(ctx, round_num)
-            should_break = (
-                convergence_result.converged and not convergence_result.blocked_by_trickster
+        # Notify spectator
+        if self._notify_spectator:
+            self._notify_spectator(
+                "round",
+                details=f"Starting Round {round_num}",
+                agent="system",
             )
 
-            # Record round duration for slow debate detection
-            _round_duration = time.time() - _round_start_time
-            _slow_threshold = perf_monitor.slow_round_threshold
-            if _round_duration > _slow_threshold:
-                logger.warning(
-                    f"slow_round_detected debate_id={ctx.debate_id} round={round_num} "
-                    f"duration={_round_duration:.2f}s threshold={_slow_threshold:.2f}s"
+        # Rotate stances if asymmetric debate
+        if self.protocol:
+            if self.protocol.asymmetric_stances and self.protocol.rotate_stances:
+                if self._assign_stances:
+                    self._assign_stances(round_num)
+                    stances_str = ", ".join(f"{a.name}:{a.stance}" for a in ctx.agents)
+                    logger.debug(f"stances_rotated stances={stances_str}")
+
+        # Emit round start event
+        if "on_round_start" in self.hooks:
+            self.hooks["on_round_start"](round_num)
+
+        # Record round start
+        if self.recorder:
+            try:
+                self.recorder.record_phase_change(f"round_{round_num}_start")
+            except Exception as e:
+                logger.debug(f"Recorder error for round start: {e}")
+
+        # Await background research/evidence before round 1 critiques
+        # This ensures research context is available for critique prompts
+        if round_num == 1 and self._context_initializer:
+            await self._context_initializer.await_background_context(ctx)
+
+        # Compress context messages using RLM after threshold rounds
+        # This keeps context manageable for long debates
+        if self._compress_context and round_num >= self._rlm_compression_round_threshold:
+            await self._compress_debate_context(ctx, round_num)
+
+        # Round 7 special handling: Final Synthesis
+        # Each agent synthesizes the discussion and revises their proposal to final form
+        # This skips the normal critique/revision cycle
+        if self.protocol and self.protocol.use_structured_phases and round_num == 7:
+            round_phase = self.protocol.get_round_phase(round_num)
+            if round_phase and "Final Synthesis" in round_phase.name:
+                logger.info(f"round_7_final_synthesis agents={len(ctx.proposers)}")
+                await self._execute_final_synthesis_round(ctx, round_num)
+                result.rounds_used = round_num
+                return  # Skip normal critique/revision, move to Round 8
+
+        # Get and filter critics
+        critics = self._get_critics(ctx)
+
+        # Critique phase with performance tracking
+        with perf_monitor.track_phase(ctx.debate_id, "critique"):
+            await self._critique_phase(ctx, critics, round_num)
+
+        # Refresh evidence based on claims made in critiques and proposals
+        with perf_monitor.track_phase(ctx.debate_id, "evidence_refresh"):
+            await self._refresh_evidence_for_round(ctx, round_num)
+
+        # Revision phase with performance tracking
+        with perf_monitor.track_phase(ctx.debate_id, "revision"):
+            await self._revision_phase(ctx, critics, round_num)
+
+        # Track novelty of revised proposals
+        self._convergence_tracker.track_novelty(ctx, round_num)
+
+        result.rounds_used = round_num
+
+        # Create checkpoint after each round
+        if self._checkpoint_callback:
+            try:
+                await self._checkpoint_callback(ctx, round_num)
+            except Exception as e:
+                logger.debug(f"Checkpoint failed for round {round_num}: {e}")
+
+        # Trigger POST_ROUND hook if hook_manager is available
+        if ctx.hook_manager:
+            try:
+                await ctx.hook_manager.trigger(
+                    "post_round",
+                    ctx=ctx,
+                    round_num=round_num,
+                    proposals=ctx.proposals,
                 )
-                try:
-                    from aragora.observability.metrics import (  # type: ignore[attr-defined]
-                        record_slow_round,
-                        record_round_latency,
-                    )
+            except Exception as e:
+                logger.debug(f"POST_ROUND hook failed: {e}")
 
-                    record_slow_round(debate_outcome="in_progress")
-                    record_round_latency(_round_duration)
-                except ImportError:
-                    pass
-            else:
-                try:
-                    from aragora.observability.metrics import record_round_latency  # type: ignore[attr-defined]
+        # Emit heartbeat before convergence check
+        self._emit_heartbeat(f"round_{round_num}", "checking_convergence")
 
-                    record_round_latency(_round_duration)
-                except ImportError:
-                    pass
+        # Convergence detection
+        convergence_result = self._convergence_tracker.check_convergence(ctx, round_num)
+        should_break = convergence_result.converged and not convergence_result.blocked_by_trickster
 
-            if should_break:
-                break
+        # Record round duration for slow debate detection
+        _round_duration = time.time() - _round_start_time
+        _slow_threshold = perf_monitor.slow_round_threshold
+        if _round_duration > _slow_threshold:
+            logger.warning(
+                f"slow_round_detected debate_id={ctx.debate_id} round={round_num} "
+                f"duration={_round_duration:.2f}s threshold={_slow_threshold:.2f}s"
+            )
+            try:
+                from aragora.observability.metrics import (  # type: ignore[attr-defined]
+                    record_slow_round,
+                    record_round_latency,
+                )
 
-            # Termination checks (only if not last round)
-            if round_num < rounds:
-                if await self._should_terminate(ctx, round_num):
-                    break
+                record_slow_round(debate_outcome="in_progress")
+                record_round_latency(_round_duration)
+            except ImportError:
+                pass
+        else:
+            try:
+                from aragora.observability.metrics import record_round_latency  # type: ignore[attr-defined]
+
+                record_round_latency(_round_duration)
+            except ImportError:
+                pass
+
+        if should_break:
+            return  # Converged - exit round execution early
+
+        # Termination checks (only if not last round)
+        if round_num < total_rounds:
+            if await self._should_terminate(ctx, round_num):
+                # Signal early termination by setting a flag
+                ctx.result.metadata = ctx.result.metadata or {}
+                ctx.result.metadata["early_termination"] = True
 
     def _get_critics(self, ctx: "DebateContext") -> list["Agent"]:
         """Get and filter critics for the round."""
