@@ -68,6 +68,41 @@ Pruning endpoints:
 - GET /api/knowledge/mound/pruning/history - Get pruning history
 - POST /api/knowledge/mound/pruning/restore - Restore archived item
 - POST /api/knowledge/mound/pruning/decay - Apply confidence decay
+
+Phase A2 - Contradiction Detection endpoints:
+- POST /api/knowledge/mound/contradictions/detect - Trigger contradiction scan
+- GET /api/knowledge/mound/contradictions - List unresolved contradictions
+- POST /api/knowledge/mound/contradictions/:id/resolve - Resolve a contradiction
+- GET /api/knowledge/mound/contradictions/stats - Get contradiction statistics
+
+Phase A2 - Governance (RBAC + Audit) endpoints:
+- POST /api/knowledge/mound/governance/roles - Create a role
+- POST /api/knowledge/mound/governance/roles/assign - Assign role to user
+- POST /api/knowledge/mound/governance/roles/revoke - Revoke role from user
+- GET /api/knowledge/mound/governance/permissions/:user_id - Get user permissions
+- POST /api/knowledge/mound/governance/permissions/check - Check permission
+- GET /api/knowledge/mound/governance/audit - Query audit trail
+- GET /api/knowledge/mound/governance/audit/user/:user_id - Get user activity
+- GET /api/knowledge/mound/governance/stats - Get governance stats
+
+Phase A2 - Analytics endpoints:
+- GET /api/knowledge/mound/analytics/coverage - Domain coverage analysis
+- GET /api/knowledge/mound/analytics/usage - Usage pattern analysis
+- POST /api/knowledge/mound/analytics/usage/record - Record usage event
+- POST /api/knowledge/mound/analytics/quality/snapshot - Capture quality snapshot
+- GET /api/knowledge/mound/analytics/quality/trend - Quality trend over time
+- GET /api/knowledge/mound/analytics/stats - Analytics statistics
+
+Phase A2 - Extraction endpoints:
+- POST /api/knowledge/mound/extraction/debate - Extract from a debate
+- POST /api/knowledge/mound/extraction/promote - Promote extracted claims
+- GET /api/knowledge/mound/extraction/stats - Get extraction statistics
+
+Phase A2 - Confidence Decay endpoints:
+- POST /api/knowledge/mound/confidence/decay - Apply confidence decay
+- POST /api/knowledge/mound/confidence/event - Record confidence event
+- GET /api/knowledge/mound/confidence/history - Get adjustment history
+- GET /api/knowledge/mound/confidence/stats - Get decay statistics
 """
 
 from __future__ import annotations
@@ -84,13 +119,18 @@ from ...base import (
 )
 from ...utils.rate_limit import RateLimiter, get_client_ip
 
+from .analytics import AnalyticsOperationsMixin
+from .confidence_decay import ConfidenceDecayOperationsMixin
+from .contradiction import ContradictionOperationsMixin
 from .culture import CultureOperationsMixin
 from .curation import CurationOperationsMixin
 from .dashboard import DashboardOperationsMixin
 from .dedup import DedupOperationsMixin
 from .export import ExportOperationsMixin
+from .extraction import ExtractionOperationsMixin
 from .federation import FederationOperationsMixin
 from .global_knowledge import GlobalKnowledgeOperationsMixin
+from .governance import GovernanceOperationsMixin
 from .graph import GraphOperationsMixin
 from .nodes import NodeOperationsMixin
 from .pruning import PruningOperationsMixin
@@ -109,7 +149,7 @@ logger = logging.getLogger(__name__)
 _knowledge_limiter = RateLimiter(requests_per_minute=60)
 
 
-class KnowledgeMoundHandler(
+class KnowledgeMoundHandler(  # type: ignore[misc]
     NodeOperationsMixin,
     RelationshipOperationsMixin,
     GraphOperationsMixin,
@@ -125,6 +165,11 @@ class KnowledgeMoundHandler(
     DedupOperationsMixin,
     PruningOperationsMixin,
     DashboardOperationsMixin,
+    ContradictionOperationsMixin,
+    GovernanceOperationsMixin,
+    AnalyticsOperationsMixin,
+    ExtractionOperationsMixin,
+    ConfidenceDecayOperationsMixin,
     BaseHandler,
 ):
     """Handler for Knowledge Mound API endpoints (unified knowledge storage).
@@ -186,11 +231,41 @@ class KnowledgeMoundHandler(
         "/api/knowledge/mound/curation/history",
         "/api/knowledge/mound/curation/scores",
         "/api/knowledge/mound/curation/tiers",
+        # Phase A2 - Contradiction detection
+        "/api/knowledge/mound/contradictions/detect",
+        "/api/knowledge/mound/contradictions",
+        "/api/knowledge/mound/contradictions/*/resolve",
+        "/api/knowledge/mound/contradictions/stats",
+        # Phase A2 - Governance (RBAC + Audit)
+        "/api/knowledge/mound/governance/roles",
+        "/api/knowledge/mound/governance/roles/assign",
+        "/api/knowledge/mound/governance/roles/revoke",
+        "/api/knowledge/mound/governance/permissions/*",
+        "/api/knowledge/mound/governance/permissions/check",
+        "/api/knowledge/mound/governance/audit",
+        "/api/knowledge/mound/governance/audit/user/*",
+        "/api/knowledge/mound/governance/stats",
+        # Phase A2 - Analytics
+        "/api/knowledge/mound/analytics/coverage",
+        "/api/knowledge/mound/analytics/usage",
+        "/api/knowledge/mound/analytics/usage/record",
+        "/api/knowledge/mound/analytics/quality/snapshot",
+        "/api/knowledge/mound/analytics/quality/trend",
+        "/api/knowledge/mound/analytics/stats",
+        # Phase A2 - Extraction
+        "/api/knowledge/mound/extraction/debate",
+        "/api/knowledge/mound/extraction/promote",
+        "/api/knowledge/mound/extraction/stats",
+        # Phase A2 - Confidence decay
+        "/api/knowledge/mound/confidence/decay",
+        "/api/knowledge/mound/confidence/event",
+        "/api/knowledge/mound/confidence/history",
+        "/api/knowledge/mound/confidence/stats",
     ]
 
     def __init__(self, server_context: dict):
         """Initialize knowledge mound handler."""
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         self._mound: Optional["KnowledgeMound"] = None
         self._mound_initialized = False
 
@@ -402,6 +477,92 @@ class KnowledgeMoundHandler(
 
         if path == "/api/knowledge/mound/dashboard/batcher":
             return _run_async(self.handle_dashboard_batcher_stats(handler.request))
+
+        # Phase A2 - Contradiction detection endpoints
+        if path == "/api/knowledge/mound/contradictions/detect":
+            return self._handle_detect_contradictions(handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/contradictions":
+            return self._handle_list_contradictions(query_params)  # type: ignore[attr-defined]
+
+        if path.startswith("/api/knowledge/mound/contradictions/") and path.endswith("/resolve"):
+            contradiction_id = path.split("/")[-2]
+            return self._handle_resolve_contradiction(contradiction_id, handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/contradictions/stats":
+            return _run_async(self.get_contradiction_stats())
+
+        # Phase A2 - Governance endpoints
+        if path == "/api/knowledge/mound/governance/roles":
+            method = getattr(handler, "command", "GET")
+            if method == "POST":
+                return self._handle_create_role(handler)  # type: ignore[attr-defined]
+            # GET would list roles - not implemented yet
+
+        if path == "/api/knowledge/mound/governance/roles/assign":
+            return self._handle_assign_role(handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/governance/roles/revoke":
+            return self._handle_revoke_role(handler)  # type: ignore[attr-defined]
+
+        if path.startswith("/api/knowledge/mound/governance/permissions/"):
+            if path == "/api/knowledge/mound/governance/permissions/check":
+                return self._handle_check_permission(handler)  # type: ignore[attr-defined]
+            else:
+                user_id = path.split("/")[-1]
+                return self._handle_get_user_permissions(user_id, query_params)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/governance/audit":
+            return self._handle_query_audit(query_params)  # type: ignore[attr-defined]
+
+        if path.startswith("/api/knowledge/mound/governance/audit/user/"):
+            user_id = path.split("/")[-1]
+            return self._handle_get_user_activity(user_id, query_params)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/governance/stats":
+            return _run_async(self.get_governance_stats())
+
+        # Phase A2 - Analytics endpoints
+        if path == "/api/knowledge/mound/analytics/coverage":
+            return self._handle_analyze_coverage(query_params)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/analytics/usage":
+            return self._handle_analyze_usage(query_params)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/analytics/usage/record":
+            return self._handle_record_usage_event(handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/analytics/quality/snapshot":
+            return self._handle_capture_quality_snapshot(handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/analytics/quality/trend":
+            return self._handle_get_quality_trend(query_params)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/analytics/stats":
+            return _run_async(self.get_analytics_stats())
+
+        # Phase A2 - Extraction endpoints
+        if path == "/api/knowledge/mound/extraction/debate":
+            return self._handle_extract_from_debate(handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/extraction/promote":
+            return self._handle_promote_extracted(handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/extraction/stats":
+            return _run_async(self.get_extraction_stats())
+
+        # Phase A2 - Confidence decay endpoints
+        if path == "/api/knowledge/mound/confidence/decay":
+            return self._handle_apply_confidence_decay_new(handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/confidence/event":
+            return self._handle_record_confidence_event(handler)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/confidence/history":
+            return self._handle_get_confidence_history(query_params)  # type: ignore[attr-defined]
+
+        if path == "/api/knowledge/mound/confidence/stats":
+            return _run_async(self.get_decay_stats())
 
         return None
 
@@ -640,5 +801,422 @@ class KnowledgeMoundHandler(
                 workspace_id=workspace_id,
                 decay_rate=decay_rate,
                 min_confidence=min_confidence,
+            )
+        )
+
+    # -------------------------------------------------------------------------
+    # Phase A2 - Contradiction Detection handler methods
+    # -------------------------------------------------------------------------
+
+    def _handle_detect_contradictions(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/contradictions/detect."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in detect_contradictions: %s", e)
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        item_ids = body.get("item_ids")
+
+        return _run_async(
+            self.detect_contradictions(
+                workspace_id=workspace_id,
+                item_ids=item_ids,
+            )
+        )
+
+    def _handle_list_contradictions(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/contradictions."""
+        workspace_id = query_params.get("workspace_id")
+        min_severity = query_params.get("min_severity")
+
+        return _run_async(
+            self.list_contradictions(
+                workspace_id=workspace_id,
+                min_severity=min_severity,
+            )
+        )
+
+    def _handle_resolve_contradiction(self, contradiction_id: str, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/contradictions/:id/resolve."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in resolve_contradiction: %s", e)
+            body = {}
+
+        strategy = body.get("strategy")
+        resolved_by = body.get("resolved_by")
+        notes = body.get("notes", "")
+
+        if not strategy:
+            return error_response("strategy is required", 400)
+
+        return _run_async(
+            self.resolve_contradiction(
+                contradiction_id=contradiction_id,
+                strategy=strategy,
+                resolved_by=resolved_by,
+                notes=notes,
+            )
+        )
+
+    # -------------------------------------------------------------------------
+    # Phase A2 - Governance handler methods
+    # -------------------------------------------------------------------------
+
+    def _handle_create_role(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/governance/roles."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in create_role: %s", e)
+            body = {}
+
+        name = body.get("name")
+        permissions = body.get("permissions", [])
+        description = body.get("description", "")
+        workspace_id = body.get("workspace_id")
+        created_by = body.get("created_by")
+
+        if not name:
+            return error_response("name is required", 400)
+
+        return _run_async(
+            self.create_role(
+                name=name,
+                permissions=permissions,
+                description=description,
+                workspace_id=workspace_id,
+                created_by=created_by,
+            )
+        )
+
+    def _handle_assign_role(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/governance/roles/assign."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in assign_role: %s", e)
+            body = {}
+
+        user_id = body.get("user_id")
+        role_id = body.get("role_id")
+        workspace_id = body.get("workspace_id")
+        assigned_by = body.get("assigned_by")
+
+        if not user_id or not role_id:
+            return error_response("user_id and role_id are required", 400)
+
+        return _run_async(
+            self.assign_role(
+                user_id=user_id,
+                role_id=role_id,
+                workspace_id=workspace_id,
+                assigned_by=assigned_by,
+            )
+        )
+
+    def _handle_revoke_role(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/governance/roles/revoke."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in revoke_role: %s", e)
+            body = {}
+
+        user_id = body.get("user_id")
+        role_id = body.get("role_id")
+        workspace_id = body.get("workspace_id")
+
+        if not user_id or not role_id:
+            return error_response("user_id and role_id are required", 400)
+
+        return _run_async(
+            self.revoke_role(
+                user_id=user_id,
+                role_id=role_id,
+                workspace_id=workspace_id,
+            )
+        )
+
+    def _handle_get_user_permissions(self, user_id: str, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/governance/permissions/:user_id."""
+        workspace_id = query_params.get("workspace_id")
+
+        return _run_async(
+            self.get_user_permissions(
+                user_id=user_id,
+                workspace_id=workspace_id,
+            )
+        )
+
+    def _handle_check_permission(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/governance/permissions/check."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in check_permission: %s", e)
+            body = {}
+
+        user_id = body.get("user_id")
+        permission = body.get("permission")
+        workspace_id = body.get("workspace_id")
+
+        if not user_id or not permission:
+            return error_response("user_id and permission are required", 400)
+
+        return _run_async(
+            self.check_permission(
+                user_id=user_id,
+                permission=permission,
+                workspace_id=workspace_id,
+            )
+        )
+
+    def _handle_query_audit(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/governance/audit."""
+        actor_id = query_params.get("actor_id")
+        action = query_params.get("action")
+        workspace_id = query_params.get("workspace_id")
+        limit = int(query_params.get("limit", 100))
+
+        return _run_async(
+            self.query_audit_trail(
+                actor_id=actor_id,
+                action=action,
+                workspace_id=workspace_id,
+                limit=limit,
+            )
+        )
+
+    def _handle_get_user_activity(self, user_id: str, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/governance/audit/user/:user_id."""
+        days = int(query_params.get("days", 30))
+
+        return _run_async(
+            self.get_user_activity(
+                user_id=user_id,
+                days=days,
+            )
+        )
+
+    # -------------------------------------------------------------------------
+    # Phase A2 - Analytics handler methods
+    # -------------------------------------------------------------------------
+
+    def _handle_analyze_coverage(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/analytics/coverage."""
+        workspace_id = query_params.get("workspace_id", "default")
+        stale_threshold_days = int(query_params.get("stale_threshold_days", 90))
+
+        return _run_async(
+            self.analyze_coverage(
+                workspace_id=workspace_id,
+                stale_threshold_days=stale_threshold_days,
+            )
+        )
+
+    def _handle_analyze_usage(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/analytics/usage."""
+        workspace_id = query_params.get("workspace_id", "default")
+        days = int(query_params.get("days", 30))
+
+        return _run_async(
+            self.analyze_usage(
+                workspace_id=workspace_id,
+                days=days,
+            )
+        )
+
+    def _handle_record_usage_event(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/analytics/usage/record."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in record_usage_event: %s", e)
+            body = {}
+
+        event_type = body.get("event_type")
+        item_id = body.get("item_id")
+        user_id = body.get("user_id")
+        workspace_id = body.get("workspace_id")
+        query = body.get("query")
+
+        if not event_type:
+            return error_response("event_type is required", 400)
+
+        return _run_async(
+            self.record_usage_event(
+                event_type=event_type,
+                item_id=item_id,
+                user_id=user_id,
+                workspace_id=workspace_id,
+                query=query,
+            )
+        )
+
+    def _handle_capture_quality_snapshot(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/analytics/quality/snapshot."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in capture_quality_snapshot: %s", e)
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+
+        return _run_async(
+            self.capture_quality_snapshot(
+                workspace_id=workspace_id,
+            )
+        )
+
+    def _handle_get_quality_trend(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/analytics/quality/trend."""
+        workspace_id = query_params.get("workspace_id", "default")
+        days = int(query_params.get("days", 30))
+
+        return _run_async(
+            self.get_quality_trend(
+                workspace_id=workspace_id,
+                days=days,
+            )
+        )
+
+    # -------------------------------------------------------------------------
+    # Phase A2 - Extraction handler methods
+    # -------------------------------------------------------------------------
+
+    def _handle_extract_from_debate(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/extraction/debate."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in extract_from_debate: %s", e)
+            body = {}
+
+        debate_id = body.get("debate_id")
+        messages = body.get("messages", [])
+        consensus_text = body.get("consensus_text")
+        topic = body.get("topic")
+
+        if not debate_id:
+            return error_response("debate_id is required", 400)
+
+        if not messages:
+            return error_response("messages list is required", 400)
+
+        return _run_async(
+            self.extract_from_debate(
+                debate_id=debate_id,
+                messages=messages,
+                consensus_text=consensus_text,
+                topic=topic,
+            )
+        )
+
+    def _handle_promote_extracted(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/extraction/promote."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in promote_extracted: %s", e)
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        min_confidence = float(body.get("min_confidence", 0.6))
+
+        return _run_async(
+            self.promote_extracted_knowledge(
+                workspace_id=workspace_id,
+                min_confidence=min_confidence,
+            )
+        )
+
+    # -------------------------------------------------------------------------
+    # Phase A2 - Confidence Decay handler methods
+    # -------------------------------------------------------------------------
+
+    def _handle_apply_confidence_decay_new(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/confidence/decay."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in confidence decay: %s", e)
+            body = {}
+
+        workspace_id = body.get("workspace_id", "default")
+        force = body.get("force", False)
+
+        return _run_async(
+            self.apply_confidence_decay_endpoint(
+                workspace_id=workspace_id,
+                force=force,
+            )
+        )
+
+    def _handle_record_confidence_event(self, handler: Any) -> HandlerResult:
+        """Handle POST /api/knowledge/mound/confidence/event."""
+        try:
+            import json
+
+            body = json.loads(handler.request.body.decode("utf-8")) if handler.request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+            logger.warning("Failed to parse request body in record_confidence_event: %s", e)
+            body = {}
+
+        item_id = body.get("item_id")
+        event = body.get("event")
+        reason = body.get("reason", "")
+
+        if not item_id:
+            return error_response("item_id is required", 400)
+
+        if not event:
+            return error_response("event is required", 400)
+
+        return _run_async(
+            self.record_confidence_event(
+                item_id=item_id,
+                event=event,
+                reason=reason,
+            )
+        )
+
+    def _handle_get_confidence_history(self, query_params: dict) -> HandlerResult:
+        """Handle GET /api/knowledge/mound/confidence/history."""
+        item_id = query_params.get("item_id")
+        event_type = query_params.get("event_type")
+        limit = int(query_params.get("limit", 100))
+
+        return _run_async(
+            self.get_confidence_history(
+                item_id=item_id,
+                event_type=event_type,
+                limit=limit,
             )
         )
