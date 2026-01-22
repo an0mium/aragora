@@ -32,6 +32,7 @@ _PROD_ORIGINS: Set[str] = {
     "https://www.aragora.ai",
     "https://live.aragora.ai",
     "https://api.aragora.ai",
+    "https://aragora.pages.dev",  # Cloudflare Pages deployment
 }
 
 # Default allowed origins based on environment
