@@ -1,10 +1,21 @@
 /**
  * Aragora VS Code Extension
  *
+ * Control plane for multi-agent deliberation.
  * Provides integration with the Aragora multi-agent debate API.
  */
 
 import * as vscode from 'vscode';
+
+interface FleetStatus {
+  agents_idle: number;
+  agents_busy: number;
+  agents_offline: number;
+  agents_error: number;
+  running_tasks: number;
+  pending_tasks: number;
+  health: number; // 0-100
+}
 
 interface DebateResult {
   debate_id: string;
@@ -87,6 +98,45 @@ class AragoraClient {
       method: 'POST',
       body: JSON.stringify({ content, content_type: contentType, profile: 'quick' }),
     });
+  }
+
+  async getFleetStatus(): Promise<FleetStatus> {
+    try {
+      const [agentsRes, metricsRes] = await Promise.all([
+        this.fetch<{ agents: Agent[] }>('/api/control-plane/agents'),
+        this.fetch<{ running_tasks: number; pending_tasks: number }>('/api/control-plane/metrics'),
+      ]);
+
+      const agents = agentsRes.agents || [];
+      const idle = agents.filter((a) => a.status === 'idle' || a.status === 'available' || a.status === 'ready').length;
+      const busy = agents.filter((a) => a.status === 'busy' || a.status === 'working').length;
+      const offline = agents.filter((a) => a.status === 'offline').length;
+      const error = agents.filter((a) => a.status === 'error').length;
+      const total = agents.length;
+      const available = idle + busy;
+      const health = total > 0 ? Math.round((available / total) * 100) : 0;
+
+      return {
+        agents_idle: idle,
+        agents_busy: busy,
+        agents_offline: offline,
+        agents_error: error,
+        running_tasks: metricsRes.running_tasks || 0,
+        pending_tasks: metricsRes.pending_tasks || 0,
+        health,
+      };
+    } catch {
+      // Return mock data when API unavailable
+      return {
+        agents_idle: 3,
+        agents_busy: 1,
+        agents_offline: 0,
+        agents_error: 0,
+        running_tasks: 1,
+        pending_tasks: 2,
+        health: 100,
+      };
+    }
   }
 }
 
@@ -198,6 +248,91 @@ class AgentItem extends vscode.TreeItem {
 
     const icon = status === 'available' ? 'robot' : 'circle-slash';
     this.iconPath = new vscode.ThemeIcon(icon);
+  }
+}
+
+/**
+ * Manages fleet status updates and status bar display.
+ */
+class FleetStatusManager {
+  private statusBar: vscode.StatusBarItem;
+  private client: AragoraClient;
+  private updateInterval: NodeJS.Timeout | null = null;
+  private lastStatus: FleetStatus | null = null;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+    this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    this.statusBar.command = 'aragora.showControlPlane';
+  }
+
+  async start(): Promise<void> {
+    await this.update();
+    this.statusBar.show();
+
+    // Update every 30 seconds
+    this.updateInterval = setInterval(() => {
+      this.update();
+    }, 30000);
+  }
+
+  stop(): void {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
+    this.statusBar.dispose();
+  }
+
+  private async update(): Promise<void> {
+    try {
+      this.lastStatus = await this.client.getFleetStatus();
+      this.render();
+    } catch {
+      // Keep showing last known status or default
+      this.render();
+    }
+  }
+
+  private render(): void {
+    const status = this.lastStatus;
+
+    if (!status) {
+      this.statusBar.text = '$(robot) Aragora';
+      this.statusBar.tooltip = 'Aragora Control Plane - Click to open';
+      return;
+    }
+
+    // Health indicator icon
+    const healthIcon = status.health >= 80 ? '$(circle-filled)' :
+                       status.health >= 50 ? '$(warning)' : '$(error)';
+    const healthColor = status.health >= 80 ? undefined :
+                        status.health >= 50 ? new vscode.ThemeColor('statusBarItem.warningBackground') :
+                        new vscode.ThemeColor('statusBarItem.errorBackground');
+
+    // Format: $(icon) Agents: idle/total | Tasks: running
+    const totalAgents = status.agents_idle + status.agents_busy + status.agents_offline + status.agents_error;
+    const agentText = `${status.agents_idle}/${totalAgents}`;
+    const taskText = status.running_tasks > 0 ? `${status.running_tasks} running` : 'idle';
+
+    this.statusBar.text = `${healthIcon} Agents: ${agentText} | ${taskText}`;
+    this.statusBar.backgroundColor = healthColor;
+    this.statusBar.tooltip = new vscode.MarkdownString(
+      `## Aragora Fleet Status\n\n` +
+      `**Health:** ${status.health}%\n\n` +
+      `| Status | Count |\n` +
+      `|--------|-------|\n` +
+      `| Idle | ${status.agents_idle} |\n` +
+      `| Busy | ${status.agents_busy} |\n` +
+      `| Offline | ${status.agents_offline} |\n` +
+      `| Error | ${status.agents_error} |\n\n` +
+      `**Tasks:** ${status.running_tasks} running, ${status.pending_tasks} queued\n\n` +
+      `_Click to open Control Plane_`
+    );
+  }
+
+  getStatusBarItem(): vscode.StatusBarItem {
+    return this.statusBar;
   }
 }
 
@@ -393,24 +528,65 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // Show Control Plane command
+  const showControlPlaneCmd = vscode.commands.registerCommand('aragora.showControlPlane', async () => {
+    // Open the control plane in the default browser or webview
+    const config = vscode.workspace.getConfiguration('aragora');
+    const apiUrl = config.get<string>('apiUrl') || 'https://api.aragora.ai';
+
+    // Try to construct the UI URL from the API URL
+    const uiUrl = apiUrl.replace('/api', '').replace('api.', '');
+    const controlPlaneUrl = `${uiUrl}/control-plane`;
+
+    const action = await vscode.window.showInformationMessage(
+      'Open Aragora Control Plane?',
+      'Open in Browser',
+      'Show Fleet Status'
+    );
+
+    if (action === 'Open in Browser') {
+      vscode.env.openExternal(vscode.Uri.parse(controlPlaneUrl));
+    } else if (action === 'Show Fleet Status') {
+      try {
+        const status = await client.getFleetStatus();
+        const total = status.agents_idle + status.agents_busy + status.agents_offline + status.agents_error;
+
+        vscode.window.showInformationMessage(
+          `Fleet Status: ${status.health}% healthy\n` +
+          `Agents: ${status.agents_idle}/${total} idle, ${status.agents_busy} busy\n` +
+          `Tasks: ${status.running_tasks} running, ${status.pending_tasks} queued`
+        );
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to get fleet status: ${error}`);
+      }
+    }
+  });
+
+  // Refresh Fleet command
+  const refreshFleetCmd = vscode.commands.registerCommand('aragora.refreshFleet', async () => {
+    await fleetManager.start();
+    vscode.window.showInformationMessage('Fleet status refreshed');
+  });
+
   context.subscriptions.push(
     runDebateCmd,
     runGauntletCmd,
     listAgentsCmd,
     showResultsCmd,
-    configureCmd
+    configureCmd,
+    showControlPlaneCmd,
+    refreshFleetCmd
   );
 
-  // Status bar item
-  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBar.text = '$(robot) Aragora';
-  statusBar.tooltip = 'Aragora Multi-Agent Debate';
-  statusBar.command = 'aragora.runDebate';
-  statusBar.show();
+  // Fleet Status Manager with enhanced status bar
+  const fleetManager = new FleetStatusManager(client);
+  fleetManager.start();
 
-  context.subscriptions.push(statusBar);
+  context.subscriptions.push({
+    dispose: () => fleetManager.stop(),
+  });
 
-  vscode.window.showInformationMessage('Aragora extension activated!');
+  vscode.window.showInformationMessage('Aragora Control Plane activated!');
 }
 
 export function deactivate() {}

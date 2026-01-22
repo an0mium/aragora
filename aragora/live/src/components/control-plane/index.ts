@@ -129,3 +129,23 @@ export {
   type WorkflowCategory,
   type TemplatePreviewProps,
 } from './TemplateGallery';
+
+// Fleet Status Widget
+export {
+  FleetStatusWidget,
+  FleetHealthGauge,
+  type FleetStatusWidgetProps,
+  type FleetAgent,
+  type AgentStatus as FleetAgentStatus,
+  type FleetHealthGaugeProps,
+} from './FleetStatusWidget';
+
+// Activity Feed
+export {
+  ActivityFeed,
+  ActivityEventItem,
+  type ActivityFeedProps,
+  type ActivityEventItemProps,
+  type ActivityEvent,
+  type ActivityEventType,
+} from './ActivityFeed';
