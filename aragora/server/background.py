@@ -269,6 +269,14 @@ def setup_default_tasks(
     """
     manager = get_background_manager()
 
+    # Initialize circuit breaker metrics integration
+    try:
+        from aragora.server.prometheus import initialize_circuit_breaker_metrics
+
+        initialize_circuit_breaker_metrics()
+    except ImportError:
+        pass  # prometheus module may not be available
+
     # Store shared memory reference
     _shared_memory = memory_instance
 
@@ -370,6 +378,26 @@ def setup_default_tasks(
         callback=circuit_breaker_cleanup,
         enabled=True,
         run_on_startup=False,
+    )
+
+    # Circuit breaker metrics export - runs every 30 seconds
+    def circuit_breaker_metrics_export():
+        """Export circuit breaker states to Prometheus."""
+        try:
+            from aragora.server.prometheus import export_circuit_breaker_metrics
+
+            export_circuit_breaker_metrics()
+        except ImportError:
+            pass  # prometheus module may not be available
+        except Exception as e:
+            logger.debug("Circuit breaker metrics export failed: %s", e)
+
+    manager.register_task(
+        name="circuit_breaker_metrics_export",
+        interval_seconds=30,  # 30 seconds
+        callback=circuit_breaker_metrics_export,
+        enabled=True,
+        run_on_startup=True,  # Export immediately on startup
     )
 
     # Memory consolidation - runs every 24 hours

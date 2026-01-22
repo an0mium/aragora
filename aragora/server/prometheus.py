@@ -627,6 +627,49 @@ def set_circuit_breaker_state(agent_type: str, state: int) -> None:
         )
 
 
+def initialize_circuit_breaker_metrics() -> None:
+    """Initialize circuit breaker metrics integration.
+
+    Registers a callback with the resilience module to automatically
+    export circuit breaker state changes to Prometheus.
+
+    Call this once during server startup.
+    """
+    try:
+        from aragora.resilience import set_metrics_callback
+
+        set_metrics_callback(set_circuit_breaker_state)
+        logger.info("Circuit breaker metrics integration initialized")
+    except ImportError:
+        logger.debug("Resilience module not available for metrics integration")
+
+
+def export_circuit_breaker_metrics() -> None:
+    """Export all circuit breaker states to Prometheus.
+
+    Call this periodically (e.g., every 30s) to ensure metrics
+    are up-to-date even if state changes were missed.
+    """
+    try:
+        from aragora.resilience import get_circuit_breaker_metrics
+
+        metrics = get_circuit_breaker_metrics()
+        for name, cb_data in metrics.get("circuit_breakers", {}).items():
+            status = cb_data.get("status", "closed")
+            state_value = {"closed": 0, "open": 1, "half-open": 2}.get(status, 0)
+            set_circuit_breaker_state(name, state_value)
+
+            # Also export entity-level states if in multi-entity mode
+            entity_mode = cb_data.get("entity_mode", {})
+            for entity in entity_mode.get("open_entities", []):
+                set_circuit_breaker_state(f"{name}:{entity}", 1)  # open
+
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.debug(f"Error exporting circuit breaker metrics: {e}")
+
+
 def record_http_request(method: str, endpoint: str, status: int, duration_seconds: float) -> None:
     """Record an HTTP request."""
     if PROMETHEUS_AVAILABLE:
@@ -983,6 +1026,8 @@ __all__ = [
     "record_agent_generation",
     "record_agent_failure",
     "set_circuit_breaker_state",
+    "initialize_circuit_breaker_metrics",
+    "export_circuit_breaker_metrics",
     "record_http_request",
     "set_websocket_connections",
     "record_websocket_message",

@@ -118,6 +118,7 @@ def get_circuit_breaker(
 
         if name not in _circuit_breakers:
             _circuit_breakers[name] = CircuitBreaker(
+                name=name,
                 failure_threshold=failure_threshold,
                 cooldown_seconds=cooldown_seconds,
             )
@@ -387,6 +388,7 @@ class CircuitBreaker:
                 breaker.record_failure("agent-1")
     """
 
+    name: str = "default"  # Circuit breaker name for metrics
     failure_threshold: int = 3  # Consecutive failures before opening circuit
     cooldown_seconds: float = 60.0  # Seconds before attempting recovery
     recovery_timeout: Optional[float] = None  # Backward-compatible alias for cooldown_seconds
