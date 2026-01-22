@@ -151,6 +151,9 @@ class TestPoolExhaustedError:
         assert error.utilization == 0.8
 
 
+import sys
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="asyncio.timeout requires Python 3.11+")
 class TestAcquireConnectionResilient:
     """Tests for resilient connection acquisition."""
 
