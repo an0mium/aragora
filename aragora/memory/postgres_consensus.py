@@ -450,7 +450,7 @@ class PostgresConsensusMemory(PostgresStore):
         """Get all consensus records for a domain."""
         return await self.get_recent(limit=limit, domain=domain, min_confidence=min_confidence)
 
-    async def count(self, domain: Optional[str] = None) -> int:
+    async def count(self, domain: Optional[str] = None) -> int:  # type: ignore[override]
         """Count consensus records, optionally filtered by domain."""
         async with self.connection() as conn:
             if domain:

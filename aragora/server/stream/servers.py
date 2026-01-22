@@ -135,7 +135,7 @@ WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 # =============================================================================
 
 
-class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[misc]
+class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[misc,override]
     """
     Unified server using aiohttp to handle both HTTP API and WebSocket on a single port.
 

@@ -764,7 +764,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         return False
 
-    def verify_webhook_signature(
+    def verify_webhook_signature(  # type: ignore[override]
         self,
         payload: Dict[str, Any],
         signature: str,

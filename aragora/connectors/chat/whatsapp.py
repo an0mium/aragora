@@ -578,7 +578,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             platform="whatsapp",
         )
 
-    async def send_voice_message(
+    async def send_voice_message(  # type: ignore[override]
         self,
         channel_id: str,
         audio_data: bytes,

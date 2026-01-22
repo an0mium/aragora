@@ -562,7 +562,7 @@ class OneDriveConnector(EnterpriseConnector):
                 web_url=item.get("webUrl", ""),
             )
 
-    async def sync_items(
+    async def sync_items(  # type: ignore[override]
         self,
         state: Optional[SyncState] = None,
     ) -> AsyncIterator[SyncItem]:

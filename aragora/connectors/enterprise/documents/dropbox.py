@@ -561,7 +561,7 @@ class DropboxConnector(EnterpriseConnector):
                 content_hash=metadata.get("content_hash"),
             )
 
-    async def sync_items(
+    async def sync_items(  # type: ignore[override]
         self,
         state: Optional[SyncState] = None,
     ) -> AsyncIterator[SyncItem]:

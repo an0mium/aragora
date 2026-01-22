@@ -348,7 +348,7 @@ class VerticalSpecialistAgent(APIAgent):
 
         return response.content
 
-    async def critique(
+    async def critique(  # type: ignore[override]
         self,
         proposal: str,
         task: str,

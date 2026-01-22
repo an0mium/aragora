@@ -30,7 +30,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from aragora.storage.postgres_store import PostgresStore, ASYNCPG_AVAILABLE
-from aragora.memory.tier_manager import MemoryTier, TierManager, get_tier_manager, DEFAULT_TIER_CONFIGS
+from aragora.memory.tier_manager import (
+    MemoryTier,
+    TierManager,
+    get_tier_manager,
+    DEFAULT_TIER_CONFIGS,
+)
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -146,6 +151,7 @@ class ContinuumMemoryEntryDict(Dict[str, Any]):
         metadata = self.get("metadata", {})
         if isinstance(metadata, str):
             import json
+
             metadata = json.loads(metadata)
         return metadata.get("cross_references", [])
 
@@ -261,25 +267,32 @@ class PostgresContinuumMemory(PostgresStore):
                     updated_at = EXCLUDED.updated_at,
                     metadata = EXCLUDED.metadata
                 """,
-                memory_id, tier_value, content, importance, now, meta_json,
+                memory_id,
+                tier_value,
+                content,
+                importance,
+                now,
+                meta_json,
             )
 
-        return ContinuumMemoryEntryDict({
-            "id": memory_id,
-            "tier": tier_value,
-            "content": content,
-            "importance": importance,
-            "surprise_score": 0.0,
-            "consolidation_score": 0.0,
-            "update_count": 1,
-            "success_count": 0,
-            "failure_count": 0,
-            "created_at": now.isoformat(),
-            "updated_at": now.isoformat(),
-            "metadata": metadata or {},
-            "red_line": False,
-            "red_line_reason": "",
-        })
+        return ContinuumMemoryEntryDict(
+            {
+                "id": memory_id,
+                "tier": tier_value,
+                "content": content,
+                "importance": importance,
+                "surprise_score": 0.0,
+                "consolidation_score": 0.0,
+                "update_count": 1,
+                "success_count": 0,
+                "failure_count": 0,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat(),
+                "metadata": metadata or {},
+                "red_line": False,
+                "red_line_reason": "",
+            }
+        )
 
     async def store(
         self,
@@ -438,7 +451,8 @@ class PostgresContinuumMemory(PostgresStore):
                     FROM continuum_memory
                     WHERE id = $1
                     """,
-                    memory_id, reason,
+                    memory_id,
+                    reason,
                 )
                 archived = True
 
@@ -513,8 +527,7 @@ class PostgresContinuumMemory(PostgresStore):
             keywords = [kw.strip().lower() for kw in query.split()[:50] if kw.strip()]
             if keywords:
                 keyword_conditions = [
-                    f"LOWER(content) LIKE ${param_idx + i}"
-                    for i in range(len(keywords))
+                    f"LOWER(content) LIKE ${param_idx + i}" for i in range(len(keywords))
                 ]
                 base_query += f" AND ({' OR '.join(keyword_conditions)})"
                 params.extend([f"%{kw}%" for kw in keywords])
@@ -558,7 +571,9 @@ class PostgresContinuumMemory(PostgresStore):
                 ORDER BY importance DESC
                 LIMIT $3
                 """,
-                tier_value, min_importance, limit,
+                tier_value,
+                min_importance,
+                limit,
             )
 
         return [self._row_to_entry(row) for row in rows]
@@ -617,9 +632,10 @@ class PostgresContinuumMemory(PostgresStore):
             success_surprise = abs(actual - expected_rate)
 
             # Combine surprise signals
-            new_surprise = (
-                self.hyperparams["surprise_weight_success"] * success_surprise +
-                self.hyperparams["surprise_weight_agent"] * (agent_prediction_error or 0.0)
+            new_surprise = self.hyperparams[
+                "surprise_weight_success"
+            ] * success_surprise + self.hyperparams["surprise_weight_agent"] * (
+                agent_prediction_error or 0.0
             )
 
             # Exponential moving average for surprise
@@ -645,7 +661,10 @@ class PostgresContinuumMemory(PostgresStore):
                         updated_at = $3
                     WHERE id = $4
                     """,
-                    updated_surprise, consolidation, datetime.now(), memory_id,
+                    updated_surprise,
+                    consolidation,
+                    datetime.now(),
+                    memory_id,
                 )
             else:
                 await conn.execute(
@@ -658,7 +677,10 @@ class PostgresContinuumMemory(PostgresStore):
                         updated_at = $3
                     WHERE id = $4
                     """,
-                    updated_surprise, consolidation, datetime.now(), memory_id,
+                    updated_surprise,
+                    consolidation,
+                    datetime.now(),
+                    memory_id,
                 )
 
         return updated_surprise
@@ -709,7 +731,9 @@ class PostgresContinuumMemory(PostgresStore):
                 SET tier = $1, last_promotion_at = $2, updated_at = $2
                 WHERE id = $3
                 """,
-                new_tier.value, now, memory_id,
+                new_tier.value,
+                now,
+                memory_id,
             )
 
             # Record transition
@@ -718,7 +742,10 @@ class PostgresContinuumMemory(PostgresStore):
                 INSERT INTO tier_transitions (memory_id, from_tier, to_tier, reason, surprise_score)
                 VALUES ($1, $2, $3, 'high_surprise', $4)
                 """,
-                memory_id, current_tier.value, new_tier.value, surprise_score,
+                memory_id,
+                current_tier.value,
+                new_tier.value,
+                surprise_score,
             )
 
         # Record metrics
@@ -767,7 +794,9 @@ class PostgresContinuumMemory(PostgresStore):
                 SET tier = $1, updated_at = $2
                 WHERE id = $3
                 """,
-                new_tier.value, now, memory_id,
+                new_tier.value,
+                now,
+                memory_id,
             )
 
             # Record transition
@@ -776,7 +805,10 @@ class PostgresContinuumMemory(PostgresStore):
                 INSERT INTO tier_transitions (memory_id, from_tier, to_tier, reason, surprise_score)
                 VALUES ($1, $2, $3, 'high_stability', $4)
                 """,
-                memory_id, current_tier.value, new_tier.value, surprise_score,
+                memory_id,
+                current_tier.value,
+                new_tier.value,
+                surprise_score,
             )
 
         # Record metrics
@@ -792,7 +824,9 @@ class PostgresContinuumMemory(PostgresStore):
                 SET tier = $1, updated_at = $2
                 WHERE id = $3
                 """,
-                new_tier.value, datetime.now(), memory_id,
+                new_tier.value,
+                datetime.now(),
+                memory_id,
             )
             return result == "UPDATE 1"
 
@@ -841,7 +875,10 @@ class PostgresContinuumMemory(PostgresStore):
                         importance = 1.0, updated_at = $3
                     WHERE id = $4
                     """,
-                    reason, MemoryTier.GLACIAL.value, now, memory_id,
+                    reason,
+                    MemoryTier.GLACIAL.value,
+                    now,
+                    memory_id,
                 )
             else:
                 await conn.execute(
@@ -850,7 +887,9 @@ class PostgresContinuumMemory(PostgresStore):
                     SET red_line = TRUE, red_line_reason = $1, importance = 1.0, updated_at = $2
                     WHERE id = $3
                     """,
-                    reason, now, memory_id,
+                    reason,
+                    now,
+                    memory_id,
                 )
 
         return True
@@ -904,7 +943,7 @@ class PostgresContinuumMemory(PostgresStore):
             "hyperparams": self.hyperparams,
         }
 
-    async def count(self, tier: Optional[MemoryTier] = None) -> int:
+    async def count(self, tier: Optional[MemoryTier] = None) -> int:  # type: ignore[override]
         """Count memory entries, optionally filtered by tier."""
         async with self.connection() as conn:
             if tier:
@@ -989,7 +1028,9 @@ class PostgresContinuumMemory(PostgresStore):
 
         for t in tiers_to_process:
             tier_config = DEFAULT_TIER_CONFIGS[t]
-            age_hours = max_age_hours or (tier_config.half_life_hours * self.hyperparams["retention_multiplier"])
+            age_hours = max_age_hours or (
+                tier_config.half_life_hours * self.hyperparams["retention_multiplier"]
+            )
             cutoff = datetime.now().timestamp() - (age_hours * 3600)
 
             async with self.transaction() as conn:
@@ -1002,7 +1043,8 @@ class PostgresContinuumMemory(PostgresStore):
                       AND EXTRACT(EPOCH FROM updated_at) < $2
                     LIMIT 1000
                     """,
-                    t.value, cutoff,
+                    t.value,
+                    cutoff,
                 )
 
                 tier_count = 0
@@ -1095,7 +1137,8 @@ class PostgresContinuumMemory(PostgresStore):
                     ORDER BY importance DESC
                     LIMIT $2
                     """,
-                    pattern_type, limit,
+                    pattern_type,
+                    limit,
                 )
             else:
                 rows = await conn.fetch(
@@ -1126,22 +1169,28 @@ class PostgresContinuumMemory(PostgresStore):
         created_at = row[9]
         updated_at = row[10]
 
-        return ContinuumMemoryEntryDict({
-            "id": row[0],
-            "tier": row[1],
-            "content": row[2],
-            "importance": float(row[3]) if row[3] else 0.5,
-            "surprise_score": float(row[4]) if row[4] else 0.0,
-            "consolidation_score": float(row[5]) if row[5] else 0.0,
-            "update_count": row[6] or 0,
-            "success_count": row[7] or 0,
-            "failure_count": row[8] or 0,
-            "created_at": created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at),
-            "updated_at": updated_at.isoformat() if hasattr(updated_at, 'isoformat') else str(updated_at),
-            "metadata": metadata or {},
-            "red_line": bool(row[12]),
-            "red_line_reason": row[13] or "",
-        })
+        return ContinuumMemoryEntryDict(
+            {
+                "id": row[0],
+                "tier": row[1],
+                "content": row[2],
+                "importance": float(row[3]) if row[3] else 0.5,
+                "surprise_score": float(row[4]) if row[4] else 0.0,
+                "consolidation_score": float(row[5]) if row[5] else 0.0,
+                "update_count": row[6] or 0,
+                "success_count": row[7] or 0,
+                "failure_count": row[8] or 0,
+                "created_at": created_at.isoformat()
+                if hasattr(created_at, "isoformat")
+                else str(created_at),
+                "updated_at": updated_at.isoformat()
+                if hasattr(updated_at, "isoformat")
+                else str(updated_at),
+                "metadata": metadata or {},
+                "red_line": bool(row[12]),
+                "red_line_reason": row[13] or "",
+            }
+        )
 
 
 # =========================================================================
@@ -1185,6 +1234,7 @@ async def get_postgres_continuum_memory(
     # Get pool from settings if not provided
     if pool is None:
         from aragora.storage.postgres_store import get_postgres_pool_from_settings
+
         pool = await get_postgres_pool_from_settings()
 
     _postgres_continuum_memory = PostgresContinuumMemory(pool, tier_manager)

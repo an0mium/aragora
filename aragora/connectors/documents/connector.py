@@ -156,7 +156,7 @@ class DocumentConnector(Connector):
         """Disconnect and clear cached documents."""
         self._parsed_docs.clear()
 
-    async def search(
+    async def search(  # type: ignore[override]
         self,
         query: str,
         limit: int = 5,
@@ -186,23 +186,25 @@ class DocumentConnector(Connector):
 
                 relevance = term_matches / len(query_terms)
 
-                results.append({
-                    "id": f"{doc_id}_chunk_{i}",
-                    "title": f"{doc.title or doc.filename} (Section {i + 1})",
-                    "content": chunk.content,
-                    "url": doc.metadata.get("source_path", ""),
-                    "source": "document",
-                    "format": doc.format.value if doc.format else "unknown",
-                    "relevance": relevance,
-                    "reliability": self._get_reliability(doc.format),
-                    "metadata": {
-                        "doc_id": doc_id,
-                        "chunk_index": i,
-                        "page": chunk.page,
-                        "section": chunk.section,
-                        "filename": doc.filename,
-                    },
-                })
+                results.append(
+                    {
+                        "id": f"{doc_id}_chunk_{i}",
+                        "title": f"{doc.title or doc.filename} (Section {i + 1})",
+                        "content": chunk.content,
+                        "url": doc.metadata.get("source_path", ""),
+                        "source": "document",
+                        "format": doc.format.value if doc.format else "unknown",
+                        "relevance": relevance,
+                        "reliability": self._get_reliability(doc.format),
+                        "metadata": {
+                            "doc_id": doc_id,
+                            "chunk_index": i,
+                            "page": chunk.page,
+                            "section": chunk.section,
+                            "filename": doc.filename,
+                        },
+                    }
+                )
 
             # Search in tables
             for j, table in enumerate(doc.tables):
@@ -216,23 +218,26 @@ class DocumentConnector(Connector):
                 # Format table as text
                 table_content = self._format_table(table.data, table.headers)
 
-                results.append({
-                    "id": f"{doc_id}_table_{j}",
-                    "title": f"{doc.title or doc.filename} (Table {j + 1})",
-                    "content": table_content,
-                    "url": doc.metadata.get("source_path", ""),
-                    "source": "document_table",
-                    "format": doc.format.value if doc.format else "unknown",
-                    "relevance": relevance,
-                    "reliability": self._get_reliability(doc.format) + 0.05,  # Tables are higher reliability
-                    "metadata": {
-                        "doc_id": doc_id,
-                        "table_index": j,
-                        "page": table.page,
-                        "caption": table.caption,
-                        "filename": doc.filename,
-                    },
-                })
+                results.append(
+                    {
+                        "id": f"{doc_id}_table_{j}",
+                        "title": f"{doc.title or doc.filename} (Table {j + 1})",
+                        "content": table_content,
+                        "url": doc.metadata.get("source_path", ""),
+                        "source": "document_table",
+                        "format": doc.format.value if doc.format else "unknown",
+                        "relevance": relevance,
+                        "reliability": self._get_reliability(doc.format)
+                        + 0.05,  # Tables are higher reliability
+                        "metadata": {
+                            "doc_id": doc_id,
+                            "table_index": j,
+                            "page": table.page,
+                            "caption": table.caption,
+                            "filename": doc.filename,
+                        },
+                    }
+                )
 
         # Sort by relevance and limit
         results.sort(key=lambda x: x.get("relevance", 0), reverse=True)
@@ -265,7 +270,9 @@ class DocumentConnector(Connector):
                 doc.metadata["source_path"] = str(path)
                 doc.metadata["parsed_at"] = datetime.now().isoformat()
                 self._parsed_docs[doc_id] = doc
-                logger.info(f"Parsed document: {path.name} ({len(doc.chunks)} chunks, {len(doc.tables)} tables)")
+                logger.info(
+                    f"Parsed document: {path.name} ({len(doc.chunks)} chunks, {len(doc.tables)} tables)"
+                )
                 return doc
 
         except Exception as e:
@@ -323,6 +330,7 @@ class DocumentConnector(Connector):
         # Derive filename from URL if not provided
         if not filename:
             from urllib.parse import urlparse
+
             parsed = urlparse(url)
             filename = Path(parsed.path).name or "document"
 

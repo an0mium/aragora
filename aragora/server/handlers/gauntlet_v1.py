@@ -71,7 +71,7 @@ class GauntletSchemaHandler(BaseHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/schema/(?P<schema_type>[a-z-]+)"
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         body: Optional[Dict[str, Any]],
         path_params: Optional[Dict[str, str]] = None,
@@ -128,7 +128,7 @@ class GauntletAllSchemasHandler(BaseHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/schemas"
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         body: Optional[Dict[str, Any]],
         path_params: Optional[Dict[str, str]] = None,
@@ -173,7 +173,7 @@ class GauntletTemplatesListHandler(BaseHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/templates"
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         body: Optional[Dict[str, Any]],
         path_params: Optional[Dict[str, str]] = None,
@@ -244,7 +244,7 @@ class GauntletTemplateHandler(BaseHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/templates/(?P<template_id>[a-z0-9-]+)"
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         body: Optional[Dict[str, Any]],
         path_params: Optional[Dict[str, str]] = None,
@@ -311,7 +311,7 @@ class GauntletReceiptExportHandler(BaseHandler):
     def get_methods(self) -> list[str]:
         return ["POST"]
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         body: Optional[Dict[str, Any]],
         path_params: Optional[Dict[str, str]] = None,
@@ -372,7 +372,6 @@ class GauntletReceiptExportHandler(BaseHandler):
                 # Try to create receipt from result
                 result = run.get("result")
                 if result:
-
                     if hasattr(result, "to_receipt"):
                         receipt = result.to_receipt()
                     else:
@@ -386,8 +385,12 @@ class GauntletReceiptExportHandler(BaseHandler):
                             input_summary=result.get("input_summary", ""),
                             input_hash=result.get("input_hash", ""),
                             risk_summary=result.get("risk_summary", {}),
-                            attacks_attempted=result.get("attack_summary", {}).get("total_attacks", 0),
-                            attacks_successful=result.get("attack_summary", {}).get("successful_attacks", 0),
+                            attacks_attempted=result.get("attack_summary", {}).get(
+                                "total_attacks", 0
+                            ),
+                            attacks_successful=result.get("attack_summary", {}).get(
+                                "successful_attacks", 0
+                            ),
                             probes_run=result.get("probe_summary", {}).get("probes_run", 0),
                             vulnerabilities_found=result.get("risk_summary", {}).get("total", 0),
                             verdict=result.get("verdict", "FAIL"),
@@ -520,7 +523,7 @@ class GauntletHeatmapExportHandler(BaseHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/(?P<gauntlet_id>[a-zA-Z0-9-]+)/heatmap/export"
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         body: Optional[Dict[str, Any]],
         path_params: Optional[Dict[str, str]] = None,
@@ -637,7 +640,7 @@ class GauntletValidateReceiptHandler(BaseHandler):
     def get_methods(self) -> list[str]:
         return ["POST"]
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         body: Optional[Dict[str, Any]],
         path_params: Optional[Dict[str, str]] = None,

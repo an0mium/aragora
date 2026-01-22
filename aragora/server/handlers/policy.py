@@ -66,7 +66,7 @@ class PolicyHandler(BaseHandler):
         return False
 
     @rate_limit(rpm=120)
-    async def handle(self, path: str, method: str, handler: Any = None) -> Optional[HandlerResult]:
+    async def handle(self, path: str, method: str, handler: Any = None) -> Optional[HandlerResult]:  # type: ignore[override]
         """Route request to appropriate handler method."""
         query_params: Dict[str, Any] = {}
         if handler:

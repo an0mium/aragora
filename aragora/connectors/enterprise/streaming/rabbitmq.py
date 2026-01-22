@@ -118,11 +118,7 @@ class RabbitMQMessage:
         # Extract content from body
         if isinstance(self.body, dict):
             content = json.dumps(self.body, indent=2)
-            title = (
-                self.body.get("title")
-                or self.body.get("type")
-                or f"RabbitMQ: {self.queue}"
-            )
+            title = self.body.get("title") or self.body.get("type") or f"RabbitMQ: {self.queue}"
         elif isinstance(self.body, str):
             content = self.body
             title = f"RabbitMQ: {self.queue}"
@@ -208,9 +204,7 @@ class RabbitMQConnector(EnterpriseConnector):
                         self.config.ssl_certfile,
                         self.config.ssl_keyfile,
                     )
-                self._connection = await aio_pika.connect_robust(
-                    url, ssl_context=ssl_context
-                )
+                self._connection = await aio_pika.connect_robust(url, ssl_context=ssl_context)
             else:
                 self._connection = await aio_pika.connect_robust(url)
 
@@ -233,9 +227,7 @@ class RabbitMQConnector(EnterpriseConnector):
             if self.config.dead_letter_exchange:
                 queue_args["x-dead-letter-exchange"] = self.config.dead_letter_exchange
             if self.config.dead_letter_routing_key:
-                queue_args["x-dead-letter-routing-key"] = (
-                    self.config.dead_letter_routing_key
-                )
+                queue_args["x-dead-letter-routing-key"] = self.config.dead_letter_routing_key
             if self.config.message_ttl:
                 queue_args["x-message-ttl"] = self.config.message_ttl
 
@@ -262,9 +254,7 @@ class RabbitMQConnector(EnterpriseConnector):
             return True
 
         except ImportError:
-            logger.error(
-                "[RabbitMQ] aio-pika not installed. Install with: pip install aio-pika"
-            )
+            logger.error("[RabbitMQ] aio-pika not installed. Install with: pip install aio-pika")
             return False
         except Exception as e:
             logger.error(f"[RabbitMQ] Connection failed: {e}")
@@ -292,9 +282,7 @@ class RabbitMQConnector(EnterpriseConnector):
         """Stop consuming messages."""
         await self.disconnect()
 
-    async def consume(
-        self, max_messages: Optional[int] = None
-    ) -> AsyncIterator[RabbitMQMessage]:
+    async def consume(self, max_messages: Optional[int] = None) -> AsyncIterator[RabbitMQMessage]:
         """
         Consume messages from RabbitMQ queue.
 
@@ -363,9 +351,7 @@ class RabbitMQConnector(EnterpriseConnector):
         if message.timestamp:
             timestamp = message.timestamp
             if not isinstance(timestamp, datetime):
-                timestamp = datetime.fromtimestamp(
-                    float(message.timestamp), tz=timezone.utc
-                )
+                timestamp = datetime.fromtimestamp(float(message.timestamp), tz=timezone.utc)
         else:
             timestamp = datetime.now(tz=timezone.utc)
 
@@ -384,7 +370,7 @@ class RabbitMQConnector(EnterpriseConnector):
             _channel=message.channel,
         )
 
-    async def sync(self, batch_size: int = None) -> AsyncIterator[SyncItem]:
+    async def sync(self, batch_size: int = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync messages as SyncItems for Knowledge Mound ingestion.
 
@@ -468,9 +454,7 @@ class RabbitMQConnector(EnterpriseConnector):
                 routing_key=routing_key or self.config.routing_key or self.config.queue,
             )
 
-            logger.debug(
-                f"[RabbitMQ] Published message to {routing_key or self.config.queue}"
-            )
+            logger.debug(f"[RabbitMQ] Published message to {routing_key or self.config.queue}")
             return True
 
         except Exception as e:

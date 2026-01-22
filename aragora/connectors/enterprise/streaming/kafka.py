@@ -200,9 +200,7 @@ class KafkaConnector(EnterpriseConnector):
             return True
 
         except ImportError:
-            logger.error(
-                "[Kafka] aiokafka not installed. Install with: pip install aiokafka"
-            )
+            logger.error("[Kafka] aiokafka not installed. Install with: pip install aiokafka")
             return False
         except Exception as e:
             logger.error(f"[Kafka] Connection failed: {e}")
@@ -300,7 +298,7 @@ class KafkaConnector(EnterpriseConnector):
             timestamp=timestamp,
         )
 
-    async def sync(self, batch_size: int = None) -> AsyncIterator[SyncItem]:
+    async def sync(self, batch_size: int = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync messages as SyncItems for Knowledge Mound ingestion.
 

@@ -714,7 +714,7 @@ class RLMContextHandler(BaseHandler):
     # Utility Methods
     # ============================================================================
 
-    def read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:
+    def read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:  # type: ignore[override]
         """Read and parse JSON body from request."""
         if handler is None:
             return None

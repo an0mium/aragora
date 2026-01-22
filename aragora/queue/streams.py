@@ -89,7 +89,7 @@ class RedisStreamsQueue(JobQueue):
 
         self._initialized = True
 
-    async def enqueue(self, job: Job, priority: int = 0) -> str:
+    async def enqueue(self, job: Job, priority: int = 0) -> str:  # type: ignore[override]
         """
         Add a job to the queue.
 
@@ -123,7 +123,7 @@ class RedisStreamsQueue(JobQueue):
         logger.debug(f"Enqueued job {job.id}")
         return job.id
 
-    async def dequeue(self, worker_id: str, timeout_ms: int = 5000) -> Optional[Job]:
+    async def dequeue(self, worker_id: str, timeout_ms: int = 5000) -> Optional[Job]:  # type: ignore[override]
         """
         Get the next job from the queue.
 
