@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, ReactNode } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdaptiveMode } from '@/context/AdaptiveModeContext';
 
@@ -162,7 +162,7 @@ export function UseCaseWizard({
   className = '',
 }: UseCaseWizardProps) {
   const router = useRouter();
-  const { isAdvanced, isSimple } = useAdaptiveMode();
+  const { isAdvanced } = useAdaptiveMode();
 
   // Wizard state
   const [step, setStep] = useState<'select' | 'configure' | 'review' | 'running'>('select');

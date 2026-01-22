@@ -11,7 +11,6 @@ import {
   useEdgesState,
   type Connection,
   type NodeTypes,
-  type EdgeTypes,
   type OnConnect,
   Panel,
   BackgroundVariant,
