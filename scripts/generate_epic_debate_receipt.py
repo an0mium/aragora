@@ -47,7 +47,7 @@ def parse_debate_transcript(transcript_path: Path) -> dict:
 
     # Key consensus points extracted from the debate
     consensus_points = [
-        "Position as 'Omnivorous Multi Agent Decision Making Engine' - any source, any channel, consensus",
+        "Position as 'Control Plane for Multi-Agent Deliberation' - any source, any channel, consensus",
         "Target: Decision owners needing multi-perspective AI input across channels",
         "Wedge: Omnivorous input (docs, APIs, web, voice) + bidirectional multi-channel output",
         "Magic moment: Ask from Slack, get consensus backed by 8+ AI models in minutes",
