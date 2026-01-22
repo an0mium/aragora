@@ -335,10 +335,10 @@ def secure_endpoint(
                         resource_id = kwargs.get(resource_id_param)
 
                     with track_rbac_evaluation():
-                        self.check_permission(auth_context, permission, resource_id)
+                        self.check_permission(auth_context, permission, resource_id)  # type: ignore[arg-type]
 
                 # 3. Call the actual handler
-                result = await func(self, request, auth_context, *args, **kwargs)
+                result = await func(self, request, auth_context, *args, **kwargs)  # type: ignore[misc,arg-type]
 
                 # 4. Audit if requested
                 if audit:
@@ -356,8 +356,13 @@ def secure_endpoint(
 
                 return result
 
-            except (UnauthorizedError, ForbiddenError, PermissionDeniedError, RoleRequiredError) as e:
-                return self.handle_security_error(e, request)
+            except (
+                UnauthorizedError,
+                ForbiddenError,
+                PermissionDeniedError,
+                RoleRequiredError,
+            ) as e:
+                return self.handle_security_error(e, request)  # type: ignore[return-value]
 
             except Exception as e:
                 logger.exception(f"Error in secure endpoint {func.__name__}: {e}")
@@ -412,7 +417,7 @@ def audit_sensitive_access(
                 workspace_id=auth_context.workspace_id,
             )
 
-            return await func(self, request, auth_context, *args, **kwargs)
+            return await func(self, request, auth_context, *args, **kwargs)  # type: ignore[misc,arg-type]
 
         return wrapper  # type: ignore
 

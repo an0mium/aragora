@@ -21,7 +21,7 @@ __all__ = [
 
 # Export handler class if available
 try:
-    from .router import ChatHandler
+    from .router import ChatHandler  # noqa: F401
 
     __all__.append("ChatHandler")
 except ImportError:

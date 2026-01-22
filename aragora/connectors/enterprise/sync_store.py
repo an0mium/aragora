@@ -521,6 +521,18 @@ class SyncStore:
                                     connector.status = "configured"
                                     connector.last_sync_status = "interrupted"
                                     connector.last_sync_at = now
+                                    # Persist connector status change
+                                    await self._connection.execute(
+                                        """
+                                        UPDATE connectors
+                                        SET status = 'configured',
+                                            last_sync_status = 'interrupted',
+                                            last_sync_at = ?,
+                                            updated_at = ?
+                                        WHERE id = ?
+                                        """,
+                                        (now.isoformat(), now.isoformat(), connector_id),
+                                    )
 
                 if recovered > 0:
                     await self._connection.commit()
@@ -562,6 +574,19 @@ class SyncStore:
                                 connector.status = "configured"
                                 connector.last_sync_status = "interrupted"
                                 connector.last_sync_at = now
+                                # Persist connector status change
+                                await self._connection.execute(
+                                    """
+                                    UPDATE connectors
+                                    SET status = 'configured',
+                                        last_sync_status = 'interrupted',
+                                        last_sync_at = $1,
+                                        updated_at = $1
+                                    WHERE id = $2
+                                    """,
+                                    now,
+                                    connector_id,
+                                )
 
                 if recovered > 0:
                     logger.info(
@@ -784,7 +809,30 @@ class SyncStore:
                 """,
                     (job.id, job.connector_id, job.status, job.started_at.isoformat()),
                 )
+                # Also update connector status in database
+                await self._connection.execute(
+                    "UPDATE connectors SET status = 'active', updated_at = ? WHERE id = ?",
+                    (datetime.now(timezone.utc).isoformat(), connector_id),
+                )
                 await self._connection.commit()
+            elif self._database_url.startswith("postgresql"):
+                await self._connection.execute(
+                    """
+                    INSERT INTO sync_jobs
+                    (id, connector_id, status, started_at)
+                    VALUES ($1, $2, $3, $4)
+                    """,
+                    job.id,
+                    job.connector_id,
+                    job.status,
+                    job.started_at,
+                )
+                # Also update connector status in database
+                await self._connection.execute(
+                    "UPDATE connectors SET status = 'active', updated_at = $1 WHERE id = $2",
+                    datetime.now(timezone.utc),
+                    connector_id,
+                )
 
         return job
 

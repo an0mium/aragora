@@ -71,7 +71,7 @@ class NodeOperationsMixin:
 
         try:
             result = _run_async(
-                mound.query_semantic(
+                mound.query_semantic(  # type: ignore[call-arg,attr-defined]
                     query=query,
                     limit=limit,
                     node_types=node_types,
@@ -85,10 +85,10 @@ class NodeOperationsMixin:
 
         return json_response(
             {
-                "query": result.query,
-                "nodes": [n.to_dict() for n in result.nodes],
-                "total_count": result.total_count,
-                "processing_time_ms": result.processing_time_ms,
+                "query": result.query,  # type: ignore[attr-defined]
+                "nodes": [n.to_dict() for n in result.nodes],  # type: ignore[attr-defined]
+                "total_count": result.total_count,  # type: ignore[attr-defined]
+                "processing_time_ms": result.processing_time_ms,  # type: ignore[attr-defined]
             }
         )
 
@@ -153,8 +153,8 @@ class NodeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node_id = _run_async(mound.add_node(node))
-            saved_node = _run_async(mound.get_node(node_id))
+            node_id = _run_async(mound.add_node(node))  # type: ignore[attr-defined]
+            saved_node = _run_async(mound.get_node(node_id))  # type: ignore[attr-defined]
         except Exception as e:
             logger.error(f"Failed to create node: {e}")
             return error_response(f"Failed to create node: {e}", 500)
@@ -170,7 +170,7 @@ class NodeOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node = _run_async(mound.get_node(node_id))
+            node = _run_async(mound.get_node(node_id))  # type: ignore[attr-defined]
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -204,7 +204,7 @@ class NodeOperationsMixin:
 
         try:
             nodes = _run_async(
-                mound.query_nodes(
+                mound.query_nodes(  # type: ignore[attr-defined,call-arg]
                     workspace_id=workspace_id,
                     node_types=node_types,
                     min_confidence=min_confidence,

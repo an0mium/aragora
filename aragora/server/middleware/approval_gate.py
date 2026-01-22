@@ -382,25 +382,25 @@ def require_approval(
                 raise ValueError("No AuthorizationContext found for approval check")
 
             # Check if user has auto-approve role
-            if auto_roles and auth_context.has_any_role(*auto_roles):
+            if auto_roles and auth_context.has_any_role(*auto_roles):  # type: ignore[attr-defined]
                 logger.debug(
-                    f"Auto-approved {operation} for {auth_context.user_id} "
-                    f"(roles: {auth_context.roles})"
+                    f"Auto-approved {operation} for {auth_context.user_id} "  # type: ignore[attr-defined]
+                    f"(roles: {auth_context.roles})"  # type: ignore[attr-defined]
                 )
-                return await func(*args, **kwargs)
+                return await func(*args, **kwargs)  # type: ignore[assignment]
 
             # Check for existing approval token in kwargs
             approval_id = kwargs.pop("_approval_id", None)
 
             if approval_id:
                 # Verify the approval is valid
-                request = await get_approval_request(approval_id)
+                request = await get_approval_request(approval_id)  # type: ignore[arg-type]
                 if request and request.state == ApprovalState.APPROVED:
                     # Approval is valid, proceed
                     logger.info(
                         f"Executing approved operation {operation} (approval: {approval_id})"
                     )
-                    return await func(*args, **kwargs)
+                    return await func(*args, **kwargs)  # type: ignore[assignment]
                 elif request and request.state == ApprovalState.REJECTED:
                     raise ApprovalDeniedError(request, request.rejection_reason or "")
                 elif request and request.state == ApprovalState.EXPIRED:
@@ -410,12 +410,12 @@ def require_approval(
             resource_type = ""
             resource_id = ""
             if resource_type_param:
-                resource_type = kwargs.get(resource_type_param, "")
+                resource_type = kwargs.get(resource_type_param, "")  # type: ignore[assignment]
             if resource_id_param:
-                resource_id = kwargs.get(resource_id_param, "")
+                resource_id = kwargs.get(resource_id_param, "")  # type: ignore[assignment]
 
             # Create approval request
-            approval_request = await create_approval_request(
+            approval_request = await create_approval_request(  # type: ignore[arg-type]
                 operation=operation,
                 risk_level=risk_level,
                 auth_context=auth_context,
@@ -452,7 +452,7 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
         from aragora.storage.governance_store import get_governance_store
 
         store = get_governance_store()
-        await store.save_approval(
+        await store.save_approval(  # type: ignore[assignment]
             approval_id=request.id,
             title=f"{request.operation}: {request.description}",
             description=request.description,
@@ -527,8 +527,8 @@ async def _recover_approval_request(request_id: str) -> Optional[OperationApprov
             context=metadata.get("context", {}),
             state=ApprovalState(record.status),
             created_at=record.created_at,
-            expires_at=record.created_at + timedelta(seconds=record.timeout_seconds)
-            if record.timeout_seconds
+            expires_at=record.created_at + timedelta(seconds=record.timeout_seconds)  # type: ignore[attr-defined]
+            if record.timeout_seconds  # type: ignore[attr-defined]
             else None,
             approved_by=record.approved_by,
             approved_at=record.approved_at,

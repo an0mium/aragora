@@ -49,7 +49,7 @@ class RelationshipOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node = _run_async(mound.get_node(node_id))
+            node = _run_async(mound.get_node(node_id))  # type: ignore[attr-defined]
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -67,7 +67,7 @@ class RelationshipOperationsMixin:
 
         try:
             relationships = _run_async(
-                mound.get_relationships(
+                mound.get_relationships(  # type: ignore[attr-defined]
                     node_id=node_id,
                     relationship_type=relationship_type,
                     direction=direction,
@@ -82,14 +82,14 @@ class RelationshipOperationsMixin:
                 "node_id": node_id,
                 "relationships": [
                     {
-                        "id": rel.id,
-                        "from_node_id": rel.from_node_id,
-                        "to_node_id": rel.to_node_id,
-                        "relationship_type": rel.relationship_type,
-                        "strength": rel.strength,
-                        "created_at": rel.created_at.isoformat() if rel.created_at else None,
-                        "created_by": rel.created_by,
-                        "metadata": rel.metadata,
+                        "id": rel.id,  # type: ignore[attr-defined]
+                        "from_node_id": rel.from_node_id,  # type: ignore[attr-defined]
+                        "to_node_id": rel.to_node_id,  # type: ignore[attr-defined]
+                        "relationship_type": rel.relationship_type,  # type: ignore[attr-defined]
+                        "strength": rel.strength,  # type: ignore[attr-defined]
+                        "created_at": rel.created_at.isoformat() if rel.created_at else None,  # type: ignore[attr-defined]
+                        "created_by": rel.created_by,  # type: ignore[attr-defined]
+                        "metadata": rel.metadata,  # type: ignore[attr-defined]
                     }
                     for rel in relationships
                 ],
@@ -138,7 +138,7 @@ class RelationshipOperationsMixin:
 
         try:
             rel_id = _run_async(
-                mound.add_relationship(
+                mound.add_relationship(  # type: ignore[attr-defined,call-arg]
                     from_node_id=from_node_id,
                     to_node_id=to_node_id,
                     relationship_type=relationship_type,

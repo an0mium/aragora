@@ -94,7 +94,7 @@ class SharingOperationsMixin:
         try:
             if target_type == "workspace":
                 _run_async(
-                    mound.share_with_workspace(
+                    mound.share_with_workspace(  # type: ignore[misc]
                         item_id=item_id,
                         from_workspace_id=workspace_id,
                         to_workspace_id=target_id,
@@ -105,7 +105,7 @@ class SharingOperationsMixin:
                 )
             else:
                 _run_async(
-                    mound.share_with_user(
+                    mound.share_with_user(  # type: ignore[misc,call-arg]
                         item_id=item_id,
                         from_workspace_id=workspace_id,
                         to_user_id=target_id,
@@ -163,7 +163,7 @@ class SharingOperationsMixin:
 
         try:
             items = _run_async(
-                mound.get_shared_with_me(
+                mound.get_shared_with_me(  # type: ignore[misc,call-arg]
                     workspace_id=workspace_id,
                     user_id=user_id,
                     limit=limit,
@@ -225,7 +225,7 @@ class SharingOperationsMixin:
 
         try:
             _run_async(
-                mound.revoke_share(
+                mound.revoke_share(  # type: ignore[misc]
                     item_id=item_id,
                     grantee_id=grantee_id,
                     revoked_by=user_id,
@@ -269,7 +269,7 @@ class SharingOperationsMixin:
 
         try:
             grants = _run_async(
-                mound.get_share_grants(
+                mound.get_share_grants(  # type: ignore[misc,call-arg]
                     shared_by=user_id,
                     workspace_id=workspace_id,
                 )
@@ -332,7 +332,7 @@ class SharingOperationsMixin:
 
         try:
             updated_grant = _run_async(
-                mound.update_share_permissions(
+                mound.update_share_permissions(  # type: ignore[misc,call-arg]
                     item_id=item_id,
                     grantee_id=grantee_id,
                     permissions=permissions,

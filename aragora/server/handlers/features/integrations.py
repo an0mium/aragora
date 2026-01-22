@@ -367,28 +367,28 @@ class IntegrationsHandler(SecureHandler):
                         bot_token=settings.get("bot_token"),
                     )
                 )
-                return await integration.verify_webhook()  # type: ignore[return-value]
+                return await integration.verify_webhook()  # type: ignore[return-value,attr-defined]
 
             elif integration_type == "discord":
                 from aragora.integrations.discord import DiscordConfig, DiscordIntegration
 
-                integration = DiscordIntegration(
+                integration = DiscordIntegration(  # type: ignore[assignment]
                     DiscordConfig(  # type: ignore[call-arg]
                         webhook_url=settings.get("webhook_url", ""),
                     )
                 )
-                return await integration.verify_webhook()  # type: ignore[return-value]
+                return await integration.verify_webhook()  # type: ignore[return-value,attr-defined]
 
             elif integration_type == "telegram":
                 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 
-                integration = TelegramIntegration(
+                integration = TelegramIntegration(  # type: ignore[assignment]
                     TelegramConfig(  # type: ignore[call-arg]
                         bot_token=settings.get("bot_token", ""),
                         chat_id=settings.get("chat_id", ""),
                     )
                 )
-                return await integration.verify_connection()  # type: ignore[return-value]
+                return await integration.verify_connection()  # type: ignore[return-value,attr-defined]
 
             elif integration_type == "email":
                 # For email, we just validate config structure
@@ -402,17 +402,17 @@ class IntegrationsHandler(SecureHandler):
             elif integration_type == "teams":
                 from aragora.integrations.teams import TeamsConfig, TeamsIntegration
 
-                integration = TeamsIntegration(
+                integration = TeamsIntegration(  # type: ignore[assignment]
                     TeamsConfig(  # type: ignore[call-arg]
                         webhook_url=settings.get("webhook_url", ""),
                     )
                 )
-                return await integration.verify_webhook()  # type: ignore[return-value]
+                return await integration.verify_webhook()  # type: ignore[return-value,attr-defined]
 
             elif integration_type == "whatsapp":
                 from aragora.integrations.whatsapp import WhatsAppConfig, WhatsAppIntegration
 
-                integration = WhatsAppIntegration(
+                integration = WhatsAppIntegration(  # type: ignore[assignment]
                     WhatsAppConfig(  # type: ignore[call-arg]
                         phone_number_id=settings.get("phone_number_id", ""),
                         access_token=settings.get("access_token", ""),

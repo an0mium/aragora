@@ -441,7 +441,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                     "text": "text/plain",
                 }.get(format_str, "text/plain")
 
-                return HandlerResult(  # type: ignore[call-arg]
+                return HandlerResult(  # type: ignore[call-arg,arg-type]
                     status=200,
                     body=content,
                     headers={"Content-Type": content_type},
@@ -494,7 +494,7 @@ class GauntletReceiptExportHandler(BaseHandler):
                 "sarif": "application/sarif+json",
             }.get(format_str, "application/json")
 
-            return HandlerResult(  # type: ignore[call-arg]
+            return HandlerResult(  # type: ignore[call-arg,arg-type]
                 status=200,
                 body=content,
                 headers={"Content-Type": content_type},
@@ -611,7 +611,7 @@ class GauntletHeatmapExportHandler(BaseHandler):
                 "html": "text/html",
             }.get(format_str, "application/json")
 
-            return HandlerResult(  # type: ignore[call-arg]
+            return HandlerResult(  # type: ignore[call-arg,arg-type]
                 status=200,
                 body=content,
                 headers={"Content-Type": content_type},

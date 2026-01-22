@@ -290,7 +290,7 @@ class ExplainabilityHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[Dict] = None):
         """Initialize with server context for richer explanations."""
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
         self.elo_system = (server_context or {}).get("elo_system")
         self.calibration_tracker = None
         # Try to get calibration tracker from global
@@ -449,7 +449,7 @@ class ExplainabilityHandler(BaseHandler):
                         setattr(self, k, v)
 
             result = ResultProxy(debate_data)
-            result.id = debate_id  # Ensure id is set
+            result.id = debate_id  # type: ignore[attr-defined]  # Ensure id is set
 
             decision = await builder.build(result)
             _cache_decision(debate_id, decision)
@@ -964,7 +964,7 @@ h3 {{ color: #666; }}
             return error_response("Batch job not yet started", 202)
 
         if job.status == BatchStatus.PROCESSING and not include_partial:
-            return json_response(
+            return json_response(  # type: ignore[call-arg]
                 {
                     **job.to_dict(),
                     "message": "Batch still processing. Use ?include_partial=true for partial results.",
@@ -1052,11 +1052,11 @@ h3 {{ color: #666; }}
             }
 
             if "confidence" in compare_fields:
-                comparison["comparison"]["confidence"] = {
+                comparison["comparison"]["confidence"] = {  # type: ignore[index]
                     debate_id: decision.confidence for debate_id, decision in debates.items()
                 }
-                confidences = list(comparison["comparison"]["confidence"].values())
-                comparison["comparison"]["confidence_stats"] = {
+                confidences = list(comparison["comparison"]["confidence"].values())  # type: ignore[index]
+                comparison["comparison"]["confidence_stats"] = {  # type: ignore[index]
                     "min": min(confidences),
                     "max": max(confidences),
                     "avg": sum(confidences) / len(confidences),
@@ -1064,15 +1064,15 @@ h3 {{ color: #666; }}
                 }
 
             if "consensus_reached" in compare_fields:
-                comparison["comparison"]["consensus_reached"] = {
+                comparison["comparison"]["consensus_reached"] = {  # type: ignore[index]
                     debate_id: decision.consensus_reached for debate_id, decision in debates.items()
                 }
-                comparison["comparison"]["consensus_agreement"] = (
+                comparison["comparison"]["consensus_agreement"] = (  # type: ignore[index]
                     len(set(d.consensus_reached for d in debates.values())) == 1
                 )
 
             if "contributing_factors" in compare_fields:
-                factor_names = {}
+                factor_names: dict[str, dict[str, float]] = {}
                 for debate_id, decision in debates.items():
                     if hasattr(decision, "contributing_factors"):
                         for f in decision.contributing_factors[:5]:
@@ -1080,13 +1080,13 @@ h3 {{ color: #666; }}
                                 factor_names[f.name] = {}
                             factor_names[f.name][debate_id] = f.contribution
 
-                comparison["comparison"]["contributing_factors"] = factor_names
-                comparison["comparison"]["common_factors"] = [
+                comparison["comparison"]["contributing_factors"] = factor_names  # type: ignore[index]
+                comparison["comparison"]["common_factors"] = [  # type: ignore[index]
                     name for name, vals in factor_names.items() if len(vals) == len(debates)
                 ]
 
             if "evidence_quality" in compare_fields:
-                comparison["comparison"]["evidence_quality"] = {
+                comparison["comparison"]["evidence_quality"] = {  # type: ignore[index]
                     debate_id: getattr(decision, "evidence_quality_score", None)
                     for debate_id, decision in debates.items()
                 }

@@ -107,7 +107,7 @@ class StalenessDetector:
         Returns:
             StalenessCheck with score and reasons
         """
-        node = await self._mound.get(node_id)
+        node = await self._mound.get(node_id)  # type: ignore[misc]
         if not node:
             return StalenessCheck(
                 node_id=node_id,
@@ -195,7 +195,7 @@ class StalenessDetector:
         """Compute contradiction-based staleness score."""
         try:
             # Find contradicting nodes added after this node
-            node = await self._mound.get(node_id)
+            node = await self._mound.get(node_id)  # type: ignore[misc]
             if not node:
                 return 0.0
 
@@ -210,7 +210,7 @@ class StalenessDetector:
             recent_contradictions = 0
             for edge in result.edges:
                 # Check if contradiction is newer
-                target_node = await self._mound.get(edge.target_id)
+                target_node = await self._mound.get(edge.target_id)  # type: ignore[misc]
                 if target_node and target_node.created_at > node.updated_at:
                     recent_contradictions += 1
 
@@ -226,7 +226,7 @@ class StalenessDetector:
     async def _compute_evidence_score(self, node_id: str) -> float:
         """Compute new evidence-based staleness score."""
         try:
-            node = await self._mound.get(node_id)
+            node = await self._mound.get(node_id)  # type: ignore[misc]
             if not node:
                 return 0.0
 
@@ -258,7 +258,7 @@ class StalenessDetector:
     async def _compute_consensus_score(self, node_id: str) -> float:
         """Compute consensus change-based staleness score."""
         try:
-            node = await self._mound.get(node_id)
+            node = await self._mound.get(node_id)  # type: ignore[misc]
             if not node:
                 return 0.0
 
@@ -348,7 +348,7 @@ class StalenessDetector:
         all_checks: List[StalenessCheck] = []
 
         # Query nodes ordered by last update (oldest first)
-        nodes = await self._mound.query_nodes(
+        nodes = await self._mound.query_nodes(  # type: ignore[misc]
             workspace_id=workspace_id,
             limit=limit * 2,  # Over-fetch since some may not be stale
         )
@@ -407,7 +407,7 @@ class StalenessDetector:
 
         while True:
             # Get batch of nodes
-            nodes = await self._mound.query_nodes(
+            nodes = await self._mound.query_nodes(  # type: ignore[misc]
                 workspace_id=workspace_id,
                 limit=batch_size,
                 offset=offset,
@@ -419,7 +419,7 @@ class StalenessDetector:
             # Compute and update staleness for each
             for node in nodes:
                 check = await self.compute_staleness(node.id)
-                await self._mound.update(
+                await self._mound.update(  # type: ignore[misc]
                     node.id,
                     {"staleness_score": check.staleness_score},
                 )
