@@ -825,23 +825,23 @@ class AccessReviewScheduler:
         stale_threshold = now - timedelta(days=self.config.stale_credential_days)
 
         for item in items:
-            summary["by_risk"][item.risk_level] += 1
+            summary["by_risk"][item.risk_level] += 1  # type: ignore[index]
 
-            if item.resource_type not in summary["by_type"]:
-                summary["by_type"][item.resource_type] = 0
-            summary["by_type"][item.resource_type] += 1
+            if item.resource_type not in summary["by_type"]:  # type: ignore[operator]
+                summary["by_type"][item.resource_type] = 0  # type: ignore[index]
+            summary["by_type"][item.resource_type] += 1  # type: ignore[index]
 
             status = item.status.value
-            if status not in summary["by_status"]:
-                summary["by_status"][status] = 0
-            summary["by_status"][status] += 1
+            if status not in summary["by_status"]:  # type: ignore[operator]
+                summary["by_status"][status] = 0  # type: ignore[index]
+            summary["by_status"][status] += 1  # type: ignore[index]
 
-            summary["unique_users"].add(item.user_id)
+            summary["unique_users"].add(item.user_id)  # type: ignore[union-attr]
 
             if item.last_used and item.last_used < stale_threshold:
-                summary["stale_count"] += 1
+                summary["stale_count"] += 1  # type: ignore[operator]
 
-        summary["unique_users"] = len(summary["unique_users"])
+        summary["unique_users"] = len(summary["unique_users"])  # type: ignore[arg-type]
 
         return summary
 

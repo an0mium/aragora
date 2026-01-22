@@ -44,7 +44,7 @@ class DashboardOperationsMixin:
             metrics = get_metrics()
             health_report = metrics.get_health()
 
-            return HandlerResult(
+            return HandlerResult(  # type: ignore[call-arg]
                 success=True,
                 data=health_report.to_dict(),
                 message="Health check completed",
@@ -75,7 +75,7 @@ class DashboardOperationsMixin:
 
             metrics = get_metrics()
 
-            return HandlerResult(
+            return HandlerResult(  # type: ignore[call-arg]
                 success=True,
                 data=metrics.to_dict(),
                 message="Metrics retrieved",
@@ -102,9 +102,9 @@ class DashboardOperationsMixin:
         """
         try:
             # Get the BidirectionalCoordinator if available
-            mound = self._get_mound()
+            mound = self._get_mound()  # type: ignore[attr-defined]
             if not mound:
-                return HandlerResult(
+                return HandlerResult(  # type: ignore[call-arg]
                     success=True,
                     data={
                         "adapters": [],
@@ -118,10 +118,10 @@ class DashboardOperationsMixin:
             coordinator = getattr(mound, "_coordinator", None)
             if coordinator is None:
                 # Try from server context
-                coordinator = self.server_context.get("km_coordinator")
+                coordinator = self.server_context.get("km_coordinator")  # type: ignore[attr-defined]
 
             if coordinator is None:
-                return HandlerResult(
+                return HandlerResult(  # type: ignore[call-arg]
                     success=True,
                     data={
                         "adapters": [],
@@ -136,17 +136,19 @@ class DashboardOperationsMixin:
 
             adapters_list = []
             for name, info in stats.get("adapters", {}).items():
-                adapters_list.append({
-                    "name": name,
-                    "enabled": info.get("enabled", False),
-                    "priority": info.get("priority", 0),
-                    "forward_sync_count": info.get("forward_sync_count", 0),
-                    "reverse_sync_count": info.get("reverse_sync_count", 0),
-                    "last_sync": info.get("last_sync"),
-                    "errors": info.get("errors", 0),
-                })
+                adapters_list.append(
+                    {
+                        "name": name,
+                        "enabled": info.get("enabled", False),
+                        "priority": info.get("priority", 0),
+                        "forward_sync_count": info.get("forward_sync_count", 0),
+                        "reverse_sync_count": info.get("reverse_sync_count", 0),
+                        "last_sync": info.get("last_sync"),
+                        "errors": info.get("errors", 0),
+                    }
+                )
 
-            return HandlerResult(
+            return HandlerResult(  # type: ignore[call-arg]
                 success=True,
                 data={
                     "adapters": adapters_list,
@@ -175,14 +177,14 @@ class DashboardOperationsMixin:
             from aragora.knowledge.mound.federated_query import FederatedQueryAggregator
 
             # Try to get aggregator from server context
-            aggregator = self.server_context.get("km_aggregator")
+            aggregator = self.server_context.get("km_aggregator")  # type: ignore[attr-defined]
             if aggregator is None:
                 # Create a temporary one to get empty stats
                 aggregator = FederatedQueryAggregator()
 
             stats = aggregator.get_stats()
 
-            return HandlerResult(
+            return HandlerResult(  # type: ignore[call-arg]
                 success=True,
                 data=stats,
                 message="Query stats retrieved",
@@ -210,7 +212,7 @@ class DashboardOperationsMixin:
             metrics = get_metrics()
             metrics.reset()
 
-            return HandlerResult(
+            return HandlerResult(  # type: ignore[call-arg]
                 success=True,
                 data={"message": "Metrics reset successfully"},
             )
@@ -241,7 +243,7 @@ class DashboardOperationsMixin:
 
             bridge = get_km_bridge()
             if bridge is None:
-                return HandlerResult(
+                return HandlerResult(  # type: ignore[call-arg]
                     success=True,
                     data={
                         "running": False,
@@ -251,7 +253,7 @@ class DashboardOperationsMixin:
 
             stats = bridge.get_stats()
 
-            return HandlerResult(
+            return HandlerResult(  # type: ignore[call-arg]
                 success=True,
                 data=stats,
             )

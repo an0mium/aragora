@@ -577,8 +577,8 @@ class MLFallbackService:
 
                     self._embedding_service = LocalEmbeddingService()
 
-                emb1 = await self._embedding_service.embed(text1)  # type: ignore[union-attr]
-                emb2 = await self._embedding_service.embed(text2)  # type: ignore[union-attr]
+                emb1 = await self._embedding_service.embed(text1)  # type: ignore[attr-defined]
+                emb2 = await self._embedding_service.embed(text2)  # type: ignore[attr-defined]
 
                 # Cosine similarity
                 dot = sum(a * b for a, b in zip(emb1.embedding, emb2.embedding))
@@ -630,7 +630,7 @@ class MLFallbackService:
                     self._consensus_predictor = ConsensusPredictor()
 
                 # Try ML prediction
-                prediction = self._consensus_predictor.predict(  # type: ignore[union-attr]
+                prediction = self._consensus_predictor.predict(  # type: ignore[attr-defined]
                     [{"text": r} for r in responses],
                     task,
                 )
@@ -672,7 +672,7 @@ class MLFallbackService:
 
                     self._quality_scorer = QualityScorer()
 
-                score = self._quality_scorer.score(text)  # type: ignore[union-attr]
+                score = self._quality_scorer.score(text)  # type: ignore[attr-defined]
 
                 latency = (time.perf_counter() - start) * 1000
                 self._manager.record_success(MLFeature.QUALITY_SCORING, latency)

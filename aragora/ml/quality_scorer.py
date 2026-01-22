@@ -114,16 +114,16 @@ class QualityScorer:
 
     def _extract_features(self, text: str) -> dict[str, float]:
         """Extract quality features from text."""
-        features = {}
+        features: dict[str, float] = {}
 
         # Length features
         char_count = len(text)
         word_count = len(text.split())
         sentence_count = len(re.split(r"[.!?]+", text))
 
-        features["char_count"] = char_count
-        features["word_count"] = word_count
-        features["sentence_count"] = max(1, sentence_count)
+        features["char_count"] = float(char_count)
+        features["word_count"] = float(word_count)
+        features["sentence_count"] = float(max(1, sentence_count))
         features["avg_word_length"] = char_count / max(1, word_count)
         features["avg_sentence_length"] = word_count / max(1, sentence_count)
 

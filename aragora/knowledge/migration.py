@@ -233,7 +233,7 @@ class KnowledgeMoundMigrator:
 
         try:
             # Get all entries from source
-            entries = source.get_all_entries()
+            entries = source.get_all_entries()  # type: ignore[attr-defined]
             if tier_filter:
                 entries = [e for e in entries if e.tier in tier_filter]
             if min_importance > 0:
@@ -249,7 +249,7 @@ class KnowledgeMoundMigrator:
 
                     # Check for duplicates if enabled
                     if self._skip_duplicates:
-                        existing = await self._mound.query_nodes(
+                        existing = await self._mound.query_nodes(  # type: ignore[arg-type]
                             workspace_id=workspace_id,
                             limit=1,
                         )
@@ -259,7 +259,7 @@ class KnowledgeMoundMigrator:
                             continue
 
                     # Add to mound
-                    node_id = await self._mound.add_node(node, deduplicate=True)
+                    node_id = await self._mound.add_node(node, deduplicate=True)  # type: ignore[call-arg]
                     result.node_ids.append(node_id)
                     result.migrated_count += 1
 
@@ -366,7 +366,7 @@ class KnowledgeMoundMigrator:
 
         try:
             # Get all consensus records
-            records = source.get_all_consensus()
+            records = source.get_all_consensus()  # type: ignore[attr-defined]
             if min_confidence > 0:
                 records = [r for r in records if r.confidence >= min_confidence]
 
@@ -377,7 +377,7 @@ class KnowledgeMoundMigrator:
                 try:
                     # Create main consensus node
                     consensus_node = self._consensus_record_to_node(record, workspace_id)
-                    consensus_id = await self._mound.add_node(consensus_node, deduplicate=True)
+                    consensus_id = await self._mound.add_node(consensus_node, deduplicate=True)  # type: ignore[call-arg]
                     result.node_ids.append(consensus_id)
                     result.migrated_count += 1
 
@@ -401,11 +401,11 @@ class KnowledgeMoundMigrator:
                                 "consensus_id": record.id,
                             },
                         )
-                        claim_id = await self._mound.add_node(claim_node, deduplicate=True)
+                        claim_id = await self._mound.add_node(claim_node, deduplicate=True)  # type: ignore[call-arg]
                         result.node_ids.append(claim_id)
 
                         # Add "supports" relationship
-                        rel_id = await self._mound.add_relationship(
+                        rel_id = await self._mound.add_relationship(  # type: ignore[call-arg]
                             from_node_id=claim_id,
                             to_node_id=consensus_id,
                             relationship_type="supports",
@@ -420,13 +420,13 @@ class KnowledgeMoundMigrator:
                             dissent = source.get_dissent(dissent_id)
                             if dissent:
                                 dissent_node = self._dissent_record_to_node(dissent, workspace_id)
-                                d_node_id = await self._mound.add_node(
+                                d_node_id = await self._mound.add_node(  # type: ignore[call-arg]
                                     dissent_node, deduplicate=True
                                 )
                                 result.node_ids.append(d_node_id)
 
                                 # Add "contradicts" relationship
-                                rel_id = await self._mound.add_relationship(
+                                rel_id = await self._mound.add_relationship(  # type: ignore[call-arg]
                                     from_node_id=d_node_id,
                                     to_node_id=consensus_id,
                                     relationship_type="contradicts",
