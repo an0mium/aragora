@@ -31,6 +31,8 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
@@ -41,6 +43,15 @@ from typing import Any, Callable, Dict, List, Optional
 from aragora.observability import get_logger
 
 logger = get_logger(__name__)
+
+# Redis availability check (optional - for distributed cache)
+try:
+    import redis.asyncio as aioredis
+
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    aioredis = None  # type: ignore
 
 # Audit logging (optional)
 try:
@@ -1568,6 +1579,741 @@ def _sync_from_compliance_store(
 ControlPlanePolicyManager.sync_from_compliance_store = _sync_from_compliance_store  # type: ignore[method-assign,assignment]
 
 
+# =============================================================================
+# Policy Conflict Detection
+# =============================================================================
+
+
+@dataclass
+class PolicyConflict:
+    """Represents a conflict between two policies."""
+
+    policy_a_id: str
+    policy_a_name: str
+    policy_b_id: str
+    policy_b_name: str
+    conflict_type: str  # "agent", "region", "overlapping_scope"
+    description: str
+    severity: str  # "warning", "error"
+    detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "policy_a_id": self.policy_a_id,
+            "policy_a_name": self.policy_a_name,
+            "policy_b_id": self.policy_b_id,
+            "policy_b_name": self.policy_b_name,
+            "conflict_type": self.conflict_type,
+            "description": self.description,
+            "severity": self.severity,
+            "detected_at": self.detected_at.isoformat(),
+        }
+
+
+class PolicyConflictDetector:
+    """
+    Detects conflicts between control plane policies.
+
+    Identifies situations where:
+    - Two policies have overlapping scope but contradictory agent restrictions
+    - Two policies have overlapping scope but contradictory region constraints
+    - Policies create impossible-to-satisfy conditions
+
+    Usage:
+        detector = PolicyConflictDetector()
+        conflicts = detector.detect_conflicts(policies)
+        for conflict in conflicts:
+            logger.warning(f"Policy conflict: {conflict.description}")
+    """
+
+    def detect_conflicts(
+        self,
+        policies: List[ControlPlanePolicy],
+    ) -> List[PolicyConflict]:
+        """
+        Detect conflicts between a set of policies.
+
+        Args:
+            policies: List of policies to check for conflicts
+
+        Returns:
+            List of detected conflicts
+        """
+        conflicts: List[PolicyConflict] = []
+        enabled_policies = [p for p in policies if p.enabled]
+
+        for i, policy_a in enumerate(enabled_policies):
+            for policy_b in enabled_policies[i + 1 :]:
+                # Check for overlapping scope
+                if not self._scopes_overlap(policy_a, policy_b):
+                    continue
+
+                # Check for agent restriction conflicts
+                agent_conflicts = self._check_agent_conflicts(policy_a, policy_b)
+                conflicts.extend(agent_conflicts)
+
+                # Check for region constraint conflicts
+                region_conflicts = self._check_region_conflicts(policy_a, policy_b)
+                conflicts.extend(region_conflicts)
+
+                # Check for enforcement level inconsistencies
+                enforcement_conflicts = self._check_enforcement_conflicts(policy_a, policy_b)
+                conflicts.extend(enforcement_conflicts)
+
+        return conflicts
+
+    def _scopes_overlap(
+        self,
+        policy_a: ControlPlanePolicy,
+        policy_b: ControlPlanePolicy,
+    ) -> bool:
+        """Check if two policies have overlapping scopes.
+
+        Even if policies have global scope, they don't overlap if their
+        task_types, workspaces, or capabilities are mutually exclusive.
+        """
+        # Check task type overlap first - this is the primary scope filter
+        if policy_a.task_types and policy_b.task_types:
+            if not set(policy_a.task_types).intersection(policy_b.task_types):
+                return False
+        # If only one has task types, they could still overlap
+
+        # Check workspace overlap
+        if policy_a.workspaces and policy_b.workspaces:
+            if not set(policy_a.workspaces).intersection(policy_b.workspaces):
+                return False
+
+        # Check capability overlap
+        if policy_a.capabilities and policy_b.capabilities:
+            if not set(policy_a.capabilities).intersection(policy_b.capabilities):
+                return False
+
+        return True
+
+    def _check_agent_conflicts(
+        self,
+        policy_a: ControlPlanePolicy,
+        policy_b: ControlPlanePolicy,
+    ) -> List[PolicyConflict]:
+        """Check for conflicting agent restrictions."""
+        conflicts: List[PolicyConflict] = []
+
+        # Conflict: A allows an agent that B blocks
+        if policy_a.agent_allowlist and policy_b.agent_blocklist:
+            blocked_allowed = set(policy_a.agent_allowlist).intersection(policy_b.agent_blocklist)
+            if blocked_allowed:
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="agent",
+                        description=(
+                            f"Policy '{policy_a.name}' allows agents {blocked_allowed} "
+                            f"but policy '{policy_b.name}' blocks them"
+                        ),
+                        severity="error"
+                        if policy_b.enforcement_level == EnforcementLevel.HARD
+                        else "warning",
+                    )
+                )
+
+        # Conflict: B allows an agent that A blocks
+        if policy_b.agent_allowlist and policy_a.agent_blocklist:
+            blocked_allowed = set(policy_b.agent_allowlist).intersection(policy_a.agent_blocklist)
+            if blocked_allowed:
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="agent",
+                        description=(
+                            f"Policy '{policy_b.name}' allows agents {blocked_allowed} "
+                            f"but policy '{policy_a.name}' blocks them"
+                        ),
+                        severity="error"
+                        if policy_a.enforcement_level == EnforcementLevel.HARD
+                        else "warning",
+                    )
+                )
+
+        # Conflict: Both have allowlists with no overlap (impossible to satisfy)
+        if policy_a.agent_allowlist and policy_b.agent_allowlist:
+            overlap = set(policy_a.agent_allowlist).intersection(policy_b.agent_allowlist)
+            if not overlap:
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="agent",
+                        description=(
+                            f"Policies '{policy_a.name}' and '{policy_b.name}' have "
+                            f"non-overlapping agent allowlists - no agent can satisfy both"
+                        ),
+                        severity="error",
+                    )
+                )
+
+        return conflicts
+
+    def _check_region_conflicts(
+        self,
+        policy_a: ControlPlanePolicy,
+        policy_b: ControlPlanePolicy,
+    ) -> List[PolicyConflict]:
+        """Check for conflicting region constraints."""
+        conflicts: List[PolicyConflict] = []
+
+        rc_a = policy_a.region_constraint
+        rc_b = policy_b.region_constraint
+
+        if not rc_a or not rc_b:
+            return conflicts
+
+        # Conflict: A allows a region that B blocks
+        if rc_a.allowed_regions and rc_b.blocked_regions:
+            blocked_allowed = set(rc_a.allowed_regions).intersection(rc_b.blocked_regions)
+            if blocked_allowed:
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="region",
+                        description=(
+                            f"Policy '{policy_a.name}' allows regions {blocked_allowed} "
+                            f"but policy '{policy_b.name}' blocks them"
+                        ),
+                        severity="error"
+                        if policy_b.enforcement_level == EnforcementLevel.HARD
+                        else "warning",
+                    )
+                )
+
+        # Conflict: Both have allowed regions with no overlap
+        if rc_a.allowed_regions and rc_b.allowed_regions:
+            overlap = set(rc_a.allowed_regions).intersection(rc_b.allowed_regions)
+            if not overlap:
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="region",
+                        description=(
+                            f"Policies '{policy_a.name}' and '{policy_b.name}' have "
+                            f"non-overlapping allowed regions - no region can satisfy both"
+                        ),
+                        severity="error",
+                    )
+                )
+
+        return conflicts
+
+    def _check_enforcement_conflicts(
+        self,
+        policy_a: ControlPlanePolicy,
+        policy_b: ControlPlanePolicy,
+    ) -> List[PolicyConflict]:
+        """Check for inconsistent enforcement levels on similar policies."""
+        conflicts: List[PolicyConflict] = []
+
+        # Warning when similar policies have different enforcement levels
+        # (can cause confusion about actual behavior)
+        if policy_a.enforcement_level != policy_b.enforcement_level:
+            # Only warn if both have the same constraints (not just overlapping)
+            same_agents = set(policy_a.agent_allowlist) == set(policy_b.agent_allowlist) and set(
+                policy_a.agent_blocklist
+            ) == set(policy_b.agent_blocklist)
+            same_task_types = set(policy_a.task_types) == set(policy_b.task_types)
+
+            if (
+                same_agents
+                and same_task_types
+                and (policy_a.agent_allowlist or policy_a.agent_blocklist)
+            ):
+                conflicts.append(
+                    PolicyConflict(
+                        policy_a_id=policy_a.id,
+                        policy_a_name=policy_a.name,
+                        policy_b_id=policy_b.id,
+                        policy_b_name=policy_b.name,
+                        conflict_type="overlapping_scope",
+                        description=(
+                            f"Policies '{policy_a.name}' ({policy_a.enforcement_level.value}) "
+                            f"and '{policy_b.name}' ({policy_b.enforcement_level.value}) "
+                            f"have identical constraints but different enforcement levels"
+                        ),
+                        severity="warning",
+                    )
+                )
+
+        return conflicts
+
+
+# =============================================================================
+# Distributed Policy Cache (Redis-backed)
+# =============================================================================
+
+
+class RedisPolicyCache:
+    """
+    Redis-backed cache for policy evaluation results.
+
+    Provides fast lookups for frequently evaluated policy decisions,
+    reducing repeated policy evaluation overhead in distributed deployments.
+
+    Cache keys are based on the evaluation context hash (task_type + agent + region + workspace).
+    Cache entries expire after a configurable TTL.
+
+    Usage:
+        cache = RedisPolicyCache(redis_url="redis://localhost:6379")
+        await cache.connect()
+
+        # Check cache before evaluation
+        cached = await cache.get(task_type="debate", agent_id="claude", region="us-east-1")
+        if cached:
+            return cached
+
+        # Evaluate and cache result
+        result = policy_manager.evaluate_task_dispatch(...)
+        await cache.set(result, task_type="debate", agent_id="claude", region="us-east-1")
+    """
+
+    def __init__(
+        self,
+        redis_url: str = "redis://localhost:6379",
+        key_prefix: str = "aragora:policy_cache:",
+        ttl_seconds: int = 300,
+        enabled: bool = True,
+    ):
+        """
+        Initialize the policy cache.
+
+        Args:
+            redis_url: Redis connection URL
+            key_prefix: Prefix for cache keys
+            ttl_seconds: Time-to-live for cache entries
+            enabled: Whether caching is enabled
+        """
+        self._redis_url = redis_url
+        self._key_prefix = key_prefix
+        self._ttl_seconds = ttl_seconds
+        self._enabled = enabled
+        self._redis: Optional[Any] = None
+        self._stats = {
+            "hits": 0,
+            "misses": 0,
+            "sets": 0,
+            "errors": 0,
+        }
+
+    async def connect(self) -> bool:
+        """
+        Connect to Redis.
+
+        Returns:
+            True if connected successfully, False otherwise
+        """
+        if not self._enabled or not REDIS_AVAILABLE:
+            logger.debug("Policy cache disabled or Redis not available")
+            return False
+
+        try:
+            self._redis = aioredis.from_url(
+                self._redis_url,
+                encoding="utf-8",
+                decode_responses=True,
+            )
+            await self._redis.ping()
+            logger.info("policy_cache_connected", redis_url=self._redis_url)
+            return True
+        except Exception as e:
+            logger.warning("policy_cache_connection_failed", error=str(e))
+            self._redis = None
+            return False
+
+    async def close(self) -> None:
+        """Close Redis connection."""
+        if self._redis:
+            await self._redis.close()
+            self._redis = None
+
+    def _make_cache_key(
+        self,
+        task_type: str,
+        agent_id: str,
+        region: str,
+        workspace: Optional[str] = None,
+        policy_version: Optional[str] = None,
+    ) -> str:
+        """Generate a cache key from evaluation context."""
+        components = [
+            task_type,
+            agent_id,
+            region,
+            workspace or "_default_",
+            policy_version or "_current_",
+        ]
+        key_data = ":".join(components)
+        key_hash = hashlib.sha256(key_data.encode()).hexdigest()[:16]
+        return f"{self._key_prefix}{key_hash}"
+
+    async def get(
+        self,
+        task_type: str,
+        agent_id: str,
+        region: str,
+        workspace: Optional[str] = None,
+        policy_version: Optional[str] = None,
+    ) -> Optional[PolicyEvaluationResult]:
+        """
+        Get cached evaluation result.
+
+        Args:
+            task_type: Task type from evaluation
+            agent_id: Agent ID from evaluation
+            region: Region from evaluation
+            workspace: Workspace from evaluation
+            policy_version: Version hash of current policies (for invalidation)
+
+        Returns:
+            Cached PolicyEvaluationResult if found and valid, None otherwise
+        """
+        if not self._redis:
+            return None
+
+        try:
+            key = self._make_cache_key(task_type, agent_id, region, workspace, policy_version)
+            data = await self._redis.get(key)
+
+            if data:
+                self._stats["hits"] += 1
+                cached_dict = json.loads(data)
+                return PolicyEvaluationResult(
+                    decision=PolicyDecision(cached_dict["decision"]),
+                    allowed=cached_dict["allowed"],
+                    policy_id=cached_dict["policy_id"],
+                    policy_name=cached_dict["policy_name"],
+                    reason=cached_dict["reason"],
+                    enforcement_level=EnforcementLevel(cached_dict["enforcement_level"]),
+                    task_type=cached_dict.get("task_type"),
+                    agent_id=cached_dict.get("agent_id"),
+                    region=cached_dict.get("region"),
+                    sla_violation=cached_dict.get("sla_violation"),
+                )
+
+            self._stats["misses"] += 1
+            return None
+
+        except Exception as e:
+            self._stats["errors"] += 1
+            logger.debug("policy_cache_get_error", error=str(e))
+            return None
+
+    async def set(
+        self,
+        result: PolicyEvaluationResult,
+        task_type: str,
+        agent_id: str,
+        region: str,
+        workspace: Optional[str] = None,
+        policy_version: Optional[str] = None,
+    ) -> bool:
+        """
+        Cache an evaluation result.
+
+        Args:
+            result: The evaluation result to cache
+            task_type: Task type from evaluation
+            agent_id: Agent ID from evaluation
+            region: Region from evaluation
+            workspace: Workspace from evaluation
+            policy_version: Version hash of current policies
+
+        Returns:
+            True if cached successfully, False otherwise
+        """
+        if not self._redis:
+            return False
+
+        try:
+            key = self._make_cache_key(task_type, agent_id, region, workspace, policy_version)
+            data = json.dumps(result.to_dict())
+            await self._redis.setex(key, self._ttl_seconds, data)
+            self._stats["sets"] += 1
+            return True
+
+        except Exception as e:
+            self._stats["errors"] += 1
+            logger.debug("policy_cache_set_error", error=str(e))
+            return False
+
+    async def invalidate_all(self) -> int:
+        """
+        Invalidate all cached policy results.
+
+        Call this after policy changes to ensure fresh evaluations.
+
+        Returns:
+            Number of keys deleted
+        """
+        if not self._redis:
+            return 0
+
+        try:
+            pattern = f"{self._key_prefix}*"
+            deleted = 0
+            async for key in self._redis.scan_iter(match=pattern):
+                await self._redis.delete(key)
+                deleted += 1
+            logger.info("policy_cache_invalidated", deleted=deleted)
+            return deleted
+        except Exception as e:
+            logger.warning("policy_cache_invalidate_error", error=str(e))
+            return 0
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        total = self._stats["hits"] + self._stats["misses"]
+        hit_rate = self._stats["hits"] / total if total > 0 else 0.0
+        return {
+            **self._stats,
+            "hit_rate": hit_rate,
+            "connected": self._redis is not None,
+        }
+
+
+# =============================================================================
+# Continuous Policy Sync Scheduler
+# =============================================================================
+
+
+class PolicySyncScheduler:
+    """
+    Background scheduler for continuous policy synchronization.
+
+    Periodically syncs policies from the compliance store and control plane
+    policy store, ensuring the in-memory policy manager stays up-to-date
+    with persistent storage.
+
+    Also runs conflict detection after each sync and can optionally
+    invalidate the policy cache when changes are detected.
+
+    Usage:
+        manager = ControlPlanePolicyManager()
+        cache = RedisPolicyCache(...)
+        scheduler = PolicySyncScheduler(
+            policy_manager=manager,
+            policy_cache=cache,
+            sync_interval_seconds=60,
+        )
+
+        # Start background sync
+        await scheduler.start()
+
+        # ... application runs ...
+
+        # Stop on shutdown
+        await scheduler.stop()
+    """
+
+    def __init__(
+        self,
+        policy_manager: ControlPlanePolicyManager,
+        sync_interval_seconds: float = 60.0,
+        policy_cache: Optional[RedisPolicyCache] = None,
+        conflict_callback: Optional[Callable[[List[PolicyConflict]], None]] = None,
+        sync_from_compliance_store: bool = True,
+        sync_from_control_plane_store: bool = True,
+        workspace_id: Optional[str] = None,
+    ):
+        """
+        Initialize the sync scheduler.
+
+        Args:
+            policy_manager: The policy manager to sync
+            sync_interval_seconds: Interval between sync operations
+            policy_cache: Optional cache to invalidate on policy changes
+            conflict_callback: Callback invoked when conflicts are detected
+            sync_from_compliance_store: Whether to sync from compliance store
+            sync_from_control_plane_store: Whether to sync from control plane store
+            workspace_id: Optional workspace filter for sync
+        """
+        self._policy_manager = policy_manager
+        self._sync_interval = sync_interval_seconds
+        self._policy_cache = policy_cache
+        self._conflict_callback = conflict_callback
+        self._sync_from_compliance = sync_from_compliance_store
+        self._sync_from_cp_store = sync_from_control_plane_store
+        self._workspace_id = workspace_id
+
+        self._conflict_detector = PolicyConflictDetector()
+        self._running = False
+        self._task: Optional[asyncio.Task] = None
+        self._last_sync: Optional[datetime] = None
+        self._last_policy_hash: Optional[str] = None
+        self._sync_count = 0
+        self._error_count = 0
+        self._detected_conflicts: List[PolicyConflict] = []
+
+    async def start(self) -> None:
+        """Start the background sync task."""
+        if self._running:
+            logger.warning("Policy sync scheduler already running")
+            return
+
+        self._running = True
+        self._task = asyncio.create_task(self._sync_loop())
+        logger.info(
+            "policy_sync_scheduler_started",
+            interval_seconds=self._sync_interval,
+            workspace_id=self._workspace_id,
+        )
+
+    async def stop(self) -> None:
+        """Stop the background sync task."""
+        self._running = False
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+        logger.info("policy_sync_scheduler_stopped")
+
+    async def sync_now(self) -> Dict[str, Any]:
+        """
+        Trigger an immediate sync.
+
+        Returns:
+            Sync result with counts and any detected conflicts
+        """
+        return await self._do_sync()
+
+    async def _sync_loop(self) -> None:
+        """Main sync loop."""
+        while self._running:
+            try:
+                await self._do_sync()
+            except Exception as e:
+                self._error_count += 1
+                logger.error("policy_sync_error", error=str(e))
+
+            await asyncio.sleep(self._sync_interval)
+
+    async def _do_sync(self) -> Dict[str, Any]:
+        """Perform a single sync operation."""
+        self._sync_count += 1
+        synced_compliance = 0
+        synced_cp_store = 0
+        changes_detected = False
+
+        # Sync from compliance store
+        if self._sync_from_compliance:
+            try:
+                synced_compliance = self._policy_manager.sync_from_compliance_store(
+                    workspace_id=self._workspace_id,
+                    replace=False,  # Don't replace, merge
+                )
+            except Exception as e:
+                logger.warning("compliance_store_sync_failed", error=str(e))
+
+        # Sync from control plane policy store
+        if self._sync_from_cp_store:
+            try:
+                synced_cp_store = self._policy_manager.sync_from_store(
+                    workspace=self._workspace_id,
+                )
+            except Exception as e:
+                logger.warning("control_plane_store_sync_failed", error=str(e))
+
+        # Calculate hash after sync (includes manually added policies)
+        current_hash = self._compute_policy_hash()
+
+        # Detect changes by comparing to PREVIOUS sync's hash
+        # This catches both: changes from store sync AND manual policy additions
+        if self._last_policy_hash is not None:
+            changes_detected = self._last_policy_hash != current_hash
+        else:
+            # First sync - no previous hash to compare
+            changes_detected = False
+
+        # Invalidate cache if changes detected
+        if changes_detected and self._policy_cache:
+            await self._policy_cache.invalidate_all()
+
+        # Run conflict detection
+        policies = self._policy_manager.list_policies(enabled_only=True)
+        self._detected_conflicts = self._conflict_detector.detect_conflicts(policies)
+
+        if self._detected_conflicts:
+            logger.warning(
+                "policy_conflicts_detected",
+                count=len(self._detected_conflicts),
+                conflicts=[c.to_dict() for c in self._detected_conflicts[:5]],  # Log first 5
+            )
+
+            if self._conflict_callback:
+                try:
+                    self._conflict_callback(self._detected_conflicts)
+                except Exception as e:
+                    logger.warning("conflict_callback_error", error=str(e))
+
+        self._last_sync = datetime.now(timezone.utc)
+        self._last_policy_hash = current_hash
+
+        result = {
+            "synced_from_compliance": synced_compliance,
+            "synced_from_cp_store": synced_cp_store,
+            "changes_detected": changes_detected,
+            "conflicts_detected": len(self._detected_conflicts),
+            "total_policies": len(policies),
+            "sync_time": self._last_sync.isoformat(),
+        }
+
+        logger.info("policy_sync_completed", **result)
+        return result
+
+    def _compute_policy_hash(self) -> str:
+        """Compute a hash of current policy state for change detection."""
+        policies = self._policy_manager.list_policies(enabled_only=False)
+        policy_data = sorted([p.to_dict() for p in policies], key=lambda p: p["id"])
+        data_str = json.dumps(policy_data, sort_keys=True)
+        return hashlib.sha256(data_str.encode()).hexdigest()[:16]
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get scheduler status and statistics."""
+        return {
+            "running": self._running,
+            "sync_interval_seconds": self._sync_interval,
+            "sync_count": self._sync_count,
+            "error_count": self._error_count,
+            "last_sync": self._last_sync.isoformat() if self._last_sync else None,
+            "last_policy_hash": self._last_policy_hash,
+            "detected_conflicts": len(self._detected_conflicts),
+            "workspace_id": self._workspace_id,
+        }
+
+    def get_conflicts(self) -> List[PolicyConflict]:
+        """Get currently detected conflicts."""
+        return self._detected_conflicts.copy()
+
+    @property
+    def policy_version(self) -> Optional[str]:
+        """Get the current policy version hash (for cache keys)."""
+        return self._last_policy_hash
+
+
 __all__ = [
     # Core classes
     "ControlPlanePolicy",
@@ -1588,4 +2334,9 @@ __all__ = [
     "create_sensitive_data_policy",
     "create_agent_tier_policy",
     "create_sla_policy",
+    # Governance hardening
+    "PolicyConflict",
+    "PolicyConflictDetector",
+    "RedisPolicyCache",
+    "PolicySyncScheduler",
 ]

@@ -9,20 +9,29 @@ Tests cover:
 - Policy manager evaluation
 - Violation tracking
 - Factory functions
+- Policy conflict detection
+- Policy sync scheduler
+- Distributed policy cache
 """
 
+import asyncio
 import pytest
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.compliance.policy_store import Policy as CompliancePolicy
 from aragora.control_plane.policy import (
     ControlPlanePolicy,
     ControlPlanePolicyManager,
     EnforcementLevel,
+    PolicyConflict,
+    PolicyConflictDetector,
     PolicyDecision,
     PolicyEvaluationResult,
     PolicyScope,
+    PolicySyncScheduler,
     PolicyViolation,
+    RedisPolicyCache,
     RegionConstraint,
     SLARequirements,
     create_agent_tier_policy,
@@ -800,3 +809,457 @@ class TestEnforcementLevels:
         assert result.decision == PolicyDecision.DENY
         assert result.allowed is False
         assert result.enforcement_level == EnforcementLevel.HARD
+
+
+class TestPolicyConflictDetector:
+    """Tests for PolicyConflictDetector."""
+
+    @pytest.fixture
+    def detector(self):
+        """Create a conflict detector for testing."""
+        return PolicyConflictDetector()
+
+    def test_no_conflicts_with_compatible_policies(self, detector):
+        """Test no conflicts when policies are compatible."""
+        policies = [
+            ControlPlanePolicy(name="policy-a", task_types=["task-a"]),
+            ControlPlanePolicy(name="policy-b", task_types=["task-b"]),
+        ]
+
+        conflicts = detector.detect_conflicts(policies)
+        assert len(conflicts) == 0
+
+    def test_detects_agent_allowlist_blocklist_conflict(self, detector):
+        """Test detection of agent in both allowlist and blocklist."""
+        policies = [
+            ControlPlanePolicy(
+                name="allow-claude",
+                agent_allowlist=["claude-3-opus"],
+            ),
+            ControlPlanePolicy(
+                name="block-claude",
+                agent_blocklist=["claude-3-opus"],
+            ),
+        ]
+
+        conflicts = detector.detect_conflicts(policies)
+        assert len(conflicts) == 1
+        assert conflicts[0].conflict_type == "agent"
+        assert "claude-3-opus" in conflicts[0].description
+
+    def test_detects_non_overlapping_allowlists(self, detector):
+        """Test detection of non-overlapping agent allowlists."""
+        policies = [
+            ControlPlanePolicy(
+                name="only-claude",
+                agent_allowlist=["claude-3-opus"],
+            ),
+            ControlPlanePolicy(
+                name="only-gpt",
+                agent_allowlist=["gpt-4"],
+            ),
+        ]
+
+        conflicts = detector.detect_conflicts(policies)
+        assert len(conflicts) == 1
+        assert "no agent can satisfy both" in conflicts[0].description.lower()
+
+    def test_detects_region_allowlist_blocklist_conflict(self, detector):
+        """Test detection of region in both allowlist and blocklist."""
+        policies = [
+            ControlPlanePolicy(
+                name="allow-us-east",
+                region_constraint=RegionConstraint(allowed_regions=["us-east-1"]),
+            ),
+            ControlPlanePolicy(
+                name="block-us-east",
+                region_constraint=RegionConstraint(blocked_regions=["us-east-1"]),
+            ),
+        ]
+
+        conflicts = detector.detect_conflicts(policies)
+        assert len(conflicts) == 1
+        assert conflicts[0].conflict_type == "region"
+
+    def test_detects_non_overlapping_region_allowlists(self, detector):
+        """Test detection of non-overlapping region allowlists."""
+        policies = [
+            ControlPlanePolicy(
+                name="us-only",
+                region_constraint=RegionConstraint(allowed_regions=["us-east-1"]),
+            ),
+            ControlPlanePolicy(
+                name="eu-only",
+                region_constraint=RegionConstraint(allowed_regions=["eu-west-1"]),
+            ),
+        ]
+
+        conflicts = detector.detect_conflicts(policies)
+        assert len(conflicts) == 1
+        assert "no region can satisfy both" in conflicts[0].description.lower()
+
+    def test_detects_enforcement_level_inconsistency(self, detector):
+        """Test detection of inconsistent enforcement levels on duplicate policies."""
+        policies = [
+            ControlPlanePolicy(
+                name="hard-policy",
+                agent_blocklist=["blocked-agent"],
+                task_types=["task-a"],
+                enforcement_level=EnforcementLevel.HARD,
+            ),
+            ControlPlanePolicy(
+                name="warn-policy",
+                agent_blocklist=["blocked-agent"],
+                task_types=["task-a"],
+                enforcement_level=EnforcementLevel.WARN,
+            ),
+        ]
+
+        conflicts = detector.detect_conflicts(policies)
+        enforcement_conflicts = [c for c in conflicts if c.conflict_type == "overlapping_scope"]
+        assert len(enforcement_conflicts) == 1
+        assert "different enforcement levels" in enforcement_conflicts[0].description
+
+    def test_no_conflict_different_scopes(self, detector):
+        """Test no conflict when policies have different scopes."""
+        policies = [
+            ControlPlanePolicy(
+                name="task-a-policy",
+                task_types=["task-a"],
+                agent_blocklist=["agent-x"],
+            ),
+            ControlPlanePolicy(
+                name="task-b-policy",
+                task_types=["task-b"],
+                agent_allowlist=["agent-x"],  # Would conflict if same scope
+            ),
+        ]
+
+        conflicts = detector.detect_conflicts(policies)
+        # These don't conflict because they're for different task types
+        assert len(conflicts) == 0
+
+    def test_skips_disabled_policies(self, detector):
+        """Test that disabled policies are skipped."""
+        policies = [
+            ControlPlanePolicy(
+                name="enabled",
+                agent_allowlist=["agent-a"],
+                enabled=True,
+            ),
+            ControlPlanePolicy(
+                name="disabled",
+                agent_blocklist=["agent-a"],  # Would conflict if enabled
+                enabled=False,
+            ),
+        ]
+
+        conflicts = detector.detect_conflicts(policies)
+        assert len(conflicts) == 0
+
+    def test_conflict_serialization(self):
+        """Test PolicyConflict serialization."""
+        conflict = PolicyConflict(
+            policy_a_id="policy-1",
+            policy_a_name="Policy One",
+            policy_b_id="policy-2",
+            policy_b_name="Policy Two",
+            conflict_type="agent",
+            description="Test conflict",
+            severity="error",
+        )
+
+        data = conflict.to_dict()
+        assert data["policy_a_id"] == "policy-1"
+        assert data["conflict_type"] == "agent"
+        assert data["severity"] == "error"
+        assert "detected_at" in data
+
+
+class TestRedisPolicyCache:
+    """Tests for RedisPolicyCache."""
+
+    @pytest.fixture
+    def cache(self):
+        """Create a cache instance (not connected)."""
+        return RedisPolicyCache(enabled=True)
+
+    def test_cache_disabled_returns_none(self):
+        """Test that disabled cache returns None."""
+        cache = RedisPolicyCache(enabled=False)
+
+        async def test():
+            result = await cache.get("task", "agent", "region")
+            assert result is None
+
+        asyncio.get_event_loop().run_until_complete(test())
+
+    def test_cache_key_generation(self, cache):
+        """Test cache key generation is deterministic."""
+        key1 = cache._make_cache_key("task", "agent", "region", "workspace")
+        key2 = cache._make_cache_key("task", "agent", "region", "workspace")
+        key3 = cache._make_cache_key("task", "agent", "region", "other")
+
+        assert key1 == key2  # Same inputs = same key
+        assert key1 != key3  # Different inputs = different key
+        assert cache._key_prefix in key1
+
+    def test_cache_stats_initial(self, cache):
+        """Test initial cache statistics."""
+        stats = cache.get_stats()
+
+        assert stats["hits"] == 0
+        assert stats["misses"] == 0
+        assert stats["sets"] == 0
+        assert stats["errors"] == 0
+        assert stats["connected"] is False
+
+    @pytest.mark.asyncio
+    async def test_cache_get_without_connection_returns_none(self, cache):
+        """Test get without Redis connection returns None."""
+        result = await cache.get("task", "agent", "region")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_cache_set_without_connection_returns_false(self, cache):
+        """Test set without Redis connection returns False."""
+        result_obj = PolicyEvaluationResult(
+            decision=PolicyDecision.ALLOW,
+            allowed=True,
+            policy_id="",
+            policy_name="",
+            reason="All passed",
+            enforcement_level=EnforcementLevel.HARD,
+        )
+
+        success = await cache.set(result_obj, "task", "agent", "region")
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_cache_connect_without_redis(self, cache):
+        """Test connect gracefully handles missing Redis."""
+        # This should not raise, just return False
+        with patch("aragora.control_plane.policy.REDIS_AVAILABLE", False):
+            cache_no_redis = RedisPolicyCache(enabled=True)
+            connected = await cache_no_redis.connect()
+            assert connected is False
+
+
+class TestPolicySyncScheduler:
+    """Tests for PolicySyncScheduler."""
+
+    @pytest.fixture
+    def manager(self):
+        """Create a policy manager for testing."""
+        return ControlPlanePolicyManager()
+
+    @pytest.fixture
+    def scheduler(self, manager):
+        """Create a scheduler for testing."""
+        return PolicySyncScheduler(
+            policy_manager=manager,
+            sync_interval_seconds=0.1,  # Fast for testing
+            sync_from_compliance_store=False,  # Disable external deps
+            sync_from_control_plane_store=False,
+        )
+
+    def test_initial_status(self, scheduler):
+        """Test initial scheduler status."""
+        status = scheduler.get_status()
+
+        assert status["running"] is False
+        assert status["sync_count"] == 0
+        assert status["error_count"] == 0
+        assert status["last_sync"] is None
+
+    @pytest.mark.asyncio
+    async def test_start_and_stop(self, scheduler):
+        """Test starting and stopping the scheduler."""
+        await scheduler.start()
+        assert scheduler.get_status()["running"] is True
+
+        await scheduler.stop()
+        assert scheduler.get_status()["running"] is False
+
+    @pytest.mark.asyncio
+    async def test_sync_now(self, scheduler, manager):
+        """Test immediate sync operation."""
+        # Add a policy before sync
+        policy = ControlPlanePolicy(name="test-policy")
+        manager.add_policy(policy)
+
+        result = await scheduler.sync_now()
+
+        assert result["total_policies"] == 1
+        assert "sync_time" in result
+
+    @pytest.mark.asyncio
+    async def test_sync_detects_conflicts(self, scheduler, manager):
+        """Test that sync detects conflicts."""
+        # Add conflicting policies
+        manager.add_policy(
+            ControlPlanePolicy(
+                name="allow-agent",
+                agent_allowlist=["agent-a"],
+            )
+        )
+        manager.add_policy(
+            ControlPlanePolicy(
+                name="block-agent",
+                agent_blocklist=["agent-a"],
+            )
+        )
+
+        result = await scheduler.sync_now()
+
+        assert result["conflicts_detected"] > 0
+        conflicts = scheduler.get_conflicts()
+        assert len(conflicts) > 0
+
+    @pytest.mark.asyncio
+    async def test_conflict_callback_invoked(self, manager):
+        """Test conflict callback is invoked when conflicts detected."""
+        conflicts_received = []
+
+        def callback(conflicts):
+            conflicts_received.extend(conflicts)
+
+        scheduler = PolicySyncScheduler(
+            policy_manager=manager,
+            sync_interval_seconds=1.0,
+            conflict_callback=callback,
+            sync_from_compliance_store=False,
+            sync_from_control_plane_store=False,
+        )
+
+        # Add conflicting policies
+        manager.add_policy(ControlPlanePolicy(name="a", agent_allowlist=["agent-1"]))
+        manager.add_policy(ControlPlanePolicy(name="b", agent_blocklist=["agent-1"]))
+
+        await scheduler.sync_now()
+
+        assert len(conflicts_received) > 0
+
+    @pytest.mark.asyncio
+    async def test_policy_version_hash(self, scheduler, manager):
+        """Test policy version hash changes when policies change."""
+        # Initial sync
+        await scheduler.sync_now()
+        initial_version = scheduler.policy_version
+
+        # Add a policy
+        manager.add_policy(ControlPlanePolicy(name="new-policy"))
+        await scheduler.sync_now()
+        new_version = scheduler.policy_version
+
+        assert initial_version != new_version
+
+    @pytest.mark.asyncio
+    async def test_cache_invalidation_on_change(self, manager):
+        """Test cache is invalidated when policies change."""
+        mock_cache = AsyncMock(spec=RedisPolicyCache)
+
+        scheduler = PolicySyncScheduler(
+            policy_manager=manager,
+            sync_interval_seconds=1.0,
+            policy_cache=mock_cache,
+            sync_from_compliance_store=False,
+            sync_from_control_plane_store=False,
+        )
+
+        # First sync - no change
+        await scheduler.sync_now()
+
+        # Add policy to trigger change
+        manager.add_policy(ControlPlanePolicy(name="trigger-change"))
+        await scheduler.sync_now()
+
+        # Cache invalidate should have been called
+        mock_cache.invalidate_all.assert_called()
+
+    def test_sync_count_increments(self, scheduler):
+        """Test sync count increments on each sync."""
+
+        async def run_test():
+            await scheduler.sync_now()
+            assert scheduler.get_status()["sync_count"] == 1
+
+            await scheduler.sync_now()
+            assert scheduler.get_status()["sync_count"] == 2
+
+        asyncio.get_event_loop().run_until_complete(run_test())
+
+
+class TestGovernanceIntegration:
+    """Integration tests for governance hardening features."""
+
+    @pytest.mark.asyncio
+    async def test_full_governance_flow(self):
+        """Test complete governance flow with manager, detector, and scheduler."""
+        # Create manager with some policies
+        manager = ControlPlanePolicyManager()
+
+        # Add production policy
+        manager.add_policy(
+            create_production_policy(
+                agent_allowlist=["claude-3-opus", "gpt-4"],
+                allowed_regions=["us-east-1", "us-west-2"],
+            )
+        )
+
+        # Add conflicting policy (for testing detection)
+        manager.add_policy(
+            ControlPlanePolicy(
+                name="dev-all-agents",
+                task_types=["production-deployment"],  # Same task type as production
+                agent_blocklist=["claude-3-opus"],  # Conflicts with production allowlist
+                enforcement_level=EnforcementLevel.WARN,
+            )
+        )
+
+        # Create scheduler with conflict detection
+        detected = []
+        scheduler = PolicySyncScheduler(
+            policy_manager=manager,
+            sync_interval_seconds=10.0,
+            conflict_callback=lambda c: detected.extend(c),
+            sync_from_compliance_store=False,
+            sync_from_control_plane_store=False,
+        )
+
+        # Run sync to trigger conflict detection
+        result = await scheduler.sync_now()
+
+        # Verify conflict detected
+        assert result["conflicts_detected"] > 0
+        assert len(detected) > 0
+        assert any("claude-3-opus" in c.description for c in detected)
+
+        # Verify policy evaluation still works
+        eval_result = manager.evaluate_task_dispatch(
+            task_type="production-deployment",
+            agent_id="claude-3-opus",
+            region="us-east-1",
+        )
+        assert eval_result.allowed is True  # First matching policy allows
+
+    @pytest.mark.asyncio
+    async def test_scheduler_background_loop(self):
+        """Test scheduler background loop runs without errors."""
+        manager = ControlPlanePolicyManager()
+        manager.add_policy(ControlPlanePolicy(name="test"))
+
+        scheduler = PolicySyncScheduler(
+            policy_manager=manager,
+            sync_interval_seconds=0.05,  # Very fast for testing
+            sync_from_compliance_store=False,
+            sync_from_control_plane_store=False,
+        )
+
+        await scheduler.start()
+        await asyncio.sleep(0.15)  # Let a few syncs happen
+        await scheduler.stop()
+
+        status = scheduler.get_status()
+        assert status["sync_count"] >= 2
+        assert status["error_count"] == 0
