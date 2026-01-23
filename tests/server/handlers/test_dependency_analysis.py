@@ -149,7 +149,7 @@ class TestGenerateSBOM:
 
         assert result["success"] is False
         assert result["status"] == 400
-        assert "Invalid SBOM format" in result["error"]
+        assert "cyclonedx" in result["error"] or "spdx" in result["error"]
 
     @pytest.mark.asyncio
     async def test_cyclonedx_format(self, tmp_path):
