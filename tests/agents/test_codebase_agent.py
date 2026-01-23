@@ -240,7 +240,7 @@ class TestSpecialistAgents:
         """Test CodeAnalystAgent creation."""
         agent = CodeAnalystAgent()
         assert agent.name == "code-analyst"
-        assert agent.role == "analyst"
+        assert agent.role == "critic"  # Analysts act as critics in debates
         assert agent.agent_type == "code_analyst"
         assert "architect" in agent.persona.lower()
 
@@ -248,7 +248,7 @@ class TestSpecialistAgents:
         """Test CodeAnalystAgent with custom name."""
         agent = CodeAnalystAgent(name="custom-analyst")
         assert agent.name == "custom-analyst"
-        assert agent.role == "analyst"
+        assert agent.role == "critic"  # Analysts act as critics in debates
 
     def test_security_reviewer_agent(self):
         """Test SecurityReviewerAgent creation."""
