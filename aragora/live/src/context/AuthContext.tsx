@@ -263,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Fetch user profile using the access token
     try {
-      const response = await fetch(`${API_BASE}/api/user/me`, {
+      const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
