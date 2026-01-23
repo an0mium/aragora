@@ -41,6 +41,7 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
@@ -294,19 +295,25 @@ class AuditQuery:
 
 
 class SQLiteBackend:
-    """SQLite backend for audit log storage."""
+    """SQLite backend for audit log storage.
+
+    Uses thread-local storage for connections to ensure thread safety.
+    Each thread gets its own connection to the database.
+    """
 
     def __init__(self, db_path: Path):
         self.db_path = db_path
-        self._conn: Optional[sqlite3.Connection] = None
+        self._local = threading.local()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """Get or create database connection."""
-        if self._conn is None:
-            self._conn = sqlite3.connect(str(self.db_path), timeout=30.0)
-            self._conn.execute("PRAGMA journal_mode=WAL")
-            self._conn.row_factory = sqlite3.Row
-        return self._conn
+        """Get or create thread-local database connection."""
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.row_factory = sqlite3.Row
+            self._local.conn = conn
+        return conn
 
     def execute_write(self, sql: str, params: tuple = ()) -> None:
         """Execute a write operation."""
@@ -327,10 +334,11 @@ class SQLiteBackend:
         return cursor.fetchall()
 
     def close(self) -> None:
-        """Close database connection."""
-        if self._conn is not None:
-            self._conn.close()
-            self._conn = None
+        """Close the current thread's database connection."""
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self._local.conn = None
 
 
 class PostgreSQLBackend:

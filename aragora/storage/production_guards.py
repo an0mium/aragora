@@ -20,6 +20,7 @@ Usage:
 Environment Variables:
     ARAGORA_ENV: Environment name (production, staging, development)
     ARAGORA_REQUIRE_DISTRIBUTED: Force distributed storage requirement (true/false)
+    ARAGORA_REQUIRE_DISTRIBUTED_STATE: Legacy alias for ARAGORA_REQUIRE_DISTRIBUTED
     ARAGORA_STORAGE_MODE: Override storage mode (postgres, redis, sqlite, file)
 """
 
@@ -84,9 +85,13 @@ def get_config() -> StorageGuardConfig:
     """Get or create storage guard configuration."""
     global _config
     if _config is None:
+        require_value = os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED")
+        legacy_value = os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED_STATE")
+        if require_value is None and legacy_value is not None:
+            require_value = legacy_value
+        require_distributed = (require_value or "true").lower() in ("1", "true", "yes")
         _config = StorageGuardConfig(
-            require_distributed=os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED", "true").lower()
-            == "true",
+            require_distributed=require_distributed,
         )
     return _config
 
@@ -143,7 +148,8 @@ class DistributedStateError(Exception):
         super().__init__(
             f"Distributed storage required for '{store_name}' in production mode. "
             f"Reason: {reason}. "
-            f"Set ARAGORA_REQUIRE_DISTRIBUTED=false to allow fallback (NOT recommended for production)."
+            f"Set ARAGORA_REQUIRE_DISTRIBUTED=false (or ARAGORA_REQUIRE_DISTRIBUTED_STATE=false) "
+            f"to allow fallback (NOT recommended for production)."
         )
 
 

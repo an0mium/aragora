@@ -123,6 +123,7 @@ VALID_INTEGRATION_TYPES: set[str] = {
 SENSITIVE_KEYS = frozenset(
     [
         "access_token",
+        "refresh_token",
         "api_key",
         "bot_token",
         "webhook_url",

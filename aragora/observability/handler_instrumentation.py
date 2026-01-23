@@ -71,7 +71,7 @@ def _safe_record_request(
 ) -> None:
     """Safely record request metrics."""
     try:
-        from aragora.observability.metrics import record_request
+        from aragora.observability.metrics import record_request  # type: ignore[attr-defined]
 
         record_request(method, endpoint, status, latency)
     except ImportError:
@@ -382,7 +382,7 @@ def record_control_plane_operation(
         latency: Optional operation latency in seconds
     """
     try:
-        from aragora.observability.metrics import (
+        from aragora.observability.metrics import (  # type: ignore[attr-defined]
             _init_metrics,
             REQUEST_COUNT,
         )
