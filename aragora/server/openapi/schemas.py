@@ -861,6 +861,216 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "agents": {"type": "object"},
         },
     },
+    # Codebase analysis schemas
+    "VulnerabilityReference": {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string"},
+            "source": {"type": "string"},
+            "tags": {"type": "array", "items": {"type": "string"}},
+        },
+    },
+    "VulnerabilityFinding": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "title": {"type": "string"},
+            "description": {"type": "string"},
+            "severity": {"type": "string"},
+            "cvss_score": {"type": "number", "nullable": True},
+            "package_name": {"type": "string", "nullable": True},
+            "package_ecosystem": {"type": "string", "nullable": True},
+            "vulnerable_versions": {"type": "array", "items": {"type": "string"}},
+            "patched_versions": {"type": "array", "items": {"type": "string"}},
+            "source": {"type": "string"},
+            "references": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/VulnerabilityReference"},
+            },
+            "cwe_ids": {"type": "array", "items": {"type": "string"}},
+            "fix_available": {"type": "boolean"},
+            "recommended_version": {"type": "string", "nullable": True},
+        },
+    },
+    "DependencyInfo": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "version": {"type": "string"},
+            "ecosystem": {"type": "string"},
+            "direct": {"type": "boolean"},
+            "dev_dependency": {"type": "boolean"},
+            "license": {"type": "string", "nullable": True},
+            "vulnerabilities": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/VulnerabilityFinding"},
+            },
+            "has_vulnerabilities": {"type": "boolean"},
+            "highest_severity": {"type": "string", "nullable": True},
+        },
+    },
+    "CodebaseScanSummary": {
+        "type": "object",
+        "properties": {
+            "total_dependencies": {"type": "integer"},
+            "vulnerable_dependencies": {"type": "integer"},
+            "critical_count": {"type": "integer"},
+            "high_count": {"type": "integer"},
+            "medium_count": {"type": "integer"},
+            "low_count": {"type": "integer"},
+        },
+    },
+    "CodebaseScanResult": {
+        "type": "object",
+        "properties": {
+            "scan_id": {"type": "string"},
+            "repository": {"type": "string"},
+            "branch": {"type": "string", "nullable": True},
+            "commit_sha": {"type": "string", "nullable": True},
+            "started_at": {"type": "string", "format": "date-time"},
+            "completed_at": {"type": "string", "format": "date-time", "nullable": True},
+            "status": {"type": "string"},
+            "error": {"type": "string", "nullable": True},
+            "dependencies": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DependencyInfo"},
+            },
+            "vulnerabilities": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/VulnerabilityFinding"},
+            },
+            "summary": {"$ref": "#/components/schemas/CodebaseScanSummary"},
+        },
+    },
+    "CodebaseScanStartResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "scan_id": {"type": "string"},
+            "status": {"type": "string"},
+            "repository": {"type": "string"},
+        },
+    },
+    "CodebaseScanResultResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "scan_result": {"$ref": "#/components/schemas/CodebaseScanResult"},
+        },
+    },
+    "CodebaseScanListResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "scans": {"type": "array", "items": {"type": "object"}},
+            "total": {"type": "integer"},
+            "limit": {"type": "integer"},
+            "offset": {"type": "integer"},
+        },
+    },
+    "CodebaseVulnerabilityListResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "vulnerabilities": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/VulnerabilityFinding"},
+            },
+            "total": {"type": "integer"},
+            "limit": {"type": "integer"},
+            "offset": {"type": "integer"},
+            "scan_id": {"type": "string"},
+        },
+    },
+    "CodebasePackageVulnerabilityResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "package": {"type": "string"},
+            "ecosystem": {"type": "string"},
+            "version": {"type": "string", "nullable": True},
+            "vulnerabilities": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/VulnerabilityFinding"},
+            },
+            "total": {"type": "integer"},
+        },
+    },
+    "CodebaseCVEResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "vulnerability": {"$ref": "#/components/schemas/VulnerabilityFinding"},
+        },
+    },
+    "CodebaseMetricsStartResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "analysis_id": {"type": "string"},
+            "status": {"type": "string"},
+            "repository": {"type": "string"},
+        },
+    },
+    "CodebaseMetricsReportResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "report": {"type": "object"},
+        },
+    },
+    "CodebaseHotspot": {
+        "type": "object",
+        "properties": {
+            "file_path": {"type": "string"},
+            "function_name": {"type": "string", "nullable": True},
+            "class_name": {"type": "string", "nullable": True},
+            "start_line": {"type": "integer"},
+            "end_line": {"type": "integer"},
+            "complexity": {"type": "number"},
+            "lines_of_code": {"type": "integer"},
+            "risk_score": {"type": "number"},
+        },
+    },
+    "CodebaseHotspotListResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "hotspots": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/CodebaseHotspot"},
+            },
+            "total": {"type": "integer"},
+            "analysis_id": {"type": "string"},
+        },
+    },
+    "CodebaseDuplicateListResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "duplicates": {"type": "array", "items": {"type": "object"}},
+            "total": {"type": "integer"},
+            "analysis_id": {"type": "string"},
+        },
+    },
+    "CodebaseFileMetricsResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "file": {"type": "object"},
+            "analysis_id": {"type": "string"},
+        },
+    },
+    "CodebaseMetricsHistoryResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "analyses": {"type": "array", "items": {"type": "object"}},
+            "total": {"type": "integer"},
+            "limit": {"type": "integer"},
+            "offset": {"type": "integer"},
+        },
+    },
     # Decision and deliberation schemas
     "DecisionRequest": {
         "type": "object",
