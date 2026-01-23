@@ -1977,7 +1977,7 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(  # type: ignore[attr-defined]
                 f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
-                   WHERE org_id = $1 AND email = $2 AND status = 'pending'""",
+                   WHERE org_id = $1 AND email = $2 AND status = 'pending'""",  # type: ignore[attr-defined]
                 org_id,
                 email,
             )
@@ -2013,7 +2013,7 @@ class PostgresUserStore:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(  # type: ignore[attr-defined]
                 f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
-                   WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",
+                   WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",  # type: ignore[attr-defined]
                 email,
             )
             return [self._row_to_invitation(row) for row in rows]
@@ -2234,7 +2234,7 @@ class PostgresUserStore:
                 )
                 rows = await conn.fetch(  # type: ignore[attr-defined]
                     f"""SELECT {self._ORG_COLUMNS} FROM organizations WHERE tier = $1
-                       ORDER BY created_at DESC LIMIT $2 OFFSET $3""",
+                       ORDER BY created_at DESC LIMIT $2 OFFSET $3""",  # type: ignore[attr-defined]
                     tier_filter,
                     limit,
                     offset,
@@ -2243,7 +2243,7 @@ class PostgresUserStore:
                 total_row = await conn.fetchrow("SELECT COUNT(*) FROM organizations")
                 rows = await conn.fetch(  # type: ignore[attr-defined]
                     f"""SELECT {self._ORG_COLUMNS} FROM organizations
-                       ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
+                       ORDER BY created_at DESC LIMIT $1 OFFSET $2""",  # type: ignore[attr-defined]
                     limit,
                     offset,
                 )

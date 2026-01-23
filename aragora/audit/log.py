@@ -39,16 +39,25 @@ import csv
 import hashlib
 import json
 import logging
-import sqlite3
-from contextlib import contextmanager
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
+from aragora.storage.production_guards import require_distributed_store, StorageMode
+
 logger = logging.getLogger(__name__)
+
+# Check for PostgreSQL availability
+try:
+    import psycopg2  # noqa: F401
+
+    POSTGRESQL_AVAILABLE = True
+except ImportError:
+    POSTGRESQL_AVAILABLE = False
 
 
 class AuditCategory(Enum):
@@ -72,6 +81,102 @@ class AuditOutcome(Enum):
     FAILURE = "failure"
     DENIED = "denied"
     ERROR = "error"
+
+
+AUDIT_COLUMNS = [
+    "id",
+    "timestamp",
+    "category",
+    "action",
+    "actor_id",
+    "resource_type",
+    "resource_id",
+    "outcome",
+    "ip_address",
+    "user_agent",
+    "correlation_id",
+    "org_id",
+    "workspace_id",
+    "details",
+    "reason",
+    "previous_hash",
+    "event_hash",
+]
+
+SQLITE_SCHEMA_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS audit_events (
+        id TEXT PRIMARY KEY,
+        timestamp TEXT NOT NULL,
+        category TEXT NOT NULL,
+        action TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        resource_type TEXT,
+        resource_id TEXT,
+        outcome TEXT NOT NULL,
+        ip_address TEXT,
+        user_agent TEXT,
+        correlation_id TEXT,
+        org_id TEXT,
+        workspace_id TEXT,
+        details TEXT DEFAULT '{}',
+        reason TEXT,
+        previous_hash TEXT,
+        event_hash TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_events(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_category ON audit_events(category)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_id)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_events(org_id)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_events(resource_type, resource_id)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_outcome ON audit_events(outcome)",
+    """
+    CREATE VIRTUAL TABLE IF NOT EXISTS audit_fts USING fts5(
+        id, action, actor_id, resource_type, resource_id, details, reason,
+        content='audit_events',
+        content_rowid='rowid'
+    )
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS audit_ai AFTER INSERT ON audit_events BEGIN
+        INSERT INTO audit_fts(rowid, id, action, actor_id, resource_type,
+            resource_id, details, reason)
+        VALUES (new.rowid, new.id, new.action, new.actor_id, new.resource_type,
+            new.resource_id, new.details, new.reason);
+    END
+    """,
+]
+
+POSTGRES_SCHEMA_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS audit_events (
+        id TEXT PRIMARY KEY,
+        timestamp TIMESTAMPTZ NOT NULL,
+        category TEXT NOT NULL,
+        action TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        resource_type TEXT,
+        resource_id TEXT,
+        outcome TEXT NOT NULL,
+        ip_address TEXT,
+        user_agent TEXT,
+        correlation_id TEXT,
+        org_id TEXT,
+        workspace_id TEXT,
+        details TEXT DEFAULT '{}',
+        reason TEXT,
+        previous_hash TEXT,
+        event_hash TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_events(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_category ON audit_events(category)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_id)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_events(org_id)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_events(resource_type, resource_id)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_outcome ON audit_events(outcome)",
+]
 
 
 @dataclass
@@ -187,6 +292,20 @@ class AuditQuery:
     offset: int = 0
 
 
+class SQLiteBackend:
+    """SQLite backend for audit log storage."""
+
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+
+
+class PostgreSQLBackend:
+    """PostgreSQL backend for audit log storage (enterprise deployments)."""
+
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+
+
 class AuditLog:
     """
     Enterprise audit log with compliance export support.
@@ -216,79 +335,94 @@ class AuditLog:
         self.db_path = db_path
         self.retention_days = retention_days
         self._last_hash = ""
+        self._backend_type = "sqlite"
+        self._backend: Any = None
+
+        backend_type = os.environ.get("ARAGORA_AUDIT_STORE_BACKEND")
+        if not backend_type:
+            backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite")
+        backend_type = backend_type.lower()
+
+        database_url = (
+            os.environ.get("ARAGORA_POSTGRES_DSN")
+            or os.environ.get("DATABASE_URL")
+            or os.environ.get("ARAGORA_DATABASE_URL")
+        )
+
+        if backend_type in ("postgres", "postgresql"):
+            if not POSTGRESQL_AVAILABLE:
+                logger.warning("PostgreSQL audit backend requested but psycopg2 is not installed")
+            elif not database_url:
+                logger.warning("PostgreSQL audit backend selected but DATABASE_URL is missing")
+            else:
+                try:
+                    self._backend = PostgreSQLBackend(database_url)
+                    self._backend_type = "postgresql"
+                    logger.info("Audit log using PostgreSQL backend")
+                except Exception as e:
+                    logger.warning(
+                        f"PostgreSQL audit backend unavailable, falling back to SQLite: {e}"
+                    )
+                    try:
+                        require_distributed_store(
+                            "audit_log",
+                            StorageMode.SQLITE,
+                            f"PostgreSQL backend unavailable: {e}",
+                        )
+                    except Exception:
+                        pass
+
+        if self._backend is None:
+            require_distributed_store(
+                "audit_log",
+                StorageMode.SQLITE,
+                "Audit log using SQLite - configure PostgreSQL for multi-instance deployments.",
+            )
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._backend = SQLiteBackend(self.db_path)
+            logger.info(f"Audit log using SQLite backend: {self.db_path}")
+
         self._ensure_schema()
         self._load_last_hash()
 
-    @contextmanager
-    def _connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get database connection."""
-        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-        finally:
-            conn.close()
-
     def _ensure_schema(self) -> None:
         """Create database schema."""
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connection() as conn:
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS audit_events (
-                    id TEXT PRIMARY KEY,
-                    timestamp TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    action TEXT NOT NULL,
-                    actor_id TEXT NOT NULL,
-                    resource_type TEXT,
-                    resource_id TEXT,
-                    outcome TEXT NOT NULL,
-                    ip_address TEXT,
-                    user_agent TEXT,
-                    correlation_id TEXT,
-                    org_id TEXT,
-                    workspace_id TEXT,
-                    details TEXT DEFAULT '{}',
-                    reason TEXT,
-                    previous_hash TEXT,
-                    event_hash TEXT NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_events(timestamp);
-                CREATE INDEX IF NOT EXISTS idx_audit_category ON audit_events(category);
-                CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_id);
-                CREATE INDEX IF NOT EXISTS idx_audit_org ON audit_events(org_id);
-                CREATE INDEX IF NOT EXISTS idx_audit_resource
-                    ON audit_events(resource_type, resource_id);
-                CREATE INDEX IF NOT EXISTS idx_audit_outcome ON audit_events(outcome);
-
-                -- Full-text search
-                CREATE VIRTUAL TABLE IF NOT EXISTS audit_fts USING fts5(
-                    id, action, actor_id, resource_type, resource_id, details, reason,
-                    content='audit_events',
-                    content_rowid='rowid'
-                );
-
-                -- Triggers for FTS sync
-                CREATE TRIGGER IF NOT EXISTS audit_ai AFTER INSERT ON audit_events BEGIN
-                    INSERT INTO audit_fts(rowid, id, action, actor_id, resource_type,
-                        resource_id, details, reason)
-                    VALUES (new.rowid, new.id, new.action, new.actor_id, new.resource_type,
-                        new.resource_id, new.details, new.reason);
-                END;
-            """
-            )
-            conn.commit()
+        statements = (
+            POSTGRES_SCHEMA_STATEMENTS
+            if self._backend_type == "postgresql"
+            else SQLITE_SCHEMA_STATEMENTS
+        )
+        for statement in statements:
+            self._backend.execute_write(statement)
 
     def _load_last_hash(self) -> None:
         """Load the last event hash for chain continuity."""
-        with self._connection() as conn:
-            row = conn.execute(
-                "SELECT event_hash FROM audit_events ORDER BY timestamp DESC LIMIT 1"
-            ).fetchone()
-            if row:
-                self._last_hash = row["event_hash"]
+        row = self._backend.fetch_one(
+            "SELECT event_hash FROM audit_events ORDER BY timestamp DESC LIMIT 1"
+        )
+        if row:
+            self._last_hash = row[0]
+
+    def _row_to_dict(self, row: Any) -> dict[str, Any]:
+        """Convert a database row to a dict using known column order."""
+        if hasattr(row, "keys"):
+            return {key: row[key] for key in row.keys()}
+        return dict(zip(AUDIT_COLUMNS, row))
+
+    def _row_to_event(self, row: Any) -> AuditEvent:
+        """Convert a database row to an AuditEvent."""
+        event_data = self._row_to_dict(row)
+        details = event_data.get("details", "{}")
+        if isinstance(details, str):
+            try:
+                event_data["details"] = json.loads(details)
+            except json.JSONDecodeError:
+                event_data["details"] = {}
+        elif isinstance(details, dict):
+            event_data["details"] = details
+        else:
+            event_data["details"] = {}
+        return AuditEvent.from_dict(event_data)
 
     def log(self, event: AuditEvent) -> str:
         """
@@ -304,36 +438,34 @@ class AuditLog:
         event.previous_hash = self._last_hash
         event.event_hash = event.compute_hash()
 
-        with self._connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO audit_events
-                (id, timestamp, category, action, actor_id, resource_type, resource_id,
-                 outcome, ip_address, user_agent, correlation_id, org_id, workspace_id,
-                 details, reason, previous_hash, event_hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    event.id,
-                    event.timestamp.isoformat(),
-                    event.category.value,
-                    event.action,
-                    event.actor_id,
-                    event.resource_type,
-                    event.resource_id,
-                    event.outcome.value,
-                    event.ip_address,
-                    event.user_agent,
-                    event.correlation_id,
-                    event.org_id,
-                    event.workspace_id,
-                    json.dumps(event.details),
-                    event.reason,
-                    event.previous_hash,
-                    event.event_hash,
-                ),
-            )
-            conn.commit()
+        self._backend.execute_write(
+            """
+            INSERT INTO audit_events
+            (id, timestamp, category, action, actor_id, resource_type, resource_id,
+             outcome, ip_address, user_agent, correlation_id, org_id, workspace_id,
+             details, reason, previous_hash, event_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event.id,
+                event.timestamp.isoformat(),
+                event.category.value,
+                event.action,
+                event.actor_id,
+                event.resource_type,
+                event.resource_id,
+                event.outcome.value,
+                event.ip_address,
+                event.user_agent,
+                event.correlation_id,
+                event.org_id,
+                event.workspace_id,
+                json.dumps(event.details),
+                event.reason,
+                event.previous_hash,
+                event.event_hash,
+            ),
+        )
 
         self._last_hash = event.event_hash
 
@@ -399,8 +531,8 @@ class AuditLog:
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
-        # Handle full-text search separately
-        if query.search_text:
+        # Handle full-text search separately (SQLite only)
+        if query.search_text and self._backend_type == "sqlite":
             sql = f"""
                 SELECT e.* FROM audit_events e
                 JOIN audit_fts f ON e.id = f.id
@@ -408,25 +540,28 @@ class AuditLog:
                 ORDER BY e.timestamp DESC
                 LIMIT ? OFFSET ?
             """
-            params = [query.search_text] + params + [query.limit, query.offset]
+            query_params = [query.search_text] + params + [query.limit, query.offset]
         else:
+            if query.search_text:
+                like = f"%{query.search_text}%"
+                conditions.append(
+                    "("
+                    "action ILIKE ? OR actor_id ILIKE ? OR resource_type ILIKE ? "
+                    "OR resource_id ILIKE ? OR details ILIKE ? OR reason ILIKE ?"
+                    ")"
+                )
+                params.extend([like, like, like, like, like, like])
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
             sql = f"""
                 SELECT * FROM audit_events
                 WHERE {where_clause}
                 ORDER BY timestamp DESC
                 LIMIT ? OFFSET ?
             """
-            params.extend([query.limit, query.offset])
+            query_params = params + [query.limit, query.offset]
 
-        events = []
-        with self._connection() as conn:
-            rows = conn.execute(sql, params).fetchall()
-            for row in rows:
-                event_data = dict(row)
-                event_data["details"] = json.loads(event_data.get("details", "{}"))
-                events.append(AuditEvent.from_dict(event_data))
-
-        return events
+        rows = self._backend.fetch_all(sql, tuple(query_params))
+        return [self._row_to_event(row) for row in rows]
 
     def verify_integrity(
         self,
@@ -457,34 +592,31 @@ class AuditLog:
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
-        with self._connection() as conn:
-            rows = conn.execute(
-                f"SELECT * FROM audit_events WHERE {where_clause} ORDER BY timestamp",
-                params,
-            ).fetchall()
+        rows = self._backend.fetch_all(
+            f"SELECT * FROM audit_events WHERE {where_clause} ORDER BY timestamp",
+            tuple(params),
+        )
 
-            prev_hash = ""
-            for row in rows:
-                event_data = dict(row)
-                event_data["details"] = json.loads(event_data.get("details", "{}"))
-                event = AuditEvent.from_dict(event_data)
+        prev_hash = ""
+        for row in rows:
+            event = self._row_to_event(row)
 
-                # Verify previous hash
-                if event.previous_hash != prev_hash:
-                    errors.append(
-                        f"Hash chain broken at event {event.id}: "
-                        f"expected previous_hash={prev_hash}, got {event.previous_hash}"
-                    )
+            # Verify previous hash
+            if event.previous_hash != prev_hash:
+                errors.append(
+                    f"Hash chain broken at event {event.id}: "
+                    f"expected previous_hash={prev_hash}, got {event.previous_hash}"
+                )
 
-                # Verify event hash
-                computed = event.compute_hash()
-                if event.event_hash != computed:
-                    errors.append(
-                        f"Event {event.id} hash mismatch: "
-                        f"stored={event.event_hash}, computed={computed}"
-                    )
+            # Verify event hash
+            computed = event.compute_hash()
+            if event.event_hash != computed:
+                errors.append(
+                    f"Event {event.id} hash mismatch: "
+                    f"stored={event.event_hash}, computed={computed}"
+                )
 
-                prev_hash = event.event_hash
+            prev_hash = event.event_hash
 
         return len(errors) == 0, errors
 
@@ -709,13 +841,15 @@ class AuditLog:
         """
         cutoff = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
 
-        with self._connection() as conn:
-            result = conn.execute(
-                "DELETE FROM audit_events WHERE timestamp < ?",
-                (cutoff.isoformat(),),
-            )
-            deleted = result.rowcount
-            conn.commit()
+        row = self._backend.fetch_one(
+            "SELECT COUNT(*) FROM audit_events WHERE timestamp < ?",
+            (cutoff.isoformat(),),
+        )
+        deleted = row[0] if row else 0
+        self._backend.execute_write(
+            "DELETE FROM audit_events WHERE timestamp < ?",
+            (cutoff.isoformat(),),
+        )
 
         if deleted > 0:
             logger.info(f"audit_retention_applied deleted={deleted} cutoff={cutoff.date()}")
@@ -724,30 +858,29 @@ class AuditLog:
 
     def get_stats(self) -> dict[str, Any]:
         """Get audit log statistics."""
-        with self._connection() as conn:
-            row = conn.execute(
-                """
-                SELECT
-                    COUNT(*) as total,
-                    MIN(timestamp) as oldest,
-                    MAX(timestamp) as newest
-                FROM audit_events
-                """
-            ).fetchone()
+        row = self._backend.fetch_one(
+            """
+            SELECT
+                COUNT(*) as total,
+                MIN(timestamp) as oldest,
+                MAX(timestamp) as newest
+            FROM audit_events
+            """
+        )
 
-            by_category = {}
-            for cat_row in conn.execute(
-                "SELECT category, COUNT(*) as count FROM audit_events GROUP BY category"
-            ).fetchall():
-                by_category[cat_row["category"]] = cat_row["count"]
+        by_category = {}
+        for cat_row in self._backend.fetch_all(
+            "SELECT category, COUNT(*) as count FROM audit_events GROUP BY category"
+        ):
+            by_category[cat_row[0]] = cat_row[1]
 
-            return {
-                "total_events": row["total"] if row else 0,
-                "oldest_event": row["oldest"] if row else None,
-                "newest_event": row["newest"] if row else None,
-                "by_category": by_category,
-                "retention_days": self.retention_days,
-            }
+        return {
+            "total_events": row[0] if row else 0,
+            "oldest_event": row[1] if row else None,
+            "newest_event": row[2] if row else None,
+            "by_category": by_category,
+            "retention_days": self.retention_days,
+        }
 
 
 # Convenience functions for common audit events
@@ -843,7 +976,6 @@ def get_audit_log(
 
     # SECURITY: Enforce distributed storage in production for audit logs
     # Audit trails MUST be centralized for compliance (SOC2, HIPAA, SOX)
-    from aragora.storage.production_guards import require_distributed_store, StorageMode
 
     require_distributed_store(
         "audit_log",
