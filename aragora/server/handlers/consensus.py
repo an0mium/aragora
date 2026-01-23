@@ -135,7 +135,8 @@ class ConsensusHandler(BaseHandler):
             return self._seed_demo_data()
 
         if path.startswith("/api/v1/consensus/domain/"):
-            domain, err = self.extract_path_param(path, 3, "domain")
+            # Path stripped: api/v1/consensus/domain/{domain} -> index 4
+            domain, err = self.extract_path_param(path, 4, "domain")
             if err:
                 return err
             limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)

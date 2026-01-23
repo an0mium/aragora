@@ -109,12 +109,13 @@ class GalleryHandler(BaseHandler):
             return self._list_public_debates(query_params)
 
         # Parse debate_id from path
+        # Path: /api/v1/gallery/{debate_id} -> parts: ['', 'api', 'v1', 'gallery', '{debate_id}']
         parts = path.split("/")
-        if len(parts) >= 4 and parts[1] == "api" and parts[2] == "gallery":
-            debate_id = parts[3]
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "v1" and parts[3] == "gallery":
+            debate_id = parts[4]
 
             # Check for sub-routes
-            if len(parts) == 5 and parts[4] == "embed":
+            if len(parts) == 6 and parts[5] == "embed":
                 return self._get_embed(debate_id)
 
             return self._get_debate(debate_id)
