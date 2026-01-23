@@ -122,9 +122,10 @@ class DecisionHandler(BaseHandler):
 
         if path.startswith("/api/v1/decisions/"):
             parts = path.split("/")
-            if len(parts) >= 4:
-                request_id = parts[3]
-                if len(parts) == 5 and parts[4] == "status":
+            # parts = ['', 'api', 'v1', 'decisions', '<request_id>', ...]
+            if len(parts) >= 5:
+                request_id = parts[4]
+                if len(parts) == 6 and parts[5] == "status":
                     return self._get_decision_status(request_id)
                 return self._get_decision(request_id)
 
