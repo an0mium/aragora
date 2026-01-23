@@ -234,6 +234,9 @@ class TestTemplateRegistry:
         """Test getting category counts."""
         registry = TemplateRegistry()
 
+        # Force loading of any built-in templates first
+        _ = list(registry.list_templates())
+
         # Get baseline counts (includes any built-in templates)
         initial_counts = registry.categories()
         initial_code = initial_counts.get("code", 0)

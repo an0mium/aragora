@@ -8,6 +8,10 @@ description: Enterprise Multi-Agent Control Plane
 
 **January 2026 - Updated Assessment**
 
+> **Deprecated:** Historical feasibility study. See
+> [/docs/enterprise/control-plane](/docs/enterprise/control-plane) for the
+> current control-plane documentation.
+
 ---
 
 ## Executive Summary

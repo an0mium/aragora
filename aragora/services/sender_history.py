@@ -153,6 +153,10 @@ class SenderHistoryService:
         # In-memory cache for fast lookups
         self._reputation_cache: Dict[str, Tuple[datetime, SenderReputation]] = {}
 
+        # Domain-level cache for faster bulk processing
+        # Stores aggregate domain stats: {user:domain -> (timestamp, avg_reputation, sender_count)}
+        self._domain_cache: Dict[str, Tuple[datetime, float, int]] = {}
+
     async def initialize(self) -> None:
         """Initialize database schema."""
         async with self._lock:
@@ -540,7 +544,125 @@ class SenderHistoryService:
         # Cache result
         self._reputation_cache[cache_key] = (datetime.now(), reputation)
 
+        # Update domain cache
+        await self._update_domain_cache(user_id, sender_email, reputation.reputation_score)
+
         return reputation
+
+    async def _update_domain_cache(
+        self,
+        user_id: str,
+        sender_email: str,
+        reputation_score: float,
+    ) -> None:
+        """Update domain-level cache with new reputation data."""
+        try:
+            domain = sender_email.lower().split("@")[-1] if "@" in sender_email else sender_email
+            domain_key = f"{user_id}:{domain}"
+
+            if domain_key in self._domain_cache:
+                cached_time, avg_rep, count = self._domain_cache[domain_key]
+                # Running average
+                new_avg = (avg_rep * count + reputation_score) / (count + 1)
+                self._domain_cache[domain_key] = (datetime.now(), new_avg, count + 1)
+            else:
+                self._domain_cache[domain_key] = (datetime.now(), reputation_score, 1)
+        except Exception:
+            pass  # Non-critical operation
+
+    async def get_domain_reputation(
+        self,
+        user_id: str,
+        domain: str,
+    ) -> Optional[Tuple[float, int]]:
+        """
+        Get aggregate reputation for a domain.
+
+        Args:
+            user_id: User identifier
+            domain: Email domain (e.g., "company.com")
+
+        Returns:
+            Tuple of (average_reputation_score, sender_count) or None if unknown
+        """
+        domain_key = f"{user_id}:{domain.lower()}"
+
+        # Check cache first
+        if domain_key in self._domain_cache:
+            cached_time, avg_rep, count = self._domain_cache[domain_key]
+            if (datetime.now() - cached_time).total_seconds() < self.cache_ttl:
+                return (avg_rep, count)
+
+        # Query database for domain stats
+        async with self._lock:
+            if not self._connection:
+                await self.initialize()
+
+            cursor = self._connection.cursor()
+            cursor.execute(
+                """
+                SELECT
+                    COUNT(*) as sender_count,
+                    AVG(total_interactions) as avg_interactions,
+                    AVG(CAST(emails_opened AS FLOAT) / NULLIF(total_interactions, 0)) as avg_open_rate,
+                    AVG(CAST(emails_replied AS FLOAT) / NULLIF(total_interactions, 0)) as avg_reply_rate
+                FROM sender_stats
+                WHERE user_id = ? AND sender_email LIKE ?
+                """,
+                (user_id, f"%@{domain.lower()}"),
+            )
+            row = cursor.fetchone()
+
+            if row and row["sender_count"] > 0:
+                # Calculate reputation from aggregate stats
+                avg_open = row["avg_open_rate"] or 0
+                avg_reply = row["avg_reply_rate"] or 0
+                # Simple formula: weighted average of open and reply rates
+                avg_rep = 0.5 + (avg_open * 0.3 + avg_reply * 0.5) * 0.5
+                count = row["sender_count"]
+
+                # Cache result
+                self._domain_cache[domain_key] = (datetime.now(), avg_rep, count)
+                return (avg_rep, count)
+
+        return None
+
+    async def get_batch_reputations(
+        self,
+        user_id: str,
+        sender_emails: List[str],
+    ) -> Dict[str, SenderReputation]:
+        """
+        Get reputations for multiple senders efficiently.
+
+        Uses caching and batch queries to minimize database hits.
+
+        Args:
+            user_id: User identifier
+            sender_emails: List of sender email addresses
+
+        Returns:
+            Dict mapping email addresses to SenderReputation objects
+        """
+        results: Dict[str, SenderReputation] = {}
+        uncached_emails: List[str] = []
+
+        # Check cache first
+        for email in sender_emails:
+            cache_key = f"{user_id}:{email.lower()}"
+            if cache_key in self._reputation_cache:
+                cached_time, cached_rep = self._reputation_cache[cache_key]
+                if (datetime.now() - cached_time).total_seconds() < self.cache_ttl:
+                    results[email.lower()] = cached_rep
+                    continue
+            uncached_emails.append(email)
+
+        # Fetch uncached emails individually (could be optimized with batch query)
+        for email in uncached_emails:
+            rep = await self.get_sender_reputation(user_id, email)
+            results[email.lower()] = rep
+
+        return results
 
     async def set_vip(
         self,

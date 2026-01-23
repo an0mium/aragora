@@ -169,8 +169,20 @@ control-plane = [
     "redis>=5.0.0,<6.0",
     "networkx>=3.0,<4.0",  # DAG workflow representation
 ]
+code-intel = [
+    # Tree-sitter for AST parsing
+    "tree-sitter>=0.23.0,<1.0",
+    "tree-sitter-python>=0.23.0,<1.0",
+    "tree-sitter-javascript>=0.23.0,<1.0",
+    "tree-sitter-typescript>=0.23.0,<1.0",
+    "tree-sitter-go>=0.23.0,<1.0",
+    "tree-sitter-rust>=0.23.0,<1.0",
+    "tree-sitter-java>=0.23.0,<1.0",
+    # Call graph and analysis
+    "networkx>=3.0,<4.0",
+]
 all = [
-    "aragora[test,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,rlm,postgres,observability]",
+    "aragora[test,persistence,documents,broadcast-premium,research,monitoring,ml,redis,control-plane,rlm,postgres,observability,code-intel]",
 ]
 
 [project.scripts]

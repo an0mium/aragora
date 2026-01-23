@@ -289,6 +289,57 @@ BRAINSTORM = DeliberationTemplate(
 
 
 # =============================================================================
+# Productivity Templates
+# =============================================================================
+
+EMAIL_PRIORITIZATION = DeliberationTemplate(
+    name="email_prioritization",
+    description="Multi-agent email triage to identify urgent, important, and actionable messages",
+    category=TemplateCategory.GENERAL,
+    default_agents=["anthropic-api", "openai-api"],
+    team_strategy=TeamStrategy.FAST,
+    default_knowledge_sources=["gmail", "calendar", "slack"],
+    output_format=OutputFormat.SUMMARY,
+    consensus_threshold=0.7,
+    max_rounds=2,
+    require_consensus=True,
+    timeout_seconds=30.0,
+    personas=["urgency", "relevance", "action-required", "sender-importance"],
+    tags=["email", "inbox", "triage", "priority", "productivity"],
+)
+
+INBOX_TRIAGE = DeliberationTemplate(
+    name="inbox_triage",
+    description="Batch email categorization and folder assignment with spam detection",
+    category=TemplateCategory.GENERAL,
+    default_agents=["anthropic-api", "openai-api", "gemini"],
+    team_strategy=TeamStrategy.FAST,
+    default_knowledge_sources=["gmail", "contacts"],
+    output_format=OutputFormat.STANDARD,
+    consensus_threshold=0.6,
+    max_rounds=2,
+    require_consensus=False,
+    timeout_seconds=60.0,
+    personas=["categorization", "spam-detection", "relevance", "urgency"],
+    tags=["email", "inbox", "categorization", "folders", "spam"],
+)
+
+MEETING_PREP = DeliberationTemplate(
+    name="meeting_prep",
+    description="Prepare for meetings by analyzing relevant emails, docs, and context",
+    category=TemplateCategory.GENERAL,
+    default_agents=["anthropic-api", "openai-api"],
+    team_strategy=TeamStrategy.FAST,
+    default_knowledge_sources=["calendar", "gmail", "confluence", "slack"],
+    output_format=OutputFormat.SUMMARY,
+    consensus_threshold=0.6,
+    max_rounds=2,
+    personas=["context", "key-points", "action-items", "participants"],
+    tags=["meeting", "preparation", "context", "productivity"],
+)
+
+
+# =============================================================================
 # Built-in Templates Dictionary
 # =============================================================================
 
@@ -317,4 +368,8 @@ BUILTIN_TEMPLATES = {
     "quick_decision": QUICK_DECISION,
     "research_analysis": RESEARCH_ANALYSIS,
     "brainstorm": BRAINSTORM,
+    # Productivity
+    "email_prioritization": EMAIL_PRIORITIZATION,
+    "inbox_triage": INBOX_TRIAGE,
+    "meeting_prep": MEETING_PREP,
 }

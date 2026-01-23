@@ -162,6 +162,26 @@ async def control_plane_deliberation():
 asyncio.run(control_plane_deliberation())
 ```
 
+### Decision Router (Unified API)
+
+```python
+async def decision_router_example():
+    """Submit a decision request via the unified router."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        response = await client.post("/api/v1/decisions", json={
+            "content": "Should we adopt a service mesh this quarter?",
+            "decision_type": "debate",
+            "response_channels": [{"platform": "http_api"}],
+        })
+        result = response.json()
+        request_id = result["request_id"]
+
+        status = await client.get(f"/api/v1/decisions/{request_id}/status")
+        print(status.json())
+
+asyncio.run(decision_router_example())
+```
+
 ### Gauntlet Compliance Audit
 
 ```python
