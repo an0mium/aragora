@@ -8,27 +8,29 @@ Provides REST API endpoints for the enterprise control plane:
 - Control plane statistics and metrics
 
 Endpoints:
-    GET  /api/v1/control-plane/agents           - List registered agents
-    POST /api/v1/control-plane/agents           - Register an agent
-    GET  /api/v1/control-plane/agents/:id       - Get agent info
-    DELETE /api/v1/control-plane/agents/:id     - Unregister agent
-    POST /api/v1/control-plane/agents/:id/heartbeat - Send heartbeat
+    - GET  /api/control-plane/agents - List registered agents (also /api/v1/control-plane/agents)
+    - POST /api/control-plane/agents - Register an agent (also /api/v1/control-plane/agents)
+    - GET  /api/control-plane/agents/:id - Get agent info (also /api/v1/control-plane/agents/:id)
+    - DELETE /api/control-plane/agents/:id - Unregister agent (also /api/v1/control-plane/agents/:id)
+    - POST /api/control-plane/agents/:id/heartbeat - Send heartbeat
+      (also /api/v1/control-plane/agents/:id/heartbeat)
 
-    POST /api/v1/control-plane/tasks            - Submit a task
-    GET  /api/v1/control-plane/tasks/:id        - Get task status
-    POST /api/v1/control-plane/tasks/:id/complete - Complete task
-    POST /api/v1/control-plane/tasks/:id/fail   - Fail task
-    POST /api/v1/control-plane/tasks/:id/cancel - Cancel task
+    - POST /api/control-plane/tasks - Submit a task (also /api/v1/control-plane/tasks)
+    - GET  /api/control-plane/tasks/:id - Get task status (also /api/v1/control-plane/tasks/:id)
+    - POST /api/control-plane/tasks/:id/complete - Complete task
+    - POST /api/control-plane/tasks/:id/fail - Fail task
+    - POST /api/control-plane/tasks/:id/cancel - Cancel task
+    - POST /api/control-plane/tasks/claim - Claim next task
 
-    POST /api/v1/control-plane/deliberations      - Run or queue a deliberation
-    GET  /api/v1/control-plane/deliberations/:id  - Get deliberation result
-    GET  /api/v1/control-plane/deliberations/:id/status - Get deliberation status
+    - POST /api/control-plane/deliberations - Run or queue a deliberation
+    - GET  /api/control-plane/deliberations/:id - Get deliberation result
+    - GET  /api/control-plane/deliberations/:id/status - Get deliberation status
 
-    GET  /api/v1/control-plane/health           - System health
-    GET  /api/v1/control-plane/health/:agent_id - Agent health
-    GET  /api/v1/control-plane/stats            - Control plane statistics
-    GET  /api/v1/control-plane/queue            - Job queue (pending/running tasks)
-    GET  /api/v1/control-plane/metrics          - Dashboard metrics
+    - GET  /api/control-plane/health - System health
+    - GET  /api/control-plane/health/:agent_id - Agent health
+    - GET  /api/control-plane/stats - Control plane statistics
+    - GET  /api/control-plane/queue - Job queue (pending/running tasks)
+    - GET  /api/control-plane/metrics - Dashboard metrics
 """
 
 from __future__ import annotations
