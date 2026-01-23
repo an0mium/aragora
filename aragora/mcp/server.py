@@ -102,9 +102,9 @@ class AragoraMCPServer:
                     input_schema["required"] = required
 
                 tools.append(
-                    Tool(  # type: ignore[arg-type]
-                        name=meta["name"],  # type: ignore[arg-type]
-                        description=meta["description"],  # type: ignore[arg-type]
+                    Tool(
+                        name=meta["name"],
+                        description=meta["description"],
                         inputSchema=input_schema,
                     )
                 )
@@ -166,8 +166,8 @@ class AragoraMCPServer:
             resources = []
             for debate_id, debate_data in self._debates_cache.items():
                 resources.append(
-                    Resource(  # type: ignore[arg-type]
-                        uri=f"debate://{debate_id}",  # type: ignore[arg-type]
+                    Resource(
+                        uri=f"debate://{debate_id}",
                         name=f"Debate: {debate_data.get('task', 'Unknown')[:50]}",
                         description=f"Debate result from {debate_data.get('timestamp', 'unknown time')}",
                         mimeType="application/json",
@@ -620,7 +620,7 @@ class AragoraMCPServer:
             # Get trending topics via PulseManager
             manager = PulseManager()
             raw_topics = await manager.get_trending_topics(
-                platforms=[platform] if platform != "all" else None,
+                platforms=[platform] if platform != "all" else [],
                 limit_per_platform=limit * 2,  # Get more, then filter
             )
 

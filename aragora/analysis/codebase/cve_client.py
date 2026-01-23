@@ -106,7 +106,7 @@ class CVEClient:
 
     def _get_cache_key(self, *args) -> str:
         """Generate cache key from arguments."""
-        return hashlib.md5(str(args).encode()).hexdigest()
+        return hashlib.md5(str(args).encode(), usedforsecurity=False).hexdigest()
 
     def _get_cached(self, key: str) -> Optional[Any]:
         """Get value from cache if not expired."""

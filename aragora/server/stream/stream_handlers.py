@@ -825,6 +825,12 @@ class StreamAPIHandlersMixin:
         try:
             from aragora.audience.suggestions import cluster_suggestions
 
+            if self.audience_inbox is None:
+                return web.json_response(
+                    {"clusters": [], "total": 0, "error": "Audience inbox not available"},
+                    headers=self._cors_headers(origin),
+                )
+
             # Get suggestions from audience inbox for this loop
             suggestions = self.audience_inbox.drain_suggestions(loop_id=loop_id)
 

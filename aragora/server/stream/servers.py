@@ -307,7 +307,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         if total > 0:
             logger.debug(f"Cleaned up {total} stale entries")
 
-    def _update_debate_state(self, event: StreamEvent) -> None:  # type: ignore[override]
+    def _update_debate_state(self, event: StreamEvent) -> None:
         """Update cached debate state based on emitted events.
 
         Overrides ServerBase._update_debate_state with StreamEvent-specific handling.

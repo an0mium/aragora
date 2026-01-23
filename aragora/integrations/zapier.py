@@ -24,6 +24,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from aiohttp import ClientTimeout
+
 from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
@@ -155,7 +157,7 @@ class ZapierIntegration(BaseIntegration):
             async with session.post(
                 webhook_url,
                 json={"message": content, **kwargs.get("data", {})},
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             ) as response:
                 return response.status == 200
         except Exception as e:
@@ -364,14 +366,12 @@ class ZapierIntegration(BaseIntegration):
                     "X-Aragora-Trigger": trigger.trigger_type,
                     "X-Aragora-Trigger-Id": trigger.id,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             ) as response:
                 if response.status == 200:
                     return True
                 else:
-                    logger.warning(
-                        f"Zapier trigger {trigger.id} failed: {response.status}"
-                    )
+                    logger.warning(f"Zapier trigger {trigger.id} failed: {response.status}")
                     return False
         except Exception as e:
             logger.error(f"Failed to fire Zapier trigger {trigger.id}: {e}")

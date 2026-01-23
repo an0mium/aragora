@@ -433,7 +433,7 @@ class DuplicateDetector:
                 if len(normalized) < self.min_tokens:
                     continue
 
-                block_hash = hashlib.md5(normalized.encode()).hexdigest()
+                block_hash = hashlib.md5(normalized.encode(), usedforsecurity=False).hexdigest()
                 block_hashes[block_hash].append((file_path, start + 1, end, normalized))
 
         # Find duplicates

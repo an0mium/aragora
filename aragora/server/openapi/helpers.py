@@ -4,7 +4,7 @@ OpenAPI Helper Functions.
 Response builders, standard error definitions, and rate limit documentation.
 """
 
-from typing import Any
+from typing import Any, Dict, List, Union
 
 # =============================================================================
 # Rate Limit Tiers
@@ -286,7 +286,7 @@ STANDARD_ERRORS = {
 # Authentication Documentation
 # =============================================================================
 
-AUTH_REQUIREMENTS = {
+AUTH_REQUIREMENTS: Dict[str, Dict[str, Union[str, List[Dict[str, List[str]]]]]] = {
     "none": {
         "description": "No authentication required",
         "security": [],

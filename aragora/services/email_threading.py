@@ -288,11 +288,11 @@ class EmailThreader:
         """Generate a unique thread ID."""
         # Use message ID if available
         if email.message_id:
-            return f"thread_{hashlib.md5(email.message_id.encode()).hexdigest()[:12]}"
+            return f"thread_{hashlib.md5(email.message_id.encode(), usedforsecurity=False).hexdigest()[:12]}"
 
         # Generate from subject + sender
         key = f"{self._normalize_subject(email.subject)}_{email.sender}"
-        return f"thread_{hashlib.md5(key.encode()).hexdigest()[:12]}"
+        return f"thread_{hashlib.md5(key.encode(), usedforsecurity=False).hexdigest()[:12]}"
 
     def _update_thread_metadata(self, thread: EmailThread) -> None:
         """Update thread metadata after all messages added."""
@@ -470,7 +470,7 @@ class EmailThreader:
         ]
 
         # Create new thread
-        new_thread_id = f"thread_{hashlib.md5('_'.join(message_ids).encode()).hexdigest()[:12]}"
+        new_thread_id = f"thread_{hashlib.md5('_'.join(message_ids).encode(), usedforsecurity=False).hexdigest()[:12]}"
         new_thread = EmailThread(
             thread_id=new_thread_id,
             subject=messages_to_split[0].subject,

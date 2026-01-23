@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from aiohttp import ClientTimeout
+
 from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
@@ -268,7 +270,7 @@ class N8nIntegration(BaseIntegration):
             async with session.post(
                 webhook_url,
                 json={"content": content, **kwargs.get("data", {})},
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             ) as response:
                 return response.status == 200
         except Exception as e:
@@ -390,8 +392,7 @@ class N8nIntegration(BaseIntegration):
         self._webhook_path_map[webhook_path] = webhook
 
         logger.info(
-            f"Registered n8n webhook {webhook_id} for credential {cred_id}, "
-            f"events: {events}"
+            f"Registered n8n webhook {webhook_id} for credential {cred_id}, " f"events: {events}"
         )
         return webhook
 
@@ -513,14 +514,12 @@ class N8nIntegration(BaseIntegration):
                     "X-Aragora-Event": event_type,
                     "X-Aragora-Webhook-Id": webhook.id,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             ) as response:
                 if response.status == 200:
                     return True
                 else:
-                    logger.warning(
-                        f"n8n webhook {webhook.id} failed: {response.status}"
-                    )
+                    logger.warning(f"n8n webhook {webhook.id} failed: {response.status}")
                     return False
         except Exception as e:
             logger.error(f"Failed to dispatch to n8n webhook {webhook.id}: {e}")

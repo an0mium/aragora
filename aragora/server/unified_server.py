@@ -181,7 +181,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         self.wfile.write(body.encode("utf-8", "replace"))
 
     def _log_request(
-        self, method: str, path: str, status: int, duration_ms: float, extra: dict = None
+        self, method: str, path: str, status: int, duration_ms: float, extra: Optional[dict] = None
     ) -> None:
         """Log request details for observability.
 
@@ -937,6 +937,9 @@ class UnifiedServer:
 
                 # Configure SSL if cert and key are provided
                 if self.ssl_enabled:
+                    # ssl_enabled is True only when both ssl_cert and ssl_key are set
+                    assert self.ssl_cert is not None
+                    assert self.ssl_key is not None
                     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
                     ssl_context.load_cert_chain(
                         certfile=self.ssl_cert,

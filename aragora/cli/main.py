@@ -192,7 +192,7 @@ async def run_debate(
             print("[audience] Connected to streaming server - audience participation enabled")
 
     # Run debate
-    arena = Arena(env, agents, protocol, memory, event_emitter=event_emitter)  # type: ignore[arg-type]
+    arena = Arena(env, agents, protocol, memory, event_emitter=event_emitter)
     result = await arena.run()
 
     # Store result

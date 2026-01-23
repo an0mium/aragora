@@ -24,6 +24,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from aiohttp import ClientTimeout
+
 from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
@@ -181,7 +183,7 @@ class MakeIntegration(BaseIntegration):
             async with session.post(
                 webhook_url,
                 json={"content": content, **kwargs.get("data", {})},
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             ) as response:
                 return response.status == 200
         except Exception as e:
@@ -390,14 +392,12 @@ class MakeIntegration(BaseIntegration):
                     "X-Aragora-Module": webhook.module_type,
                     "X-Aragora-Webhook-Id": webhook.id,
                 },
-                timeout=10,
+                timeout=ClientTimeout(total=10),
             ) as response:
                 if response.status == 200:
                     return True
                 else:
-                    logger.warning(
-                        f"Make webhook {webhook.id} failed: {response.status}"
-                    )
+                    logger.warning(f"Make webhook {webhook.id} failed: {response.status}")
                     return False
         except Exception as e:
             logger.error(f"Failed to trigger Make webhook {webhook.id}: {e}")
