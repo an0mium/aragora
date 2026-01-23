@@ -41,6 +41,11 @@ from aragora.server.handlers.features.cross_platform_analytics import (
     Platform,
     AlertSeverity,
 )
+from aragora.server.handlers.features.marketplace import (
+    MarketplaceHandler,
+    TemplateCategory,
+    DeploymentStatus,
+)
 
 
 class TestUnifiedInboxWebhookIntegration:
@@ -668,3 +673,147 @@ class TestTenantIsolation:
         response_data = json.loads(result.body)
         for rule in response_data.get("rules", []):
             assert rule.get("name") != "Tenant A Alert"
+
+
+class TestMarketplaceWorkflow:
+    """Test marketplace template discovery and deployment workflow."""
+
+    @pytest.mark.asyncio
+    async def test_template_discovery_to_deployment(self):
+        """Test complete workflow: discover -> browse -> deploy -> list."""
+        tenant_id = "marketplace_tenant_1"
+        handler = MarketplaceHandler()
+
+        # Step 1: List categories
+        categories_request = MagicMock()
+        categories_request.tenant_id = tenant_id
+        categories_request.query = {}
+
+        categories_result = await handler.handle(
+            categories_request, "/api/v1/marketplace/categories", "GET"
+        )
+        assert categories_result.status_code == 200
+        categories_data = json.loads(categories_result.body)
+        data = categories_data.get("data", categories_data)
+        assert len(data["categories"]) > 0
+
+        # Step 2: Browse templates
+        templates_request = MagicMock()
+        templates_request.tenant_id = tenant_id
+        templates_request.query = {"category": "accounting"}
+
+        templates_result = await handler.handle(
+            templates_request, "/api/v1/marketplace/templates", "GET"
+        )
+        assert templates_result.status_code == 200
+        templates_data = json.loads(templates_result.body)
+        data = templates_data.get("data", templates_data)
+        templates = data["templates"]
+        assert len(templates) > 0
+
+        # Step 3: Get template details
+        template_id = templates[0]["id"]
+        details_request = MagicMock()
+        details_request.tenant_id = tenant_id
+        details_request.query = {}
+
+        details_result = await handler.handle(
+            details_request, f"/api/v1/marketplace/templates/{template_id}", "GET"
+        )
+        assert details_result.status_code == 200
+        details_data = json.loads(details_result.body)
+        data = details_data.get("data", details_data)
+        assert data["template"]["id"] == template_id
+
+        # Step 4: Deploy template
+        deploy_request = MagicMock()
+        deploy_request.tenant_id = tenant_id
+        deploy_request.json = AsyncMock(
+            return_value={
+                "name": "My Invoice Pipeline",
+                "config": {"auto_approve_threshold": 500},
+            }
+        )
+
+        deploy_result = await handler.handle(
+            deploy_request, f"/api/v1/marketplace/templates/{template_id}/deploy", "POST"
+        )
+        assert deploy_result.status_code == 200
+        deploy_data = json.loads(deploy_result.body)
+        data = deploy_data.get("data", deploy_data)
+        deployment_id = data["deployment"]["id"]
+        assert data["deployment"]["status"] == "active"
+
+        # Step 5: List deployments
+        list_request = MagicMock()
+        list_request.tenant_id = tenant_id
+        list_request.query = {}
+
+        list_result = await handler.handle(list_request, "/api/v1/marketplace/deployments", "GET")
+        assert list_result.status_code == 200
+        list_data = json.loads(list_result.body)
+        data = list_data.get("data", list_data)
+        assert data["total"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_search_and_popular(self):
+        """Test searching and getting popular templates."""
+        tenant_id = "marketplace_tenant_2"
+        handler = MarketplaceHandler()
+
+        # Search by query
+        search_request = MagicMock()
+        search_request.tenant_id = tenant_id
+        search_request.query = {"q": "review"}
+
+        search_result = await handler.handle(search_request, "/api/v1/marketplace/search", "GET")
+        assert search_result.status_code == 200
+
+        # Get popular templates
+        popular_request = MagicMock()
+        popular_request.tenant_id = tenant_id
+        popular_request.query = {"limit": "5"}
+
+        popular_result = await handler.handle(popular_request, "/api/v1/marketplace/popular", "GET")
+        assert popular_result.status_code == 200
+        popular_data = json.loads(popular_result.body)
+        data = popular_data.get("data", popular_data)
+        assert len(data["popular"]) <= 5
+
+    @pytest.mark.asyncio
+    async def test_rate_template(self):
+        """Test rating a template."""
+        tenant_id = "marketplace_tenant_3"
+        handler = MarketplaceHandler()
+
+        # First get a template
+        templates_request = MagicMock()
+        templates_request.tenant_id = tenant_id
+        templates_request.query = {}
+
+        templates_result = await handler.handle(
+            templates_request, "/api/v1/marketplace/templates", "GET"
+        )
+        templates_data = json.loads(templates_result.body)
+        data = templates_data.get("data", templates_data)
+        template_id = data["templates"][0]["id"]
+
+        # Rate it
+        rate_request = MagicMock()
+        rate_request.tenant_id = tenant_id
+        rate_request.user_id = "test_user"
+        rate_request.json = AsyncMock(
+            return_value={
+                "rating": 5,
+                "review": "Excellent template for invoice processing!",
+            }
+        )
+
+        rate_result = await handler.handle(
+            rate_request, f"/api/v1/marketplace/templates/{template_id}/rate", "POST"
+        )
+        assert rate_result.status_code == 200
+        rate_data = json.loads(rate_result.body)
+        data = rate_data.get("data", rate_data)
+        assert data["rating"]["rating"] == 5
+        assert data["template_rating"]["count"] >= 1

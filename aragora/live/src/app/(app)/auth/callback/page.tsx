@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
@@ -10,7 +10,6 @@ type Status = 'processing' | 'success' | 'error';
 
 function OAuthCallbackContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { setTokens } = useAuth();
   const [status, setStatus] = useState<Status>('processing');
   const [message, setMessage] = useState('Processing authentication...');
@@ -22,8 +21,11 @@ function OAuthCallbackContent() {
       console.log('[OAuth Callback] Hash:', window.location.hash);
       console.log('[OAuth Callback] Search:', window.location.search);
 
+      // Parse query params directly from window.location (more reliable in static export)
+      const urlParams = new URLSearchParams(window.location.search);
+
       // Check for account linking success
-      const linked = searchParams.get('linked');
+      const linked = urlParams.get('linked');
       if (linked) {
         setStatus('success');
         setMessage(`Successfully linked ${linked.charAt(0).toUpperCase() + linked.slice(1)} account`);
@@ -31,28 +33,24 @@ function OAuthCallbackContent() {
         return;
       }
 
-      // Parse tokens from URL fragment (hash) or query params (fallback)
-      let hash = window.location.hash.substring(1);
-      console.log('[OAuth Callback] Parsed hash:', hash ? `${hash.substring(0, 50)}...` : '(empty)');
+      // Parse tokens from URL query params (primary) or fragment (legacy fallback)
+      let tokenString = window.location.search.substring(1); // Remove leading '?'
+      console.log('[OAuth Callback] Query params:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
 
-      // Fallback: Check query params if hash is empty (some OAuth flows use query params)
-      if (!hash) {
-        const queryAccessToken = searchParams.get('access_token');
-        const queryRefreshToken = searchParams.get('refresh_token');
-        if (queryAccessToken && queryRefreshToken) {
-          console.log('[OAuth Callback] Found tokens in query params instead of hash');
-          hash = `access_token=${queryAccessToken}&refresh_token=${queryRefreshToken}&token_type=Bearer`;
-        }
+      // Legacy fallback: Check hash fragment if query params are empty
+      if (!tokenString) {
+        tokenString = window.location.hash.substring(1);
+        console.log('[OAuth Callback] Hash fragment:', tokenString ? `${tokenString.substring(0, 50)}...` : '(empty)');
       }
 
-      if (!hash) {
+      if (!tokenString) {
         setStatus('error');
         setMessage('No authentication data received');
-        console.error('[OAuth Callback] No hash or query params with tokens found');
+        console.error('[OAuth Callback] No query params or hash fragment with tokens found');
         return;
       }
 
-      const params = new URLSearchParams(hash);
+      const params = new URLSearchParams(tokenString);
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
 
@@ -76,7 +74,7 @@ function OAuthCallbackContent() {
     };
 
     processCallback();
-  }, [router, searchParams, setTokens]);
+  }, [router, setTokens]);
 
   return (
     <>
