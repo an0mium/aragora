@@ -231,7 +231,7 @@ class CachingCheckpointStore:
         # Always go to backend for latest since we don't track recency
         checkpoint = await self._store.load_latest(workflow_id)
         if checkpoint is not None:
-            self._cache.put(checkpoint.checkpoint_id, checkpoint)
+            self._cache.put(checkpoint.id, checkpoint)
         return checkpoint
 
     async def list_checkpoints(self, workflow_id: str) -> List[str]:

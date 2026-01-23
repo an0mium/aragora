@@ -49,11 +49,12 @@ class TestRedisCheckpointStore:
 
     def test_redis_checkpoint_store_initialization(self, mock_redis):
         """Test RedisCheckpointStore initializes correctly."""
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
 
@@ -71,11 +72,12 @@ class TestRedisCheckpointStore:
     @pytest.mark.asyncio
     async def test_redis_save_checkpoint(self, mock_redis):
         """Test saving a checkpoint to Redis."""
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
 
@@ -113,11 +115,12 @@ class TestRedisCheckpointStore:
             json.dumps({"compressed": False}).encode(),  # Metadata
         ]
 
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
 
@@ -135,11 +138,12 @@ class TestRedisCheckpointStore:
         """Test loading non-existent checkpoint returns None."""
         mock_redis.get.return_value = None
 
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
 
@@ -170,11 +174,12 @@ class TestRedisCheckpointStore:
             json.dumps({"compressed": False}).encode(),
         ]
 
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
 
@@ -196,11 +201,12 @@ class TestRedisCheckpointStore:
             b"test_workflow_777",
         ]
 
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
 
@@ -217,11 +223,12 @@ class TestRedisCheckpointStore:
         """Test deleting a checkpoint."""
         mock_redis.delete.return_value = 2  # Data + metadata deleted
 
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
 
@@ -257,11 +264,12 @@ class TestRedisCheckpointStore:
             json.dumps({"compressed": True}).encode(),  # Metadata
         ]
 
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
 
@@ -497,12 +505,10 @@ class TestGetCheckpointStore:
 
     def test_get_checkpoint_store_fallback_to_file(self):
         """Test get_checkpoint_store falls back to file store."""
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False
-        ), patch(
-            "aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", False
-        ), patch(
-            "aragora.workflow.checkpoint_store._default_mound", None
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store._default_mound", None),
         ):
             from aragora.workflow.checkpoint_store import (
                 get_checkpoint_store,
@@ -521,13 +527,13 @@ class TestGetCheckpointStore:
         """Test get_checkpoint_store uses Redis when available."""
         mock_redis = MagicMock()
 
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
-        ), patch(
-            "aragora.workflow.checkpoint_store._default_mound", None
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("aragora.workflow.checkpoint_store._default_mound", None),
         ):
             from aragora.workflow.checkpoint_store import (
                 get_checkpoint_store,
@@ -546,13 +552,13 @@ class TestGetCheckpointStore:
         """Test async get_checkpoint_store_async factory."""
         mock_redis = MagicMock()
 
-        with patch(
-            "aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True
-        ), patch(
-            "aragora.workflow.checkpoint_store.get_redis_client",
-            return_value=mock_redis,
-        ), patch(
-            "aragora.workflow.checkpoint_store._default_mound", None
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
+            patch(
+                "aragora.workflow.checkpoint_store.get_redis_client",
+                return_value=mock_redis,
+            ),
+            patch("aragora.workflow.checkpoint_store._default_mound", None),
         ):
             from aragora.workflow.checkpoint_store import (
                 get_checkpoint_store_async,
@@ -565,3 +571,256 @@ class TestGetCheckpointStore:
             )
 
             assert isinstance(store, RedisCheckpointStore)
+
+
+# =============================================================================
+# CachingCheckpointStore Tests
+# =============================================================================
+
+
+class TestCachingCheckpointStore:
+    """Tests for CachingCheckpointStore wrapper."""
+
+    def _make_checkpoint(
+        self,
+        checkpoint_id: str = "cp_123",
+        workflow_id: str = "test_workflow",
+    ) -> WorkflowCheckpoint:
+        """Create a test checkpoint."""
+        return WorkflowCheckpoint(
+            id=checkpoint_id,
+            workflow_id=workflow_id,
+            definition_id="def_abc",
+            current_step="step1",
+            completed_steps=["init"],
+            step_outputs={"init": {"status": "ok"}},
+            context_state={"key": "value"},
+            created_at=datetime.now(),
+            checksum="abc123",
+        )
+
+    @pytest.mark.asyncio
+    async def test_caching_store_save_updates_cache(self):
+        """Test save() updates the cache."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        # Mock backend store
+        backend = AsyncMock()
+        backend.save = AsyncMock(return_value="cp_123")
+
+        cached_store = CachingCheckpointStore(backend, max_cache_size=10)
+        checkpoint = self._make_checkpoint()
+
+        cp_id = await cached_store.save(checkpoint)
+
+        assert cp_id == "cp_123"
+        backend.save.assert_called_once_with(checkpoint)
+        # Cache should have the checkpoint
+        assert cached_store._cache.get("cp_123") is checkpoint
+
+    @pytest.mark.asyncio
+    async def test_caching_store_load_hits_cache(self):
+        """Test load() returns from cache on hit."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        backend = AsyncMock()
+        backend.load = AsyncMock(return_value=None)
+
+        cached_store = CachingCheckpointStore(backend, max_cache_size=10)
+        checkpoint = self._make_checkpoint()
+
+        # Pre-populate cache
+        cached_store._cache.put("cp_123", checkpoint)
+
+        result = await cached_store.load("cp_123")
+
+        assert result is checkpoint
+        # Backend should NOT be called
+        backend.load.assert_not_called()
+        # Cache stats should show hit
+        assert cached_store.cache_stats["hits"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_caching_store_load_misses_to_backend(self):
+        """Test load() falls back to backend on cache miss."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        checkpoint = self._make_checkpoint()
+        backend = AsyncMock()
+        backend.load = AsyncMock(return_value=checkpoint)
+
+        cached_store = CachingCheckpointStore(backend, max_cache_size=10)
+
+        result = await cached_store.load("cp_123")
+
+        assert result is checkpoint
+        backend.load.assert_called_once_with("cp_123")
+        # Should now be in cache
+        assert cached_store._cache.get("cp_123") is checkpoint
+
+    @pytest.mark.asyncio
+    async def test_caching_store_load_latest_always_hits_backend(self):
+        """Test load_latest() always goes to backend."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        checkpoint = self._make_checkpoint()
+        backend = AsyncMock()
+        backend.load_latest = AsyncMock(return_value=checkpoint)
+
+        cached_store = CachingCheckpointStore(backend, max_cache_size=10)
+
+        result = await cached_store.load_latest("test_workflow")
+
+        assert result is checkpoint
+        backend.load_latest.assert_called_once_with("test_workflow")
+        # Should populate cache
+        assert cached_store._cache.get("cp_123") is checkpoint
+
+    @pytest.mark.asyncio
+    async def test_caching_store_delete_removes_from_cache(self):
+        """Test delete() removes from both backend and cache."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        backend = AsyncMock()
+        backend.delete = AsyncMock(return_value=True)
+
+        cached_store = CachingCheckpointStore(backend, max_cache_size=10)
+        checkpoint = self._make_checkpoint()
+
+        # Pre-populate cache
+        cached_store._cache.put("cp_123", checkpoint)
+
+        result = await cached_store.delete("cp_123")
+
+        assert result is True
+        backend.delete.assert_called_once_with("cp_123")
+        # Should be removed from cache
+        assert cached_store._cache.get("cp_123") is None
+
+    @pytest.mark.asyncio
+    async def test_caching_store_list_checkpoints(self):
+        """Test list_checkpoints() delegates to backend."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        backend = AsyncMock()
+        backend.list_checkpoints = AsyncMock(return_value=["cp_1", "cp_2", "cp_3"])
+
+        cached_store = CachingCheckpointStore(backend, max_cache_size=10)
+
+        result = await cached_store.list_checkpoints("test_workflow")
+
+        assert result == ["cp_1", "cp_2", "cp_3"]
+        backend.list_checkpoints.assert_called_once_with("test_workflow")
+
+    def test_caching_store_clear_cache(self):
+        """Test clear_cache() clears only cache, not backend."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        backend = MagicMock()
+        cached_store = CachingCheckpointStore(backend, max_cache_size=10)
+        checkpoint = self._make_checkpoint()
+
+        # Populate cache
+        cached_store._cache.put("cp_123", checkpoint)
+        assert cached_store._cache.size == 1
+
+        cached_store.clear_cache()
+
+        assert cached_store._cache.size == 0
+
+    def test_caching_store_cache_stats(self):
+        """Test cache_stats property returns statistics."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        backend = MagicMock()
+        cached_store = CachingCheckpointStore(backend, max_cache_size=10)
+
+        stats = cached_store.cache_stats
+
+        assert "size" in stats
+        assert "max_size" in stats
+        assert "hits" in stats
+        assert "misses" in stats
+        assert "hit_rate" in stats
+        assert stats["max_size"] == 10
+
+    def test_caching_store_backend_store_property(self):
+        """Test backend_store property returns wrapped store."""
+        from aragora.workflow.checkpoint_store import CachingCheckpointStore
+
+        backend = MagicMock()
+        cached_store = CachingCheckpointStore(backend)
+
+        assert cached_store.backend_store is backend
+
+
+class TestCachingFactoryIntegration:
+    """Tests for caching integration in factory functions."""
+
+    def test_get_checkpoint_store_with_caching_enabled(self):
+        """Test get_checkpoint_store wraps with cache when enabled."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store._default_mound", None),
+        ):
+            from aragora.workflow.checkpoint_store import (
+                get_checkpoint_store,
+                CachingCheckpointStore,
+                FileCheckpointStore,
+            )
+
+            store = get_checkpoint_store(
+                use_default_mound=False,
+                prefer_redis=False,
+                prefer_postgres=False,
+                enable_caching=True,
+                cache_size=50,
+            )
+
+            assert isinstance(store, CachingCheckpointStore)
+            assert isinstance(store.backend_store, FileCheckpointStore)
+            assert store._cache._max_size == 50
+
+    def test_get_checkpoint_store_caching_disabled_by_default(self):
+        """Test get_checkpoint_store doesn't wrap with cache by default."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store._default_mound", None),
+        ):
+            from aragora.workflow.checkpoint_store import (
+                get_checkpoint_store,
+                CachingCheckpointStore,
+                FileCheckpointStore,
+            )
+
+            store = get_checkpoint_store(
+                use_default_mound=False,
+                prefer_redis=False,
+                prefer_postgres=False,
+            )
+
+            assert not isinstance(store, CachingCheckpointStore)
+            assert isinstance(store, FileCheckpointStore)
+
+    def test_get_checkpoint_store_caching_via_env_var(self):
+        """Test get_checkpoint_store enables caching via environment variable."""
+        with (
+            patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", False),
+            patch("aragora.workflow.checkpoint_store._default_mound", None),
+            patch.dict("os.environ", {"ARAGORA_CHECKPOINT_CACHE": "true"}),
+        ):
+            from aragora.workflow.checkpoint_store import (
+                get_checkpoint_store,
+                CachingCheckpointStore,
+            )
+
+            store = get_checkpoint_store(
+                use_default_mound=False,
+                prefer_redis=False,
+                prefer_postgres=False,
+            )
+
+            assert isinstance(store, CachingCheckpointStore)
