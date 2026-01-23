@@ -27,6 +27,8 @@ from aragora.server.openapi.endpoints.patterns import PATTERN_ENDPOINTS
 from aragora.server.openapi.endpoints.checkpoints import CHECKPOINT_ENDPOINTS
 from aragora.server.openapi.endpoints.explainability import EXPLAINABILITY_ENDPOINTS
 from aragora.server.openapi.endpoints.workflow_templates import WORKFLOW_TEMPLATES_ENDPOINTS
+from aragora.server.openapi.endpoints.control_plane import CONTROL_PLANE_ENDPOINTS
+from aragora.server.openapi.endpoints.decisions import DECISION_ENDPOINTS
 
 # Combined endpoints dictionary
 ALL_ENDPOINTS = {
@@ -53,6 +55,8 @@ ALL_ENDPOINTS = {
     **CHECKPOINT_ENDPOINTS,
     **EXPLAINABILITY_ENDPOINTS,
     **WORKFLOW_TEMPLATES_ENDPOINTS,
+    **CONTROL_PLANE_ENDPOINTS,
+    **DECISION_ENDPOINTS,
 }
 
 __all__ = [
@@ -79,5 +83,7 @@ __all__ = [
     "CHECKPOINT_ENDPOINTS",
     "EXPLAINABILITY_ENDPOINTS",
     "WORKFLOW_TEMPLATES_ENDPOINTS",
+    "CONTROL_PLANE_ENDPOINTS",
+    "DECISION_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

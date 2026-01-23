@@ -97,3 +97,7 @@ GET /api/debates/:id/consensus
   }
 }
 ```
+
+All endpoints also accept the `/api/v1/` prefix. For full schemas and response
+examples, see the generated API reference at `/docs/api/reference` or the
+OpenAPI spec at `/api/v1/openapi.json`.

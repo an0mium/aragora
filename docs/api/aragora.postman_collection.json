@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "aragora-api-collection",
     "name": "Aragora API",
-    "description": "Aragora control plane API for multi-agent deliberation. Provides endpoints for debates, decision receipts with audit trails, gauntlet stress-testing, agent rankings, consensus tracking, and real-time collaboration across organizational knowledge and channels.",
+    "description": "Control plane for multi-agent deliberation across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": "1.0.0"
   },
@@ -4072,6 +4072,890 @@
       ]
     },
     {
+      "name": "Control Plane",
+      "description": "Agent orchestration and task routing",
+      "item": [
+        {
+          "name": "List control plane agents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/agents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "agents"
+              ],
+              "query": [
+                {
+                  "key": "capability",
+                  "value": "",
+                  "description": "Filter agents by capability",
+                  "disabled": true
+                },
+                {
+                  "key": "available",
+                  "value": "",
+                  "description": "Only show available agents (default: true)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List registered agents. Supports filtering by capability."
+          },
+          "response": []
+        },
+        {
+          "name": "Register agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/agents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "agents"
+              ]
+            },
+            "description": "Register an agent with capabilities and model metadata.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get agent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/agents/:agent_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "agents",
+                ":agent_id"
+              ],
+              "variable": [
+                {
+                  "key": "agent_id",
+                  "value": "",
+                  "description": "Path parameter: agent_id"
+                }
+              ]
+            },
+            "description": "Get a specific agent by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Unregister agent",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/agents/:agent_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "agents",
+                ":agent_id"
+              ],
+              "variable": [
+                {
+                  "key": "agent_id",
+                  "value": "",
+                  "description": "Path parameter: agent_id"
+                }
+              ]
+            },
+            "description": "Unregister an agent by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Send heartbeat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/agents/:agent_id/heartbeat",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "agents",
+                ":agent_id",
+                "heartbeat"
+              ],
+              "variable": [
+                {
+                  "key": "agent_id",
+                  "value": "",
+                  "description": "Path parameter: agent_id"
+                }
+              ]
+            },
+            "description": "Update agent heartbeat and status.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Submit task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/tasks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "tasks"
+              ]
+            },
+            "description": "Submit a task to the control plane scheduler.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get task",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/tasks/:task_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "tasks",
+                ":task_id"
+              ],
+              "variable": [
+                {
+                  "key": "task_id",
+                  "value": "",
+                  "description": "Path parameter: task_id"
+                }
+              ]
+            },
+            "description": "Get task status and metadata by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/tasks/:task_id/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "tasks",
+                ":task_id",
+                "complete"
+              ],
+              "variable": [
+                {
+                  "key": "task_id",
+                  "value": "",
+                  "description": "Path parameter: task_id"
+                }
+              ]
+            },
+            "description": "Mark a task as completed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Fail task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/tasks/:task_id/fail",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "tasks",
+                ":task_id",
+                "fail"
+              ],
+              "variable": [
+                {
+                  "key": "task_id",
+                  "value": "",
+                  "description": "Path parameter: task_id"
+                }
+              ]
+            },
+            "description": "Mark a task as failed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/tasks/:task_id/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "tasks",
+                ":task_id",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "task_id",
+                  "value": "",
+                  "description": "Path parameter: task_id"
+                }
+              ]
+            },
+            "description": "Cancel a task by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Claim task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/tasks/claim",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "tasks",
+                "claim"
+              ]
+            },
+            "description": "Claim the next available task for an agent.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Queue snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/queue",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "queue"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get pending and running tasks for dashboard queue."
+          },
+          "response": []
+        },
+        {
+          "name": "Control plane metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/metrics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "metrics"
+              ]
+            },
+            "description": "Get dashboard metrics derived from scheduler and registry stats."
+          },
+          "response": []
+        },
+        {
+          "name": "Control plane stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "stats"
+              ]
+            },
+            "description": "Get scheduler and registry stats."
+          },
+          "response": []
+        },
+        {
+          "name": "System health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "health"
+              ]
+            },
+            "description": "Get system health with agent health summaries."
+          },
+          "response": []
+        },
+        {
+          "name": "Agent health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/health/:agent_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "health",
+                ":agent_id"
+              ],
+              "variable": [
+                {
+                  "key": "agent_id",
+                  "value": "",
+                  "description": "Path parameter: agent_id"
+                }
+              ]
+            },
+            "description": "Get health status for a specific agent."
+          },
+          "response": []
+        },
+        {
+          "name": "Run deliberation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/deliberations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "deliberations"
+              ]
+            },
+            "description": "Run or queue a deliberation (async when async=true).",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get deliberation result",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/deliberations/:request_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "deliberations",
+                ":request_id"
+              ],
+              "variable": [
+                {
+                  "key": "request_id",
+                  "value": "",
+                  "description": "Path parameter: request_id"
+                }
+              ]
+            },
+            "description": "Fetch a stored deliberation record by request ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Get deliberation status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/control-plane/deliberations/:request_id/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "control-plane",
+                "deliberations",
+                ":request_id",
+                "status"
+              ],
+              "variable": [
+                {
+                  "key": "request_id",
+                  "value": "",
+                  "description": "Path parameter: request_id"
+                }
+              ]
+            },
+            "description": "Check deliberation status for polling."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Decisions",
+      "description": "Unified decision routing results",
+      "item": [
+        {
+          "name": "List decisions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/decisions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "decisions"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List recent decision records (most recent first)."
+          },
+          "response": []
+        },
+        {
+          "name": "Create decision",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/decisions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "decisions"
+              ]
+            },
+            "description": "Submit a decision request for debate, workflow, or gauntlet routing.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get decision",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/decisions/:request_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "decisions",
+                ":request_id"
+              ],
+              "variable": [
+                {
+                  "key": "request_id",
+                  "value": "",
+                  "description": "Path parameter: request_id"
+                }
+              ]
+            },
+            "description": "Get a decision result by request ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Get decision status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/decisions/:request_id/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "decisions",
+                ":request_id",
+                "status"
+              ],
+              "variable": [
+                {
+                  "key": "request_id",
+                  "value": "",
+                  "description": "Path parameter: request_id"
+                }
+              ]
+            },
+            "description": "Get decision status for polling."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Plugins",
       "description": "Plugin management and execution",
       "item": [
@@ -6449,6 +7333,1770 @@
                 }
               }
             }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workflow Templates",
+      "description": "Pre-built workflow templates",
+      "item": [
+        {
+          "name": "List workflow templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow/templates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow",
+                "templates"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "",
+                  "description": "Filter by category",
+                  "disabled": true
+                },
+                {
+                  "key": "pattern",
+                  "value": "",
+                  "description": "Filter by pattern type",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search templates by name or description",
+                  "disabled": true
+                },
+                {
+                  "key": "tags",
+                  "value": "",
+                  "description": "Filter by tags (comma-separated)",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of available workflow templates with optional filtering."
+          },
+          "response": []
+        },
+        {
+          "name": "Get template details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow/templates/:template_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow",
+                "templates",
+                ":template_id"
+              ],
+              "variable": [
+                {
+                  "key": "template_id",
+                  "value": "",
+                  "description": "Path parameter: template_id"
+                }
+              ]
+            },
+            "description": "Get detailed information about a specific workflow template."
+          },
+          "response": []
+        },
+        {
+          "name": "Get template package",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow/templates/:template_id/package",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow",
+                "templates",
+                ":template_id",
+                "package"
+              ],
+              "variable": [
+                {
+                  "key": "template_id",
+                  "value": "",
+                  "description": "Path parameter: template_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "include_examples",
+                  "value": "",
+                  "description": "Include usage examples",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get the full template package including workflow definition, metadata, and documentation."
+          },
+          "response": []
+        },
+        {
+          "name": "Run workflow template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow/templates/:template_id/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow",
+                "templates",
+                ":template_id",
+                "run"
+              ],
+              "variable": [
+                {
+                  "key": "template_id",
+                  "value": "",
+                  "description": "Path parameter: template_id"
+                }
+              ]
+            },
+            "description": "Execute a workflow template with the provided inputs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List template categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow",
+                "categories"
+              ]
+            },
+            "description": "Get list of available template categories with counts."
+          },
+          "response": []
+        },
+        {
+          "name": "List workflow patterns",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow/patterns",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow",
+                "patterns"
+              ]
+            },
+            "description": "Get list of available workflow patterns."
+          },
+          "response": []
+        },
+        {
+          "name": "Instantiate pattern as template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflow/patterns/:pattern_id/instantiate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflow",
+                "patterns",
+                ":pattern_id",
+                "instantiate"
+              ],
+              "variable": [
+                {
+                  "key": "pattern_id",
+                  "value": "",
+                  "description": "Path parameter: pattern_id"
+                }
+              ]
+            },
+            "description": "Create a new template instance from a workflow pattern.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Patterns",
+      "description": "Workflow pattern management",
+      "item": [
+        {
+          "name": "List pattern templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/patterns",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "patterns"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "",
+                  "description": "Filter by pattern category",
+                  "disabled": true
+                },
+                {
+                  "key": "tags",
+                  "value": "",
+                  "description": "Filter by tags (comma-separated)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of available workflow pattern templates."
+          },
+          "response": []
+        },
+        {
+          "name": "Get pattern template",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/patterns/:pattern_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "patterns",
+                ":pattern_id"
+              ],
+              "variable": [
+                {
+                  "key": "pattern_id",
+                  "value": "",
+                  "description": "Path parameter: pattern_id"
+                }
+              ]
+            },
+            "description": "Get a specific pattern template by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Hive Mind workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/patterns/hive-mind",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "patterns",
+                "hive-mind"
+              ]
+            },
+            "description": "Create a workflow from the Hive Mind pattern template.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create MapReduce workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/patterns/map-reduce",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "patterns",
+                "map-reduce"
+              ]
+            },
+            "description": "Create a workflow from the MapReduce pattern template.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Review Cycle workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/patterns/review-cycle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "patterns",
+                "review-cycle"
+              ]
+            },
+            "description": "Create a workflow from the Review Cycle pattern template.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Gauntlet",
+      "description": "Decision receipts and risk heatmaps",
+      "item": [
+        {
+          "name": "List decision receipts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gauntlet/receipts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "gauntlet",
+                "receipts"
+              ],
+              "query": [
+                {
+                  "key": "debate_id",
+                  "value": "",
+                  "description": "Filter by debate ID",
+                  "disabled": true
+                },
+                {
+                  "key": "from_date",
+                  "value": "",
+                  "description": "Filter by date range start (ISO 8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "to_date",
+                  "value": "",
+                  "description": "Filter by date range end (ISO 8601)",
+                  "disabled": true
+                },
+                {
+                  "key": "consensus_reached",
+                  "value": "",
+                  "description": "Filter by consensus status",
+                  "disabled": true
+                },
+                {
+                  "key": "min_confidence",
+                  "value": "",
+                  "description": "Filter by minimum confidence",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of decision receipts with optional filtering."
+          },
+          "response": []
+        },
+        {
+          "name": "Get decision receipt",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gauntlet/receipts/:receipt_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "gauntlet",
+                "receipts",
+                ":receipt_id"
+              ],
+              "variable": [
+                {
+                  "key": "receipt_id",
+                  "value": "",
+                  "description": "Path parameter: receipt_id"
+                }
+              ]
+            },
+            "description": "Get a specific decision receipt by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Export decision receipt",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gauntlet/receipts/:receipt_id/export",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "gauntlet",
+                "receipts",
+                ":receipt_id",
+                "export"
+              ],
+              "variable": [
+                {
+                  "key": "receipt_id",
+                  "value": "",
+                  "description": "Path parameter: receipt_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "",
+                  "description": "Export format",
+                  "disabled": false
+                },
+                {
+                  "key": "include_metadata",
+                  "value": "",
+                  "description": "Include metadata in export",
+                  "disabled": true
+                },
+                {
+                  "key": "include_evidence",
+                  "value": "",
+                  "description": "Include evidence in export",
+                  "disabled": true
+                },
+                {
+                  "key": "include_dissent",
+                  "value": "",
+                  "description": "Include dissenting views in export",
+                  "disabled": true
+                },
+                {
+                  "key": "pretty_print",
+                  "value": "",
+                  "description": "Pretty print output (for JSON)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Export a decision receipt in various formats."
+          },
+          "response": []
+        },
+        {
+          "name": "Export receipts bundle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gauntlet/receipts/export/bundle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "gauntlet",
+                "receipts",
+                "export",
+                "bundle"
+              ]
+            },
+            "description": "Export multiple receipts as a bundle.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List risk heatmaps",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gauntlet/heatmaps",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "gauntlet",
+                "heatmaps"
+              ],
+              "query": [
+                {
+                  "key": "gauntlet_id",
+                  "value": "",
+                  "description": "Filter by gauntlet ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of generated risk heatmaps."
+          },
+          "response": []
+        },
+        {
+          "name": "Get risk heatmap",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gauntlet/heatmaps/:heatmap_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "gauntlet",
+                "heatmaps",
+                ":heatmap_id"
+              ],
+              "variable": [
+                {
+                  "key": "heatmap_id",
+                  "value": "",
+                  "description": "Path parameter: heatmap_id"
+                }
+              ]
+            },
+            "description": "Get a specific risk heatmap by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Export risk heatmap",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gauntlet/heatmaps/:heatmap_id/export",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "gauntlet",
+                "heatmaps",
+                ":heatmap_id",
+                "export"
+              ],
+              "variable": [
+                {
+                  "key": "heatmap_id",
+                  "value": "",
+                  "description": "Path parameter: heatmap_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "",
+                  "description": "Export format",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Export a risk heatmap in various formats."
+          },
+          "response": []
+        },
+        {
+          "name": "Stream receipt export",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/gauntlet/receipts/:receipt_id/stream",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "gauntlet",
+                "receipts",
+                ":receipt_id",
+                "stream"
+              ],
+              "variable": [
+                {
+                  "key": "receipt_id",
+                  "value": "",
+                  "description": "Path parameter: receipt_id"
+                }
+              ]
+            },
+            "description": "Stream receipt export for large receipts."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Explainability",
+      "description": "Decision explanations and provenance",
+      "item": [
+        {
+          "name": "Get decision explanation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debates/:debate_id/explainability",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "debates",
+                ":debate_id",
+                "explainability"
+              ],
+              "variable": [
+                {
+                  "key": "debate_id",
+                  "value": "",
+                  "description": "Path parameter: debate_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "include_factors",
+                  "value": "",
+                  "description": "Include factor decomposition",
+                  "disabled": true
+                },
+                {
+                  "key": "include_counterfactuals",
+                  "value": "",
+                  "description": "Include counterfactual scenarios",
+                  "disabled": true
+                },
+                {
+                  "key": "include_provenance",
+                  "value": "",
+                  "description": "Include decision provenance chain",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get a full explanation of how the debate decision was reached, including narrative, factors, counterfactuals, and provenance."
+          },
+          "response": []
+        },
+        {
+          "name": "Get contributing factors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debates/:debate_id/explainability/factors",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "debates",
+                ":debate_id",
+                "explainability",
+                "factors"
+              ],
+              "variable": [
+                {
+                  "key": "debate_id",
+                  "value": "",
+                  "description": "Path parameter: debate_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "min_contribution",
+                  "value": "",
+                  "description": "Minimum contribution threshold (0-1)",
+                  "disabled": true
+                },
+                {
+                  "key": "sort_by",
+                  "value": "",
+                  "description": "Sort factors by",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get the factors that contributed to the debate decision with their relative contributions."
+          },
+          "response": []
+        },
+        {
+          "name": "Get counterfactual scenarios",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debates/:debate_id/explainability/counterfactual",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "debates",
+                ":debate_id",
+                "explainability",
+                "counterfactual"
+              ],
+              "variable": [
+                {
+                  "key": "debate_id",
+                  "value": "",
+                  "description": "Path parameter: debate_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "max_scenarios",
+                  "value": "",
+                  "description": "Maximum number of scenarios to generate",
+                  "disabled": true
+                },
+                {
+                  "key": "min_probability",
+                  "value": "",
+                  "description": "Minimum probability threshold for scenarios",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Generate what-if scenarios showing how different inputs might have changed the outcome."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate custom counterfactual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debates/:debate_id/explainability/counterfactual",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "debates",
+                ":debate_id",
+                "explainability",
+                "counterfactual"
+              ],
+              "variable": [
+                {
+                  "key": "debate_id",
+                  "value": "",
+                  "description": "Path parameter: debate_id"
+                }
+              ]
+            },
+            "description": "Generate a counterfactual scenario based on custom hypothetical changes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get decision provenance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debates/:debate_id/explainability/provenance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "debates",
+                ":debate_id",
+                "explainability",
+                "provenance"
+              ],
+              "variable": [
+                {
+                  "key": "debate_id",
+                  "value": "",
+                  "description": "Path parameter: debate_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "include_timestamps",
+                  "value": "",
+                  "description": "Include timestamps for each step",
+                  "disabled": true
+                },
+                {
+                  "key": "include_agents",
+                  "value": "",
+                  "description": "Include agent information for each step",
+                  "disabled": true
+                },
+                {
+                  "key": "include_confidence",
+                  "value": "",
+                  "description": "Include confidence levels for each step",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get the provenance chain showing how the decision was reached step by step."
+          },
+          "response": []
+        },
+        {
+          "name": "Get decision narrative",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/debates/:debate_id/explainability/narrative",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "debates",
+                ":debate_id",
+                "explainability",
+                "narrative"
+              ],
+              "variable": [
+                {
+                  "key": "debate_id",
+                  "value": "",
+                  "description": "Path parameter: debate_id"
+                }
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "",
+                  "description": "Narrative format",
+                  "disabled": true
+                },
+                {
+                  "key": "language",
+                  "value": "",
+                  "description": "Output language (ISO 639-1)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get a natural language explanation of the decision."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cross-Pollination",
+      "description": "Cross-debate knowledge sharing",
+      "item": [
+        {
+          "name": "Get subscriber statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cross-pollination/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cross-pollination",
+                "stats"
+              ]
+            },
+            "description": "Get statistics for all cross-subsystem event subscribers including event counts, success/failure rates, circuit breaker status, and latency metrics."
+          },
+          "response": []
+        },
+        {
+          "name": "List all subscribers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cross-pollination/subscribers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cross-pollination",
+                "subscribers"
+              ]
+            },
+            "description": "Get a list of all registered cross-subsystem event subscribers with their subscribed event types and handler metadata."
+          },
+          "response": []
+        },
+        {
+          "name": "Get arena bridge status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cross-pollination/bridge",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cross-pollination",
+                "bridge"
+              ]
+            },
+            "description": "Get status of the Arena-to-CrossSubscriber event bridge including connection state, event mappings, and throughput statistics."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Prometheus metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cross-pollination/metrics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cross-pollination",
+                "metrics"
+              ]
+            },
+            "description": "Get cross-pollination metrics in Prometheus/OpenMetrics text format. Includes event counts, handler durations, and circuit breaker states."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset statistics",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cross-pollination/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cross-pollination",
+                "reset"
+              ]
+            },
+            "description": "Reset all cross-pollination statistics counters and circuit breaker states. Useful for testing and debugging."
+          },
+          "response": []
+        },
+        {
+          "name": "Get handler circuit breaker status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cross-pollination/handlers/:handler_name/circuit-breaker",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cross-pollination",
+                "handlers",
+                ":handler_name",
+                "circuit-breaker"
+              ],
+              "variable": [
+                {
+                  "key": "handler_name",
+                  "value": "",
+                  "description": "Path parameter: handler_name"
+                }
+              ]
+            },
+            "description": "Get circuit breaker state for a specific handler including failure count and cooldown."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset handler circuit breaker",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cross-pollination/handlers/:handler_name/circuit-breaker",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "cross-pollination",
+                "handlers",
+                ":handler_name",
+                "circuit-breaker"
+              ],
+              "variable": [
+                {
+                  "key": "handler_name",
+                  "value": "",
+                  "description": "Path parameter: handler_name"
+                }
+              ]
+            },
+            "description": "Reset the circuit breaker for a specific handler, clearing failure count and closing circuit."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Knowledge Mound",
+      "description": "Knowledge extraction and retrieval",
+      "item": [
+        {
+          "name": "List checkpoints",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/km/checkpoints",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "km",
+                "checkpoints"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "Maximum number of checkpoints to return",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get list of Knowledge Mound checkpoints."
+          },
+          "response": []
+        },
+        {
+          "name": "Create checkpoint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/km/checkpoints",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "km",
+                "checkpoints"
+              ]
+            },
+            "description": "Create a new Knowledge Mound checkpoint.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get checkpoint",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/km/checkpoints/:checkpoint_name",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "km",
+                "checkpoints",
+                ":checkpoint_name"
+              ],
+              "variable": [
+                {
+                  "key": "checkpoint_name",
+                  "value": "",
+                  "description": "Path parameter: checkpoint_name"
+                }
+              ]
+            },
+            "description": "Get checkpoint metadata by name."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete checkpoint",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/km/checkpoints/:checkpoint_name",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "km",
+                "checkpoints",
+                ":checkpoint_name"
+              ],
+              "variable": [
+                {
+                  "key": "checkpoint_name",
+                  "value": "",
+                  "description": "Path parameter: checkpoint_name"
+                }
+              ]
+            },
+            "description": "Delete a checkpoint by name."
+          },
+          "response": []
+        },
+        {
+          "name": "Restore checkpoint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/km/checkpoints/:checkpoint_name/restore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "km",
+                "checkpoints",
+                ":checkpoint_name",
+                "restore"
+              ],
+              "variable": [
+                {
+                  "key": "checkpoint_name",
+                  "value": "",
+                  "description": "Path parameter: checkpoint_name"
+                }
+              ]
+            },
+            "description": "Restore Knowledge Mound state from a checkpoint.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Compare checkpoint",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/km/checkpoints/:checkpoint_name/compare",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "km",
+                "checkpoints",
+                ":checkpoint_name",
+                "compare"
+              ],
+              "variable": [
+                {
+                  "key": "checkpoint_name",
+                  "value": "",
+                  "description": "Path parameter: checkpoint_name"
+                }
+              ]
+            },
+            "description": "Compare checkpoint with current Knowledge Mound state."
+          },
+          "response": []
+        },
+        {
+          "name": "Compare two checkpoints",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/km/checkpoints/compare",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "km",
+                "checkpoints",
+                "compare"
+              ]
+            },
+            "description": "Compare two checkpoints to see differences.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Download checkpoint",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/km/checkpoints/:checkpoint_name/download",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "km",
+                "checkpoints",
+                ":checkpoint_name",
+                "download"
+              ],
+              "variable": [
+                {
+                  "key": "checkpoint_name",
+                  "value": "",
+                  "description": "Path parameter: checkpoint_name"
+                }
+              ]
+            },
+            "description": "Download checkpoint file for backup or transfer."
           },
           "response": []
         }

@@ -11,10 +11,11 @@ This section contains the complete API reference for the Aragora platform.
 ## Base URL
 
 ```
-https://api.aragora.ai/v1
+https://api.aragora.ai/api/v1
 ```
 
-For self-hosted deployments, replace with your server URL.
+For self-hosted deployments, replace with your server URL. Legacy `/api/...`
+paths are also supported for backward compatibility.
 
 ## Authentication
 
@@ -22,10 +23,10 @@ All API requests require authentication via Bearer token:
 
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  https://api.aragora.ai/v1/debates
+  https://api.aragora.ai/api/v1/debates
 ```
 
-See the [Authentication Guide](/docs/guides/authentication) for details on obtaining API keys.
+See the [Authentication Guide](/docs/security/authentication) for details on obtaining API keys.
 
 ## API Sections
 
@@ -37,21 +38,16 @@ See the [Authentication Guide](/docs/guides/authentication) for details on obtai
 | [Agents](/docs/api-reference/agents) | Agent configuration and management |
 | [Knowledge](/docs/api-reference/knowledge) | Knowledge Mound operations |
 | [Workflows](/docs/api-reference/workflows) | Automated workflow execution |
+| [Control Plane](/docs/enterprise/control-plane) | Orchestrate agents, tasks, and deliberations |
+| [Decisions](/docs/api/reference) | Unified decision routing (full generated reference) |
 
-### Administration
+### Full Reference
 
-| Section | Description |
-|---------|-------------|
-| [Users](/docs/api-reference/users) | User management |
-| [Organizations](/docs/api-reference/organizations) | Multi-tenancy |
-| [Audit](/docs/api-reference/audit) | Audit logs |
+For the complete endpoint list, see the generated API docs:
 
-### Integrations
-
-| Section | Description |
-|---------|-------------|
-| [Webhooks](/docs/api-reference/webhooks) | Event notifications |
-| [Connectors](/docs/api-reference/connectors) | Data source integrations |
+- [API Reference (generated)](/docs/api/reference)
+- [API Endpoints (generated)](/docs/api/endpoints)
+- [OpenAPI JSON](/api/v1/openapi.json)
 
 ## Rate Limits
 
@@ -107,7 +103,7 @@ Official SDKs are available for:
 The complete OpenAPI specification is available at:
 
 ```
-https://api.aragora.ai/v1/openapi.json
+https://api.aragora.ai/api/v1/openapi.json
 ```
 
 You can import this into tools like Postman or use it to generate clients.

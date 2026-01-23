@@ -62,6 +62,8 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Documents", "description": "Document upload and export"},
             {"name": "Media", "description": "Audio/video and podcast"},
             {"name": "Social", "description": "Social media publishing"},
+            {"name": "Control Plane", "description": "Agent orchestration and task routing"},
+            {"name": "Decisions", "description": "Unified decision routing results"},
             {"name": "Plugins", "description": "Plugin management and execution"},
             {"name": "Laboratory", "description": "Emergent trait analysis"},
             {"name": "Tournaments", "description": "Tournament management"},
