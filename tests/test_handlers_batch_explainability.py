@@ -18,7 +18,11 @@ from aragora.server.handlers.explainability import (
     BatchStatus,
     BatchJob,
     BatchDebateResult,
-    _batch_jobs_memory as _batch_jobs,
+    _save_batch_job,
+)
+from aragora.server.handlers.explainability_store import (
+    MemoryBatchJobStore,
+    get_batch_job_store,
 )
 from aragora.server.handlers.base import HandlerResult
 
@@ -66,10 +70,13 @@ def mock_get_request():
 
 @pytest.fixture(autouse=True)
 def clear_batch_jobs():
-    """Clear batch jobs before each test."""
-    _batch_jobs.clear()
+    """Clear batch jobs before each test by resetting the store singleton."""
+    import aragora.server.handlers.explainability_store as store_module
+
+    # Reset the singleton to use a fresh memory store for each test
+    store_module._batch_store = MemoryBatchJobStore()
     yield
-    _batch_jobs.clear()
+    store_module._batch_store = None
 
 
 # ============================================================================
@@ -279,7 +286,7 @@ class TestGetBatchStatus:
             debate_ids=["d1", "d2"],
             status=BatchStatus.PENDING,
         )
-        _batch_jobs["batch-test-123"] = job
+        _save_batch_job(job)
 
         result = handler.handle(
             "/api/v1/explainability/batch/batch-test-123/status", {}, mock_get_request
@@ -299,7 +306,7 @@ class TestGetBatchStatus:
             processed_count=1,
             started_at=time.time(),
         )
-        _batch_jobs["batch-test-456"] = job
+        _save_batch_job(job)
 
         result = handler.handle(
             "/api/v1/explainability/batch/batch-test-456/status", {}, mock_get_request
@@ -351,7 +358,7 @@ class TestGetBatchResults:
                 ),
             ],
         )
-        _batch_jobs["batch-results-123"] = job
+        _save_batch_job(job)
 
         result = handler.handle(
             "/api/v1/explainability/batch/batch-results-123/results", {}, mock_get_request
@@ -370,7 +377,7 @@ class TestGetBatchResults:
             debate_ids=["d1", "d2"],
             status=BatchStatus.PENDING,
         )
-        _batch_jobs["batch-pending-123"] = job
+        _save_batch_job(job)
 
         result = handler.handle(
             "/api/v1/explainability/batch/batch-pending-123/results", {}, mock_get_request
@@ -395,7 +402,7 @@ class TestGetBatchResults:
                 ),
             ],
         )
-        _batch_jobs["batch-partial-123"] = job
+        _save_batch_job(job)
 
         result = handler.handle(
             "/api/v1/explainability/batch/batch-partial-123/results",
@@ -421,7 +428,7 @@ class TestGetBatchResults:
             processed_count=10,
             results=results,
         )
-        _batch_jobs["batch-paginated"] = job
+        _save_batch_job(job)
 
         result = handler.handle(
             "/api/v1/explainability/batch/batch-paginated/results",

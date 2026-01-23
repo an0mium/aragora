@@ -96,7 +96,8 @@ class TestGeneratorAgent(BaseDebateAgent):
     """
 
     def __init__(self, **kwargs):
-        system_prompt = """You are a Test Generation Specialist, an expert in software testing.
+        # Store system prompt for potential LLM-based test generation
+        self._system_prompt = """You are a Test Generation Specialist, an expert in software testing.
 
 ROLE: Generate comprehensive test cases for code
 
@@ -131,9 +132,30 @@ Follow testing best practices:
 
         super().__init__(
             name="test_generator",
-            system_prompt=system_prompt,
             **kwargs,
         )
+
+    async def generate(self, prompt: str, context: Optional[List[Any]] = None) -> str:
+        """Generate test suggestions for the given prompt.
+
+        TestGeneratorAgent uses structured methods like suggest_tests()
+        rather than free-form generation.
+        """
+        # Return empty string - use suggest_tests() for test generation
+        return ""
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: Optional[List[Any]] = None,
+        **kwargs: Any,
+    ) -> str:
+        """Critique is not supported for TestGeneratorAgent.
+
+        Use assess_test_quality() for test quality assessment instead.
+        """
+        return ""
 
     def extract_function_signatures(self, code: str) -> List[FunctionSignature]:
         """
@@ -423,7 +445,7 @@ Follow testing best practices:
 
     def _generate_sample_inputs(self, parameters: List[Dict[str, str]]) -> Dict[str, Any]:
         """Generate sample input values for parameters."""
-        inputs = {}
+        inputs: Dict[str, Any] = {}
         for param in parameters:
             name = param["name"]
             type_hint = param.get("type", "")

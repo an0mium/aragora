@@ -35,6 +35,7 @@ from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    json_response,
     success_response,
 )
 
@@ -114,9 +115,11 @@ class DevOpsHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[Dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
 
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
+    async def handle(  # type: ignore[override]
+        self, request: Any, path: str, method: str
+    ) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)
@@ -332,7 +335,7 @@ class DevOpsHandler(BaseHandler):
 
             logger.info(f"[DevOps] Created incident {incident.id} for tenant {tenant_id}")
 
-            return success_response(
+            return json_response(
                 {
                     "incident": {
                         "id": incident.id,
@@ -345,7 +348,7 @@ class DevOpsHandler(BaseHandler):
                     },
                     "message": "Incident created successfully",
                 },
-                201,
+                status_code=201,
             )
 
         except Exception as e:
@@ -598,7 +601,7 @@ class DevOpsHandler(BaseHandler):
 
             logger.info(f"[DevOps] Added note to incident {incident_id}")
 
-            return success_response(
+            return json_response(
                 {
                     "note": {
                         "id": note.id,
@@ -607,7 +610,7 @@ class DevOpsHandler(BaseHandler):
                     },
                     "message": "Note added",
                 },
-                201,
+                status_code=201,
             )
 
         except Exception as e:

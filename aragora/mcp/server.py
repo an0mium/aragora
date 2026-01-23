@@ -103,8 +103,8 @@ class AragoraMCPServer:
 
                 tools.append(
                     Tool(
-                        name=meta["name"],
-                        description=meta["description"],
+                        name=str(meta["name"]),
+                        description=str(meta["description"]),
                         inputSchema=input_schema,
                     )
                 )
@@ -167,7 +167,7 @@ class AragoraMCPServer:
             for debate_id, debate_data in self._debates_cache.items():
                 resources.append(
                     Resource(
-                        uri=f"debate://{debate_id}",
+                        uri=f"debate://{debate_id}",  # type: ignore[arg-type]
                         name=f"Debate: {debate_data.get('task', 'Unknown')[:50]}",
                         description=f"Debate result from {debate_data.get('timestamp', 'unknown time')}",
                         mimeType="application/json",

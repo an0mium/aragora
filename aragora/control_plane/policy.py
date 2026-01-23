@@ -89,6 +89,23 @@ class PolicyDecision(Enum):
     ESCALATE = "escalate"
 
 
+class PolicyViolationError(Exception):
+    """Raised when task violates HARD enforcement policy."""
+
+    def __init__(
+        self,
+        result: "PolicyEvaluationResult",
+        task_type: str = None,
+        agent_id: str = None,
+        region: str = None,
+    ):
+        self.result = result
+        self.task_type = task_type
+        self.agent_id = agent_id
+        self.region = region
+        super().__init__(f"Policy violation ({result.enforcement_level.value}): {result.reason}")
+
+
 @dataclass
 class SLARequirements:
     """SLA requirements for a policy.
@@ -986,6 +1003,7 @@ __all__ = [
     "ControlPlanePolicyManager",
     "PolicyEvaluationResult",
     "PolicyViolation",
+    "PolicyViolationError",
     # Constraints
     "SLARequirements",
     "RegionConstraint",

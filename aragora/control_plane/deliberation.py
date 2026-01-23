@@ -520,6 +520,9 @@ class DeliberationManager:
             # Build and return outcome
             outcome = self._build_outcome_from_task(task)
 
+            # Emit completion notifications
+            self._emit_completion_notification(task, outcome)
+
             # Feed back to ELO system
             if self._elo_callback:
                 try:
@@ -535,14 +538,18 @@ class DeliberationManager:
             task.metrics.completed_at = time.time()
             task.metrics.sla_compliance = SLAComplianceLevel.VIOLATED
             record_deliberation_error(task.request_id, task.error, status="timeout")
-            return self._build_outcome_from_task(task)
+            outcome = self._build_outcome_from_task(task)
+            self._emit_completion_notification(task, outcome)
+            return outcome
 
         except Exception as e:
             task.status = DeliberationStatus.FAILED
             task.error = str(e)
             task.metrics.completed_at = time.time()
             record_deliberation_error(task.request_id, str(e))
-            return self._build_outcome_from_task(task)
+            outcome = self._build_outcome_from_task(task)
+            self._emit_completion_notification(task, outcome)
+            return outcome
 
         finally:
             # Stop SLA monitor
@@ -633,6 +640,37 @@ class DeliberationManager:
         monitor = self._sla_monitors.pop(task_id, None)
         if monitor and not monitor.done():
             monitor.cancel()
+
+    def _emit_notification(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit a notification event if a callback is configured."""
+        if not self._notification_callback:
+            return
+        try:
+            self._notification_callback(event_type, data)
+        except Exception as e:
+            logger.debug("deliberation_notification_failed", error=str(e))
+
+    def _emit_completion_notification(
+        self, task: DeliberationTask, outcome: DeliberationOutcome
+    ) -> None:
+        """Emit consensus/failure notifications after a deliberation completes."""
+        base_data = {
+            "task_id": task.task_id,
+            "request_id": task.request_id,
+            "question": task.question,
+            "confidence": outcome.consensus_confidence or 0.0,
+            "answer": outcome.winning_position,
+            "status": task.status.value,
+            "workspace_id": task.metadata.get("workspace_id") if task.metadata else None,
+        }
+
+        if outcome.consensus_reached:
+            self._emit_notification("consensus_reached", base_data)
+        elif outcome.success:
+            self._emit_notification("no_consensus", base_data)
+        else:
+            failure_data = {**base_data, "error": task.error}
+            self._emit_notification("deliberation_failed", failure_data)
 
     def _build_outcome(self, task: DeliberationTask, completed_task: Any) -> DeliberationOutcome:
         """Build outcome from completed coordinator task."""

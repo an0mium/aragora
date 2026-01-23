@@ -8,7 +8,7 @@ Provides endpoints for analytics data:
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any, Dict, Optional, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -383,9 +383,8 @@ class AnalyticsHandler(BaseHandler):
                     if adapter:
                         stats = adapter.get_stats()
                         # Add consensus stats
-                        learning_stats["knowledge_reuse"]["total_queries"] += stats.get(  # type: ignore[index,operator]
-                            "total_queries", 0
-                        )
+                        reuse_stats = cast(Dict[str, Any], learning_stats["knowledge_reuse"])
+                        reuse_stats["total_queries"] += stats.get("total_queries", 0)
 
             except ImportError:
                 pass
@@ -406,9 +405,8 @@ class AnalyticsHandler(BaseHandler):
                     handlers = cs_stats.get("handlers", {})
                     validation_stats = handlers.get("km_validation_feedback", {})
                     if validation_stats:
-                        learning_stats["validation"]["total_validations"] = (  # type: ignore[index]
-                            validation_stats.get("call_count", 0)
-                        )
+                        val_stats = cast(Dict[str, Any], learning_stats["validation"])
+                        val_stats["total_validations"] = validation_stats.get("call_count", 0)
 
             except ImportError:
                 pass
@@ -416,18 +414,17 @@ class AnalyticsHandler(BaseHandler):
                 logger.debug(f"Failed to get cross-subscriber stats: {e}")
 
             # Calculate derived metrics
-            reuse = learning_stats["knowledge_reuse"]  # type: ignore[index]
-            if reuse["total_queries"] > 0:  # type: ignore[index]
-                reuse["reuse_rate"] = round(  # type: ignore[index,arg-type,operator]
-                    reuse["queries_with_hits"] / reuse["total_queries"],  # type: ignore[arg-type,operator]
+            reuse = cast(Dict[str, Any], learning_stats["knowledge_reuse"])
+            if reuse["total_queries"] > 0:
+                reuse["reuse_rate"] = round(
+                    reuse["queries_with_hits"] / reuse["total_queries"],
                     3,
                 )
 
-            validation = learning_stats["validation"]  # type: ignore[index]
-            if validation["total_validations"] > 0:  # type: ignore[index]
-                validation["accuracy_rate"] = round(  # type: ignore[index,arg-type,operator]
-                    validation["positive_validations"]  # type: ignore[index,arg-type,operator]
-                    / validation["total_validations"],
+            validation = cast(Dict[str, Any], learning_stats["validation"])
+            if validation["total_validations"] > 0:
+                validation["accuracy_rate"] = round(
+                    validation["positive_validations"] / validation["total_validations"],
                     3,
                 )
 

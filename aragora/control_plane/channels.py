@@ -61,6 +61,11 @@ class NotificationEventType(Enum):
 
     TASK_COMPLETED = "task_completed"
     TASK_FAILED = "task_failed"
+    TASK_SUBMITTED = "task_submitted"
+    TASK_CLAIMED = "task_claimed"
+    TASK_TIMEOUT = "task_timeout"
+    TASK_RETRIED = "task_retried"
+    TASK_CANCELLED = "task_cancelled"
     DELIBERATION_STARTED = "deliberation_started"
     DELIBERATION_CONSENSUS = "deliberation_consensus"
     DELIBERATION_FAILED = "deliberation_failed"
@@ -880,10 +885,10 @@ def create_deliberation_consensus_notification(
     confidence: float,
     ui_base_url: str = "https://app.aragora.ai",
 ) -> NotificationMessage:
-    """Create a notification for deliberation consensus."""
+    """Create a notification for vetted decisionmaking consensus."""
     return NotificationMessage(
         event_type=NotificationEventType.DELIBERATION_CONSENSUS,
-        title="Deliberation Consensus Reached",
+        title="Vetted Decisionmaking Consensus Reached",
         body=f"**Question:** {question[:100]}...\n\n**Answer:** {answer[:200]}...\n\n**Confidence:** {confidence:.0%}",
         priority=NotificationPriority.NORMAL,
         metadata={"task_id": task_id, "confidence": confidence},

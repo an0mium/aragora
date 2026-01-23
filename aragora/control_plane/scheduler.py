@@ -37,6 +37,21 @@ from aragora.observability import (
     add_span_attributes,
 )
 
+# Policy imports (optional - graceful fallback if not available)
+try:
+    from aragora.control_plane.policy import (
+        ControlPlanePolicyManager,
+        PolicyViolationError,
+        EnforcementLevel,
+    )
+
+    HAS_POLICY = True
+except ImportError:
+    HAS_POLICY = False
+    ControlPlanePolicyManager = None  # type: ignore
+    PolicyViolationError = None  # type: ignore
+    EnforcementLevel = None  # type: ignore
+
 logger = get_logger(__name__)
 
 
@@ -265,6 +280,7 @@ class TaskScheduler:
         stream_prefix: str = "aragora:cp:stream:",
         consumer_group: str = "aragora-workers",
         claim_timeout_ms: int = 60000,
+        policy_manager: Optional["ControlPlanePolicyManager"] = None,
     ):
         """
         Initialize the task scheduler.
@@ -275,6 +291,7 @@ class TaskScheduler:
             stream_prefix: Prefix for stream keys
             consumer_group: Consumer group name
             claim_timeout_ms: Time before unclaimed task can be reclaimed
+            policy_manager: Optional policy manager for enforcement
         """
         self._redis_url = redis_url
         self._key_prefix = key_prefix
@@ -282,6 +299,7 @@ class TaskScheduler:
         self._index_prefix = f"{key_prefix}index:"  # Secondary index prefix
         self._consumer_group = consumer_group
         self._claim_timeout_ms = claim_timeout_ms
+        self._policy_manager = policy_manager
         self._redis: Optional[Any] = None
         self._local_tasks: Dict[str, Task] = {}
         self._local_queue: List[Task] = []
@@ -381,6 +399,7 @@ class TaskScheduler:
         fallback_regions: Optional[List[str]] = None,
         region_routing_mode: RegionRoutingMode = RegionRoutingMode.ANY,
         origin_region: str = "default",
+        workspace_id: Optional[str] = None,
     ) -> str:
         """
         Submit a task for execution.
@@ -397,9 +416,13 @@ class TaskScheduler:
             fallback_regions: Fallback regions if target unavailable
             region_routing_mode: How to handle regional routing
             origin_region: Region where task was submitted
+            workspace_id: Optional workspace ID for policy scoping
 
         Returns:
             Task ID
+
+        Raises:
+            PolicyViolationError: If task violates HARD enforcement policy
         """
         task = Task(
             task_type=task_type,
@@ -414,6 +437,39 @@ class TaskScheduler:
             region_routing_mode=region_routing_mode,
             origin_region=origin_region,
         )
+
+        # Store workspace_id in metadata if provided
+        if workspace_id:
+            task.metadata["workspace_id"] = workspace_id
+
+        # Policy check before saving task (if policy manager configured)
+        if self._policy_manager and HAS_POLICY:
+            # For submit, we check region constraints but not agent (no agent yet)
+            # Evaluate with a placeholder agent_id since we don't have one yet
+            result = self._policy_manager.evaluate_task_dispatch(
+                task_type=task_type,
+                agent_id="__submission__",  # Placeholder for submission check
+                region=target_region or origin_region,
+                capabilities=required_capabilities,
+                workspace=workspace_id,
+                task_id=task.id,
+            )
+
+            if not result.allowed:
+                if result.enforcement_level == EnforcementLevel.HARD:
+                    raise PolicyViolationError(
+                        result=result,
+                        task_type=task_type,
+                        region=target_region or origin_region,
+                    )
+                elif result.enforcement_level == EnforcementLevel.WARN:
+                    logger.warning(
+                        "policy_warning_on_submit",
+                        task_id=task.id,
+                        task_type=task_type,
+                        reason=result.reason,
+                        policy_id=result.policy_id,
+                    )
 
         await self._save_task(task)
         await self._enqueue_task(task)
@@ -433,6 +489,8 @@ class TaskScheduler:
         worker_id: str,
         capabilities: List[str],
         block_ms: int = 5000,
+        worker_region: Optional[str] = None,
+        workspace_id: Optional[str] = None,
     ) -> Optional[Task]:
         """
         Claim a task for execution.
@@ -441,14 +499,18 @@ class TaskScheduler:
             worker_id: ID of the worker claiming the task
             capabilities: Capabilities the worker provides
             block_ms: Time to block waiting for a task
+            worker_region: Region where the worker is located (for policy checks)
+            workspace_id: Workspace ID for policy scoping
 
         Returns:
             Task if claimed, None if no suitable task available
         """
         if self._redis:
-            return await self._claim_from_redis(worker_id, capabilities, block_ms)
+            return await self._claim_from_redis(
+                worker_id, capabilities, block_ms, worker_region, workspace_id
+            )
         else:
-            return self._claim_from_local(worker_id, capabilities)
+            return self._claim_from_local(worker_id, capabilities, worker_region, workspace_id)
 
     async def claim_in_region(
         self,
@@ -896,6 +958,8 @@ class TaskScheduler:
         worker_id: str,
         capabilities: List[str],
         block_ms: int,
+        worker_region: Optional[str] = None,
+        workspace_id: Optional[str] = None,
     ) -> Optional[Task]:
         """Claim task from Redis Streams."""
         cap_set = set(capabilities)
@@ -958,6 +1022,48 @@ class TaskScheduler:
                             )
                             continue
 
+                        # Policy check (if policy manager configured)
+                        if self._policy_manager and HAS_POLICY:
+                            task_workspace = workspace_id or task.metadata.get("workspace_id")
+                            result = self._policy_manager.evaluate_task_dispatch(
+                                task_type=task.task_type,
+                                agent_id=worker_id,
+                                region=worker_region or task.target_region or "default",
+                                capabilities=capabilities,
+                                workspace=task_workspace,
+                                task_id=task_id,
+                            )
+
+                            if not result.allowed:
+                                # Policy violation - requeue task for another worker
+                                await self._redis.xack(stream_key, self._consumer_group, msg_id)
+
+                                # Track policy rejection
+                                if "policy_rejection_count" not in task.metadata:
+                                    task.metadata["policy_rejection_count"] = 0
+                                task.metadata["policy_rejection_count"] += 1
+                                task.metadata["last_policy_rejected_by"] = worker_id
+                                task.metadata["last_policy_rejection_reason"] = result.reason
+
+                                # Requeue for another worker
+                                await self._save_task(task)
+                                await self._enqueue_task(task)
+
+                                if result.enforcement_level == EnforcementLevel.WARN:
+                                    logger.warning(
+                                        "policy_warning_on_claim",
+                                        task_id=task_id,
+                                        worker_id=worker_id,
+                                        reason=result.reason,
+                                        policy_id=result.policy_id,
+                                    )
+                                else:
+                                    logger.debug(
+                                        f"Task {task_id} rejected by policy for {worker_id}: "
+                                        f"{result.reason}"
+                                    )
+                                continue
+
                         # Store message_id for later acknowledgment
                         task.metadata["_stream_message_id"] = msg_id
 
@@ -982,6 +1088,8 @@ class TaskScheduler:
         self,
         worker_id: str,
         capabilities: List[str],
+        worker_region: Optional[str] = None,
+        workspace_id: Optional[str] = None,
     ) -> Optional[Task]:
         """Claim task from local queue."""
         cap_set = set(capabilities)
@@ -992,6 +1100,42 @@ class TaskScheduler:
 
             if task.required_capabilities and not task.required_capabilities.issubset(cap_set):
                 continue
+
+            # Policy check (if policy manager configured)
+            if self._policy_manager and HAS_POLICY:
+                task_workspace = workspace_id or task.metadata.get("workspace_id")
+                result = self._policy_manager.evaluate_task_dispatch(
+                    task_type=task.task_type,
+                    agent_id=worker_id,
+                    region=worker_region or task.target_region or "default",
+                    capabilities=capabilities,
+                    workspace=task_workspace,
+                    task_id=task.id,
+                )
+
+                if not result.allowed:
+                    # Policy violation - skip this task, try next one
+                    # Track policy rejection
+                    if "policy_rejection_count" not in task.metadata:
+                        task.metadata["policy_rejection_count"] = 0
+                    task.metadata["policy_rejection_count"] += 1
+                    task.metadata["last_policy_rejected_by"] = worker_id
+                    task.metadata["last_policy_rejection_reason"] = result.reason
+
+                    if result.enforcement_level == EnforcementLevel.WARN:
+                        logger.warning(
+                            "policy_warning_on_claim",
+                            task_id=task.id,
+                            worker_id=worker_id,
+                            reason=result.reason,
+                            policy_id=result.policy_id,
+                        )
+                    else:
+                        logger.debug(
+                            f"Task {task.id} rejected by policy for {worker_id}: "
+                            f"{result.reason}"
+                        )
+                    continue
 
             # Claim the task - update local status index
             previous_status = task.status

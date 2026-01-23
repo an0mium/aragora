@@ -1186,6 +1186,12 @@ async def init_notification_worker() -> bool:
         await dispatcher.start_worker()
         set_default_notification_dispatcher(dispatcher)
 
+        # Wire dispatcher to task events
+        from aragora.control_plane.task_events import set_task_event_dispatcher
+
+        set_task_event_dispatcher(dispatcher)
+        logger.info("task_event_dispatcher_wired")
+
         logger.info(
             f"Notification worker started "
             f"(concurrency={config.max_concurrent_deliveries}, channels_loaded={channel_count})"

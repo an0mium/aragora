@@ -33,9 +33,9 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
-from aragora.control_plane.leader import (
-    is_distributed_state_required,
-    DistributedStateError,
+from aragora.server.handlers.explainability_store import (
+    BatchJob as StoreBatchJob,
+    get_batch_job_store,
 )
 
 logger = logging.getLogger(__name__)
@@ -143,127 +143,69 @@ class BatchJob:
         }
 
 
-# Batch job storage - uses Redis when available, in-memory fallback
+# Batch job storage - uses backend-abstracted store
 BATCH_JOB_TTL = 3600  # 1 hour retention
 MAX_BATCH_SIZE = 100
 
-# In-memory fallback (only used when Redis unavailable)
-_batch_jobs_memory: Dict[str, BatchJob] = {}
-_redis_client: Optional[Any] = None
-_storage_warned = False
-
-
-def _get_redis_client() -> Optional[Any]:
-    """Get Redis client for batch job storage."""
-    global _redis_client
-    if _redis_client is not None:
-        return _redis_client
-
-    try:
-        import os
-
-        redis_url = os.environ.get("REDIS_URL")
-        if not redis_url:
-            return None
-
-        import redis
-
-        _redis_client = redis.from_url(redis_url)
-        _redis_client.ping()  # Test connection
-        logger.info("BATCH JOBS: Using Redis for durable storage")
-        return _redis_client
-    except Exception as e:
-        logger.debug(f"Redis not available for batch jobs: {e}")
-        return None
-
-
-def _check_batch_storage_requirements() -> None:
-    """Check and warn about batch job storage in production."""
-    global _storage_warned
-    if _storage_warned:
-        return
-    _storage_warned = True
-
-    import os
-
-    if _get_redis_client() is None:
-        if is_distributed_state_required():
-            raise DistributedStateError(
-                "batch_jobs",
-                "Redis not available for batch job storage",
-            )
-        is_production = os.environ.get("ARAGORA_ENV") == "production"
-        if is_production:
-            logger.warning(
-                "BATCH JOBS: Using in-memory storage in production. "
-                "Batch jobs will be lost on restart. Set REDIS_URL for durability."
-            )
-
 
 def _save_batch_job(job: BatchJob) -> None:
-    """Save batch job to storage."""
-    _check_batch_storage_requirements()
-    client = _get_redis_client()
-
-    if client:
-        # Store in Redis with TTL
-        key = f"batch_job:{job.batch_id}"
-        job_dict = job.to_dict()
-        job_dict["debate_ids"] = job.debate_ids
-        job_dict["results"] = [r.to_dict() for r in job.results]
-        job_dict["options"] = job.options
-        client.setex(key, BATCH_JOB_TTL, json.dumps(job_dict))
-    else:
-        _batch_jobs_memory[job.batch_id] = job
+    """Save batch job to storage (sync wrapper for async store)."""
+    store = get_batch_job_store()
+    # Convert local BatchJob to store BatchJob
+    store_job = StoreBatchJob(
+        batch_id=job.batch_id,
+        debate_ids=job.debate_ids,
+        status=job.status.value,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        results=[r.to_dict() for r in job.results],
+        processed_count=job.processed_count,
+        options=job.options,
+        error=None,
+    )
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    loop.run_until_complete(store.save_job(store_job))
 
 
 def _get_batch_job(batch_id: str) -> Optional[BatchJob]:
-    """Get batch job from storage."""
-    client = _get_redis_client()
-
-    if client:
-        key = f"batch_job:{batch_id}"
-        data = client.get(key)
-        if data:
-            job_dict = json.loads(data)
-            job = BatchJob(
-                batch_id=job_dict["batch_id"],
-                debate_ids=job_dict.get("debate_ids", []),
-                status=BatchStatus(job_dict.get("status", "pending")),
-                created_at=job_dict.get("created_at", time.time()),
-                started_at=job_dict.get("started_at"),
-                completed_at=job_dict.get("completed_at"),
-                processed_count=job_dict.get("processed_count", 0),
-                options=job_dict.get("options", {}),
-            )
-            # Restore results
-            for r in job_dict.get("results", []):
-                job.results.append(
-                    BatchDebateResult(
-                        debate_id=r["debate_id"],
-                        status=r["status"],
-                        explanation=r.get("explanation"),
-                        error=r.get("error"),
-                        processing_time_ms=r.get("processing_time_ms", 0),
-                    )
-                )
-            return job
+    """Get batch job from storage (sync wrapper for async store)."""
+    store = get_batch_job_store()
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    store_job = loop.run_until_complete(store.get_job(batch_id))
+    if store_job is None:
         return None
-    else:
-        return _batch_jobs_memory.get(batch_id)
-
-
-def _prune_old_batches() -> None:
-    """Remove old batch jobs from in-memory storage."""
-    # Redis handles TTL automatically, only prune memory storage
-    now = time.time()
-    expired = [
-        batch_id
-        for batch_id, job in _batch_jobs_memory.items()
-        if now - job.created_at > BATCH_JOB_TTL
-    ]
-    for batch_id in expired:
-        del _batch_jobs_memory[batch_id]
+    # Convert store BatchJob to local BatchJob
+    job = BatchJob(
+        batch_id=store_job.batch_id,
+        debate_ids=store_job.debate_ids,
+        status=BatchStatus(store_job.status),
+        created_at=store_job.created_at,
+        started_at=store_job.started_at,
+        completed_at=store_job.completed_at,
+        processed_count=store_job.processed_count,
+        options=store_job.options,
+    )
+    # Restore results
+    for r in store_job.results:
+        job.results.append(
+            BatchDebateResult(
+                debate_id=r["debate_id"],
+                status=r["status"],
+                explanation=r.get("explanation"),
+                error=r.get("error"),
+                processing_time_ms=r.get("processing_time_ms", 0),
+            )
+        )
+    return job
 
 
 class ExplainabilityHandler(BaseHandler):
@@ -728,8 +670,6 @@ h3 {{ color: #666; }}
             }
         }
         """
-        _prune_old_batches()
-
         try:
             # Parse request body
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -939,8 +879,6 @@ h3 {{ color: #666; }}
 
     def _handle_batch_status(self, batch_id: str) -> HandlerResult:
         """Get status of a batch job."""
-        _prune_old_batches()
-
         job = _get_batch_job(batch_id)
         if not job:
             return error_response(f"Batch job not found: {batch_id}", 404)
@@ -949,8 +887,6 @@ h3 {{ color: #666; }}
 
     def _handle_batch_results(self, batch_id: str, query_params: Dict[str, Any]) -> HandlerResult:
         """Get results of a completed batch job."""
-        _prune_old_batches()
-
         job = _get_batch_job(batch_id)
         if not job:
             return error_response(f"Batch job not found: {batch_id}", 404)

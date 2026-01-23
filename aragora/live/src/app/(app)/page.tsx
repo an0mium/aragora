@@ -30,6 +30,7 @@ import { useLayout } from '@/context/LayoutContext';
 import { HeroSection } from '@/components/landing/HeroSection';
 import type { NomicState } from '@/types/events';
 import { DashboardFooter } from './components';
+import { useAuth } from '@/context/AuthContext';
 
 // Dynamic imports - code-split for bundle size optimization
 import {
@@ -101,6 +102,9 @@ type ViewMode = 'tabs' | 'stream' | 'deep-audit';
 
 export default function Home() {
   const router = useRouter();
+
+  // Auth state - used to skip API-heavy panels for unauthenticated users
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Progressive disclosure mode (simple/standard/advanced/expert)
   const { mode: progressiveMode, isFeatureVisible } = useProgressiveMode();
@@ -450,19 +454,39 @@ export default function Home() {
           onError={setError}
         />
 
-        {/* Phase Progress */}
-        <PhaseProgress events={events} currentPhase={currentPhase} />
-
-        {/* Round Progress (new - Heavy3-inspired) */}
-        {currentPhase === 'debate' && (
-          <RoundProgress events={events} />
+        {/* Show login prompt for unauthenticated users */}
+        {!authLoading && !isAuthenticated && (
+          <div className="bg-surface/50 border border-acid-green/30 rounded-lg p-6 text-center">
+            <p className="text-text-muted font-mono text-sm mb-4">
+              Log in to access the full dashboard with debate history, analytics, and agent rankings.
+            </p>
+            <a
+              href="/auth/login"
+              className="inline-block px-4 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/80 transition-colors"
+            >
+              LOG IN
+            </a>
+          </div>
         )}
 
-        {/* Metrics */}
-        <MetricsCards nomicState={nomicState} events={events} />
+        {/* Dashboard content - only shown when authenticated to avoid 401 errors */}
+        {isAuthenticated && (
+          <>
+            {/* Phase Progress */}
+            <PhaseProgress events={events} currentPhase={currentPhase} />
 
-        {/* Verdict Card (when available) */}
-        {hasVerdict && <VerdictCard events={events} />}
+            {/* Round Progress (new - Heavy3-inspired) */}
+            {currentPhase === 'debate' && (
+              <RoundProgress events={events} />
+            )}
+
+            {/* Metrics */}
+            <MetricsCards nomicState={nomicState} events={events} />
+
+            {/* Verdict Card (when available) */}
+            {hasVerdict && <VerdictCard events={events} />}
+          </>
+        )}
 
         {/* Main Panels - Responsive grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -487,7 +511,8 @@ export default function Home() {
             )}
           </div>
 
-          {/* Side Panel - Collapsible sections */}
+          {/* Side Panel - Collapsible sections (only when authenticated) */}
+          {isAuthenticated && (
           <div className="space-y-2 hidden lg:block">
             {/* Use Case Guide for simple/standard users */}
             {progressiveMode === 'simple' && (
@@ -828,6 +853,7 @@ export default function Home() {
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* Footer */}

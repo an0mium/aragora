@@ -100,6 +100,14 @@ from aragora.workflow.coverage_tracker import (
     KNOWN_TEMPLATES,
     KNOWN_CONFIG_DIMENSIONS,
 )
+from aragora.workflow.persistent_store import (
+    PersistentWorkflowStore,
+    get_workflow_store,
+    get_async_workflow_store,
+    create_postgres_workflow_store,
+    reset_workflow_store,
+)
+from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
 
 __all__ = [
     # Engines
@@ -151,4 +159,11 @@ __all__ = [
     "KNOWN_PATTERNS",
     "KNOWN_TEMPLATES",
     "KNOWN_CONFIG_DIMENSIONS",
+    # Persistent storage
+    "PersistentWorkflowStore",
+    "PostgresWorkflowStore",
+    "get_workflow_store",
+    "get_async_workflow_store",
+    "create_postgres_workflow_store",
+    "reset_workflow_store",
 ]

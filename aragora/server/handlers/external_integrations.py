@@ -150,10 +150,10 @@ class ExternalIntegrationsHandler(SecureHandler):
             if not user_info:
                 return None
 
-            return AuthorizationContext(  # type: ignore[call-arg]
-                user_id=user_info.get("user_id", "anonymous"),  # type: ignore[arg-type,attr-defined]
-                roles=user_info.get("roles", []),  # type: ignore[arg-type,attr-defined]
-                org_id=user_info.get("org_id") or user_info.get("tenant_id"),  # type: ignore[arg-type,attr-defined]
+            return AuthorizationContext(
+                user_id=user_info.get("user_id", "anonymous"),
+                roles=user_info.get("roles", []),
+                org_id=user_info.get("org_id") or user_info.get("tenant_id"),
             )
         except Exception as e:
             logger.debug(f"Could not extract auth context: {e}")
@@ -259,39 +259,39 @@ class ExternalIntegrationsHandler(SecureHandler):
         # Zapier endpoints
         if path == "/api/v1/integrations/zapier/apps":
             body, err = self.read_json_body_validated(handler)
-            if err:
+            if err or body is None:
                 return err
             return self._handle_create_zapier_app(body, handler)
 
         if path == "/api/v1/integrations/zapier/triggers":
             body, err = self.read_json_body_validated(handler)
-            if err:
+            if err or body is None:
                 return err
             return self._handle_subscribe_zapier_trigger(body, handler)
 
         # Make endpoints
         if path == "/api/v1/integrations/make/connections":
             body, err = self.read_json_body_validated(handler)
-            if err:
+            if err or body is None:
                 return err
             return self._handle_create_make_connection(body, handler)
 
         if path == "/api/v1/integrations/make/webhooks":
             body, err = self.read_json_body_validated(handler)
-            if err:
+            if err or body is None:
                 return err
             return self._handle_register_make_webhook(body, handler)
 
         # n8n endpoints
         if path == "/api/v1/integrations/n8n/credentials":
             body, err = self.read_json_body_validated(handler)
-            if err:
+            if err or body is None:
                 return err
             return self._handle_create_n8n_credential(body, handler)
 
         if path == "/api/v1/integrations/n8n/webhooks":
             body, err = self.read_json_body_validated(handler)
-            if err:
+            if err or body is None:
                 return err
             return self._handle_register_n8n_webhook(body, handler)
 
@@ -320,7 +320,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             # Path: /api/v1/integrations/zapier/apps/{app_id}
             # Segments after strip/split: ["api", "v1", "integrations", "zapier", "apps", "{app_id}"]
             app_id, err = self.extract_path_param(path, 5, "app_id", SAFE_ID_PATTERN)
-            if err:
+            if err or app_id is None:
                 return err
             return self._handle_delete_zapier_app(app_id, handler)
 
@@ -339,7 +339,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             # Path: /api/v1/integrations/make/connections/{conn_id}
             # Segments after strip/split: ["api", "v1", "integrations", "make", "connections", "{conn_id}"]
             conn_id, err = self.extract_path_param(path, 5, "conn_id", SAFE_ID_PATTERN)
-            if err:
+            if err or conn_id is None:
                 return err
             return self._handle_delete_make_connection(conn_id, handler)
 
@@ -358,7 +358,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             # Path: /api/v1/integrations/n8n/credentials/{cred_id}
             # Segments after strip/split: ["api", "v1", "integrations", "n8n", "credentials", "{cred_id}"]
             cred_id, err = self.extract_path_param(path, 5, "cred_id", SAFE_ID_PATTERN)
-            if err:
+            if err or cred_id is None:
                 return err
             return self._handle_delete_n8n_credential(cred_id, handler)
 

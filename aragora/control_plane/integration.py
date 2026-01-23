@@ -610,6 +610,7 @@ class IntegratedControlPlane:
                     create_notification_dispatcher,
                 )
                 from aragora.control_plane.channels import (
+                    create_deliberation_consensus_notification,
                     NotificationEventType,
                     NotificationPriority,
                 )
@@ -621,8 +622,8 @@ class IntegratedControlPlane:
                     asyncio.create_task(
                         dispatcher.dispatch(
                             event_type=NotificationEventType.SLA_WARNING,
-                            title="Deliberation SLA Warning",
-                            body=f"Deliberation {data['task_id'][:8]}... approaching timeout "
+                            title="Vetted decisionmaking SLA Warning",
+                            body=f"Task {data['task_id'][:8]}... approaching timeout "
                             f"({data['elapsed_seconds']:.0f}s / {data['timeout_seconds']:.0f}s)",
                             priority=NotificationPriority.HIGH,
                             metadata=data,
@@ -632,11 +633,52 @@ class IntegratedControlPlane:
                     asyncio.create_task(
                         dispatcher.dispatch(
                             event_type=NotificationEventType.SLA_VIOLATION,
-                            title="Deliberation SLA Violation",
-                            body=f"Deliberation {data['task_id'][:8]}... exceeded timeout "
+                            title="Vetted decisionmaking SLA Violation",
+                            body=f"Task {data['task_id'][:8]}... exceeded timeout "
                             f"({data['elapsed_seconds']:.0f}s > {data['timeout_seconds']:.0f}s)",
                             priority=NotificationPriority.URGENT,
                             metadata=data,
+                        )
+                    )
+                elif event_type == "consensus_reached":
+                    message = create_deliberation_consensus_notification(
+                        task_id=data.get("task_id", ""),
+                        question=data.get("question", "Unknown question"),
+                        answer=data.get("answer") or "No answer provided",
+                        confidence=float(data.get("confidence") or 0.0),
+                    )
+                    asyncio.create_task(
+                        dispatcher.dispatch(
+                            event_type=message.event_type,
+                            title=message.title,
+                            body=message.body,
+                            priority=message.priority,
+                            metadata=message.metadata,
+                            workspace_id=data.get("workspace_id"),
+                            link_url=message.link_url,
+                            link_text=message.link_text,
+                        )
+                    )
+                elif event_type == "no_consensus":
+                    asyncio.create_task(
+                        dispatcher.dispatch(
+                            event_type=NotificationEventType.DELIBERATION_FAILED,
+                            title="Vetted decisionmaking completed without consensus",
+                            body=f"Task {data['task_id'][:8]}... completed without consensus.",
+                            priority=NotificationPriority.NORMAL,
+                            metadata=data,
+                            workspace_id=data.get("workspace_id"),
+                        )
+                    )
+                elif event_type == "deliberation_failed":
+                    asyncio.create_task(
+                        dispatcher.dispatch(
+                            event_type=NotificationEventType.DELIBERATION_FAILED,
+                            title="Vetted decisionmaking failed",
+                            body=f"Task {data['task_id'][:8]}... failed: {data.get('error', 'Unknown error')}",
+                            priority=NotificationPriority.HIGH,
+                            metadata=data,
+                            workspace_id=data.get("workspace_id"),
                         )
                     )
 

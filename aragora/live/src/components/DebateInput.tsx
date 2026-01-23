@@ -19,7 +19,7 @@ const DEBATE_MODES: Record<DebateMode, { label: string; description: string; end
   standard: {
     label: 'Standard',
     description: 'Linear debate with critique rounds',
-    endpoint: '/api/debate',
+    endpoint: '/api/debates',
   },
   graph: {
     label: 'Graph',
@@ -309,7 +309,17 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
       if (tokens?.access_token) {
         headers['Authorization'] = `Bearer ${tokens.access_token}`;
       }
-      const response = await fetch(`${apiBase}${modeConfig.endpoint}`, {
+
+      // Debug: Log request details
+      const requestUrl = `${apiBase}${modeConfig.endpoint}`;
+      console.log('[DebateInput] Starting debate request:', {
+        endpoint: requestUrl,
+        hasAuth: !!tokens?.access_token,
+        mode: debateMode,
+        questionPreview: trimmedQuestion.substring(0, 50) + (trimmedQuestion.length > 50 ? '...' : ''),
+      });
+
+      const response = await fetch(requestUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -324,10 +334,65 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         }),
       });
 
+      // Debug: Log response details
+      const responseContentType = response.headers.get('content-type') || '';
+      console.log('[DebateInput] Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: responseContentType,
+        url: response.url,
+      });
+
+      // Check response status BEFORE parsing JSON
+      if (!response.ok) {
+        let errorMessage: string;
+
+        if (responseContentType.includes('application/json')) {
+          // Server returned JSON error - parse it
+          const errorData = await response.json().catch(() => ({}));
+          errorMessage = errorData.error || errorData.message || `Server error: ${response.status}`;
+        } else {
+          // Server returned HTML or other non-JSON response - log for debugging
+          const text = await response.text();
+          console.error('[DebateInput] Non-JSON error response:', {
+            status: response.status,
+            contentType: responseContentType,
+            bodyPreview: text.substring(0, 300),
+          });
+
+          // User-friendly messages based on status code
+          if (response.status === 401) {
+            errorMessage = 'Authentication required. Please log in and try again.';
+          } else if (response.status === 403) {
+            errorMessage = 'Access denied. You may not have permission for this action.';
+          } else if (response.status === 404) {
+            errorMessage = 'API endpoint not found. The server may be misconfigured.';
+          } else if (response.status >= 500) {
+            errorMessage = `Server error (${response.status}). The backend may be experiencing issues.`;
+          } else {
+            errorMessage = `Request failed: ${response.status} ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Validate content-type before JSON parsing
+      if (!responseContentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('[DebateInput] Unexpected content-type on success:', {
+          expected: 'application/json',
+          got: responseContentType,
+          bodyPreview: text.substring(0, 300),
+        });
+        throw new Error(`Server returned ${responseContentType || 'unknown content'} instead of JSON. The API may be misconfigured.`);
+      }
+
+      // Now safe to parse JSON
       const data = await response.json();
 
       if (data.success && (data.debate_id || data.matrix_id)) {
         const debateId = data.debate_id || data.matrix_id;
+        console.log('[DebateInput] Debate started successfully:', { debateId, mode: debateMode });
 
         // Navigate to visualization page for Graph/Matrix modes
         if (debateMode === 'graph') {
@@ -340,18 +405,30 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         onDebateStarted?.(debateId, trimmedQuestion);
         setQuestion('');
       } else {
+        console.warn('[DebateInput] Debate creation failed:', data);
         onError?.(data.error || 'Failed to start debate');
       }
     } catch (err) {
-      // Provide more helpful error messages
+      // Enhanced error logging
+      console.error('[DebateInput] Error during debate creation:', err);
+
+      let errorMessage: string;
+
       if (err instanceof TypeError && err.message === 'Failed to fetch') {
-        onError?.('API server unavailable. The backend may be offline or unreachable.');
+        errorMessage = 'Cannot reach API server. Check your internet connection or the backend may be offline.';
         setApiStatus('offline');
       } else if (err instanceof Error && err.name === 'AbortError') {
-        onError?.('Request timed out. The server may be overloaded.');
+        errorMessage = 'Request timed out after 30 seconds. The server may be overloaded.';
+      } else if (err instanceof SyntaxError && err.message.includes('Unexpected token')) {
+        // This catches JSON parse errors when server returns HTML
+        errorMessage = 'Server returned an invalid response (HTML instead of JSON). The API may be down or misconfigured.';
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
       } else {
-        onError?.(err instanceof Error ? err.message : 'Network error');
+        errorMessage = 'An unexpected error occurred. Please try again.';
       }
+
+      onError?.(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

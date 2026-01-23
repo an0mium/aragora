@@ -337,7 +337,7 @@ class RegionRouter:
         elif selected == task.target_region:
             reason = "Selected user-preferred region"
         else:
-            reason = f"Selected highest-scoring region ({health_scores.get(selected, 0):.1f})"
+            reason = f"Selected highest-scoring region ({health_scores.get(selected or '', 0):.1f})"
 
         decision = RegionRoutingDecision(
             selected_region=selected,
@@ -353,7 +353,7 @@ class RegionRouter:
 
         logger.info(
             f"Region routing: task={task.id} -> {selected} "
-            f"(score={health_scores.get(selected, 0):.1f}, fallbacks={fallbacks})"
+            f"(score={health_scores.get(selected or '', 0):.1f}, fallbacks={fallbacks})"
         )
 
         return decision

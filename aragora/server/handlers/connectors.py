@@ -34,6 +34,7 @@ try:
         check_permission,
         PermissionDeniedError,
     )
+
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
@@ -48,13 +49,11 @@ def _record_rbac_check(*args: Any, **kwargs: Any) -> None:
 try:
     from aragora.observability.metrics import record_rbac_check
 except ImportError:
-    record_rbac_check = _record_rbac_check  # type: ignore[assignment]
+    record_rbac_check = _record_rbac_check
 
 
 def _check_permission(
-    auth_context: Optional[Any],
-    permission_key: str,
-    resource_id: Optional[str] = None
+    auth_context: Optional[Any], permission_key: str, resource_id: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """
     Check if the authorization context has the required permission.
@@ -85,6 +84,7 @@ def _check_permission(
         return {"error": f"Permission denied: {str(e)}", "status": 403}
 
     return None
+
 
 # Global scheduler instance (initialized on first use)
 _scheduler: Optional[SyncScheduler] = None

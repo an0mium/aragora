@@ -138,6 +138,16 @@ def reset_all_circuit_breakers() -> None:
     logger.info(f"Reset {count} circuit breakers")
 
 
+def get_circuit_breakers() -> dict[str, "CircuitBreaker"]:
+    """Get all registered circuit breakers (thread-safe).
+
+    Returns:
+        Dict mapping circuit breaker names to CircuitBreaker instances.
+    """
+    with _circuit_breakers_lock:
+        return dict(_circuit_breakers)
+
+
 def get_circuit_breaker_status() -> dict[str, Any]:
     """Get status of all registered circuit breakers (thread-safe)."""
     with _circuit_breakers_lock:

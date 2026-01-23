@@ -156,6 +156,17 @@ from aragora.control_plane.notifications import (
     on_notification_event,
     set_default_notification_dispatcher,
 )
+from aragora.control_plane.task_events import (
+    emit_task_cancelled,
+    emit_task_claimed,
+    emit_task_completed,
+    emit_task_failed,
+    emit_task_retried,
+    emit_task_submitted,
+    emit_task_timeout,
+    get_task_event_dispatcher,
+    set_task_event_dispatcher,
+)
 from aragora.control_plane.deliberation_events import (
     DeliberationEventType,
 )
@@ -175,6 +186,7 @@ from aragora.control_plane.policy import (
     PolicyEvaluationResult,
     PolicyScope,
     PolicyViolation,
+    PolicyViolationError,
     RegionConstraint,
     SLARequirements,
     create_agent_tier_policy,
@@ -288,6 +300,16 @@ __all__ = [
     "get_default_notification_dispatcher",
     "on_notification_event",
     "set_default_notification_dispatcher",
+    # Task Events
+    "emit_task_cancelled",
+    "emit_task_claimed",
+    "emit_task_completed",
+    "emit_task_failed",
+    "emit_task_retried",
+    "emit_task_submitted",
+    "emit_task_timeout",
+    "get_task_event_dispatcher",
+    "set_task_event_dispatcher",
     # Policy
     "ControlPlanePolicy",
     "ControlPlanePolicyManager",
@@ -296,6 +318,7 @@ __all__ = [
     "PolicyEvaluationResult",
     "PolicyScope",
     "PolicyViolation",
+    "PolicyViolationError",
     "RegionConstraint",
     "SLARequirements",
     "create_agent_tier_policy",

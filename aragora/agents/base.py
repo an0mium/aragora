@@ -48,6 +48,7 @@ class BaseDebateAgent(Agent):
     def __init__(
         self,
         name: str = "agent",
+        model: str = "default",
         role: str = "proposer",
         persona: str = "",
         focus: str = "",
@@ -56,11 +57,12 @@ class BaseDebateAgent(Agent):
 
         Args:
             name: Agent name
+            model: Model identifier (default: "default" for non-LLM agents)
             role: Role in debate (proposer, critic, synthesizer)
             persona: Character/style description for the agent
             focus: Specific area of focus for analysis
         """
-        super().__init__(name=name, role=role)  # type: ignore[call-arg,arg-type]
+        super().__init__(name=name, model=model, role=role)  # type: ignore[arg-type]
         self.persona = persona or self.persona
         self.focus = focus or self.focus
 

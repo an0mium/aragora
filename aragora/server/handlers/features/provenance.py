@@ -7,12 +7,12 @@ Provides endpoints for:
 - Verifying evidence chain integrity
 """
 
-from typing import Any
+from typing import Any, Dict
 
-from aragora.server.handlers.base import json_response
+from aragora.server.handlers.base import HandlerResult, json_response
 
 
-async def handle_get_debate_provenance(debate_id: str) -> tuple[str, int, dict[str, str]]:
+async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
     """Get full provenance graph for a debate.
 
     Returns a visualization-ready graph with:
@@ -22,7 +22,7 @@ async def handle_get_debate_provenance(debate_id: str) -> tuple[str, int, dict[s
     # Build provenance graph from debate data
     # In production, this would load from persistence
 
-    graph_data = {
+    graph_data: Dict[str, Any] = {
         "debate_id": debate_id,
         "nodes": [],
         "edges": [],
@@ -48,7 +48,7 @@ async def handle_get_debate_provenance(debate_id: str) -> tuple[str, int, dict[s
 async def handle_get_provenance_timeline(
     debate_id: str,
     round_number: int | None = None,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Get provenance as a timeline view.
 
     Shows how consensus evolved round-by-round.
@@ -65,7 +65,7 @@ async def handle_get_provenance_timeline(
 
 async def handle_verify_provenance_chain(
     debate_id: str,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Verify the integrity of a debate's provenance chain.
 
     Checks:
@@ -95,7 +95,7 @@ async def handle_export_provenance_report(
     format: str = "json",
     include_evidence: bool = True,
     include_chain: bool = True,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Export provenance data for compliance reporting.
 
     Formats:
@@ -128,7 +128,7 @@ async def handle_export_provenance_report(
 async def handle_get_claim_provenance(
     debate_id: str,
     claim_id: str,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Get provenance for a specific claim in a debate.
 
     Returns:
@@ -159,7 +159,7 @@ async def handle_get_claim_provenance(
 async def handle_get_agent_contributions(
     debate_id: str,
     agent_id: str | None = None,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Get provenance-tracked contributions by agent(s).
 
     Shows which evidence and arguments each agent contributed,
@@ -183,22 +183,22 @@ async def handle_get_agent_contributions(
 def register_provenance_routes(router: Any) -> None:
     """Register provenance routes with the server router."""
 
-    async def get_debate_provenance(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def get_debate_provenance(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         return await handle_get_debate_provenance(debate_id)
 
-    async def get_provenance_timeline(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def get_provenance_timeline(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         round_number = request.query_params.get("round")
         if round_number:
             round_number = int(round_number)
         return await handle_get_provenance_timeline(debate_id, round_number)
 
-    async def verify_provenance(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def verify_provenance(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         return await handle_verify_provenance_chain(debate_id)
 
-    async def export_provenance(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def export_provenance(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         format = request.query_params.get("format", "json")
         include_evidence = request.query_params.get("include_evidence", "true") == "true"
@@ -207,12 +207,12 @@ def register_provenance_routes(router: Any) -> None:
             debate_id, format, include_evidence, include_chain
         )
 
-    async def get_claim_provenance(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def get_claim_provenance(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         claim_id = request.path_params.get("claim_id", "")
         return await handle_get_claim_provenance(debate_id, claim_id)
 
-    async def get_agent_contributions(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def get_agent_contributions(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         agent_id = request.query_params.get("agent_id")
         return await handle_get_agent_contributions(debate_id, agent_id)

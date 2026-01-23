@@ -67,7 +67,7 @@ class ControlPlaneHandler(BaseHandler):
 
     def __init__(self, server_context: Dict[str, Any]):
         """Initialize with server context."""
-        super().__init__(server_context)
+        super().__init__(server_context)  # type: ignore[arg-type]
 
     def _get_coordinator(self) -> Optional[Any]:
         """Get the control plane coordinator."""
@@ -1212,7 +1212,7 @@ class ControlPlaneHandler(BaseHandler):
                     }
                 )
 
-            stats = manager.get_stats()
+            stats = manager.get_stats()  # type: ignore[attr-defined]
             return json_response(
                 {
                     "notifications": [],  # History is internal; could expose if needed
@@ -1247,7 +1247,7 @@ class ControlPlaneHandler(BaseHandler):
                     }
                 )
 
-            return json_response(manager.get_stats())
+            return json_response(manager.get_stats())  # type: ignore[attr-defined]
         except Exception as e:
             logger.error(f"Error getting notification stats: {e}")
             return error_response(safe_error_message(e, "notifications"), 500)
@@ -1317,7 +1317,7 @@ class ControlPlaneHandler(BaseHandler):
                 offset=int(query_params.get("offset", 0)),
             )
 
-            entries = _run_async(audit_log.query(query))
+            entries = _run_async(audit_log.query(query))  # type: ignore[attr-defined]
 
             return json_response(
                 {
@@ -1354,7 +1354,7 @@ class ControlPlaneHandler(BaseHandler):
                     }
                 )
 
-            return json_response(audit_log.get_stats())
+            return json_response(audit_log.get_stats())  # type: ignore[attr-defined]
         except Exception as e:
             logger.error(f"Error getting audit stats: {e}")
             return error_response(safe_error_message(e, "audit"), 500)
@@ -1380,7 +1380,7 @@ class ControlPlaneHandler(BaseHandler):
             start_seq = int(query_params.get("start_seq", 0))
             end_seq = int(query_params.get("end_seq")) if query_params.get("end_seq") else None
 
-            is_valid = _run_async(audit_log.verify_integrity(start_seq, end_seq))
+            is_valid = _run_async(audit_log.verify_integrity(start_seq, end_seq))  # type: ignore[attr-defined]
 
             return json_response(
                 {

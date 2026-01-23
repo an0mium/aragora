@@ -584,9 +584,9 @@ class MeetingDetector:
                     return start_time, start_time + timedelta(hours=1), 60
 
         # Try duration
-        duration = self._extract_duration(text)
+        extracted_duration: Optional[int] = self._extract_duration(text)
 
-        return None, None, duration
+        return None, None, extracted_duration
 
     def _parse_time_string(self, time_str: str, base_date: datetime) -> Optional[datetime]:
         """Parse a time string like '2:00 pm' into datetime."""
@@ -759,15 +759,16 @@ class MeetingDetector:
                     proposed_end=end_time,
                 )
                 for event in google_conflicts:
-                    conflicts.append(
-                        ConflictInfo(
-                            event_id=event.id,
-                            title=event.summary,
-                            start=event.start,
-                            end=event.end,
-                            calendar_source="google",
+                    if event.start and event.end:
+                        conflicts.append(
+                            ConflictInfo(
+                                event_id=event.id,
+                                title=event.summary,
+                                start=event.start,
+                                end=event.end,
+                                calendar_source="google",
+                            )
                         )
-                    )
             except Exception as e:
                 logger.warning(f"Failed to check Google Calendar: {e}")
 
@@ -778,16 +779,17 @@ class MeetingDetector:
                     proposed_start=start_time,
                     proposed_end=end_time,
                 )
-                for event in outlook_conflicts:
-                    conflicts.append(
-                        ConflictInfo(
-                            event_id=event.id,
-                            title=event.subject,
-                            start=event.start,
-                            end=event.end,
-                            calendar_source="outlook",
+                for outlook_event in outlook_conflicts:
+                    if outlook_event.start and outlook_event.end:
+                        conflicts.append(
+                            ConflictInfo(
+                                event_id=outlook_event.id,
+                                title=outlook_event.subject,
+                                start=outlook_event.start,
+                                end=outlook_event.end,
+                                calendar_source="outlook",
+                            )
                         )
-                    )
             except Exception as e:
                 logger.warning(f"Failed to check Outlook Calendar: {e}")
 

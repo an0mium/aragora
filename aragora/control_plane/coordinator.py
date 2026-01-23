@@ -31,6 +31,23 @@ from aragora.observability import (
     add_span_attributes,
 )
 
+# Policy imports (optional - graceful fallback if not available)
+try:
+    from aragora.control_plane.policy import (
+        ControlPlanePolicyManager,
+        PolicyViolation,
+        PolicyViolationError,
+        EnforcementLevel,
+    )
+
+    HAS_POLICY = True
+except ImportError:
+    HAS_POLICY = False
+    ControlPlanePolicyManager = None  # type: ignore
+    PolicyViolation = None  # type: ignore
+    PolicyViolationError = None  # type: ignore
+    EnforcementLevel = None  # type: ignore
+
 # Optional KM integration
 try:
     from aragora.knowledge.mound.adapters.control_plane_adapter import (
@@ -150,6 +167,7 @@ class ControlPlaneCoordinator:
         arena_bridge: Optional["ArenaControlPlaneBridge"] = None,
         stream_server: Optional[Any] = None,
         shared_state: Optional[Any] = None,
+        policy_manager: Optional["ControlPlanePolicyManager"] = None,
     ):
         """
         Initialize the coordinator.
@@ -164,10 +182,18 @@ class ControlPlaneCoordinator:
             arena_bridge: Optional ArenaControlPlaneBridge for debate execution
             stream_server: Optional ControlPlaneStreamServer for event broadcasting
             shared_state: Optional SharedControlPlaneState for persistence
+            policy_manager: Optional ControlPlanePolicyManager for policy enforcement
         """
         self._config = config or ControlPlaneConfig.from_env()
         self._stream_server = stream_server
         self._shared_state = shared_state
+        self._policy_manager: Optional["ControlPlanePolicyManager"] = None
+        if policy_manager:
+            self._policy_manager = policy_manager
+        elif HAS_POLICY:
+            self._policy_manager = ControlPlanePolicyManager(
+                violation_callback=self._handle_policy_violation
+            )
 
         self._registry = registry or AgentRegistry(
             redis_url=self._config.redis_url,
@@ -180,6 +206,7 @@ class ControlPlaneCoordinator:
             redis_url=self._config.redis_url,
             key_prefix=f"{self._config.key_prefix}tasks:",
             stream_prefix=f"{self._config.key_prefix}stream:",
+            policy_manager=self._policy_manager,
         )
 
         self._health_monitor = health_monitor or HealthMonitor(
@@ -273,6 +300,83 @@ class ControlPlaneCoordinator:
             latency_ms = (time.monotonic() - start) * 1000
             add_span_attributes(span, {"latency_ms": latency_ms})
             logger.info("control_plane_shutdown", latency_ms=latency_ms)
+
+    # =========================================================================
+    # Internal Helpers
+    # =========================================================================
+
+    def _schedule_async(self, coro: Any) -> None:
+        """Schedule a coroutine regardless of sync/async context."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            try:
+                from aragora.utils.async_utils import run_async
+
+                run_async(coro)
+            except Exception as e:
+                logger.debug("async_schedule_failed", error=str(e))
+        else:
+            loop.create_task(coro)
+
+    def _handle_policy_violation(self, violation: "PolicyViolation") -> None:
+        """Handle policy violations with audit logging and notifications."""
+        try:
+            enforcement = getattr(violation.enforcement_level, "value", "hard")
+            decision = "warn" if enforcement == "warn" else "deny"
+        except Exception:
+            decision = "deny"
+
+        async def _log_violation() -> None:
+            try:
+                from aragora.control_plane.audit import log_policy_decision
+            except ImportError:
+                return
+
+            await log_policy_decision(
+                policy_id=violation.policy_id,
+                decision=decision,
+                task_type=violation.task_type or "unknown",
+                reason=violation.description,
+                workspace_id=violation.workspace_id,
+                task_id=violation.task_id,
+                agent_id=violation.agent_id,
+                violations=[violation.violation_type],
+                metadata={
+                    "policy_name": violation.policy_name,
+                    "region": violation.region,
+                },
+            )
+
+        self._schedule_async(_log_violation())
+
+        try:
+            from aragora.control_plane.notifications import get_default_notification_dispatcher
+            from aragora.control_plane.channels import (
+                NotificationEventType,
+                NotificationPriority,
+            )
+
+            dispatcher = get_default_notification_dispatcher()
+            if dispatcher:
+                title = f"Policy {'Warning' if decision == 'warn' else 'Violation'}: {violation.policy_name}"
+                body = (
+                    f"Policy `{violation.policy_id}` blocked task `{(violation.task_id or '')[:8]}...` "
+                    f"for agent `{violation.agent_id or 'unknown'}`.\n\n"
+                    f"Reason: {violation.description}"
+                )
+                self._schedule_async(
+                    dispatcher.dispatch(
+                        event_type=NotificationEventType.POLICY_VIOLATION,
+                        title=title,
+                        body=body,
+                        priority=NotificationPriority.HIGH,
+                        metadata=violation.to_dict(),
+                        workspace_id=violation.workspace_id,
+                    )
+                )
+        except Exception as e:
+            logger.debug("policy_notification_failed", error=str(e))
 
     # =========================================================================
     # Agent Operations
@@ -564,6 +668,7 @@ class ControlPlaneCoordinator:
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout_seconds: Optional[float] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        workspace_id: Optional[str] = None,
     ) -> str:
         """
         Submit a task for execution.
@@ -575,9 +680,13 @@ class ControlPlaneCoordinator:
             priority: Task priority
             timeout_seconds: Task timeout (uses config default if not specified)
             metadata: Additional metadata
+            workspace_id: Optional workspace ID for policy scoping
 
         Returns:
             Task ID
+
+        Raises:
+            PolicyViolationError: If task violates HARD enforcement policy
         """
         with create_span(
             "control_plane.submit_task",
@@ -597,6 +706,7 @@ class ControlPlaneCoordinator:
                 timeout_seconds=timeout_seconds or self._config.task_timeout,
                 max_retries=self._config.max_task_retries,
                 metadata=metadata,
+                workspace_id=workspace_id,
             )
 
             latency_ms = (time.monotonic() - start) * 1000
@@ -608,6 +718,22 @@ class ControlPlaneCoordinator:
                 priority=priority.value,
                 latency_ms=latency_ms,
             )
+
+            # Emit task submitted notification
+            try:
+                from aragora.control_plane.task_events import emit_task_submitted
+
+                await emit_task_submitted(
+                    task_id=task_id,
+                    task_type=task_type,
+                    priority=priority.name,
+                    workspace_id=workspace_id
+                    or (metadata.get("workspace_id") if metadata else None),
+                    metadata=metadata,
+                )
+            except Exception:
+                pass  # Don't fail submission on notification error
+
             return task_id
 
     async def claim_task(
@@ -615,6 +741,8 @@ class ControlPlaneCoordinator:
         agent_id: str,
         capabilities: List[str],
         block_ms: int = 5000,
+        agent_region: Optional[str] = None,
+        workspace_id: Optional[str] = None,
     ) -> Optional[Task]:
         """
         Claim a task for an agent.
@@ -623,6 +751,8 @@ class ControlPlaneCoordinator:
             agent_id: Agent claiming the task
             capabilities: Agent's capabilities
             block_ms: Time to block waiting
+            agent_region: Region where the agent is located (for policy checks)
+            workspace_id: Workspace ID for policy scoping
 
         Returns:
             Task if claimed, None otherwise
@@ -631,6 +761,8 @@ class ControlPlaneCoordinator:
             worker_id=agent_id,
             capabilities=capabilities,
             block_ms=block_ms,
+            worker_region=agent_region,
+            workspace_id=workspace_id,
         )
 
         if task:
@@ -641,6 +773,19 @@ class ControlPlaneCoordinator:
                 current_task_id=task.id,
             )
 
+            # Emit task claimed notification
+            try:
+                from aragora.control_plane.task_events import emit_task_claimed
+
+                await emit_task_claimed(
+                    task_id=task.id,
+                    task_type=task.task_type,
+                    agent_id=agent_id,
+                    workspace_id=task.metadata.get("workspace_id") if task.metadata else None,
+                )
+            except Exception:
+                pass  # Don't fail claim on notification error
+
         return task
 
     async def complete_task(
@@ -649,6 +794,7 @@ class ControlPlaneCoordinator:
         result: Optional[Dict[str, Any]] = None,
         agent_id: Optional[str] = None,
         latency_ms: Optional[float] = None,
+        sla_policy_id: Optional[str] = None,
     ) -> bool:
         """
         Mark a task as completed.
@@ -658,6 +804,7 @@ class ControlPlaneCoordinator:
             result: Task result
             agent_id: Agent that completed the task
             latency_ms: Execution time
+            sla_policy_id: Optional policy ID to check SLA compliance against
 
         Returns:
             True if completed, False if not found
@@ -686,6 +833,52 @@ class ControlPlaneCoordinator:
                     latency_ms=latency_ms or 0.0,
                 )
 
+                # SLA compliance check (if policy manager and policy_id provided)
+                if self._policy_manager and sla_policy_id and task and HAS_POLICY:
+                    execution_seconds = (latency_ms or 0.0) / 1000.0
+                    queue_seconds = None
+                    if task.assigned_at and task.created_at:
+                        queue_seconds = task.assigned_at - task.created_at
+
+                    sla_result = self._policy_manager.evaluate_sla_compliance(
+                        policy_id=sla_policy_id,
+                        execution_seconds=execution_seconds,
+                        queue_seconds=queue_seconds,
+                        task_id=task_id,
+                        task_type=task.task_type,
+                        agent_id=agent_id,
+                        workspace=task.metadata.get("workspace_id") if task.metadata else None,
+                    )
+
+                    if not sla_result.allowed:
+                        if sla_result.enforcement_level == EnforcementLevel.WARN:
+                            logger.warning(
+                                "sla_warning_on_complete",
+                                task_id=task_id,
+                                agent_id=agent_id,
+                                reason=sla_result.reason,
+                                policy_id=sla_policy_id,
+                                execution_seconds=execution_seconds,
+                            )
+                        else:
+                            logger.error(
+                                "sla_violation_on_complete",
+                                task_id=task_id,
+                                agent_id=agent_id,
+                                reason=sla_result.reason,
+                                policy_id=sla_policy_id,
+                                execution_seconds=execution_seconds,
+                            )
+                        add_span_attributes(
+                            span,
+                            {
+                                "sla_compliant": False,
+                                "sla_violation_reason": sla_result.reason,
+                            },
+                        )
+                    else:
+                        add_span_attributes(span, {"sla_compliant": True})
+
                 # Store outcome in Knowledge Mound
                 if self._km_adapter and task and HAS_KM_ADAPTER:
                     try:
@@ -713,6 +906,22 @@ class ControlPlaneCoordinator:
                     task_type=task.task_type if task else "unknown",
                     latency_ms=latency_ms or 0.0,
                 )
+
+                # Emit task completed notification
+                try:
+                    from aragora.control_plane.task_events import emit_task_completed
+
+                    await emit_task_completed(
+                        task_id=task_id,
+                        task_type=task.task_type if task else "unknown",
+                        agent_id=agent_id,
+                        duration_seconds=(latency_ms or 0.0) / 1000.0,
+                        workspace_id=task.metadata.get("workspace_id")
+                        if task and task.metadata
+                        else None,
+                    )
+                except Exception:
+                    pass  # Don't fail completion on notification error
 
             return success
 
@@ -792,6 +1001,23 @@ class ControlPlaneCoordinator:
                 error=error[:200],
                 requeued=requeue,
             )
+
+            # Emit task failed notification
+            try:
+                from aragora.control_plane.task_events import emit_task_failed
+
+                await emit_task_failed(
+                    task_id=task_id,
+                    task_type=task.task_type if task else "unknown",
+                    agent_id=agent_id,
+                    error=error,
+                    will_retry=requeue,
+                    workspace_id=task.metadata.get("workspace_id")
+                    if task and task.metadata
+                    else None,
+                )
+            except Exception:
+                pass  # Don't fail on notification error
 
             return success
 
@@ -925,7 +1151,33 @@ class ControlPlaneCoordinator:
         if self._km_adapter:
             stats["knowledge_mound"] = self._km_adapter.get_stats()
 
+        # Add policy manager stats if available
+        if self._policy_manager and HAS_POLICY:
+            stats["policy"] = self._policy_manager.get_metrics()
+
         return stats
+
+    # =========================================================================
+    # Policy Manager Integration
+    # =========================================================================
+
+    @property
+    def policy_manager(self) -> Optional["ControlPlanePolicyManager"]:
+        """Get the Policy Manager if configured."""
+        return self._policy_manager
+
+    def set_policy_manager(self, manager: "ControlPlanePolicyManager") -> None:
+        """
+        Set the Policy Manager.
+
+        Also updates the scheduler's policy manager reference.
+
+        Args:
+            manager: ControlPlanePolicyManager instance
+        """
+        self._policy_manager = manager
+        # Also update the scheduler's policy manager
+        self._scheduler._policy_manager = manager
 
     # =========================================================================
     # Knowledge Mound Integration

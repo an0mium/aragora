@@ -1,5 +1,5 @@
 """
-Persistent Workflow Storage using SQLite.
+Persistent Workflow Storage (SQLite by default, PostgreSQL optional).
 
 Replaces in-memory storage with database-backed persistence for:
 - Workflow definitions
@@ -21,11 +21,17 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from aragora.workflow.types import WorkflowDefinition
 
+if TYPE_CHECKING:
+    from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
+
 logger = logging.getLogger(__name__)
+
+# Type alias for workflow store backends
+WorkflowStoreType = Union["PersistentWorkflowStore", "PostgresWorkflowStore"]
 
 
 # Default database path
@@ -735,32 +741,146 @@ class PersistentWorkflowStore:
 # Global store instance
 _store: Optional[PersistentWorkflowStore] = None
 
+# Global workflow store instance for factory function
+_workflow_store_instance: Optional[WorkflowStoreType] = None
 
-def get_workflow_store(db_path: Optional[Path] = None) -> PersistentWorkflowStore:
+
+def get_workflow_store(
+    db_path: Optional[Path] = None,
+    force_new: bool = False,
+) -> WorkflowStoreType:
     """
-    Get or create the global workflow store.
+    Get or create workflow store with automatic backend selection.
+
+    Uses PostgreSQL if DATABASE_URL or ARAGORA_POSTGRES_DSN is set,
+    otherwise falls back to SQLite.
 
     Args:
-        db_path: Optional database path (only used for first initialization)
+        db_path: Optional database path (only used for SQLite backend)
+        force_new: If True, creates a new store instance ignoring the singleton
 
     Returns:
-        PersistentWorkflowStore instance
+        PersistentWorkflowStore (SQLite) or PostgresWorkflowStore (PostgreSQL)
+
+    Note:
+        For PostgreSQL backend, the store must be initialized with
+        `await store.initialize()` before use.
     """
-    global _store
-    if _store is None:
-        _store = PersistentWorkflowStore(db_path)
-    return _store
+    global _workflow_store_instance
+
+    if _workflow_store_instance is not None and not force_new:
+        return _workflow_store_instance
+
+    # Check for PostgreSQL backend
+    from aragora.storage.factory import get_storage_backend, StorageBackend
+
+    backend = get_storage_backend()
+
+    if backend == StorageBackend.POSTGRES:
+        from aragora.storage.postgres_store import ASYNCPG_AVAILABLE
+
+        if not ASYNCPG_AVAILABLE:
+            logger.warning(
+                "PostgreSQL backend selected but asyncpg not available. "
+                "Falling back to SQLite. Install with: pip install asyncpg"
+            )
+            _workflow_store_instance = PersistentWorkflowStore(db_path)
+        else:
+            try:
+                from aragora.utils.async_utils import run_async
+
+                logger.info("Using PostgreSQL workflow store backend (sync init via run_async)")
+                _workflow_store_instance = run_async(create_postgres_workflow_store())
+            except Exception as e:
+                logger.warning(
+                    "PostgreSQL workflow store initialization failed, falling back to SQLite",
+                    error=str(e),
+                )
+                _workflow_store_instance = PersistentWorkflowStore(db_path)
+    else:
+        _workflow_store_instance = PersistentWorkflowStore(db_path)
+
+    return _workflow_store_instance
+
+
+async def get_async_workflow_store(
+    force_new: bool = False,
+) -> WorkflowStoreType:
+    """
+    Get or create workflow store asynchronously with automatic backend selection.
+
+    Uses PostgreSQL if DATABASE_URL or ARAGORA_POSTGRES_DSN is set,
+    otherwise falls back to SQLite.
+
+    This is the preferred method for getting the workflow store in async contexts.
+
+    Args:
+        force_new: If True, creates a new store instance ignoring the singleton
+
+    Returns:
+        PersistentWorkflowStore (SQLite) or PostgresWorkflowStore (PostgreSQL)
+    """
+    global _workflow_store_instance
+
+    if _workflow_store_instance is not None and not force_new:
+        return _workflow_store_instance
+
+    # Check for PostgreSQL backend
+    from aragora.storage.factory import get_storage_backend, StorageBackend
+
+    backend = get_storage_backend()
+
+    if backend == StorageBackend.POSTGRES:
+        from aragora.storage.postgres_store import ASYNCPG_AVAILABLE
+
+        if ASYNCPG_AVAILABLE:
+            store = await create_postgres_workflow_store()
+            _workflow_store_instance = store
+            return store
+        else:
+            logger.warning(
+                "PostgreSQL backend selected but asyncpg not available. "
+                "Falling back to SQLite. Install with: pip install asyncpg"
+            )
+
+    _workflow_store_instance = PersistentWorkflowStore()
+    return _workflow_store_instance
+
+
+async def create_postgres_workflow_store() -> "PostgresWorkflowStore":
+    """
+    Create and initialize a PostgreSQL workflow store.
+
+    This is a convenience function that handles pool creation and
+    store initialization.
+
+    Returns:
+        Initialized PostgresWorkflowStore
+
+    Raises:
+        RuntimeError: If PostgreSQL is not configured or asyncpg not available
+    """
+    from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
+    from aragora.storage.postgres_store import get_postgres_pool
+
+    pool = await get_postgres_pool()
+    store = PostgresWorkflowStore(pool)
+    await store.initialize()
+    return store
 
 
 def reset_workflow_store() -> None:
     """Reset the global store (for testing)."""
-    global _store
+    global _store, _workflow_store_instance
     _store = None
+    _workflow_store_instance = None
 
 
 __all__ = [
     "PersistentWorkflowStore",
     "get_workflow_store",
+    "get_async_workflow_store",
+    "create_postgres_workflow_store",
     "reset_workflow_store",
     "DEFAULT_DB_PATH",
 ]
