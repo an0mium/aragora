@@ -75,9 +75,9 @@ class ReconciliationHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[Dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
 
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
+    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)
@@ -202,6 +202,10 @@ class ReconciliationHandler(BaseHandler):
             credentials = PlaidCredentials(
                 access_token=plaid_token,
                 item_id="",
+                institution_id=body.get("institution_id", ""),
+                institution_name=body.get("institution_name", ""),
+                user_id=getattr(request, "user_id", "api_user"),
+                tenant_id=tenant_id,
             )
 
             result = await service.reconcile(

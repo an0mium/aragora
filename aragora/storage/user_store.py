@@ -918,6 +918,17 @@ class PostgresUserStore:
     LOCKOUT_DURATION_2 = timedelta(minutes=30)
     LOCKOUT_DURATION_3 = timedelta(hours=24)
 
+    # Explicit columns for SELECT queries - prevents SELECT * data exposure
+    _ORG_COLUMNS = (
+        "id, name, slug, tier, owner_id, stripe_customer_id, "
+        "stripe_subscription_id, debates_used_this_month, billing_cycle_start, "
+        "settings, created_at, updated_at"
+    )
+    _INVITATION_COLUMNS = (
+        "id, org_id, email, role, token, invited_by, status, "
+        "created_at, expires_at, accepted_by, accepted_at"
+    )
+
     def __init__(self, pool: "Pool"):
         """
         Initialize PostgresUserStore.

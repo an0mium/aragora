@@ -17,6 +17,10 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, Optional, TypeVar
 
 from aragora.exceptions import ConfigurationError
+from aragora.resilience_config import (
+    CircuitBreakerConfig,
+    get_circuit_breaker_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +89,10 @@ def _prune_stale_circuit_breakers() -> int:
 
 def get_circuit_breaker(
     name: str,
-    failure_threshold: int = 3,
-    cooldown_seconds: float = 60.0,
+    failure_threshold: int | None = None,
+    cooldown_seconds: float | None = None,
+    provider: str | None = None,
+    config: CircuitBreakerConfig | None = None,
 ) -> "CircuitBreaker":
     """
     Get or create a named circuit breaker from the global registry (thread-safe).
@@ -97,13 +103,31 @@ def get_circuit_breaker(
     Automatically prunes stale circuit breakers (not accessed in 24h) when
     the registry exceeds MAX_CIRCUIT_BREAKERS entries.
 
+    Configuration resolution order:
+    1. Explicit config parameter (if provided)
+    2. Provider-based config lookup (if provider provided)
+    3. Explicit failure_threshold/cooldown_seconds parameters
+    4. Default config from get_circuit_breaker_config()
+
     Args:
         name: Unique identifier for this circuit breaker (e.g., "agent_claude")
-        failure_threshold: Failures before opening circuit
-        cooldown_seconds: Seconds before attempting recovery
+        failure_threshold: Failures before opening circuit (legacy, prefer config)
+        cooldown_seconds: Seconds before attempting recovery (legacy, prefer config)
+        provider: Provider name for automatic config lookup (e.g., "anthropic", "openai")
+        config: Explicit CircuitBreakerConfig to use
 
     Returns:
         CircuitBreaker instance (shared if already exists)
+
+    Example:
+        # Using provider-based config
+        cb = get_circuit_breaker("anthropic_agent", provider="anthropic")
+
+        # Using explicit config
+        cb = get_circuit_breaker("custom", config=CircuitBreakerConfig(failure_threshold=10))
+
+        # Legacy parameters still work
+        cb = get_circuit_breaker("legacy", failure_threshold=3, cooldown_seconds=60)
     """
     with _circuit_breakers_lock:
         # Prune if registry is getting too large
@@ -117,12 +141,28 @@ def get_circuit_breaker(
                 )
 
         if name not in _circuit_breakers:
-            _circuit_breakers[name] = CircuitBreaker(
+            # Resolve configuration
+            resolved_config: CircuitBreakerConfig
+            if config is not None:
+                resolved_config = config
+            elif provider is not None:
+                resolved_config = get_circuit_breaker_config(provider=provider, agent_name=name)
+            elif failure_threshold is not None or cooldown_seconds is not None:
+                # Legacy parameters provided - use them with defaults for unset values
+                base_config = get_circuit_breaker_config()
+                resolved_config = base_config.with_overrides(
+                    failure_threshold=failure_threshold,
+                    timeout_seconds=cooldown_seconds,
+                )
+            else:
+                # Use default config (respects environment variables)
+                resolved_config = get_circuit_breaker_config()
+
+            _circuit_breakers[name] = CircuitBreaker.from_config(
+                config=resolved_config,
                 name=name,
-                failure_threshold=failure_threshold,
-                cooldown_seconds=cooldown_seconds,
             )
-            logger.debug(f"Created circuit breaker: {name}")
+            logger.debug(f"Created circuit breaker: {name} with config: {resolved_config}")
 
         cb = _circuit_breakers[name]
         cb._last_accessed = time.time()  # Update access timestamp
@@ -379,6 +419,9 @@ class CircuitBreaker:
     - OPEN: After failure threshold, requests blocked
     - HALF-OPEN: After cooldown, trial requests allowed
 
+    Can be configured using CircuitBreakerConfig for per-provider or per-agent
+    customization. See CircuitBreakerConfig for available options.
+
     Usage (single entity):
         breaker = CircuitBreaker()
         if breaker.can_proceed():
@@ -396,6 +439,12 @@ class CircuitBreaker:
                 breaker.record_success("agent-1")
             except Exception:
                 breaker.record_failure("agent-1")
+
+    Usage (with config):
+        from aragora.resilience_config import CircuitBreakerConfig
+
+        config = CircuitBreakerConfig(failure_threshold=10, timeout_seconds=120)
+        breaker = CircuitBreaker.from_config(config, name="my-service")
     """
 
     name: str = "default"  # Circuit breaker name for metrics
@@ -403,16 +452,22 @@ class CircuitBreaker:
     cooldown_seconds: float = 60.0  # Seconds before attempting recovery
     recovery_timeout: Optional[float] = None  # Backward-compatible alias for cooldown_seconds
     half_open_success_threshold: int = 2  # Successes needed to fully close
+    half_open_max_calls: int = 3  # Max concurrent calls in half-open state
+
+    # Store the config if created from one (for introspection/debugging)
+    _config: Optional[CircuitBreakerConfig] = field(default=None, repr=False)
 
     # Internal state (initialized in __post_init__)
     _failures: dict[str, int] = field(default_factory=dict, repr=False)
     _circuit_open_at: dict[str, float] = field(default_factory=dict, repr=False)
     _half_open_successes: dict[str, int] = field(default_factory=dict, repr=False)
+    _half_open_calls: dict[str, int] = field(default_factory=dict, repr=False)
 
     # Single-entity mode state
     _single_failures: int = field(default=0, repr=False)
     _single_open_at: float = field(default=0.0, repr=False)
     _single_successes: int = field(default=0, repr=False)
+    _single_half_open_calls: int = field(default=0, repr=False)
 
     # Access tracking for memory management (pruning stale circuit breakers)
     _last_accessed: float = field(default_factory=time.time, repr=False)
@@ -420,6 +475,41 @@ class CircuitBreaker:
     def __post_init__(self) -> None:
         if self.recovery_timeout is not None:
             self.cooldown_seconds = float(self.recovery_timeout)
+
+    @classmethod
+    def from_config(
+        cls,
+        config: CircuitBreakerConfig,
+        name: str = "default",
+    ) -> "CircuitBreaker":
+        """Create a CircuitBreaker from a CircuitBreakerConfig.
+
+        This is the preferred way to create configured circuit breakers.
+
+        Args:
+            config: CircuitBreakerConfig with desired thresholds
+            name: Circuit breaker name for metrics/identification
+
+        Returns:
+            Configured CircuitBreaker instance
+
+        Example:
+            config = CircuitBreakerConfig(failure_threshold=10)
+            cb = CircuitBreaker.from_config(config, name="my-service")
+        """
+        return cls(
+            name=name,
+            failure_threshold=config.failure_threshold,
+            cooldown_seconds=config.timeout_seconds,
+            half_open_success_threshold=config.success_threshold,
+            half_open_max_calls=config.half_open_max_calls,
+            _config=config,
+        )
+
+    @property
+    def config(self) -> Optional[CircuitBreakerConfig]:
+        """Get the configuration this circuit breaker was created from, if any."""
+        return self._config
 
     # Backward-compatible properties for single-entity mode
     @property
@@ -654,6 +744,12 @@ class CircuitBreaker:
         """Serialize to dict for persistence/debugging."""
         now = time.time()
         return {
+            "config": {
+                "failure_threshold": self.failure_threshold,
+                "cooldown_seconds": self.cooldown_seconds,
+                "half_open_success_threshold": self.half_open_success_threshold,
+                "half_open_max_calls": self.half_open_max_calls,
+            },
             "single_mode": {
                 "failures": self._single_failures,
                 "is_open": self._single_open_at > 0.0,

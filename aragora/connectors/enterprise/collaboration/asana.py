@@ -28,7 +28,6 @@ from aragora.connectors.enterprise.base import (
     SyncItem,
     SyncState,
 )
-from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -322,16 +321,17 @@ class AsanaConnector(EnterpriseConnector):
             credentials: Asana API credentials
             workspace_gid: Optional default workspace GID
         """
-        self.credentials = credentials
+        self.credentials = credentials  # type: ignore[assignment]
         self.default_workspace_gid = workspace_gid
         self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> AsanaConnector:
         """Enter async context."""
+        credentials: AsanaCredentials = self.credentials  # type: ignore[assignment]
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             headers={
-                "Authorization": f"Bearer {self.credentials.access_token}",
+                "Authorization": f"Bearer {credentials.access_token}",
                 "Accept": "application/json",
             },
             timeout=30.0,
@@ -792,7 +792,7 @@ class AsanaConnector(EnterpriseConnector):
         """Disconnect (no-op for token auth)."""
         pass
 
-    async def sync(
+    async def sync(  # type: ignore[override]
         self,
         state: SyncState | None = None,
         modified_since: datetime | None = None,
@@ -826,7 +826,8 @@ class AsanaConnector(EnterpriseConnector):
 
                     yield SyncItem(
                         id=f"asana:{task.gid}",
-                        source_type=SourceType.ASANA,
+                        source_type="asana",
+                        source_id=task.gid,
                         content=content,
                         title=task.name,
                         url=task.url,

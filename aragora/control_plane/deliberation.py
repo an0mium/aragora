@@ -572,28 +572,26 @@ class DeliberationManager:
 
     def get_deliberation_stats(self) -> Dict[str, Any]:
         """Get statistics about deliberations."""
-        stats = {
-            "total_active": len(self._active_deliberations),
-            "by_status": {},
-            "sla_violations": 0,
-            "average_duration_seconds": 0.0,
-        }
-
+        by_status: Dict[str, int] = {}
+        sla_violations = 0
         durations: List[float] = []
+
         for task in self._active_deliberations.values():
             status = task.status.value
-            stats["by_status"][status] = stats["by_status"].get(status, 0) + 1
+            by_status[status] = by_status.get(status, 0) + 1
 
             if task.metrics.sla_compliance == SLAComplianceLevel.VIOLATED:
-                stats["sla_violations"] += 1
+                sla_violations += 1
 
             if task.metrics.duration_seconds:
                 durations.append(task.metrics.duration_seconds)
 
-        if durations:
-            stats["average_duration_seconds"] = sum(durations) / len(durations)
-
-        return stats
+        return {
+            "total_active": len(self._active_deliberations),
+            "by_status": by_status,
+            "sla_violations": sla_violations,
+            "average_duration_seconds": sum(durations) / len(durations) if durations else 0.0,
+        }
 
     # =========================================================================
     # Internal Methods
@@ -648,7 +646,7 @@ class DeliberationManager:
         try:
             self._notification_callback(event_type, data)
         except Exception as e:
-            logger.debug("deliberation_notification_failed", error=str(e))
+            logger.debug("deliberation_notification_failed: %s", str(e))
 
     def _emit_completion_notification(
         self, task: DeliberationTask, outcome: DeliberationOutcome
@@ -696,7 +694,7 @@ class DeliberationManager:
             in (DeliberationStatus.CONSENSUS_REACHED, DeliberationStatus.NO_CONSENSUS),
             consensus_reached=task.status == DeliberationStatus.CONSENSUS_REACHED,
             consensus_confidence=task.metrics.consensus_confidence,
-            winning_position=task.result.final_answer if task.result else None,
+            winning_position=task.result.answer if task.result else None,
             duration_seconds=task.metrics.duration_seconds or 0.0,
             sla_compliant=task.metrics.sla_compliance != SLAComplianceLevel.VIOLATED,
         )

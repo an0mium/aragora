@@ -54,9 +54,11 @@ def _get_sso_provider(provider_type: str = "oidc"):
         try:
             if provider_type == "oidc":
                 from aragora.auth.oidc import OIDCConfig, OIDCProvider
+                from aragora.auth.sso import SSOProviderType
 
                 # Get configuration from environment
                 config = OIDCConfig(
+                    provider_type=SSOProviderType.OIDC,
                     client_id=os.environ.get("OIDC_CLIENT_ID", ""),
                     client_secret=os.environ.get("OIDC_CLIENT_SECRET", ""),
                     issuer_url=os.environ.get("OIDC_ISSUER_URL", ""),
@@ -74,8 +76,10 @@ def _get_sso_provider(provider_type: str = "oidc"):
 
             elif provider_type == "google":
                 from aragora.auth.oidc import OIDCConfig, OIDCProvider
+                from aragora.auth.sso import SSOProviderType
 
                 config = OIDCConfig(
+                    provider_type=SSOProviderType.GOOGLE,
                     client_id=os.environ.get("GOOGLE_CLIENT_ID", ""),
                     client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", ""),
                     issuer_url="https://accounts.google.com",
@@ -250,14 +254,10 @@ async def handle_sso_callback(
         from aragora.billing.jwt_auth import create_access_token
 
         # Generate JWT token for our system
-        token_data = {
-            "sub": sso_user.id,
-            "email": sso_user.email,
-            "name": sso_user.full_name,
-            "provider": provider_type,
-            "roles": sso_user.roles,
-        }
-        access_token = create_access_token(token_data)
+        access_token = create_access_token(
+            user_id=sso_user.id,
+            email=sso_user.email,
+        )
 
         return success_response(
             {

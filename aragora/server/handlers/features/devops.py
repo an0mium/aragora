@@ -326,7 +326,7 @@ class DevOpsHandler(BaseHandler):
                 title=body["title"],
                 service_id=body["service_id"],
                 urgency=urgency,
-                body=body.get("body"),
+                description=body.get("body"),
                 escalation_policy_id=body.get("escalation_policy_id"),
                 priority_id=body.get("priority_id"),
             )
@@ -348,7 +348,7 @@ class DevOpsHandler(BaseHandler):
                     },
                     "message": "Incident created successfully",
                 },
-                status_code=201,
+                status=201,
             )
 
         except Exception as e:
@@ -610,7 +610,7 @@ class DevOpsHandler(BaseHandler):
                     },
                     "message": "Note added",
                 },
-                status_code=201,
+                status=201,
             )
 
         except Exception as e:
@@ -878,8 +878,8 @@ class DevOpsHandler(BaseHandler):
             )
 
             # If we have a server context with an emitter, emit the event
-            if self.server_context and "emitter" in self.server_context:
-                emitter = self.server_context["emitter"]
+            if self.ctx and "emitter" in self.ctx:
+                emitter = self.ctx["emitter"]  # type: ignore[typeddict-item]
                 emitter.emit(
                     StreamEventType.CONNECTOR_PAGERDUTY_INCIDENT.value,
                     event_data,

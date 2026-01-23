@@ -112,6 +112,9 @@ At least one required for debates to function.
 | `ARAGORA_EXPLAINABILITY_DB` | - | SQLite path override for explainability batch jobs |
 | `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | `auto` | Control plane policy source: `compliance`, `inprocess` |
 
+Production recommendation: keep explainability batch jobs in Redis with TTL.
+Set `ARAGORA_EXPLAINABILITY_STORE_BACKEND=postgres` only for long-term retention.
+
 **PostgreSQL Connection String Examples:**
 ```bash
 # Supabase

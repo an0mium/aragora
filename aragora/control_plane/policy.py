@@ -1247,6 +1247,8 @@ class PolicyStoreSync:
         self,
         workspace_id: Optional[str] = None,
         enabled_only: bool = True,
+        store: Optional[Any] = None,
+        replace: bool = True,
     ) -> int:
         """
         Sync policies from compliance store to control plane.
@@ -1254,14 +1256,21 @@ class PolicyStoreSync:
         Args:
             workspace_id: Optional workspace to filter policies
             enabled_only: Only sync enabled policies
+            store: Optional compliance policy store instance (for testing)
+            replace: If True, clear previously synced policies before loading
 
         Returns:
             Number of policies synced
         """
         try:
-            from aragora.compliance.policy_store import PolicyStore
+            if store is None:
+                from aragora.compliance.policy_store import get_policy_store
 
-            store = PolicyStore()
+                store = get_policy_store()
+
+            if replace:
+                self.clear_synced_policies()
+
             policies = store.list_policies(
                 workspace_id=workspace_id,
                 enabled_only=enabled_only,
@@ -1290,6 +1299,16 @@ class PolicyStoreSync:
 
     def _sync_policy(self, compliance_policy) -> bool:
         """Convert and sync a single compliance policy."""
+        # Explicit control plane payloads take priority
+        if hasattr(self._policy_manager, "_extract_control_plane_policy"):
+            control_policy = self._policy_manager._extract_control_plane_policy(  # type: ignore[attr-defined]
+                compliance_policy
+            )
+            if control_policy:
+                self._policy_manager.add_policy(control_policy)
+                self._synced_policy_ids.add(control_policy.id)
+                return True
+
         framework_id = compliance_policy.framework_id
 
         # Check if we have a mapping for this framework
@@ -1519,6 +1538,8 @@ def _sync_from_compliance_store(
     self: ControlPlanePolicyManager,
     workspace_id: Optional[str] = None,
     enabled_only: bool = True,
+    store: Optional[Any] = None,
+    replace: bool = True,
 ) -> int:
     """
     Sync policies from the compliance PolicyStore.
@@ -1535,7 +1556,12 @@ def _sync_from_compliance_store(
     """
     if not hasattr(self, "_store_sync"):
         self._store_sync = PolicyStoreSync(self)
-    return self._store_sync.sync_from_store(workspace_id, enabled_only)
+    return self._store_sync.sync_from_store(
+        workspace_id=workspace_id,
+        enabled_only=enabled_only,
+        store=store,
+        replace=replace,
+    )
 
 
 # Monkey-patch the method onto the class

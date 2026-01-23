@@ -14,6 +14,7 @@ Tests cover:
 import pytest
 from datetime import datetime, timezone
 
+from aragora.compliance.policy_store import Policy as CompliancePolicy
 from aragora.control_plane.policy import (
     ControlPlanePolicy,
     ControlPlanePolicyManager,
@@ -530,6 +531,80 @@ class TestControlPlanePolicyManager:
         cleared = manager.clear_violations()
         assert cleared == 2
         assert len(manager.get_violations()) == 0
+
+
+class TestControlPlanePolicySync:
+    """Tests for compliance policy sync."""
+
+    class _FakePolicyStore:
+        def __init__(self, policies):
+            self._policies = policies
+
+        def list_policies(
+            self,
+            workspace_id=None,
+            enabled_only=True,
+            limit: int = 100,
+            offset: int = 0,
+            **_kwargs,
+        ):
+            policies = self._policies
+            if workspace_id:
+                policies = [p for p in policies if p.workspace_id == workspace_id]
+            if enabled_only:
+                policies = [p for p in policies if p.enabled]
+            return policies[offset : offset + limit]
+
+    def test_sync_loads_control_plane_policy(self):
+        policy = CompliancePolicy(
+            id="policy-1",
+            name="cp-policy",
+            description="Control plane restrictions",
+            framework_id="framework",
+            workspace_id="workspace-1",
+            vertical_id="default",
+            enabled=True,
+            metadata={
+                "control_plane_policy": {
+                    "task_types": ["deliberation"],
+                    "agent_allowlist": ["agent-1"],
+                    "region_constraint": {"allowed_regions": ["us-east-1"]},
+                    "enforcement_level": "hard",
+                }
+            },
+        )
+        store = self._FakePolicyStore([policy])
+        manager = ControlPlanePolicyManager()
+
+        loaded = manager.sync_from_compliance_store(store=store, replace=True)
+
+        assert loaded == 1
+        loaded_policy = manager.get_policy("policy-1")
+        assert loaded_policy is not None
+        assert loaded_policy.task_types == ["deliberation"]
+        assert loaded_policy.agent_allowlist == ["agent-1"]
+        assert loaded_policy.region_constraint is not None
+        assert loaded_policy.region_constraint.allowed_regions == ["us-east-1"]
+        assert loaded_policy.workspaces == ["workspace-1"]
+
+    def test_sync_skips_missing_payload(self):
+        policy = CompliancePolicy(
+            id="policy-2",
+            name="no-cp-policy",
+            description="No control plane payload",
+            framework_id="framework",
+            workspace_id="workspace-1",
+            vertical_id="default",
+            enabled=True,
+            metadata={"other": "value"},
+        )
+        store = self._FakePolicyStore([policy])
+        manager = ControlPlanePolicyManager()
+
+        loaded = manager.sync_from_compliance_store(store=store, replace=True)
+
+        assert loaded == 0
+        assert manager.get_policy("policy-2") is None
 
 
 class TestFactoryFunctions:

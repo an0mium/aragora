@@ -904,7 +904,7 @@ class EcommerceHandler(SecureHandler):
                     ShopifyCredentials,
                 )
 
-                connector = ShopifyConnector(ShopifyCredentials(**creds))
+                connector: Any = ShopifyConnector(ShopifyCredentials(**creds))  # type: ignore[abstract]
 
             elif platform == "shipstation":
                 from aragora.connectors.ecommerce.shipstation import (

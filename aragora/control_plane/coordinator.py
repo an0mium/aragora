@@ -123,7 +123,12 @@ class ControlPlaneConfig:
             cleanup_interval=float(os.environ.get("CLEANUP_INTERVAL", "60")),
             enable_km_integration=os.environ.get("CP_ENABLE_KM", "true").lower() == "true",
             km_workspace_id=os.environ.get("CP_KM_WORKSPACE", "default"),
-            enable_policy_sync=os.environ.get("CP_ENABLE_POLICY_SYNC", "true").lower() == "true",
+            # Support both ARAGORA_POLICY_SYNC_ON_STARTUP and CP_ENABLE_POLICY_SYNC for backward compat
+            enable_policy_sync=os.environ.get(
+                "ARAGORA_POLICY_SYNC_ON_STARTUP",
+                os.environ.get("CP_ENABLE_POLICY_SYNC", "true"),
+            ).lower()
+            == "true",
             policy_sync_workspace=os.environ.get("CP_POLICY_SYNC_WORKSPACE") or None,
         )
 
@@ -417,7 +422,23 @@ class ControlPlaneCoordinator:
             logger.debug("policy_notification_failed", error=str(e))
 
     def _should_sync_policies_from_store(self) -> bool:
-        """Determine whether to sync policies from the compliance store."""
+        """Determine whether to sync policies from the compliance store.
+
+        Policy sync is controlled by the following environment variables:
+        - ARAGORA_POLICY_SYNC_ON_STARTUP / CP_ENABLE_POLICY_SYNC: Master toggle (default: true)
+        - ARAGORA_CONTROL_PLANE_POLICY_SOURCE: Override source selection
+
+        In production/staging environments, policy sync from the compliance
+        store is enabled by default. In development, it depends on the
+        configuration.
+
+        Returns:
+            True if policies should be synced from the compliance store
+        """
+        # Check if policy sync is disabled via config
+        if not self._config.enable_policy_sync:
+            return False
+
         source = os.environ.get("ARAGORA_CONTROL_PLANE_POLICY_SOURCE", "").lower()
         if source in ("inprocess", "local", "memory"):
             return False
@@ -427,17 +448,89 @@ class ControlPlaneCoordinator:
         env = os.environ.get("ARAGORA_ENV", "development").lower()
         return env in ("production", "prod", "staging", "stage")
 
-    def _sync_policies_from_store(self) -> None:
-        """Sync policies from compliance store if configured."""
-        if not self._policy_manager or not HAS_POLICY:
-            return
+    def _sync_policies_from_store(self) -> int:
+        """Sync policies from compliance store on coordinator startup.
+
+        This method is called during coordinator initialization to load
+        policies from the compliance store. It handles errors gracefully
+        to avoid failing the entire startup sequence.
+
+        The sync behavior is controlled by:
+        - ARAGORA_POLICY_SYNC_ON_STARTUP (default: true)
+        - ARAGORA_CONTROL_PLANE_POLICY_SOURCE (optional override)
+        - ARAGORA_ENV (auto-enables in production/staging)
+
+        Returns:
+            Number of policies loaded from the compliance store.
+            Returns 0 if sync is disabled or fails.
+        """
+        # Check if policy manager exists
+        if not self._policy_manager:
+            logger.debug(
+                "policy_sync_skipped",
+                reason="no_policy_manager",
+            )
+            return 0
+
+        if not HAS_POLICY:
+            logger.debug(
+                "policy_sync_skipped",
+                reason="policy_module_not_available",
+            )
+            return 0
+
+        # Check if sync should be performed
         if not self._should_sync_policies_from_store():
-            return
+            logger.debug(
+                "policy_sync_skipped",
+                reason="sync_not_enabled",
+                enable_policy_sync=self._config.enable_policy_sync,
+                env=os.environ.get("ARAGORA_ENV", "development"),
+            )
+            return 0
+
         try:
-            loaded = self._policy_manager.sync_from_compliance_store()
-            logger.info("policy_store_sync_complete", loaded=loaded)
+            loaded = self._policy_manager.sync_from_compliance_store(
+                workspace_id=self._config.policy_sync_workspace,
+                enabled_only=True,
+            )
+
+            if loaded > 0:
+                logger.info(
+                    "policy_sync_complete",
+                    policies_loaded=loaded,
+                    workspace=self._config.policy_sync_workspace,
+                    source="compliance_store",
+                )
+            else:
+                logger.debug(
+                    "policy_sync_complete",
+                    policies_loaded=0,
+                    workspace=self._config.policy_sync_workspace,
+                    message="No policies found in compliance store",
+                )
+
+            return loaded
+
+        except ImportError as e:
+            # Compliance store module not available - this is expected in some deployments
+            logger.debug(
+                "policy_sync_skipped",
+                reason="compliance_store_not_available",
+                error=str(e),
+            )
+            return 0
+
         except Exception as e:
-            logger.warning("policy_store_sync_failed", error=str(e))
+            # Log warning but don't fail startup - policy sync is non-critical
+            logger.warning(
+                "policy_sync_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+                workspace=self._config.policy_sync_workspace,
+                message="Startup will continue without synced policies",
+            )
+            return 0
 
     # =========================================================================
     # Agent Operations

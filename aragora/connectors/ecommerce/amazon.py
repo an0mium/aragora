@@ -323,8 +323,8 @@ class AmazonConnector(EnterpriseConnector):
             credentials: Amazon SP-API credentials
             sandbox: Use sandbox environment
         """
-        super().__init__(name="amazon", source_type=SourceType.ECOMMERCE)
-        self.credentials = credentials
+        super().__init__(connector_id="amazon", name="amazon", source_type=SourceType.EXTERNAL_API)
+        self.amazon_credentials = credentials
         self.sandbox = sandbox
         self._client = None
 
@@ -334,7 +334,7 @@ class AmazonConnector(EnterpriseConnector):
             # Note: In production, use python-amazon-sp-api library
             # This is a simplified implementation
             logger.info(
-                f"Connecting to Amazon SP-API (marketplace: {self.credentials.marketplace_id})"
+                f"Connecting to Amazon SP-API (marketplace: {self.amazon_credentials.marketplace_id})"
             )
             return True
         except Exception as e:

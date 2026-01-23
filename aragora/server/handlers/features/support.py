@@ -334,10 +334,10 @@ class SupportHandler(SecureHandler):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching tickets from {platform}: {result}")
                 continue
-            all_tickets.extend(result)
+            all_tickets.extend(result)  # type: ignore[arg-type]
 
         # Sort by created_at descending
         all_tickets.sort(key=lambda t: t.get("created_at") or "", reverse=True)
@@ -913,6 +913,7 @@ class SupportHandler(SecureHandler):
 
         creds = _platform_credentials[platform]["credentials"]
 
+        connector: Any = None
         try:
             if platform == "zendesk":
                 from aragora.connectors.support.zendesk import (

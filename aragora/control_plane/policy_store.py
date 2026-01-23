@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -39,6 +40,55 @@ class ControlPlanePolicyStore(SQLiteStore):
     - PolicyViolation records with status tracking
     """
 
+    SCHEMA_NAME = "control_plane_policy_store"
+    SCHEMA_VERSION = 1
+
+    INITIAL_SCHEMA = """
+        CREATE TABLE IF NOT EXISTS control_plane_policies (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            scope TEXT DEFAULT 'global',
+            task_types TEXT DEFAULT '[]',
+            capabilities TEXT DEFAULT '[]',
+            workspaces TEXT DEFAULT '[]',
+            agent_allowlist TEXT DEFAULT '[]',
+            agent_blocklist TEXT DEFAULT '[]',
+            region_constraint TEXT,
+            sla TEXT,
+            enforcement_level TEXT DEFAULT 'hard',
+            enabled INTEGER DEFAULT 1,
+            priority INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            created_by TEXT,
+            metadata TEXT DEFAULT '{}'
+        );
+
+        CREATE TABLE IF NOT EXISTS control_plane_violations (
+            id TEXT PRIMARY KEY,
+            policy_id TEXT NOT NULL,
+            policy_name TEXT NOT NULL,
+            violation_type TEXT NOT NULL,
+            description TEXT NOT NULL,
+            task_id TEXT,
+            task_type TEXT,
+            agent_id TEXT,
+            region TEXT,
+            workspace_id TEXT,
+            enforcement_level TEXT DEFAULT 'hard',
+            timestamp TEXT NOT NULL,
+            status TEXT DEFAULT 'open',
+            resolved_at TEXT,
+            resolved_by TEXT,
+            resolution_notes TEXT,
+            metadata TEXT DEFAULT '{}'
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_cp_policies_enabled ON control_plane_policies(enabled);
+        CREATE INDEX IF NOT EXISTS idx_cp_violations_policy ON control_plane_violations(policy_id);
+        CREATE INDEX IF NOT EXISTS idx_cp_violations_status ON control_plane_violations(status);
+    """
+
     def __init__(self, db_path: Optional[Path] = None):
         """Initialize the policy store."""
         self.db_path = db_path or _get_default_db_path()
@@ -59,65 +109,18 @@ class ControlPlanePolicyStore(SQLiteStore):
             pass  # Guards not available, allow SQLite
 
         super().__init__(str(self.db_path))
-        self._init_schema()
 
-    def _init_schema(self) -> None:
-        """Initialize database schema."""
-        self.execute(
-            """
-            CREATE TABLE IF NOT EXISTS control_plane_policies (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT DEFAULT '',
-                scope TEXT DEFAULT 'global',
-                task_types TEXT DEFAULT '[]',
-                capabilities TEXT DEFAULT '[]',
-                workspaces TEXT DEFAULT '[]',
-                agent_allowlist TEXT DEFAULT '[]',
-                agent_blocklist TEXT DEFAULT '[]',
-                region_constraint TEXT,
-                sla TEXT,
-                enforcement_level TEXT DEFAULT 'hard',
-                enabled INTEGER DEFAULT 1,
-                priority INTEGER DEFAULT 0,
-                created_at TEXT NOT NULL,
-                created_by TEXT,
-                metadata TEXT DEFAULT '{}'
-            )
-            """
-        )
-        self.execute(
-            """
-            CREATE TABLE IF NOT EXISTS control_plane_violations (
-                id TEXT PRIMARY KEY,
-                policy_id TEXT NOT NULL,
-                policy_name TEXT NOT NULL,
-                violation_type TEXT NOT NULL,
-                description TEXT NOT NULL,
-                task_id TEXT,
-                task_type TEXT,
-                agent_id TEXT,
-                region TEXT,
-                workspace_id TEXT,
-                enforcement_level TEXT DEFAULT 'hard',
-                timestamp TEXT NOT NULL,
-                status TEXT DEFAULT 'open',
-                resolved_at TEXT,
-                resolved_by TEXT,
-                resolution_notes TEXT,
-                metadata TEXT DEFAULT '{}'
-            )
-            """
-        )
-        self.execute(
-            "CREATE INDEX IF NOT EXISTS idx_cp_policies_enabled ON control_plane_policies(enabled)"
-        )
-        self.execute(
-            "CREATE INDEX IF NOT EXISTS idx_cp_violations_policy ON control_plane_violations(policy_id)"
-        )
-        self.execute(
-            "CREATE INDEX IF NOT EXISTS idx_cp_violations_status ON control_plane_violations(status)"
-        )
+    def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        """Execute a SQL statement and return the cursor.
+
+        Args:
+            sql: SQL statement to execute
+            params: Parameters for the SQL statement
+
+        Returns:
+            sqlite3.Cursor with the results
+        """
+        return self._manager.execute(sql, params)
 
     def create_policy(self, policy: ControlPlanePolicy) -> ControlPlanePolicy:
         """Create a new control plane policy."""
@@ -456,7 +459,7 @@ class PostgresControlPlanePolicyStore:
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
-        self._backend.execute(
+        self._backend.execute_write(
             """
             CREATE TABLE IF NOT EXISTS control_plane_policies (
                 id TEXT PRIMARY KEY,
@@ -479,7 +482,7 @@ class PostgresControlPlanePolicyStore:
             )
             """
         )
-        self._backend.execute(
+        self._backend.execute_write(
             """
             CREATE TABLE IF NOT EXISTS control_plane_violations (
                 id TEXT PRIMARY KEY,
@@ -502,10 +505,10 @@ class PostgresControlPlanePolicyStore:
             )
             """
         )
-        self._backend.execute(
+        self._backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_cp_pg_policies_enabled ON control_plane_policies(enabled)"
         )
-        self._backend.execute(
+        self._backend.execute_write(
             "CREATE INDEX IF NOT EXISTS idx_cp_pg_violations_status ON control_plane_violations(status)"
         )
 

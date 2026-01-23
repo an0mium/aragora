@@ -313,9 +313,9 @@ class UnifiedInboxHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[Dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
 
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
+    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:
             # Extract tenant context
@@ -841,12 +841,11 @@ class UnifiedInboxHandler(BaseHandler):
 
         for message in messages:
             if message.id == message_id:
+                triage_result = _triage_results.get(message_id)
                 return success_response(
                     {
                         "message": message.to_dict(),
-                        "triage": _triage_results.get(message_id, {}).to_dict()
-                        if message_id in _triage_results
-                        else None,
+                        "triage": triage_result.to_dict() if triage_result else None,
                     }
                 )
 

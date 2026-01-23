@@ -586,6 +586,10 @@ async def init_control_plane_coordinator() -> Optional[Any]:
     - Agent registry (service discovery)
     - Task scheduler (distributed task execution)
     - Health monitor (agent health tracking)
+    - Policy management (automatic policy sync from compliance store)
+
+    Policy sync is enabled by default and controlled by ARAGORA_POLICY_SYNC_ON_STARTUP
+    (or CP_ENABLE_POLICY_SYNC for backward compatibility). Set to "false" to disable.
 
     Returns:
         Connected ControlPlaneCoordinator, or None if initialization fails
@@ -594,7 +598,21 @@ async def init_control_plane_coordinator() -> Optional[Any]:
         from aragora.control_plane.coordinator import ControlPlaneCoordinator
 
         coordinator = await ControlPlaneCoordinator.create()
-        logger.info("Control Plane coordinator initialized and connected")
+
+        # Log policy manager status
+        if coordinator.policy_manager:
+            policy_count = (
+                len(coordinator.policy_manager._policies)
+                if hasattr(coordinator.policy_manager, "_policies")
+                else 0
+            )
+            logger.info(
+                f"Control Plane coordinator initialized and connected "
+                f"(policies_loaded={policy_count})"
+            )
+        else:
+            logger.info("Control Plane coordinator initialized and connected (no policy manager)")
+
         return coordinator
     except ImportError as e:
         logger.debug(f"Control Plane not available: {e}")

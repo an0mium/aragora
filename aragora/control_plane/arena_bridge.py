@@ -147,7 +147,7 @@ class ArenaEventAdapter:
         # Also update shared state if available
         if self.shared_state:
             try:
-                await self.shared_state.update_task_progress(
+                await self.shared_state.update_task_progress(  # type: ignore[attr-defined]
                     self.task_id,
                     {
                         "event_type": event_type.value,
@@ -496,7 +496,7 @@ class ArenaControlPlaneBridge:
         protocol = DebateProtocol(
             rounds=task.sla.max_rounds,
             consensus="majority",
-            min_confidence=0.6,
+            min_confidence=0.6,  # type: ignore[call-arg]
         )
 
         try:
@@ -883,7 +883,7 @@ class ArenaControlPlaneBridge:
             position_changed = len(metrics.position_history) > 1
 
             # Check if final position matches consensus
-            final_position_correct = agent_id == winner or (
+            final_position_correct: bool = agent_id == winner or bool(
                 metrics.position_history
                 and final_answer
                 and metrics.position_history[-1][:50] in final_answer[:100]

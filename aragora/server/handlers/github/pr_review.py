@@ -318,7 +318,7 @@ class GitHubClient:
                 "Accept": "application/vnd.github.v3+json",
             }
 
-            payload = {
+            payload: Dict[str, Any] = {
                 "event": event.value,
                 "body": body,
             }
@@ -664,7 +664,7 @@ Format your response as:
             protocol = DebateProtocol(
                 rounds=2,
                 consensus="majority",
-                require_evidence=True,
+                require_reasoning=True,
             )
         else:
             protocol = DebateProtocol(
@@ -679,8 +679,8 @@ Format your response as:
             result = await arena.run()
 
         # Parse the debate result
-        if result and result.consensus_answer:
-            return _parse_debate_result(result.consensus_answer, pr_details)
+        if result and result.final_answer:
+            return _parse_debate_result(result.final_answer, pr_details)
 
         return None
 
