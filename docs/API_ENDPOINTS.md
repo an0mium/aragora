@@ -8,6 +8,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Accounting](#accounting)
 - [Analytics](#analytics)
 - [Analytics Dashboard](#analytics-dashboard)
+- [AnalyticsMetrics](#analyticsmetrics)
 - [Ap Automation](#ap-automation)
 - [Ar Automation](#ar-automation)
 - [Audit Export](#audit-export)
@@ -254,6 +255,52 @@ Agent consistency scores
 ### `GET` `/api/analytics/flips/trends`
 
 Flip trends over time
+
+---
+
+## AnalyticsMetrics
+
+Handler for analytics metrics dashboard endpoints.
+
+### `GET` `/api/v1/analytics/debates/overview` 🔒
+
+Get debate overview statistics
+
+### `GET` `/api/v1/analytics/debates/trends` 🔒
+
+Get agent performance trends over time
+
+### `GET` `/api/v1/analytics/debates/topics` 🔒
+
+Get topic distribution for debates
+
+### `GET` `/api/v1/analytics/debates/outcomes` 🔒
+
+Get debate outcome distribution (win/loss/draw)
+
+### `GET` `/api/v1/analytics/agents/leaderboard` 🔒
+
+Get agent leaderboard with ELO rankings and win rates
+
+### `GET` `/api/v1/analytics/agents/comparison` 🔒
+
+Compare multiple agents
+
+### `GET` `/api/v1/analytics/agents/trends` 🔒
+
+Get agent performance trends over time
+
+### `GET` `/api/v1/analytics/usage/tokens` 🔒
+
+Get token consumption trends
+
+### `GET` `/api/v1/analytics/usage/costs` 🔒
+
+Get cost breakdown by provider and model
+
+### `GET` `/api/v1/analytics/usage/active_users` 🔒
+
+Get active user counts
 
 ---
 
