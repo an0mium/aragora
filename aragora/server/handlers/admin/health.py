@@ -38,6 +38,7 @@ class HealthHandler(BaseHandler):
     ROUTES = [
         "/healthz",
         "/readyz",
+        # v1 routes
         "/api/v1/health",
         "/api/v1/health/detailed",
         "/api/v1/health/deep",
@@ -50,6 +51,11 @@ class HealthHandler(BaseHandler):
         "/api/v1/health/encryption",
         "/api/v1/health/platform",
         "/api/v1/platform/health",
+        # Non-v1 routes (for backward compatibility)
+        "/api/health",
+        "/api/health/detailed",
+        "/api/health/deep",
+        "/api/health/stores",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -60,23 +66,26 @@ class HealthHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route health endpoint requests."""
+        # Normalize path for routing (support both v1 and non-v1)
+        normalized = path.replace("/api/v1/", "/api/")
+
         handlers = {
             "/healthz": self._liveness_probe,
             "/readyz": self._readiness_probe,
-            "/api/v1/health": self._health_check,
-            "/api/v1/health/detailed": self._detailed_health_check,
-            "/api/v1/health/deep": self._deep_health_check,
-            "/api/v1/health/stores": self._database_stores_health,
-            "/api/v1/health/sync": self._sync_status,
-            "/api/v1/health/circuits": self._circuit_breakers_status,
-            "/api/v1/health/slow-debates": self._slow_debates_status,
-            "/api/v1/health/cross-pollination": self._cross_pollination_health,
-            "/api/v1/health/knowledge-mound": self._knowledge_mound_health,
-            "/api/v1/health/platform": self._platform_health,
-            "/api/v1/platform/health": self._platform_health,
+            "/api/health": self._health_check,
+            "/api/health/detailed": self._detailed_health_check,
+            "/api/health/deep": self._deep_health_check,
+            "/api/health/stores": self._database_stores_health,
+            "/api/health/sync": self._sync_status,
+            "/api/health/circuits": self._circuit_breakers_status,
+            "/api/health/slow-debates": self._slow_debates_status,
+            "/api/health/cross-pollination": self._cross_pollination_health,
+            "/api/health/knowledge-mound": self._knowledge_mound_health,
+            "/api/health/platform": self._platform_health,
+            "/api/platform/health": self._platform_health,
         }
 
-        endpoint_handler = handlers.get(path)
+        endpoint_handler = handlers.get(normalized)
         if endpoint_handler:
             return endpoint_handler()
         return None
