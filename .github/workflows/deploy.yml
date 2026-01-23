@@ -386,6 +386,7 @@ jobs:
             echo 'Environment="GITHUB_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/github/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="OAUTH_SUCCESS_URL=https://aragora.ai/auth/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="OAUTH_ERROR_URL=https://aragora.ai/auth/error"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="OAUTH_DEBUG=1"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo "Environment=\"ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}\"" | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             sudo systemctl daemon-reload
 
@@ -647,6 +648,7 @@ jobs:
             echo 'Environment="GITHUB_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/github/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="OAUTH_SUCCESS_URL=https://aragora.ai/auth/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="OAUTH_ERROR_URL=https://aragora.ai/auth/error"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="OAUTH_DEBUG=1"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo "Environment=\"ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}\"" | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             sudo systemctl daemon-reload
 
