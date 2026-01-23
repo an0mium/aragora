@@ -190,7 +190,7 @@ jobs:
       - name: Smoke - boot server
         run: |
           set -e
-          aragora serve --api-port 8090 --ws-port 8766 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
+          aragora serve --api-port 8090 --ws-port 8765 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           trap "kill $SERVER_PID" EXIT
           for i in {1..10}; do

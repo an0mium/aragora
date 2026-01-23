@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
   PYTHON_VERSION: '3.11'
 
 jobs:
@@ -60,7 +60,8 @@ jobs:
           mkdir -p .nomic
 
           # Start server with explicit data directory
-          aragora serve --api-port 8080 --ws-port 8766 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
+          # Use default ws-port 8765 to avoid conflict with control plane port 8766
+          aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1 > /tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
 
@@ -103,7 +104,7 @@ jobs:
         run: npm run build:local
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8080
-          NEXT_PUBLIC_WS_URL: ws://localhost:8766
+          NEXT_PUBLIC_WS_URL: ws://localhost:8765
 
       - name: Start frontend server
         working-directory: aragora/live
@@ -128,7 +129,7 @@ jobs:
         env:
           BASE_URL: http://localhost:3000
           API_URL: http://localhost:8080
-          WS_URL: ws://localhost:8766
+          WS_URL: ws://localhost:8765
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
