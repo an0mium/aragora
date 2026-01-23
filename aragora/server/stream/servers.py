@@ -96,6 +96,25 @@ from aragora.config import WS_MAX_MESSAGE_SIZE
 from aragora.server.auth import auth_config
 from aragora.server.cors_config import WS_ALLOWED_ORIGINS
 
+# Import Phase 2 handlers for route registration
+try:
+    from aragora.server.handlers.inbox_command import (
+        register_routes as register_inbox_routes,
+    )
+
+    INBOX_HANDLER_AVAILABLE = True
+except ImportError:
+    INBOX_HANDLER_AVAILABLE = False
+
+try:
+    from aragora.server.handlers.codebase.quick_scan import (
+        register_routes as register_codebase_routes,
+    )
+
+    CODEBASE_HANDLER_AVAILABLE = True
+except ImportError:
+    CODEBASE_HANDLER_AVAILABLE = False
+
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
 TRUSTED_PROXIES = frozenset(
@@ -1372,6 +1391,14 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
         # Prometheus metrics endpoint (not under /api/)
         app.router.add_get("/metrics", self._handle_metrics)
+
+        # Register Phase 2 handlers (inbox, codebase analysis)
+        if INBOX_HANDLER_AVAILABLE:
+            register_inbox_routes(app)
+            logger.info("Registered inbox command center routes")
+        if CODEBASE_HANDLER_AVAILABLE:
+            register_codebase_routes(app)
+            logger.info("Registered codebase analysis routes")
 
         # Start drain loop
         asyncio.create_task(self._drain_loop())
