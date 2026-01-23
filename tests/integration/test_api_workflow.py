@@ -176,7 +176,7 @@ class TestHealthEndpointWorkflow:
         """Test health endpoint returns proper status."""
         handler = HealthHandler(handler_context)
 
-        result = handler.handle("/api/health", {}, None)
+        result = handler.handle("/api/v1/health", {}, None)
         data, status = parse_handler_result(result)
 
         # Health check returns 200 (healthy) or 503 (degraded)
@@ -189,7 +189,7 @@ class TestHealthEndpointWorkflow:
         """Test health endpoint verifies ELO system."""
         handler = HealthHandler(handler_context)
 
-        result = handler.handle("/api/health", {}, None)
+        result = handler.handle("/api/v1/health", {}, None)
         data, status = parse_handler_result(result)
 
         assert "elo_system" in data["checks"]
@@ -205,7 +205,7 @@ class TestHealthEndpointWorkflow:
             }
         )
 
-        result = handler.handle("/api/health", {}, None)
+        result = handler.handle("/api/v1/health", {}, None)
         data, status = parse_handler_result(result)
 
         # Should still return a response, not crash
@@ -225,7 +225,7 @@ class TestLeaderboardWorkflow:
 
         handler = AgentsHandler(handler_context)
 
-        result = handler.handle("/api/leaderboard", {}, None)
+        result = handler.handle("/api/v1/leaderboard", {}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
@@ -245,7 +245,7 @@ class TestLeaderboardWorkflow:
 
         handler = AgentsHandler(handler_context)
 
-        result = handler.handle("/api/leaderboard", {"limit": "5"}, None)
+        result = handler.handle("/api/v1/leaderboard", {"limit": "5"}, None)
         data, status = parse_handler_result(result)
 
         assert len(data) <= 5
@@ -263,7 +263,7 @@ class TestDebateHistoryWorkflow:
 
         handler = DebatesHandler(handler_context)
 
-        result = handler.handle("/api/debates", {}, None)
+        result = handler.handle("/api/v1/debates", {}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
@@ -279,7 +279,7 @@ class TestDebateHistoryWorkflow:
         handler = DebatesHandler(handler_context)
 
         # Test with pagination params
-        result = handler.handle("/api/debates", {"limit": "10", "offset": "0"}, None)
+        result = handler.handle("/api/v1/debates", {"limit": "10", "offset": "0"}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
@@ -292,7 +292,7 @@ class TestModesSwitchWorkflow:
         """Test modes list endpoint."""
         handler = NomicHandler(handler_context)
 
-        result = handler.handle("/api/modes", {}, None)
+        result = handler.handle("/api/v1/modes", {}, None)
         data, status = parse_handler_result(result)
 
         assert status == 200
@@ -312,7 +312,7 @@ class TestNomicStateWorkflow:
 
         handler = SystemHandler(handler_context)
 
-        result = handler.handle("/api/nomic/state", {}, None)
+        result = handler.handle("/api/v1/nomic/state", {}, None)
         data, status = parse_handler_result(result)
 
         # Should return something (even if empty state)
@@ -345,7 +345,7 @@ class TestConcurrentRequests:
 
         # Make 10 sequential requests
         for _ in range(10):
-            result = handler.handle("/api/health", {}, None)
+            result = handler.handle("/api/v1/health", {}, None)
             data, status = parse_handler_result(result)
             # Health check may return 200 or 503 depending on components
             assert status in (200, 503)
@@ -356,7 +356,7 @@ class TestConcurrentRequests:
 
         # Make 10 sequential requests
         for _ in range(10):
-            result = handler.handle("/api/leaderboard", {}, None)
+            result = handler.handle("/api/v1/leaderboard", {}, None)
             data, status = parse_handler_result(result)
             assert status == 200
 
@@ -376,7 +376,7 @@ class TestErrorHandling:
         handler = AgentsHandler(handler_context)
 
         # Pass invalid limit
-        result = handler.handle("/api/leaderboard", {"limit": "not-a-number"}, None)
+        result = handler.handle("/api/v1/leaderboard", {"limit": "not-a-number"}, None)
         data, status = parse_handler_result(result)
 
         # Should handle gracefully (either default or error response)
@@ -391,7 +391,7 @@ class TestErrorHandling:
 
         handler = DebatesHandler(handler_context)
 
-        result = handler.handle("/api/debates/nonexistent-id", {}, None)
+        result = handler.handle("/api/v1/debates/nonexistent-id", {}, None)
         data, status = parse_handler_result(result)
 
         # Should return 404 or 500 (depending on implementation)
@@ -405,7 +405,7 @@ class TestResponseFormat:
         """Test health endpoint response format."""
         handler = HealthHandler(handler_context)
 
-        result = handler.handle("/api/health", {}, None)
+        result = handler.handle("/api/v1/health", {}, None)
         data, status = parse_handler_result(result)
 
         required_fields = ["status", "checks", "timestamp"]
@@ -419,7 +419,7 @@ class TestResponseFormat:
 
         handler = AgentsHandler(handler_context)
 
-        result = handler.handle("/api/leaderboard", {}, None)
+        result = handler.handle("/api/v1/leaderboard", {}, None)
         data, status = parse_handler_result(result)
 
         # Response can be list or dict with rankings
