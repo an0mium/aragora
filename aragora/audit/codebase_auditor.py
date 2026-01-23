@@ -593,3 +593,224 @@ class CodebaseAuditor:
         # Run pattern audits only for speed
         findings = await self._run_pattern_audits(all_chunks, "incremental")
         return findings
+
+    async def audit_git_diff(
+        self,
+        base_ref: str = "HEAD~1",
+        head_ref: str = "HEAD",
+        include_untracked: bool = False,
+    ) -> "IncrementalAuditResult":
+        """
+        Audit only files changed in a git diff.
+
+        Designed for CI/CD integration - only scans files that changed
+        between two git refs.
+
+        Args:
+            base_ref: Base git reference (default: HEAD~1)
+            head_ref: Head git reference (default: HEAD)
+            include_untracked: Whether to include untracked files
+
+        Returns:
+            IncrementalAuditResult with findings for changed files only
+        """
+        import subprocess
+
+        start_time = datetime.now(timezone.utc)
+        session_id = f"incremental_audit_{start_time.strftime('%Y%m%d_%H%M%S')}"
+
+        logger.info(f"[{session_id}] Running incremental audit: {base_ref}..{head_ref}")
+
+        # Get list of changed files
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only", "--diff-filter=ACMR", base_ref, head_ref],
+                cwd=str(self.root_path),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            changed_files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+        except Exception as e:
+            logger.error(f"[{session_id}] Failed to get git diff: {e}")
+            return IncrementalAuditResult(
+                session_id=session_id,
+                base_ref=base_ref,
+                head_ref=head_ref,
+                files_changed=[],
+                files_audited=[],
+                findings=[],
+                error=str(e),
+            )
+
+        # Include untracked files if requested
+        if include_untracked:
+            try:
+                result = subprocess.run(
+                    ["git", "ls-files", "--others", "--exclude-standard"],
+                    cwd=str(self.root_path),
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                untracked = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+                changed_files.extend(untracked)
+            except Exception as e:
+                logger.warning(f"[{session_id}] Failed to get untracked files: {e}")
+
+        # Filter to auditable files
+        auditable_extensions = set(self.config.code_extensions + self.config.doc_extensions)
+        auditable_files = []
+        for file_path in changed_files:
+            path = self.root_path / file_path
+            if path.suffix in auditable_extensions and path.exists():
+                # Check exclude patterns
+                excluded = False
+                for pattern in self.config.exclude_patterns:
+                    if pattern in str(path):
+                        excluded = True
+                        break
+                if not excluded:
+                    auditable_files.append(path)
+
+        logger.info(
+            f"[{session_id}] Found {len(changed_files)} changed files, "
+            f"{len(auditable_files)} auditable"
+        )
+
+        # Audit the changed files
+        findings = await self.audit_files(auditable_files)
+
+        # Filter by severity
+        filtered_findings = [
+            f
+            for f in findings
+            if f.severity.value >= self.config.min_severity.value
+            and f.confidence >= self.config.min_confidence
+        ]
+
+        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+        logger.info(
+            f"[{session_id}] Completed in {elapsed:.2f}s: " f"{len(filtered_findings)} findings"
+        )
+
+        return IncrementalAuditResult(
+            session_id=session_id,
+            base_ref=base_ref,
+            head_ref=head_ref,
+            files_changed=changed_files,
+            files_audited=[str(f.relative_to(self.root_path)) for f in auditable_files],
+            findings=filtered_findings,
+            duration_seconds=elapsed,
+        )
+
+
+@dataclass
+class IncrementalAuditResult:
+    """Result of an incremental (git diff-based) audit."""
+
+    session_id: str
+    base_ref: str
+    head_ref: str
+    files_changed: list[str]
+    files_audited: list[str]
+    findings: list[AuditFinding]
+    duration_seconds: float = 0.0
+    error: Optional[str] = None
+
+    @property
+    def has_findings(self) -> bool:
+        """Whether any findings were detected."""
+        return len(self.findings) > 0
+
+    @property
+    def has_critical(self) -> bool:
+        """Whether any critical findings exist."""
+        return any(f.severity == FindingSeverity.CRITICAL for f in self.findings)
+
+    @property
+    def exit_code(self) -> int:
+        """Suggested CI exit code (0 = pass, 1 = findings, 2 = critical)."""
+        if self.error:
+            return 2
+        if self.has_critical:
+            return 2
+        if self.has_findings:
+            return 1
+        return 0
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export."""
+        return {
+            "session_id": self.session_id,
+            "base_ref": self.base_ref,
+            "head_ref": self.head_ref,
+            "files_changed": self.files_changed,
+            "files_audited": self.files_audited,
+            "finding_count": len(self.findings),
+            "findings": [
+                {
+                    "id": f.id,
+                    "type": f.audit_type.value,
+                    "severity": f.severity.value,
+                    "title": f.title,
+                    "description": f.description,
+                    "location": f.location,
+                    "confidence": f.confidence,
+                }
+                for f in self.findings
+            ],
+            "duration_seconds": self.duration_seconds,
+            "exit_code": self.exit_code,
+            "error": self.error,
+        }
+
+    def to_markdown(self) -> str:
+        """Generate a markdown report."""
+        lines = [
+            "# Incremental Audit Report",
+            "",
+            f"**Session:** {self.session_id}",
+            f"**Diff:** {self.base_ref}..{self.head_ref}",
+            f"**Files Changed:** {len(self.files_changed)}",
+            f"**Files Audited:** {len(self.files_audited)}",
+            f"**Duration:** {self.duration_seconds:.2f}s",
+            "",
+        ]
+
+        if self.error:
+            lines.extend(["## Error", "", "```", f"{self.error}", "```", ""])
+        elif not self.has_findings:
+            lines.extend(["## Result", "", "No issues found.", ""])
+        else:
+            lines.extend([f"## Findings ({len(self.findings)})", ""])
+
+            # Group by severity
+            by_severity: dict = {}
+            for f in self.findings:
+                sev = f.severity.value
+                if sev not in by_severity:
+                    by_severity[sev] = []
+                by_severity[sev].append(f)
+
+            for severity in ["critical", "high", "medium", "low", "info"]:
+                if severity not in by_severity:
+                    continue
+
+                emoji = {
+                    "critical": "🔴",
+                    "high": "🟠",
+                    "medium": "🟡",
+                    "low": "🟢",
+                    "info": "🔵",
+                }.get(severity, "⚪")
+                lines.append(f"### {emoji} {severity.title()} ({len(by_severity[severity])})")
+                lines.append("")
+
+                for f in by_severity[severity]:
+                    lines.append(f"- **{f.title}**")
+                    lines.append(f"  - Location: `{f.location}`")
+                    lines.append(f"  - {f.description[:200]}")
+                    lines.append("")
+
+        return "\n".join(lines)
