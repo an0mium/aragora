@@ -14,3 +14,9 @@ export { AccessGrantsList, type AccessGrantsListProps, type AccessGrant } from '
 // Federation components
 export { FederationStatus, type FederationStatusProps, type FederatedRegion, type SyncMode, type SyncScope, type RegionHealth } from './FederationStatus';
 export { RegionDialog, type RegionDialogProps, type RegionFormData } from './RegionDialog';
+
+// Quality metrics components
+export { QualityMetrics, type QualityMetricsProps, type QualityScore } from './QualityMetrics';
+export { StalenessIndicator, type StalenessIndicatorProps, type StalenessBucket } from './StalenessIndicator';
+export { CoverageHeatmap, type CoverageHeatmapProps, type TopicCoverage } from './CoverageHeatmap';
+export { QualityTab, type QualityTabProps, type QualityData } from './QualityTab';

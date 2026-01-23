@@ -13,10 +13,11 @@ import { StaleKnowledgeTab, type StaleNode } from './StaleKnowledgeTab';
 import { SharedWithMeTab, type SharedItem } from './SharedWithMeTab';
 import { FederationStatus } from './FederationStatus';
 import { ShareDialog, type ShareGrant } from './ShareDialog';
+import { QualityTab } from './QualityTab';
 import type { VisibilityLevel } from './VisibilitySelector';
 import type { KnowledgeNode, GraphNode } from '@/store/knowledgeExplorerStore';
 
-export type ExplorerTab = 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation';
+export type ExplorerTab = 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation' | 'quality';
 
 export interface KnowledgeExplorerProps {
   /** Initial tab to show */
@@ -378,6 +379,28 @@ export function KnowledgeExplorer({
         }}
       />
     ),
+
+    quality: (
+      <QualityTab
+        workspaceId={workspaceId}
+        loading={statsLoading}
+        onDrillDown={(type, id) => {
+          // Handle drill-down navigation
+          if (type === 'category') {
+            // Could switch to a specific view based on category
+            // eslint-disable-next-line no-console
+            console.log('Drill down to category:', id);
+          } else if (type === 'bucket') {
+            // Switch to stale tab filtered by age bucket
+            setActiveTab('stale');
+          } else if (type === 'topic') {
+            // Search for nodes with this topic
+            setQueryText(`topic:${id}`);
+            setActiveTab('search');
+          }
+        }}
+      />
+    ),
   };
 
   // Build tabs array based on permissions
@@ -385,6 +408,7 @@ export function KnowledgeExplorer({
     { id: 'search', label: 'Search', content: tabContent.search },
     { id: 'browse', label: 'Browse', badge: totalNodes, content: tabContent.browse },
     { id: 'graph', label: 'Graph', content: tabContent.graph },
+    { id: 'quality', label: 'Quality', content: tabContent.quality },
     { id: 'stale', label: 'Stale', badge: stats?.stale_nodes_count, content: tabContent.stale },
     { id: 'shared', label: 'Shared', badge: sharedItems.length || undefined, content: tabContent.shared },
   ];
