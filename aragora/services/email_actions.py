@@ -222,8 +222,8 @@ class EmailActionsService:
             elif provider_str == "outlook":
                 from aragora.connectors.enterprise.communication.outlook import OutlookConnector
 
-                connector = OutlookConnector()
-                self._connectors[key] = connector
+                outlook_connector = OutlookConnector()
+                self._connectors[key] = outlook_connector
             else:
                 raise ValueError(f"Unsupported provider: {provider}")
 

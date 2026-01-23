@@ -335,7 +335,7 @@ class SnoozeRecommender:
 
         try:
             # Get sender stats
-            stats = await self.sender_history.get_stats(sender_email)  # type: ignore[call-arg]
+            stats = await self.sender_history.get_stats(sender_email)  # type: ignore[attr-defined]
             if not stats:
                 return suggestions
 

@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
-from aragora.connectors.enterprise.base import EnterpriseConnector, SyncState
+from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult
 from aragora.reasoning.provenance import SourceType
 from aragora.resilience import CircuitBreaker
 
@@ -970,19 +970,32 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
     async def sync(
         self,
-        state: Optional[SyncState] = None,
         full_sync: bool = False,
-    ):
+        batch_size: int = 100,
+        max_items: Optional[int] = None,
+    ) -> SyncResult:
         """
         Sync events from calendars.
 
         For inbox integration, we primarily use get_events() and get_free_busy()
         directly rather than full sync.
         """
+        import time
+
+        start_time = time.time()
         # Get upcoming events from all calendars
         calendar_ids = self.calendar_ids or [None]
         events = await self.get_upcoming_events(hours=168, calendar_ids=calendar_ids)  # 1 week
-        return {"events": [e.to_dict() for e in events]}
+        duration_ms = (time.time() - start_time) * 1000
+        return SyncResult(
+            connector_id=self.connector_id,
+            success=True,
+            items_synced=len(events),
+            items_updated=0,
+            items_skipped=0,
+            items_failed=0,
+            duration_ms=duration_ms,
+        )
 
 
 __all__ = [

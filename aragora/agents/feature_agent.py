@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -418,7 +418,7 @@ class FeatureDevelopmentAgent:
 
         # Suggest new file locations based on existing patterns
         if context.get("existing_patterns"):
-            files_to_create: List[str] = design["files_to_create"]
+            files_to_create = cast(List[str], design["files_to_create"])
             for pattern in context["existing_patterns"]:
                 if pattern.get("files"):
                     # Use same directory as existing similar files

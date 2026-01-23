@@ -148,7 +148,7 @@ class KafkaConnector(EnterpriseConnector):
         """
         super().__init__(connector_id="kafka", **kwargs)
         self.config = config
-        self._consumer = None
+        self._consumer: Optional[Any] = None
         self._running = False
         self._consumed_count = 0
         self._error_count = 0

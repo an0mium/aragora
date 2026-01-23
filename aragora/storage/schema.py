@@ -33,6 +33,7 @@ __all__ = [
 import logging
 import re
 import sqlite3
+import sys
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -43,6 +44,22 @@ from aragora.exceptions import DatabaseError
 from aragora.utils.timeouts import timed_lock
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_log(level: int, msg: str) -> None:
+    """Log a message safely, handling Python shutdown gracefully.
+
+    During interpreter shutdown, sys.meta_path becomes None and logging
+    may fail. This helper silently ignores such errors.
+    """
+    if sys.meta_path is None:
+        # Python is shutting down, don't try to log
+        return
+    try:
+        logger.log(level, msg)
+    except Exception:
+        # Logging failed (likely during shutdown), ignore silently
+        pass
 
 
 # Valid SQL column types (whitelist)
@@ -776,15 +793,16 @@ class DatabaseManager:
         """Close all database connections including pooled ones.
 
         This is called automatically when the manager is garbage collected,
-        but can be called manually if needed.
+        but can be called manually if needed. Uses _safe_log to handle
+        Python shutdown gracefully.
         """
         with self._lock:
             if self._conn is not None:
                 try:
                     self._conn.close()
-                    logger.debug(f"Closed connection to {self.db_path}")
+                    _safe_log(logging.DEBUG, f"Closed connection to {self.db_path}")
                 except sqlite3.Error as e:
-                    logger.warning(f"Error closing connection to {self.db_path}: {e}")
+                    _safe_log(logging.WARNING, f"Error closing connection to {self.db_path}: {e}")
                 finally:
                     self._conn = None
 
@@ -795,10 +813,10 @@ class DatabaseManager:
                 try:
                     conn.close()
                 except sqlite3.Error as e:
-                    logger.debug(f"Error closing pooled connection: {e}")
+                    _safe_log(logging.DEBUG, f"Error closing pooled connection: {e}")
             self._pool.clear()
             if pool_size > 0:
-                logger.debug(f"Closed {pool_size} pooled connections to {self.db_path}")
+                _safe_log(logging.DEBUG, f"Closed {pool_size} pooled connections to {self.db_path}")
 
     def __del__(self) -> None:
         """Ensure connection is closed on garbage collection.
@@ -1109,7 +1127,10 @@ class ConnectionPool:
             }
 
     def close(self) -> None:
-        """Close all connections in the pool."""
+        """Close all connections in the pool.
+
+        Uses _safe_log to handle Python shutdown gracefully.
+        """
         with self._condition:
             self._closed = True
 
@@ -1118,21 +1139,30 @@ class ConnectionPool:
                 try:
                     conn.close()
                 except sqlite3.Error as e:
-                    logger.warning(f"Error closing pooled connection: {e}")
+                    _safe_log(logging.WARNING, f"Error closing pooled connection: {e}")
 
             self._idle.clear()
-            logger.debug(
+            _safe_log(
+                logging.DEBUG,
                 f"Closed connection pool for {self.db_path} "
-                f"(active: {len(self._active)} connections may still be in use)"
+                f"(active: {len(self._active)} connections may still be in use)",
             )
 
             # Notify waiters so they can fail
             self._condition.notify_all()
 
     def __del__(self) -> None:
-        """Ensure pool is closed on garbage collection."""
-        if not self._closed:
-            self.close()
+        """Ensure pool is closed on garbage collection.
+
+        Note: During interpreter shutdown, modules may already be torn down,
+        so we wrap in try-except to avoid errors.
+        """
+        try:
+            if not self._closed:
+                self.close()
+        except Exception:
+            # Silently ignore errors during shutdown
+            pass
 
     def __repr__(self) -> str:
         stats = self.stats()

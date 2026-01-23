@@ -162,7 +162,7 @@ async def migrate_sync_store(
                         logger.info(f"[DRY RUN] Would migrate connector: {connector_id}")
                     else:
                         # Re-save triggers encryption
-                        await store.save_connector(connector_id, connector)  # type: ignore[call-arg]
+                        await store.save_connector(connector_id, connector)  # type: ignore[call-arg, arg-type]
                         logger.info(f"Migrated connector: {connector_id}")
                     result.migrated += 1
                     record_migration_record("sync_store", "migrated")

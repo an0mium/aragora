@@ -1749,7 +1749,7 @@ class ThreatIntelligenceService:
                         continue
 
                     # At this point result is a dict, not an exception
-                    result_dict: dict[str, Any] = result
+                    result_dict: dict[str, Any] = result  # type: ignore[assignment]
                     source_results[source_name] = self._parse_source_result(
                         source_name, result_dict, threat_types_found
                     )

@@ -197,11 +197,11 @@ class RedisHAConfig:
 
         # Parse sentinel hosts
         sentinel_hosts_str = os.environ.get("ARAGORA_REDIS_SENTINEL_HOSTS", "")
-        sentinel_hosts = [h.strip() for h in sentinel_hosts_str.split(",") if h.strip()]
+        sentinel_hosts = [h.strip() for h in sentinel_hosts_str.split(",") if h.strip()]  # type: ignore[assignment]
 
         # Parse cluster nodes
         cluster_nodes_str = os.environ.get("ARAGORA_REDIS_CLUSTER_NODES", "")
-        cluster_nodes = [n.strip() for n in cluster_nodes_str.split(",") if n.strip()]
+        cluster_nodes = [n.strip() for n in cluster_nodes_str.split(",") if n.strip()]  # type: ignore[assignment]
 
         # Parse URL for standalone defaults
         url = os.environ.get("ARAGORA_REDIS_URL") or os.environ.get("REDIS_URL")
@@ -225,14 +225,14 @@ class RedisHAConfig:
             db=int(os.environ.get("ARAGORA_REDIS_DB", "0")),
             url=url,
             # Sentinel
-            sentinel_hosts=sentinel_hosts,
+            sentinel_hosts=sentinel_hosts,  # type: ignore[arg-type]
             sentinel_master=os.environ.get("ARAGORA_REDIS_SENTINEL_MASTER", "mymaster"),
             sentinel_password=os.environ.get("ARAGORA_REDIS_SENTINEL_PASSWORD"),
             sentinel_socket_timeout=float(
                 os.environ.get("ARAGORA_REDIS_SENTINEL_SOCKET_TIMEOUT", "5.0")
             ),
             # Cluster
-            cluster_nodes=cluster_nodes,
+            cluster_nodes=cluster_nodes,  # type: ignore[arg-type]
             cluster_read_from_replicas=os.environ.get(
                 "ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS", "true"
             ).lower()
@@ -414,7 +414,7 @@ def _create_standalone_client(config: RedisHAConfig) -> Any:
             health_check_interval=config.health_check_interval,
         )
     else:
-        pool = redis.ConnectionPool(**pool_kwargs)
+        pool = redis.ConnectionPool(**pool_kwargs)  # type: ignore[arg-type]
 
     client = redis.Redis(connection_pool=pool)
 
@@ -521,7 +521,7 @@ def _create_cluster_client(config: RedisHAConfig) -> Any:
         if config.ssl_ca_certs:
             cluster_kwargs["ssl_ca_certs"] = config.ssl_ca_certs
 
-    client = RedisCluster(**cluster_kwargs)
+    client = RedisCluster(**cluster_kwargs)  # type: ignore[arg-type]
 
     # Verify connection
     client.ping()
@@ -605,7 +605,7 @@ async def _create_async_standalone_client(config: RedisHAConfig) -> Any:
             max_connections=config.max_connections,
         )
     else:
-        client = aioredis.Redis(**kwargs)
+        client = aioredis.Redis(**kwargs)  # type: ignore[arg-type]
 
     # Verify connection
     await client.ping()
@@ -709,10 +709,10 @@ async def _create_async_cluster_client(config: RedisHAConfig) -> Any:
         if config.ssl_ca_certs:
             cluster_kwargs["ssl_ca_certs"] = config.ssl_ca_certs
 
-    client = RedisCluster(**cluster_kwargs)
+    client = RedisCluster(**cluster_kwargs)  # type: ignore[arg-type]
 
     # Verify connection
-    await client.ping()
+    await client.ping()  # type: ignore[misc]
     logger.info(f"Connected to async Redis Cluster ({len(cluster_nodes)} startup nodes)")
 
     return client
@@ -819,7 +819,7 @@ def check_redis_health(config: Optional[RedisHAConfig] = None) -> dict:
         Dictionary with health status and diagnostic info
     """
     config = config or RedisHAConfig.from_env()
-    result = {
+    result: dict[str, Any] = {
         "healthy": False,
         "mode": config.mode.value,
         "error": None,
@@ -885,7 +885,7 @@ async def check_async_redis_health(config: Optional[RedisHAConfig] = None) -> di
         Dictionary with health status and diagnostic info
     """
     config = config or RedisHAConfig.from_env()
-    result = {
+    result: dict[str, Any] = {
         "healthy": False,
         "mode": config.mode.value,
         "error": None,

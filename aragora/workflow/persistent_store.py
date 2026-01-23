@@ -793,8 +793,7 @@ def get_workflow_store(
                 _workflow_store_instance = run_async(create_postgres_workflow_store())
             except Exception as e:
                 logger.warning(
-                    "PostgreSQL workflow store initialization failed, falling back to SQLite",
-                    error=str(e),
+                    f"PostgreSQL workflow store initialization failed, falling back to SQLite: {e}",
                 )
                 _workflow_store_instance = PersistentWorkflowStore(db_path)
     else:

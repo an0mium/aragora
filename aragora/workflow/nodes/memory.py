@@ -218,7 +218,7 @@ class MemoryWriteStep(BaseStep):
             mound = KnowledgeMound(workspace_id=tenant_id)
             await mound.initialize()
 
-            result = await mound.store(request)  # type: ignore[arg-type]
+            result = await mound.store(request)  # type: ignore[arg-type, misc]
 
             logger.info(f"Memory write '{self.name}': stored as {result.node_id}")
 
