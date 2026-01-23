@@ -4,7 +4,7 @@ Welcome to Aragora's documentation. The `docs/` directory is the canonical
 source. The published site in `docs-site/` is synced from these files via
 `docs-site/scripts/sync-docs.js`.
 
-Aragora is the **control plane for multi-agent robust decisionmaking across
+Aragora is the **control plane for multi-agent vetted decisionmaking across
 organizational knowledge and channels**.
 
 ## Quick Start

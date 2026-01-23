@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { EmailDetailModal } from './EmailDetailModal';
 
 // Priority levels from the email prioritization service
-export type EmailPriority = 'critical' | 'high' | 'medium' | 'low' | 'defer' | 'spam';
+export type EmailPriority = 'critical' | 'high' | 'medium' | 'low' | 'defer' | 'spam' | 'blocked';
 
 export interface PrioritizedEmail {
   id: string;
@@ -72,6 +72,7 @@ const PRIORITY_CONFIG: Record<EmailPriority, { color: string; icon: string; labe
   low: { color: 'text-blue-400 border-blue-500/40 bg-blue-500/10', icon: '🔵', label: 'LOW' },
   defer: { color: 'text-gray-400 border-gray-500/40 bg-gray-500/10', icon: '⚪', label: 'DEFER' },
   spam: { color: 'text-red-600 border-red-600/40 bg-red-600/10', icon: '🚫', label: 'SPAM' },
+  blocked: { color: 'text-slate-500 border-slate-600/40 bg-slate-600/10', icon: '⛔', label: 'BLOCKED' },
 };
 
 export function PriorityInboxList({
@@ -272,7 +273,7 @@ export function PriorityInboxList({
         >
           All ({emails.length})
         </button>
-        {(['critical', 'high', 'medium', 'low', 'defer'] as EmailPriority[]).map(priority => (
+        {(['critical', 'high', 'medium', 'low', 'defer', 'blocked'] as EmailPriority[]).map(priority => (
           <button
             key={priority}
             onClick={() => setFilter(priority)}

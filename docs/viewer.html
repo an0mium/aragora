@@ -478,7 +478,7 @@ footer a { color: var(--primary); text-decoration: none; }
                     <span class="logo">A</span>
                     aragora Debate
                 </h1>
-                <div class="meta" id="debate-meta">Multi-Agent Deliberation</div>
+                <div class="meta" id="debate-meta">Multi-Agent Vetted Decisionmaking</div>
                 <div class="consensus-badge" id="consensus-badge"></div>
             </header>
 
@@ -786,7 +786,7 @@ function renderDebate() {
     // Meta
     const date = new Date(debateData.created_at).toLocaleDateString();
     document.getElementById('debate-meta').textContent =
-        `Multi-Agent Deliberation | ${date} | ID: ${debateData.id}`;
+        `Multi-Agent Vetted Decisionmaking | ${date} | ID: ${debateData.id}`;
 
     // Consensus badge
     const badge = document.getElementById('consensus-badge');

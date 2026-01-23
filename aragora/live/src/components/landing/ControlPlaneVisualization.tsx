@@ -37,7 +37,7 @@ export function ControlPlaneVisualization() {
       <div className="container mx-auto px-4">
         <SectionHeader title="CONTROL PLANE ARCHITECTURE" />
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-          Orchestrating AI robust decisionmaking across your organization&apos;s knowledge and communication channels.
+          Orchestrating AI vetted decisionmaking across your organization&apos;s knowledge and communication channels.
         </p>
 
         {/* Main Flow Visualization */}

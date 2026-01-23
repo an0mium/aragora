@@ -8,7 +8,7 @@ description: Getting Started with Aragora
 > **Last Updated:** 2026-01-18
 
 
-**Aragora** is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. It orchestrates diverse AI models to debate your data and deliver defensible decisions wherever your team works. This is the canonical onboarding guide.
+**Aragora** is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels. It orchestrates diverse AI models to debate your data and deliver defensible decisions wherever your team works. This is the canonical onboarding guide.
 
 **Choose your path:**
 - [Quick Start](#quick-start) - Get running in 5 minutes

@@ -1,6 +1,6 @@
 # Aragora: Commercial Positioning & Value Proposition
 
-**Control Plane for Multi-Agent Deliberation Across Org Knowledge and Channels**
+**Control Plane for Multi-Agent Vetted Decisionmaking Across Org Knowledge and Channels**
 
 *Version 2.0 | January 2026*  
 *Status: Internal positioning draft; numbers are targets unless noted.*
@@ -9,9 +9,9 @@
 
 ## Executive Summary
 
-Aragora is the control plane for multi-agent robust decisionmaking—orchestrating 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike chatbots and single-model wrappers, Aragora builds institutional memory with full audit trails.
+Aragora is the control plane for multi-agent vetted decisionmaking—orchestrating 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike chatbots and single-model wrappers, Aragora builds institutional memory with full audit trails.
 
-**Key Value:** Replace expensive human expert review ($15K-$100K per decision) with orchestrated multi-agent robust decisionmaking that runs in 15-45 minutes, produces compliance-ready Decision Receipts, and builds organizational knowledge over time.
+**Key Value:** Replace expensive human expert review ($15K-$100K per decision) with orchestrated multi-agent vetted decisionmaking that runs in 15-45 minutes, produces compliance-ready Decision Receipts, and builds organizational knowledge over time.
 
 ---
 
@@ -21,13 +21,13 @@ Aragora is the control plane for multi-agent robust decisionmaking—orchestrati
 
 | Category | Description |
 |----------|-------------|
-| **Primary** | Control Plane for Multi-Agent Deliberation |
+| **Primary** | Control Plane for Multi-Agent Vetted Decisionmaking |
 | **Secondary** | Decision Assurance Platform for High-Stakes Teams |
 | **Technical** | Enterprise AI Orchestration with Institutional Memory |
 
 ### What Aragora Is NOT
 
-- **Not a chatbot** - Structured robust decisionmaking protocol with phases, roles, and evidence chains
+- **Not a chatbot** - Structured vetted decisionmaking protocol with phases, roles, and evidence chains
 - **Not a copilot** - Institutional learning that ACCUMULATES organizational knowledge
 - **Not single-model** - Heterogeneous 15+ provider ensemble that argues toward truth
 - **Not stateless** - Remembers outcomes, builds knowledge graphs, improves itself

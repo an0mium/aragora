@@ -33,6 +33,7 @@ export function SenderInsightsPanel({
     low: 'bg-gray-500',
     defer: 'bg-gray-400',
     spam: 'bg-red-800',
+    blocked: 'bg-slate-600',
   };
 
   const priorityLabels: Record<string, string> = {
@@ -42,6 +43,7 @@ export function SenderInsightsPanel({
     low: 'LOW',
     defer: 'DEFER',
     spam: 'SPAM',
+    blocked: 'BLOCKED',
   };
 
   return (

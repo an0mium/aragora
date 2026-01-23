@@ -16,7 +16,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
     title: 'Welcome to Aragora',
-    description: 'Aragora is the control plane for multi-agent robust decisionmaking. Multiple AI agents debate your questions and deliver defensible decisions with full audit trails.',
+    description: 'Aragora is the control plane for multi-agent vetted decisionmaking. Multiple AI agents debate your questions and deliver defensible decisions with full audit trails.',
     tip: 'Think of it as decision assurance for high-stakes teams.',
   },
   {

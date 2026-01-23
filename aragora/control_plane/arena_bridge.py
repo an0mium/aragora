@@ -50,6 +50,21 @@ except ImportError:
     log_deliberation_completed = None  # type: ignore
     log_deliberation_sla_event = None  # type: ignore
 
+# Prometheus metrics (optional)
+try:
+    from aragora.server.prometheus_control_plane import (
+        record_deliberation_complete,
+        record_deliberation_sla,
+        record_agent_utilization,
+    )
+
+    HAS_PROMETHEUS = True
+except ImportError:
+    HAS_PROMETHEUS = False
+    record_deliberation_complete = None  # type: ignore
+    record_deliberation_sla = None  # type: ignore
+    record_agent_utilization = None  # type: ignore
+
 if TYPE_CHECKING:
     from aragora.control_plane.shared_state import SharedControlPlaneState
     from aragora.core import Agent, DebateResult
@@ -534,6 +549,18 @@ class ArenaControlPlaneBridge:
                 duration = task.metrics.duration_seconds or 0
                 task.metrics.sla_compliance = task.sla.get_compliance_level(duration)
 
+                # Record SLA compliance metric
+                if HAS_PROMETHEUS and record_deliberation_sla:
+                    try:
+                        sla_level = (
+                            task.metrics.sla_compliance.value
+                            if task.metrics.sla_compliance
+                            else "compliant"
+                        )
+                        record_deliberation_sla(sla_level)
+                    except Exception as e:
+                        logger.debug(f"Failed to record SLA compliance metric: {e}")
+
                 # Build outcome
                 outcome = DeliberationOutcome(
                     task_id=task.task_id,
@@ -563,6 +590,33 @@ class ArenaControlPlaneBridge:
                     except Exception as e:
                         logger.debug(f"Failed to log deliberation completion: {e}")
 
+                # Record Prometheus metrics
+                if HAS_PROMETHEUS and record_deliberation_complete:
+                    try:
+                        record_deliberation_complete(
+                            duration_seconds=duration,
+                            status="completed",
+                            consensus_reached=result.consensus_reached,
+                            confidence=result.confidence,
+                            round_count=result.rounds_completed,
+                            agent_count=len(agents),
+                        )
+                    except Exception as e:
+                        logger.debug(f"Failed to record deliberation metrics: {e}")
+
+                # Record agent utilization metrics
+                if HAS_PROMETHEUS and record_agent_utilization and agent_performances:
+                    try:
+                        for agent_id, perf in agent_performances.items():
+                            # Utilization based on response count relative to rounds
+                            utilization = min(
+                                1.0,
+                                perf.response_count / max(1, result.rounds_completed),
+                            )
+                            record_agent_utilization(agent_id, utilization)
+                    except Exception as e:
+                        logger.debug(f"Failed to record agent utilization: {e}")
+
                 # Fire ELO callback if provided
                 if self.elo_callback and agent_performances:
                     try:
@@ -585,6 +639,27 @@ class ArenaControlPlaneBridge:
         except asyncio.TimeoutError:
             task.metrics.completed_at = time.time()
             task.metrics.sla_compliance = SLAComplianceLevel.VIOLATED
+            duration = task.metrics.duration_seconds or 0
+
+            # Record timeout metrics
+            if HAS_PROMETHEUS and record_deliberation_complete:
+                try:
+                    record_deliberation_complete(
+                        duration_seconds=duration,
+                        status="timeout",
+                        consensus_reached=False,
+                        confidence=0.0,
+                        round_count=0,
+                        agent_count=len(agents),
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to record timeout metrics: {e}")
+
+            if HAS_PROMETHEUS and record_deliberation_sla:
+                try:
+                    record_deliberation_sla("violated")
+                except Exception as e:
+                    logger.debug(f"Failed to record SLA violation: {e}")
 
             await adapter.on_debate_complete(
                 None,  # type: ignore
@@ -597,13 +672,28 @@ class ArenaControlPlaneBridge:
                 request_id=task.request_id,
                 success=False,
                 consensus_reached=False,
-                duration_seconds=task.metrics.duration_seconds or 0,
+                duration_seconds=duration,
                 sla_compliant=False,
             )
 
         except Exception as e:
             task.metrics.completed_at = time.time()
             error_msg = str(e)
+            duration = task.metrics.duration_seconds or 0
+
+            # Record failure metrics
+            if HAS_PROMETHEUS and record_deliberation_complete:
+                try:
+                    record_deliberation_complete(
+                        duration_seconds=duration,
+                        status="failed",
+                        consensus_reached=False,
+                        confidence=0.0,
+                        round_count=0,
+                        agent_count=len(agents),
+                    )
+                except Exception as exc:
+                    logger.debug(f"Failed to record failure metrics: {exc}")
 
             await adapter.on_debate_complete(
                 None,  # type: ignore
@@ -616,7 +706,7 @@ class ArenaControlPlaneBridge:
                 request_id=task.request_id,
                 success=False,
                 consensus_reached=False,
-                duration_seconds=task.metrics.duration_seconds or 0,
+                duration_seconds=duration,
                 sla_compliant=task.metrics.sla_compliance != SLAComplianceLevel.VIOLATED,
             )
 
@@ -715,6 +805,12 @@ class ArenaControlPlaneBridge:
                         )
                     except Exception as e:
                         logger.debug(f"Failed to log SLA warning: {e}")
+                # Record Prometheus metric
+                if HAS_PROMETHEUS and record_deliberation_sla:
+                    try:
+                        record_deliberation_sla("warning")
+                    except Exception as e:
+                        logger.debug(f"Failed to record SLA warning metric: {e}")
                 warning_sent = True
 
             elif compliance == SLAComplianceLevel.CRITICAL and not critical_sent:
@@ -730,6 +826,12 @@ class ArenaControlPlaneBridge:
                         )
                     except Exception as e:
                         logger.debug(f"Failed to log SLA critical: {e}")
+                # Record Prometheus metric
+                if HAS_PROMETHEUS and record_deliberation_sla:
+                    try:
+                        record_deliberation_sla("critical")
+                    except Exception as e:
+                        logger.debug(f"Failed to record SLA critical metric: {e}")
                 critical_sent = True
 
             elif compliance == SLAComplianceLevel.VIOLATED:
@@ -751,6 +853,12 @@ class ArenaControlPlaneBridge:
                         )
                     except Exception as e:
                         logger.debug(f"Failed to log SLA violation: {e}")
+                # Record Prometheus metric
+                if HAS_PROMETHEUS and record_deliberation_sla:
+                    try:
+                        record_deliberation_sla("violated")
+                    except Exception as e:
+                        logger.debug(f"Failed to record SLA violation metric: {e}")
                 break
 
     def _extract_agent_performance(

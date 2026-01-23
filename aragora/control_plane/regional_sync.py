@@ -639,6 +639,95 @@ class RegionalStateManager:
         current = self._entity_versions.get(entity_id, 0.0)
         return timestamp > current
 
+    async def sync_task_state(
+        self,
+        task_id: str,
+        task_data: Dict[str, Any],
+        event_type: RegionalEventType = RegionalEventType.TASK_SUBMITTED,
+        target_region: Optional[str] = None,
+    ) -> bool:
+        """
+        Synchronize task state to other regions.
+
+        Args:
+            task_id: Task identifier
+            task_data: Task state data to sync
+            event_type: Type of task event
+            target_region: Specific region to sync to (None = broadcast)
+
+        Returns:
+            True if sync initiated successfully
+        """
+        # Update local version tracking
+        self._entity_versions[task_id] = time.time()
+
+        # Publish via event bus
+        return await self._event_bus.publish_task_update(
+            task_id=task_id,
+            task_data=task_data,
+            event_type=event_type,
+        )
+
+    async def sync_agent_state(
+        self,
+        agent_id: str,
+        agent_data: Dict[str, Any],
+        event_type: RegionalEventType = RegionalEventType.AGENT_UPDATED,
+    ) -> bool:
+        """
+        Synchronize agent state to other regions.
+
+        Args:
+            agent_id: Agent identifier
+            agent_data: Agent state data to sync
+            event_type: Type of agent event
+
+        Returns:
+            True if sync initiated successfully
+        """
+        # Update local version tracking
+        self._entity_versions[agent_id] = time.time()
+
+        # Publish via event bus
+        return await self._event_bus.publish_agent_update(
+            agent_id=agent_id,
+            agent_data=agent_data,
+            event_type=event_type,
+        )
+
+    async def request_full_sync(self, target_region: str) -> bool:
+        """
+        Request full state sync from a specific region.
+
+        Used during region startup or after network partition recovery.
+
+        Args:
+            target_region: Region to request sync from
+
+        Returns:
+            True if request sent successfully
+        """
+        event = RegionalEvent(
+            event_type=RegionalEventType.REGION_JOINED,
+            source_region=self._event_bus.local_region,
+            entity_id=self._event_bus.local_region,
+            data={
+                "request_type": "full_sync",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        return await self._event_bus.publish(event, target_region=target_region)
+
+    def get_sync_status(self) -> Dict[str, Any]:
+        """Get synchronization status and metrics."""
+        return {
+            "local_region": self._event_bus.local_region,
+            "entities_tracked": len(self._entity_versions),
+            "healthy_regions": self._event_bus.get_healthy_regions(),
+            "region_health": self._event_bus.get_region_health(),
+            "is_connected": self._event_bus.is_connected,
+        }
+
 
 # Module-level singleton
 _regional_event_bus: Optional[RegionalEventBus] = None

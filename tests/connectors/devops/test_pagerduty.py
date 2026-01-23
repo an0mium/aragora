@@ -207,14 +207,16 @@ class TestIncidentNote:
 
     def test_note_creation(self):
         """Test note initialization."""
+        user = User(id="user_456", name="Jane Doe", email="jane@example.com")
         note = IncidentNote(
             id="note_123",
             content="Investigation started",
             created_at=datetime.now(timezone.utc),
-            user_name="Jane Doe",
+            user=user,
         )
         assert note.id == "note_123"
         assert note.content == "Investigation started"
+        assert note.user.name == "Jane Doe"
 
     def test_note_from_api(self):
         """Test note creation from API response."""
@@ -222,12 +224,12 @@ class TestIncidentNote:
             "id": "PNOTE123",
             "content": "Root cause identified",
             "created_at": "2024-01-15T11:30:00Z",
-            "user": {"summary": "John Doe"},
+            "user": {"id": "user_789", "name": "John Doe", "email": "john@example.com"},
         }
         note = IncidentNote.from_api(api_data)
         assert note.id == "PNOTE123"
         assert note.content == "Root cause identified"
-        assert note.user_name == "John Doe"
+        assert note.user.name == "John Doe"
 
 
 class TestIncident:

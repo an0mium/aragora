@@ -1,11 +1,11 @@
 ---
 title: Aragora Docs
-description: Control plane for multi-agent robust decisionmaking across org knowledge and channels.
+description: Control plane for multi-agent vetted decisionmaking across org knowledge and channels.
 ---
 
 # Aragora Documentation
 
-Aragora is the control plane for multi-agent robust decisionmaking across organizational
+Aragora is the control plane for multi-agent vetted decisionmaking across organizational
 knowledge and channels. This site is the published view of the canonical docs in
 `docs/`.
 

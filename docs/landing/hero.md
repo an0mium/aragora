@@ -3,7 +3,7 @@
 ## Above-the-Fold Content
 
 ### Headline
-**Control plane for multi-agent robust decisionmaking across organizational knowledge**
+**Control plane for multi-agent vetted decisionmaking across organizational knowledge**
 
 ### Subheadline
 Orchestrate 15+ AI models to debate your documents, data, and APIs, then deliver
@@ -29,7 +29,7 @@ Trusted by CTOs at:    [Logo] [Logo] [Logo] [Logo]
 
 ## Value Props (3 columns)
 
-### 1. Deliberation Control Plane
+### 1. Vetted Decisionmaking Control Plane
 **Coordinate agents, queues, and policies** across every decision workflow.
 
 ### 2. Omnivorous Ingestion
@@ -63,6 +63,6 @@ to fix 6 months later. It paid for itself in one session."
 
 ## Technical Credibility
 
-- **Open-source core** - Inspect the robust decisionmaking engine
+- **Open-source core** - Inspect the vetted decisionmaking engine
 - **Self-hostable** - Your data never leaves your infrastructure
 - **API-first** - Integrate with workflows, chat, and automation

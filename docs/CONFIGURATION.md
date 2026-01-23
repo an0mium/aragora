@@ -93,7 +93,13 @@ At least one required for debates to function.
 |----------|---------|-------------|
 | `ARAGORA_DB_BACKEND` | `sqlite` | Backend: `sqlite` or `postgres` |
 | `DATABASE_URL` | - | PostgreSQL connection string |
+| `ARAGORA_POSTGRES_DSN` | - | Legacy alias for `DATABASE_URL` |
+| `ARAGORA_DATABASE_URL` | - | Legacy alias for `DATABASE_URL` |
 | `ARAGORA_SQLITE_PATH` | `aragora.db` | SQLite file path |
+| `ARAGORA_POLICY_STORE_BACKEND` | `auto` | Policy store backend: `sqlite` or `postgres` (defaults to `ARAGORA_DB_BACKEND`) |
+| `ARAGORA_AUDIT_STORE_BACKEND` | `auto` | Audit log backend: `sqlite` or `postgres` (defaults to `ARAGORA_DB_BACKEND`) |
+| `ARAGORA_REQUIRE_DISTRIBUTED` | `auto` | Enforce distributed stores in production (fail closed on SQLite/file) |
+| `ARAGORA_STORAGE_MODE` | `auto` | Force storage mode: `postgres`, `redis`, `sqlite`, `file` |
 
 **PostgreSQL Connection String Examples:**
 ```bash
@@ -106,6 +112,10 @@ DATABASE_URL=postgresql://admin:password@mydb.xxxx.us-west-2.rds.amazonaws.com:5
 # Local
 DATABASE_URL=postgresql://user:pass@localhost:5432/aragora
 ```
+
+**Distributed Store Enforcement:**
+- In production, `ARAGORA_REQUIRE_DISTRIBUTED=true` will fail closed if a store falls back to SQLite or local files.
+- Set `ARAGORA_STORAGE_MODE` to pin a backend across stores when validating production readiness.
 
 ### Connection Pooling (PostgreSQL)
 

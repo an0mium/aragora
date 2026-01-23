@@ -31,7 +31,7 @@ Aragora's 15+ model ensemble debates multimodal data (25+ formats, 24 connectors
 ### Adopted Positioning
 
 **Tagline:**  
-Control plane for multi-agent robust decisionmaking across org knowledge and channels.
+Control plane for multi-agent vetted decisionmaking across org knowledge and channels.
 
 **Short Description:**  
 Orchestrate 15+ AI models to debate organizational knowledge, deliver defensible decisions to any channel, and retain institutional memory with audit trails.

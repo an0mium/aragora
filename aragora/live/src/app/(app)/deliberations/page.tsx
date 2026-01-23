@@ -25,7 +25,7 @@ export default function DeliberationsPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'complete'>('all');
 
-  // Fetch active robust decisionmaking sessions
+  // Fetch active vetted decisionmaking sessions
   const fetchDeliberations = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/v1/deliberations/active`);
@@ -202,7 +202,7 @@ export default function DeliberationsPage() {
                   Robust Decisionmaking Dashboard
                 </h1>
                 <p className="text-text-muted font-mono text-sm">
-                  Real-time view of multi-agent robust decisionmaking sessions across your organization
+                  Real-time view of multi-agent vetted decisionmaking sessions across your organization
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -260,7 +260,7 @@ export default function DeliberationsPage() {
             <DeliberationGrid
               deliberations={filteredDeliberations}
               loading={loading}
-              emptyMessage={filter === 'active' ? 'No active robust decisionmaking sessions' : 'No robust decisionmaking sessions found'}
+              emptyMessage={filter === 'active' ? 'No active vetted decisionmaking sessions' : 'No vetted decisionmaking sessions found'}
             />
           </PanelErrorBoundary>
         </div>

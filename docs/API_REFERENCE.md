@@ -3,7 +3,7 @@
 > **Last Updated:** 2026-01-22 (control plane, decision, platform, code review APIs)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
-for multi-agent robust decisionmaking across organizational knowledge and channels.
+for multi-agent vetted decisionmaking across organizational knowledge and channels.
 
 ## Related Documentation
 
@@ -504,9 +504,9 @@ Threat intelligence endpoints live under `/api/v1/threat`.
 
 | Endpoint | Description | Status |
 |----------|-------------|--------|
-| `POST /api/control-plane/deliberations` | Run or queue a robust decisionmaking session | NEW |
-| `GET /api/control-plane/deliberations/:id` | Get robust decisionmaking result | NEW |
-| `GET /api/control-plane/deliberations/:id/status` | Get robust decisionmaking status | NEW |
+| `POST /api/control-plane/deliberations` | Run or queue a vetted decisionmaking session | NEW |
+| `GET /api/control-plane/deliberations/:id` | Get vetted decisionmaking result | NEW |
+| `GET /api/control-plane/deliberations/:id/status` | Get vetted decisionmaking status | NEW |
 | `POST /api/v1/decisions` | Create a decision request | NEW |
 | `GET /api/v1/decisions/:id` | Get decision result | NEW |
 | `GET /api/v1/decisions/:id/status` | Get decision status | NEW |

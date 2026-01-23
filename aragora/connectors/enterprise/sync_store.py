@@ -496,9 +496,13 @@ class SyncStore:
                         # If not in our active jobs, it was running in a previous instance
                         if job_id not in self._active_jobs:
                             started_at_str = row[2]
-                            started_at = (
-                                datetime.fromisoformat(started_at_str) if started_at_str else now
-                            )
+                            if started_at_str:
+                                started_at = datetime.fromisoformat(started_at_str)
+                                # Ensure timezone-aware (assume UTC if naive)
+                                if started_at.tzinfo is None:
+                                    started_at = started_at.replace(tzinfo=timezone.utc)
+                            else:
+                                started_at = now
                             duration = (now - started_at).total_seconds()
 
                             await self._connection.execute(
@@ -549,7 +553,12 @@ class SyncStore:
                 for row in rows:
                     job_id = row["id"]
                     if job_id not in self._active_jobs:
-                        started_at = row["started_at"] or now
+                        started_at = row["started_at"]
+                        if started_at is None:
+                            started_at = now
+                        elif started_at.tzinfo is None:
+                            # Ensure timezone-aware (assume UTC if naive)
+                            started_at = started_at.replace(tzinfo=timezone.utc)
                         duration = (now - started_at).total_seconds()
 
                         await self._connection.execute(

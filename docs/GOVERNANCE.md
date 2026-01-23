@@ -1,6 +1,6 @@
 # Aragora Governance
 
-**Policy enforcement, RBAC, and audit logging for the multi-agent robust decisionmaking control plane**
+**Policy enforcement, RBAC, and audit logging for the multi-agent vetted decisionmaking control plane**
 
 How rule changes are processed, who signs off, and how to recover from bad updates. This document covers the governance framework for Aragora's control plane, ensuring compliance, security, and accountability for enterprise deployments.
 

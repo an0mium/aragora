@@ -6,6 +6,7 @@ Provides HTTP API handlers for:
 - Code quality metrics analysis
 - Dependency auditing
 - Code intelligence (AST parsing, call graphs, dead code)
+- SBOM generation (CycloneDX 1.5, SPDX 2.3)
 """
 
 from .security import (
@@ -13,6 +14,12 @@ from .security import (
     handle_scan_repository,
     handle_get_vulnerabilities,
     handle_get_scan_status,
+    # SBOM handlers
+    handle_generate_sbom,
+    handle_get_sbom,
+    handle_list_sboms,
+    handle_download_sbom,
+    handle_compare_sboms,
 )
 from .metrics import (
     MetricsHandler,
@@ -37,6 +44,12 @@ __all__ = [
     "handle_scan_repository",
     "handle_get_vulnerabilities",
     "handle_get_scan_status",
+    # SBOM
+    "handle_generate_sbom",
+    "handle_get_sbom",
+    "handle_list_sboms",
+    "handle_download_sbom",
+    "handle_compare_sboms",
     # Metrics
     "MetricsHandler",
     "handle_analyze_metrics",

@@ -181,6 +181,33 @@
         "command": "aragora.viewDebateContext",
         "title": "Aragora: View Debate Context",
         "category": "Aragora"
+      },
+      {
+        "command": "aragora.showDebateViewer",
+        "title": "Aragora: Show Live Debate Viewer",
+        "category": "Aragora",
+        "icon": "$(broadcast)"
+      },
+      {
+        "command": "aragora.connectToDeliberation",
+        "title": "Aragora: Connect to Deliberation",
+        "category": "Aragora"
+      },
+      {
+        "command": "aragora.triggerDeliberation",
+        "title": "Aragora: Trigger New Deliberation",
+        "category": "Aragora",
+        "icon": "$(play)"
+      },
+      {
+        "command": "aragora.connectControlPlane",
+        "title": "Aragora: Connect to Control Plane",
+        "category": "Aragora"
+      },
+      {
+        "command": "aragora.disconnectControlPlane",
+        "title": "Aragora: Disconnect from Control Plane",
+        "category": "Aragora"
       }
     ],
     "configuration": {

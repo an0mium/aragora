@@ -8,7 +8,7 @@
 
 ## Overview
 
-This Service Level Agreement (SLA) defines the service commitments for Aragora's multi-agent robust decisionmaking control plane. It establishes measurable targets for availability, performance, and support response times.
+This Service Level Agreement (SLA) defines the service commitments for Aragora's multi-agent vetted decisionmaking control plane. It establishes measurable targets for availability, performance, and support response times.
 
 ---
 
@@ -20,7 +20,7 @@ This Service Level Agreement (SLA) defines the service commitments for Aragora's
 |--------|--------|
 | **Availability** | Best effort |
 | **Support** | Community forums |
-| **Rate Limits** | 100 robust decisionmaking sessions/day |
+| **Rate Limits** | 100 vetted decisionmaking sessions/day |
 | **Data Retention** | 30 days |
 | **SLA Credits** | None |
 
@@ -30,7 +30,7 @@ This Service Level Agreement (SLA) defines the service commitments for Aragora's
 |--------|--------|
 | **Availability** | 99.5% monthly uptime |
 | **Support Response** | 24 hours (business days) |
-| **Rate Limits** | 1,000 robust decisionmaking sessions/day |
+| **Rate Limits** | 1,000 vetted decisionmaking sessions/day |
 | **Data Retention** | 1 year |
 | **SLA Credits** | Pro-rated refund |
 

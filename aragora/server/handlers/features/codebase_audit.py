@@ -216,25 +216,26 @@ async def run_sast_scan(
         from aragora.analysis.codebase.sast_scanner import SASTScanner
 
         scanner = SASTScanner()
-        results = await scanner.scan(
-            target_path=target_path,
-            languages=languages or ["python", "javascript", "typescript"],
+        results = await scanner.scan_repository(
+            repo_path=target_path,
         )
 
-        for vuln in results.vulnerabilities:
+        for vuln in results.findings:
             finding = Finding(
                 id=f"sast_{uuid4().hex[:12]}",
                 scan_id=scan_id,
                 scan_type=ScanType.SAST,
                 severity=_map_severity(vuln.severity),
-                title=vuln.title,
-                description=vuln.description,
+                title=vuln.message,
+                description=vuln.message,
                 file_path=vuln.file_path,
-                line_number=vuln.line_number,
-                code_snippet=vuln.code_snippet,
+                line_number=vuln.line_start,
+                code_snippet=vuln.snippet,
                 rule_id=vuln.rule_id,
-                cwe_id=vuln.cwe_id,
-                owasp_category=vuln.owasp_category,
+                cwe_id=vuln.cwe_ids[0] if vuln.cwe_ids else None,
+                owasp_category=vuln.owasp_category.value
+                if hasattr(vuln.owasp_category, "value")
+                else str(vuln.owasp_category),
                 remediation=vuln.remediation,
                 confidence=vuln.confidence,
             )
@@ -261,7 +262,7 @@ async def run_bug_scan(
         from aragora.analysis.codebase.bug_detector import BugDetector
 
         detector = BugDetector()
-        results = await detector.scan(target_path=target_path)
+        results = await detector.scan_repository(repo_path=target_path)
 
         for bug in results.bugs:
             finding = Finding(
@@ -269,12 +270,12 @@ async def run_bug_scan(
                 scan_id=scan_id,
                 scan_type=ScanType.BUGS,
                 severity=_map_severity(bug.severity),
-                title=bug.title,
+                title=bug.message,
                 description=bug.description,
                 file_path=bug.file_path,
                 line_number=bug.line_number,
-                code_snippet=bug.code_snippet,
-                rule_id=bug.pattern_id,
+                code_snippet=bug.snippet,
+                rule_id=bug.bug_type.value if hasattr(bug.bug_type, "value") else str(bug.bug_type),
                 remediation=bug.suggested_fix,
                 confidence=bug.confidence,
             )
@@ -301,7 +302,7 @@ async def run_secrets_scan(
         from aragora.analysis.codebase.secrets_scanner import SecretsScanner
 
         scanner = SecretsScanner()
-        results = await scanner.scan(target_path=target_path)
+        results = await scanner.scan_repository(repo_path=target_path)
 
         for secret in results.secrets:
             finding = Finding(
@@ -313,7 +314,7 @@ async def run_secrets_scan(
                 description=f"Found exposed {secret.secret_type} in source code",
                 file_path=secret.file_path,
                 line_number=secret.line_number,
-                code_snippet=secret.redacted_value,
+                code_snippet=secret.context_line,
                 remediation="Remove secret and rotate credentials. Use environment variables or secrets manager.",
                 confidence=secret.confidence,
             )
@@ -340,9 +341,11 @@ async def run_dependency_scan(
         from aragora.analysis.codebase.scanner import DependencyScanner
 
         scanner = DependencyScanner()
-        results = await scanner.scan(target_path=target_path)
+        results = await scanner.scan_repository(repo_path=target_path)
 
-        for dep in results.vulnerable_dependencies:
+        for dep in results.dependencies:
+            if not dep.has_vulnerabilities:
+                continue
             for vuln in dep.vulnerabilities:
                 finding = Finding(
                     id=f"dep_{uuid4().hex[:12]}",
@@ -351,10 +354,10 @@ async def run_dependency_scan(
                     severity=_map_severity(vuln.severity),
                     title=f"Vulnerable dependency: {dep.name}@{dep.version}",
                     description=vuln.description,
-                    file_path=dep.lock_file or "package.json",
+                    file_path=dep.file_path or "package.json",
                     cwe_id=vuln.cwe_ids[0] if vuln.cwe_ids else None,
-                    remediation=f"Upgrade to {vuln.fixed_version or 'latest'}"
-                    if vuln.fixed_version
+                    remediation=f"Upgrade to {vuln.recommended_version or 'latest'}"
+                    if vuln.recommended_version
                     else "No fix available",
                     confidence=0.95,
                 )
@@ -380,19 +383,22 @@ async def run_metrics_analysis(
     try:
         from aragora.analysis.codebase.metrics import CodeMetricsAnalyzer
 
+        import asyncio
+
         analyzer = CodeMetricsAnalyzer()
-        results = await analyzer.analyze(target_path=target_path)
+        # analyze_repository is sync, run in thread
+        results = await asyncio.to_thread(analyzer.analyze_repository, target_path)
 
         metrics = {
             "total_lines": results.total_lines,
-            "code_lines": results.code_lines,
-            "comment_lines": results.comment_lines,
-            "blank_lines": results.blank_lines,
-            "files_analyzed": results.files_analyzed,
-            "average_complexity": results.average_complexity,
+            "code_lines": results.total_code_lines,
+            "comment_lines": results.total_comment_lines,
+            "blank_lines": results.total_blank_lines,
+            "files_analyzed": results.total_files,
+            "average_complexity": results.avg_complexity,
             "max_complexity": results.max_complexity,
             "maintainability_index": results.maintainability_index,
-            "duplicate_blocks": results.duplicate_count,
+            "duplicate_blocks": len(results.duplicates),
             "hotspots": [h.to_dict() for h in results.hotspots[:10]],
         }
 
@@ -621,9 +627,11 @@ class CodebaseAuditHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[Dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
 
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
+    async def handle(  # type: ignore[override]
+        self, request: Any, path: str, method: str
+    ) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)
@@ -756,12 +764,14 @@ class CodebaseAuditHandler(BaseHandler):
 
             for i, (scan_type_name, _) in enumerate(tasks):
                 result = results[i]
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     logger.error(f"{scan_type_name} scan failed: {result}")
                 elif scan_type_name == "metrics":
-                    metrics = result
+                    if isinstance(result, dict):
+                        metrics = result
                 else:
-                    all_findings.extend(result)
+                    if isinstance(result, list):
+                        all_findings.extend(result)
 
             # Update scan result
             scan_result.status = ScanStatus.COMPLETED

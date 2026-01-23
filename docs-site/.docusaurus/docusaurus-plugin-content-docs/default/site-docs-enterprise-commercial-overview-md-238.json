@@ -1,7 +1,7 @@
 {
   "id": "enterprise/commercial-overview",
-  "title": "Aragora - Control Plane for Multi-Agent Deliberation",
-  "description": "Aragora - Control Plane for Multi-Agent Deliberation",
+  "title": "Aragora - Control Plane for Multi-Agent Vetted Decisionmaking",
+  "description": "Aragora - Control Plane for Multi-Agent Vetted Decisionmaking",
   "source": "@site/docs/enterprise/commercial-overview.md",
   "sourceDirName": "enterprise",
   "slug": "/enterprise/commercial-overview",
@@ -14,7 +14,7 @@
   "lastUpdatedBy": "an0mium",
   "lastUpdatedAt": 1769140033000,
   "frontMatter": {
-    "title": "Aragora - Control Plane for Multi-Agent Deliberation",
-    "description": "Aragora - Control Plane for Multi-Agent Deliberation"
+    "title": "Aragora - Control Plane for Multi-Agent Vetted Decisionmaking",
+    "description": "Aragora - Control Plane for Multi-Agent Vetted Decisionmaking"
   }
 }

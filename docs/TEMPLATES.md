@@ -1,6 +1,6 @@
 # Robust Decisionmaking Templates
 
-Aragora ships with built-in robust decisionmaking templates for common enterprise
+Aragora ships with built-in vetted decisionmaking templates for common enterprise
 workflows (code review, security audit, compliance, inbox triage). The template
 API and module names retain the `deliberation` namespace for compatibility:
 `aragora/deliberation/templates/`. Templates provide defaults for agent selection,

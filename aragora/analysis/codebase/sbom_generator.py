@@ -3,7 +3,7 @@ Software Bill of Materials (SBOM) Generator.
 
 Generates SBOM in CycloneDX and SPDX formats from project dependencies.
 Supports:
-- CycloneDX 1.4 JSON/XML
+- CycloneDX 1.5 JSON/XML
 - SPDX 2.3 JSON/Tag-Value
 
 Uses the DependencyScanner to enumerate components, then transforms
@@ -380,10 +380,11 @@ class SBOMGenerator:
         components: List[SBOMComponent],
         metadata: SBOMMetadata,
     ) -> str:
-        """Generate CycloneDX 1.4 JSON format."""
+        """Generate CycloneDX 1.5 JSON format."""
         bom: Dict[str, Any] = {
+            "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
             "bomFormat": "CycloneDX",
-            "specVersion": "1.4",
+            "specVersion": "1.5",
             "serialNumber": metadata.serial_number,
             "version": metadata.version,
             "metadata": {
@@ -491,9 +492,9 @@ class SBOMGenerator:
         components: List[SBOMComponent],
         metadata: SBOMMetadata,
     ) -> str:
-        """Generate CycloneDX 1.4 XML format."""
+        """Generate CycloneDX 1.5 XML format."""
         # Create root element with namespace
-        ns = "http://cyclonedx.org/schema/bom/1.4"
+        ns = "http://cyclonedx.org/schema/bom/1.5"
         ET.register_namespace("", ns)
 
         root = ET.Element(

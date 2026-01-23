@@ -15,6 +15,7 @@ import { InboxStatsCards } from '@/components/inbox/InboxStatsCards';
 import { DailyDigestWidget } from '@/components/inbox/DailyDigestWidget';
 import { FollowUpPanel } from '@/components/inbox/FollowUpPanel';
 import { SnoozePanel } from '@/components/inbox/SnoozePanel';
+import { BlocklistPanel } from '@/components/inbox/BlocklistPanel';
 import { useAuth } from '@/context/AuthContext';
 
 interface EmailStatus {
@@ -550,6 +551,19 @@ export default function InboxPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Blocklist Panel - only show when config is visible */}
+        {showConfig && hasAnyConnection && (
+          <div className="mb-6">
+            <PanelErrorBoundary panelName="Blocklist">
+              <BlocklistPanel
+                apiBase={backendConfig.api}
+                userId={userId}
+                authToken={tokens?.access_token}
+              />
+            </PanelErrorBoundary>
           </div>
         )}
 

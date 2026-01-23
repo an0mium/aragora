@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Industry vertical configuration for specialized debate agents.
+ *
+ * Verticals provide domain-specific expertise, compliance frameworks,
+ * and recommended agent configurations for specialized debates.
  */
 export interface Vertical {
   id: string;
@@ -15,6 +18,19 @@ export interface Vertical {
   suggestedAgents: string[];
   costTier: 'standard' | 'professional' | 'enterprise';
   keywords: string[];
+  /** Persona configurations for this vertical */
+  personas?: PersonaConfig[];
+}
+
+/**
+ * Persona configuration for vertical-specific agent behavior.
+ */
+export interface PersonaConfig {
+  id: string;
+  name: string;
+  role: string;
+  traits: string[];
+  suitability: number; // 0-1 score for task matching
 }
 
 // Industry verticals with specialized configurations
@@ -29,6 +45,10 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     suggestedAgents: ['claude', 'gpt', 'deepseek'],
     costTier: 'standard',
     keywords: [],
+    personas: [
+      { id: 'analyst', name: 'Analyst', role: 'Critical analysis', traits: ['logical', 'thorough'], suitability: 0.8 },
+      { id: 'synthesizer', name: 'Synthesizer', role: 'Integration', traits: ['holistic', 'creative'], suitability: 0.8 },
+    ],
   },
   {
     id: 'software',
@@ -39,7 +59,12 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     complianceFrameworks: ['OWASP', 'CWE', 'SANS'],
     suggestedAgents: ['claude', 'deepseek', 'codestral'],
     costTier: 'professional',
-    keywords: ['code', 'api', 'software', 'bug', 'function', 'programming', 'typescript', 'python'],
+    keywords: ['code', 'api', 'software', 'bug', 'function', 'programming', 'typescript', 'python', 'architecture', 'database'],
+    personas: [
+      { id: 'architect', name: 'Architect', role: 'System design', traits: ['strategic', 'scalability-focused'], suitability: 0.95 },
+      { id: 'security-eng', name: 'Security Engineer', role: 'Vulnerability analysis', traits: ['paranoid', 'thorough'], suitability: 0.9 },
+      { id: 'reviewer', name: 'Code Reviewer', role: 'Quality assurance', traits: ['detail-oriented', 'best-practices'], suitability: 0.85 },
+    ],
   },
   {
     id: 'legal',
@@ -47,10 +72,15 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     description: 'Contract review, regulatory analysis, compliance',
     icon: '\u2696\uFE0F', // Balance scale
     expertiseAreas: ['Contract Analysis', 'Regulatory', 'Risk Assessment', 'IP'],
-    complianceFrameworks: ['GDPR', 'SOX', 'HIPAA', 'PCI-DSS'],
+    complianceFrameworks: ['GDPR', 'SOX', 'HIPAA', 'PCI-DSS', 'CCPA'],
     suggestedAgents: ['claude', 'gpt-4o', 'gemini'],
     costTier: 'enterprise',
-    keywords: ['legal', 'contract', 'compliance', 'regulation', 'law', 'liability', 'terms'],
+    keywords: ['legal', 'contract', 'compliance', 'regulation', 'law', 'liability', 'terms', 'privacy', 'gdpr'],
+    personas: [
+      { id: 'contract-analyst', name: 'Contract Analyst', role: 'Document review', traits: ['meticulous', 'risk-aware'], suitability: 0.95 },
+      { id: 'compliance-officer', name: 'Compliance Officer', role: 'Regulatory guidance', traits: ['regulatory-expert', 'cautious'], suitability: 0.9 },
+      { id: 'ip-counsel', name: 'IP Counsel', role: 'Intellectual property', traits: ['protective', 'strategic'], suitability: 0.85 },
+    ],
   },
   {
     id: 'healthcare',
@@ -58,32 +88,63 @@ const INDUSTRY_VERTICALS: Vertical[] = [
     description: 'Clinical analysis, medical research, health policy',
     icon: '\uD83C\uDFE5', // Hospital
     expertiseAreas: ['Clinical', 'Research', 'Policy', 'Bioethics'],
-    complianceFrameworks: ['HIPAA', 'FDA', 'HL7 FHIR'],
+    complianceFrameworks: ['HIPAA', 'FDA', 'HL7 FHIR', '21 CFR Part 11'],
     suggestedAgents: ['claude', 'gpt-4o', 'gemini'],
     costTier: 'enterprise',
-    keywords: ['health', 'medical', 'clinical', 'patient', 'treatment', 'diagnosis', 'healthcare'],
+    keywords: ['health', 'medical', 'clinical', 'patient', 'treatment', 'diagnosis', 'healthcare', 'hipaa', 'fda'],
+    personas: [
+      { id: 'clinical-analyst', name: 'Clinical Analyst', role: 'Medical review', traits: ['evidence-based', 'patient-focused'], suitability: 0.95 },
+      { id: 'bioethicist', name: 'Bioethicist', role: 'Ethics review', traits: ['principled', 'balanced'], suitability: 0.9 },
+      { id: 'researcher', name: 'Medical Researcher', role: 'Literature synthesis', traits: ['thorough', 'critical'], suitability: 0.85 },
+    ],
+  },
+  {
+    id: 'fintech',
+    displayName: 'FinTech & Banking',
+    description: 'Payments, trading systems, regulatory compliance',
+    icon: '\uD83C\uDFE6', // Bank
+    expertiseAreas: ['Payments', 'Trading', 'Risk Management', 'Regulatory', 'Fraud Detection'],
+    complianceFrameworks: ['PCI-DSS', 'SOC2', 'AML/KYC', 'MiFID II', 'Basel III'],
+    suggestedAgents: ['claude', 'gpt-4o', 'deepseek'],
+    costTier: 'enterprise',
+    keywords: ['payment', 'trading', 'bank', 'fintech', 'transaction', 'fraud', 'kyc', 'aml', 'pci'],
+    personas: [
+      { id: 'risk-analyst', name: 'Risk Analyst', role: 'Risk assessment', traits: ['quantitative', 'cautious'], suitability: 0.95 },
+      { id: 'compliance-specialist', name: 'Compliance Specialist', role: 'Regulatory adherence', traits: ['regulatory-expert', 'detail-oriented'], suitability: 0.9 },
+      { id: 'fraud-analyst', name: 'Fraud Analyst', role: 'Threat detection', traits: ['pattern-recognition', 'suspicious'], suitability: 0.85 },
+    ],
   },
   {
     id: 'accounting',
-    displayName: 'Accounting & Finance',
+    displayName: 'Accounting & Audit',
     description: 'Financial analysis, audit, tax planning',
     icon: '\uD83D\uDCB0', // Money bag
-    expertiseAreas: ['Audit', 'Tax', 'Financial Analysis', 'Reporting'],
-    complianceFrameworks: ['SOX', 'GAAP', 'IFRS', 'AML/KYC'],
+    expertiseAreas: ['Audit', 'Tax', 'Financial Analysis', 'Reporting', 'Internal Controls'],
+    complianceFrameworks: ['SOX', 'GAAP', 'IFRS', 'PCAOB'],
     suggestedAgents: ['claude', 'gpt-4o', 'gemini'],
     costTier: 'professional',
-    keywords: ['finance', 'accounting', 'tax', 'audit', 'budget', 'revenue', 'cost'],
+    keywords: ['finance', 'accounting', 'tax', 'audit', 'budget', 'revenue', 'cost', 'sox', 'gaap'],
+    personas: [
+      { id: 'auditor', name: 'Auditor', role: 'Compliance verification', traits: ['skeptical', 'methodical'], suitability: 0.95 },
+      { id: 'tax-advisor', name: 'Tax Advisor', role: 'Tax strategy', traits: ['optimization-focused', 'regulatory-aware'], suitability: 0.9 },
+      { id: 'financial-analyst', name: 'Financial Analyst', role: 'Financial modeling', traits: ['quantitative', 'forward-looking'], suitability: 0.85 },
+    ],
   },
   {
     id: 'academic',
     displayName: 'Academic Research',
     description: 'Scientific analysis, literature review, methodology',
     icon: '\uD83C\uDF93', // Graduation cap
-    expertiseAreas: ['Research Methods', 'Literature Review', 'Data Analysis', 'Peer Review'],
-    complianceFrameworks: ['IRB', 'NIH Guidelines'],
+    expertiseAreas: ['Research Methods', 'Literature Review', 'Data Analysis', 'Peer Review', 'Ethics'],
+    complianceFrameworks: ['IRB', 'NIH Guidelines', 'CONSORT', 'PRISMA'],
     suggestedAgents: ['claude', 'gpt-4o', 'gemini'],
     costTier: 'professional',
-    keywords: ['research', 'study', 'analysis', 'data', 'hypothesis', 'methodology', 'academic'],
+    keywords: ['research', 'study', 'analysis', 'data', 'hypothesis', 'methodology', 'academic', 'peer-review', 'publication'],
+    personas: [
+      { id: 'methodologist', name: 'Methodologist', role: 'Research design', traits: ['rigorous', 'systematic'], suitability: 0.95 },
+      { id: 'statistician', name: 'Statistician', role: 'Data analysis', traits: ['quantitative', 'precise'], suitability: 0.9 },
+      { id: 'peer-reviewer', name: 'Peer Reviewer', role: 'Critical assessment', traits: ['constructive', 'thorough'], suitability: 0.85 },
+    ],
   },
 ];
 
@@ -289,36 +350,80 @@ export function VerticalSelector({
         )}
       </div>
 
-      {/* Expertise areas and compliance */}
+      {/* Expertise areas, compliance, and personas */}
       {currentVertical.id !== 'general' && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {/* Expertise tags */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-text-muted">Expertise:</span>
-            {currentVertical.expertiseAreas.slice(0, 3).map((area) => (
-              <span
-                key={area}
-                className="px-1.5 py-0.5 text-[10px] font-mono bg-surface border border-acid-green/20 rounded"
-              >
-                {area}
-              </span>
-            ))}
+        <div className="space-y-2 mt-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Expertise tags */}
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-text-muted">Expertise:</span>
+              {currentVertical.expertiseAreas.slice(0, 3).map((area) => (
+                <span
+                  key={area}
+                  className="px-1.5 py-0.5 text-[10px] font-mono bg-surface border border-acid-green/20 rounded"
+                >
+                  {area}
+                </span>
+              ))}
+              {currentVertical.expertiseAreas.length > 3 && (
+                <span className="text-[10px] text-text-muted">
+                  +{currentVertical.expertiseAreas.length - 3}
+                </span>
+              )}
+            </div>
+
+            {/* Compliance frameworks */}
+            {currentVertical.complianceFrameworks.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-text-muted">Compliance:</span>
+                {currentVertical.complianceFrameworks.slice(0, 2).map((framework) => (
+                  <span
+                    key={framework}
+                    className="px-1.5 py-0.5 text-[10px] font-mono bg-warning/10 text-warning border border-warning/20 rounded"
+                  >
+                    {framework}
+                  </span>
+                ))}
+                {currentVertical.complianceFrameworks.length > 2 && (
+                  <span className="text-[10px] text-warning/60">
+                    +{currentVertical.complianceFrameworks.length - 2}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Compliance frameworks */}
-          {currentVertical.complianceFrameworks.length > 0 && (
+          {/* Persona recommendations */}
+          {currentVertical.personas && currentVertical.personas.length > 0 && (
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-text-muted">Compliance:</span>
-              {currentVertical.complianceFrameworks.slice(0, 2).map((framework) => (
+              <span className="text-[10px] text-text-muted">Personas:</span>
+              {currentVertical.personas.slice(0, 3).map((persona) => (
                 <span
-                  key={framework}
-                  className="px-1.5 py-0.5 text-[10px] font-mono bg-warning/10 text-warning border border-warning/20 rounded"
+                  key={persona.id}
+                  className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/20 rounded flex items-center gap-1"
+                  title={`${persona.role} - ${persona.traits.join(', ')}`}
                 >
-                  {framework}
+                  {persona.name}
+                  <span className="text-[8px] text-acid-cyan/60">
+                    {Math.round(persona.suitability * 100)}%
+                  </span>
                 </span>
               ))}
             </div>
           )}
+
+          {/* Suggested agents */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-text-muted">Agents:</span>
+            {currentVertical.suggestedAgents.map((agent) => (
+              <span
+                key={agent}
+                className="px-1.5 py-0.5 text-[10px] font-mono bg-bg border border-acid-green/20 rounded text-text"
+              >
+                {agent}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -403,21 +508,44 @@ function VerticalDropdown({
               <div className="text-[10px] text-text-muted mt-0.5">{vertical.description}</div>
 
               {showDetails && vertical.id !== 'general' && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {vertical.expertiseAreas.slice(0, 3).map((area) => (
-                    <span
-                      key={area}
-                      className="px-1 py-0.5 text-[9px] font-mono bg-bg rounded text-text-muted"
-                    >
-                      {area}
-                    </span>
-                  ))}
-                  {vertical.complianceFrameworks.length > 0 && (
-                    <span
-                      className="px-1 py-0.5 text-[9px] font-mono bg-warning/10 text-warning rounded"
-                    >
-                      +{vertical.complianceFrameworks.length} compliance
-                    </span>
+                <div className="space-y-1.5 mt-2">
+                  {/* Expertise and compliance */}
+                  <div className="flex flex-wrap gap-1">
+                    {vertical.expertiseAreas.slice(0, 3).map((area) => (
+                      <span
+                        key={area}
+                        className="px-1 py-0.5 text-[9px] font-mono bg-bg rounded text-text-muted"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                    {vertical.complianceFrameworks.length > 0 && (
+                      <span
+                        className="px-1 py-0.5 text-[9px] font-mono bg-warning/10 text-warning rounded"
+                      >
+                        +{vertical.complianceFrameworks.length} compliance
+                      </span>
+                    )}
+                  </div>
+                  {/* Personas */}
+                  {vertical.personas && vertical.personas.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      <span className="text-[9px] text-text-muted/60">Personas:</span>
+                      {vertical.personas.slice(0, 2).map((persona) => (
+                        <span
+                          key={persona.id}
+                          className="px-1 py-0.5 text-[9px] font-mono bg-acid-cyan/10 text-acid-cyan/80 rounded"
+                          title={persona.role}
+                        >
+                          {persona.name}
+                        </span>
+                      ))}
+                      {vertical.personas.length > 2 && (
+                        <span className="text-[9px] text-acid-cyan/50">
+                          +{vertical.personas.length - 2}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

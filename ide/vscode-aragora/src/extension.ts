@@ -14,6 +14,8 @@ import { registerHoverProvider } from './providers/HoverProvider';
 import { StreamManager } from './services/StreamManager';
 import { DebatePanel, registerDebatePanelCommands } from './panels/DebatePanel';
 import { ReviewPanel, registerReviewPanelCommands } from './panels/ReviewPanel';
+import { DebateViewerPanel, registerDebateViewerCommands } from './panels/DebateViewerPanel';
+import { ControlPlaneService, getControlPlaneService, disposeControlPlaneService } from './services/ControlPlaneService';
 import type { SecurityFinding } from './types/messages';
 
 // ============================================
@@ -712,15 +714,20 @@ export function activate(context: vscode.ExtensionContext) {
   // Register Hover Provider for security findings
   registerHoverProvider(context, diagnosticsProvider);
 
+  // Initialize Control Plane Service
+  const controlPlaneService = getControlPlaneService();
+
   // Register commands from new providers
   registerCodeActionsCommands(context, client);
   registerSecurityTreeCommands(context, securityTreeProvider);
   registerDebatePanelCommands(context, streamManager);
   registerReviewPanelCommands(context, client);
+  registerDebateViewerCommands(context, controlPlaneService);
 
   // Add new providers to subscriptions
   context.subscriptions.push(diagnosticsProvider);
   context.subscriptions.push(streamManager);
+  context.subscriptions.push(controlPlaneService);
 
   // Load initial data
   debatesProvider.loadDebates();
@@ -1134,4 +1141,7 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.window.showInformationMessage('Aragora Control Plane activated with code analysis!');
 }
 
-export function deactivate() {}
+export function deactivate() {
+  // Clean up Control Plane Service
+  disposeControlPlaneService();
+}

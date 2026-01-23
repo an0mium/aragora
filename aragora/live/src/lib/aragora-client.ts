@@ -365,6 +365,73 @@ class OrganizationsAPI {
   }
 }
 
+/**
+ * User Organizations API - Manages user's multi-org memberships
+ */
+class UserOrganizationsAPI {
+  constructor(private http: HttpClient) {}
+
+  /**
+   * List all organizations the current user belongs to
+   */
+  async list(): Promise<{
+    organizations: Array<{
+      user_id: string;
+      org_id: string;
+      organization: {
+        id: string;
+        name: string;
+        slug: string;
+        tier: string;
+        owner_id: string;
+      };
+      role: 'member' | 'admin' | 'owner';
+      is_default: boolean;
+      joined_at: string;
+    }>;
+    active_org_id: string | null;
+    total: number;
+  }> {
+    return this.http.get('/api/v1/user/organizations');
+  }
+
+  /**
+   * Switch to a different organization context
+   */
+  async switch(orgId: string, setAsDefault = false): Promise<{
+    success: boolean;
+    organization: {
+      id: string;
+      name: string;
+      slug: string;
+      tier: string;
+      owner_id: string;
+    };
+    access_token?: string;
+  }> {
+    return this.http.post('/api/v1/user/organizations/switch', {
+      org_id: orgId,
+      set_as_default: setAsDefault,
+    });
+  }
+
+  /**
+   * Set a default organization for the user
+   */
+  async setDefault(orgId: string): Promise<{ success: boolean }> {
+    return this.http.post('/api/v1/user/organizations/default', {
+      org_id: orgId,
+    });
+  }
+
+  /**
+   * Leave an organization (user removes themselves)
+   */
+  async leave(orgId: string): Promise<{ success: boolean }> {
+    return this.http.delete(`/api/v1/user/organizations/${orgId}`);
+  }
+}
+
 // Billing Types
 export interface BillingPlan {
   id: string;
@@ -2971,6 +3038,8 @@ export class AragoraClient {
   readonly agents: AgentsAPI;
   readonly leaderboard: LeaderboardAPI;
   readonly organizations: OrganizationsAPI;
+  /** User organizations API for multi-org support */
+  readonly userOrganizations: UserOrganizationsAPI;
   readonly billing: BillingAPI;
   readonly analytics: AnalyticsAPI;
   readonly mfa: MFAAPI;
@@ -3005,6 +3074,7 @@ export class AragoraClient {
     this.agents = new AgentsAPI(this.http);
     this.leaderboard = new LeaderboardAPI(this.http);
     this.organizations = new OrganizationsAPI(this.http);
+    this.userOrganizations = new UserOrganizationsAPI(this.http);
     this.billing = new BillingAPI(this.http);
     this.analytics = new AnalyticsAPI(this.http);
     this.mfa = new MFAAPI(this.http);

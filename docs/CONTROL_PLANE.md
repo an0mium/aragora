@@ -1,12 +1,12 @@
 # Aragora Control Plane
 
-**Enterprise orchestration for multi-agent robust decisionmaking**
+**Enterprise orchestration for multi-agent vetted decisionmaking**
 
 ---
 
 ## Overview
 
-The Aragora Control Plane is the central orchestration layer that manages multi-agent robust decisionmaking across your organization's knowledge and communication channels. It provides:
+The Aragora Control Plane is the central orchestration layer that manages multi-agent vetted decisionmaking across your organization's knowledge and communication channels. It provides:
 
 - **Agent Orchestration**: Coordinate 15+ AI models with role assignment and capability matching
 - **Task Scheduling**: Priority-based task distribution with Redis-backed queues
@@ -14,7 +14,7 @@ The Aragora Control Plane is the central orchestration layer that manages multi-
 - **Multi-Region Support**: Regional routing for compliance and latency optimization
 - **Governance**: Policy enforcement, RBAC, and audit logging
 
-Terminology note: in the API and worker identifiers, robust decisionmaking
+Terminology note: in the API and worker identifiers, vetted decisionmaking
 sessions are called "deliberations".
 
 ---
@@ -122,6 +122,18 @@ Distributed leader election for multi-node deployments.
 
 Uses Redis-based locking for leader election with automatic failover.
 
+### 5. NotificationDispatcher
+
+Resilient notification delivery for control plane events and outputs.
+
+**Location:** `aragora/control_plane/notifications.py`
+
+Features:
+- Retry with exponential backoff + jitter
+- Circuit breaker per channel
+- Redis Streams persistence (optional)
+- SMTP email provider for escalation paths
+
 ---
 
 ## Deployment Modes
@@ -209,9 +221,9 @@ aliases under `/api/control-plane` for backward compatibility.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/control-plane/deliberations` | Run or queue a robust decisionmaking session |
-| `GET` | `/api/control-plane/deliberations/{id}` | Get robust decisionmaking result |
-| `GET` | `/api/control-plane/deliberations/{id}/status` | Get robust decisionmaking status |
+| `POST` | `/api/control-plane/deliberations` | Run or queue a vetted decisionmaking session |
+| `GET` | `/api/control-plane/deliberations/{id}` | Get vetted decisionmaking result |
+| `GET` | `/api/control-plane/deliberations/{id}/status` | Get vetted decisionmaking status |
 
 ### Queue Endpoints
 
@@ -299,7 +311,7 @@ The control plane dashboard includes specialized widgets:
 | `FleetStatusWidget` | Real-time agent fleet overview with health indicators |
 | `FleetHealthGauge` | Visual gauge showing fleet health percentage |
 | `ActivityFeed` | Real-time event timeline for system activity |
-| `DeliberationTracker` | In-flight robust decisionmaking progress with round tracking |
+| `DeliberationTracker` | In-flight vetted decisionmaking progress with round tracking |
 | `SystemHealthDashboard` | Comprehensive system health monitoring |
 | `ConnectorDashboard` | Data connector status and sync timeline |
 | `KnowledgeExplorer` | Knowledge Mound browser with graph visualization |
@@ -416,7 +428,7 @@ await router.configure_channel(ChannelConfig(
 - `task.submitted` - New task queued
 - `task.completed` - Task finished successfully
 - `task.failed` - Task failed after retries
-- `deliberation.started` - Robust decisionmaking session began
+- `deliberation.started` - Vetted decisionmaking session began
 - `deliberation.consensus` - Consensus was reached
 
 ---
@@ -467,7 +479,7 @@ is_valid = await audit.verify_integrity()
 | `task.claimed` | Task claimed by agent |
 | `task.completed` | Task completed successfully |
 | `task.failed` | Task failed |
-| `deliberation.started` | Robust decisionmaking initiated |
+| `deliberation.started` | Vetted decisionmaking initiated |
 | `deliberation.consensus` | Consensus reached |
 | `notification.sent` | Notification delivered |
 | `policy.evaluated` | Policy check performed |

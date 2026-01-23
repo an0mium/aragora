@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { DeliberationCard, type Deliberation, type DeliberationStatus } from './DeliberationCard';
 
 export interface DeliberationTrackerProps {
-  /** List of robust decisionmaking sessions to display */
+  /** List of vetted decisionmaking sessions to display */
   deliberations: Deliberation[];
   /** Show filter tabs */
   showFilters?: boolean;
@@ -204,7 +204,7 @@ export function DeliberationTracker({
       <div className="max-h-[500px] overflow-y-auto">
         {visibleDeliberations.length === 0 ? (
           <div className="p-6 text-center text-text-muted font-mono text-sm">
-            No robust decisionmaking sessions to display
+            No vetted decisionmaking sessions to display
           </div>
         ) : (
           <div className="p-4 space-y-3">

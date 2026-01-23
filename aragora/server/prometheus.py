@@ -293,6 +293,57 @@ if PROMETHEUS_AVAILABLE:
         buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
     )
 
+    # Deliberation metrics
+    DELIBERATION_DURATION = Histogram(
+        "aragora_deliberation_duration_seconds",
+        "Deliberation execution time",
+        ["status", "consensus_reached"],
+        buckets=[10, 30, 60, 120, 300, 600, 900, 1800],
+    )
+
+    DELIBERATION_SLA_COMPLIANCE = Counter(
+        "aragora_deliberation_sla_total",
+        "SLA compliance counts",
+        ["level"],  # compliant, warning, critical, violated
+    )
+
+    DELIBERATION_CONSENSUS_CONFIDENCE = Histogram(
+        "aragora_deliberation_consensus_confidence",
+        "Distribution of consensus confidence scores",
+        buckets=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0],
+    )
+
+    DELIBERATION_ROUNDS = Histogram(
+        "aragora_deliberation_rounds_total",
+        "Number of rounds per deliberation",
+        ["outcome"],
+        buckets=[1, 2, 3, 4, 5, 7, 10, 15],
+    )
+
+    DELIBERATION_AGENTS = Histogram(
+        "aragora_deliberation_agents_count",
+        "Number of agents per deliberation",
+        buckets=[2, 3, 4, 5, 6, 8, 10],
+    )
+
+    DELIBERATION_TOTAL = Counter(
+        "aragora_deliberation_total",
+        "Total deliberations",
+        ["outcome"],  # consensus, no_consensus, failed, timeout
+    )
+
+    AGENT_UTILIZATION = Gauge(
+        "aragora_agent_utilization_ratio",
+        "Agent busy vs available ratio",
+        ["agent_id"],
+    )
+
+    POLICY_DECISIONS = Counter(
+        "aragora_policy_decisions_total",
+        "Policy evaluation decisions",
+        ["decision", "policy_type"],  # decision: allow, deny, warn
+    )
+
     # RLM (Recursive Language Models) metrics
     RLM_COMPRESSIONS = Counter(
         "aragora_rlm_compressions_total",

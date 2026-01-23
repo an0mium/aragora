@@ -22,7 +22,7 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [GRAPH_DEBATES](./GRAPH_DEBATES.md)
 - `/debates/matrix` - Scenario matrix runner and comparison grid.
   - Related docs: [MATRIX_DEBATES](./MATRIX_DEBATES.md)
-- `/deliberations` - Control plane robust decisionmaking dashboard and live status.
+- `/deliberations` - Control plane vetted decisionmaking dashboard and live status.
   - Related docs: [CONTROL_PLANE](./CONTROL_PLANE.md), [CONTROL_PLANE_GUIDE](./CONTROL_PLANE_GUIDE.md)
 - `/gauntlet/[id]` - Live gauntlet run viewer (adversarial stress-test).
   - Related docs: [GAUNTLET](./GAUNTLET.md), [GAUNTLET_ARCHITECTURE](./GAUNTLET_ARCHITECTURE.md)
@@ -32,7 +32,7 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [CLI_REFERENCE](./CLI_REFERENCE.md), [INDEX](./INDEX.md)
 - `/code-review` - Guided code review workspace with review templates.
   - Related docs: [CODING_ASSISTANCE](./CODING_ASSISTANCE.md), [GITHUB_PR_REVIEW](./GITHUB_PR_REVIEW.md)
-- `/control-plane` - Control plane dashboard (agents, queue, robust decisionmaking sessions).
+- `/control-plane` - Control plane dashboard (agents, queue, vetted decisionmaking sessions).
   - Related docs: [CONTROL_PLANE](./CONTROL_PLANE.md), [CONTROL_PLANE_GUIDE](./CONTROL_PLANE_GUIDE.md)
 
 ## Analysis, Insights, and Memory

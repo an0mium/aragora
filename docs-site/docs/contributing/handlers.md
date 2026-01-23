@@ -120,7 +120,7 @@ GET  /api/v1/auth/sso/login - SSO login (OIDC)
 ```
 POST /api/v1/decisions              - Submit a decision request
 GET  /api/v1/decisions/:id          - Get decision status/result
-POST /api/control-plane/deliberations - Run or queue a robust decisionmaking session
+POST /api/control-plane/deliberations - Run or queue a vetted decisionmaking session
 GET  /api/v1/deliberations/active   - List active deliberations
 ```
 

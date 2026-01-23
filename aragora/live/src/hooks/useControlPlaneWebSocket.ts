@@ -603,6 +603,11 @@ export function useControlPlaneWebSocket({
       onTaskFailed,
       onHealthUpdate,
       onSchedulerStats,
+      onDeliberationStarted,
+      onDeliberationProgress,
+      onDeliberationConsensus,
+      onDeliberationCompleted,
+      onDeliberationSlaWarning,
     ]
   );
 

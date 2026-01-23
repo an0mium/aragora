@@ -102,6 +102,59 @@ export interface OrganizationMember {
   last_login_at: string | null;
 }
 
+/**
+ * Represents a user's membership in an organization (multi-org support).
+ * This is a junction record linking users to organizations with role info.
+ */
+export interface UserOrganization {
+  /** User ID */
+  user_id: string;
+  /** Organization ID */
+  org_id: string;
+  /** Organization details */
+  organization: Organization;
+  /** User's role within this organization */
+  role: 'member' | 'admin' | 'owner';
+  /** Whether this is the user's default/active organization */
+  is_default: boolean;
+  /** When the user joined this organization */
+  joined_at: string;
+}
+
+/**
+ * Response for listing user's organizations.
+ */
+export interface UserOrganizationsResponse {
+  /** List of organizations the user belongs to */
+  organizations: UserOrganization[];
+  /** ID of the currently active organization */
+  active_org_id: string | null;
+  /** Total count of organizations */
+  total: number;
+}
+
+/**
+ * Request to switch the active organization context.
+ */
+export interface SwitchOrganizationRequest {
+  /** ID of the organization to switch to */
+  org_id: string;
+  /** Whether to set this as the default organization */
+  set_as_default?: boolean;
+}
+
+/**
+ * Response after switching organization context.
+ */
+export interface SwitchOrganizationResponse {
+  /** Success status */
+  success: boolean;
+  /** The new active organization */
+  organization: Organization;
+  /** Updated access token with org context (if applicable) */
+  access_token?: string;
+}
+
 export interface AnalyticsOverview {
   total_debates: number;
   active_debates: number;

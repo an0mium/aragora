@@ -2,17 +2,17 @@
 
 ## Core Features
 
-### 1. Control Plane for Deliberation
+### 1. Control Plane for Vetted Decisionmaking
 **Orchestrate agent fleets, queues, and governance** across high-stakes decisions.
 
 - Agent registry + health monitoring
 - Priority task queues
 - Policy enforcement and audit logging
-- Deliberations as first-class tasks
+- Vetted decisionmaking sessions as first-class tasks (deliberations in the API)
 
 ---
 
-### 2. Multi-Agent Deliberation Engine
+### 2. Multi-Agent Vetted Decisionmaking Engine
 **Heterogeneous AI perspectives prevent blind spots** by design.
 
 Agents debate, critique, and synthesize outputs with evidence chains and
@@ -32,7 +32,7 @@ confidence scoring.
 ### 4. Decision Receipts
 **Audit-ready documentation for every decision.**
 
-Each robust decisionmaking session produces a tamper-evident receipt with evidence trails,
+Each vetted decisionmaking session produces a tamper-evident receipt with evidence trails,
 dissent tracking, and provenance metadata.
 
 ---
@@ -53,7 +53,7 @@ Subject any decision artifact to systematic stress-testing:
 ---
 
 ### 7. Real-Time Streaming
-**Watch robust decisionmaking sessions unfold live** with WebSocket updates and dashboards.
+**Watch vetted decisionmaking sessions unfold live** with WebSocket updates and dashboards.
 
 ---
 
@@ -70,7 +70,7 @@ aragora gauntlet spec.md --persona gdpr
 from aragora.control_plane import ControlPlaneCoordinator
 
 coordinator = ControlPlaneCoordinator()
-# submit tasks or robust decisionmaking sessions via API
+# submit tasks or vetted decisionmaking sessions via API
 ```
 
 ### Webhooks

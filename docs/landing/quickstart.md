@@ -2,9 +2,9 @@
 
 Get up and running with Aragora in 5 minutes.
 
-Aragora is the control plane for multi-agent robust decisionmaking across organizational
+Aragora is the control plane for multi-agent vetted decisionmaking across organizational
 knowledge and channels. Gauntlet is the fastest path to a decision stress-test,
-and the decision router is the fastest path to a robust decisionmaking session.
+and the decision router is the fastest path to a vetted decisionmaking session.
 
 ## Installation
 
@@ -103,14 +103,14 @@ Agents: anthropic-api, openai-api, gemini
 
 ---
 
-## Your First Robust Decisionmaking (API)
+## Your First Vetted Decisionmaking (API)
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/decisions \\
   -H \"Content-Type: application/json\" \\
   -d '{\n    \"content\": \"Should we migrate to microservices this quarter?\",\n    \"decision_type\": \"debate\"\n  }'\n```
 
-Use `/api/control-plane/deliberations` for queued, multi-agent robust decisionmaking workflows.
+Use `/api/control-plane/deliberations` for queued, multi-agent vetted decisionmaking workflows.
 
 ---
 

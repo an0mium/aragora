@@ -200,7 +200,7 @@ describe('ControlPlanePage', () => {
       expect(screen.getByRole('button', { name: /SETTINGS/i })).toBeInTheDocument();
     });
 
-    it('renders robust decisionmaking console', async () => {
+    it('renders vetted decisionmaking console', async () => {
       render(<ControlPlanePage />);
 
       await waitFor(() => {
@@ -209,12 +209,12 @@ describe('ControlPlanePage', () => {
 
       expect(screen.getByText('Robust Decisionmaking Console')).toBeInTheDocument();
       expect(
-        screen.getByPlaceholderText('Describe the decision for robust decisionmaking...')
+        screen.getByPlaceholderText('Describe the decision for vetted decisionmaking...')
       ).toBeInTheDocument();
     });
   });
 
-  it('submits a robust decisionmaking request', async () => {
+  it('submits a vetted decisionmaking request', async () => {
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('/api/control-plane/deliberations')) {
         return Promise.resolve({

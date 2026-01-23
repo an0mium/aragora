@@ -66,6 +66,7 @@ from .utilities import (
 )
 from .belief import BeliefHandler
 from .admin import BillingHandler  # Moved to admin/
+from .usage_metering import UsageMeteringHandler  # Token-level usage metering
 from .breakpoints import BreakpointsHandler
 from .features import AudioHandler  # Moved to features/
 from .transcription import TranscriptionHandler
@@ -287,6 +288,7 @@ ALL_HANDLERS = [
     LearningHandler,
     AuthHandler,
     BillingHandler,
+    UsageMeteringHandler,  # Token-level usage metering for ENTERPRISE_PLUS
     OrganizationsHandler,
     OAuthHandler,
     FeaturesHandler,

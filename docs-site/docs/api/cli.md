@@ -5,7 +5,7 @@ description: Aragora CLI Reference
 
 # Aragora CLI Reference
 
-Complete command-line interface reference for Aragora - Control Plane for Multi-Agent Deliberation.
+Complete command-line interface reference for Aragora - Control Plane for Multi-Agent Vetted Decisionmaking.
 
 ## Installation
 

@@ -62,7 +62,7 @@ export function HeroSection({
                 >
                   Log In
                 </a>
-                {' '}to start robust decisionmaking.
+                {' '}to start vetted decisionmaking.
               </>
             ) : (
               error

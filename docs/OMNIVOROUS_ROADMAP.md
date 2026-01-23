@@ -1,11 +1,11 @@
-# Aragora: Control Plane for Multi-Agent Deliberation
+# Aragora: Control Plane for Multi-Agent Vetted Decisionmaking
 
 ## Mission Statement
 
-Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels** - a system designed to:
+Aragora is the **control plane for multi-agent vetted decisionmaking across organizational knowledge and channels** - a system designed to:
 
 1. **Ingest broadly**: Accept inputs from any source - 25+ document formats, databases, APIs, chat platforms, voice, real-time data feeds
-2. **Deliberate deeply**: Orchestrate 15+ AI models in structured debate to reach well-reasoned conclusions with full audit trails
+2. **Vet deeply**: Orchestrate 15+ AI models in structured debate to reach well-reasoned conclusions with full audit trails
 3. **Deliver anywhere**: Route outputs through multiple channels - Slack, Teams, Discord, Telegram, WhatsApp, voice, webhooks
 
 Unlike chatbots, Aragora builds institutional memory that compounds over time. The control plane architecture orchestrates knowledge and communication channels across your organization.

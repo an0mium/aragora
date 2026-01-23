@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-01-22
 
-Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It is **omnivorous by design**—communicating bidirectionally across multiple channels. Query from wherever you work; get defensible decisions delivered back to you.
+Aragora is the **control plane for multi-agent vetted decisionmaking across organizational knowledge and channels**. It is **omnivorous by design**—communicating bidirectionally across multiple channels. Query from wherever you work; get defensible decisions delivered back to you.
 
 **Output Channels**: Web, Slack, Discord, Microsoft Teams, Zoom, WhatsApp Business, Telegram, API.
 

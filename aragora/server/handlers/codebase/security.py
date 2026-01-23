@@ -482,12 +482,12 @@ async def _emit_scan_events(
                         id=vuln.id,
                         finding_type="vulnerability",
                         severity=severity,
-                        title=vuln.title or vuln.cve_id or "Unknown",
+                        title=vuln.title or vuln.id or "Unknown",
                         description=vuln.description or "",
-                        cve_id=vuln.cve_id,
+                        cve_id=vuln.id,  # vuln.id is the CVE ID
                         package_name=dep.name,
                         package_version=dep.version,
-                        recommendation=vuln.recommendation,
+                        recommendation=vuln.remediation_guidance,
                         metadata={
                             "ecosystem": dep.ecosystem,
                             "cvss_score": getattr(vuln, "cvss_score", None),
@@ -1376,25 +1376,29 @@ async def _emit_sast_events(
             )
 
             sec_finding = SecurityFinding(
-                finding_id=f"{scan_id}:{finding.rule_id}:{finding.line_start}",
+                id=f"{scan_id}:{finding.rule_id}:{finding.line_start}",
+                finding_type="sast",
                 title=finding.message[:100],
                 description=finding.message,
                 severity=severity,
-                category=finding.owasp_category.value,
-                source="sast_scanner",
-                location=f"{finding.file_path}:{finding.line_start}",
-                cwe_id=finding.cwe_ids[0] if finding.cwe_ids else None,
-                remediation=finding.remediation or "Review and fix the security issue",
-                confidence=finding.confidence,
+                file_path=finding.file_path,
+                line_number=finding.line_start,
+                cve_id=finding.cwe_ids[0] if finding.cwe_ids else None,
+                recommendation=finding.remediation or "Review and fix the security issue",
+                metadata={
+                    "category": finding.owasp_category.value,
+                    "source": "sast_scanner",
+                    "confidence": finding.confidence,
+                },
             )
 
             event = SecurityEvent(
-                event_type=SecurityEventType.SAST_FINDING,
+                event_type=SecurityEventType.SAST_CRITICAL,
                 severity=severity,
                 source="sast_scanner",
                 findings=[sec_finding],
                 scan_id=scan_id,
-                repository_id=repo_id,
+                repository=repo_id,
                 metadata={
                     "rule_id": finding.rule_id,
                     "language": finding.language,
@@ -1446,6 +1450,7 @@ async def handle_generate_sbom(
     include_vulnerabilities: bool = True,
     branch: Optional[str] = None,
     commit_sha: Optional[str] = None,
+    workspace_id: Optional[str] = None,
 ) -> HandlerResult:
     """
     Generate SBOM for a repository.

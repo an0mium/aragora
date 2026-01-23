@@ -8,11 +8,11 @@
 
 ## Executive Summary
 
-**Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels.** It orchestrates 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
+**Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.** It orchestrates 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
-> "Aragora: Control plane for multi-agent robust decisionmaking across org knowledge and channels."
+> "Aragora: Control plane for multi-agent vetted decisionmaking across org knowledge and channels."
 
-Deliberation is the internal engine. The product is a defensible decision record with full audit trails.
+Deliberation is the internal engine; externally we describe it as vetted decisionmaking. The product is a defensible decision record with full audit trails.
 
 **For high-stakes teams** in legal, finance, compliance, and security—where "the AI said so" isn't good enough—Aragora provides decision assurance with receipts.
 
@@ -164,15 +164,15 @@ BEFORE ARAGORA                          AFTER ARAGORA
 ## Messaging Framework
 
 ### Tagline Options
-1. "Control plane for multi-agent robust decisionmaking across org knowledge and channels."
+1. "Control plane for multi-agent vetted decisionmaking across org knowledge and channels."
 2. "The multi-agent control plane for defensible decisions."
 3. "Decision assurance from any source, delivered anywhere."
 
 ### One-Liner
-"Aragora orchestrates multi-agent robust decisionmaking across your org’s knowledge to deliver defensible, audit-ready decisions to every channel."
+"Aragora orchestrates multi-agent vetted decisionmaking across your org’s knowledge to deliver defensible, audit-ready decisions to every channel."
 
 ### Elevator Pitch (30 seconds)
-"When you make a high-stakes technical decision—a new architecture, API design, or policy change—how do you know you've considered all the angles? Aragora is the control plane for multi-agent robust decisionmaking: it runs structured debates across heterogeneous AI models, stress-testing decisions from security, compliance, scalability, and maintainability perspectives. You get a cryptographic Decision Receipt documenting the analysis—perfect for audits, post-mortems, and decision records."
+"When you make a high-stakes technical decision—a new architecture, API design, or policy change—how do you know you've considered all the angles? Aragora is the control plane for multi-agent vetted decisionmaking: it runs structured debates across heterogeneous AI models, stress-testing decisions from security, compliance, scalability, and maintainability perspectives. You get a cryptographic Decision Receipt documenting the analysis—perfect for audits, post-mortems, and decision records."
 
 ---
 

@@ -182,6 +182,15 @@ from aragora.control_plane.policy import (
     create_sensitive_data_policy,
     create_sla_policy,
 )
+from aragora.control_plane.region_router import (
+    RegionRouter,
+    RegionRoutingDecision,
+    RegionStatus,
+    RegionHealth as RouterRegionHealth,  # Alias to avoid conflict with regional_sync.RegionHealth
+    get_region_router,
+    set_region_router,
+    init_region_router,
+)
 
 __all__ = [
     # Registry
@@ -302,4 +311,12 @@ __all__ = [
     "get_arena_bridge",
     "init_arena_bridge",
     "set_arena_bridge",
+    # Region Router
+    "RegionRouter",
+    "RegionRoutingDecision",
+    "RegionStatus",
+    "RouterRegionHealth",
+    "get_region_router",
+    "set_region_router",
+    "init_region_router",
 ]

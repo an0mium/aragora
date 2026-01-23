@@ -568,6 +568,232 @@ class ControlPlaneAdapter:
             return []
 
     # =========================================================================
+    # Bidirectional Sync: KM → Agent Selection
+    # =========================================================================
+
+    async def get_similar_task_outcomes(
+        self,
+        task_type: str,
+        question: str,
+        limit: int = 10,
+    ) -> List[TaskOutcome]:
+        """
+        Retrieve similar past task outcomes for learning.
+
+        Uses semantic similarity to find tasks similar to the given question,
+        enabling learning from historical patterns.
+
+        Args:
+            task_type: Type of task to filter by
+            question: Question or task description to find similar outcomes
+            limit: Maximum outcomes to return
+
+        Returns:
+            List of TaskOutcome sorted by similarity
+        """
+        if not self._knowledge_mound:
+            return []
+
+        try:
+            # Query KM with semantic search
+            results = await self._knowledge_mound.query(
+                query=f"task {task_type} {question[:200]}",  # Truncate long questions
+                limit=limit * 2,  # Over-fetch for filtering
+                workspace_id=self._workspace_id,
+            )
+
+            outcomes = []
+            for result in results:
+                metadata = result.get("metadata", {})
+                if metadata.get("type") != "control_plane_task_outcome":
+                    continue
+                if metadata.get("task_type") != task_type:
+                    continue
+
+                outcome = TaskOutcome(
+                    task_id=metadata.get("task_id", ""),
+                    task_type=metadata.get("task_type", ""),
+                    agent_id=metadata.get("agent_id", ""),
+                    success=metadata.get("success", False),
+                    duration_seconds=metadata.get("duration_seconds", 0),
+                    workspace_id=self._workspace_id,
+                    error_message=metadata.get("error_message"),
+                    metadata={
+                        "similarity_score": result.get("score", 0.0),
+                        **{
+                            k: v
+                            for k, v in metadata.items()
+                            if k
+                            not in [
+                                "type",
+                                "task_id",
+                                "task_type",
+                                "agent_id",
+                                "success",
+                                "duration_seconds",
+                                "error_message",
+                            ]
+                        },
+                    },
+                )
+                if outcome.task_id:
+                    outcomes.append(outcome)
+
+            # Sort by similarity (highest first)
+            outcomes.sort(
+                key=lambda o: o.metadata.get("similarity_score", 0),
+                reverse=True,
+            )
+
+            logger.debug(f"Found {len(outcomes)} similar task outcomes for {task_type}")
+
+            return outcomes[:limit]
+
+        except Exception as e:
+            logger.error(f"Failed to get similar task outcomes: {e}")
+            return []
+
+    async def get_agent_success_rates(
+        self,
+        task_type: str,
+        agents: List[str],
+        recency_days: int = 30,
+    ) -> Dict[str, float]:
+        """
+        Get historical success rates per agent for a task type.
+
+        Calculates success rate from stored task outcomes with
+        time-weighted recency bias.
+
+        Args:
+            task_type: Type of task to analyze
+            agents: List of agent IDs to query
+            recency_days: How many days back to consider
+
+        Returns:
+            Dict mapping agent_id to success rate (0.0-1.0)
+        """
+        if not self._knowledge_mound:
+            return {agent: 0.5 for agent in agents}  # Default 50% if no KM
+
+        try:
+            # Query for task outcomes
+            results = await self._knowledge_mound.query(
+                query=f"task outcome {task_type}",
+                limit=500,  # Query many for statistical significance
+                workspace_id=self._workspace_id,
+            )
+
+            # Aggregate by agent
+            agent_stats: Dict[str, Dict[str, int]] = {
+                agent: {"success": 0, "total": 0} for agent in agents
+            }
+
+            import time as time_module
+
+            cutoff_time = time_module.time() - (recency_days * 86400)
+
+            for result in results:
+                metadata = result.get("metadata", {})
+                if metadata.get("type") != "control_plane_task_outcome":
+                    continue
+                if metadata.get("task_type") != task_type:
+                    continue
+
+                agent_id = metadata.get("agent_id", "")
+                if agent_id not in agent_stats:
+                    continue
+
+                # Check recency (if timestamp available)
+                created_at = metadata.get("created_at")
+                if created_at and isinstance(created_at, (int, float)):
+                    if created_at < cutoff_time:
+                        continue  # Skip old results
+
+                agent_stats[agent_id]["total"] += 1
+                if metadata.get("success", False):
+                    agent_stats[agent_id]["success"] += 1
+
+            # Calculate success rates
+            success_rates = {}
+            for agent_id, stats in agent_stats.items():
+                if stats["total"] > 0:
+                    success_rates[agent_id] = stats["success"] / stats["total"]
+                else:
+                    success_rates[agent_id] = 0.5  # Default for no history
+
+            logger.debug(f"Success rates for {task_type}: {success_rates}")
+
+            return success_rates
+
+        except Exception as e:
+            logger.error(f"Failed to get agent success rates: {e}")
+            return {agent: 0.5 for agent in agents}
+
+    async def get_agent_recommendations_for_task(
+        self,
+        task_type: str,
+        available_agents: List[str],
+        required_capabilities: Optional[List[str]] = None,
+        top_n: int = 3,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get agent recommendations for a task based on KM history.
+
+        Combines capability performance and task-specific success rates
+        to recommend the best agents.
+
+        Args:
+            task_type: Type of task
+            available_agents: List of available agent IDs
+            required_capabilities: Required capabilities (optional)
+            top_n: Number of recommendations to return
+
+        Returns:
+            List of agent recommendations with scores
+        """
+        recommendations = []
+
+        # Get success rates
+        success_rates = await self.get_agent_success_rates(task_type, available_agents)
+
+        # Get capability recommendations if specified
+        capability_scores: Dict[str, float] = {}
+        if required_capabilities:
+            for capability in required_capabilities:
+                cap_records = await self.get_capability_recommendations(capability)
+                for record in cap_records:
+                    if record.agent_id in available_agents:
+                        total = record.success_count + record.failure_count
+                        if total > 0:
+                            score = record.success_count / total
+                            current = capability_scores.get(record.agent_id, 0)
+                            capability_scores[record.agent_id] = max(current, score)
+
+        # Combine scores
+        for agent_id in available_agents:
+            task_score = success_rates.get(agent_id, 0.5)
+            cap_score = capability_scores.get(agent_id, 0.5)
+
+            # Weight: 60% task success, 40% capability
+            combined_score = (task_score * 0.6) + (cap_score * 0.4)
+
+            recommendations.append(
+                {
+                    "agent_id": agent_id,
+                    "combined_score": combined_score,
+                    "task_success_rate": task_score,
+                    "capability_score": cap_score,
+                    "confidence": min(1.0, combined_score * 1.1),  # Boost slightly
+                }
+            )
+
+        # Sort by combined score
+        recommendations.sort(key=lambda r: r["combined_score"], reverse=True)
+
+        return recommendations[:top_n]
+
+    # =========================================================================
     # Stats and Metrics
     # =========================================================================
 

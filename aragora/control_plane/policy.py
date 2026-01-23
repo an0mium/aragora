@@ -50,6 +50,17 @@ except ImportError:
     HAS_AUDIT = False
     log_policy_decision = None  # type: ignore
 
+# Prometheus metrics (optional)
+try:
+    from aragora.server.prometheus_control_plane import (
+        record_policy_decision as prometheus_record_policy,
+    )
+
+    HAS_PROMETHEUS = True
+except ImportError:
+    HAS_PROMETHEUS = False
+    prometheus_record_policy = None  # type: ignore
+
 
 class PolicyScope(Enum):
     """Scope of a control plane policy."""
@@ -553,6 +564,8 @@ class ControlPlanePolicyManager:
                     agent_id=agent_id,
                     violations=[f"agent:{agent_id}"],
                 )
+                # Record Prometheus metric
+                self._record_policy_metric(decision="deny", policy_type="agent_restriction")
                 return result
 
             # Check region restriction
@@ -585,6 +598,8 @@ class ControlPlanePolicyManager:
                     agent_id=agent_id,
                     violations=[f"region:{region}"],
                 )
+                # Record Prometheus metric
+                self._record_policy_metric(decision="deny", policy_type="region_restriction")
                 return result
 
         # All policies passed
@@ -611,6 +626,8 @@ class ControlPlanePolicyManager:
             task_id=task_id,
             agent_id=agent_id,
         )
+        # Record Prometheus metric
+        self._record_policy_metric(decision="allow", policy_type="all")
 
         return result
 
@@ -831,6 +848,20 @@ class ControlPlanePolicyManager:
                 decision=decision,
                 reason="No event loop running",
             )
+
+    def _record_policy_metric(
+        self,
+        decision: str,
+        policy_type: str,
+    ) -> None:
+        """Record policy decision metric to Prometheus."""
+        if not HAS_PROMETHEUS or prometheus_record_policy is None:
+            return
+
+        try:
+            prometheus_record_policy(decision=decision, policy_type=policy_type)
+        except Exception as e:
+            logger.debug("prometheus_metric_failed", error=str(e))
 
     def get_violations(
         self,

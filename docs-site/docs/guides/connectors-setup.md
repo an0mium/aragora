@@ -515,7 +515,7 @@ ARAGORA_FHIR_ACCESS_TOKEN=your-token
 
 ## Accounting Connectors
 
-Aragora provides connectors for accounting and financial services to enable intelligent financial data analysis and multi-agent robust decisionmaking on financial decisions.
+Aragora provides connectors for accounting and financial services to enable intelligent financial data analysis and multi-agent vetted decisionmaking on financial decisions.
 
 | Connector | Purpose | Features |
 |-----------|---------|----------|

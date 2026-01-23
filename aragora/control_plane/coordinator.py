@@ -399,6 +399,8 @@ class ControlPlaneCoordinator:
         capabilities: List[str | AgentCapability],
         strategy: str = "least_loaded",
         exclude: Optional[List[str]] = None,
+        task_type: Optional[str] = None,
+        use_km_recommendations: bool = True,
     ) -> Optional[AgentInfo]:
         """
         Select an agent for a task.
@@ -407,6 +409,8 @@ class ControlPlaneCoordinator:
             capabilities: Required capabilities
             strategy: Selection strategy
             exclude: Agent IDs to exclude
+            task_type: Task type for KM-based recommendations
+            use_km_recommendations: Whether to use KM history for weighting
 
         Returns:
             Selected agent or None
@@ -418,11 +422,135 @@ class ControlPlaneCoordinator:
             if not self._health_monitor.is_agent_available(agent_id):
                 all_excluded.add(agent_id)
 
+        # If KM integration enabled and task_type provided, use KM recommendations
+        if use_km_recommendations and self._km_adapter and task_type and HAS_KM_ADAPTER:
+            return await self._select_agent_with_km(
+                capabilities=capabilities,
+                task_type=task_type,
+                exclude=list(all_excluded),
+            )
+
         return await self._registry.select_agent(
             capabilities=capabilities,
             strategy=strategy,
             exclude=list(all_excluded),
         )
+
+    async def _select_agent_with_km(
+        self,
+        capabilities: List[str | AgentCapability],
+        task_type: str,
+        exclude: Optional[List[str]] = None,
+    ) -> Optional[AgentInfo]:
+        """
+        Select an agent using KM-based historical recommendations.
+
+        Queries the Knowledge Mound for agent success rates on similar
+        tasks and uses this to weight the selection.
+
+        Args:
+            capabilities: Required capabilities
+            task_type: Type of task
+            exclude: Agent IDs to exclude
+
+        Returns:
+            Selected agent or None
+        """
+        # Get available agents with required capabilities
+        available_agents = []
+        for cap in capabilities:
+            agents = await self._registry.find_by_capability(cap, only_available=True)
+            for agent in agents:
+                if agent.agent_id not in (exclude or []):
+                    available_agents.append(agent)
+
+        if not available_agents:
+            return None
+
+        # Deduplicate
+        agent_map = {a.agent_id: a for a in available_agents}
+        agent_ids = list(agent_map.keys())
+
+        # Get KM recommendations
+        try:
+            cap_strings = [str(c) for c in capabilities]
+            recommendations = await self._km_adapter.get_agent_recommendations_for_task(
+                task_type=task_type,
+                available_agents=agent_ids,
+                required_capabilities=cap_strings,
+                top_n=len(agent_ids),
+            )
+
+            if recommendations:
+                # Select the highest-scoring agent
+                best_rec = recommendations[0]
+                selected_id = best_rec["agent_id"]
+
+                logger.debug(
+                    "km_agent_selection",
+                    task_type=task_type,
+                    selected=selected_id,
+                    score=best_rec.get("combined_score", 0),
+                    km_recommendations=[r["agent_id"] for r in recommendations[:3]],
+                )
+
+                return agent_map.get(selected_id)
+
+        except Exception as e:
+            logger.debug(f"KM recommendation failed, using fallback: {e}")
+
+        # Fallback to registry selection
+        return await self._registry.select_agent(
+            capabilities=capabilities,
+            strategy="least_loaded",
+            exclude=exclude,
+        )
+
+    async def get_agent_recommendations_from_km(
+        self,
+        task_type: str,
+        capabilities: List[str],
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get agent recommendations from Knowledge Mound.
+
+        Public method for querying KM for agent recommendations without
+        selecting an agent.
+
+        Args:
+            task_type: Type of task
+            capabilities: Required capabilities
+            limit: Maximum recommendations to return
+
+        Returns:
+            List of agent recommendations with scores
+        """
+        if not self._km_adapter or not HAS_KM_ADAPTER:
+            return []
+
+        # Get available agents
+        available_agents = []
+        for cap in capabilities:
+            agents = await self._registry.find_by_capability(cap, only_available=True)
+            available_agents.extend([a.agent_id for a in agents])
+
+        # Deduplicate
+        available_agents = list(set(available_agents))
+
+        if not available_agents:
+            return []
+
+        try:
+            return await self._km_adapter.get_agent_recommendations_for_task(
+                task_type=task_type,
+                available_agents=available_agents,
+                required_capabilities=capabilities,
+                top_n=limit,
+            )
+        except Exception as e:
+            logger.debug(f"Failed to get KM recommendations: {e}")
+            return []
 
     # =========================================================================
     # Task Operations

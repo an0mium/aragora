@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { OrganizationSwitcher } from './OrganizationSwitcher';
 
 export function UserMenu() {
-  const { user, organization, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, organization, organizations, isAuthenticated, isLoading, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -138,6 +139,13 @@ export function UserMenu() {
               </div>
             )}
           </div>
+
+          {/* Organization Switcher - shown when user has multiple orgs */}
+          {organizations.length > 1 && (
+            <div className="p-3 border-b border-acid-green/20">
+              <OrganizationSwitcher compact onSwitch={() => setIsOpen(false)} />
+            </div>
+          )}
 
           {/* Menu Items */}
           <div className="py-2">

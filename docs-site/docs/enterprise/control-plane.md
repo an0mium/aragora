@@ -74,10 +74,10 @@ await coordinator.shutdown()
 All endpoints are available under `/api/v1/control-plane` with legacy aliases
 under `/api/control-plane`. Examples below use the legacy path for brevity.
 
-Terminology note: in the API and worker identifiers, robust decisionmaking
+Terminology note: in the API and worker identifiers, vetted decisionmaking
 sessions are called "deliberations".
 
-Authentication is required. Task and robust decisionmaking operations
+Authentication is required. Task and vetted decisionmaking operations
 (deliberations in the API) require the
 `controlplane:tasks` permission; agent registration and management require
 `controlplane:agents`.
@@ -424,9 +424,9 @@ Response:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/control-plane/deliberations` | Run or queue a robust decisionmaking session |
-| `GET` | `/api/control-plane/deliberations/:id` | Get robust decisionmaking result |
-| `GET` | `/api/control-plane/deliberations/:id/status` | Get robust decisionmaking status |
+| `POST` | `/api/control-plane/deliberations` | Run or queue a vetted decisionmaking session |
+| `GET` | `/api/control-plane/deliberations/:id` | Get vetted decisionmaking result |
+| `GET` | `/api/control-plane/deliberations/:id/status` | Get vetted decisionmaking status |
 
 #### Submit Robust Decisionmaking (Sync)
 

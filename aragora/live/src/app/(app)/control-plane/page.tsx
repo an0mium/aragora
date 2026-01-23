@@ -175,10 +175,10 @@ export default function ControlPlanePage() {
     } : undefined,
   }));
 
-  // Mock robust decisionmaking sessions data (would come from API in production)
+  // Mock vetted decisionmaking sessions data (would come from API in production)
   const [deliberations, setDeliberations] = useState<Deliberation[]>([]);
 
-  // Fetch robust decisionmaking sessions
+  // Fetch vetted decisionmaking sessions
   useEffect(() => {
     const fetchDeliberations = async () => {
       try {
@@ -648,13 +648,13 @@ export default function ControlPlanePage() {
                       <div className="p-4 border-b border-border">
                         <h2 className="font-mono text-sm text-acid-green">Robust Decisionmaking Console</h2>
                         <p className="text-text-muted text-xs font-mono mt-1">
-                          Submit robust decisionmaking sessions to the control plane and capture decision receipts.
+                          Submit vetted decisionmaking sessions to the control plane and capture decision receipts.
                         </p>
                       </div>
                       <div className="p-4 space-y-4">
                         <textarea
                           className="w-full min-h-[120px] bg-surface border border-border rounded p-3 text-sm font-mono text-text"
-                          placeholder="Describe the decision for robust decisionmaking..."
+                          placeholder="Describe the decision for vetted decisionmaking..."
                           value={deliberationInput}
                           onChange={(event) => setDeliberationInput(event.target.value)}
                         />

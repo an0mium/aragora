@@ -86,6 +86,8 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 - [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md)
 - [OBSERVABILITY.md](OBSERVABILITY.md)
 - [SCALING.md](SCALING.md)
+- [deployment/ASYNC_GATEWAY.md](deployment/ASYNC_GATEWAY.md)
+- [deployment/CONTAINER_VOLUMES.md](deployment/CONTAINER_VOLUMES.md)
 
 ### Security & Compliance
 
