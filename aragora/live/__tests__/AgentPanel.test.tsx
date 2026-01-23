@@ -8,7 +8,7 @@ import type { StreamEvent } from '../src/types/events';
 
 // Mock getAgentColors
 jest.mock('../src/utils/agentColors', () => ({
-  getAgentColors: (agent: string) => ({
+  getAgentColors: (_agent: string) => ({
     bg: 'bg-surface',
     border: 'border-acid-green/30',
     text: 'text-acid-green',

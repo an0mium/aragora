@@ -2,7 +2,7 @@
  * Tests for AgentComparePanel component
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { AgentComparePanel } from '../src/components/AgentComparePanel';
 
 // Mock fetch globally

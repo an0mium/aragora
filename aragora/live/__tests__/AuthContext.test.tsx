@@ -11,7 +11,7 @@
  * - Error handling
  */
 
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { waitFor, act } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 

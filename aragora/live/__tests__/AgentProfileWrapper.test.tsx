@@ -9,7 +9,7 @@
  * - Responsive layout
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AgentProfileWrapper } from '../src/app/agent/[[...name]]/AgentProfileWrapper';
 import { mockRouter, useParams } from 'next/navigation';
 

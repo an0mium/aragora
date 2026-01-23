@@ -117,7 +117,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('passes reset function to custom fallback', () => {
-    const resetMock = jest.fn();
+    const _resetMock = jest.fn();
     let capturedReset: (() => void) | null = null;
 
     const customFallback = (error: Error, reset: () => void) => {

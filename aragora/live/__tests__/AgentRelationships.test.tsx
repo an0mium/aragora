@@ -29,7 +29,7 @@ jest.mock('../src/utils/logger', () => ({
 
 // Mock agentColors utility
 jest.mock('../src/utils/agentColors', () => ({
-  getAgentColors: (agent: string) => ({
+  getAgentColors: (_agent: string) => ({
     text: 'text-white',
     bg: 'bg-gray-500',
     border: 'border-gray-500',

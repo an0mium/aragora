@@ -52,14 +52,14 @@ const mockProbeReport = {
 };
 
 function setupSuccessfulFetch() {
-  mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+  mockFetch.mockImplementation((url: string, _options?: RequestInit) => {
     if (url.includes('/api/leaderboard')) {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ agents: mockAgents }),
       });
     }
-    if (url.includes('/api/probes/run') && options?.method === 'POST') {
+    if (url.includes('/api/probes/run') && _options?.method === 'POST') {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(mockProbeReport),
