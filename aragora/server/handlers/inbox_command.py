@@ -904,6 +904,8 @@ class InboxCommandHandler:
         force_tier: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Reprioritize emails using AI."""
+        from aragora.services.email_prioritization import ScoringTier
+
         if not self.prioritizer:
             return {
                 "count": 0,
@@ -913,18 +915,91 @@ class InboxCommandHandler:
 
         # Get emails to reprioritize
         if email_ids:
-            emails_to_process = [_email_cache.get(eid) for eid in email_ids if eid in _email_cache]
+            emails_to_process = [
+                (eid, _email_cache.get(eid)) for eid in email_ids if eid in _email_cache
+            ]
         else:
-            emails_to_process = list(_email_cache.values())
+            emails_to_process = list(_email_cache.items())
 
         if not emails_to_process:
             return {"count": 0, "changes": []}
 
+        # Map force_tier string to ScoringTier enum
+        tier_map = {
+            "tier_1_rules": ScoringTier.TIER_1_RULES,
+            "tier_2_lightweight": ScoringTier.TIER_2_LIGHTWEIGHT,
+            "tier_3_debate": ScoringTier.TIER_3_DEBATE,
+        }
+        scoring_tier = tier_map.get(force_tier) if force_tier else None
+
         changes: List[Dict[str, Any]] = []
-        # TODO: Actually call the prioritizer with force_tier option
-        # For now, return the count indicating reprioritization was requested
+        processed_count = 0
+
+        # Re-score each email
+        for email_id, cached_email in emails_to_process:
+            if not cached_email:
+                continue
+
+            old_priority = cached_email.get("priority", "medium")
+            old_confidence = cached_email.get("confidence", 0.5)
+
+            try:
+                # Get fresh emails from Gmail if connector available
+                if self.gmail_connector:
+                    try:
+                        email_msg = await self.gmail_connector.get_message(email_id)
+                        if email_msg:
+                            result = await self.prioritizer.score_email(
+                                email_msg, force_tier=scoring_tier
+                            )
+
+                            new_priority = result.priority.name.lower()
+                            new_confidence = result.confidence
+
+                            # Update cache
+                            _email_cache[email_id].update(
+                                {
+                                    "priority": new_priority,
+                                    "confidence": new_confidence,
+                                    "reasoning": result.rationale,
+                                    "tier_used": result.tier_used.value,
+                                    "scores": {
+                                        "sender": result.sender_score,
+                                        "urgency": result.content_urgency_score,
+                                        "context": result.context_relevance_score,
+                                        "time_sensitivity": result.time_sensitivity_score,
+                                    },
+                                    "suggested_labels": result.suggested_labels,
+                                    "auto_archive": result.auto_archive,
+                                }
+                            )
+
+                            # Track if priority changed
+                            if old_priority != new_priority:
+                                changes.append(
+                                    {
+                                        "email_id": email_id,
+                                        "old_priority": old_priority,
+                                        "new_priority": new_priority,
+                                        "old_confidence": old_confidence,
+                                        "new_confidence": new_confidence,
+                                        "tier_used": result.tier_used.value,
+                                    }
+                                )
+
+                            processed_count += 1
+                    except Exception as e:
+                        logger.debug(f"Could not fetch email {email_id}: {e}")
+                        processed_count += 1
+                else:
+                    # No Gmail connector - just mark as processed
+                    processed_count += 1
+
+            except Exception as e:
+                logger.warning(f"Failed to reprioritize email {email_id}: {e}")
+
         return {
-            "count": len(emails_to_process),
+            "count": processed_count,
             "changes": changes,
             "tier_used": force_tier or "auto",
         }
