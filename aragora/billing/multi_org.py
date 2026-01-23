@@ -11,6 +11,7 @@ import json
 import logging
 import sqlite3
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -243,11 +244,33 @@ class MultiOrgManager:
         self.max_orgs_per_user = max_orgs_per_user
         self._lock = threading.Lock()
         self._contexts: Dict[str, OrgContext] = {}  # user_id -> current context
+        # For in-memory databases, we need to keep a persistent connection
+        self._persistent_conn: Optional[sqlite3.Connection] = None
+        if self.db_path == ":memory:":
+            self._persistent_conn = sqlite3.connect(":memory:", check_same_thread=False)
         self._init_db()
+
+    @contextmanager
+    def _get_conn(self):
+        """Get database connection as context manager.
+
+        For in-memory databases, returns persistent connection (doesn't close).
+        For file databases, creates new connection and closes after use.
+        """
+        if self._persistent_conn:
+            # For in-memory, yield persistent connection without closing
+            yield self._persistent_conn
+        else:
+            # For file-based, create and close connection
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            try:
+                yield conn
+            finally:
+                conn.close()
 
     def _init_db(self) -> None:
         """Initialize database schema."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS organization_memberships (
                     id TEXT PRIMARY KEY,
@@ -380,7 +403,7 @@ class MultiOrgManager:
             if owners <= 1:
                 raise ValueError("Cannot remove the last owner from organization")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.execute(
                 "DELETE FROM organization_memberships WHERE user_id = ? AND org_id = ?",
                 (user_id, org_id),
@@ -437,7 +460,7 @@ class MultiOrgManager:
         org_id: str,
     ) -> Optional[OrganizationMembership]:
         """Get membership for user in organization."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """
@@ -457,7 +480,7 @@ class MultiOrgManager:
         include_pending: bool = False,
     ) -> List[OrganizationMembership]:
         """Get all organization memberships for a user."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
 
             if include_pending:
@@ -487,7 +510,7 @@ class MultiOrgManager:
         role_filter: Optional[MembershipRole] = None,
     ) -> List[OrganizationMembership]:
         """Get all members of an organization."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
 
             if role_filter:
@@ -540,7 +563,7 @@ class MultiOrgManager:
         user_id: str,
     ) -> Optional[OrganizationMembership]:
         """Get user's primary organization membership."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """
@@ -655,7 +678,7 @@ class MultiOrgManager:
         Returns:
             Activated membership
         """
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """
@@ -683,7 +706,7 @@ class MultiOrgManager:
 
     async def get_member_count(self, org_id: str) -> Dict[str, int]:
         """Get member counts by role for organization."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             cursor = conn.execute(
                 """
                 SELECT role, COUNT(*) as count
@@ -736,7 +759,7 @@ class MultiOrgManager:
 
     async def _unset_all_primary(self, user_id: str) -> None:
         """Unset primary flag for all user's memberships."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.execute(
                 """
                 UPDATE organization_memberships
@@ -753,7 +776,7 @@ class MultiOrgManager:
         role: MembershipRole,
     ) -> int:
         """Count members with specific role in organization."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             cursor = conn.execute(
                 """
                 SELECT COUNT(*) FROM organization_memberships
@@ -765,7 +788,7 @@ class MultiOrgManager:
 
     async def _save_membership(self, membership: OrganizationMembership) -> None:
         """Save membership to database."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_conn() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO organization_memberships (

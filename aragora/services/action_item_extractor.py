@@ -35,7 +35,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Pattern, Set, Tuple
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.models import EmailMessage
@@ -329,8 +329,8 @@ class ActionItemExtractor:
         self.user_name = user_name
 
         # Compile patterns
-        self._compiled_action_patterns: Dict[ActionType, List[tuple]] = {}
-        self._compiled_urgency_patterns: List[tuple] = []
+        self._compiled_action_patterns: Dict[ActionType, List[Tuple[Pattern[str], float]]] = {}
+        self._compiled_urgency_patterns: List[Tuple[Pattern[str], float]] = []
         self._compile_patterns()
 
         self._action_counter = 0
@@ -494,7 +494,7 @@ class ActionItemExtractor:
         # Clean and filter
         return [s.strip() for s in sentences if s.strip() and len(s.strip()) > 10]
 
-    def _extract_description(self, sentence: str, match: re.Match) -> str:
+    def _extract_description(self, sentence: str, match: re.Match[str]) -> str:
         """Extract clean description from matched sentence."""
         # Get the matched portion and surrounding context
         start = match.start()
@@ -571,7 +571,7 @@ class ActionItemExtractor:
 
     def _parse_deadline(
         self,
-        match: re.Match,
+        match: re.Match[str],
         pattern_type: str,
         now: datetime,
     ) -> Optional[datetime]:
@@ -844,7 +844,7 @@ async def extract_action_items_quick(
             self.subject = subject
             self.body_text = body
             self.from_address = sender
-            self.to_addresses = []
+            self.to_addresses: List[str] = []
 
     email = SimpleEmail(subject, body, sender)
     extractor = ActionItemExtractor()

@@ -137,7 +137,7 @@ class PIIRedactor:
         self.log_redactions = log_redactions
 
         # Compile regex patterns
-        self._patterns: Dict[PIIType, List[Tuple[Pattern, float]]] = {}
+        self._patterns: Dict[PIIType, List[Tuple[Pattern[str], float]]] = {}
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
@@ -299,9 +299,9 @@ class PIIRedactor:
         matches.sort(key=lambda m: m.start, reverse=True)
 
         # Apply redactions
-        for match in matches:
+        for pii_match in matches:
             redacted_text = (
-                redacted_text[: match.start] + match.redacted + redacted_text[match.end :]
+                redacted_text[: pii_match.start] + pii_match.redacted + redacted_text[pii_match.end :]
             )
 
         # Get unique PII types found

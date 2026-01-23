@@ -335,6 +335,27 @@ class ThreatIntelligenceService:
             "phishtank": [],
         }
 
+        # Circuit breakers for external APIs (auto-open after 3 failures, 60s cooldown)
+        from aragora.resilience import get_circuit_breaker
+
+        self._circuit_breakers = {
+            "virustotal": get_circuit_breaker(
+                "threat_intel_virustotal",
+                failure_threshold=3,
+                cooldown_seconds=60.0,
+            ),
+            "abuseipdb": get_circuit_breaker(
+                "threat_intel_abuseipdb",
+                failure_threshold=3,
+                cooldown_seconds=60.0,
+            ),
+            "phishtank": get_circuit_breaker(
+                "threat_intel_phishtank",
+                failure_threshold=3,
+                cooldown_seconds=60.0,
+            ),
+        }
+
         # Compile patterns
         self._malicious_patterns = [re.compile(p) for p in MALICIOUS_URL_PATTERNS]
 
@@ -517,6 +538,53 @@ class ThreatIntelligenceService:
                 return None
         return self._http_session
 
+    def _is_circuit_open(self, service: str) -> bool:
+        """Check if circuit breaker is open for a service.
+
+        Args:
+            service: Service name (virustotal, abuseipdb, phishtank)
+
+        Returns:
+            True if circuit is open (API calls should be skipped)
+        """
+        if service not in self._circuit_breakers:
+            return False
+        cb = self._circuit_breakers[service]
+        return cb.get_status() == "open"
+
+    def _record_api_success(self, service: str) -> None:
+        """Record a successful API call for circuit breaker."""
+        if service in self._circuit_breakers:
+            self._circuit_breakers[service].record_success()
+
+    def _record_api_failure(self, service: str) -> None:
+        """Record a failed API call for circuit breaker."""
+        if service in self._circuit_breakers:
+            self._circuit_breakers[service].record_failure()
+            if self._circuit_breakers[service].get_status() == "open":
+                logger.warning(
+                    f"[ThreatIntel] Circuit breaker OPEN for {service} - "
+                    f"API calls will be skipped for {self._circuit_breakers[service].cooldown_seconds}s"
+                )
+
+    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+        """Get status of all threat intel circuit breakers.
+
+        Returns:
+            Dict with circuit breaker status for each service
+        """
+        return {
+            service: {
+                "status": cb.get_status(),
+                "failures": cb.failures,
+                "threshold": cb.failure_threshold,
+                "cooldown_remaining": max(0, cb.cooldown_seconds - (time.time() - cb._last_failure_time))
+                if hasattr(cb, "_last_failure_time") and cb.get_status() == "open"
+                else 0,
+            }
+            for service, cb in self._circuit_breakers.items()
+        }
+
     # =========================================================================
     # URL Checking
     # =========================================================================
@@ -638,6 +706,11 @@ class ThreatIntelligenceService:
 
     async def _check_url_virustotal(self, url: str) -> Optional[Dict[str, Any]]:
         """Check URL with VirusTotal API."""
+        # Check circuit breaker first
+        if self._is_circuit_open("virustotal"):
+            logger.debug("VirusTotal circuit breaker open, skipping")
+            return None
+
         if not await self._check_rate_limit("virustotal"):
             logger.warning("VirusTotal rate limit reached")
             return None
@@ -657,6 +730,7 @@ class ThreatIntelligenceService:
                 headers=headers,
             ) as response:
                 if response.status == 200:
+                    self._record_api_success("virustotal")
                     data = await response.json()
                     attrs = data.get("data", {}).get("attributes", {})
                     stats = attrs.get("last_analysis_stats", {})
@@ -669,10 +743,16 @@ class ThreatIntelligenceService:
                         "last_analysis_date": attrs.get("last_analysis_date"),
                     }
                 elif response.status == 404:
+                    self._record_api_success("virustotal")
                     # URL not in database, submit for scanning
                     return await self._submit_url_virustotal(url)
+                else:
+                    # Non-success status codes count as failures
+                    self._record_api_failure("virustotal")
+                    logger.warning(f"VirusTotal returned status {response.status}")
 
         except Exception as e:
+            self._record_api_failure("virustotal")
             logger.warning(f"VirusTotal URL check failed: {e}")
 
         return None
@@ -712,6 +792,11 @@ class ThreatIntelligenceService:
 
     async def _check_url_phishtank(self, url: str) -> Optional[Dict[str, Any]]:
         """Check URL with PhishTank API."""
+        # Check circuit breaker first
+        if self._is_circuit_open("phishtank"):
+            logger.debug("PhishTank circuit breaker open, skipping")
+            return None
+
         if not await self._check_rate_limit("phishtank"):
             logger.warning("PhishTank rate limit reached")
             return None
@@ -734,6 +819,7 @@ class ThreatIntelligenceService:
                 data=data,
             ) as response:
                 if response.status == 200:
+                    self._record_api_success("phishtank")
                     result = await response.json()
                     results = result.get("results", {})
 
@@ -743,8 +829,11 @@ class ThreatIntelligenceService:
                         "phish_id": results.get("phish_id"),
                         "phish_detail_url": results.get("phish_detail_page"),
                     }
+                else:
+                    self._record_api_failure("phishtank")
 
         except Exception as e:
+            self._record_api_failure("phishtank")
             logger.warning(f"PhishTank check failed: {e}")
 
         return None
@@ -847,33 +936,30 @@ class ThreatIntelligenceService:
 
     async def _check_ip_abuseipdb(self, ip_address: str) -> IPReputationResult:
         """Check IP with AbuseIPDB API."""
+        default_result = IPReputationResult(
+            ip_address=ip_address,
+            is_malicious=False,
+            abuse_score=0,
+            total_reports=0,
+            last_reported=None,
+            country_code=None,
+            isp=None,
+            domain=None,
+            usage_type=None,
+        )
+
+        # Check circuit breaker first
+        if self._is_circuit_open("abuseipdb"):
+            logger.debug("AbuseIPDB circuit breaker open, skipping")
+            return default_result
+
         if not await self._check_rate_limit("abuseipdb"):
             logger.warning("AbuseIPDB rate limit reached")
-            return IPReputationResult(
-                ip_address=ip_address,
-                is_malicious=False,
-                abuse_score=0,
-                total_reports=0,
-                last_reported=None,
-                country_code=None,
-                isp=None,
-                domain=None,
-                usage_type=None,
-            )
+            return default_result
 
         session = await self._get_http_session()
         if not session:
-            return IPReputationResult(
-                ip_address=ip_address,
-                is_malicious=False,
-                abuse_score=0,
-                total_reports=0,
-                last_reported=None,
-                country_code=None,
-                isp=None,
-                domain=None,
-                usage_type=None,
-            )
+            return default_result
 
         try:
             headers = {
@@ -893,6 +979,7 @@ class ThreatIntelligenceService:
                 params=params,
             ) as response:
                 if response.status == 200:
+                    self._record_api_success("abuseipdb")
                     data = await response.json()
                     result = data.get("data", {})
 
@@ -918,21 +1005,14 @@ class ThreatIntelligenceService:
                         usage_type=result.get("usageType"),
                         is_tor=result.get("isTor", False),
                     )
+                else:
+                    self._record_api_failure("abuseipdb")
 
         except Exception as e:
+            self._record_api_failure("abuseipdb")
             logger.warning(f"AbuseIPDB check failed: {e}")
 
-        return IPReputationResult(
-            ip_address=ip_address,
-            is_malicious=False,
-            abuse_score=0,
-            total_reports=0,
-            last_reported=None,
-            country_code=None,
-            isp=None,
-            domain=None,
-            usage_type=None,
-        )
+        return default_result
 
     # =========================================================================
     # File Hash Checking
