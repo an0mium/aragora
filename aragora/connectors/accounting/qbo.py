@@ -335,16 +335,35 @@ class QuickBooksConnector:
         method: str,
         endpoint: str,
         data: Optional[Dict[str, Any]] = None,
+        max_retries: int = 3,
+        base_delay: float = 0.5,
     ) -> Dict[str, Any]:
-        """Make authenticated API request."""
+        """
+        Make authenticated API request with retry logic.
+
+        Args:
+            method: HTTP method
+            endpoint: API endpoint
+            data: Request body
+            max_retries: Maximum retry attempts (default 3)
+            base_delay: Base delay in seconds for exponential backoff
+
+        Returns:
+            API response data
+
+        Raises:
+            Exception: If request fails after all retries
+        """
+        import asyncio
+
+        import aiohttp
+
         if not self._credentials:
             raise Exception("Not authenticated")
 
         # Refresh if expired
         if self._credentials.is_expired:
             await self.refresh_tokens()
-
-        import aiohttp
 
         url = f"{self.base_url}/v3/company/{self._credentials.realm_id}/{endpoint}"
 
@@ -354,20 +373,73 @@ class QuickBooksConnector:
             "Content-Type": "application/json",
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.request(
-                method,
-                url,
-                headers=headers,
-                json=data,
-            ) as response:
-                response_data = await response.json()
+        # Retryable status codes
+        retryable_statuses = {429, 500, 502, 503, 504}
+        last_error: Optional[Exception] = None
 
-                if response.status >= 400:
-                    error = response_data.get("Fault", {}).get("Error", [{}])[0]
-                    raise Exception(f"QBO API error: {error.get('Message', 'Unknown error')}")
+        for attempt in range(max_retries + 1):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.request(
+                        method,
+                        url,
+                        headers=headers,
+                        json=data,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as response:
+                        # Handle rate limiting with Retry-After header
+                        if response.status == 429:
+                            retry_after = response.headers.get("Retry-After")
+                            if retry_after and attempt < max_retries:
+                                delay = float(retry_after)
+                                logger.warning(f"QBO rate limited, waiting {delay}s")
+                                await asyncio.sleep(delay)
+                                continue
 
-                return response_data
+                        # Retry on server errors
+                        if response.status in retryable_statuses and attempt < max_retries:
+                            delay = base_delay * (2**attempt)
+                            logger.warning(
+                                f"QBO request failed ({response.status}), "
+                                f"retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+
+                        response_data = await response.json()
+
+                        if response.status >= 400:
+                            error = response_data.get("Fault", {}).get("Error", [{}])[0]
+                            raise Exception(f"QBO API error: {error.get('Message', 'Unknown error')}")
+
+                        return response_data
+
+            except aiohttp.ClientError as e:
+                last_error = e
+                if attempt < max_retries:
+                    delay = base_delay * (2**attempt)
+                    logger.warning(
+                        f"QBO connection error: {e}, "
+                        f"retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                raise Exception(f"QBO connection failed after {max_retries} retries: {e}")
+
+            except asyncio.TimeoutError:
+                last_error = asyncio.TimeoutError("Request timed out")
+                if attempt < max_retries:
+                    delay = base_delay * (2**attempt)
+                    logger.warning(
+                        f"QBO request timeout, "
+                        f"retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                raise Exception(f"QBO request timed out after {max_retries} retries")
+
+        # Should not reach here, but just in case
+        raise last_error or Exception("QBO request failed")
 
     # =========================================================================
     # Customer Operations
