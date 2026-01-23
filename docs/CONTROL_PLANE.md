@@ -113,6 +113,7 @@ Features:
 - Regional affinity
 - Retry with exponential backoff
 - Dead letter queues
+- Policy enforcement on submit/claim via `ControlPlanePolicyManager`
 
 ### 4. LeaderElection
 
@@ -133,6 +134,8 @@ Features:
 - Circuit breaker per channel
 - Redis Streams persistence (optional)
 - SMTP email provider for escalation paths
+- Task lifecycle events via `aragora/control_plane/task_events.py`
+- Vetted decisionmaking consensus notifications from `aragora/control_plane/deliberation.py`
 
 ---
 

@@ -50,6 +50,7 @@ Aragora uses a dual-storage architecture: SQLite for local development and persi
 | `genesis.db` | Genesis ledger / genomes | `ARAGORA_DATA_DIR` (default `.nomic/`) |
 | `token_blacklist.db` | JWT revocation store | `ARAGORA_DATA_DIR` (default `.nomic/`) |
 | `users.db` | User/org accounts | `ARAGORA_DATA_DIR` (default `.nomic/`) |
+| `explainability_batch_jobs.db` | Batch explainability job state | `ARAGORA_DATA_DIR` (default `.nomic/`) |
 
 Other legacy files are created on demand (e.g., `persona_lab.db`, `agent_relationships.db`).
 Use `ARAGORA_DB_*` overrides or `aragora.config.legacy.DB_NAMES` for the full list.

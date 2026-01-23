@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 interface TrendingTopic {
   topic: string;
@@ -24,6 +25,7 @@ export function TrendingTopicsPanel({
   refreshInterval = 60000,
   onStartDebate,
 }: TrendingTopicsPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [topics, setTopics] = useState<TrendingTopic[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,10 +33,17 @@ export function TrendingTopicsPanel({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchTrending = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) return;
+
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/pulse/trending?limit=10`);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const res = await fetch(`${apiBase}/api/pulse/trending?limit=10`, { headers });
       if (res.ok) {
         const data = await res.json();
         setTopics(data.topics || []);
@@ -47,7 +56,7 @@ export function TrendingTopicsPanel({
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   useEffect(() => {
     if (expanded) {

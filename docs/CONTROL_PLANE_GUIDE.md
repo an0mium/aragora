@@ -285,6 +285,19 @@ if task:
         )
 ```
 
+### Notifications & Task Events
+
+Task lifecycle events emit notifications through the NotificationDispatcher:
+
+- Task events (`submitted`, `claimed`, `completed`, `failed`) are emitted via
+  `aragora/control_plane/task_events.py`.
+- Vetted decisionmaking consensus events are emitted by
+  `aragora/control_plane/deliberation.py` and routed through the control plane
+  integration callback.
+
+Configure channels in `docs/CONTROL_PLANE.md` and ensure the notification worker
+is enabled (`ARAGORA_NOTIFICATION_WORKER=1`).
+
 ### Health Monitor
 
 The `HealthMonitor` tracks agent health and integrates with circuit breakers.

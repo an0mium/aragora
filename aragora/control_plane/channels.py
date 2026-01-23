@@ -893,7 +893,7 @@ def create_deliberation_consensus_notification(
         priority=NotificationPriority.NORMAL,
         metadata={"task_id": task_id, "confidence": confidence},
         link_url=f"{ui_base_url}/deliberations/{task_id}",
-        link_text="View Deliberation",
+        link_text="View Vetted Decisionmaking",
     )
 
 

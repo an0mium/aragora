@@ -118,6 +118,7 @@ Features:
 - Regional affinity
 - Retry with exponential backoff
 - Dead letter queues
+- Policy enforcement on submit/claim via `ControlPlanePolicyManager`
 
 ### 4. LeaderElection
 
@@ -387,7 +388,11 @@ See [GOVERNANCE.md](./governance) for full RBAC documentation.
 
 ## Channel Notifications
 
-The control plane includes multi-channel notification delivery:
+The control plane includes multi-channel notification delivery via the
+NotificationDispatcher and task lifecycle event emitters:
+
+- Task lifecycle events emitted by `aragora/control_plane/task_events.py`
+- Vetted decisionmaking consensus emitted by `aragora/control_plane/deliberation.py`
 
 ### Supported Channels
 

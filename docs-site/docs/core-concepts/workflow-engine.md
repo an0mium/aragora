@@ -267,15 +267,31 @@ result = await engine.execute(
 ### Persistent Storage
 
 ```python
-from aragora.workflow.persistent_store import WorkflowStore
+from aragora.workflow.persistent_store import get_workflow_store, get_async_workflow_store
 
-store = WorkflowStore(connection_string="postgresql://...")
+# SQLite (sync)
+store = get_workflow_store()
+store.save_execution(
+    {
+        "id": "exec_123",
+        "workflow_id": "wf_123",
+        "status": "completed",
+        "inputs": {"doc": "example"},
+        "outputs": {"summary": "ok"},
+    }
+)
 
-# Save workflow execution
-execution_id = await store.save_execution(workflow, inputs, result)
-
-# Load previous execution
-execution = await store.load_execution(execution_id)
+# PostgreSQL (async, requires DATABASE_URL + asyncpg)
+store = await get_async_workflow_store()
+await store.save_execution(
+    {
+        "id": "exec_456",
+        "workflow_id": "wf_123",
+        "status": "completed",
+        "inputs": {"doc": "example"},
+        "outputs": {"summary": "ok"},
+    }
+)
 ```
 
 ## Safe Evaluation

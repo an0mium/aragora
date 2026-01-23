@@ -5,6 +5,7 @@ import { AgentMomentsModal } from './AgentMomentsModal';
 import { withErrorBoundary } from './PanelErrorBoundary';
 import type { StreamEvent } from '@/types/events';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 import {
   RankingsTabPanel,
   MatchesTabPanel,
@@ -29,6 +30,7 @@ interface LeaderboardPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_API_BASE }: LeaderboardPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [agents, setAgents] = useState<AgentRanking[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [reputations, setReputations] = useState<AgentReputation[]>([]);
@@ -45,6 +47,12 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     // Build query params for consolidated endpoint
@@ -53,8 +61,13 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
     if (selectedDomain) params.set('domain', selectedDomain);
 
     try {
+      // Build headers with auth token
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
       // Single consolidated request instead of 6 separate calls
-      const res = await fetch(`${apiBase}/api/leaderboard-view?${params}`);
+      const res = await fetch(`${apiBase}/api/leaderboard-view?${params}`, { headers });
 
       if (!res.ok) {
         const errorText = await res.text().catch(() => 'Unknown error');

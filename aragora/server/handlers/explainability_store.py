@@ -316,7 +316,7 @@ class DatabaseBatchJobStore(BatchJobStore):
         job = self._row_to_job(row)
         expires_at = None
         if hasattr(row, "keys"):
-            expires_at = row.get("expires_at")
+            expires_at = row["expires_at"]
         else:
             expires_at = row[-1]
 
@@ -369,7 +369,7 @@ class DatabaseBatchJobStore(BatchJobStore):
 
         jobs: List[BatchJob] = []
         for row in rows:
-            expires_at = row.get("expires_at") if hasattr(row, "keys") else row[-1]
+            expires_at = row["expires_at"] if hasattr(row, "keys") else row[-1]
             if self._is_expired(expires_at):
                 try:
                     self._backend.execute_write(

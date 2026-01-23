@@ -157,7 +157,8 @@ Enables:
 ## Pluggable Storage Backends
 
 Configure storage backends for channel integrations, tokens, workflows, and federation.
-All stores support three backends: `memory`, `sqlite`, `redis`.
+Most stores support `sqlite` and `postgres`, with optional `redis` for multi-instance
+workloads and `memory` for development.
 
 ### Integration Store
 
@@ -165,7 +166,7 @@ Persists channel/integration configurations (Slack, Teams, Discord, Gmail).
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_INTEGRATION_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `redis` | `sqlite` |
+| `ARAGORA_INTEGRATION_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `postgres`, `redis` | `sqlite` |
 
 ### Gmail Token Store
 
@@ -173,7 +174,7 @@ Persists Gmail OAuth tokens and sync job state.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_GMAIL_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `redis` | `sqlite` |
+| `ARAGORA_GMAIL_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `postgres`, `redis` | `sqlite` |
 
 ### Finding Workflow Store
 
@@ -181,7 +182,7 @@ Persists audit finding workflow state, assignments, and history.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_WORKFLOW_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `redis` | `sqlite` |
+| `ARAGORA_WORKFLOW_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `postgres`, `redis` | `sqlite` |
 
 ### Federation Registry Store
 
@@ -189,12 +190,23 @@ Persists federated region configurations for multi-region knowledge sync.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_FEDERATION_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `redis` | `sqlite` |
+| `ARAGORA_FEDERATION_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `postgres`, `redis` | `sqlite` |
+
+### Explainability Batch Store
+
+Persists batch explainability job state.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_EXPLAINABILITY_STORE_BACKEND` | Optional | Backend: `redis`, `postgres`, `sqlite`, `memory` | Auto (prefers Redis) |
+| `ARAGORA_EXPLAINABILITY_BATCH_TTL_SECONDS` | Optional | Batch job retention (seconds) | `3600` |
+| `ARAGORA_EXPLAINABILITY_DB` | Optional | SQLite path override | - |
 
 **Backend Selection:**
 - `memory` - Fast but not persistent; use for testing only
 - `sqlite` - Default; persists to `ARAGORA_DATA_DIR/<store>.db`
-- `redis` - Multi-instance deployments; falls back to SQLite if Redis unavailable
+- `postgres` - Production-grade persistence (recommended for multi-instance)
+- `redis` - Multi-instance deployments with TTL-based job retention
 
 **Example:**
 ```bash
@@ -203,6 +215,7 @@ ARAGORA_INTEGRATION_STORE_BACKEND=redis
 ARAGORA_GMAIL_STORE_BACKEND=redis
 ARAGORA_WORKFLOW_STORE_BACKEND=redis
 ARAGORA_FEDERATION_STORE_BACKEND=redis
+ARAGORA_EXPLAINABILITY_STORE_BACKEND=redis
 ARAGORA_REDIS_URL=redis://localhost:6379/0
 ```
 

@@ -107,6 +107,9 @@ At least one required for debates to function.
 | `ARAGORA_AUDIT_STORE_BACKEND` | `auto` | Audit log backend: `sqlite` or `postgres` (defaults to `ARAGORA_DB_BACKEND`) |
 | `ARAGORA_REQUIRE_DISTRIBUTED` | `auto` | Enforce distributed stores in production (fail closed on SQLite/file) |
 | `ARAGORA_STORAGE_MODE` | `auto` | Force storage mode: `postgres`, `redis`, `sqlite`, `file` |
+| `ARAGORA_EXPLAINABILITY_STORE_BACKEND` | `auto` | Explainability batch store backend: `redis`, `postgres`, `sqlite`, `memory` |
+| `ARAGORA_EXPLAINABILITY_BATCH_TTL_SECONDS` | `3600` | Explainability batch retention (seconds) |
+| `ARAGORA_EXPLAINABILITY_DB` | - | SQLite path override for explainability batch jobs |
 
 **PostgreSQL Connection String Examples:**
 ```bash
