@@ -1,7 +1,7 @@
 """Tests for leaderboard view handler.
 
 Tests the consolidated leaderboard view endpoint:
-- GET /api/leaderboard-view - Returns all leaderboard data in one response
+- GET /api/v1/leaderboard-view - Returns all leaderboard data in one response
 
 This reduces frontend latency by 80% (1 request instead of 6 separate endpoints).
 """
@@ -66,22 +66,21 @@ def mock_http_handler():
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Route changed to /api/v1/leaderboard-view")
 class TestLeaderboardViewHandlerInit:
     """Tests for handler initialization."""
 
     def test_routes_defined(self, leaderboard_handler):
         """Test that handler routes are defined."""
         assert hasattr(leaderboard_handler, "ROUTES")
-        assert "/api/leaderboard-view" in leaderboard_handler.ROUTES
+        assert "/api/v1/leaderboard-view" in leaderboard_handler.ROUTES
 
     def test_can_handle_leaderboard_view_path(self, leaderboard_handler):
         """Test can_handle recognizes leaderboard-view path."""
-        assert leaderboard_handler.can_handle("/api/leaderboard-view")
+        assert leaderboard_handler.can_handle("/api/v1/leaderboard-view")
 
     def test_cannot_handle_other_paths(self, leaderboard_handler):
         """Test can_handle rejects non-leaderboard paths."""
-        assert not leaderboard_handler.can_handle("/api/leaderboard")
+        assert not leaderboard_handler.can_handle("/api/v1/leaderboard")
         assert not leaderboard_handler.can_handle("/api/agent/claude")
         assert not leaderboard_handler.can_handle("/api/debates")
         assert not leaderboard_handler.can_handle("/api/calibration/leaderboard")
@@ -134,7 +133,7 @@ class TestLeaderboardView:
                                 return_value={"agents": {}, "count": 0},
                             ):
                                 result = leaderboard_handler.handle(
-                                    "/api/leaderboard-view", {}, mock_http_handler
+                                    "/api/v1/leaderboard-view", {}, mock_http_handler
                                 )
                                 assert result.status_code == 200
                                 data = json.loads(result.body)
@@ -155,7 +154,7 @@ class TestLeaderboardView:
     def test_validates_domain_parameter(self, leaderboard_handler, mock_http_handler):
         """Validates domain parameter for safe characters."""
         result = leaderboard_handler.handle(
-            "/api/leaderboard-view",
+            "/api/v1/leaderboard-view",
             {"domain": ["<script>"]},
             mock_http_handler,
         )
@@ -166,7 +165,7 @@ class TestLeaderboardView:
     def test_validates_loop_id_parameter(self, leaderboard_handler, mock_http_handler):
         """Validates loop_id parameter for safe characters."""
         result = leaderboard_handler.handle(
-            "/api/leaderboard-view",
+            "/api/v1/leaderboard-view",
             {"loop_id": ["../../../etc/passwd"]},
             mock_http_handler,
         )
@@ -211,7 +210,7 @@ class TestLeaderboardView:
                                 return_value={"agents": {}, "count": 0},
                             ):
                                 result = leaderboard_handler.handle(
-                                    "/api/leaderboard-view",
+                                    "/api/v1/leaderboard-view",
                                     {
                                         "limit": ["20"],
                                         "domain": ["technical"],
@@ -469,7 +468,7 @@ class TestLeaderboardRateLimiting:
                                     mock_handler.headers = {}
 
                                     result = leaderboard_handler.handle(
-                                        "/api/leaderboard-view", {}, mock_handler
+                                        "/api/v1/leaderboard-view", {}, mock_handler
                                     )
 
                                     if i >= 60:  # After 60 requests, should be rate limited
@@ -529,7 +528,7 @@ class TestLeaderboardErrorHandling:
                                 return_value={"agents": {}, "count": 0},
                             ):
                                 result = leaderboard_handler.handle(
-                                    "/api/leaderboard-view", {}, mock_http_handler
+                                    "/api/v1/leaderboard-view", {}, mock_http_handler
                                 )
                                 assert result.status_code == 200
                                 data = json.loads(result.body)
@@ -572,7 +571,7 @@ class TestLeaderboardErrorHandling:
                                 side_effect=RuntimeError("Introspection failed"),
                             ):
                                 result = leaderboard_handler.handle(
-                                    "/api/leaderboard-view", {}, mock_http_handler
+                                    "/api/v1/leaderboard-view", {}, mock_http_handler
                                 )
                                 assert result.status_code == 200
                                 data = json.loads(result.body)

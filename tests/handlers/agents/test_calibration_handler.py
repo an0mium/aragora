@@ -1,19 +1,11 @@
 """Tests for calibration handler.
 
 Tests the calibration API endpoints including:
-- GET /api/agent/{name}/calibration-curve - Get calibration curve (confidence vs accuracy)
-- GET /api/agent/{name}/calibration-summary - Get calibration summary metrics
-- GET /api/calibration/leaderboard - Get top agents by calibration score
-- GET /api/calibration/visualization - Get comprehensive calibration visualization data
+- GET /api/v1/agent/{name}/calibration-curve - Get calibration curve (confidence vs accuracy)
+- GET /api/v1/agent/{name}/calibration-summary - Get calibration summary metrics
+- GET /api/v1/calibration/leaderboard - Get top agents by calibration score
+- GET /api/v1/calibration/visualization - Get comprehensive calibration visualization data
 """
-
-import pytest
-
-# Skip entire module - CalibrationHandler has can_handle and response issues in CI
-pytest.skip(
-    "CalibrationHandler tests have multiple failures in CI (can_handle, NoneType response)",
-    allow_module_level=True,
-)
 
 import json
 from dataclasses import dataclass
@@ -118,7 +110,6 @@ class MockAgentRating:
 # =============================================================================
 
 
-@pytest.mark.skip(reason="CalibrationHandler.can_handle returns False for calibration routes")
 class TestCalibrationHandlerInit:
     """Tests for handler initialization."""
 
@@ -129,26 +120,26 @@ class TestCalibrationHandlerInit:
 
     def test_can_handle_calibration_curve_path(self, calibration_handler):
         """Test can_handle recognizes calibration curve paths."""
-        assert calibration_handler.can_handle("/api/agent/claude/calibration-curve")
-        assert calibration_handler.can_handle("/api/agent/gpt4/calibration-curve")
+        assert calibration_handler.can_handle("/api/v1/agent/claude/calibration-curve")
+        assert calibration_handler.can_handle("/api/v1/agent/gpt4/calibration-curve")
 
     def test_can_handle_calibration_summary_path(self, calibration_handler):
         """Test can_handle recognizes calibration summary paths."""
-        assert calibration_handler.can_handle("/api/agent/claude/calibration-summary")
-        assert calibration_handler.can_handle("/api/agent/gpt4/calibration-summary")
+        assert calibration_handler.can_handle("/api/v1/agent/claude/calibration-summary")
+        assert calibration_handler.can_handle("/api/v1/agent/gpt4/calibration-summary")
 
     def test_can_handle_leaderboard_path(self, calibration_handler):
         """Test can_handle recognizes leaderboard path."""
-        assert calibration_handler.can_handle("/api/calibration/leaderboard")
+        assert calibration_handler.can_handle("/api/v1/calibration/leaderboard")
 
     def test_can_handle_visualization_path(self, calibration_handler):
         """Test can_handle recognizes visualization path."""
-        assert calibration_handler.can_handle("/api/calibration/visualization")
+        assert calibration_handler.can_handle("/api/v1/calibration/visualization")
 
     def test_cannot_handle_other_paths(self, calibration_handler):
         """Test can_handle rejects non-calibration paths."""
-        assert not calibration_handler.can_handle("/api/agent/claude")
-        assert not calibration_handler.can_handle("/api/agent/claude/elo")
+        assert not calibration_handler.can_handle("/api/v1/agent/claude")
+        assert not calibration_handler.can_handle("/api/v1/agent/claude/elo")
         assert not calibration_handler.can_handle("/api/debates")
         assert not calibration_handler.can_handle("/api/calibration")
 
@@ -165,7 +156,7 @@ class TestCalibrationCurve:
         """Returns 503 when CalibrationTracker not available."""
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = calibration_handler.handle(
-                "/api/agent/claude/calibration-curve", {}, mock_http_handler
+                "/api/v1/agent/claude/calibration-curve", {}, mock_http_handler
             )
             assert result.status_code == 503
 
@@ -199,7 +190,7 @@ class TestCalibrationCurve:
                 return_value=mock_tracker,
             ):
                 result = calibration_handler.handle(
-                    "/api/agent/claude/calibration-curve", {}, mock_http_handler
+                    "/api/v1/agent/claude/calibration-curve", {}, mock_http_handler
                 )
                 assert result.status_code == 200
                 data = json.loads(result.body)
@@ -218,7 +209,7 @@ class TestCalibrationCurve:
                 return_value=mock_tracker,
             ):
                 calibration_handler.handle(
-                    "/api/agent/claude/calibration-curve",
+                    "/api/v1/agent/claude/calibration-curve",
                     {"buckets": ["15"]},
                     mock_http_handler,
                 )
@@ -237,7 +228,7 @@ class TestCalibrationCurve:
                 return_value=mock_tracker,
             ):
                 calibration_handler.handle(
-                    "/api/agent/claude/calibration-curve",
+                    "/api/v1/agent/claude/calibration-curve",
                     {"domain": ["technical"]},
                     mock_http_handler,
                 )
@@ -248,7 +239,7 @@ class TestCalibrationCurve:
     def test_rejects_invalid_agent_name(self, calibration_handler, mock_http_handler):
         """Returns 400 for invalid agent name."""
         result = calibration_handler.handle(
-            "/api/agent/<script>/calibration-curve", {}, mock_http_handler
+            "/api/v1/agent/<script>/calibration-curve", {}, mock_http_handler
         )
         assert result.status_code == 400
 
@@ -265,7 +256,7 @@ class TestCalibrationSummary:
         """Returns 503 when CalibrationTracker not available."""
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = calibration_handler.handle(
-                "/api/agent/claude/calibration-summary", {}, mock_http_handler
+                "/api/v1/agent/claude/calibration-summary", {}, mock_http_handler
             )
             assert result.status_code == 503
 
@@ -291,7 +282,7 @@ class TestCalibrationSummary:
                 return_value=mock_tracker,
             ):
                 result = calibration_handler.handle(
-                    "/api/agent/claude/calibration-summary", {}, mock_http_handler
+                    "/api/v1/agent/claude/calibration-summary", {}, mock_http_handler
                 )
                 assert result.status_code == 200
                 data = json.loads(result.body)
@@ -323,7 +314,7 @@ class TestCalibrationSummary:
                 return_value=mock_tracker,
             ):
                 calibration_handler.handle(
-                    "/api/agent/claude/calibration-summary",
+                    "/api/v1/agent/claude/calibration-summary",
                     {"domain": ["math"]},
                     mock_http_handler,
                 )
@@ -344,7 +335,7 @@ class TestCalibrationLeaderboard:
         """Returns 503 when EloSystem not available."""
         with patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", False):
             result = calibration_handler.handle(
-                "/api/calibration/leaderboard", {}, mock_http_handler
+                "/api/v1/calibration/leaderboard", {}, mock_http_handler
             )
             assert result.status_code == 503
 
@@ -383,7 +374,7 @@ class TestCalibrationLeaderboard:
                 return_value=mock_elo,
             ):
                 result = calibration_handler.handle(
-                    "/api/calibration/leaderboard", {}, mock_http_handler
+                    "/api/v1/calibration/leaderboard", {}, mock_http_handler
                 )
                 assert result.status_code == 200
                 data = json.loads(result.body)
@@ -425,7 +416,7 @@ class TestCalibrationLeaderboard:
                 return_value=mock_elo,
             ):
                 result = calibration_handler.handle(
-                    "/api/calibration/leaderboard",
+                    "/api/v1/calibration/leaderboard",
                     {"min_predictions": ["5"]},
                     mock_http_handler,
                 )
@@ -469,7 +460,7 @@ class TestCalibrationLeaderboard:
                 return_value=mock_elo,
             ):
                 result = calibration_handler.handle(
-                    "/api/calibration/leaderboard",
+                    "/api/v1/calibration/leaderboard",
                     {"metric": ["brier"]},
                     mock_http_handler,
                 )
@@ -492,7 +483,7 @@ class TestCalibrationVisualization:
         """Returns 503 when CalibrationTracker not available."""
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
             result = calibration_handler.handle(
-                "/api/calibration/visualization", {}, mock_http_handler
+                "/api/v1/calibration/visualization", {}, mock_http_handler
             )
             assert result.status_code == 503
 
@@ -507,7 +498,7 @@ class TestCalibrationVisualization:
                 return_value=mock_tracker,
             ):
                 result = calibration_handler.handle(
-                    "/api/calibration/visualization", {}, mock_http_handler
+                    "/api/v1/calibration/visualization", {}, mock_http_handler
                 )
                 assert result.status_code == 200
                 data = json.loads(result.body)
@@ -551,7 +542,7 @@ class TestCalibrationVisualization:
                 return_value=mock_tracker,
             ):
                 result = calibration_handler.handle(
-                    "/api/calibration/visualization", {}, mock_http_handler
+                    "/api/v1/calibration/visualization", {}, mock_http_handler
                 )
                 assert result.status_code == 200
                 data = json.loads(result.body)
@@ -582,7 +573,7 @@ class TestCalibrationVisualization:
                 return_value=mock_tracker,
             ):
                 result = calibration_handler.handle(
-                    "/api/calibration/visualization", {"limit": ["2"]}, mock_http_handler
+                    "/api/v1/calibration/visualization", {"limit": ["2"]}, mock_http_handler
                 )
                 assert result.status_code == 200
 
@@ -606,7 +597,7 @@ class TestCalibrationRateLimiting:
                 mock_handler.headers = {}
 
                 result = calibration_handler.handle(
-                    "/api/agent/claude/calibration-curve", {}, mock_handler
+                    "/api/v1/agent/claude/calibration-curve", {}, mock_handler
                 )
 
                 if i >= 30:  # After 30 requests, should be rate limited
@@ -638,7 +629,7 @@ class TestCalibrationErrorHandling:
                 return_value=mock_tracker,
             ):
                 result = calibration_handler.handle(
-                    "/api/agent/claude/calibration-curve", {}, mock_http_handler
+                    "/api/v1/agent/claude/calibration-curve", {}, mock_http_handler
                 )
                 assert result.status_code == 500
 
@@ -653,13 +644,13 @@ class TestCalibrationErrorHandling:
                 return_value=mock_elo,
             ):
                 result = calibration_handler.handle(
-                    "/api/calibration/leaderboard", {}, mock_http_handler
+                    "/api/v1/calibration/leaderboard", {}, mock_http_handler
                 )
                 assert result.status_code == 500
 
     def test_returns_none_for_unmatched_path(self, calibration_handler, mock_http_handler):
         """Returns None for paths that don't match any endpoint."""
-        result = calibration_handler.handle("/api/agent/claude/unknown", {}, mock_http_handler)
+        result = calibration_handler.handle("/api/v1/agent/claude/unknown", {}, mock_http_handler)
         assert result is None
 
     def test_returns_none_for_non_agent_path(self, calibration_handler, mock_http_handler):
