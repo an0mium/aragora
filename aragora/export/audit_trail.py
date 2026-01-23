@@ -144,6 +144,9 @@ class AuditTrail:
     verifications_attempted: int = 0
     verifications_successful: int = 0
 
+    # Cross-reference to decision receipt (bidirectional link)
+    receipt_id: Optional[str] = None
+
     def __post_init__(self):
         self._event_counter = 0
 
@@ -187,6 +190,7 @@ class AuditTrail:
                 "verdict": self.verdict,
                 "events_count": len(self.events),
                 "total_findings": self.total_findings,
+                "receipt_id": self.receipt_id,
             },
             sort_keys=True,
         )
@@ -214,6 +218,7 @@ class AuditTrail:
             "audit_findings": self.audit_findings,
             "verifications_attempted": self.verifications_attempted,
             "verifications_successful": self.verifications_successful,
+            "receipt_id": self.receipt_id,
             "events": [e.to_dict() for e in self.events],
             "checksum": self.checksum,
         }

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
+    from aragora.export.audit_trail import AuditTrail
     from aragora.modes.gauntlet import GauntletResult
 
 
@@ -134,6 +135,9 @@ class DecisionReceipt:
     rounds_completed: int = 0
     duration_seconds: float = 0.0
 
+    # Cross-reference to audit trail (bidirectional link)
+    audit_trail_id: Optional[str] = None
+
     # Integrity
     checksum: str = ""
 
@@ -151,6 +155,7 @@ class DecisionReceipt:
                 "findings_count": len(self.findings),
                 "critical_count": self.critical_count,
                 "timestamp": self.timestamp,
+                "audit_trail_id": self.audit_trail_id,
             },
             sort_keys=True,
         )
@@ -188,6 +193,7 @@ class DecisionReceipt:
             "agents_involved": self.agents_involved,
             "rounds_completed": self.rounds_completed,
             "duration_seconds": self.duration_seconds,
+            "audit_trail_id": self.audit_trail_id,
             "checksum": self.checksum,
         }
 
@@ -680,3 +686,41 @@ def generate_decision_receipt(result: "GauntletResult") -> DecisionReceipt:
         receipt.save(Path("./receipts/decision.html"), format="html")
     """
     return DecisionReceiptGenerator.from_gauntlet_result(result)
+
+
+def link_receipt_to_trail(
+    receipt: DecisionReceipt,
+    trail: "AuditTrail",
+) -> tuple[DecisionReceipt, "AuditTrail"]:
+    """
+    Link a DecisionReceipt and AuditTrail bidirectionally.
+
+    Creates cross-references between the receipt and trail for:
+    - Compliance auditing (trace from receipt to full event log)
+    - Evidence chain verification (trace from events to final decision)
+
+    After linking, both checksums are recomputed to include the link.
+
+    Args:
+        receipt: The DecisionReceipt to link
+        trail: The AuditTrail to link
+
+    Returns:
+        Tuple of (updated_receipt, updated_trail)
+
+    Example:
+        receipt = generate_decision_receipt(result)
+        trail = generate_audit_trail(result)
+        receipt, trail = link_receipt_to_trail(receipt, trail)
+        # Now receipt.audit_trail_id == trail.trail_id
+        # And trail.receipt_id == receipt.receipt_id
+    """
+    # Establish bidirectional links
+    receipt.audit_trail_id = trail.trail_id
+    trail.receipt_id = receipt.receipt_id
+
+    # Recompute checksums to include the links
+    receipt.checksum = receipt._compute_checksum()
+    # Note: trail.checksum is a property, automatically recomputed
+
+    return receipt, trail
