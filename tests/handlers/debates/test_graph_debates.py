@@ -67,7 +67,6 @@ def mock_http_handler():
 # =============================================================================
 
 
-@pytest.mark.skip(reason="Handler route changed to /api/v1 - see issue #19")
 class TestGraphDebatesHandlerInit:
     """Tests for handler initialization."""
 

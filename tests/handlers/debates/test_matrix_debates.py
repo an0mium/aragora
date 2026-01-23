@@ -1,10 +1,10 @@
 """Tests for matrix debates handler.
 
 Tests the matrix debates API endpoints including:
-- POST /api/debates/matrix - Run parallel scenario debates
-- GET /api/debates/matrix/{id} - Get matrix debate results
-- GET /api/debates/matrix/{id}/scenarios - Get all scenario results
-- GET /api/debates/matrix/{id}/conclusions - Get universal/conditional conclusions
+- POST /api/v1/debates/matrix - Run parallel scenario debates
+- GET /api/v1/debates/matrix/{id} - Get matrix debate results
+- GET /api/v1/debates/matrix/{id}/scenarios - Get all scenario results
+- GET /api/v1/debates/matrix/{id}/conclusions - Get universal/conditional conclusions
 """
 
 import json
@@ -76,11 +76,11 @@ class TestMatrixDebatesHandlerInit:
 
     def test_can_handle_matrix_path(self, matrix_handler):
         """Test can_handle recognizes matrix paths."""
-        assert matrix_handler.can_handle("/api/debates/matrix")
-        assert matrix_handler.can_handle("/api/debates/matrix/")
-        assert matrix_handler.can_handle("/api/debates/matrix/abc123")
-        assert matrix_handler.can_handle("/api/debates/matrix/abc123/scenarios")
-        assert matrix_handler.can_handle("/api/debates/matrix/abc123/conclusions")
+        assert matrix_handler.can_handle("/api/v1/debates/matrix")
+        assert matrix_handler.can_handle("/api/v1/debates/matrix/")
+        assert matrix_handler.can_handle("/api/v1/debates/matrix/abc123")
+        assert matrix_handler.can_handle("/api/v1/debates/matrix/abc123/scenarios")
+        assert matrix_handler.can_handle("/api/v1/debates/matrix/abc123/conclusions")
 
     def test_cannot_handle_other_paths(self, matrix_handler):
         """Test can_handle rejects non-matrix paths."""
@@ -109,7 +109,7 @@ class TestMatrixDebatePostValidation:
         """Returns 400 when task is missing."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {"scenarios": [{"name": "test"}]},
         )
         assert result.status_code == 400
@@ -121,7 +121,7 @@ class TestMatrixDebatePostValidation:
         """Returns 400 when task is not a string."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {"task": 12345, "scenarios": [{"name": "test"}]},
         )
         assert result.status_code == 400
@@ -133,7 +133,7 @@ class TestMatrixDebatePostValidation:
         """Returns 400 when task is too short."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {"task": "Short", "scenarios": [{"name": "test"}]},
         )
         assert result.status_code == 400
@@ -145,7 +145,7 @@ class TestMatrixDebatePostValidation:
         """Returns 400 when task is too long."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {"task": "A" * 5001, "scenarios": [{"name": "test"}]},
         )
         assert result.status_code == 400
@@ -166,7 +166,7 @@ class TestMatrixDebateScenarioValidation:
         """Returns 400 when scenarios is not an array."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {"task": "What is the best approach for this problem?", "scenarios": "test"},
         )
         assert result.status_code == 400
@@ -178,7 +178,7 @@ class TestMatrixDebateScenarioValidation:
         """Returns 400 when scenarios is empty."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {"task": "What is the best approach for this problem?", "scenarios": []},
         )
         assert result.status_code == 400
@@ -191,7 +191,7 @@ class TestMatrixDebateScenarioValidation:
         scenarios = [{"name": f"scenario{i}"} for i in range(11)]
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {"task": "What is the best approach for this problem?", "scenarios": scenarios},
         )
         assert result.status_code == 400
@@ -203,7 +203,7 @@ class TestMatrixDebateScenarioValidation:
         """Returns 400 when scenario is not an object."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": ["invalid"],
@@ -218,7 +218,7 @@ class TestMatrixDebateScenarioValidation:
         """Returns 400 when scenario name exceeds 100 chars."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "A" * 101}],
@@ -233,7 +233,7 @@ class TestMatrixDebateScenarioValidation:
         """Returns 400 when scenario parameters is not an object."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test", "parameters": "invalid"}],
@@ -248,7 +248,7 @@ class TestMatrixDebateScenarioValidation:
         """Returns 400 when scenario constraints is not an array."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test", "constraints": "invalid"}],
@@ -263,7 +263,7 @@ class TestMatrixDebateScenarioValidation:
         """Returns 400 when scenario has more than 10 constraints."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test", "constraints": [f"c{i}" for i in range(11)]}],
@@ -287,7 +287,7 @@ class TestMatrixDebateAgentValidation:
         """Returns 400 when agents is not an array."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test"}],
@@ -304,7 +304,7 @@ class TestMatrixDebateAgentValidation:
         agents = [f"agent{i}" for i in range(11)]
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test"}],
@@ -320,7 +320,7 @@ class TestMatrixDebateAgentValidation:
         """Returns 400 when agent name is not a string."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test"}],
@@ -336,7 +336,7 @@ class TestMatrixDebateAgentValidation:
         """Returns 400 when agent name exceeds 50 chars."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test"}],
@@ -361,7 +361,7 @@ class TestMatrixDebateRoundsValidation:
         """Returns 400 when max_rounds is not a number."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test"}],
@@ -377,7 +377,7 @@ class TestMatrixDebateRoundsValidation:
         """Returns 400 when max_rounds is less than 1."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test"}],
@@ -393,7 +393,7 @@ class TestMatrixDebateRoundsValidation:
         """Returns 400 when max_rounds exceeds 10."""
         result = await matrix_handler.handle_post(
             mock_http_handler,
-            "/api/debates/matrix",
+            "/api/v1/debates/matrix",
             {
                 "task": "What is the best approach for this problem?",
                 "scenarios": [{"name": "test"}],
@@ -416,7 +416,7 @@ class TestMatrixDebateGetEndpoints:
     @pytest.mark.asyncio
     async def test_get_returns_404_for_base_path(self, matrix_handler, mock_http_handler):
         """Returns 404 for GET on base matrix path."""
-        result = await matrix_handler.handle_get(mock_http_handler, "/api/debates/matrix", {})
+        result = await matrix_handler.handle_get(mock_http_handler, "/api/v1/debates/matrix", {})
         assert result.status_code == 404
 
     @pytest.mark.asyncio
@@ -424,7 +424,7 @@ class TestMatrixDebateGetEndpoints:
         """Returns 503 when storage is not configured."""
         mock_http_handler.storage = None
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123", {}
         )
         assert result.status_code == 503
         data = json.loads(result.body)
@@ -438,7 +438,7 @@ class TestMatrixDebateGetEndpoints:
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/nonexistent", {}
+            mock_http_handler, "/api/v1/debates/matrix/nonexistent", {}
         )
         assert result.status_code == 404
 
@@ -451,7 +451,7 @@ class TestMatrixDebateGetEndpoints:
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123", {}
         )
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -464,7 +464,7 @@ class TestMatrixDebateGetEndpoints:
         """Returns 503 when storage is not configured for scenarios."""
         mock_http_handler.storage = None
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123/scenarios", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123/scenarios", {}
         )
         assert result.status_code == 503
 
@@ -477,7 +477,7 @@ class TestMatrixDebateGetEndpoints:
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123/scenarios", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123/scenarios", {}
         )
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -491,7 +491,7 @@ class TestMatrixDebateGetEndpoints:
         """Returns 503 when storage is not configured for conclusions."""
         mock_http_handler.storage = None
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123/conclusions", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123/conclusions", {}
         )
         assert result.status_code == 503
 
@@ -507,7 +507,7 @@ class TestMatrixDebateGetEndpoints:
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123/conclusions", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123/conclusions", {}
         )
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -544,7 +544,7 @@ class TestMatrixDebateRateLimiting:
 
                 result = await matrix_handler.handle_post(
                     mock_handler,
-                    "/api/debates/matrix",
+                    "/api/v1/debates/matrix",
                     {
                         "task": f"What is the best approach for this problem? Request {i}",
                         "scenarios": [{"name": "test"}],
@@ -670,7 +670,7 @@ class TestMatrixDebateErrorHandling:
             ):
                 result = await matrix_handler.handle_post(
                     mock_http_handler,
-                    "/api/debates/matrix",
+                    "/api/v1/debates/matrix",
                     {
                         "task": "What is the best approach for this problem?",
                         "scenarios": [{"name": "test"}],
@@ -689,7 +689,7 @@ class TestMatrixDebateErrorHandling:
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123", {}
         )
         assert result.status_code == 500
 
@@ -701,7 +701,7 @@ class TestMatrixDebateErrorHandling:
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123/scenarios", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123/scenarios", {}
         )
         assert result.status_code == 500
 
@@ -713,6 +713,6 @@ class TestMatrixDebateErrorHandling:
         mock_http_handler.storage = mock_storage
 
         result = await matrix_handler.handle_get(
-            mock_http_handler, "/api/debates/matrix/test-123/conclusions", {}
+            mock_http_handler, "/api/v1/debates/matrix/test-123/conclusions", {}
         )
         assert result.status_code == 500

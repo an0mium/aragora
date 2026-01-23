@@ -6,15 +6,6 @@ Tests the consolidated leaderboard view endpoint:
 This reduces frontend latency by 80% (1 request instead of 6 separate endpoints).
 """
 
-import pytest
-
-# Skip entire module - handler route changed to /api/v1/leaderboard-view
-# Tests need update to use versioned routes. See issue #19
-pytest.skip(
-    "LeaderboardViewHandler route changed to /api/v1 - tests need route update",
-    allow_module_level=True,
-)
-
 import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional

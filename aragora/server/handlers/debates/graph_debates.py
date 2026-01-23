@@ -60,16 +60,17 @@ class GraphDebatesHandler(BaseHandler):
         # Extract debate ID from path if present
         parts = path.rstrip("/").split("/")
 
-        # GET /api/debates/graph/{id} - Get specific graph debate
-        if len(parts) >= 5 and parts[3] == "graph":
-            debate_id = parts[4]
+        # GET /api/v1/debates/graph/{id} - Get specific graph debate
+        # Path structure: ['', 'api', 'v1', 'debates', 'graph', '{id}', ...]
+        if len(parts) >= 6 and parts[4] == "graph":
+            debate_id = parts[5]
 
-            # GET /api/debates/graph/{id}/branches
-            if len(parts) >= 6 and parts[5] == "branches":
+            # GET /api/v1/debates/graph/{id}/branches
+            if len(parts) >= 7 and parts[6] == "branches":
                 return await self._get_branches(handler, debate_id)
 
-            # GET /api/debates/graph/{id}/nodes
-            if len(parts) >= 6 and parts[5] == "nodes":
+            # GET /api/v1/debates/graph/{id}/nodes
+            if len(parts) >= 7 and parts[6] == "nodes":
                 return await self._get_nodes(handler, debate_id)
 
             return await self._get_graph_debate(handler, debate_id)

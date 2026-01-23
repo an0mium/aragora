@@ -101,16 +101,17 @@ class MatrixDebatesHandler(BaseHandler):
         """Handle GET requests for matrix debates."""
         parts = path.rstrip("/").split("/")
 
-        # GET /api/debates/matrix/{id}
-        if len(parts) >= 5 and parts[3] == "matrix":
-            matrix_id = parts[4]
+        # GET /api/v1/debates/matrix/{id}
+        # Path structure: ['', 'api', 'v1', 'debates', 'matrix', '{id}', ...]
+        if len(parts) >= 6 and parts[4] == "matrix":
+            matrix_id = parts[5]
 
-            # GET /api/debates/matrix/{id}/scenarios
-            if len(parts) >= 6 and parts[5] == "scenarios":
+            # GET /api/v1/debates/matrix/{id}/scenarios
+            if len(parts) >= 7 and parts[6] == "scenarios":
                 return await self._get_scenarios(handler, matrix_id)
 
-            # GET /api/debates/matrix/{id}/conclusions
-            if len(parts) >= 6 and parts[5] == "conclusions":
+            # GET /api/v1/debates/matrix/{id}/conclusions
+            if len(parts) >= 7 and parts[6] == "conclusions":
                 return await self._get_conclusions(handler, matrix_id)
 
             return await self._get_matrix_debate(handler, matrix_id)
