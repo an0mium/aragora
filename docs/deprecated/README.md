@@ -13,6 +13,7 @@ canonical docs in the main `docs/` directory.
 - `guides/` - Older guides replaced by current docs.
 - `migrations/` - Legacy migration guides for versions no longer supported.
 - `release-notes/` - Point-in-time release notes.
+- `roadmaps/` - Historical roadmaps superseded by current plans.
 
 ## Policy
 

@@ -2115,17 +2115,33 @@ async def run_dependency_analysis():
 
 Detects hardcoded secrets and credentials during codebase scans.
 
+### SAST Scanner
+**File:** `aragora/analysis/codebase/sast_scanner.py`
+
+Semgrep-backed static analysis with OWASP/CWE mappings and confidence scoring.
+
 ### Security Event Debates
 **File:** `aragora/events/security_events.py`
 
 Emits security events from scans and can auto-trigger remediation debates for
 critical findings.
 
+### Threat Intelligence Service
+**File:** `aragora/services/threat_intelligence.py`, `aragora/server/handlers/threat_intel.py`
+
+Threat intel lookups for URLs, IPs, hashes, and email content using external
+feeds (VirusTotal, AbuseIPDB, PhishTank).
+
 ### Code Intelligence & Call Graph
 **File:** `aragora/analysis/code_intelligence.py`, `aragora/analysis/call_graph.py`
 
 Tree-sitter based symbol extraction and call graph construction for deeper code
 understanding.
+
+### Quick Security Scan
+**File:** `aragora/server/handlers/codebase/quick_scan.py`
+
+One-click security scan endpoints powering the UI wizard experience.
 
 ### SenderHistoryService
 **File:** `aragora/services/sender_history.py`
@@ -2158,6 +2174,12 @@ pending = await tracker.get_pending_followups()
 Suggests optimal snooze times based on sender history, work schedule, and
 optional calendar context.
 
+### Spam Classifier
+**File:** `aragora/services/spam_classifier.py`
+
+ML-enhanced spam and phishing classification with online learning from user
+feedback.
+
 ```python
 from aragora.services.snooze_recommender import SnoozeRecommender
 
@@ -2169,6 +2191,12 @@ recommender = SnoozeRecommender()
 
 Collaborative inbox management with message assignment, status tracking, and
 routing rules.
+
+### Audit Sessions
+**File:** `aragora/server/handlers/features/audit_sessions.py`
+
+Document audit session lifecycle management, SSE event streaming, and report
+export for compliance workflows.
 
 ### Gmail Labels, Threads, and Drafts
 **File:** `aragora/server/handlers/features/gmail_labels.py`, `aragora/server/handlers/features/gmail_threads.py`
@@ -2197,6 +2225,12 @@ Sync audit findings into GitHub issues and PRs for remediation workflows.
 Spend tracking, budget alerts, and provider/feature breakdowns with a dedicated
 UI dashboard under `/costs`.
 
+### Accounting Dashboard (QuickBooks)
+**File:** `aragora/server/handlers/accounting.py`
+
+QuickBooks Online integration for receivables, customer insights, and financial
+reporting under `/accounting`.
+
 ---
 
 ## Phase 23: Coding & Review (2026-01-22)
@@ -2219,6 +2253,23 @@ async def trigger_pr_review():
         })
         print(response.json())
 ```
+
+### Feature Development Agent
+**File:** `aragora/agents/feature_agent.py`
+
+End-to-end feature implementation with codebase understanding, debate-driven
+design, TDD scaffolding, and approval gates.
+
+### Approval Workflow
+**File:** `aragora/nomic/approval.py`
+
+Multi-level approval gates for code changes (info, review, critical) with
+timeouts and structured votes.
+
+### Nomic TDD Test Generator
+**File:** `aragora/nomic/test_generator.py`
+
+Generates test suites from function specs and debates coverage expectations.
 
 ### Test Generator
 **File:** `aragora/coding/test_generator.py`

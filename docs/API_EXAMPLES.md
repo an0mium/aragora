@@ -294,6 +294,87 @@ async def knowledge_chat_search():
 asyncio.run(knowledge_chat_search())
 ```
 
+### Gmail Operations
+
+```python
+async def gmail_labels():
+    """Create a label and list labels for a user."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        await client.post("/api/v1/gmail/labels", json={
+            "user_id": "default",
+            "name": "VIP",
+        })
+
+        labels = await client.get("/api/v1/gmail/labels", params={
+            "user_id": "default",
+        })
+        print(labels.json())
+
+asyncio.run(gmail_labels())
+```
+
+### Outlook Integration
+
+```python
+async def outlook_messages():
+    """List Outlook messages."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        response = await client.get("/api/v1/outlook/messages", params={
+            "workspace_id": "default",
+            "max_results": 25,
+        })
+        print(response.json())
+
+asyncio.run(outlook_messages())
+```
+
+### Audit Sessions
+
+```python
+async def audit_session_run():
+    """Create and start an audit session."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        session = await client.post("/api/v1/audit/sessions", json={
+            "document_ids": ["doc_123", "doc_456"],
+            "audit_types": ["security", "compliance"],
+        })
+        session_id = session.json()["id"]
+
+        await client.post(f"/api/v1/audit/sessions/{session_id}/start", json={})
+        findings = await client.get(f"/api/v1/audit/sessions/{session_id}/findings")
+        print(findings.json())
+
+asyncio.run(audit_session_run())
+```
+
+### Threat Intelligence
+
+```python
+async def threat_check_url():
+    """Scan a URL against threat intel feeds."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        result = await client.post("/api/v1/threat/url", json={
+            "url": "https://example.com/login",
+            "check_virustotal": True,
+            "check_phishtank": True,
+        })
+        print(result.json())
+
+asyncio.run(threat_check_url())
+```
+
+### Accounting (QuickBooks)
+
+```python
+async def accounting_status():
+    """Fetch QuickBooks dashboard status."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        status = await client.get("/api/accounting/status")
+        print(status.json())
+
+asyncio.run(accounting_status())
+```
+
 ### Gauntlet Compliance Audit
 
 ```python

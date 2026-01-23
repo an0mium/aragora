@@ -79,6 +79,7 @@ Use this index for fast navigation. For a fuller map, see
 
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Frontend development: [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)
+- Frontend routes: [FRONTEND_ROUTES.md](FRONTEND_ROUTES.md)
 - Testing: [TESTING.md](TESTING.md)
 - Deprecation policy: [DEPRECATION_POLICY.md](DEPRECATION_POLICY.md)
 

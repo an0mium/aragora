@@ -188,6 +188,21 @@ context = await bridge.search_knowledge(
 print(context.result_count)
 ```
 
+## Governance API
+
+Knowledge Mound governance endpoints live under `/api/v1/knowledge/mound/governance`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/knowledge/mound/governance/roles` | Create a role |
+| POST | `/api/v1/knowledge/mound/governance/roles/assign` | Assign role to user |
+| POST | `/api/v1/knowledge/mound/governance/roles/revoke` | Revoke role from user |
+| GET | `/api/v1/knowledge/mound/governance/permissions/{user_id}` | Get user permissions |
+| POST | `/api/v1/knowledge/mound/governance/permissions/check` | Check permissions |
+| GET | `/api/v1/knowledge/mound/governance/audit` | Query audit trail |
+| GET | `/api/v1/knowledge/mound/governance/audit/user/{user_id}` | User activity audit |
+| GET | `/api/v1/knowledge/mound/governance/stats` | Governance stats |
+
 ## Configuration
 
 ### MoundConfig Options

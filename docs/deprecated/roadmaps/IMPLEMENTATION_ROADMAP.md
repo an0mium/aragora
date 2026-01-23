@@ -1,4 +1,10 @@
-# Aragora Implementation Roadmap
+# Deprecated: Aragora Implementation Roadmap
+
+This roadmap is historical and no longer maintained. For current capability
+status and planned work, use:
+- `docs/FEATURES.md`
+- `docs/CONTROL_PLANE_GUIDE.md`
+- `docs/COMMERCIAL_POSITIONING.md`
 
 **Control Plane for Multi-Agent Knowledge Work**
 

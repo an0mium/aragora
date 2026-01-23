@@ -53,6 +53,10 @@ Codebase security and metrics endpoints live under `/api/v1/codebase` and
 | GET | `/api/v1/codebase/{repo}/vulnerabilities` | Vulnerabilities list |
 | GET | `/api/v1/codebase/package/{ecosystem}/{package}/vulnerabilities` | Package advisories |
 | GET | `/api/v1/cve/{cve_id}` | CVE details |
+| POST | `/api/v1/codebase/{repo}/scan/sast` | Trigger SAST scan |
+| GET | `/api/v1/codebase/{repo}/scan/sast/{scan_id}` | SAST scan status |
+| GET | `/api/v1/codebase/{repo}/sast/findings` | SAST findings |
+| GET | `/api/v1/codebase/{repo}/sast/owasp-summary` | OWASP summary |
 | POST | `/api/v1/codebase/{repo}/metrics/analyze` | Run metrics analysis |
 | GET | `/api/v1/codebase/{repo}/metrics` | Latest metrics report |
 | GET | `/api/v1/codebase/{repo}/metrics/{analysis_id}` | Metrics report by ID |
@@ -69,11 +73,39 @@ Additional codebase analysis endpoints:
 | POST | `/api/v1/codebase/scan-vulnerabilities` | Scan repo for CVEs |
 | POST | `/api/v1/codebase/check-licenses` | License compatibility |
 | POST | `/api/v1/codebase/sbom` | Generate SBOM |
+| POST | `/api/v1/codebase/clear-cache` | Clear dependency analysis cache |
 | POST | `/api/v1/codebase/{repo}/scan/secrets` | Trigger secrets scan |
 | GET | `/api/v1/codebase/{repo}/scan/secrets/latest` | Latest secrets scan |
 | GET | `/api/v1/codebase/{repo}/scan/secrets/{scan_id}` | Secrets scan by ID |
 | GET | `/api/v1/codebase/{repo}/secrets` | Secrets list |
 | GET | `/api/v1/codebase/{repo}/scans/secrets` | Secrets scan history |
+
+### Code Intelligence API
+
+Code intelligence endpoints support AST analysis, call graphs, and audit runs.
+Canonical endpoints live under `/api/v1/codebase` with `/api/codebase` aliases
+for UI-driven flows.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/codebase/{repo}/analyze` | Analyze codebase structure |
+| GET | `/api/v1/codebase/{repo}/symbols` | List symbols |
+| GET | `/api/v1/codebase/{repo}/callgraph` | Fetch call graph |
+| GET | `/api/v1/codebase/{repo}/deadcode` | Find dead code |
+| POST | `/api/v1/codebase/{repo}/impact` | Impact analysis |
+| POST | `/api/v1/codebase/{repo}/understand` | Answer questions about code |
+| POST | `/api/v1/codebase/{repo}/audit` | Run comprehensive audit |
+| GET | `/api/v1/codebase/{repo}/audit/{audit_id}` | Audit status/result |
+
+### Quick Scan API
+
+Quick scan endpoints power the one-click security scan UI.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/codebase/quick-scan` | Run quick security scan |
+| GET | `/api/codebase/quick-scan/{scan_id}` | Get quick scan result |
+| GET | `/api/codebase/quick-scans` | List quick scans |
 
 ## GitHub PR Review API
 
@@ -101,6 +133,26 @@ Audit-to-GitHub endpoints live under `/api/v1/github/audit`.
 | POST | `/api/v1/github/audit/pr` | Create PR with fixes |
 | GET | `/api/v1/github/audit/sync/{session_id}` | Get sync status |
 | POST | `/api/v1/github/audit/sync/{session_id}` | Sync session to GitHub |
+
+## Audit Sessions API
+
+Audit session endpoints manage multi-agent document audits. The UI uses
+`/api/audit/sessions`; versioned endpoints live under `/api/v1/audit/sessions`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/audit/sessions` | Create audit session |
+| GET | `/api/v1/audit/sessions` | List audit sessions |
+| GET | `/api/v1/audit/sessions/{session_id}` | Get session details |
+| DELETE | `/api/v1/audit/sessions/{session_id}` | Delete session |
+| POST | `/api/v1/audit/sessions/{session_id}/start` | Start audit |
+| POST | `/api/v1/audit/sessions/{session_id}/pause` | Pause audit |
+| POST | `/api/v1/audit/sessions/{session_id}/resume` | Resume audit |
+| POST | `/api/v1/audit/sessions/{session_id}/cancel` | Cancel audit |
+| GET | `/api/v1/audit/sessions/{session_id}/findings` | List findings |
+| GET | `/api/v1/audit/sessions/{session_id}/events` | Stream SSE events |
+| POST | `/api/v1/audit/sessions/{session_id}/intervene` | Human intervention |
+| GET | `/api/v1/audit/sessions/{session_id}/report` | Export report |
 
 ## Shared Inbox API
 
@@ -186,6 +238,10 @@ Gmail labels, threads, drafts, and message operations.
 | POST | `/api/v1/gmail/drafts/{id}/send` | Send draft |
 | GET | `/api/v1/gmail/messages/{id}/attachments/{attachment_id}` | Get attachment |
 
+Notes:
+- Gmail operations require a connected Gmail account via `/api/v1/email/gmail/oauth/*`.
+- Pass `user_id` in query params for GET requests and in the JSON body for write requests.
+
 ## Outlook/M365 API
 
 | Method | Endpoint | Description |
@@ -202,6 +258,21 @@ Gmail labels, threads, drafts, and message operations.
 | POST | `/api/v1/outlook/messages/{id}/read` | Mark read/unread |
 | POST | `/api/v1/outlook/messages/{id}/move` | Move message |
 | DELETE | `/api/v1/outlook/messages/{id}` | Delete message |
+
+## Accounting (QuickBooks) API
+
+Accounting endpoints live under `/api/accounting` for QuickBooks Online
+integration and financial dashboards.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/accounting/status` | Connection status + dashboard data |
+| GET | `/api/accounting/connect` | Start OAuth connection |
+| GET | `/api/accounting/callback` | OAuth callback |
+| POST | `/api/accounting/disconnect` | Disconnect QuickBooks |
+| GET | `/api/accounting/customers` | List customers |
+| GET | `/api/accounting/transactions` | List transactions |
+| POST | `/api/accounting/report` | Generate report |
 
 ## Cost Visibility API
 
@@ -228,6 +299,36 @@ Endpoints for chat + knowledge integration:
 | POST | `/api/v1/chat/knowledge/store` | Store chat as knowledge |
 | GET | `/api/v1/chat/knowledge/channel/{id}/summary` | Channel knowledge summary |
 
+## Knowledge Mound Governance API
+
+Governance endpoints under `/api/v1/knowledge/mound/governance`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/knowledge/mound/governance/roles` | Create a role |
+| POST | `/api/v1/knowledge/mound/governance/roles/assign` | Assign role to user |
+| POST | `/api/v1/knowledge/mound/governance/roles/revoke` | Revoke role from user |
+| GET | `/api/v1/knowledge/mound/governance/permissions/{user_id}` | Get user permissions |
+| POST | `/api/v1/knowledge/mound/governance/permissions/check` | Check permissions |
+| GET | `/api/v1/knowledge/mound/governance/audit` | Query audit trail |
+| GET | `/api/v1/knowledge/mound/governance/audit/user/{user_id}` | User activity audit |
+| GET | `/api/v1/knowledge/mound/governance/stats` | Governance stats |
+
+## Threat Intelligence API
+
+Threat intelligence endpoints live under `/api/v1/threat`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/threat/url` | Scan a URL |
+| POST | `/api/v1/threat/urls` | Batch scan URLs |
+| GET | `/api/v1/threat/ip/{ip_address}` | IP reputation |
+| POST | `/api/v1/threat/ips` | Batch IP reputation |
+| GET | `/api/v1/threat/hash/{hash_value}` | File hash lookup |
+| POST | `/api/v1/threat/hashes` | Batch hash lookup |
+| POST | `/api/v1/threat/email` | Scan email content |
+| GET | `/api/v1/threat/status` | Service status |
+
 ### New Endpoints (2026-01-22)
 
 | Endpoint | Description | Status |
@@ -243,10 +344,15 @@ Endpoints for chat + knowledge integration:
 | `GET /api/v1/github/pr/review/:review_id` | Get review status | NEW |
 | `GET /api/v1/github/pr/:pr_number/reviews` | List PR reviews | NEW |
 | `POST /api/v1/github/pr/:pr_number/review` | Submit review to GitHub | NEW |
+| `POST /api/v1/github/audit/issues` | Create GitHub issues from findings | NEW |
+| `POST /api/v1/chat/knowledge/search` | Knowledge search from chat | NEW |
+| `POST /api/v1/audit/sessions` | Create audit session | NEW |
 | `POST /api/v1/inbox/shared` | Create shared inbox | NEW |
 | `GET /api/v1/inbox/shared` | List shared inboxes | NEW |
 | `POST /api/v1/inbox/routing/rules` | Create routing rule | NEW |
 | `GET /api/costs` | Cost dashboard summary | NEW |
+| `GET /api/accounting/status` | Accounting dashboard status | NEW |
+| `POST /api/codebase/quick-scan` | One-click security scan | NEW |
 
 ### New Endpoints (2026-01-09)
 

@@ -15,6 +15,7 @@ The codebase analysis stack includes:
   duplication signals.
 - **Dependency Intelligence**: SBOM generation and license compatibility checks.
 - **Secrets Scanner**: Detects exposed secrets and emits security events.
+- **SAST Scanner**: Semgrep-backed static analysis with OWASP/CWE mapping.
 - **Code Intelligence**: Tree-sitter parsing and call-graph construction.
 
 Core modules live under `aragora/analysis/codebase/` with HTTP handlers in
@@ -33,6 +34,10 @@ Core modules live under `aragora/analysis/codebase/` with HTTP handlers in
 | GET | `/api/v1/codebase/{repo}/vulnerabilities` | Vulnerabilities list |
 | GET | `/api/v1/codebase/package/{ecosystem}/{package}/vulnerabilities` | Package advisories |
 | GET | `/api/v1/cve/{cve_id}` | CVE details |
+| POST | `/api/v1/codebase/{repo}/scan/sast` | Trigger SAST scan |
+| GET | `/api/v1/codebase/{repo}/scan/sast/{scan_id}` | SAST scan status |
+| GET | `/api/v1/codebase/{repo}/sast/findings` | SAST findings |
+| GET | `/api/v1/codebase/{repo}/sast/owasp-summary` | OWASP summary |
 
 ### Secrets Scanning
 
@@ -52,6 +57,29 @@ Core modules live under `aragora/analysis/codebase/` with HTTP handlers in
 | POST | `/api/v1/codebase/scan-vulnerabilities` | Scan repo for CVEs |
 | POST | `/api/v1/codebase/check-licenses` | License compatibility |
 | POST | `/api/v1/codebase/sbom` | Generate SBOM |
+
+### Code Intelligence
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/codebase/{repo}/analyze` | Analyze codebase structure |
+| GET | `/api/v1/codebase/{repo}/symbols` | List symbols |
+| GET | `/api/v1/codebase/{repo}/callgraph` | Fetch call graph |
+| GET | `/api/v1/codebase/{repo}/deadcode` | Find dead code |
+| POST | `/api/v1/codebase/{repo}/impact` | Impact analysis |
+| POST | `/api/v1/codebase/{repo}/understand` | Answer code questions |
+| POST | `/api/v1/codebase/{repo}/audit` | Run comprehensive audit |
+| GET | `/api/v1/codebase/{repo}/audit/{audit_id}` | Audit status/result |
+
+Aliases exist at `/api/codebase/*` for UI-driven flows.
+
+### Quick Scan
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/codebase/quick-scan` | Run quick security scan |
+| GET | `/api/codebase/quick-scan/{scan_id}` | Quick scan result |
+| GET | `/api/codebase/quick-scans` | Quick scan history |
 
 ## UI Surfaces
 
@@ -73,6 +101,19 @@ Content-Type: application/json
   "repo_path": "/Users/armand/Development/aragora",
   "branch": "main",
   "commit_sha": "abc123"
+}
+```
+
+### Quick Scan Example
+
+```http
+POST /api/codebase/quick-scan
+Content-Type: application/json
+
+{
+  "repo_path": "/Users/armand/Development/aragora",
+  "severity_threshold": "medium",
+  "include_secrets": true
 }
 ```
 

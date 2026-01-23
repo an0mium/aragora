@@ -90,6 +90,16 @@ ARAGORA_AUDIT_ENABLED=true
 ARAGORA_AUDIT_RETENTION_DAYS=90
 ```
 
+### Threat Intelligence Feeds
+
+Configure external threat intel sources (optional):
+
+| Variable | Description |
+|----------|-------------|
+| `VIRUSTOTAL_API_KEY` | VirusTotal API key for URL/hash scanning |
+| `ABUSEIPDB_API_KEY` | AbuseIPDB API key for IP reputation |
+| `PHISHTANK_API_KEY` | PhishTank API key for phishing URL checks |
+
 ## Security Event Debates
 
 Critical findings can trigger a remediation debate via the security events

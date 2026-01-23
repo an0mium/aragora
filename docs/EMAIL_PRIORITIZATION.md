@@ -241,6 +241,10 @@ Advanced Gmail endpoints for labels, threads, drafts, and message actions:
 | POST | `/api/v1/gmail/drafts/{id}/send` | Send draft |
 | GET | `/api/v1/gmail/messages/{id}/attachments/{attachment_id}` | Get attachment |
 
+Notes:
+- Gmail operations require a connected Gmail account via the OAuth flow.
+- Pass `user_id` in query params for GET requests and in the JSON body for write requests.
+
 ## Outlook Integration
 
 Outlook/Microsoft 365 email integration is available under `/api/v1/outlook`.
@@ -330,6 +334,15 @@ print(f"Category: {reputation.category}")  # vip, important, normal, low_priorit
 | Recency | 20% | Bonus for recent interactions |
 | VIP Status | +0.3 | Manual VIP designation |
 | Fast Responder | +0.1 | Avg response < 30 mins |
+
+## Spam & Threat Intelligence
+
+Email prioritization integrates spam classification and threat intelligence for
+phishing detection and malicious URL/IP screening.
+
+- `aragora/services/spam_classifier.py` provides ML-backed spam scoring.
+- `aragora/services/threat_intelligence.py` checks URLs, IPs, and hashes.
+- `aragora/server/handlers/threat_intel.py` exposes `/api/v1/threat/*` endpoints.
 
 ## Follow-Up Tracker
 

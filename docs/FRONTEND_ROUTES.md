@@ -1,7 +1,7 @@
 # Frontend Routes and Feature Map
 
-This document maps every UI route in `aragora/live` to its primary purpose and related documentation.
-It is the single source of truth for the frontend surface area.
+This document maps the primary UI routes in `aragora/live` to their purpose and related documentation.
+It is the canonical map for the user-facing surface area.
 
 ## Canonical UI Domains
 
@@ -30,6 +30,8 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [API_USAGE](./API_USAGE.md), [FEATURES](./FEATURES.md)
 - `/reviews` - Shareable multi-agent code reviews and consensus summaries.
   - Related docs: [CLI_REFERENCE](./CLI_REFERENCE.md), [README](../README.md)
+- `/code-review` - Guided code review workspace with review templates.
+  - Related docs: [CODING_ASSISTANCE](./CODING_ASSISTANCE.md), [GITHUB_PR_REVIEW](./GITHUB_PR_REVIEW.md)
 - `/control-plane` - Control plane dashboard (agents, queue, deliberations).
   - Related docs: [CONTROL_PLANE](./CONTROL_PLANE.md), [CONTROL_PLANE_GUIDE](./CONTROL_PLANE_GUIDE.md)
 
@@ -47,6 +49,14 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [KNOWLEDGE_MOUND](./KNOWLEDGE_MOUND.md), [ARCHITECTURE](./ARCHITECTURE.md)
 - `/security-scan` - Codebase security scans and dependency intelligence.
   - Related docs: [CODEBASE_ANALYSIS](./CODEBASE_ANALYSIS.md)
+- `/audit` - Audit dashboard for sessions, findings, and exports.
+  - Related docs: [API_REFERENCE](./API_REFERENCE.md), [SECURITY_RUNTIME](./SECURITY_RUNTIME.md)
+- `/audit/[id]` - Audit session detail view (findings, events, report export).
+  - Related docs: [API_REFERENCE](./API_REFERENCE.md)
+- `/audit/new` - Launch a new audit session.
+  - Related docs: [API_REFERENCE](./API_REFERENCE.md)
+- `/audit/templates` - Audit templates and presets.
+  - Related docs: [GAUNTLET](./GAUNTLET.md), [FEATURES](./FEATURES.md)
 - `/network` - Agent relationship network visualization.
   - Related docs: [FEATURES](./FEATURES.md), [AGENT_SELECTION](./AGENT_SELECTION.md)
 - `/tournaments` - Agent tournaments and rankings dashboard.
@@ -85,8 +95,12 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [ENVIRONMENT](./ENVIRONMENT.md), [INTEGRATIONS](./INTEGRATIONS.md)
 - `/inbox` - AI smart inbox with prioritization and Gmail sync.
   - Related docs: [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md)
+- `/command-center` - Unified inbox command center for quick actions.
+  - Related docs: [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md)
 - `/shared-inbox` - Shared inbox dashboard for team triage and routing rules.
   - Related docs: [SHARED_INBOX](./SHARED_INBOX.md), [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md)
+- `/accounting` - QuickBooks accounting dashboard.
+  - Related docs: [API_REFERENCE](./API_REFERENCE.md), [BILLING](./BILLING.md)
 - `/organization` - Organization profile settings (name, tier, limits).
   - Related docs: [BILLING](./BILLING.md), [SSO_SETUP](./SSO_SETUP.md)
 - `/organization/members` - Member invites, roles, and removal.
