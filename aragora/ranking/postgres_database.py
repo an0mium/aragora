@@ -123,6 +123,7 @@ POSTGRES_ELO_SCHEMA = """
     -- Indexes for performance
     CREATE INDEX IF NOT EXISTS idx_elo_matches_created_at ON elo_matches(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_elo_matches_winner ON elo_matches(winner);
+    CREATE INDEX IF NOT EXISTS idx_elo_matches_participants ON elo_matches USING GIN (participants);
     CREATE INDEX IF NOT EXISTS idx_elo_history_agent ON elo_history(agent_name, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_elo_ratings_elo ON elo_ratings(elo DESC);
 """
@@ -359,15 +360,16 @@ class PostgresEloDatabase(PostgresStore):
         """Get recent matches, optionally filtered by agent."""
         async with self.connection() as conn:
             if agent_name:
+                # Use JSONB containment operator for efficient index usage
                 rows = await conn.fetch(
                     """
                     SELECT * FROM elo_matches
-                    WHERE participants::text LIKE $2
+                    WHERE participants @> $2::jsonb
                     ORDER BY created_at DESC
                     LIMIT $1
                     """,
                     limit,
-                    f'%"{agent_name}"%',
+                    json.dumps([agent_name]),
                 )
             else:
                 rows = await conn.fetch(
@@ -575,9 +577,7 @@ class PostgresEloDatabase(PostgresStore):
     async def get_all_ratings(self) -> list[dict[str, Any]]:
         """Get all agent ratings."""
         async with self.connection() as conn:
-            rows = await conn.fetch(
-                "SELECT * FROM elo_ratings ORDER BY elo DESC"
-            )
+            rows = await conn.fetch("SELECT * FROM elo_ratings ORDER BY elo DESC")
             return [dict(row) for row in rows]
 
     async def delete_rating(self, agent_name: str) -> bool:

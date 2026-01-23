@@ -388,47 +388,75 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
             finally:
                 conn.close()
 
-    async def list_all(self) -> list[dict[str, Any]]:
-        """List all runs."""
-        with self._lock:
-            conn = sqlite3.connect(str(self._db_path))
-            try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC")
-                return [json.loads(row[0]) for row in cursor.fetchall()]
-            finally:
-                conn.close()
+    async def list_all(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+        """List all runs with pagination.
 
-    async def list_by_status(self, status: str) -> list[dict[str, Any]]:
-        """List runs by status."""
+        Args:
+            limit: Maximum number of runs to return (default 100)
+            offset: Number of runs to skip (default 0)
+        """
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT data_json FROM gauntlet_runs WHERE status = ? ORDER BY created_at DESC",
-                    (status,),
+                    "SELECT data_json FROM gauntlet_runs ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                    (limit, offset),
                 )
                 return [json.loads(row[0]) for row in cursor.fetchall()]
             finally:
                 conn.close()
 
-    async def list_by_template(self, template_id: str) -> list[dict[str, Any]]:
-        """List runs by template."""
+    async def list_by_status(
+        self, status: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """List runs by status with pagination.
+
+        Args:
+            status: Run status to filter by
+            limit: Maximum number of runs to return (default 100)
+            offset: Number of runs to skip (default 0)
+        """
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT data_json FROM gauntlet_runs WHERE template_id = ? ORDER BY created_at DESC",
-                    (template_id,),
+                    "SELECT data_json FROM gauntlet_runs WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                    (status, limit, offset),
                 )
                 return [json.loads(row[0]) for row in cursor.fetchall()]
             finally:
                 conn.close()
 
-    async def list_active(self) -> list[dict[str, Any]]:
-        """List active (pending/running) runs."""
+    async def list_by_template(
+        self, template_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """List runs by template with pagination.
+
+        Args:
+            template_id: Template ID to filter by
+            limit: Maximum number of runs to return (default 100)
+            offset: Number of runs to skip (default 0)
+        """
+        with self._lock:
+            conn = sqlite3.connect(str(self._db_path))
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT data_json FROM gauntlet_runs WHERE template_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                    (template_id, limit, offset),
+                )
+                return [json.loads(row[0]) for row in cursor.fetchall()]
+            finally:
+                conn.close()
+
+    async def list_active(self, limit: int = 50) -> list[dict[str, Any]]:
+        """List active (pending/running) runs.
+
+        Args:
+            limit: Maximum number of runs to return (default 50)
+        """
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -438,7 +466,9 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                     SELECT data_json FROM gauntlet_runs
                     WHERE status IN ('pending', 'running')
                     ORDER BY created_at DESC
-                    """
+                    LIMIT ?
+                    """,
+                    (limit,),
                 )
                 return [json.loads(row[0]) for row in cursor.fetchall()]
             finally:

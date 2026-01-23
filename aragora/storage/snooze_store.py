@@ -158,54 +158,49 @@ class SnoozeStore(SQLiteStore):
         Returns the list of snoozes that were processed.
         """
         due = self.get_due_snoozes(user_id)
-        now = datetime.now().isoformat()
+        if not due:
+            return []
 
+        now = datetime.now().isoformat()
+        ids = [snooze["id"] for snooze in due]
+
+        # Batch update all due snoozes in a single query
         with self.connection() as conn:
-            for snooze in due:
-                conn.execute(
-                    """
-                    UPDATE snoozes
-                    SET status = 'woken', woken_at = ?
-                    WHERE id = ?
-                    """,
-                    (now, snooze["id"]),
-                )
+            placeholders = ",".join("?" * len(ids))
+            conn.execute(
+                f"""
+                UPDATE snoozes
+                SET status = 'woken', woken_at = ?
+                WHERE id IN ({placeholders})
+                """,
+                (now, *ids),
+            )
 
         return due
 
     def get_stats(self, user_id: str = "default") -> dict[str, Any]:
         """Get snooze statistics for a user."""
         now = datetime.now().isoformat()
+        today = datetime.now().replace(hour=0, minute=0, second=0).isoformat()
+
+        # Combine all counts into a single query using CASE statements
         with self.connection() as conn:
-            # Active snoozes
-            active = conn.execute(
-                "SELECT COUNT(*) FROM snoozes WHERE user_id = ? AND status = 'active'",
-                (user_id,),
-            ).fetchone()[0]
-
-            # Due now
-            due = conn.execute(
+            row = conn.execute(
                 """
-                SELECT COUNT(*) FROM snoozes
-                WHERE user_id = ? AND status = 'active' AND snooze_until <= ?
+                SELECT
+                    SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+                    SUM(CASE WHEN status = 'active' AND snooze_until <= ? THEN 1 ELSE 0 END) as due,
+                    SUM(CASE WHEN status = 'woken' AND woken_at >= ? THEN 1 ELSE 0 END) as woken_today
+                FROM snoozes
+                WHERE user_id = ?
                 """,
-                (user_id, now),
-            ).fetchone()[0]
-
-            # Woken today
-            today = datetime.now().replace(hour=0, minute=0, second=0).isoformat()
-            woken_today = conn.execute(
-                """
-                SELECT COUNT(*) FROM snoozes
-                WHERE user_id = ? AND status = 'woken' AND woken_at >= ?
-                """,
-                (user_id, today),
-            ).fetchone()[0]
+                (now, today, user_id),
+            ).fetchone()
 
         return {
-            "active_snoozes": active,
-            "due_now": due,
-            "woken_today": woken_today,
+            "active_snoozes": row[0] or 0,
+            "due_now": row[1] or 0,
+            "woken_today": row[2] or 0,
         }
 
 
