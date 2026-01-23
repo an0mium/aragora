@@ -34,6 +34,7 @@ from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
     ChatChannel,
+    ChatEvidence,
     ChatMessage,
     ChatUser,
     FileAttachment,
@@ -52,6 +53,13 @@ TEAMS_TENANT_ID = os.environ.get("TEAMS_TENANT_ID", "")
 # Bot Framework API endpoints
 BOT_FRAMEWORK_AUTH_URL = "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token"
 BOT_FRAMEWORK_API_BASE = "https://smba.trafficmanager.net"
+
+# Microsoft Graph API for file operations and channel history
+GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
+GRAPH_AUTH_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+
+# Graph API scopes for different operations
+GRAPH_SCOPE_FILES = "https://graph.microsoft.com/.default"
 
 
 class TeamsConnector(ChatPlatformConnector):
@@ -94,6 +102,9 @@ class TeamsConnector(ChatPlatformConnector):
         self.tenant_id = tenant_id or TEAMS_TENANT_ID
         self._access_token: Optional[str] = None
         self._token_expires: float = 0
+        # Separate token cache for Microsoft Graph API
+        self._graph_token: Optional[str] = None
+        self._graph_token_expires: float = 0
 
     @property
     def platform_name(self) -> str:
@@ -145,6 +156,99 @@ class TeamsConnector(ChatPlatformConnector):
         except Exception as e:
             self._record_failure(e)
             raise
+
+    async def _get_graph_token(self) -> str:
+        """
+        Get or refresh Microsoft Graph API access token.
+
+        Graph API uses a separate OAuth flow from Bot Framework.
+        Requires ChannelMessage.Read.All and Files.ReadWrite.All permissions.
+        """
+        import time
+
+        if self._graph_token and time.time() < self._graph_token_expires - 60:
+            return self._graph_token
+
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx required for Graph API calls")
+
+        if not self.tenant_id:
+            raise RuntimeError("Tenant ID required for Graph API. Set TEAMS_TENANT_ID env var.")
+
+        # Check circuit breaker before making request
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            raise RuntimeError(cb_error)
+
+        try:
+            auth_url = GRAPH_AUTH_URL.format(tenant=self.tenant_id)
+            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                response = await client.post(
+                    auth_url,
+                    data={
+                        "grant_type": "client_credentials",
+                        "client_id": self.app_id,
+                        "client_secret": self.app_password,
+                        "scope": GRAPH_SCOPE_FILES,
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                self._graph_token = data["access_token"]
+                self._graph_token_expires = time.time() + data.get("expires_in", 3600)
+
+                self._record_success()
+                return self._graph_token
+
+        except Exception as e:
+            self._record_failure(e)
+            raise
+
+    async def _graph_api_request(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        json_data: Optional[dict] = None,
+        data: Optional[bytes] = None,
+        content_type: Optional[str] = None,
+        operation: str = "graph_api",
+    ) -> tuple[bool, Optional[dict], Optional[str]]:
+        """
+        Make a Microsoft Graph API request with auth and circuit breaker.
+
+        Args:
+            endpoint: API endpoint (will be appended to GRAPH_API_BASE)
+            method: HTTP method
+            json_data: Optional JSON body
+            data: Optional raw bytes body (for file uploads)
+            content_type: Content-Type header for raw data
+            operation: Operation name for logging
+
+        Returns:
+            Tuple of (success, response_json, error_message)
+        """
+        try:
+            token = await self._get_graph_token()
+        except Exception as e:
+            return False, None, f"Failed to get Graph token: {e}"
+
+        headers: dict[str, str] = {"Authorization": f"Bearer {token}"}
+
+        if content_type:
+            headers["Content-Type"] = content_type
+
+        # Build the full URL
+        url = f"{GRAPH_API_BASE}{endpoint}"
+
+        return await self._http_request(
+            method=method,
+            url=url,
+            headers=headers,
+            json=json_data,
+            data=data,
+            operation=operation,
+        )
 
     async def send_message(
         self,
@@ -495,32 +599,295 @@ class TeamsConnector(ChatPlatformConnector):
         content_type: str = "application/octet-stream",
         title: Optional[str] = None,
         thread_id: Optional[str] = None,
+        team_id: Optional[str] = None,
         **kwargs: Any,
     ) -> FileAttachment:
-        """Upload file to Teams (via OneDrive integration)."""
-        # Teams file upload requires Graph API - simplified implementation
-        logger.warning("Teams file upload requires Microsoft Graph API setup")
-        return FileAttachment(
-            id="",
-            filename=filename,
-            content_type=content_type,
-            size=len(content),
-            content=content,
-        )
+        """
+        Upload file to Teams channel via Microsoft Graph API.
+
+        Files are stored in the channel's SharePoint document library.
+        Requires Files.ReadWrite.All permission.
+
+        Args:
+            channel_id: Teams channel ID
+            content: File content as bytes
+            filename: Name for the uploaded file
+            content_type: MIME type of the file
+            title: Optional display title (uses filename if not provided)
+            thread_id: Optional thread ID (not used for Teams files)
+            team_id: Optional team ID (extracted from kwargs if not provided)
+            **kwargs: Additional options (may include service_url, team_id)
+
+        Returns:
+            FileAttachment with file ID and URL
+        """
+        if not HTTPX_AVAILABLE:
+            return FileAttachment(
+                id="",
+                filename=filename,
+                content_type=content_type,
+                size=len(content),
+                content=content,
+            )
+
+        # Extract team_id from various sources
+        actual_team_id = team_id or kwargs.get("team_id")
+        if not actual_team_id:
+            # Try to extract from channel_id format (some Teams IDs include team info)
+            logger.warning("Team ID not provided for file upload. Attempting extraction.")
+            # If channel_id is a full conversation ID, we may not have team_id
+            return FileAttachment(
+                id="",
+                filename=filename,
+                content_type=content_type,
+                size=len(content),
+                content=content,
+                metadata={"error": "team_id required for file upload"},
+            )
+
+        try:
+            # Step 1: Get the channel's files folder
+            folder_endpoint = f"/teams/{actual_team_id}/channels/{channel_id}/filesFolder"
+            success, folder_data, error = await self._graph_api_request(
+                endpoint=folder_endpoint,
+                method="GET",
+                operation="get_files_folder",
+            )
+
+            if not success or not folder_data:
+                logger.error(f"Failed to get channel files folder: {error}")
+                return FileAttachment(
+                    id="",
+                    filename=filename,
+                    content_type=content_type,
+                    size=len(content),
+                    content=content,
+                    metadata={"error": error or "Failed to get files folder"},
+                )
+
+            drive_id = folder_data.get("parentReference", {}).get("driveId")
+            folder_id = folder_data.get("id")
+
+            if not drive_id or not folder_id:
+                logger.error("Could not extract drive/folder IDs from response")
+                return FileAttachment(
+                    id="",
+                    filename=filename,
+                    content_type=content_type,
+                    size=len(content),
+                    content=content,
+                    metadata={"error": "Missing drive/folder IDs"},
+                )
+
+            # Step 2: Upload the file
+            # For small files (<4MB), use direct upload
+            # For large files, use upload session
+            file_size = len(content)
+
+            if file_size < 4 * 1024 * 1024:  # 4MB threshold
+                # Direct upload for small files
+                upload_endpoint = f"/drives/{drive_id}/items/{folder_id}:/{filename}:/content"
+                success, upload_data, error = await self._graph_api_request(
+                    endpoint=upload_endpoint,
+                    method="PUT",
+                    data=content,
+                    content_type=content_type,
+                    operation="upload_file",
+                )
+            else:
+                # For large files, create upload session
+                session_endpoint = (
+                    f"/drives/{drive_id}/items/{folder_id}:/{filename}:/createUploadSession"
+                )
+                success, session_data, error = await self._graph_api_request(
+                    endpoint=session_endpoint,
+                    method="POST",
+                    json_data={"item": {"@microsoft.graph.conflictBehavior": "rename"}},
+                    operation="create_upload_session",
+                )
+
+                if not success or not session_data:
+                    logger.error(f"Failed to create upload session: {error}")
+                    return FileAttachment(
+                        id="",
+                        filename=filename,
+                        content_type=content_type,
+                        size=file_size,
+                        content=content,
+                        metadata={"error": error or "Failed to create upload session"},
+                    )
+
+                # Upload content to the session URL
+                upload_url = session_data.get("uploadUrl")
+                if upload_url:
+                    try:
+                        async with httpx.AsyncClient(timeout=120.0) as client:
+                            response = await client.put(
+                                upload_url,
+                                content=content,
+                                headers={
+                                    "Content-Length": str(file_size),
+                                    "Content-Range": f"bytes 0-{file_size - 1}/{file_size}",
+                                },
+                            )
+                            response.raise_for_status()
+                            upload_data = response.json()
+                            success = True
+                    except Exception as e:
+                        logger.error(f"Large file upload failed: {e}")
+                        return FileAttachment(
+                            id="",
+                            filename=filename,
+                            content_type=content_type,
+                            size=file_size,
+                            content=content,
+                            metadata={"error": str(e)},
+                        )
+
+            if success and upload_data:
+                file_id = upload_data.get("id", "")
+                web_url = upload_data.get("webUrl")
+
+                logger.info(f"Teams file uploaded: {filename} ({file_size} bytes)")
+                return FileAttachment(
+                    id=file_id,
+                    filename=filename,
+                    content_type=content_type,
+                    size=file_size,
+                    url=web_url,
+                    metadata={
+                        "drive_id": drive_id,
+                        "item_id": file_id,
+                        "web_url": web_url,
+                    },
+                )
+            else:
+                return FileAttachment(
+                    id="",
+                    filename=filename,
+                    content_type=content_type,
+                    size=file_size,
+                    content=content,
+                    metadata={"error": error or "Upload failed"},
+                )
+
+        except Exception as e:
+            logger.error(f"Teams file upload error: {e}")
+            self._record_failure(e)
+            return FileAttachment(
+                id="",
+                filename=filename,
+                content_type=content_type,
+                size=len(content),
+                content=content,
+                metadata={"error": str(e)},
+            )
 
     async def download_file(
         self,
         file_id: str,
+        drive_id: Optional[str] = None,
         **kwargs: Any,
     ) -> FileAttachment:
-        """Download file from Teams."""
-        logger.warning("Teams file download requires Microsoft Graph API setup")
-        return FileAttachment(
-            id=file_id,
-            filename="",
-            content_type="application/octet-stream",
-            size=0,
-        )
+        """
+        Download file from Teams via Microsoft Graph API.
+
+        Args:
+            file_id: The file item ID (or full drive item path)
+            drive_id: Optional drive ID. If not provided, file_id should be
+                     a full path like "drives/{drive-id}/items/{item-id}"
+            **kwargs: Additional options
+
+        Returns:
+            FileAttachment with content populated
+        """
+        if not HTTPX_AVAILABLE:
+            return FileAttachment(
+                id=file_id,
+                filename="",
+                content_type="application/octet-stream",
+                size=0,
+            )
+
+        try:
+            # Get file metadata first
+            if drive_id:
+                meta_endpoint = f"/drives/{drive_id}/items/{file_id}"
+            else:
+                # Assume file_id is a full item ID
+                meta_endpoint = f"/drives/items/{file_id}"
+
+            success, meta_data, error = await self._graph_api_request(
+                endpoint=meta_endpoint,
+                method="GET",
+                operation="get_file_metadata",
+            )
+
+            if not success or not meta_data:
+                logger.error(f"Failed to get file metadata: {error}")
+                return FileAttachment(
+                    id=file_id,
+                    filename="",
+                    content_type="application/octet-stream",
+                    size=0,
+                    metadata={"error": error or "Failed to get metadata"},
+                )
+
+            filename = meta_data.get("name", "")
+            file_size = meta_data.get("size", 0)
+            mime_type = meta_data.get("file", {}).get("mimeType", "application/octet-stream")
+            download_url = meta_data.get("@microsoft.graph.downloadUrl")
+
+            # Download the content
+            if download_url:
+                try:
+                    async with httpx.AsyncClient(timeout=120.0) as client:
+                        response = await client.get(download_url)
+                        response.raise_for_status()
+                        content = response.content
+
+                    logger.info(f"Teams file downloaded: {filename} ({len(content)} bytes)")
+                    return FileAttachment(
+                        id=file_id,
+                        filename=filename,
+                        content_type=mime_type,
+                        size=len(content),
+                        content=content,
+                        url=meta_data.get("webUrl"),
+                        metadata={
+                            "drive_id": drive_id,
+                            "item_id": file_id,
+                        },
+                    )
+                except Exception as e:
+                    logger.error(f"File content download failed: {e}")
+                    return FileAttachment(
+                        id=file_id,
+                        filename=filename,
+                        content_type=mime_type,
+                        size=file_size,
+                        metadata={"error": str(e)},
+                    )
+            else:
+                logger.error("No download URL in file metadata")
+                return FileAttachment(
+                    id=file_id,
+                    filename=filename,
+                    content_type=mime_type,
+                    size=file_size,
+                    metadata={"error": "No download URL available"},
+                )
+
+        except Exception as e:
+            logger.error(f"Teams file download error: {e}")
+            self._record_failure(e)
+            return FileAttachment(
+                id=file_id,
+                filename="",
+                content_type="application/octet-stream",
+                size=0,
+                metadata={"error": str(e)},
+            )
 
     def format_blocks(
         self,
@@ -742,3 +1109,324 @@ class TeamsConnector(ChatPlatformConnector):
             )
 
         return event
+
+    async def get_channel_history(
+        self,
+        channel_id: str,
+        limit: int = 100,
+        oldest: Optional[str] = None,
+        latest: Optional[str] = None,
+        team_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> list[ChatMessage]:
+        """
+        Get message history from a Teams channel via Microsoft Graph API.
+
+        Uses the channelMessages API to retrieve messages.
+        Requires ChannelMessage.Read.All permission.
+
+        Args:
+            channel_id: Teams channel ID
+            limit: Maximum number of messages (max 50 per request)
+            oldest: ISO timestamp - messages after this time
+            latest: ISO timestamp - messages before this time
+            team_id: Team ID (required for Graph API)
+            **kwargs: Additional options
+
+        Returns:
+            List of ChatMessage objects
+        """
+        from datetime import datetime
+
+        if not HTTPX_AVAILABLE:
+            logger.error("httpx not available for Graph API")
+            return []
+
+        actual_team_id = team_id or kwargs.get("team_id")
+        if not actual_team_id:
+            logger.error("Team ID required for get_channel_history")
+            return []
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.warning(f"Circuit breaker open: {cb_error}")
+            return []
+
+        try:
+            messages: list[ChatMessage] = []
+            next_link: Optional[str] = None
+
+            # Build initial endpoint with filters
+            endpoint = f"/teams/{actual_team_id}/channels/{channel_id}/messages"
+            params = [f"$top={min(limit, 50)}"]  # Graph API max is 50 per page
+
+            if oldest:
+                params.append(f"$filter=createdDateTime gt {oldest}")
+
+            if params:
+                endpoint = f"{endpoint}?{'&'.join(params)}"
+
+            while True:
+                if next_link:
+                    # Use the full nextLink URL directly
+                    success, data, error = await self._graph_api_request(
+                        endpoint=next_link.replace(GRAPH_API_BASE, ""),
+                        method="GET",
+                        operation="get_channel_messages",
+                    )
+                else:
+                    success, data, error = await self._graph_api_request(
+                        endpoint=endpoint,
+                        method="GET",
+                        operation="get_channel_messages",
+                    )
+
+                if not success or not data:
+                    logger.error(f"Failed to get channel messages: {error}")
+                    break
+
+                # Parse messages from response
+                for msg_data in data.get("value", []):
+                    msg_id = msg_data.get("id", "")
+                    created_at_str = msg_data.get("createdDateTime", "")
+
+                    # Parse timestamp
+                    try:
+                        timestamp = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                    except (ValueError, AttributeError):
+                        timestamp = datetime.utcnow()
+
+                    # Filter by latest timestamp if provided
+                    if latest:
+                        try:
+                            latest_dt = datetime.fromisoformat(latest.replace("Z", "+00:00"))
+                            if timestamp > latest_dt:
+                                continue
+                        except (ValueError, AttributeError):
+                            pass
+
+                    # Parse author
+                    from_data = msg_data.get("from", {}) or {}
+                    user_data = from_data.get("user", {}) or {}
+                    author = ChatUser(
+                        id=user_data.get("id", ""),
+                        platform=self.platform_name,
+                        display_name=user_data.get("displayName"),
+                        metadata={"aadObjectId": user_data.get("aadObjectId")},
+                    )
+
+                    # Parse channel info
+                    channel = ChatChannel(
+                        id=channel_id,
+                        platform=self.platform_name,
+                        team_id=actual_team_id,
+                    )
+
+                    # Extract message content
+                    body = msg_data.get("body", {}) or {}
+                    content = body.get("content", "")
+
+                    # Strip HTML if content type is html
+                    if body.get("contentType") == "html":
+                        import re
+
+                        content = re.sub(r"<[^>]+>", "", content)
+
+                    messages.append(
+                        ChatMessage(
+                            id=msg_id,
+                            platform=self.platform_name,
+                            channel=channel,
+                            author=author,
+                            content=content,
+                            timestamp=timestamp,
+                            thread_id=msg_data.get("replyToId"),
+                            metadata={
+                                "importance": msg_data.get("importance"),
+                                "web_url": msg_data.get("webUrl"),
+                            },
+                        )
+                    )
+
+                    if len(messages) >= limit:
+                        break
+
+                # Check for more pages
+                next_link = data.get("@odata.nextLink")
+                if not next_link or len(messages) >= limit:
+                    break
+
+            logger.debug(f"Retrieved {len(messages)} messages from Teams channel {channel_id}")
+            return messages[:limit]
+
+        except Exception as e:
+            logger.error(f"Teams get_channel_history error: {e}")
+            self._record_failure(e)
+            return []
+
+    async def collect_evidence(
+        self,
+        channel_id: str,
+        query: Optional[str] = None,
+        limit: int = 100,
+        include_threads: bool = True,
+        min_relevance: float = 0.0,
+        team_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> list[ChatEvidence]:
+        """
+        Collect chat messages as evidence for debates.
+
+        Retrieves messages from a Teams channel, filters by relevance,
+        and converts to ChatEvidence format with provenance tracking.
+
+        Args:
+            channel_id: Teams channel ID
+            query: Optional search query to filter messages
+            limit: Maximum number of messages to retrieve
+            include_threads: Whether to include reply messages
+            min_relevance: Minimum relevance score for inclusion (0-1)
+            team_id: Team ID (required for Graph API)
+            **kwargs: Additional options
+
+        Returns:
+            List of ChatEvidence objects with relevance scoring
+        """
+        # Get channel history
+        messages = await self.get_channel_history(
+            channel_id=channel_id,
+            limit=limit,
+            team_id=team_id or kwargs.get("team_id"),
+            **kwargs,
+        )
+
+        if not messages:
+            return []
+
+        # Convert to evidence with relevance scoring
+        evidence_list: list[ChatEvidence] = []
+
+        for msg in messages:
+            # Skip replies if not including threads
+            if not include_threads and msg.thread_id:
+                continue
+
+            # Calculate relevance using base class helper
+            relevance = self._compute_message_relevance(msg, query)
+
+            # Apply minimum relevance filter
+            if relevance < min_relevance:
+                continue
+
+            # Convert to ChatEvidence
+            evidence = ChatEvidence.from_message(
+                message=msg,
+                query=query or "",
+                relevance_score=relevance,
+            )
+
+            evidence_list.append(evidence)
+
+        # Sort by relevance score (highest first)
+        evidence_list.sort(key=lambda e: e.relevance_score, reverse=True)
+
+        logger.debug(
+            f"Collected {len(evidence_list)} evidence items from Teams channel {channel_id}"
+        )
+        return evidence_list
+
+    async def get_channel_info(
+        self,
+        channel_id: str,
+        team_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[ChatChannel]:
+        """
+        Get information about a Teams channel via Microsoft Graph API.
+
+        Args:
+            channel_id: Channel ID
+            team_id: Team ID (required for Graph API)
+            **kwargs: Additional options
+
+        Returns:
+            ChatChannel info or None
+        """
+        actual_team_id = team_id or kwargs.get("team_id")
+        if not actual_team_id:
+            logger.debug("Team ID required for get_channel_info")
+            return None
+
+        try:
+            endpoint = f"/teams/{actual_team_id}/channels/{channel_id}"
+            success, data, error = await self._graph_api_request(
+                endpoint=endpoint,
+                method="GET",
+                operation="get_channel_info",
+            )
+
+            if not success or not data:
+                logger.debug(f"Failed to get channel info: {error}")
+                return None
+
+            return ChatChannel(
+                id=channel_id,
+                platform=self.platform_name,
+                name=data.get("displayName"),
+                is_private=data.get("membershipType") == "private",
+                team_id=actual_team_id,
+                metadata={
+                    "description": data.get("description"),
+                    "web_url": data.get("webUrl"),
+                    "membership_type": data.get("membershipType"),
+                },
+            )
+
+        except Exception as e:
+            logger.debug(f"Teams get_channel_info error: {e}")
+            return None
+
+    async def get_user_info(
+        self,
+        user_id: str,
+        **kwargs: Any,
+    ) -> Optional[ChatUser]:
+        """
+        Get information about a user via Microsoft Graph API.
+
+        Args:
+            user_id: User ID (AAD Object ID)
+            **kwargs: Additional options
+
+        Returns:
+            ChatUser info or None
+        """
+        try:
+            endpoint = f"/users/{user_id}"
+            success, data, error = await self._graph_api_request(
+                endpoint=endpoint,
+                method="GET",
+                operation="get_user_info",
+            )
+
+            if not success or not data:
+                logger.debug(f"Failed to get user info: {error}")
+                return None
+
+            return ChatUser(
+                id=user_id,
+                platform=self.platform_name,
+                username=data.get("userPrincipalName"),
+                display_name=data.get("displayName"),
+                email=data.get("mail"),
+                metadata={
+                    "job_title": data.get("jobTitle"),
+                    "office_location": data.get("officeLocation"),
+                    "department": data.get("department"),
+                },
+            )
+
+        except Exception as e:
+            logger.debug(f"Teams get_user_info error: {e}")
+            return None

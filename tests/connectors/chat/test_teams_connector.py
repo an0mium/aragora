@@ -458,3 +458,342 @@ class TestTeamsWithoutHttpx:
 
             # When httpx not available, should fail gracefully
             assert result.success is False or result.error is not None
+
+
+class TestTeamsGraphAPI:
+    """Tests for Microsoft Graph API integration."""
+
+    @pytest.mark.asyncio
+    async def test_get_graph_token(self):
+        """Should obtain Graph API access token."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+            tenant_id="tenant-456",
+        )
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "access_token": "graph-token-xyz",
+            "expires_in": 3600,
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_instance = mock_client.return_value.__aenter__.return_value
+            mock_instance.post = AsyncMock(return_value=mock_response)
+
+            token = await connector._get_graph_token()
+
+        assert token == "graph-token-xyz"
+
+    @pytest.mark.asyncio
+    async def test_graph_token_requires_tenant_id(self):
+        """Should require tenant ID for Graph API."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+            # No tenant_id
+        )
+
+        with pytest.raises(RuntimeError, match="Tenant ID required"):
+            await connector._get_graph_token()
+
+
+class TestTeamsFileOperations:
+    """Tests for Teams file upload/download via Graph API."""
+
+    @pytest.mark.asyncio
+    async def test_upload_file_success(self):
+        """Should upload file via Graph API."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+            tenant_id="tenant-456",
+        )
+        connector._graph_token = "graph-token"
+        connector._graph_token_expires = 9999999999
+
+        # Mock Graph API responses
+        folder_response = {
+            "id": "folder-id",
+            "parentReference": {"driveId": "drive-id"},
+        }
+        upload_response = {
+            "id": "file-id-123",
+            "webUrl": "https://example.sharepoint.com/file",
+        }
+
+        with patch.object(connector, "_graph_api_request", new_callable=AsyncMock) as mock_req:
+            # First call: get files folder, second call: upload
+            mock_req.side_effect = [
+                (True, folder_response, None),
+                (True, upload_response, None),
+            ]
+
+            result = await connector.upload_file(
+                channel_id="channel-123",
+                content=b"test content",
+                filename="test.txt",
+                team_id="team-456",
+            )
+
+        assert result.id == "file-id-123"
+        assert result.filename == "test.txt"
+        assert "sharepoint" in result.url
+
+    @pytest.mark.asyncio
+    async def test_upload_file_requires_team_id(self):
+        """Should require team_id for file upload."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+        )
+
+        result = await connector.upload_file(
+            channel_id="channel-123",
+            content=b"test content",
+            filename="test.txt",
+            # No team_id
+        )
+
+        assert result.id == ""
+        assert "team_id required" in result.metadata.get("error", "")
+
+    @pytest.mark.asyncio
+    async def test_download_file_success(self):
+        """Should download file via Graph API."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+            tenant_id="tenant-456",
+        )
+        connector._graph_token = "graph-token"
+        connector._graph_token_expires = 9999999999
+
+        # Mock metadata response
+        meta_response = {
+            "name": "document.pdf",
+            "size": 1024,
+            "file": {"mimeType": "application/pdf"},
+            "@microsoft.graph.downloadUrl": "https://download.example.com/file",
+            "webUrl": "https://view.example.com/file",
+        }
+
+        # Mock download
+        mock_download_response = MagicMock()
+        mock_download_response.content = b"PDF content here"
+        mock_download_response.raise_for_status = MagicMock()
+
+        with patch.object(connector, "_graph_api_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, meta_response, None)
+
+            with patch("httpx.AsyncClient") as mock_client:
+                mock_instance = mock_client.return_value.__aenter__.return_value
+                mock_instance.get = AsyncMock(return_value=mock_download_response)
+
+                result = await connector.download_file(
+                    file_id="file-id-123",
+                    drive_id="drive-id",
+                )
+
+        assert result.filename == "document.pdf"
+        assert result.content_type == "application/pdf"
+        assert result.content == b"PDF content here"
+
+
+class TestTeamsChannelHistory:
+    """Tests for Teams channel history retrieval."""
+
+    @pytest.mark.asyncio
+    async def test_get_channel_history(self):
+        """Should retrieve channel messages via Graph API."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+            tenant_id="tenant-456",
+        )
+        connector._graph_token = "graph-token"
+        connector._graph_token_expires = 9999999999
+
+        # Mock Graph API response
+        messages_response = {
+            "value": [
+                {
+                    "id": "msg-1",
+                    "createdDateTime": "2024-01-15T10:30:00Z",
+                    "from": {"user": {"id": "user-1", "displayName": "Alice"}},
+                    "body": {"content": "Hello team!", "contentType": "text"},
+                },
+                {
+                    "id": "msg-2",
+                    "createdDateTime": "2024-01-15T10:35:00Z",
+                    "from": {"user": {"id": "user-2", "displayName": "Bob"}},
+                    "body": {"content": "Hi Alice!", "contentType": "text"},
+                },
+            ],
+        }
+
+        with patch.object(connector, "_graph_api_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, messages_response, None)
+
+            messages = await connector.get_channel_history(
+                channel_id="channel-123",
+                team_id="team-456",
+                limit=50,
+            )
+
+        assert len(messages) == 2
+        assert messages[0].id == "msg-1"
+        assert "Hello team" in messages[0].content
+        assert messages[0].author.display_name == "Alice"
+
+    @pytest.mark.asyncio
+    async def test_get_channel_history_requires_team_id(self):
+        """Should require team_id for channel history."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+        )
+
+        messages = await connector.get_channel_history(
+            channel_id="channel-123",
+            # No team_id
+        )
+
+        assert messages == []
+
+
+class TestTeamsEvidenceCollection:
+    """Tests for Teams evidence collection."""
+
+    @pytest.mark.asyncio
+    async def test_collect_evidence(self):
+        """Should collect evidence from channel messages."""
+        from aragora.connectors.chat.teams import TeamsConnector
+        from aragora.connectors.chat.models import ChatMessage, ChatChannel, ChatUser
+        from datetime import datetime
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+            tenant_id="tenant-456",
+        )
+
+        # Create mock messages
+        channel = ChatChannel(id="channel-123", platform="teams")
+        user = ChatUser(id="user-1", platform="teams", display_name="Alice")
+
+        mock_messages = [
+            ChatMessage(
+                id="msg-1",
+                platform="teams",
+                channel=channel,
+                author=user,
+                content="This is about database optimization",
+                timestamp=datetime.utcnow(),
+            ),
+            ChatMessage(
+                id="msg-2",
+                platform="teams",
+                channel=channel,
+                author=user,
+                content="Random unrelated message",
+                timestamp=datetime.utcnow(),
+            ),
+        ]
+
+        with patch.object(connector, "get_channel_history", new_callable=AsyncMock) as mock_history:
+            mock_history.return_value = mock_messages
+
+            evidence = await connector.collect_evidence(
+                channel_id="channel-123",
+                query="database",
+                team_id="team-456",
+                min_relevance=0.0,
+            )
+
+        assert len(evidence) == 2
+        # First should be the one with "database" in content (higher relevance)
+        assert "database" in evidence[0].content.lower()
+
+
+class TestTeamsMetadataLookups:
+    """Tests for Teams channel and user info lookups."""
+
+    @pytest.mark.asyncio
+    async def test_get_channel_info(self):
+        """Should retrieve channel info via Graph API."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+            tenant_id="tenant-456",
+        )
+        connector._graph_token = "graph-token"
+        connector._graph_token_expires = 9999999999
+
+        channel_response = {
+            "id": "channel-123",
+            "displayName": "General",
+            "description": "Main channel",
+            "membershipType": "standard",
+            "webUrl": "https://teams.microsoft.com/channel/...",
+        }
+
+        with patch.object(connector, "_graph_api_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, channel_response, None)
+
+            channel = await connector.get_channel_info(
+                channel_id="channel-123",
+                team_id="team-456",
+            )
+
+        assert channel is not None
+        assert channel.name == "General"
+        assert channel.team_id == "team-456"
+
+    @pytest.mark.asyncio
+    async def test_get_user_info(self):
+        """Should retrieve user info via Graph API."""
+        from aragora.connectors.chat.teams import TeamsConnector
+
+        connector = TeamsConnector(
+            app_id="app-123",
+            app_password="secret-pass",
+            tenant_id="tenant-456",
+        )
+        connector._graph_token = "graph-token"
+        connector._graph_token_expires = 9999999999
+
+        user_response = {
+            "id": "user-123",
+            "displayName": "John Doe",
+            "userPrincipalName": "john.doe@example.com",
+            "mail": "john.doe@example.com",
+            "jobTitle": "Engineer",
+        }
+
+        with patch.object(connector, "_graph_api_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, user_response, None)
+
+            user = await connector.get_user_info(user_id="user-123")
+
+        assert user is not None
+        assert user.display_name == "John Doe"
+        assert user.email == "john.doe@example.com"

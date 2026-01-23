@@ -305,3 +305,207 @@ class TestDiscordWithoutDependencies:
             )
 
             assert result.success is False or result.error is not None
+
+
+class TestDiscordMetadataLookups:
+    """Tests for Discord channel and user info lookups."""
+
+    @pytest.mark.asyncio
+    async def test_get_channel_info_text_channel(self):
+        """Should retrieve text channel info via Discord API."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        channel_response = {
+            "id": "123456789",
+            "type": 0,  # GUILD_TEXT
+            "name": "general",
+            "topic": "General discussion",
+            "guild_id": "guild-123",
+            "nsfw": False,
+            "position": 1,
+            "parent_id": "category-456",
+        }
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, channel_response, None)
+
+            channel = await connector.get_channel_info(channel_id="123456789")
+
+        assert channel is not None
+        assert channel.id == "123456789"
+        assert channel.name == "general"
+        assert channel.team_id == "guild-123"
+        assert channel.is_dm is False
+        assert channel.is_private is False
+
+    @pytest.mark.asyncio
+    async def test_get_channel_info_dm_channel(self):
+        """Should recognize DM channels."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        dm_response = {
+            "id": "dm-123",
+            "type": 1,  # DM
+            "name": None,
+        }
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, dm_response, None)
+
+            channel = await connector.get_channel_info(channel_id="dm-123")
+
+        assert channel is not None
+        assert channel.is_dm is True
+
+    @pytest.mark.asyncio
+    async def test_get_channel_info_private_thread(self):
+        """Should recognize private threads."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        thread_response = {
+            "id": "thread-123",
+            "type": 12,  # PRIVATE_THREAD
+            "name": "Private discussion",
+            "guild_id": "guild-123",
+        }
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, thread_response, None)
+
+            channel = await connector.get_channel_info(channel_id="thread-123")
+
+        assert channel is not None
+        assert channel.is_private is True
+
+    @pytest.mark.asyncio
+    async def test_get_channel_info_error(self):
+        """Should return None on API error."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (False, None, "Channel not found")
+
+            channel = await connector.get_channel_info(channel_id="invalid")
+
+        assert channel is None
+
+    @pytest.mark.asyncio
+    async def test_get_user_info(self):
+        """Should retrieve user info via Discord API."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        user_response = {
+            "id": "user-123",
+            "username": "johndoe",
+            "global_name": "John Doe",
+            "avatar": "abc123",
+            "discriminator": "0",
+            "bot": False,
+            "accent_color": 16711680,
+        }
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, user_response, None)
+
+            user = await connector.get_user_info(user_id="user-123")
+
+        assert user is not None
+        assert user.id == "user-123"
+        assert user.username == "johndoe"
+        assert user.display_name == "John Doe"
+        assert user.is_bot is False
+        assert "avatars/user-123/abc123.png" in user.avatar_url
+
+    @pytest.mark.asyncio
+    async def test_get_user_info_animated_avatar(self):
+        """Should use .gif for animated avatars."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        user_response = {
+            "id": "user-456",
+            "username": "animated_user",
+            "global_name": "Animated User",
+            "avatar": "a_xyz789",  # Starts with a_ = animated
+            "bot": False,
+        }
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, user_response, None)
+
+            user = await connector.get_user_info(user_id="user-456")
+
+        assert user is not None
+        assert user.avatar_url.endswith(".gif")
+
+    @pytest.mark.asyncio
+    async def test_get_user_info_no_avatar(self):
+        """Should handle users without avatar."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        user_response = {
+            "id": "user-789",
+            "username": "noavatar",
+            "global_name": None,
+            "avatar": None,
+            "bot": False,
+        }
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, user_response, None)
+
+            user = await connector.get_user_info(user_id="user-789")
+
+        assert user is not None
+        assert user.avatar_url is None
+        assert user.display_name == "noavatar"  # Falls back to username
+
+    @pytest.mark.asyncio
+    async def test_get_user_info_bot(self):
+        """Should identify bot users."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        bot_response = {
+            "id": "bot-123",
+            "username": "mybot",
+            "global_name": "My Bot",
+            "avatar": "botavatar",
+            "bot": True,
+        }
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (True, bot_response, None)
+
+            user = await connector.get_user_info(user_id="bot-123")
+
+        assert user is not None
+        assert user.is_bot is True
+
+    @pytest.mark.asyncio
+    async def test_get_user_info_error(self):
+        """Should return None on API error."""
+        from aragora.connectors.chat.discord import DiscordConnector
+
+        connector = DiscordConnector(bot_token="test-token")
+
+        with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = (False, None, "User not found")
+
+            user = await connector.get_user_info(user_id="invalid")
+
+        assert user is None

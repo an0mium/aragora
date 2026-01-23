@@ -918,3 +918,140 @@ class DiscordConnector(ChatPlatformConnector):
         )
 
         return evidence_list
+
+    async def get_channel_info(
+        self,
+        channel_id: str,
+        **kwargs: Any,
+    ) -> Optional[ChatChannel]:
+        """
+        Get information about a Discord channel.
+
+        Uses Discord's GET /channels/{channel.id} API.
+
+        Args:
+            channel_id: Discord channel ID
+            **kwargs: Additional options
+
+        Returns:
+            ChatChannel info or None
+        """
+        if not HTTPX_AVAILABLE:
+            logger.debug("httpx not available for Discord API")
+            return None
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.debug(f"Circuit breaker open: {cb_error}")
+            return None
+
+        try:
+            success, data, error = await self._http_request(
+                method="GET",
+                url=f"{DISCORD_API_BASE}/channels/{channel_id}",
+                headers=self._get_headers(),
+                operation="get_channel_info",
+            )
+
+            if not success or not data:
+                logger.debug(f"Failed to get channel info: {error}")
+                return None
+
+            # Channel type mapping
+            # 0: GUILD_TEXT, 1: DM, 2: GUILD_VOICE, 3: GROUP_DM
+            # 4: GUILD_CATEGORY, 5: GUILD_ANNOUNCEMENT, 10: ANNOUNCEMENT_THREAD
+            # 11: PUBLIC_THREAD, 12: PRIVATE_THREAD, 13: GUILD_STAGE_VOICE
+            # 14: GUILD_DIRECTORY, 15: GUILD_FORUM
+            channel_type = data.get("type", 0)
+            is_dm = channel_type in (1, 3)  # DM or Group DM
+            is_private = channel_type == 12  # Private thread
+
+            return ChatChannel(
+                id=channel_id,
+                platform=self.platform_name,
+                name=data.get("name"),
+                is_private=is_private,
+                is_dm=is_dm,
+                team_id=data.get("guild_id"),
+                metadata={
+                    "type": channel_type,
+                    "topic": data.get("topic"),
+                    "nsfw": data.get("nsfw", False),
+                    "position": data.get("position"),
+                    "parent_id": data.get("parent_id"),
+                    "rate_limit_per_user": data.get("rate_limit_per_user"),
+                },
+            )
+
+        except Exception as e:
+            logger.debug(f"Discord get_channel_info error: {e}")
+            return None
+
+    async def get_user_info(
+        self,
+        user_id: str,
+        **kwargs: Any,
+    ) -> Optional[ChatUser]:
+        """
+        Get information about a Discord user.
+
+        Uses Discord's GET /users/{user.id} API.
+
+        Args:
+            user_id: Discord user ID
+            **kwargs: Additional options
+
+        Returns:
+            ChatUser info or None
+        """
+        if not HTTPX_AVAILABLE:
+            logger.debug("httpx not available for Discord API")
+            return None
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            logger.debug(f"Circuit breaker open: {cb_error}")
+            return None
+
+        try:
+            success, data, error = await self._http_request(
+                method="GET",
+                url=f"{DISCORD_API_BASE}/users/{user_id}",
+                headers=self._get_headers(),
+                operation="get_user_info",
+            )
+
+            if not success or not data:
+                logger.debug(f"Failed to get user info: {error}")
+                return None
+
+            # Build avatar URL
+            avatar_hash = data.get("avatar")
+            avatar_url = None
+            if avatar_hash:
+                # Use .gif for animated avatars (start with a_)
+                extension = "gif" if avatar_hash.startswith("a_") else "png"
+                avatar_url = (
+                    f"https://cdn.discordapp.com/avatars/{user_id}/{avatar_hash}.{extension}"
+                )
+
+            return ChatUser(
+                id=user_id,
+                platform=self.platform_name,
+                username=data.get("username"),
+                display_name=data.get("global_name") or data.get("username"),
+                avatar_url=avatar_url,
+                is_bot=data.get("bot", False),
+                metadata={
+                    "discriminator": data.get("discriminator"),
+                    "accent_color": data.get("accent_color"),
+                    "banner": data.get("banner"),
+                    "public_flags": data.get("public_flags"),
+                },
+            )
+
+        except Exception as e:
+            logger.debug(f"Discord get_user_info error: {e}")
+            return None
