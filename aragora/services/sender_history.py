@@ -765,6 +765,45 @@ class SenderHistoryService:
 
             return [row[0] for row in cursor.fetchall()]
 
+    async def is_blocked(self, user_id: str, sender_email: str) -> bool:
+        """
+        Quick check if a sender is blocked.
+
+        Uses cache for fast lookups during email prioritization.
+
+        Args:
+            user_id: User identifier
+            sender_email: Sender's email address
+
+        Returns:
+            True if sender is blocked, False otherwise
+        """
+        cache_key = f"{user_id}:{sender_email.lower()}"
+
+        # Check cache first
+        if cache_key in self._reputation_cache:
+            cached_time, cached_rep = self._reputation_cache[cache_key]
+            if (datetime.now() - cached_time).total_seconds() < self.cache_ttl:
+                return cached_rep.is_blocked
+
+        # Query database directly for speed
+        async with self._lock:
+            if not self._connection:
+                await self.initialize()
+
+            cursor = self._connection.cursor()
+            cursor.execute(
+                """
+                SELECT is_blocked
+                FROM sender_stats
+                WHERE user_id = ? AND sender_email = ?
+                """,
+                (user_id, sender_email.lower()),
+            )
+
+            row = cursor.fetchone()
+            return bool(row["is_blocked"]) if row else False
+
     async def get_blocked_senders(self, user_id: str) -> List[str]:
         """
         Get list of blocked senders for a user.

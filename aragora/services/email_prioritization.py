@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
     from aragora.connectors.enterprise.communication.models import EmailMessage
     from aragora.knowledge.mound import KnowledgeMound
+    from aragora.services.sender_history import SenderHistoryService
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ class EmailPriority(Enum):
     MEDIUM = 3  # Standard priority
     LOW = 4  # Can wait, review when time allows
     DEFER = 5  # Archive or auto-file
+    BLOCKED = 6  # Sender is blocked, auto-archive/delete
 
 
 class ScoringTier(Enum):
@@ -76,6 +78,7 @@ class SenderProfile:
     domain: str
     is_vip: bool = False
     is_internal: bool = False
+    is_blocked: bool = False
     response_rate: float = 0.0  # How often user responds to this sender
     avg_response_time_hours: float = 24.0  # Average response time
     last_interaction: Optional[datetime] = None
@@ -241,6 +244,8 @@ class EmailPrioritizer:
         gmail_connector: Optional["GmailConnector"] = None,
         knowledge_mound: Optional["KnowledgeMound"] = None,
         config: Optional[EmailPrioritizationConfig] = None,
+        sender_history_service: Optional["SenderHistoryService"] = None,
+        user_id: Optional[str] = None,
     ):
         """
         Initialize email prioritizer.
@@ -249,10 +254,14 @@ class EmailPrioritizer:
             gmail_connector: Gmail connector for fetching emails
             knowledge_mound: Knowledge Mound for context and learning
             config: Prioritization configuration
+            sender_history_service: Sender history service for blocklist checks
+            user_id: User identifier for sender history lookups
         """
         self.gmail = gmail_connector
         self.mound = knowledge_mound
         self.config = config or EmailPrioritizationConfig()
+        self.sender_history = sender_history_service
+        self.user_id = user_id
 
         # Sender profile cache
         self._sender_profiles: Dict[str, SenderProfile] = {}
@@ -356,6 +365,14 @@ class EmailPrioritizer:
         # Parse domain
         domain = email_address.split("@")[-1] if "@" in email_address else ""
 
+        # Check blocklist via SenderHistoryService
+        is_blocked = False
+        if self.sender_history and self.user_id:
+            try:
+                is_blocked = await self.sender_history.is_blocked(self.user_id, email_address)
+            except Exception as e:
+                logger.warning(f"Failed to check blocklist for {email_address}: {e}")
+
         # Create profile
         profile = SenderProfile(
             email=email_address,
@@ -365,6 +382,7 @@ class EmailPrioritizer:
                 or domain.lower() in {d.lower() for d in self.config.vip_domains}
             ),
             is_internal=domain.lower() in {d.lower() for d in self.config.internal_domains},
+            is_blocked=is_blocked,
         )
 
         # Try to load history from knowledge mound
@@ -413,11 +431,25 @@ class EmailPrioritizer:
         Tier 1: Fast rule-based scoring (<200ms target).
 
         Uses:
+        - Blocklist check (early exit)
         - Sender reputation
         - Keyword detection
         - Pattern matching
         - Gmail labels
         """
+        # Early exit for blocked senders
+        if sender.is_blocked:
+            return EmailPriorityResult(
+                email_id=email.id,
+                priority=EmailPriority.BLOCKED,
+                confidence=1.0,
+                tier_used=ScoringTier.TIER_1_RULES,
+                rationale="Sender is blocked",
+                sender_score=0.0,
+                auto_archive=True,
+                suggested_labels=["Blocked"],
+            )
+
         scores = {
             "sender": sender.reputation_score,
             "content_urgency": 0.0,
