@@ -6,7 +6,7 @@ Formats receipts using Teams' Adaptive Cards for rich message display.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .formatter import ReceiptFormatter, register_formatter
 
@@ -59,7 +59,9 @@ class TeamsReceiptFormatter(ReceiptFormatter):
         body.append(
             {
                 "type": "TextBlock",
-                "text": getattr(r, "topic", None) or getattr(r, "question", None) or getattr(r, "input_summary", "N/A"),
+                "text": getattr(r, "topic", None)
+                or getattr(r, "question", None)
+                or getattr(r, "input_summary", "N/A"),
                 "wrap": True,
                 "weight": "Bolder",
             }
@@ -116,7 +118,8 @@ class TeamsReceiptFormatter(ReceiptFormatter):
         body.append(
             {
                 "type": "TextBlock",
-                "text": getattr(r, "decision", None) or getattr(r, "verdict", "No decision reached"),
+                "text": getattr(r, "decision", None)
+                or getattr(r, "verdict", "No decision reached"),
                 "wrap": True,
             }
         )
@@ -180,7 +183,9 @@ class TeamsReceiptFormatter(ReceiptFormatter):
                         },
                         {
                             "title": "Rounds",
-                            "value": str(getattr(r, "rounds", None) or getattr(r, "rounds_completed", "N/A")),
+                            "value": str(
+                                getattr(r, "rounds", None) or getattr(r, "rounds_completed", "N/A")
+                            ),
                         },
                     ],
                     "spacing": "Medium",

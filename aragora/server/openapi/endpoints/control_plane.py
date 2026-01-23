@@ -430,8 +430,8 @@ CONTROL_PLANE_ENDPOINTS = {
     "/api/control-plane/deliberations": {
         "post": {
             "tags": ["Control Plane"],
-            "summary": "Run deliberation",
-            "description": "Run or queue a deliberation (async when async=true).",
+            "summary": "Run robust decisionmaking session",
+            "description": "Run or queue a robust decisionmaking session (async when async=true).",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
                 "required": True,
@@ -442,8 +442,8 @@ CONTROL_PLANE_ENDPOINTS = {
                 },
             },
             "responses": {
-                "200": _ok_response("Deliberation completed", "DeliberationSyncResponse"),
-                "202": _ok_response("Deliberation queued", "DeliberationQueuedResponse"),
+                "200": _ok_response("Decisionmaking completed", "DeliberationSyncResponse"),
+                "202": _ok_response("Decisionmaking queued", "DeliberationQueuedResponse"),
                 "400": STANDARD_ERRORS["400"],
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
@@ -454,8 +454,8 @@ CONTROL_PLANE_ENDPOINTS = {
     "/api/control-plane/deliberations/{request_id}": {
         "get": {
             "tags": ["Control Plane"],
-            "summary": "Get deliberation result",
-            "description": "Fetch a stored deliberation record by request ID.",
+            "summary": "Get robust decisionmaking result",
+            "description": "Fetch a stored robust decisionmaking record by request ID.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
                 {
@@ -466,7 +466,7 @@ CONTROL_PLANE_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Deliberation record", "DeliberationRecord"),
+                "200": _ok_response("Decisionmaking record", "DeliberationRecord"),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "404": STANDARD_ERRORS["404"],
@@ -477,8 +477,8 @@ CONTROL_PLANE_ENDPOINTS = {
     "/api/control-plane/deliberations/{request_id}/status": {
         "get": {
             "tags": ["Control Plane"],
-            "summary": "Get deliberation status",
-            "description": "Check deliberation status for polling.",
+            "summary": "Get robust decisionmaking status",
+            "description": "Check robust decisionmaking status for polling.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
                 {
@@ -489,7 +489,7 @@ CONTROL_PLANE_ENDPOINTS = {
                 }
             ],
             "responses": {
-                "200": _ok_response("Deliberation status", "DeliberationStatus"),
+                "200": _ok_response("Decisionmaking status", "DeliberationStatus"),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "500": STANDARD_ERRORS["500"],

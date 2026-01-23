@@ -1,5 +1,11 @@
 # Aragora Feature Discovery Guide
 
+> Deprecated: This inventory reflects an earlier UI snapshot and is no longer
+> maintained. For current capability coverage, see
+> [FEATURES.md](../../FEATURES.md),
+> [FRONTEND_ROUTES.md](../../FRONTEND_ROUTES.md), and
+> [CONTROL_PLANE.md](../../CONTROL_PLANE.md).
+
 Complete catalog of Aragora's **100+ features** organized by use case.
 
 **Codebase Statistics:**

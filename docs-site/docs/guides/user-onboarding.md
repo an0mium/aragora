@@ -195,7 +195,7 @@ aragora ask "What could go wrong with this deployment plan?" \
 
 - **GitHub Issues**: [github.com/an0mium/aragora/issues](https://github.com/an0mium/aragora/issues)
 - **Documentation**: [docs/](.)
-- **Examples**: https://github.com/aragora/aragora/tree/main/examples
+- **Examples**: https://github.com/an0mium/aragora/tree/main/examples
 
 ---
 

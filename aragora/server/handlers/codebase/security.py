@@ -211,11 +211,13 @@ async def handle_scan_repository(
 
         logger.info(f"[Security] Started scan {scan_id} for {repo_id}")
 
-        return success_response({
-            "scan_id": scan_id,
-            "status": "running",
-            "repository": repo_id,
-        })
+        return success_response(
+            {
+                "scan_id": scan_id,
+                "status": "running",
+                "repository": repo_id,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to start scan: {e}")
@@ -310,13 +312,15 @@ async def handle_get_vulnerabilities(
         total = len(vulnerabilities)
         vulnerabilities = vulnerabilities[offset : offset + limit]
 
-        return success_response({
-            "vulnerabilities": vulnerabilities,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "scan_id": latest.scan_id,
-        })
+        return success_response(
+            {
+                "vulnerabilities": vulnerabilities,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "scan_id": latest.scan_id,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to get vulnerabilities: {e}")
@@ -363,13 +367,15 @@ async def handle_query_package_vulnerabilities(
             version=version,
         )
 
-        return success_response({
-            "package": package_name,
-            "ecosystem": ecosystem,
-            "version": version,
-            "vulnerabilities": [v.to_dict() for v in vulnerabilities],
-            "total": len(vulnerabilities),
-        })
+        return success_response(
+            {
+                "package": package_name,
+                "ecosystem": ecosystem,
+                "version": version,
+                "vulnerabilities": [v.to_dict() for v in vulnerabilities],
+                "total": len(vulnerabilities),
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to query package vulnerabilities: {e}")
@@ -403,30 +409,32 @@ async def handle_list_scans(
         total = len(scans)
         scans = scans[offset : offset + limit]
 
-        return success_response({
-            "scans": [
-                {
-                    "scan_id": s.scan_id,
-                    "status": s.status,
-                    "started_at": s.started_at.isoformat(),
-                    "completed_at": s.completed_at.isoformat() if s.completed_at else None,
-                    "summary": {
-                        "total_dependencies": s.total_dependencies,
-                        "vulnerable_dependencies": s.vulnerable_dependencies,
-                        "critical_count": s.critical_count,
-                        "high_count": s.high_count,
-                        "medium_count": s.medium_count,
-                        "low_count": s.low_count,
+        return success_response(
+            {
+                "scans": [
+                    {
+                        "scan_id": s.scan_id,
+                        "status": s.status,
+                        "started_at": s.started_at.isoformat(),
+                        "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+                        "summary": {
+                            "total_dependencies": s.total_dependencies,
+                            "vulnerable_dependencies": s.vulnerable_dependencies,
+                            "critical_count": s.critical_count,
+                            "high_count": s.high_count,
+                            "medium_count": s.medium_count,
+                            "low_count": s.low_count,
+                        }
+                        if s.status == "completed"
+                        else None,
                     }
-                    if s.status == "completed"
-                    else None,
-                }
-                for s in scans
-            ],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+                    for s in scans
+                ],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to list scans: {e}")
@@ -728,12 +736,14 @@ async def handle_scan_secrets(
 
         logger.info(f"[Security] Started secrets scan {scan_id} for {repo_id}")
 
-        return success_response({
-            "scan_id": scan_id,
-            "status": "running",
-            "repository": repo_id,
-            "include_history": include_history,
-        })
+        return success_response(
+            {
+                "scan_id": scan_id,
+                "status": "running",
+                "repository": repo_id,
+                "include_history": include_history,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to start secrets scan: {e}")
@@ -819,13 +829,15 @@ async def handle_get_secrets(
         total = len(secrets)
         secrets = secrets[offset : offset + limit]
 
-        return success_response({
-            "secrets": secrets,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "scan_id": latest.scan_id,
-        })
+        return success_response(
+            {
+                "secrets": secrets,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "scan_id": latest.scan_id,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to get secrets: {e}")
@@ -859,32 +871,34 @@ async def handle_list_secrets_scans(
         total = len(scans)
         scans = scans[offset : offset + limit]
 
-        return success_response({
-            "scans": [
-                {
-                    "scan_id": s.scan_id,
-                    "status": s.status,
-                    "started_at": s.started_at.isoformat(),
-                    "completed_at": s.completed_at.isoformat() if s.completed_at else None,
-                    "files_scanned": s.files_scanned,
-                    "scanned_history": s.scanned_history,
-                    "history_depth": s.history_depth,
-                    "summary": {
-                        "total_secrets": len(s.secrets),
-                        "critical_count": s.critical_count,
-                        "high_count": s.high_count,
-                        "medium_count": s.medium_count,
-                        "low_count": s.low_count,
+        return success_response(
+            {
+                "scans": [
+                    {
+                        "scan_id": s.scan_id,
+                        "status": s.status,
+                        "started_at": s.started_at.isoformat(),
+                        "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+                        "files_scanned": s.files_scanned,
+                        "scanned_history": s.scanned_history,
+                        "history_depth": s.history_depth,
+                        "summary": {
+                            "total_secrets": len(s.secrets),
+                            "critical_count": s.critical_count,
+                            "high_count": s.high_count,
+                            "medium_count": s.medium_count,
+                            "low_count": s.low_count,
+                        }
+                        if s.status == "completed"
+                        else None,
                     }
-                    if s.status == "completed"
-                    else None,
-                }
-                for s in scans
-            ],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+                    for s in scans
+                ],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to list secrets scans: {e}")
@@ -1117,9 +1131,7 @@ class SecurityHandler(BaseHandler):
         """GET /api/v1/codebase/{repo}/sbom/{sbom_id}/download"""
         return await handle_download_sbom(repo_id=repo_id, sbom_id=sbom_id)
 
-    async def handle_compare_sbom(
-        self, data: Dict[str, Any], repo_id: str
-    ) -> HandlerResult:
+    async def handle_compare_sbom(self, data: Dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/sbom/compare"""
         sbom_id_a = data.get("sbom_id_a")
         sbom_id_b = data.get("sbom_id_b")
@@ -1206,11 +1218,13 @@ async def handle_scan_sast(
         task = asyncio.create_task(run_sast_scan())
         _running_sast_scans[repo_id] = task
 
-        return success_response({
-            "message": "SAST scan started",
-            "scan_id": scan_id,
-            "repo_id": repo_id,
-        })
+        return success_response(
+            {
+                "message": "SAST scan started",
+                "scan_id": scan_id,
+                "repo_id": repo_id,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"[SAST] Failed to start scan: {e}")
@@ -1231,19 +1245,23 @@ async def handle_get_sast_scan_status(
             if scan_id not in repo_scans:
                 # Check if still running
                 if repo_id in _running_sast_scans:
-                    return success_response({
-                        "scan_id": scan_id,
-                        "status": "running",
-                        "findings_count": 0,
-                    })
+                    return success_response(
+                        {
+                            "scan_id": scan_id,
+                            "status": "running",
+                            "findings_count": 0,
+                        }
+                    )
                 return error_response("Scan not found", 404)
 
             result = repo_scans[scan_id]
-            return success_response({
-                "scan_id": scan_id,
-                "status": "completed",
-                **result.to_dict(),
-            })
+            return success_response(
+                {
+                    "scan_id": scan_id,
+                    "status": "completed",
+                    **result.to_dict(),
+                }
+            )
 
     except Exception as e:
         logger.exception(f"[SAST] Failed to get scan status: {e}")
@@ -1265,10 +1283,12 @@ async def handle_get_sast_findings(
 
             repo_scans = _sast_scan_results[repo_id]
             if not repo_scans:
-                return success_response({
-                    "findings": [],
-                    "total": 0,
-                })
+                return success_response(
+                    {
+                        "findings": [],
+                        "total": 0,
+                    }
+                )
 
             # Get latest scan
             latest_scan = max(repo_scans.values(), key=lambda s: s.scanned_at)
@@ -1285,13 +1305,15 @@ async def handle_get_sast_findings(
             total = len(findings)
             findings = findings[offset : offset + limit]
 
-            return success_response({
-                "findings": [f.to_dict() for f in findings],
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-                "scan_id": latest_scan.scan_id,
-            })
+            return success_response(
+                {
+                    "findings": [f.to_dict() for f in findings],
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "scan_id": latest_scan.scan_id,
+                }
+            )
 
     except Exception as e:
         logger.exception(f"[SAST] Failed to get findings: {e}")
@@ -1307,10 +1329,12 @@ async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
 
             repo_scans = _sast_scan_results[repo_id]
             if not repo_scans:
-                return success_response({
-                    "owasp_summary": {},
-                    "total_findings": 0,
-                })
+                return success_response(
+                    {
+                        "owasp_summary": {},
+                        "total_findings": 0,
+                    }
+                )
 
             # Get latest scan
             latest_scan = max(repo_scans.values(), key=lambda s: s.scanned_at)
@@ -1319,10 +1343,12 @@ async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
             scanner = _get_sast_scanner()
             summary = await scanner.get_owasp_summary(latest_scan.findings)
 
-            return success_response({
-                "scan_id": latest_scan.scan_id,
-                **summary,
-            })
+            return success_response(
+                {
+                    "scan_id": latest_scan.scan_id,
+                    **summary,
+                }
+            )
 
     except Exception as e:
         logger.exception(f"[SAST] Failed to get OWASP summary: {e}")
@@ -1481,18 +1507,20 @@ async def handle_generate_sbom(
             f"{result.component_count} components, {result.vulnerability_count} vulnerabilities"
         )
 
-        return success_response({
-            "sbom_id": sbom_id,
-            "repository": repo_id,
-            "format": result.format.value,
-            "filename": result.filename,
-            "component_count": result.component_count,
-            "vulnerability_count": result.vulnerability_count,
-            "license_count": result.license_count,
-            "generated_at": result.generated_at.isoformat(),
-            "content": result.content,
-            "errors": result.errors,
-        })
+        return success_response(
+            {
+                "sbom_id": sbom_id,
+                "repository": repo_id,
+                "format": result.format.value,
+                "filename": result.filename,
+                "component_count": result.component_count,
+                "vulnerability_count": result.vulnerability_count,
+                "license_count": result.license_count,
+                "generated_at": result.generated_at.isoformat(),
+                "content": result.content,
+                "errors": result.errors,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to generate SBOM: {e}")
@@ -1523,18 +1551,20 @@ async def handle_get_sbom(
                 return error_response("No SBOMs generated for this repository", 404)
             result = max(repo_results.values(), key=lambda r: r.generated_at)
 
-        return success_response({
-            "sbom_id": sbom_id or "sbom_latest",
-            "repository": repo_id,
-            "format": result.format.value,
-            "filename": result.filename,
-            "component_count": result.component_count,
-            "vulnerability_count": result.vulnerability_count,
-            "license_count": result.license_count,
-            "generated_at": result.generated_at.isoformat(),
-            "content": result.content,
-            "errors": result.errors,
-        })
+        return success_response(
+            {
+                "sbom_id": sbom_id or "sbom_latest",
+                "repository": repo_id,
+                "format": result.format.value,
+                "filename": result.filename,
+                "component_count": result.component_count,
+                "vulnerability_count": result.vulnerability_count,
+                "license_count": result.license_count,
+                "generated_at": result.generated_at.isoformat(),
+                "content": result.content,
+                "errors": result.errors,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to get SBOM: {e}")
@@ -1573,11 +1603,13 @@ async def handle_list_sboms(
             for sbom_id, result in sorted_results
         ]
 
-        return success_response({
-            "repository": repo_id,
-            "count": len(sboms),
-            "sboms": sboms,
-        })
+        return success_response(
+            {
+                "repository": repo_id,
+                "count": len(sboms),
+                "sboms": sboms,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to list SBOMs: {e}")
@@ -1611,11 +1643,13 @@ async def handle_download_sbom(
         }
         content_type = content_types.get(result.format, "application/octet-stream")
 
-        return success_response({
-            "content": result.content,
-            "filename": result.filename,
-            "content_type": content_type,
-        })
+        return success_response(
+            {
+                "content": result.content,
+                "filename": result.filename,
+                "content_type": content_type,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to download SBOM: {e}")
@@ -1692,30 +1726,32 @@ async def handle_compare_sboms(
             else:
                 unchanged.append({"name": name, "version": v_a})
 
-        return success_response({
-            "sbom_a": {
-                "sbom_id": sbom_id_a,
-                "generated_at": result_a.generated_at.isoformat(),
-                "component_count": result_a.component_count,
-            },
-            "sbom_b": {
-                "sbom_id": sbom_id_b,
-                "generated_at": result_b.generated_at.isoformat(),
-                "component_count": result_b.component_count,
-            },
-            "diff": {
-                "added": added,
-                "removed": removed,
-                "updated": updated,
-                "unchanged_count": len(unchanged),
-            },
-            "summary": {
-                "total_added": len(added),
-                "total_removed": len(removed),
-                "total_updated": len(updated),
-                "total_unchanged": len(unchanged),
-            },
-        })
+        return success_response(
+            {
+                "sbom_a": {
+                    "sbom_id": sbom_id_a,
+                    "generated_at": result_a.generated_at.isoformat(),
+                    "component_count": result_a.component_count,
+                },
+                "sbom_b": {
+                    "sbom_id": sbom_id_b,
+                    "generated_at": result_b.generated_at.isoformat(),
+                    "component_count": result_b.component_count,
+                },
+                "diff": {
+                    "added": added,
+                    "removed": removed,
+                    "updated": updated,
+                    "unchanged_count": len(unchanged),
+                },
+                "summary": {
+                    "total_added": len(added),
+                    "total_removed": len(removed),
+                    "total_updated": len(updated),
+                    "total_unchanged": len(unchanged),
+                },
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Failed to compare SBOMs: {e}")

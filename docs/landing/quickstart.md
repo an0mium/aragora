@@ -103,14 +103,14 @@ Agents: anthropic-api, openai-api, gemini
 
 ---
 
-## Your First Deliberation (API)
+## Your First Robust Decisionmaking (API)
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/decisions \\
   -H \"Content-Type: application/json\" \\
   -d '{\n    \"content\": \"Should we migrate to microservices this quarter?\",\n    \"decision_type\": \"debate\"\n  }'\n```
 
-Use `/api/control-plane/deliberations` for queued, multi-agent workflows.
+Use `/api/control-plane/deliberations` for queued, multi-agent robust decisionmaking workflows.
 
 ---
 

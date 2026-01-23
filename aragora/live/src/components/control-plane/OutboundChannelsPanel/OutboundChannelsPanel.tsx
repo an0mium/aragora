@@ -250,7 +250,7 @@ export function OutboundChannelsPanel({
           channel_type: 'email',
           channel_name: 'Email',
           recipient: 'team@company.com',
-          content_preview: 'Weekly deliberation summary...',
+          content_preview: 'Weekly robust decisionmaking summary...',
           status: 'failed',
           sent_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
           error_message: 'SMTP authentication failed',

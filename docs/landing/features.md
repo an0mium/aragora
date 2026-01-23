@@ -74,6 +74,7 @@ coordinator = ControlPlaneCoordinator()
 ```
 
 ### Webhooks
+Event names use the `deliberation.*` prefix for API compatibility.
 ```json
 {
   "event": "deliberation.completed",

@@ -134,7 +134,7 @@ The Arena orchestrates a structured debate cycle:
   "description": "Implement vector-based caching to reduce redundant LLM calls",
   "impact": "HIGH",
   "complexity": "MEDIUM",
-  "files_affected": ["aragora/debate/orchestrator.py", "aragora/memory/cache.py"]
+  "files_affected": ["aragora/debate/orchestrator.py", "aragora/memory/store.py"]
 }
 ```
 
@@ -275,7 +275,7 @@ result = await debate.run(context="Improve error handling")
 design = DesignPhase(
     aragora_path=path,
     claude_agent=claude,
-    protected_files=["CLAUDE.md", "core.py"],
+    protected_files=["CLAUDE.md", "core_types.py"],
     auto_approve_threshold=0.5,
 )
 result = await design.run(proposal=winning_proposal)
@@ -360,7 +360,7 @@ Before each cycle, critical files are backed up:
 .nomic/backups/
 ├── backup_cycle_1_20260103_120000/
 │   ├── scripts/nomic_loop.py
-│   ├── aragora/core.py
+│   ├── aragora/core_types.py
 │   └── ...
 └── backup_cycle_2_20260103_130000/
     └── ...

@@ -9,7 +9,7 @@ description: Aragora API Discovery Guide
 
 This guide documents powerful but underutilized API endpoints. These endpoints
 provide access to capabilities that are implemented but not always integrated
-into the frontend. For control-plane deliberations and decision routing, see
+into the frontend. For control-plane robust decisionmaking sessions and decision routing, see
 [CONTROL_PLANE_GUIDE.md](../enterprise/control-plane) and
 [API_REFERENCE.md](./reference).
 
@@ -18,7 +18,7 @@ into the frontend. For control-plane deliberations and decision routing, see
 | Endpoint | Category | Description |
 |----------|----------|-------------|
 | `GET /api/features/discover` | Discovery | List all available API endpoints |
-| `POST /api/control-plane/deliberations` | Control Plane | Run or queue deliberations programmatically |
+| `POST /api/control-plane/deliberations` | Control Plane | Run or queue robust decisionmaking sessions programmatically |
 | `POST /api/verification/formal-verify` | Verification | Verify claims using Z3 SMT solver |
 | `GET /api/verify/history` | Verification | List verification history with pagination |
 | `GET /api/verify/history/\{id\}` | Verification | Get specific verification entry |

@@ -132,13 +132,13 @@ async def control_plane_example():
 asyncio.run(control_plane_example())
 ```
 
-### Control Plane Deliberation
+### Control Plane Robust Decisionmaking
 
 ```python
-async def control_plane_deliberation():
-    """Run a deliberation via the control plane (sync or async)."""
+async def control_plane_decisionmaking():
+    """Run a robust decisionmaking session via the control plane (sync or async)."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
-        # Submit a deliberation (async)
+        # Submit a robust decisionmaking session (async)
         response = await client.post("/api/control-plane/deliberations", json={
             "content": "Evaluate the rollout risk for this migration plan",
             "decision_type": "debate",
@@ -159,7 +159,7 @@ async def control_plane_deliberation():
                 break
             await asyncio.sleep(1)
 
-asyncio.run(control_plane_deliberation())
+asyncio.run(control_plane_decisionmaking())
 ```
 
 ### Decision Router (Unified API)

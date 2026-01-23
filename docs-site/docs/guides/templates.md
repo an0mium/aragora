@@ -1,3 +1,8 @@
+---
+title: Robust Decisionmaking Templates
+description: Robust Decisionmaking Templates
+---
+
 # Robust Decisionmaking Templates
 
 Aragora ships with built-in robust decisionmaking templates for common enterprise

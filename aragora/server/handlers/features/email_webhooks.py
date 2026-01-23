@@ -16,10 +16,8 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import hashlib
-import hmac
 import json
 import logging
 from dataclasses import dataclass, field
@@ -33,7 +31,6 @@ from ..base import (
     HandlerResult,
     error_response,
     success_response,
-    json_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -99,7 +96,9 @@ class WebhookSubscription:
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "notification_url": self.notification_url,
-            "last_notification": self.last_notification.isoformat() if self.last_notification else None,
+            "last_notification": self.last_notification.isoformat()
+            if self.last_notification
+            else None,
             "notification_count": self.notification_count,
             "error_count": self.error_count,
         }
@@ -211,9 +210,7 @@ async def process_gmail_notification(
         # Queue for processing
         await _queue_notification(notification)
 
-        logger.info(
-            f"Processed Gmail notification for {email_address}, history_id={history_id}"
-        )
+        logger.info(f"Processed Gmail notification for {email_address}, history_id={history_id}")
 
         return notification
 
@@ -253,8 +250,7 @@ async def process_outlook_notification(
             change_client_state = change.get("clientState")
             if client_state and change_client_state != client_state:
                 logger.warning(
-                    f"Client state mismatch: expected={client_state}, "
-                    f"got={change_client_state}"
+                    f"Client state mismatch: expected={client_state}, " f"got={change_client_state}"
                 )
                 continue
 
@@ -295,9 +291,7 @@ async def process_outlook_notification(
             notifications.append(notification)
             await _queue_notification(notification)
 
-            logger.info(
-                f"Processed Outlook notification: {change_type} for {resource}"
-            )
+            logger.info(f"Processed Outlook notification: {change_type} for {resource}")
 
         return notifications
 
@@ -436,9 +430,7 @@ class EmailWebhooksHandler(BaseHandler):
     # Gmail Webhook
     # =========================================================================
 
-    async def _handle_gmail_webhook(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_gmail_webhook(self, request: Any, tenant_id: str) -> HandlerResult:
         """Handle Gmail Pub/Sub push notification.
 
         Google sends notifications to this endpoint when there are
@@ -451,17 +443,21 @@ class EmailWebhooksHandler(BaseHandler):
             notification = await process_gmail_notification(body, tenant_id)
 
             if notification:
-                return success_response({
-                    "status": "processed",
-                    "notification": notification.to_dict(),
-                })
+                return success_response(
+                    {
+                        "status": "processed",
+                        "notification": notification.to_dict(),
+                    }
+                )
             else:
                 # Return 200 to acknowledge receipt even if processing failed
                 # (to prevent Google from retrying)
-                return success_response({
-                    "status": "acknowledged",
-                    "message": "Notification received but not processed",
-                })
+                return success_response(
+                    {
+                        "status": "acknowledged",
+                        "message": "Notification received but not processed",
+                    }
+                )
 
         except Exception as e:
             logger.exception(f"Error handling Gmail webhook: {e}")
@@ -472,9 +468,7 @@ class EmailWebhooksHandler(BaseHandler):
     # Outlook Webhook
     # =========================================================================
 
-    async def _handle_outlook_webhook(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_outlook_webhook(self, request: Any, tenant_id: str) -> HandlerResult:
         """Handle Outlook Graph change notification.
 
         Microsoft sends change notifications when subscribed resources change.
@@ -498,11 +492,13 @@ class EmailWebhooksHandler(BaseHandler):
             # Process notifications
             notifications = await process_outlook_notification(body, tenant_id)
 
-            return success_response({
-                "status": "processed",
-                "count": len(notifications),
-                "notifications": [n.to_dict() for n in notifications],
-            })
+            return success_response(
+                {
+                    "status": "processed",
+                    "count": len(notifications),
+                    "notifications": [n.to_dict() for n in notifications],
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error handling Outlook webhook: {e}")
@@ -535,31 +531,25 @@ class EmailWebhooksHandler(BaseHandler):
         """Get webhook subscription status."""
         subscription_ids = _tenant_subscriptions.get(tenant_id, [])
         subscriptions = [
-            _subscriptions[sid].to_dict()
-            for sid in subscription_ids
-            if sid in _subscriptions
+            _subscriptions[sid].to_dict() for sid in subscription_ids if sid in _subscriptions
         ]
 
         # Calculate summary
-        active_count = sum(
-            1 for s in subscriptions if s["status"] == "active"
-        )
-        total_notifications = sum(
-            s["notification_count"] for s in subscriptions
+        active_count = sum(1 for s in subscriptions if s["status"] == "active")
+        total_notifications = sum(s["notification_count"] for s in subscriptions)
+
+        return success_response(
+            {
+                "subscriptions": subscriptions,
+                "summary": {
+                    "total": len(subscriptions),
+                    "active": active_count,
+                    "total_notifications": total_notifications,
+                },
+            }
         )
 
-        return success_response({
-            "subscriptions": subscriptions,
-            "summary": {
-                "total": len(subscriptions),
-                "active": active_count,
-                "total_notifications": total_notifications,
-            },
-        })
-
-    async def _handle_subscribe(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_subscribe(self, request: Any, tenant_id: str) -> HandlerResult:
         """Create new webhook subscription.
 
         Request body:
@@ -618,26 +608,22 @@ class EmailWebhooksHandler(BaseHandler):
                     _tenant_subscriptions[tenant_id] = []
                 _tenant_subscriptions[tenant_id].append(subscription_id)
 
-                logger.info(
-                    f"Created {provider.value} webhook subscription: {subscription_id}"
-                )
+                logger.info(f"Created {provider.value} webhook subscription: {subscription_id}")
 
-                return success_response({
-                    "subscription": subscription.to_dict(),
-                    "client_state": client_state,
-                })
-            else:
-                return error_response(
-                    result.get("error", "Failed to create subscription"), 400
+                return success_response(
+                    {
+                        "subscription": subscription.to_dict(),
+                        "client_state": client_state,
+                    }
                 )
+            else:
+                return error_response(result.get("error", "Failed to create subscription"), 400)
 
         except Exception as e:
             logger.exception(f"Error creating subscription: {e}")
             return error_response(f"Failed to create subscription: {str(e)}", 500)
 
-    async def _create_gmail_subscription(
-        self, subscription: WebhookSubscription
-    ) -> Dict[str, Any]:
+    async def _create_gmail_subscription(self, subscription: WebhookSubscription) -> Dict[str, Any]:
         """Create Gmail Pub/Sub watch."""
         try:
             from aragora.connectors.email import GmailSyncService
@@ -666,9 +652,7 @@ class EmailWebhooksHandler(BaseHandler):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def _handle_unsubscribe(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_unsubscribe(self, request: Any, tenant_id: str) -> HandlerResult:
         """Remove webhook subscription.
 
         Request body:
@@ -702,38 +686,33 @@ class EmailWebhooksHandler(BaseHandler):
             del _subscriptions[subscription_id]
             if tenant_id in _tenant_subscriptions:
                 _tenant_subscriptions[tenant_id] = [
-                    sid for sid in _tenant_subscriptions[tenant_id]
-                    if sid != subscription_id
+                    sid for sid in _tenant_subscriptions[tenant_id] if sid != subscription_id
                 ]
 
             logger.info(f"Deleted webhook subscription: {subscription_id}")
 
-            return success_response({
-                "status": "deleted",
-                "subscription_id": subscription_id,
-            })
+            return success_response(
+                {
+                    "status": "deleted",
+                    "subscription_id": subscription_id,
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error deleting subscription: {e}")
             return error_response(f"Failed to delete subscription: {str(e)}", 500)
 
-    async def _delete_gmail_subscription(
-        self, subscription: WebhookSubscription
-    ) -> None:
+    async def _delete_gmail_subscription(self, subscription: WebhookSubscription) -> None:
         """Delete Gmail Pub/Sub watch."""
         # In production, call Gmail API to stop the watch
         pass
 
-    async def _delete_outlook_subscription(
-        self, subscription: WebhookSubscription
-    ) -> None:
+    async def _delete_outlook_subscription(self, subscription: WebhookSubscription) -> None:
         """Delete Outlook Graph subscription."""
         # In production, call Microsoft Graph API to delete subscription
         pass
 
-    async def _handle_history(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_history(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get notification history."""
         params = self._get_query_params(request)
         limit = int(params.get("limit", 50))
@@ -741,10 +720,12 @@ class EmailWebhooksHandler(BaseHandler):
         history = _notification_history.get(tenant_id, [])
         history = history[-limit:]  # Get last N
 
-        return success_response({
-            "notifications": [n.to_dict() for n in reversed(history)],
-            "total": len(history),
-        })
+        return success_response(
+            {
+                "notifications": [n.to_dict() for n in reversed(history)],
+                "total": len(history),
+            }
+        )
 
     # =========================================================================
     # Utility Methods
@@ -782,9 +763,7 @@ def get_email_webhooks_handler() -> EmailWebhooksHandler:
     return _handler_instance
 
 
-async def handle_email_webhooks(
-    request: Any, path: str, method: str
-) -> HandlerResult:
+async def handle_email_webhooks(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for email webhook requests."""
     handler = get_email_webhooks_handler()
     return await handler.handle(request, path, method)

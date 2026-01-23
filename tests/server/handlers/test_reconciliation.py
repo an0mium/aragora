@@ -69,10 +69,12 @@ class TestRunReconciliation:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "start_date": "invalid-date",
-            "end_date": "2024-01-31",
-        })
+        request.json = AsyncMock(
+            return_value={
+                "start_date": "invalid-date",
+                "end_date": "2024-01-31",
+            }
+        )
 
         result = await handler.handle(request, "/api/v1/reconciliation/run", "POST")
 
@@ -87,10 +89,12 @@ class TestRunReconciliation:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "start_date": "2024-01-31",
-            "end_date": "2024-01-01",
-        })
+        request.json = AsyncMock(
+            return_value={
+                "start_date": "2024-01-31",
+                "end_date": "2024-01-01",
+            }
+        )
 
         result = await handler.handle(request, "/api/v1/reconciliation/run", "POST")
 
@@ -105,10 +109,12 @@ class TestRunReconciliation:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-31",
-        })
+        request.json = AsyncMock(
+            return_value={
+                "start_date": "2024-01-01",
+                "end_date": "2024-01-31",
+            }
+        )
 
         with patch(
             "aragora.server.handlers.features.reconciliation.get_reconciliation_service"
@@ -128,9 +134,7 @@ class TestRunReconciliation:
                 mock_result.matched_transactions = []
                 mock_demo.return_value = mock_result
 
-                result = await handler.handle(
-                    request, "/api/v1/reconciliation/run", "POST"
-                )
+                result = await handler.handle(request, "/api/v1/reconciliation/run", "POST")
 
                 assert result is not None
                 assert result.status_code == 200
@@ -154,9 +158,7 @@ class TestListReconciliations:
         ) as mock_get:
             mock_get.return_value = None
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/list", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/list", "GET")
 
             assert result is not None
             assert result.status_code == 200
@@ -178,9 +180,7 @@ class TestListReconciliations:
             mock_service.list_reconciliations.return_value = []
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/list", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/list", "GET")
 
             assert result is not None
             mock_service.list_reconciliations.assert_called_once_with(
@@ -206,9 +206,7 @@ class TestGetReconciliation:
             mock_service.get_reconciliation.return_value = None
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123", "GET")
 
             assert result is not None
             assert result.status_code == 404
@@ -233,9 +231,7 @@ class TestGetReconciliation:
             mock_service.get_reconciliation.return_value = mock_result
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123", "GET")
 
             assert result is not None
             assert result.status_code == 200
@@ -253,9 +249,7 @@ class TestResolveDiscrepancy:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"resolution": "Fixed"})
 
-        result = await handler.handle(
-            request, "/api/v1/reconciliation/rec_123/resolve", "POST"
-        )
+        result = await handler.handle(request, "/api/v1/reconciliation/rec_123/resolve", "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -269,11 +263,13 @@ class TestResolveDiscrepancy:
         request = MagicMock()
         request.tenant_id = "test_tenant"
         request.user_id = "user_123"
-        request.json = AsyncMock(return_value={
-            "discrepancy_id": "disc_001",
-            "resolution": "Created expense entry",
-            "action": "create_entry",
-        })
+        request.json = AsyncMock(
+            return_value={
+                "discrepancy_id": "disc_001",
+                "resolution": "Created expense entry",
+                "action": "create_entry",
+            }
+        )
 
         with patch(
             "aragora.server.handlers.features.reconciliation.get_reconciliation_service"
@@ -287,9 +283,7 @@ class TestResolveDiscrepancy:
             mock_service.get_reconciliation.return_value = mock_result
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123/resolve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123/resolve", "POST")
 
             assert result is not None
             assert result.status_code == 200
@@ -324,13 +318,19 @@ class TestBulkResolve:
         request = MagicMock()
         request.tenant_id = "test_tenant"
         request.user_id = "user_123"
-        request.json = AsyncMock(return_value={
-            "reconciliation_id": "rec_123",
-            "resolutions": [
-                {"discrepancy_id": "disc_001", "resolution": "Fixed", "action": "ignore"},
-                {"discrepancy_id": "disc_002", "resolution": "Matched", "action": "match_manual"},
-            ],
-        })
+        request.json = AsyncMock(
+            return_value={
+                "reconciliation_id": "rec_123",
+                "resolutions": [
+                    {"discrepancy_id": "disc_001", "resolution": "Fixed", "action": "ignore"},
+                    {
+                        "discrepancy_id": "disc_002",
+                        "resolution": "Matched",
+                        "action": "match_manual",
+                    },
+                ],
+            }
+        )
 
         with patch(
             "aragora.server.handlers.features.reconciliation.get_reconciliation_service"
@@ -371,9 +371,7 @@ class TestApproveReconciliation:
             mock_service.get_reconciliation.return_value = None
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123/approve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123/approve", "POST")
 
             assert result is not None
             assert result.status_code == 404
@@ -401,9 +399,7 @@ class TestApproveReconciliation:
             mock_service.get_reconciliation.return_value = mock_result
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123/approve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123/approve", "POST")
 
             assert result is not None
             assert result.status_code == 400
@@ -430,9 +426,7 @@ class TestApproveReconciliation:
             mock_service.get_reconciliation.return_value = mock_result
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123/approve", "POST"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123/approve", "POST")
 
             assert result is not None
             assert result.status_code == 200
@@ -457,9 +451,7 @@ class TestGetDiscrepancies:
         ) as mock_get:
             mock_get.return_value = None
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/discrepancies", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/discrepancies", "GET")
 
             assert result is not None
             assert result.status_code == 200
@@ -481,9 +473,7 @@ class TestGetDiscrepancies:
             mock_service.list_reconciliations.return_value = []
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/discrepancies", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/discrepancies", "GET")
 
             assert result is not None
             assert result.status_code == 200
@@ -508,9 +498,7 @@ class TestGenerateReport:
             mock_service.get_reconciliation.return_value = None
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123/report", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123/report", "GET")
 
             assert result is not None
             assert result.status_code == 404
@@ -544,9 +532,7 @@ class TestGenerateReport:
             mock_service.get_reconciliation.return_value = mock_result
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123/report", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123/report", "GET")
 
             assert result is not None
             assert result.status_code == 200
@@ -572,9 +558,7 @@ class TestGenerateReport:
             mock_service.get_reconciliation.return_value = mock_result
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123/report", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123/report", "GET")
 
             assert result is not None
             assert result.status_code == 200
@@ -597,9 +581,7 @@ class TestGenerateReport:
             mock_service.get_reconciliation.return_value = mock_result
             mock_get.return_value = mock_service
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/rec_123/report", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/rec_123/report", "GET")
 
             assert result is not None
             assert result.status_code == 400
@@ -627,9 +609,7 @@ class TestDemoEndpoint:
             mock_result.matched_transactions = []
             mock_demo.return_value = mock_result
 
-            result = await handler.handle(
-                request, "/api/v1/reconciliation/demo", "GET"
-            )
+            result = await handler.handle(request, "/api/v1/reconciliation/demo", "GET")
 
             assert result is not None
             assert result.status_code == 200
@@ -651,9 +631,7 @@ class TestHandleReconciliation:
         ) as mock_get:
             mock_get.return_value = None
 
-            result = await handle_reconciliation(
-                request, "/api/v1/reconciliation/list", "GET"
-            )
+            result = await handle_reconciliation(request, "/api/v1/reconciliation/list", "GET")
 
             assert result is not None
 
@@ -669,9 +647,7 @@ class TestNotFoundRoute:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(
-            request, "/api/v1/reconciliation/unknown/path", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/reconciliation/unknown/path", "GET")
 
         assert result is not None
         assert result.status_code == 404

@@ -25,7 +25,7 @@ export default function DeliberationsPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'complete'>('all');
 
-  // Fetch active deliberations
+  // Fetch active robust decisionmaking sessions
   const fetchDeliberations = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/v1/deliberations/active`);
@@ -33,7 +33,7 @@ export default function DeliberationsPage() {
       const data = await response.json();
       setDeliberations(data.deliberations || []);
 
-      // Extract agent influence from deliberations
+      // Extract agent influence from decisionmaking sessions
       const agentMap = new Map<string, AgentInfluence>();
       (data.deliberations || []).forEach((d: Deliberation) => {
         d.agents.forEach(agent => {
@@ -141,7 +141,7 @@ export default function DeliberationsPage() {
             const data = JSON.parse(event.data) as DeliberationEvent;
             setEvents(prev => [...prev.slice(-99), data]);
 
-            // Update deliberations based on events
+            // Update decisionmaking sessions based on events
             if (data.type === 'consensus_progress' || data.type === 'round_complete') {
               fetchDeliberations();
             }
@@ -180,7 +180,7 @@ export default function DeliberationsPage() {
     return () => clearInterval(interval);
   }, [fetchDeliberations, fetchStats, wsConnected]);
 
-  // Filter deliberations
+  // Filter decisionmaking sessions
   const filteredDeliberations = deliberations.filter(d => {
     if (filter === 'active') return d.status === 'active' || d.status === 'consensus_forming' || d.status === 'initializing';
     if (filter === 'complete') return d.status === 'complete';
@@ -199,7 +199,7 @@ export default function DeliberationsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-mono text-acid-green mb-2">
-                  Deliberation Dashboard
+                  Robust Decisionmaking Dashboard
                 </h1>
                 <p className="text-text-muted font-mono text-sm">
                   Real-time view of multi-agent robust decisionmaking sessions across your organization
@@ -223,7 +223,7 @@ export default function DeliberationsPage() {
         </div>
 
         <div className="container mx-auto px-4 py-6 space-y-6">
-          <PanelErrorBoundary panelName="Deliberations">
+          <PanelErrorBoundary panelName="Robust Decisionmaking">
             {/* Stats */}
             <DeliberationStats stats={stats} loading={loading} />
 
@@ -256,11 +256,11 @@ export default function DeliberationsPage() {
               ))}
             </div>
 
-            {/* Deliberation Grid */}
+            {/* Robust Decisionmaking Grid */}
             <DeliberationGrid
               deliberations={filteredDeliberations}
               loading={loading}
-              emptyMessage={filter === 'active' ? 'No active deliberations' : 'No deliberations found'}
+              emptyMessage={filter === 'active' ? 'No active robust decisionmaking sessions' : 'No robust decisionmaking sessions found'}
             />
           </PanelErrorBoundary>
         </div>
@@ -271,7 +271,7 @@ export default function DeliberationsPage() {
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">
-            {'>'} ARAGORA // MULTI-AGENT DELIBERATION CONTROL PLANE
+            {'>'} ARAGORA // MULTI-AGENT ROBUST DECISIONMAKING CONTROL PLANE
           </p>
         </footer>
       </main>

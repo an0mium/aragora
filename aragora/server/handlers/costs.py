@@ -130,7 +130,7 @@ def record_cost(
 
             # Record asynchronously if in async context, otherwise sync
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()  # Check if loop exists
                 asyncio.create_task(tracker.record(usage))
             except RuntimeError:
                 # No running loop, run synchronously
@@ -140,7 +140,7 @@ def record_cost(
         except Exception as e:
             logger.error(f"[CostHandler] Failed to record cost: {e}")
     else:
-        logger.debug(f"[CostHandler] CostTracker not available, cost not persisted")
+        logger.debug("[CostHandler] CostTracker not available, cost not persisted")
 
 
 # =============================================================================
@@ -204,9 +204,6 @@ async def get_cost_summary(
                     reverse=True,
                 )
             ] if report.cost_by_operation else []
-
-            # Get workspace stats for quick access
-            stats = tracker.get_workspace_stats(workspace_id)
 
             # If no real data yet, fall back to mock
             if total_cost == 0 and not report.cost_over_time:

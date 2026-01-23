@@ -589,11 +589,11 @@ python -m aragora.persistence.migrations.runner --migrate --db users
 python -m aragora.persistence.migrations.runner --create "Add user lockout fields" --db users
 ```
 
-This creates a file like `aragora/persistence/migrations/users/003_add_user_lockout_fields.py`:
+This creates a file like `aragora/persistence/migrations/users/00x_add_user_lockout_fields.py`:
 
 ```python
 """
-Migration 003: Add user lockout fields
+Migration 00x: Add user lockout fields
 
 Created: 2024-01-03T12:00:00
 """

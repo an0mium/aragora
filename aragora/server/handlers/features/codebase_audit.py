@@ -27,13 +27,11 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from ..base import (
@@ -53,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 class ScanType(Enum):
     """Types of code analysis scans."""
+
     COMPREHENSIVE = "comprehensive"
     SAST = "sast"
     BUGS = "bugs"
@@ -63,6 +62,7 @@ class ScanType(Enum):
 
 class ScanStatus(Enum):
     """Scan execution status."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -72,6 +72,7 @@ class ScanStatus(Enum):
 
 class FindingSeverity(Enum):
     """Finding severity levels."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -81,6 +82,7 @@ class FindingSeverity(Enum):
 
 class FindingStatus(Enum):
     """Finding status."""
+
     OPEN = "open"
     DISMISSED = "dismissed"
     FIXED = "fixed"
@@ -91,6 +93,7 @@ class FindingStatus(Enum):
 @dataclass
 class Finding:
     """A security or quality finding."""
+
     id: str
     scan_id: str
     scan_type: ScanType
@@ -140,6 +143,7 @@ class Finding:
 @dataclass
 class ScanResult:
     """Result of a codebase scan."""
+
     id: str
     tenant_id: str
     scan_type: ScanType
@@ -346,7 +350,9 @@ async def run_dependency_scan(
                     description=vuln.description,
                     file_path=dep.lock_file or "package.json",
                     cwe_id=vuln.cwe_ids[0] if vuln.cwe_ids else None,
-                    remediation=f"Upgrade to {vuln.fixed_version or 'latest'}" if vuln.fixed_version else "No fix available",
+                    remediation=f"Upgrade to {vuln.fixed_version or 'latest'}"
+                    if vuln.fixed_version
+                    else "No fix available",
                     confidence=0.95,
                 )
                 findings.append(finding)
@@ -446,7 +452,7 @@ def _get_mock_sast_findings(scan_id: str) -> List[Finding]:
             description="User input rendered without escaping",
             file_path="src/templates/profile.html",
             line_number=15,
-            code_snippet='<div>{{ user_bio | safe }}</div>',
+            code_snippet="<div>{{ user_bio | safe }}</div>",
             rule_id="template.xss",
             cwe_id="CWE-79",
             owasp_category="A03:2021 - Injection",
@@ -673,9 +679,7 @@ class CodebaseAuditHandler(BaseHandler):
                                 request, tenant_id, finding_id
                             )
                         elif action == "create-issue" and method == "POST":
-                            return await self._handle_create_issue(
-                                request, tenant_id, finding_id
-                            )
+                            return await self._handle_create_issue(request, tenant_id, finding_id)
 
             return error_response("Not found", 404)
 
@@ -691,9 +695,7 @@ class CodebaseAuditHandler(BaseHandler):
     # Comprehensive Scan
     # =========================================================================
 
-    async def _handle_comprehensive_scan(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_comprehensive_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Start a comprehensive codebase scan.
 
         Request body:
@@ -777,16 +779,18 @@ class CodebaseAuditHandler(BaseHandler):
             for finding in all_findings:
                 findings_store[finding.id] = finding
 
-            return success_response({
-                "scan": scan_result.to_dict(),
-                "findings": [f.to_dict() for f in all_findings],
-                "metrics": metrics,
-                "summary": {
-                    "total_findings": len(all_findings),
-                    "severity_counts": severity_counts,
-                    "scan_types_run": [t[0] for t in tasks],
-                },
-            })
+            return success_response(
+                {
+                    "scan": scan_result.to_dict(),
+                    "findings": [f.to_dict() for f in all_findings],
+                    "metrics": metrics,
+                    "summary": {
+                        "total_findings": len(all_findings),
+                        "severity_counts": severity_counts,
+                        "scan_types_run": [t[0] for t in tasks],
+                    },
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Comprehensive scan error: {e}")
@@ -798,25 +802,17 @@ class CodebaseAuditHandler(BaseHandler):
 
     async def _handle_sast_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run SAST-only scan."""
-        return await self._run_single_scan(
-            request, tenant_id, ScanType.SAST, run_sast_scan
-        )
+        return await self._run_single_scan(request, tenant_id, ScanType.SAST, run_sast_scan)
 
     async def _handle_bug_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run bug detection scan."""
-        return await self._run_single_scan(
-            request, tenant_id, ScanType.BUGS, run_bug_scan
-        )
+        return await self._run_single_scan(request, tenant_id, ScanType.BUGS, run_bug_scan)
 
     async def _handle_secrets_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run secrets scan."""
-        return await self._run_single_scan(
-            request, tenant_id, ScanType.SECRETS, run_secrets_scan
-        )
+        return await self._run_single_scan(request, tenant_id, ScanType.SECRETS, run_secrets_scan)
 
-    async def _handle_dependency_scan(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_dependency_scan(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run dependency vulnerability scan."""
         return await self._run_single_scan(
             request, tenant_id, ScanType.DEPENDENCIES, run_dependency_scan
@@ -868,18 +864,18 @@ class CodebaseAuditHandler(BaseHandler):
             for finding in findings:
                 findings_store[finding.id] = finding
 
-            return success_response({
-                "scan": scan_result.to_dict(),
-                "findings": [f.to_dict() for f in findings],
-            })
+            return success_response(
+                {
+                    "scan": scan_result.to_dict(),
+                    "findings": [f.to_dict() for f in findings],
+                }
+            )
 
         except Exception as e:
             logger.exception(f"{scan_type.value} scan error: {e}")
             return error_response(f"Scan failed: {str(e)}", 500)
 
-    async def _handle_metrics_analysis(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_metrics_analysis(self, request: Any, tenant_id: str) -> HandlerResult:
         """Run code metrics analysis."""
         try:
             body = await self._get_json_body(request)
@@ -907,10 +903,12 @@ class CodebaseAuditHandler(BaseHandler):
                 scan_result.completed_at - scan_result.started_at
             ).total_seconds()
 
-            return success_response({
-                "scan": scan_result.to_dict(),
-                "metrics": metrics,
-            })
+            return success_response(
+                {
+                    "scan": scan_result.to_dict(),
+                    "metrics": metrics,
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Metrics analysis error: {e}")
@@ -941,14 +939,14 @@ class CodebaseAuditHandler(BaseHandler):
         # Sort by start time (newest first)
         results.sort(key=lambda s: s.started_at, reverse=True)
 
-        return success_response({
-            "scans": [s.to_dict() for s in results[:limit]],
-            "total": len(results),
-        })
+        return success_response(
+            {
+                "scans": [s.to_dict() for s in results[:limit]],
+                "total": len(results),
+            }
+        )
 
-    async def _handle_get_scan(
-        self, request: Any, tenant_id: str, scan_id: str
-    ) -> HandlerResult:
+    async def _handle_get_scan(self, request: Any, tenant_id: str, scan_id: str) -> HandlerResult:
         """Get scan details."""
         scans = _get_tenant_scans(tenant_id)
         scan_result = scans.get(scan_id)
@@ -956,19 +954,19 @@ class CodebaseAuditHandler(BaseHandler):
         if not scan_result:
             return error_response("Scan not found", 404)
 
-        return success_response({
-            "scan": scan_result.to_dict(),
-            "findings": [f.to_dict() for f in scan_result.findings],
-            "metrics": scan_result.metrics,
-        })
+        return success_response(
+            {
+                "scan": scan_result.to_dict(),
+                "findings": [f.to_dict() for f in scan_result.findings],
+                "metrics": scan_result.metrics,
+            }
+        )
 
     # =========================================================================
     # Findings Management
     # =========================================================================
 
-    async def _handle_list_findings(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_list_findings(self, request: Any, tenant_id: str) -> HandlerResult:
         """List all findings."""
         params = self._get_query_params(request)
         severity = params.get("severity")
@@ -994,10 +992,12 @@ class CodebaseAuditHandler(BaseHandler):
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
         findings.sort(key=lambda f: severity_order.get(f.severity.value, 5))
 
-        return success_response({
-            "findings": [f.to_dict() for f in findings[:limit]],
-            "total": len(findings),
-        })
+        return success_response(
+            {
+                "findings": [f.to_dict() for f in findings[:limit]],
+                "total": len(findings),
+            }
+        )
 
     async def _handle_dismiss_finding(
         self, request: Any, tenant_id: str, finding_id: str
@@ -1025,10 +1025,12 @@ class CodebaseAuditHandler(BaseHandler):
             finding.dismissed_by = getattr(request, "user_id", "api_user")
             finding.dismissed_reason = reason
 
-            return success_response({
-                "status": "dismissed",
-                "finding": finding.to_dict(),
-            })
+            return success_response(
+                {
+                    "status": "dismissed",
+                    "finding": finding.to_dict(),
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error dismissing finding: {e}")
@@ -1050,7 +1052,7 @@ class CodebaseAuditHandler(BaseHandler):
 
             # Create issue title and body
             issue_title = f"[{finding.severity.value.upper()}] {finding.title}"
-            issue_body = f"""## Security Finding
+            f"""## Security Finding
 
 **Severity:** {finding.severity.value.upper()}
 **File:** `{finding.file_path}:{finding.line_number or ''}`
@@ -1077,11 +1079,13 @@ class CodebaseAuditHandler(BaseHandler):
             mock_issue_url = f"https://github.com/{repo}/issues/123"
             finding.github_issue_url = mock_issue_url
 
-            return success_response({
-                "status": "created",
-                "issue_url": mock_issue_url,
-                "title": issue_title,
-            })
+            return success_response(
+                {
+                    "status": "created",
+                    "issue_url": mock_issue_url,
+                    "title": issue_title,
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error creating issue: {e}")
@@ -1119,25 +1123,30 @@ class CodebaseAuditHandler(BaseHandler):
         # Get recent scans
         recent_scans = sorted(scans, key=lambda s: s.started_at, reverse=True)[:5]
 
-        return success_response({
-            "summary": {
-                "total_findings": len(open_findings),
-                "severity_counts": severity_counts,
-                "type_counts": type_counts,
-                "total_scans": len(scans),
-                "risk_score": self._calculate_risk_score(open_findings),
-            },
-            "metrics": latest_metrics,
-            "recent_scans": [s.to_dict() for s in recent_scans],
-            "top_findings": [f.to_dict() for f in sorted(
-                open_findings,
-                key=lambda f: (
-                    {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}.get(
-                        f.severity.value, 5
-                    )
-                ),
-            )[:10]],
-        })
+        return success_response(
+            {
+                "summary": {
+                    "total_findings": len(open_findings),
+                    "severity_counts": severity_counts,
+                    "type_counts": type_counts,
+                    "total_scans": len(scans),
+                    "risk_score": self._calculate_risk_score(open_findings),
+                },
+                "metrics": latest_metrics,
+                "recent_scans": [s.to_dict() for s in recent_scans],
+                "top_findings": [
+                    f.to_dict()
+                    for f in sorted(
+                        open_findings,
+                        key=lambda f: (
+                            {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}.get(
+                                f.severity.value, 5
+                            )
+                        ),
+                    )[:10]
+                ],
+            }
+        )
 
     def _calculate_risk_score(self, findings: List[Finding]) -> float:
         """Calculate overall risk score (0-100)."""
@@ -1145,9 +1154,7 @@ class CodebaseAuditHandler(BaseHandler):
             return 0.0
 
         weights = {"critical": 10, "high": 5, "medium": 2, "low": 1, "info": 0.1}
-        total_weight = sum(
-            weights.get(f.severity.value, 1) * f.confidence for f in findings
-        )
+        total_weight = sum(weights.get(f.severity.value, 1) * f.confidence for f in findings)
 
         # Normalize to 0-100 (cap at 100)
         return min(100.0, total_weight)
@@ -1168,23 +1175,25 @@ class CodebaseAuditHandler(BaseHandler):
         for finding in findings:
             severity_counts[finding.severity.value] += 1
 
-        return success_response({
-            "is_demo": True,
-            "summary": {
-                "total_findings": len(findings),
-                "severity_counts": severity_counts,
-                "type_counts": {
-                    "sast": 3,
-                    "bugs": 2,
-                    "secrets": 1,
-                    "dependencies": 2,
+        return success_response(
+            {
+                "is_demo": True,
+                "summary": {
+                    "total_findings": len(findings),
+                    "severity_counts": severity_counts,
+                    "type_counts": {
+                        "sast": 3,
+                        "bugs": 2,
+                        "secrets": 1,
+                        "dependencies": 2,
+                    },
+                    "total_scans": 5,
+                    "risk_score": 45.5,
                 },
-                "total_scans": 5,
-                "risk_score": 45.5,
-            },
-            "metrics": metrics,
-            "findings": [f.to_dict() for f in findings],
-        })
+                "metrics": metrics,
+                "findings": [f.to_dict() for f in findings],
+            }
+        )
 
     # =========================================================================
     # Utility Methods
@@ -1222,9 +1231,7 @@ def get_codebase_audit_handler() -> CodebaseAuditHandler:
     return _handler_instance
 
 
-async def handle_codebase_audit(
-    request: Any, path: str, method: str
-) -> HandlerResult:
+async def handle_codebase_audit(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for codebase audit requests."""
     handler = get_codebase_audit_handler()
     return await handler.handle(request, path, method)

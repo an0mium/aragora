@@ -142,10 +142,7 @@ class TestProcessGmailNotification:
     async def test_process_valid_notification(self):
         """Test processing valid Gmail notification."""
         # Create Gmail-style notification with base64-encoded data
-        gmail_data = {
-            "emailAddress": "test@gmail.com",
-            "historyId": "12345"
-        }
+        gmail_data = {"emailAddress": "test@gmail.com", "historyId": "12345"}
         encoded_data = base64.b64encode(json.dumps(gmail_data).encode()).decode()
 
         notification_data = {
@@ -339,9 +336,11 @@ class TestEmailWebhooksHandler:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "message": {"data": encoded_data},
-        })
+        request.json = AsyncMock(
+            return_value={
+                "message": {"data": encoded_data},
+            }
+        )
 
         result = await handler.handle(request, "/api/v1/webhooks/gmail", "POST")
 
@@ -355,15 +354,17 @@ class TestEmailWebhooksHandler:
         request = MagicMock()
         request.tenant_id = "test_tenant"
         request.query = {}
-        request.json = AsyncMock(return_value={
-            "value": [
-                {
-                    "subscriptionId": "sub_123",
-                    "changeType": "created",
-                    "resource": "Users/user/Messages/msg",
-                }
-            ]
-        })
+        request.json = AsyncMock(
+            return_value={
+                "value": [
+                    {
+                        "subscriptionId": "sub_123",
+                        "changeType": "created",
+                        "resource": "Users/user/Messages/msg",
+                    }
+                ]
+            }
+        )
 
         result = await handler.handle(request, "/api/v1/webhooks/outlook", "POST")
 
@@ -378,9 +379,7 @@ class TestEmailWebhooksHandler:
         request.tenant_id = "test_tenant"
         request.query = {"validationToken": "test_token_123"}
 
-        result = await handler.handle(
-            request, "/api/v1/webhooks/outlook", "POST"
-        )
+        result = await handler.handle(request, "/api/v1/webhooks/outlook", "POST")
 
         # Should return the validation token
         assert result is not None
@@ -447,9 +446,7 @@ class TestHandleEmailWebhooks:
         request = MagicMock()
         request.tenant_id = "test"
 
-        result = await handle_email_webhooks(
-            request, "/api/v1/webhooks/status", "GET"
-        )
+        result = await handle_email_webhooks(request, "/api/v1/webhooks/status", "GET")
 
         assert result is not None
 

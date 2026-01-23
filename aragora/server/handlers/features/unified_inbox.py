@@ -21,12 +21,11 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from ..base import (
@@ -34,7 +33,6 @@ from ..base import (
     HandlerResult,
     error_response,
     success_response,
-    json_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -165,7 +163,9 @@ class UnifiedMessage:
             "triage": {
                 "action": self.triage_action.value if self.triage_action else None,
                 "rationale": self.triage_rationale,
-            } if self.triage_action else None,
+            }
+            if self.triage_action
+            else None,
         }
 
 
@@ -233,7 +233,9 @@ class InboxStats:
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
-_connected_accounts: Dict[str, Dict[str, ConnectedAccount]] = {}  # tenant_id -> account_id -> account
+_connected_accounts: Dict[
+    str, Dict[str, ConnectedAccount]
+] = {}  # tenant_id -> account_id -> account
 _messages_cache: Dict[str, List[UnifiedMessage]] = {}  # tenant_id -> messages
 _triage_results: Dict[str, TriageResult] = {}  # message_id -> result
 
@@ -354,23 +356,21 @@ class UnifiedInboxHandler(BaseHandler):
 
             # Exchange auth code for tokens based on provider
             if provider == EmailProvider.GMAIL:
-                result = await self._connect_gmail(
-                    account, auth_code, redirect_uri, tenant_id
-                )
+                result = await self._connect_gmail(account, auth_code, redirect_uri, tenant_id)
             else:
-                result = await self._connect_outlook(
-                    account, auth_code, redirect_uri, tenant_id
-                )
+                result = await self._connect_outlook(account, auth_code, redirect_uri, tenant_id)
 
             if result.get("success"):
                 _connected_accounts[tenant_id][account_id] = account
                 logger.info(
                     f"Connected {provider.value} account for tenant {tenant_id}: {account.email_address}"
                 )
-                return success_response({
-                    "account": account.to_dict(),
-                    "message": f"Successfully connected {provider.value} account",
-                })
+                return success_response(
+                    {
+                        "account": account.to_dict(),
+                        "message": f"Successfully connected {provider.value} account",
+                    }
+                )
             else:
                 return error_response(result.get("error", "Failed to connect account"), 400)
 
@@ -389,7 +389,7 @@ class UnifiedInboxHandler(BaseHandler):
         try:
             from aragora.connectors.email import GmailSyncService, GmailSyncConfig
 
-            config = GmailSyncConfig(
+            GmailSyncConfig(
                 enable_prioritization=True,
                 initial_sync_days=7,
             )
@@ -422,7 +422,7 @@ class UnifiedInboxHandler(BaseHandler):
         try:
             from aragora.connectors.email import OutlookSyncService, OutlookSyncConfig
 
-            config = OutlookSyncConfig(
+            OutlookSyncConfig(
                 enable_prioritization=True,
                 initial_sync_days=7,
             )
@@ -447,15 +447,15 @@ class UnifiedInboxHandler(BaseHandler):
     # List/Disconnect Accounts
     # =========================================================================
 
-    async def _handle_list_accounts(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_list_accounts(self, request: Any, tenant_id: str) -> HandlerResult:
         """List all connected accounts."""
         accounts = _connected_accounts.get(tenant_id, {})
-        return success_response({
-            "accounts": [acc.to_dict() for acc in accounts.values()],
-            "total": len(accounts),
-        })
+        return success_response(
+            {
+                "accounts": [acc.to_dict() for acc in accounts.values()],
+                "total": len(accounts),
+            }
+        )
 
     async def _handle_disconnect(
         self, request: Any, tenant_id: str, account_id: str
@@ -473,18 +473,18 @@ class UnifiedInboxHandler(BaseHandler):
             f"Disconnected {account.provider.value} account for tenant {tenant_id}: {account.email_address}"
         )
 
-        return success_response({
-            "message": f"Successfully disconnected {account.provider.value} account",
-            "account_id": account_id,
-        })
+        return success_response(
+            {
+                "message": f"Successfully disconnected {account.provider.value} account",
+                "account_id": account_id,
+            }
+        )
 
     # =========================================================================
     # Messages
     # =========================================================================
 
-    async def _handle_list_messages(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_list_messages(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get prioritized messages across all accounts.
 
         Query params:
@@ -520,7 +520,8 @@ class UnifiedInboxHandler(BaseHandler):
             if search_query:
                 query_lower = search_query.lower()
                 messages = [
-                    m for m in messages
+                    m
+                    for m in messages
                     if query_lower in m.subject.lower()
                     or query_lower in m.sender_email.lower()
                     or query_lower in m.snippet.lower()
@@ -531,15 +532,17 @@ class UnifiedInboxHandler(BaseHandler):
 
             # Paginate
             total = len(messages)
-            messages = messages[offset:offset + limit]
+            messages = messages[offset : offset + limit]
 
-            return success_response({
-                "messages": [m.to_dict() for m in messages],
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-                "has_more": offset + limit < total,
-            })
+            return success_response(
+                {
+                    "messages": [m.to_dict() for m in messages],
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": offset + limit < total,
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error listing messages: {e}")
@@ -581,17 +584,13 @@ class UnifiedInboxHandler(BaseHandler):
 
         return messages
 
-    async def _fetch_gmail_messages(
-        self, account: ConnectedAccount
-    ) -> List[UnifiedMessage]:
+    async def _fetch_gmail_messages(self, account: ConnectedAccount) -> List[UnifiedMessage]:
         """Fetch messages from Gmail account."""
         # In production, use GmailSyncService
         # For now, return sample data
         return self._generate_sample_messages(account, 5)
 
-    async def _fetch_outlook_messages(
-        self, account: ConnectedAccount
-    ) -> List[UnifiedMessage]:
+    async def _fetch_outlook_messages(self, account: ConnectedAccount) -> List[UnifiedMessage]:
         """Fetch messages from Outlook account."""
         # In production, use OutlookSyncService
         # For now, return sample data
@@ -614,26 +613,30 @@ class UnifiedInboxHandler(BaseHandler):
 
         for i in range(min(count, len(sample_subjects))):
             subject, priority = sample_subjects[i]
-            messages.append(UnifiedMessage(
-                id=str(uuid4()),
-                account_id=account.id,
-                provider=account.provider,
-                external_id=f"ext_{uuid4().hex[:8]}",
-                subject=subject,
-                sender_email=f"sender{i}@example.com",
-                sender_name=f"Sender {i}",
-                recipients=[account.email_address],
-                cc=[],
-                received_at=now - timedelta(hours=i),
-                snippet=f"Preview of message {i}...",
-                body_preview=f"This is the body preview of message {i}...",
-                is_read=i > 2,
-                is_starred=i == 0,
-                has_attachments=i < 2,
-                labels=["inbox"],
-                priority_tier=priority,
-                priority_score={"critical": 0.95, "high": 0.75, "medium": 0.5, "low": 0.25}[priority],
-            ))
+            messages.append(
+                UnifiedMessage(
+                    id=str(uuid4()),
+                    account_id=account.id,
+                    provider=account.provider,
+                    external_id=f"ext_{uuid4().hex[:8]}",
+                    subject=subject,
+                    sender_email=f"sender{i}@example.com",
+                    sender_name=f"Sender {i}",
+                    recipients=[account.email_address],
+                    cc=[],
+                    received_at=now - timedelta(hours=i),
+                    snippet=f"Preview of message {i}...",
+                    body_preview=f"This is the body preview of message {i}...",
+                    is_read=i > 2,
+                    is_starred=i == 0,
+                    has_attachments=i < 2,
+                    labels=["inbox"],
+                    priority_tier=priority,
+                    priority_score={"critical": 0.95, "high": 0.75, "medium": 0.5, "low": 0.25}[
+                        priority
+                    ],
+                )
+            )
 
         return messages
 
@@ -663,11 +666,14 @@ class UnifiedInboxHandler(BaseHandler):
 
         for message in messages:
             if message.id == message_id:
-                return success_response({
-                    "message": message.to_dict(),
-                    "triage": _triage_results.get(message_id, {}).to_dict()
-                    if message_id in _triage_results else None,
-                })
+                return success_response(
+                    {
+                        "message": message.to_dict(),
+                        "triage": _triage_results.get(message_id, {}).to_dict()
+                        if message_id in _triage_results
+                        else None,
+                    }
+                )
 
         return error_response("Message not found", 404)
 
@@ -697,9 +703,7 @@ class UnifiedInboxHandler(BaseHandler):
 
             # Get messages
             all_messages = await self._fetch_all_messages(tenant_id)
-            messages_to_triage = [
-                m for m in all_messages if m.id in message_ids
-            ]
+            messages_to_triage = [m for m in all_messages if m.id in message_ids]
 
             if not messages_to_triage:
                 return error_response("No matching messages found", 404)
@@ -707,10 +711,12 @@ class UnifiedInboxHandler(BaseHandler):
             # Run triage
             results = await self._run_triage(messages_to_triage, context, tenant_id)
 
-            return success_response({
-                "results": [r.to_dict() for r in results],
-                "total_triaged": len(results),
-            })
+            return success_response(
+                {
+                    "results": [r.to_dict() for r in results],
+                    "total_triaged": len(results),
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error during triage: {e}")
@@ -753,7 +759,7 @@ class UnifiedInboxHandler(BaseHandler):
             from aragora.debate import Arena, Environment, DebateProtocol
 
             # Build debate environment
-            env = Environment(
+            Environment(
                 task=f"""
                 Analyze this email and recommend the best action:
 
@@ -771,7 +777,7 @@ class UnifiedInboxHandler(BaseHandler):
                 """,
             )
 
-            protocol = DebateProtocol(
+            DebateProtocol(
                 rounds=2,
                 consensus="majority",
             )
@@ -829,9 +835,7 @@ class UnifiedInboxHandler(BaseHandler):
     # Bulk Actions
     # =========================================================================
 
-    async def _handle_bulk_action(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_bulk_action(self, request: Any, tenant_id: str) -> HandlerResult:
         """Execute bulk action on messages.
 
         Request body:
@@ -882,12 +886,14 @@ class UnifiedInboxHandler(BaseHandler):
                 except Exception as e:
                     errors.append({"id": msg_id, "error": str(e)})
 
-            return success_response({
-                "action": action,
-                "success_count": success_count,
-                "error_count": len(errors),
-                "errors": errors if errors else None,
-            })
+            return success_response(
+                {
+                    "action": action,
+                    "success_count": success_count,
+                    "error_count": len(errors),
+                    "errors": errors if errors else None,
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error executing bulk action: {e}")
@@ -924,9 +930,7 @@ class UnifiedInboxHandler(BaseHandler):
 
         top_senders = [
             {"email": email, "count": count}
-            for email, count in sorted(
-                sender_counts.items(), key=lambda x: x[1], reverse=True
-            )[:5]
+            for email, count in sorted(sender_counts.items(), key=lambda x: x[1], reverse=True)[:5]
         ]
 
         # Sync health
@@ -934,9 +938,7 @@ class UnifiedInboxHandler(BaseHandler):
             "accounts_healthy": sum(
                 1 for a in accounts.values() if a.status == AccountStatus.CONNECTED
             ),
-            "accounts_error": sum(
-                1 for a in accounts.values() if a.status == AccountStatus.ERROR
-            ),
+            "accounts_error": sum(1 for a in accounts.values() if a.status == AccountStatus.ERROR),
             "total_sync_errors": sum(a.sync_errors for a in accounts.values()),
         }
 
@@ -1019,9 +1021,7 @@ def get_unified_inbox_handler() -> UnifiedInboxHandler:
     return _handler_instance
 
 
-async def handle_unified_inbox(
-    request: Any, path: str, method: str
-) -> HandlerResult:
+async def handle_unified_inbox(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for unified inbox requests."""
     handler = get_unified_inbox_handler()
     return await handler.handle(request, path, method)

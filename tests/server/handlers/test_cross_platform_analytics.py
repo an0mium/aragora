@@ -345,9 +345,7 @@ class TestSummaryEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/summary", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/summary", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -363,9 +361,7 @@ class TestSummaryEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"range": "7d"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/summary", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/summary", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -383,9 +379,7 @@ class TestMetricsEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/metrics", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/metrics", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -400,9 +394,7 @@ class TestMetricsEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"platform": "aragora"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/metrics", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/metrics", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -420,9 +412,7 @@ class TestTrendsEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/trends", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -437,9 +427,7 @@ class TestTrendsEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"metric": "events", "range": "30d"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/trends", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/trends", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -457,9 +445,7 @@ class TestComparisonEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"type": "engagement"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/comparison", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/comparison", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -474,9 +460,7 @@ class TestComparisonEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"type": "performance"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/comparison", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/comparison", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -516,9 +500,7 @@ class TestAnomaliesEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/anomalies", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/anomalies", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -533,9 +515,7 @@ class TestAnomaliesEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"severity": "warning"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/anomalies", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/anomalies", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -553,9 +533,7 @@ class TestQueryEndpoint:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={})
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/query", "POST"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/query", "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -567,15 +545,15 @@ class TestQueryEndpoint:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "metrics": ["users", "events"],
-            "platforms": ["aragora", "google_analytics"],
-            "range": "7d",
-        })
-
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/query", "POST"
+        request.json = AsyncMock(
+            return_value={
+                "metrics": ["users", "events"],
+                "platforms": ["aragora", "google_analytics"],
+                "range": "7d",
+            }
         )
+
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/query", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -594,9 +572,7 @@ class TestAlertsEndpoint:
         request.tenant_id = "empty_tenant"
         request.query = {}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/alerts", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/alerts", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -609,17 +585,17 @@ class TestAlertsEndpoint:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "name": "High Error Rate",
-            "metric_name": "error_rate",
-            "condition": "above",
-            "threshold": 0.05,
-            "severity": "warning",
-        })
-
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/alerts", "POST"
+        request.json = AsyncMock(
+            return_value={
+                "name": "High Error Rate",
+                "metric_name": "error_rate",
+                "condition": "above",
+                "threshold": 0.05,
+                "severity": "warning",
+            }
         )
+
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/alerts", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -634,9 +610,7 @@ class TestAlertsEndpoint:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"name": "Test"})
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/alerts", "POST"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/alerts", "POST")
 
         assert result is not None
         assert result.status_code == 400
@@ -654,9 +628,7 @@ class TestExportEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"format": "json", "range": "7d"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/export", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -671,9 +643,7 @@ class TestExportEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"format": "csv"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/export", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -688,9 +658,7 @@ class TestExportEndpoint:
         request.tenant_id = "test_tenant"
         request.query = {"format": "xml"}
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/export", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/export", "GET")
 
         assert result is not None
         assert result.status_code == 400
@@ -707,9 +675,7 @@ class TestDemoEndpoint:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/demo", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/demo", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -745,9 +711,7 @@ class TestNotFoundRoute:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(
-            request, "/api/v1/analytics/cross-platform/unknown", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/analytics/cross-platform/unknown", "GET")
 
         assert result is not None
         assert result.status_code == 404

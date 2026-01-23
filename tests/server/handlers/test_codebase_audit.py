@@ -186,9 +186,11 @@ class TestComprehensiveScan:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "scan_types": ["sast", "bugs"],
-        })
+        request.json = AsyncMock(
+            return_value={
+                "scan_types": ["sast", "bugs"],
+            }
+        )
 
         result = await handler.handle(request, "/api/v1/codebase/scan", "POST")
 
@@ -204,11 +206,13 @@ class TestComprehensiveScan:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "target_path": "/custom/path",
-            "scan_types": ["sast"],
-            "languages": ["python"],
-        })
+        request.json = AsyncMock(
+            return_value={
+                "target_path": "/custom/path",
+                "scan_types": ["sast"],
+                "languages": ["python"],
+            }
+        )
 
         result = await handler.handle(request, "/api/v1/codebase/scan", "POST")
 
@@ -336,9 +340,7 @@ class TestGetScan:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(
-            request, "/api/v1/codebase/scan/nonexistent", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/codebase/scan/nonexistent", "GET")
 
         assert result is not None
         assert result.status_code == 404
@@ -393,10 +395,12 @@ class TestDismissFinding:
         request = MagicMock()
         request.tenant_id = "test_tenant"
         request.user_id = "user_123"
-        request.json = AsyncMock(return_value={
-            "reason": "False positive",
-            "status": "false_positive",
-        })
+        request.json = AsyncMock(
+            return_value={
+                "reason": "False positive",
+                "status": "false_positive",
+            }
+        )
 
         result = await handler.handle(
             request, "/api/v1/codebase/findings/nonexistent/dismiss", "POST"
@@ -518,9 +522,7 @@ class TestHandleCodebaseAudit:
         request.tenant_id = "test"
         request.query = {}
 
-        result = await handle_codebase_audit(
-            request, "/api/v1/codebase/scans", "GET"
-        )
+        result = await handle_codebase_audit(request, "/api/v1/codebase/scans", "GET")
 
         assert result is not None
 
@@ -536,9 +538,7 @@ class TestNotFoundRoute:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(
-            request, "/api/v1/codebase/unknown/path", "GET"
-        )
+        result = await handler.handle(request, "/api/v1/codebase/unknown/path", "GET")
 
         assert result is not None
         assert result.status_code == 404

@@ -386,3 +386,207 @@ docker compose --profile postgres up
 - [x] Database initialization script (`scripts/init_postgres_db.py`)
 - [ ] Add PostgreSQL support to remaining stores
 - [ ] Implement read replicas for scaling reads
+
+---
+
+## Supabase Deployment (AWS EC2)
+
+This section covers deploying Aragora with Supabase as the PostgreSQL backend on AWS EC2 instances.
+
+### Overview
+
+All PostgreSQL store implementations are complete and ready to use:
+
+| Store | Class | Status |
+|-------|-------|--------|
+| Workflow Store | `PostgresFindingWorkflowStore` | Ready |
+| Job Queue Store | `PostgresJobQueueStore` | Ready |
+| Integration Store | `PostgresIntegrationStore` | Ready |
+| Checkpoint Store | `PostgresCheckpointStore` | Ready |
+
+### Supabase Setup
+
+1. **Create Supabase Project**
+   - Go to https://supabase.com/dashboard
+   - Create new project or use existing
+   - Note your project credentials
+
+2. **Get Connection String**
+   - Go to Settings → Database
+   - Copy the connection string (URI format)
+   - Use **port 5432** for direct connection (recommended with asyncpg)
+   - Use **port 6543** for pooled connection (PgBouncer)
+
+   ```
+   postgresql://postgres:[PASSWORD]@db.[PROJECT_ID].supabase.co:5432/postgres
+   ```
+
+### AWS EC2 Configuration
+
+#### 1. Store Secrets in AWS Parameter Store
+
+```bash
+# Store database URL (SecureString)
+aws ssm put-parameter \
+    --name "/aragora/prod/DATABASE_URL" \
+    --value "postgresql://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres" \
+    --type SecureString
+
+# Store Supabase service key
+aws ssm put-parameter \
+    --name "/aragora/prod/SUPABASE_KEY" \
+    --value "your-service-role-key" \
+    --type SecureString
+
+# Store encryption key
+aws ssm put-parameter \
+    --name "/aragora/prod/ARAGORA_ENCRYPTION_KEY" \
+    --value "$(python -c 'import secrets,base64;print(base64.b64encode(secrets.token_bytes(32)).decode())')" \
+    --type SecureString
+```
+
+#### 2. Configure IAM Role
+
+Add SSM read permissions to your EC2 instance role:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParameters"
+            ],
+            "Resource": "arn:aws:ssm:*:*:parameter/aragora/prod/*"
+        }
+    ]
+}
+```
+
+#### 3. EC2 User Data Script
+
+```bash
+#!/bin/bash
+# Fetch secrets from Parameter Store
+export DATABASE_URL=$(aws ssm get-parameter \
+    --name "/aragora/prod/DATABASE_URL" \
+    --with-decryption \
+    --query Parameter.Value \
+    --output text)
+
+export SUPABASE_KEY=$(aws ssm get-parameter \
+    --name "/aragora/prod/SUPABASE_KEY" \
+    --with-decryption \
+    --query Parameter.Value \
+    --output text)
+
+export ARAGORA_ENCRYPTION_KEY=$(aws ssm get-parameter \
+    --name "/aragora/prod/ARAGORA_ENCRYPTION_KEY" \
+    --with-decryption \
+    --query Parameter.Value \
+    --output text)
+
+# Set backend mode
+export ARAGORA_DB_BACKEND=postgres
+export ARAGORA_ENV=production
+
+# Start application
+cd /opt/aragora
+python -m aragora.server.unified_server --port 8080
+```
+
+#### 4. Security Group Rules
+
+Allow outbound connections to Supabase:
+- **Port 5432** to Supabase IP ranges (for asyncpg direct connection)
+- Consider VPC Peering for private connectivity (Supabase Enterprise)
+
+### Data Migration
+
+If migrating existing SQLite data:
+
+```bash
+# Set environment
+export DATABASE_URL="postgresql://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres"
+
+# Dry run to see what would be migrated
+python scripts/migrate_sqlite_to_supabase.py --all --dry-run
+
+# Run migration
+python scripts/migrate_sqlite_to_supabase.py --all
+
+# Migrate specific stores
+python scripts/migrate_sqlite_to_supabase.py --stores workflow jobs integrations
+```
+
+### Verification
+
+#### Check Store Initialization
+
+Application logs should show:
+```
+INFO     aragora.storage: Using PostgresFindingWorkflowStore
+INFO     aragora.storage: Using PostgresJobQueueStore
+INFO     aragora.storage: Using PostgresIntegrationStore
+INFO     aragora.workflow: Using PostgresCheckpointStore
+```
+
+#### Health Endpoint
+
+```bash
+curl http://localhost:8080/api/health
+# Expected: {"status": "healthy", "database": "connected"}
+```
+
+#### Pool Metrics
+
+```bash
+curl http://localhost:8080/api/admin/pool-metrics
+# Expected: {"pool_size": 20, "free_connections": 18, ...}
+```
+
+### Rollback
+
+To revert to SQLite:
+
+```bash
+# Set environment variable
+export ARAGORA_DB_BACKEND=sqlite
+
+# Restart application
+```
+
+SQLite databases remain intact as fallback.
+
+### Production Checklist
+
+- [ ] Supabase project created with connection string
+- [ ] Environment variables stored in AWS Parameter Store
+- [ ] EC2 IAM role has SSM GetParameter permission
+- [ ] Security group allows outbound PostgreSQL (5432)
+- [ ] `ARAGORA_DB_BACKEND=postgres` set
+- [ ] `ARAGORA_ENV=production` set
+- [ ] Application starts and logs show PostgreSQL stores
+- [ ] Health endpoint reports database connected
+- [ ] Multi-instance test: both EC2s share same data
+
+### Connection Pool Tuning
+
+Supabase has connection limits based on your plan:
+
+| Plan | Direct Connections | Pooled Connections |
+|------|-------------------|-------------------|
+| Free | 10 | 200 |
+| Pro | 60 | 200 |
+| Team | 120 | 200 |
+| Enterprise | Custom | Custom |
+
+Configure pool size accordingly:
+
+```bash
+# For Pro plan with 2 EC2 instances
+export ARAGORA_POSTGRES_POOL_MIN=5
+export ARAGORA_POSTGRES_POOL_MAX=25  # Leave headroom for other connections
+```

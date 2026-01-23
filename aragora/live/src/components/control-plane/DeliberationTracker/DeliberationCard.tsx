@@ -88,7 +88,7 @@ const slaColors: Record<string, string> = {
 };
 
 /**
- * Card component for displaying a single deliberation.
+ * Card component for displaying a single robust decisionmaking session.
  */
 export function DeliberationCard({
   deliberation,

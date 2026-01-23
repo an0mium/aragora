@@ -4,15 +4,15 @@ import { useMemo, useState, useCallback } from 'react';
 import { DeliberationCard, type Deliberation, type DeliberationStatus } from './DeliberationCard';
 
 export interface DeliberationTrackerProps {
-  /** List of deliberations to display */
+  /** List of robust decisionmaking sessions to display */
   deliberations: Deliberation[];
   /** Show filter tabs */
   showFilters?: boolean;
-  /** Maximum deliberations to show per section */
+  /** Maximum decisionmaking sessions to show per section */
   maxVisible?: number;
   /** Callback when a deliberation is clicked */
   onDeliberationClick?: (deliberation: Deliberation) => void;
-  /** Callback to view all deliberations */
+  /** Callback to view all decisionmaking sessions */
   onViewAll?: () => void;
   /** Additional className */
   className?: string;
@@ -39,7 +39,7 @@ const statusToFilter: Record<DeliberationStatus, FilterTab> = {
 };
 
 /**
- * Deliberation Tracker - Panel showing active and recent deliberations.
+ * Robust Decisionmaking Tracker - Panel showing active and recent sessions.
  *
  * Displays:
  * - Count of in-progress debates
@@ -54,7 +54,7 @@ export function DeliberationTracker({
   onDeliberationClick,
   onViewAll,
   className = '',
-  title = 'Deliberations',
+  title = 'Robust Decisionmaking',
 }: DeliberationTrackerProps) {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
@@ -79,7 +79,7 @@ export function DeliberationTracker({
     return { active, consensus, noConsensus, failed, slaViolations, total: deliberations.length };
   }, [deliberations]);
 
-  // Filter deliberations
+  // Filter decisionmaking sessions
   const filteredDeliberations = useMemo(() => {
     if (activeFilter === 'all') return deliberations;
 
@@ -89,7 +89,7 @@ export function DeliberationTracker({
   // Sort: active first, then by start time
   const sortedDeliberations = useMemo(() => {
     return [...filteredDeliberations].sort((a, b) => {
-      // Active deliberations first
+      // Active sessions first
       const aActive = a.status === 'in_progress' || a.status === 'pending';
       const bActive = b.status === 'in_progress' || b.status === 'pending';
       if (aActive && !bActive) return -1;
@@ -200,11 +200,11 @@ export function DeliberationTracker({
         )}
       </div>
 
-      {/* Deliberations list */}
+      {/* Robust Decisionmaking list */}
       <div className="max-h-[500px] overflow-y-auto">
         {visibleDeliberations.length === 0 ? (
           <div className="p-6 text-center text-text-muted font-mono text-sm">
-            No deliberations to display
+            No robust decisionmaking sessions to display
           </div>
         ) : (
           <div className="p-4 space-y-3">
@@ -219,7 +219,7 @@ export function DeliberationTracker({
             {sortedDeliberations.length > maxVisible && (
               <div className="text-center pt-2">
                 <span className="text-xs font-mono text-text-muted">
-                  + {sortedDeliberations.length - maxVisible} more deliberations
+                  + {sortedDeliberations.length - maxVisible} more decisionmaking sessions
                 </span>
               </div>
             )}

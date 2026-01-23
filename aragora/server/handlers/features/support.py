@@ -743,7 +743,7 @@ class SupportHandler(SecureHandler):
 
         ticket_id = body.get("ticket_id")
         platform = body.get("platform")
-        context = body.get("context", "")
+        body.get("context", "")
 
         if not ticket_id or not platform:
             return self._error_response(400, "ticket_id and platform are required")

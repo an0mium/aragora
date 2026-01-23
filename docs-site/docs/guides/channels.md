@@ -13,9 +13,9 @@ description: Aragora Channels
 
 Aragora is the control plane for multi-agent robust decisionmaking across organizational **knowledge and channels**. This document describes the channel integrations that enable:
 
-- **Inbound Queries**: Receive deliberation requests from any channel
+- **Inbound Queries**: Receive robust decisionmaking requests from any channel
 - **Outbound Results**: Automatically route results back to the originating channel
-- **Real-time Updates**: Stream deliberation progress via WebSocket
+- **Real-time Updates**: Stream robust decisionmaking progress via WebSocket
 - **Voice Integration**: Speech-to-text input, text-to-speech output
 
 ---
@@ -148,7 +148,7 @@ ARAGORA_VOICE_INTERVAL=3000
 
 ### Result Router
 
-When a deliberation completes, results automatically route back to the originating channel.
+When a robust decisionmaking session completes, results automatically route back to the originating channel.
 
 **Location:** `aragora/server/result_router.py`
 
@@ -307,7 +307,7 @@ await gmail.sync(
     max_results=100,
 )
 
-# Emails are indexed and available for deliberation context
+# Emails are indexed and available for robust decisionmaking context
 ```
 
 ---

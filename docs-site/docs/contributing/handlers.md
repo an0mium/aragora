@@ -9,22 +9,32 @@ This document indexes all HTTP handlers in `aragora/server/handlers/`.
 
 ## Overview
 
-The server uses a modular handler architecture organized by domain. Each handler extends `BaseHandler` and registers routes it can handle. Counts vary by deployment; run `python scripts/generate_api_docs.py --format json` to enumerate. See the [Experimental Handlers](#experimental-handlers) section for features in development.
+The server uses a modular handler architecture organized by domain. Each handler extends `BaseHandler` and registers routes it can handle. Counts vary by deployment; run `python scripts/generate_api_docs.py --format json` to enumerate the full surface area. See the [Experimental Handlers](#experimental-handlers) section for features in development.
 
 ## Handler Structure
 
 ```
 handlers/
-├── admin/           # Administration & system management
-├── agents/          # Agent management & leaderboards
-├── auth/            # Authentication & authorization
-├── debates/         # Core debate operations
-├── evolution/       # Prompt evolution & A/B testing
-├── features/        # Feature modules (audio, evidence, etc.)
-├── memory/          # Memory & learning systems
-├── social/          # Social features & integrations
-├── utils/           # Shared utilities
-└── verification/    # Formal verification
+├── admin/              # Administration & system management
+├── agents/             # Agent management & leaderboards
+├── auth/               # Authentication & authorization
+├── debates/            # Core debate operations
+├── decisions/          # Decision explainability endpoints
+├── evolution/          # Prompt evolution & A/B testing
+├── features/           # Feature modules (audio, evidence, inbox, etc.)
+├── inbox/              # Inbox command + shared inbox workflows
+├── knowledge/          # Knowledge analytics + sharing
+├── knowledge_base/     # Knowledge Mound API surface
+├── memory/             # Memory & learning systems
+├── social/             # Social features & integrations
+├── verification/       # Formal verification
+├── voice/              # Voice endpoints
+├── control_plane.py    # Control plane orchestration
+├── decision.py         # Unified decision router
+├── deliberations.py    # Deliberation dashboard endpoints
+├── gauntlet.py         # Gauntlet stress-test API
+├── workflows.py        # Workflow execution endpoints
+└── webhooks.py         # Outbound webhook management
 ```
 
 ---
@@ -96,6 +106,26 @@ GET  /api/v1/auth/sso/login - SSO login (OIDC)
 
 ---
 
+## Control Plane & Decisioning Handlers
+
+| Module | Routes | Description |
+|--------|--------|-------------|
+| `control_plane.py` | `/api/control-plane/*`, `/api/v1/control-plane/*` | Agent registry, queues, health, and task orchestration |
+| `decision.py` | `/api/v1/decisions/*` | Unified decision router across debate/workflow/gauntlet |
+| `decisions/explain.py` | `/api/v1/decisions/:id/explain` | Decision explainability payloads |
+| `deliberations.py` | `/api/v1/deliberations/*` | Deliberation dashboard and event stream |
+
+### Key Endpoints
+
+```
+POST /api/v1/decisions              - Submit a decision request
+GET  /api/v1/decisions/:id          - Get decision status/result
+POST /api/control-plane/deliberations - Run or queue a robust decisionmaking session
+GET  /api/v1/deliberations/active   - List active deliberations
+```
+
+---
+
 ## Debate Handlers
 
 | Module | Routes | Description |
@@ -122,30 +152,70 @@ POST /api/matrix-debates        - Create matrix debate
 
 ## Feature Handlers
 
+Representative feature handlers are listed below. The features namespace
+evolves quickly; see [API_ENDPOINTS.md](../api/endpoints) for the full
+auto-generated list.
+
 | Module | Routes | Description |
 |--------|--------|-------------|
-| `features/audio.py` | `/api/audio/*` | Audio transcription & narration |
-| `features/broadcast.py` | `/api/broadcast/*` | Live debate broadcasting |
-| `features/documents.py` | `/api/documents/*` | Document processing |
-| `features/evidence.py` | `/api/evidence/*` | Evidence collection & search |
-| `features/features.py` | `/api/features/*` | Feature flags & toggles |
+| `features/audio.py` | `/audio/*`, `/api/v1/podcast/*` | Audio file serving + podcast feed |
+| `features/broadcast.py` | `/api/v1/debates/*/broadcast*` | Live debate broadcasting |
+| `features/documents.py` | `/api/v1/documents/*` | Document upload + metadata |
+| `features/document_query.py` | `/api/v1/documents/*` | Document Q&A, summarize, compare, extract |
+| `features/evidence.py` | `/api/v1/evidence/*` | Evidence collection & search |
+| `features/features.py` | `/api/v1/features/*` | Feature flags & toggles |
+| `features/gmail_ingest.py` | `/api/v1/gmail/*` | Gmail ingestion, sync, search |
+| `features/unified_inbox.py` | `/api/v1/inbox/*` | Unified inbox accounts + triage |
+| `features/email_webhooks.py` | `/api/v1/webhooks/*` | Gmail/Outlook webhook subscriptions |
 | `features/advertising.py` | `/api/v1/advertising/*` | Advertising platform APIs |
 | `features/analytics_platforms.py` | `/api/v1/analytics/*` | Analytics/BI platform APIs |
 | `features/crm.py` | `/api/v1/crm/*` | CRM platform APIs |
 | `features/ecommerce.py` | `/api/v1/ecommerce/*` | Ecommerce platform APIs |
 | `features/support.py` | `/api/v1/support/*` | Support/helpdesk platform APIs |
-| `features/plugins.py` | `/api/plugins/*` | Plugin management |
-| `features/pulse.py` | `/api/pulse/*` | Trending topics |
+| `features/plugins.py` | `/api/v1/plugins/*` | Plugin management |
+| `features/pulse.py` | `/api/v1/pulse/*` | Trending topics |
 
 ### Key Endpoints
 
 ```
-GET  /api/features              - List feature flags
-POST /api/evidence/collect      - Collect evidence
-GET  /api/pulse/trending        - Get trending topics
-POST /api/audio/transcribe      - Transcribe audio
-POST /api/broadcast/start       - Start live broadcast
+GET  /api/v1/features           - List feature flags
+POST /api/v1/evidence/collect   - Collect evidence
+GET  /api/v1/pulse/trending     - Get trending topics
+POST /api/v1/documents/upload   - Upload a document
+POST /api/v1/debates/*/broadcast - Start live broadcast
 ```
+
+---
+
+## Inbox & Email Handlers
+
+| Module | Routes | Description |
+|--------|--------|-------------|
+| `email.py` | `/api/v1/email/*` | Inbox prioritization, categorization, feedback |
+| `features/gmail_ingest.py` | `/api/v1/gmail/*` | Gmail OAuth, sync, search |
+| `features/unified_inbox.py` | `/api/v1/inbox/*` | Unified inbox accounts + triage |
+| `shared_inbox.py` | `/api/v1/inbox/shared*` | Shared inbox routing + rules |
+| `inbox/*` | `/api/v1/inbox/*` | Action items + team inbox workflows |
+
+---
+
+## Workflow & Template Handlers
+
+| Module | Routes | Description |
+|--------|--------|-------------|
+| `workflows.py` | `/api/v1/workflows*` | Workflow execution + approvals |
+| `workflow_templates.py` | `/api/v1/workflow/templates*` | Workflow templates CRUD + run |
+| `template_marketplace.py` | `/api/v1/marketplace/*` | Template marketplace + featured sets |
+
+---
+
+## Gauntlet & Audit Handlers
+
+| Module | Routes | Description |
+|--------|--------|-------------|
+| `gauntlet.py` | `/api/v1/gauntlet/*` | Adversarial stress tests + receipts |
+| `audit_trail.py` | `/api/v1/audit-trails*`, `/api/v1/receipts*` | Audit trails + decision receipts |
+| `audit_export.py` | `/api/v1/audit/*` | Export audit logs + verify integrity |
 
 ---
 
@@ -153,18 +223,18 @@ POST /api/broadcast/start       - Start live broadcast
 
 | Module | Routes | Description |
 |--------|--------|-------------|
-| `memory/memory.py` | `/api/memory/*` | Memory tier management |
-| `memory/insights.py` | `/api/insights/*` | Extracted insights |
-| `memory/learning.py` | `/api/learning/*` | Continuous learning |
-| `memory/memory_analytics.py` | `/api/memory-analytics/*` | Memory usage analytics |
+| `memory/memory.py` | `/api/v1/memory/*` | Memory tier management |
+| `memory/insights.py` | `/api/v1/insights/*` | Extracted insights |
+| `memory/learning.py` | `/api/v1/learning/*` | Continuous learning |
+| `memory/memory_analytics.py` | `/api/v1/memory/analytics*` | Memory usage analytics |
 
 ### Key Endpoints
 
 ```
-GET  /api/memory/:agent         - Agent memory
-POST /api/memory/recall         - Recall memories
-GET  /api/insights              - List insights
-GET  /api/memory-analytics      - Memory statistics
+GET  /api/v1/memory/tiers       - Memory tier configuration
+POST /api/v1/memory/search      - Search memory
+GET  /api/v1/insights/recent    - List insights
+GET  /api/v1/memory/analytics   - Memory analytics snapshots
 ```
 
 ---
@@ -173,20 +243,22 @@ GET  /api/memory-analytics      - Memory statistics
 
 | Module | Routes | Description |
 |--------|--------|-------------|
-| `social/collaboration.py` | `/api/collaboration/*` | Team debate collaboration |
-| `social/notifications.py` | `/api/notifications/*` | User notifications |
-| `social/relationship.py` | `/api/relationship/*` | Agent relationships |
-| `social/sharing.py` | `/api/share/*` | Debate sharing |
-| `social/slack.py` | `/api/slack/*` | Slack integration |
-| `social/social_media.py` | `/api/social/*` | Social media posting |
+| `social/collaboration.py` | `/api/collaboration/*` | Team collaboration sessions (legacy unversioned) |
+| `social/notifications.py` | `/api/v1/notifications/*` | Email + Telegram notifications |
+| `social/relationship.py` | `/api/v1/relationships*`, `/api/v1/relationship/*` | Agent relationships |
+| `social/sharing.py` | `/api/v1/debates/*/share`, `/api/v1/shared/*` | Debate sharing |
+| `social/slack.py` | `/api/v1/integrations/slack/*` | Slack commands/events |
+| `social/telegram.py` | `/api/v1/integrations/telegram/*` | Telegram webhooks |
+| `social/whatsapp.py` | `/api/v1/integrations/whatsapp/*` | WhatsApp webhooks |
+| `social/social_media.py` | `/api/v1/debates/*/publish/*`, `/api/v1/youtube/*` | Social publishing |
 
 ### Key Endpoints
 
 ```
-POST /api/share/:id             - Share debate
-GET  /api/notifications         - User notifications
-GET  /api/relationship/:a/:b    - Agent relationship
-POST /api/slack/post            - Post to Slack
+POST /api/v1/debates/:id/share          - Share debate
+GET  /api/v1/notifications/status      - Notification status
+GET  /api/v1/relationship/:a/:b         - Agent relationship
+POST /api/v1/integrations/slack/events - Slack events webhook
 ```
 
 ---
@@ -195,14 +267,14 @@ POST /api/slack/post            - Post to Slack
 
 | Module | Routes | Description |
 |--------|--------|-------------|
-| `verification/verification.py` | `/api/verify/*` | Claim verification |
-| `verification/formal_verification.py` | `/api/formal/*` | Formal proofs (Z3/Lean) |
+| `verification/verification.py` | `/api/v1/verification/*` | Verification status + formal checks |
+| `verification/formal_verification.py` | `/api/v1/verify/*` | Formal proofs (Z3/Lean) |
 
 ### Key Endpoints
 
 ```
-POST /api/verify/claim          - Verify a claim
-GET  /api/verify/status/:id     - Verification status
+POST /api/v1/verify/claim       - Verify a claim
+GET  /api/v1/verify/status      - Verification status
 POST /api/formal/prove          - Generate formal proof
 ```
 

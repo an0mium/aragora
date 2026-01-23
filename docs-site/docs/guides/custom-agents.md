@@ -27,7 +27,7 @@ class Agent:
 
 ### Step 1: Create the Agent File
 
-Create `aragora/agents/api_agents/my_provider.py`:
+Create a new module under `aragora/agents/` (for example `my_provider.py`):
 
 ```python
 """
@@ -220,7 +220,7 @@ class TestMyProviderAgent:
 For agents that wrap CLI tools (like `claude` or `codex`):
 
 ```python
-# aragora/agents/cli_agents/my_cli.py
+# Example file: my_cli.py (place under `aragora/agents/`)
 
 import subprocess
 import asyncio

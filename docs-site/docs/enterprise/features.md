@@ -56,7 +56,7 @@ SAML 2.0 integration for enterprise identity providers:
 - Metadata exchange
 
 ### Multi-Factor Authentication
-**Location**: `aragora/auth/mfa.py`
+**Location**: `aragora/server/middleware/mfa.py`
 
 MFA support via:
 - TOTP (Time-based One-Time Password)
@@ -64,14 +64,15 @@ MFA support via:
 - Integration with authenticator apps (Google Authenticator, Authy, etc.)
 
 ```python
-from aragora.auth.mfa import TOTPVerifier
+from aragora.server.middleware.mfa import require_mfa
 
-verifier = TOTPVerifier(secret=user.mfa_secret)
-is_valid = verifier.verify(user_provided_code)
+@require_mfa
+def sensitive_endpoint(self, handler, user):
+    return {"ok": True}
 ```
 
 ### API Key Management
-**Location**: `aragora/auth/api_keys.py`
+**Location**: `aragora/server/handlers/auth/handler.py`, `aragora/server/middleware/user_auth.py`
 
 - Key generation with configurable entropy
 - Scoped permissions per key
@@ -79,7 +80,7 @@ is_valid = verifier.verify(user_provided_code)
 - Usage tracking per key
 
 ### Session Management
-**Location**: `aragora/auth/session.py`
+**Location**: `aragora/server/session_store.py`
 
 - Token versioning for revocation
 - Lockout tracking (brute force protection)
@@ -179,7 +180,7 @@ Comprehensive validation framework:
 - Path traversal protection
 
 ### Rate Limiting
-**Location**: `aragora/server/middleware/rate_limiter.py`
+**Location**: `aragora/server/rate_limit.py`, `aragora/server/handlers/utils/rate_limit.py`
 
 Multi-layer rate limiting:
 - IP-based: 1000 req/min per IP
@@ -467,7 +468,7 @@ Export capabilities:
 - Audit logs (CSV, JSON)
 
 ### Data Retention
-**Location**: `aragora/persistence/retention.py`
+**Location**: `aragora/privacy/retention.py`
 
 Retention policy enforcement:
 - Configurable per data type

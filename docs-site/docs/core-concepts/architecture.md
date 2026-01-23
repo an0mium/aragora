@@ -215,7 +215,7 @@ aragora/
 │       ├── validate_deployment() # Async full validation
 │       └── quick_health_check() # Sync startup check
 │
-├── core.py                # Core types (Message, Critique, Vote, etc.)
+├── core_types.py          # Core types (Message, Critique, Vote, etc.)
 └── __init__.py            # Package exports
 
 scripts/
@@ -376,7 +376,7 @@ docs/
 ### Adding New Agents
 
 1. Create wrapper in `aragora/agents/cli_agents.py`
-2. Implement the `Agent` protocol from `aragora/core.py`
+2. Implement the `Agent` protocol from `aragora/core_types.py`
 3. Register in the agent factory
 
 ```python

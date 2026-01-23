@@ -10,7 +10,7 @@ canonical docs in the main `docs/` directory.
 - `database/` - Superseded database migration notes.
 - `engineering/` - Completed refactoring notes.
 - `enterprise/` - Historical feasibility studies.
-- `guides/` - Older guides replaced by current docs.
+- `guides/` - Older guides replaced by current docs (e.g. `guides/FEATURE_DISCOVERY.md`).
 - `migrations/` - Legacy migration guides for versions no longer supported.
 - `release-notes/` - Point-in-time release notes.
 - `roadmaps/` - Historical roadmaps superseded by current plans.

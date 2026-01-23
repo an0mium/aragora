@@ -32,6 +32,7 @@ Use this index for fast navigation. For a fuller map, see
 - Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Debate engine: [DEBATE_INTERNALS.md](DEBATE_INTERNALS.md)
 - Workflow engine: [WORKFLOW_ENGINE.md](WORKFLOW_ENGINE.md)
+- Templates: [TEMPLATES.md](TEMPLATES.md)
 - Knowledge Mound: [KNOWLEDGE_MOUND.md](KNOWLEDGE_MOUND.md)
 - Memory tiers: [MEMORY_TIERS.md](MEMORY_TIERS.md)
 - Memory overview: [MEMORY.md](MEMORY.md)
@@ -87,6 +88,8 @@ Use this index for fast navigation. For a fuller map, see
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Frontend development: [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)
 - Frontend routes: [FRONTEND_ROUTES.md](FRONTEND_ROUTES.md)
+- Handler reference: [HANDLERS.md](HANDLERS.md)
+- Handler development: [HANDLER_DEVELOPMENT.md](HANDLER_DEVELOPMENT.md)
 - Testing: [TESTING.md](TESTING.md)
 - Deprecation policy: [DEPRECATION_POLICY.md](DEPRECATION_POLICY.md)
 
@@ -102,5 +105,5 @@ Deprecated docs are archived in `docs/deprecated/`. See
 
 ## Inventory
 
-- Markdown files under `docs/`: 264 (includes deprecated)
-- Last updated: 2026-01-22
+- Markdown files under `docs/`: 266 (includes deprecated)
+- Last updated: 2026-01-23

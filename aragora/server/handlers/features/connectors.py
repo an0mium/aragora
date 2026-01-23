@@ -786,9 +786,7 @@ class ConnectorsHandler(SecureHandler):
                 # Calculate latency score (lower is better, normalized to 0-1)
                 avg_duration = stats.get("avg_duration_seconds", 0) or 0
                 connector_type_info: Dict[str, Any] = CONNECTOR_TYPES.get(config.connector_type, {})  # type: ignore[assignment]
-                expected_duration = connector_type_info.get(
-                    "expected_sync_duration", 60
-                )
+                expected_duration = connector_type_info.get("expected_sync_duration", 60)
                 if avg_duration <= expected_duration:
                     latency_score = 1.0
                 else:

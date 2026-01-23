@@ -137,13 +137,13 @@ async def control_plane_example():
 asyncio.run(control_plane_example())
 ```
 
-### Control Plane Deliberation
+### Control Plane Robust Decisionmaking
 
 ```python
-async def control_plane_deliberation():
-    """Run a deliberation via the control plane (sync or async)."""
+async def control_plane_decisionmaking():
+    """Run a robust decisionmaking session via the control plane (sync or async)."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
-        # Submit a deliberation (async)
+        # Submit a robust decisionmaking session (async)
         response = await client.post("/api/control-plane/deliberations", json={
             "content": "Evaluate the rollout risk for this migration plan",
             "decision_type": "debate",
@@ -164,7 +164,7 @@ async def control_plane_deliberation():
                 break
             await asyncio.sleep(1)
 
-asyncio.run(control_plane_deliberation())
+asyncio.run(control_plane_decisionmaking())
 ```
 
 ### Decision Router (Unified API)
@@ -193,14 +193,15 @@ asyncio.run(decision_router_example())
 async def codebase_security_scan():
     """Trigger a dependency vulnerability scan and fetch results."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
-        scan = await client.post("/api/v1/codebase/aragora/scan", json={
-            "repo_path": "/Users/armand/Development/aragora",
+        repo_id = "example-repo"
+        scan = await client.post(f"/api/v1/codebase/\{repo_id\}/scan", json={
+            "repo_path": "/path/to/repo",
             "branch": "main",
         })
         scan_data = scan.json()
         scan_id = scan_data["scan_id"]
 
-        result = await client.get(f"/api/v1/codebase/aragora/scan/\{scan_id\}")
+        result = await client.get(f"/api/v1/codebase/\{repo_id\}/scan/\{scan_id\}")
         print(result.json())
 
 asyncio.run(codebase_security_scan())
@@ -212,14 +213,15 @@ asyncio.run(codebase_security_scan())
 async def codebase_metrics():
     """Run code metrics analysis and fetch hotspots."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
-        analysis = await client.post("/api/v1/codebase/aragora/metrics/analyze", json={
-            "repo_path": "/Users/armand/Development/aragora",
+        repo_id = "example-repo"
+        analysis = await client.post(f"/api/v1/codebase/\{repo_id\}/metrics/analyze", json={
+            "repo_path": "/path/to/repo",
             "complexity_warning": 10,
             "complexity_error": 20,
         })
         analysis_id = analysis.json()["analysis_id"]
 
-        hotspots = await client.get("/api/v1/codebase/aragora/hotspots")
+        hotspots = await client.get(f"/api/v1/codebase/\{repo_id\}/hotspots")
         print(hotspots.json())
 
 asyncio.run(codebase_metrics())

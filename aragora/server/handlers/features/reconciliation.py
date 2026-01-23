@@ -22,9 +22,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timezone
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
-from uuid import uuid4
+from typing import Any, Dict, Optional
 
 from ..base import (
     BaseHandler,
@@ -48,6 +46,7 @@ def get_reconciliation_service(tenant_id: str):
     if tenant_id not in _service_instances:
         try:
             from aragora.services.accounting.reconciliation import ReconciliationService
+
             _service_instances[tenant_id] = ReconciliationService()
         except ImportError:
             return None
@@ -178,17 +177,24 @@ class ReconciliationHandler(BaseHandler):
             plaid_token = body.get("plaid_access_token")
             if not plaid_token:
                 # Return mock result
-                from aragora.services.accounting.reconciliation import get_mock_reconciliation_result
+                from aragora.services.accounting.reconciliation import (
+                    get_mock_reconciliation_result,
+                )
+
                 mock_result = get_mock_reconciliation_result()
                 mock_result.start_date = start_date
                 mock_result.end_date = end_date
 
-                return success_response({
-                    "reconciliation": mock_result.to_dict(),
-                    "discrepancies": [d.to_dict() for d in mock_result.discrepancies],
-                    "matched_transactions": [m.to_dict() for m in mock_result.matched_transactions[:5]],
-                    "is_demo": True,
-                })
+                return success_response(
+                    {
+                        "reconciliation": mock_result.to_dict(),
+                        "discrepancies": [d.to_dict() for d in mock_result.discrepancies],
+                        "matched_transactions": [
+                            m.to_dict() for m in mock_result.matched_transactions[:5]
+                        ],
+                        "is_demo": True,
+                    }
+                )
 
             # Run actual reconciliation
             from aragora.connectors.accounting.plaid import PlaidCredentials
@@ -206,11 +212,13 @@ class ReconciliationHandler(BaseHandler):
                 use_agents=use_agents,
             )
 
-            return success_response({
-                "reconciliation": result.to_dict(),
-                "discrepancies": [d.to_dict() for d in result.discrepancies],
-                "matched_count": result.matched_count,
-            })
+            return success_response(
+                {
+                    "reconciliation": result.to_dict(),
+                    "discrepancies": [d.to_dict() for d in result.discrepancies],
+                    "matched_count": result.matched_count,
+                }
+            )
 
         except ImportError as e:
             return error_response(f"Required module not available: {e}", 503)
@@ -234,10 +242,12 @@ class ReconciliationHandler(BaseHandler):
 
         results = service.list_reconciliations(account_id=account_id, limit=limit)
 
-        return success_response({
-            "reconciliations": [r.to_dict() for r in results],
-            "total": len(results),
-        })
+        return success_response(
+            {
+                "reconciliations": [r.to_dict() for r in results],
+                "total": len(results),
+            }
+        )
 
     async def _handle_get(
         self, request: Any, tenant_id: str, reconciliation_id: str
@@ -251,11 +261,13 @@ class ReconciliationHandler(BaseHandler):
         if not result:
             return error_response("Reconciliation not found", 404)
 
-        return success_response({
-            "reconciliation": result.to_dict(),
-            "discrepancies": [d.to_dict() for d in result.discrepancies],
-            "matched_transactions": [m.to_dict() for m in result.matched_transactions],
-        })
+        return success_response(
+            {
+                "reconciliation": result.to_dict(),
+                "discrepancies": [d.to_dict() for d in result.discrepancies],
+                "matched_transactions": [m.to_dict() for m in result.matched_transactions],
+            }
+        )
 
     async def _handle_demo(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get demo reconciliation data."""
@@ -264,12 +276,14 @@ class ReconciliationHandler(BaseHandler):
 
             result = get_mock_reconciliation_result()
 
-            return success_response({
-                "reconciliation": result.to_dict(),
-                "discrepancies": [d.to_dict() for d in result.discrepancies],
-                "matched_transactions": [m.to_dict() for m in result.matched_transactions],
-                "is_demo": True,
-            })
+            return success_response(
+                {
+                    "reconciliation": result.to_dict(),
+                    "discrepancies": [d.to_dict() for d in result.discrepancies],
+                    "matched_transactions": [m.to_dict() for m in result.matched_transactions],
+                    "is_demo": True,
+                }
+            )
         except ImportError:
             return error_response("Demo data not available", 503)
 
@@ -316,17 +330,22 @@ class ReconciliationHandler(BaseHandler):
             if success:
                 # Get updated reconciliation
                 result = service.get_reconciliation(reconciliation_id)
-                return success_response({
-                    "status": "resolved",
-                    "discrepancy_id": discrepancy_id,
-                    "reconciliation_status": {
-                        "is_reconciled": result.is_reconciled if result else False,
-                        "pending_discrepancies": len([
-                            d for d in (result.discrepancies if result else [])
-                            if d.resolution_status.value == "pending"
-                        ]),
-                    },
-                })
+                return success_response(
+                    {
+                        "status": "resolved",
+                        "discrepancy_id": discrepancy_id,
+                        "reconciliation_status": {
+                            "is_reconciled": result.is_reconciled if result else False,
+                            "pending_discrepancies": len(
+                                [
+                                    d
+                                    for d in (result.discrepancies if result else [])
+                                    if d.resolution_status.value == "pending"
+                                ]
+                            ),
+                        },
+                    }
+                )
             else:
                 return error_response("Failed to resolve discrepancy", 400)
 
@@ -334,9 +353,7 @@ class ReconciliationHandler(BaseHandler):
             logger.exception(f"Error resolving discrepancy: {e}")
             return error_response(f"Resolution failed: {str(e)}", 500)
 
-    async def _handle_bulk_resolve(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_bulk_resolve(self, request: Any, tenant_id: str) -> HandlerResult:
         """Bulk resolve discrepancies.
 
         Request body:
@@ -384,14 +401,16 @@ class ReconciliationHandler(BaseHandler):
 
             result = service.get_reconciliation(reconciliation_id)
 
-            return success_response({
-                "resolved_count": success_count,
-                "error_count": len(errors),
-                "errors": errors if errors else None,
-                "reconciliation_status": {
-                    "is_reconciled": result.is_reconciled if result else False,
-                },
-            })
+            return success_response(
+                {
+                    "resolved_count": success_count,
+                    "error_count": len(errors),
+                    "errors": errors if errors else None,
+                    "reconciliation_status": {
+                        "is_reconciled": result.is_reconciled if result else False,
+                    },
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error in bulk resolve: {e}")
@@ -424,10 +443,7 @@ class ReconciliationHandler(BaseHandler):
                 return error_response("Reconciliation not found", 404)
 
             # Check if there are unresolved discrepancies
-            pending = [
-                d for d in result.discrepancies
-                if d.resolution_status.value == "pending"
-            ]
+            pending = [d for d in result.discrepancies if d.resolution_status.value == "pending"]
 
             if pending:
                 return error_response(
@@ -440,16 +456,16 @@ class ReconciliationHandler(BaseHandler):
             result.reconciled_at = datetime.now(timezone.utc)
             result.reconciled_by = user_id
 
-            logger.info(
-                f"[Reconciliation] Approved {reconciliation_id} by {user_id}: {notes}"
-            )
+            logger.info(f"[Reconciliation] Approved {reconciliation_id} by {user_id}: {notes}")
 
-            return success_response({
-                "status": "approved",
-                "reconciliation_id": reconciliation_id,
-                "approved_by": user_id,
-                "approved_at": result.reconciled_at.isoformat(),
-            })
+            return success_response(
+                {
+                    "status": "approved",
+                    "reconciliation_id": reconciliation_id,
+                    "approved_by": user_id,
+                    "approved_at": result.reconciled_at.isoformat(),
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error approving reconciliation: {e}")
@@ -459,9 +475,7 @@ class ReconciliationHandler(BaseHandler):
     # Get Discrepancies
     # =========================================================================
 
-    async def _handle_discrepancies(
-        self, request: Any, tenant_id: str
-    ) -> HandlerResult:
+    async def _handle_discrepancies(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get all pending discrepancies across reconciliations."""
         params = self._get_query_params(request)
         status_filter = params.get("status", "pending")
@@ -484,23 +498,25 @@ class ReconciliationHandler(BaseHandler):
                 if severity_filter and disc.severity.value != severity_filter:
                     continue
 
-                all_discrepancies.append({
-                    **disc.to_dict(),
-                    "reconciliation_id": result.reconciliation_id,
-                    "account_name": result.account_name,
-                    "period": f"{result.start_date} to {result.end_date}",
-                })
+                all_discrepancies.append(
+                    {
+                        **disc.to_dict(),
+                        "reconciliation_id": result.reconciliation_id,
+                        "account_name": result.account_name,
+                        "period": f"{result.start_date} to {result.end_date}",
+                    }
+                )
 
         # Sort by severity (critical first)
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-        all_discrepancies.sort(
-            key=lambda d: severity_order.get(d["severity"], 4)
-        )
+        all_discrepancies.sort(key=lambda d: severity_order.get(d["severity"], 4))
 
-        return success_response({
-            "discrepancies": all_discrepancies[:limit],
-            "total": len(all_discrepancies),
-        })
+        return success_response(
+            {
+                "discrepancies": all_discrepancies[:limit],
+                "total": len(all_discrepancies),
+            }
+        )
 
     # =========================================================================
     # Generate Report
@@ -566,7 +582,9 @@ class ReconciliationHandler(BaseHandler):
                 body=csv_content.encode("utf-8"),
                 status_code=200,
                 content_type="text/csv",
-                headers={"Content-Disposition": f"attachment; filename=reconciliation_{reconciliation_id}.csv"},
+                headers={
+                    "Content-Disposition": f"attachment; filename=reconciliation_{reconciliation_id}.csv"
+                },
             )
 
         else:
@@ -608,9 +626,7 @@ def get_reconciliation_handler() -> ReconciliationHandler:
     return _handler_instance
 
 
-async def handle_reconciliation(
-    request: Any, path: str, method: str
-) -> HandlerResult:
+async def handle_reconciliation(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for reconciliation requests."""
     handler = get_reconciliation_handler()
     return await handler.handle(request, path, method)

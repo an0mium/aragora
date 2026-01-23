@@ -113,7 +113,7 @@ export function ReportBuilder({
         report_id: `CR-${Date.now().toString(36).toUpperCase()}`,
         framework: selectedFramework,
         generated_at: new Date().toISOString(),
-        summary: `Multi-agent deliberation completed with consensus for debate ${debateId.slice(0, 8)}. Full audit trail preserved with cryptographic verification available.`,
+        summary: `Multi-agent robust decisionmaking completed with consensus for debate ${debateId.slice(0, 8)}. Full audit trail preserved with cryptographic verification available.`,
         sections: [
           {
             title: 'Executive Summary',

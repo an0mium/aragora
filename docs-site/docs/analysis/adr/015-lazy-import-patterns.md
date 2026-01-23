@@ -141,7 +141,7 @@ def __getattr__(name: str):
 ### Mitigations
 
 1. **Explicit comments** - Every lazy import has a comment explaining the circular dependency
-2. **Centralized utilities** - `aragora/server/handlers/utils/lazy_imports.py` provides helpers
+2. **Local wrappers** - e.g. `aragora/server/middleware/cache.py` and `aragora/server/handlers/admin/cache.py`
 3. **Test coverage** - Integration tests exercise all lazy import paths
 4. **Documentation** - This ADR documents all locations
 
@@ -162,13 +162,13 @@ def __getattr__(name: str):
 
 ### 3. Interface/Protocol Modules
 
-**Partially adopted:**
-- `aragora/server/handlers/interface.py` planned
+**Adopted:**
+- `aragora/server/handlers/interface.py` is in use
 - Reduces but doesn't eliminate all circular imports
 
 ## Future Work
 
-1. **Extract shared interfaces** - Create `aragora/interfaces/` for common protocols
+1. **Extract shared interfaces** - Consider a dedicated interfaces package for common protocols
 2. **Reduce coupling** - Identify and break unnecessary dependencies
 3. **Static analysis** - Add CI check to detect new circular imports
 4. **Documentation generation** - Auto-generate dependency graph

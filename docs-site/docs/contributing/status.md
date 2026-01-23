@@ -5,9 +5,80 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: January 22, 2026*
+*Last updated: January 23, 2026*
 
 ## Current Release
+
+### v2.1.12 - Connectors & Email Sync Release (January 2026)
+
+**Production Ready** - Aragora 2.1.12 adds comprehensive advertising, marketing, and analytics platform connectors plus real-time email sync services.
+
+#### Key Highlights
+- **44,500+ tests** across 1,210+ test files
+- **6 new advertising/marketing connectors** - Twitter Ads, TikTok Ads, Mailchimp, Klaviyo, Segment
+- **2 real-time email sync services** - Gmail Pub/Sub, Outlook Graph notifications
+- **5 new unified handlers** - Advertising, Analytics, CRM, Support, Ecommerce
+- **Lines of Code**: 680,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.1.12
+
+**Advertising Connectors** (FEATURE)
+- **Twitter/X Ads** (`aragora/connectors/advertising/twitter_ads.py`)
+  - OAuth 1.0a authentication
+  - Campaign, ad group, ad management
+  - Performance metrics and targeting
+  - Tailored audiences and promoted accounts
+- **TikTok Ads** (`aragora/connectors/advertising/tiktok_ads.py`)
+  - OAuth 2.0 authentication
+  - Campaign, ad group, ad CRUD operations
+  - Pixel tracking and conversion events
+  - Custom audiences and smart targeting
+
+**Marketing Connectors** (FEATURE)
+- **Mailchimp** (`aragora/connectors/marketing/mailchimp.py`)
+  - Audiences, members, campaigns
+  - Templates, automations, reporting
+  - Campaign performance analytics
+- **Klaviyo** (`aragora/connectors/marketing/klaviyo.py`)
+  - Lists, segments, profiles
+  - Campaigns and flows
+  - Events, templates (email + SMS)
+  - JSON:API format (2024-10-15 revision)
+
+**Analytics Connector** (FEATURE)
+- **Segment CDP** (`aragora/connectors/analytics/segment.py`)
+  - Tracking API (track, identify, page, group, batch)
+  - Config API (sources, destinations)
+  - Profiles API (user lookup, traits)
+
+**Email Sync Services** (FEATURE)
+- **Gmail Sync** (`aragora/connectors/email/gmail_sync.py`)
+  - Google Cloud Pub/Sub for real-time notifications
+  - History API for incremental message retrieval
+  - EmailPrioritizer integration for scoring
+  - Tenant-isolated sync state (Redis/Postgres)
+- **Outlook Sync** (`aragora/connectors/email/outlook_sync.py`)
+  - Microsoft Graph change notifications (webhooks)
+  - Delta Query API for incremental sync
+  - Automatic subscription renewal
+  - EmailPrioritizer integration
+
+**Handler Registry Expansion** (INFRASTRUCTURE)
+- 5 new unified API handlers registered:
+  - `AdvertisingHandler` - Multi-platform ad management
+  - `AnalyticsPlatformsHandler` - CDP and analytics tools
+  - `CRMHandler` - Customer relationship platforms
+  - `SupportHandler` - Help desk integrations
+  - `EcommerceHandler` - Shopping platform connectors
+
+**Testing** (QUALITY)
+- 450+ new tests for advertising connectors
+- 250+ new tests for marketing connectors
+- 100+ new tests for analytics connector
+- 120+ new tests for email sync services
+
+---
 
 ### v2.1.11 - Type Safety & Quality Release (January 2026)
 
@@ -524,7 +595,7 @@ description: Aragora Project Status
 #### What's New in 2.0.8
 
 **Gauntlet + Receipts API Productization** (PRIORITY 1 - COMPLETE)
-- `aragora/gauntlet/receipts.py` - DecisionReceipt dataclass with cryptographic hashing
+- `aragora/gauntlet/receipt.py` - DecisionReceipt dataclass with cryptographic hashing
   - SHA-256 artifact hashing for tamper-evident audit trails
   - Serialization to JSON/dict for compliance documentation
   - Verdict summary (PASS/FAIL/WARN) with finding counts
@@ -1484,7 +1555,7 @@ All stabilization items addressed:
   - Added `db_config.py` for centralized database path management
   - Migration script with dry-run, rollback, and verification: `scripts/migrate_databases.py`
 - **Type Annotations**: Added mypy configuration and Protocol definitions
-  - `aragora/protocols.py` with 8 Protocol definitions (StorageBackend, MemoryBackend, EloBackend, etc.)
+  - `aragora/core_protocols.py` with 8 Protocol definitions (StorageBackend, MemoryBackend, EloBackend, etc.)
   - Enhanced mypy config in pyproject.toml with per-module strict settings
 - **Performance**: Added LRU caching to ELO system
   - `aragora/utils/cache.py` with TTLCache, lru_cache_with_ttl decorator
@@ -1664,7 +1735,7 @@ All stabilization items addressed:
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
-| Token Streaming | Active | `aragora/agents/api_agents.py` |
+| Token Streaming | Active | `aragora/agents/streaming.py` |
 | ELO Rankings | Active | `aragora/ranking/elo.py` |
 | FlipDetector + Vote Weight | Active | `aragora/insights/flip_detector.py` (→ orchestrator.py:1423-1433) |
 | Position Ledger | Active | `aragora/agents/grounded.py` |
@@ -1692,8 +1763,8 @@ All stabilization items addressed:
 | Crux → Fix Guidance | Active | `scripts/nomic_loop.py` (belief network → fix prompts) |
 | Probe → ELO Weighting | Active | `aragora/ranking/elo.py` (confidence_weight parameter) |
 | Path Traversal Protection | Active | `aragora/tools/code.py` (_resolve_path validation) |
-| Agent Consistency API | Active | `aragora/server/handlers/agents.py` (/api/agent/\{name\}/consistency) |
-| Agent Network API | Active | `aragora/server/handlers/agents.py` (/api/agent/\{name\}/network) |
+| Agent Consistency API | Active | `aragora/server/handlers/agents/agents.py` (/api/agent/\{name\}/consistency) |
+| Agent Network API | Active | `aragora/server/handlers/agents/agents.py` (/api/agent/\{name\}/network) |
 | MATCH_RECORDED Event | Active | `aragora/debate/orchestrator.py` (WebSocket emission) |
 | Custom Mode Security | Active | `aragora/modes/custom.py` (path traversal protection) |
 | Crux Cache Lifecycle | Active | `scripts/nomic_loop.py:run_cycle()` (cleared at cycle start) |
@@ -1704,16 +1775,16 @@ All stabilization items addressed:
 | CapabilityProbePanel | Active | `aragora/live/src/components/CapabilityProbePanel.tsx` |
 | OperationalModesPanel | Active | `aragora/live/src/components/OperationalModesPanel.tsx` |
 | RedTeamAnalysisPanel | Active | `aragora/live/src/components/RedTeamAnalysisPanel.tsx` |
-| Mood Event Types | Active | `aragora/server/stream/serializers.py` (MOOD_DETECTED, MOOD_SHIFT, DEBATE_ENERGY) |
+| Mood Event Types | Active | `aragora/events/types.py` (MOOD_DETECTED, MOOD_SHIFT, DEBATE_ENERGY) |
 | ContraryViewsPanel | Active | `aragora/live/src/components/ContraryViewsPanel.tsx` |
 | RiskWarningsPanel | Active | `aragora/live/src/components/RiskWarningsPanel.tsx` |
 | AnalyticsPanel | Active | `aragora/live/src/components/AnalyticsPanel.tsx` (disagreements, roles, early-stops) |
 | CalibrationPanel | Active | `aragora/live/src/components/CalibrationPanel.tsx` (confidence accuracy) |
 | ConsensusKnowledgeBase | Active | `aragora/live/src/components/ConsensusKnowledgeBase.tsx` (settled topics) |
-| DebateViewer Critique Handling | Active | `aragora/live/src/components/DebateViewer.tsx` (critique + consensus) |
+| DebateViewer Critique Handling | Active | `aragora/live/src/components/debate-viewer/DebateViewer.tsx` (critique + consensus) |
 | ArgumentCartographer | Active | `aragora/debate/orchestrator.py` (graph visualization) |
-| Graph Export API | Active | `aragora/server/handlers/debates.py` (/api/debate/\{loop_id\}/graph/*) |
-| Audience Clusters API | Active | `aragora/server/handlers/debates.py` (/api/debate/\{loop_id\}/audience/clusters) |
+| Graph Export API | Active | `aragora/server/handlers/debates/handler.py` (/api/debate/\{loop_id\}/graph/*) |
+| Audience Clusters | Active | `aragora/debate/prompt_context.py` (audience suggestion clustering) |
 | Replay Export API | Active | `aragora/server/handlers/replays.py` (/api/replays/*) |
 | Database Query Indexes | Active | `aragora/ranking/elo.py` (8 indexes for common queries) |
 | N+1 Query Optimization | Active | `aragora/ranking/elo.py` (get_rivals/get_allies batch) |
@@ -1723,23 +1794,23 @@ All stabilization items addressed:
 | Demo Consensus Fixtures | Active | `aragora/fixtures/__init__.py` (auto-seed on server startup) |
 | Seed Demo API | Active | `aragora/server/handlers/consensus.py` (/api/consensus/seed-demo) |
 | Broadcast Audio Generation | Active | `aragora/broadcast/` (TTS, mixing, storage) |
-| Podcast RSS Feed | Active | `aragora/server/handlers/audio.py` (/api/podcast/feed.xml) |
-| Audio File Serving | Active | `aragora/server/handlers/audio.py` (/audio/\{id\}.mp3) |
+| Podcast RSS Feed | Active | `aragora/server/handlers/features/audio.py` (/api/podcast/feed.xml) |
+| Audio File Serving | Active | `aragora/server/handlers/features/audio.py` (/audio/\{id\}.mp3) |
 | Mistral Direct API | Active | `aragora/agents/api_agents/mistral.py` (MistralAPIAgent, CodestralAgent) |
 | TeamSelector | Active | `aragora/debate/team_selector.py` (ELO+calibration scoring) |
 | TricksterAlertPanel | Active | `aragora/live/src/components/TricksterAlertPanel.tsx` |
 | RhetoricalObserverPanel | Active | `aragora/live/src/components/RhetoricalObserverPanel.tsx` |
 | TrainingExportPanel | Active | `aragora/live/src/components/TrainingExportPanel.tsx` (SFT/DPO/Gauntlet export) |
 | PublicGallery | Active | `aragora/live/src/components/PublicGallery.tsx` (debate browsing) |
-| Token Revocation UI | Active | `aragora/live/src/components/SettingsPanel.tsx` (Logout All Devices) |
+| Token Revocation UI | Active | `aragora/live/src/components/settings-panel/AccountTab.tsx` (Logout All Devices) |
 | Production Checklist | Active | `docs/PRODUCTION_CHECKLIST.md` (deployment guide) |
-| Decision Receipt Browser | Active | `aragora/live/src/app/receipts/page.tsx` (compliance receipts) |
-| Training Data Explorer | Active | `aragora/live/src/app/training/explorer/page.tsx` (ML data preview) |
-| Model Registry | Active | `aragora/live/src/app/training/models/page.tsx` (fine-tuned models) |
+| Decision Receipt Browser | Active | `aragora/live/src/app/(app)/receipts/page.tsx` (compliance receipts) |
+| Training Data Explorer | Active | `aragora/live/src/app/(app)/training/explorer/page.tsx` (ML data preview) |
+| Model Registry | Active | `aragora/live/src/app/(app)/training/models/page.tsx` (fine-tuned models) |
 | Risk Heatmap | Active | `aragora/live/src/components/GauntletPanel.tsx` (security visualization) |
 | Belief Network Dashboard | Active | `aragora/live/src/components/CruxPanel.tsx` (enhanced crux analysis) |
-| Episode Generator | Active | `aragora/live/src/app/broadcast/page.tsx` (podcast generation) |
-| Knowledge Graph Export | Active | `aragora/live/src/app/knowledge/page.tsx` (export & staleness) |
+| Episode Generator | Active | `aragora/live/src/app/(app)/broadcast/page.tsx` (podcast generation) |
+| Knowledge Graph Export | Active | `aragora/live/src/app/(app)/knowledge/page.tsx` (export & staleness) |
 | RLM Training Buffer | Active | `aragora/rlm/training/buffer.py` (experience replay) |
 | RLM Reward Computation | Active | `aragora/rlm/training/reward.py` (debate outcome rewards) |
 | ELO Skill Vote Weighting | Active | `aragora/debate/phases/weight_calculator.py` (domain-specific ELO → vote weight) |

@@ -125,7 +125,7 @@ Policy(
     description="Prevent modification of core Aragora files",
     tools=["file_writer"],
     capabilities=["write_file", "delete_file"],
-    conditions=["'aragora/core.py' in file_path"],
+    conditions=["'aragora/core_types.py' in file_path"],
     allow=False,  # Denied
     priority=100,
 )

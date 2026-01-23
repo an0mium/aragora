@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 class Platform(Enum):
     """Supported analytics platforms."""
+
     ARAGORA = "aragora"
     GOOGLE_ANALYTICS = "google_analytics"
     MIXPANEL = "mixpanel"
@@ -60,6 +61,7 @@ class Platform(Enum):
 
 class MetricType(Enum):
     """Metric types."""
+
     COUNTER = "counter"
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
@@ -68,6 +70,7 @@ class MetricType(Enum):
 
 class AlertSeverity(Enum):
     """Alert severity levels."""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -75,6 +78,7 @@ class AlertSeverity(Enum):
 
 class AlertStatus(Enum):
     """Alert status."""
+
     ACTIVE = "active"
     ACKNOWLEDGED = "acknowledged"
     RESOLVED = "resolved"
@@ -82,6 +86,7 @@ class AlertStatus(Enum):
 
 class TimeRange(Enum):
     """Predefined time ranges."""
+
     LAST_HOUR = "1h"
     LAST_DAY = "24h"
     LAST_WEEK = "7d"
@@ -93,6 +98,7 @@ class TimeRange(Enum):
 @dataclass
 class MetricValue:
     """A single metric value."""
+
     name: str
     value: float
     platform: Platform
@@ -114,6 +120,7 @@ class MetricValue:
 @dataclass
 class AggregatedMetric:
     """Aggregated metric across platforms."""
+
     name: str
     total: float
     by_platform: Dict[str, float]
@@ -135,6 +142,7 @@ class AggregatedMetric:
 @dataclass
 class Anomaly:
     """Detected anomaly in metrics."""
+
     id: str
     metric_name: str
     platform: Platform
@@ -162,6 +170,7 @@ class Anomaly:
 @dataclass
 class AlertRule:
     """Alert rule configuration."""
+
     id: str
     name: str
     metric_name: str
@@ -193,6 +202,7 @@ class AlertRule:
 @dataclass
 class Alert:
     """Active alert instance."""
+
     id: str
     rule_id: str
     rule_name: str
@@ -382,21 +392,25 @@ def detect_anomalies(
         z_score = abs((value - mean) / std)
         if z_score > threshold_std:
             severity = (
-                AlertSeverity.CRITICAL if z_score > 3
-                else AlertSeverity.WARNING if z_score > 2.5
+                AlertSeverity.CRITICAL
+                if z_score > 3
+                else AlertSeverity.WARNING
+                if z_score > 2.5
                 else AlertSeverity.INFO
             )
-            anomalies.append(Anomaly(
-                id=f"anom_{uuid4().hex[:12]}",
-                metric_name=metric_name,
-                platform=platform,
-                timestamp=datetime.now(timezone.utc),
-                expected_value=mean,
-                actual_value=value,
-                deviation=z_score,
-                severity=severity,
-                description=f"{metric_name} is {z_score:.1f} standard deviations from mean",
-            ))
+            anomalies.append(
+                Anomaly(
+                    id=f"anom_{uuid4().hex[:12]}",
+                    metric_name=metric_name,
+                    platform=platform,
+                    timestamp=datetime.now(timezone.utc),
+                    expected_value=mean,
+                    actual_value=value,
+                    deviation=z_score,
+                    severity=severity,
+                    description=f"{metric_name} is {z_score:.1f} standard deviations from mean",
+                )
+            )
 
     return anomalies
 
@@ -535,9 +549,9 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
         # Aggregate key metrics
         total_users = ga4.get("users", 0) + mixpanel.get("unique_users", 0)
         total_events = (
-            ga4.get("events", 0) +
-            mixpanel.get("events_tracked", 0) +
-            segment.get("events_delivered", 0)
+            ga4.get("events", 0)
+            + mixpanel.get("events_tracked", 0)
+            + segment.get("events_delivered", 0)
         )
 
         summary = {
@@ -597,14 +611,16 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
             "google_analytics": all_metrics.get("google_analytics", {}).get("users", 0),
             "mixpanel": all_metrics.get("mixpanel", {}).get("unique_users", 0),
         }
-        aggregations.append(AggregatedMetric(
-            name="total_users",
-            total=sum(user_values.values()),
-            by_platform=user_values,
-            trend="up",
-            change_percent=12.5,
-            period=time_range,
-        ))
+        aggregations.append(
+            AggregatedMetric(
+                name="total_users",
+                total=sum(user_values.values()),
+                by_platform=user_values,
+                trend="up",
+                change_percent=12.5,
+                period=time_range,
+            )
+        )
 
         # Events aggregation
         event_values = {
@@ -612,20 +628,24 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
             "mixpanel": all_metrics.get("mixpanel", {}).get("events_tracked", 0),
             "segment": all_metrics.get("segment", {}).get("events_delivered", 0),
         }
-        aggregations.append(AggregatedMetric(
-            name="total_events",
-            total=sum(event_values.values()),
-            by_platform=event_values,
-            trend="up",
-            change_percent=8.3,
-            period=time_range,
-        ))
+        aggregations.append(
+            AggregatedMetric(
+                name="total_events",
+                total=sum(event_values.values()),
+                by_platform=event_values,
+                trend="up",
+                change_percent=8.3,
+                period=time_range,
+            )
+        )
 
-        return success_response({
-            "time_range": time_range,
-            "metrics_by_platform": all_metrics,
-            "aggregations": [a.to_dict() for a in aggregations],
-        })
+        return success_response(
+            {
+                "time_range": time_range,
+                "metrics_by_platform": all_metrics,
+                "aggregations": [a.to_dict() for a in aggregations],
+            }
+        )
 
     # =========================================================================
     # Trends
@@ -648,13 +668,19 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
         }
 
         for i in range(days):
-            date = base_date - timedelta(days=(days - i - 1)) if time_range != "24h" else base_date - timedelta(hours=(days - i - 1))
-            trends["data_points"].append({
-                "timestamp": date.isoformat(),
-                "aragora": 100 + i * 5 + (i % 3) * 10,
-                "google_analytics": 1000 + i * 50 + (i % 5) * 100,
-                "mixpanel": 800 + i * 40 + (i % 4) * 80,
-            })
+            date = (
+                base_date - timedelta(days=(days - i - 1))
+                if time_range != "24h"
+                else base_date - timedelta(hours=(days - i - 1))
+            )
+            trends["data_points"].append(
+                {
+                    "timestamp": date.isoformat(),
+                    "aragora": 100 + i * 5 + (i % 3) * 10,
+                    "google_analytics": 1000 + i * 50 + (i % 5) * 100,
+                    "mixpanel": 800 + i * 40 + (i % 4) * 80,
+                }
+            )
 
         # Calculate overall trend
         if len(trends["data_points"]) > 1:
@@ -738,10 +764,12 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
                 },
             ]
 
-        return success_response({
-            "comparison_type": metric_type,
-            "comparisons": comparisons,
-        })
+        return success_response(
+            {
+                "comparison_type": metric_type,
+                "comparisons": comparisons,
+            }
+        )
 
     # =========================================================================
     # Correlation
@@ -763,8 +791,9 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
                     row[m2] = 1.0
                 else:
                     # Generate plausible correlation values
-                    if (m1 in ["users", "events"] and m2 in ["users", "events"]) or \
-                       (m1 in ["debates", "consensus_rate"] and m2 in ["debates", "consensus_rate"]):
+                    if (m1 in ["users", "events"] and m2 in ["users", "events"]) or (
+                        m1 in ["debates", "consensus_rate"] and m2 in ["debates", "consensus_rate"]
+                    ):
                         row[m2] = round(0.7 + (hash(m1 + m2) % 30) / 100, 2)
                     else:
                         row[m2] = round((hash(m1 + m2) % 100 - 50) / 100, 2)
@@ -772,16 +801,33 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
 
         # Find strongest correlations
         strong_correlations = [
-            {"metric_a": "users", "metric_b": "events", "correlation": 0.89, "strength": "strong positive"},
-            {"metric_a": "debates", "metric_b": "consensus_rate", "correlation": 0.72, "strength": "moderate positive"},
-            {"metric_a": "sessions", "metric_b": "cost", "correlation": 0.65, "strength": "moderate positive"},
+            {
+                "metric_a": "users",
+                "metric_b": "events",
+                "correlation": 0.89,
+                "strength": "strong positive",
+            },
+            {
+                "metric_a": "debates",
+                "metric_b": "consensus_rate",
+                "correlation": 0.72,
+                "strength": "moderate positive",
+            },
+            {
+                "metric_a": "sessions",
+                "metric_b": "cost",
+                "correlation": 0.65,
+                "strength": "moderate positive",
+            },
         ]
 
-        return success_response({
-            "time_range": time_range,
-            "correlation_matrix": correlation_matrix,
-            "strong_correlations": strong_correlations,
-        })
+        return success_response(
+            {
+                "time_range": time_range,
+                "correlation_matrix": correlation_matrix,
+                "strong_correlations": strong_correlations,
+            }
+        )
 
     # =========================================================================
     # Anomalies
@@ -823,16 +869,18 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
         if severity:
             anomalies = [a for a in anomalies if a.severity.value == severity]
 
-        return success_response({
-            "time_range": time_range,
-            "anomalies": [a.to_dict() for a in anomalies],
-            "total": len(anomalies),
-            "by_severity": {
-                "critical": sum(1 for a in anomalies if a.severity == AlertSeverity.CRITICAL),
-                "warning": sum(1 for a in anomalies if a.severity == AlertSeverity.WARNING),
-                "info": sum(1 for a in anomalies if a.severity == AlertSeverity.INFO),
-            },
-        })
+        return success_response(
+            {
+                "time_range": time_range,
+                "anomalies": [a.to_dict() for a in anomalies],
+                "total": len(anomalies),
+                "by_severity": {
+                    "critical": sum(1 for a in anomalies if a.severity == AlertSeverity.CRITICAL),
+                    "warning": sum(1 for a in anomalies if a.severity == AlertSeverity.WARNING),
+                    "info": sum(1 for a in anomalies if a.severity == AlertSeverity.INFO),
+                },
+            }
+        )
 
     # =========================================================================
     # Custom Query
@@ -846,7 +894,7 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
             metrics = body.get("metrics", [])
             platforms = body.get("platforms", ["aragora", "google_analytics", "mixpanel"])
             time_range = body.get("range", "24h")
-            aggregation = body.get("aggregation", "sum")
+            body.get("aggregation", "sum")
 
             if not metrics:
                 return error_response("At least one metric is required", 400)
@@ -863,9 +911,7 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
                 else:
                     continue
 
-                results["results"][platform] = {
-                    m: data.get(m, None) for m in metrics
-                }
+                results["results"][platform] = {m: data.get(m, None) for m in metrics}
 
             return success_response(results)
 
@@ -892,16 +938,18 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
         if severity:
             alerts = [a for a in alerts if a.severity.value == severity]
 
-        return success_response({
-            "alerts": [a.to_dict() for a in alerts],
-            "rules": [r.to_dict() for r in rules],
-            "summary": {
-                "total_alerts": len(alerts),
-                "active": sum(1 for a in alerts if a.status == AlertStatus.ACTIVE),
-                "acknowledged": sum(1 for a in alerts if a.status == AlertStatus.ACKNOWLEDGED),
-                "rules_enabled": sum(1 for r in rules if r.enabled),
-            },
-        })
+        return success_response(
+            {
+                "alerts": [a.to_dict() for a in alerts],
+                "rules": [r.to_dict() for r in rules],
+                "summary": {
+                    "total_alerts": len(alerts),
+                    "active": sum(1 for a in alerts if a.status == AlertStatus.ACTIVE),
+                    "acknowledged": sum(1 for a in alerts if a.status == AlertStatus.ACKNOWLEDGED),
+                    "rules_enabled": sum(1 for r in rules if r.enabled),
+                },
+            }
+        )
 
     async def _handle_create_alert(self, request: Any, tenant_id: str) -> HandlerResult:
         """Create new alert rule."""
@@ -930,10 +978,12 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
             rules = _get_tenant_rules(tenant_id)
             rules[rule.id] = rule
 
-            return success_response({
-                "status": "created",
-                "rule": rule.to_dict(),
-            })
+            return success_response(
+                {
+                    "status": "created",
+                    "rule": rule.to_dict(),
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error creating alert: {e}")
@@ -954,10 +1004,12 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
         alert.acknowledged_by = user_id
         alert.acknowledged_at = datetime.now(timezone.utc)
 
-        return success_response({
-            "status": "acknowledged",
-            "alert": alert.to_dict(),
-        })
+        return success_response(
+            {
+                "status": "acknowledged",
+                "alert": alert.to_dict(),
+            }
+        )
 
     # =========================================================================
     # Export
@@ -979,12 +1031,14 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
         }
 
         if format_type == "json":
-            return success_response({
-                "export_format": "json",
-                "time_range": time_range,
-                "exported_at": datetime.now(timezone.utc).isoformat(),
-                "data": all_data,
-            })
+            return success_response(
+                {
+                    "export_format": "json",
+                    "time_range": time_range,
+                    "exported_at": datetime.now(timezone.utc).isoformat(),
+                    "data": all_data,
+                }
+            )
 
         elif format_type == "csv":
             # Generate CSV
@@ -1010,55 +1064,57 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
 
     async def _handle_demo(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get demo dashboard data."""
-        return success_response({
-            "is_demo": True,
-            "summary": {
-                "platforms_connected": 5,
-                "total_users": 35801,
-                "total_events": 1591469,
-                "total_sessions": 45678,
-                "debates_active": 12,
-                "consensus_rate": 0.78,
-                "cost_usd": 156.78,
-                "health_score": 92.5,
-            },
-            "platforms": {
-                "aragora": {
-                    "status": "connected",
-                    "debates_total": 1250,
-                    "agents_active": 45,
-                    "findings_critical": 8,
+        return success_response(
+            {
+                "is_demo": True,
+                "summary": {
+                    "platforms_connected": 5,
+                    "total_users": 35801,
+                    "total_events": 1591469,
+                    "total_sessions": 45678,
+                    "debates_active": 12,
+                    "consensus_rate": 0.78,
+                    "cost_usd": 156.78,
+                    "health_score": 92.5,
                 },
-                "google_analytics": {
-                    "status": "connected",
-                    "sessions": 45678,
-                    "users": 12345,
-                    "pageviews": 156789,
+                "platforms": {
+                    "aragora": {
+                        "status": "connected",
+                        "debates_total": 1250,
+                        "agents_active": 45,
+                        "findings_critical": 8,
+                    },
+                    "google_analytics": {
+                        "status": "connected",
+                        "sessions": 45678,
+                        "users": 12345,
+                        "pageviews": 156789,
+                    },
+                    "mixpanel": {
+                        "status": "connected",
+                        "events_tracked": 567890,
+                        "unique_users": 23456,
+                        "retention_day1": 0.45,
+                    },
+                    "metabase": {
+                        "status": "connected",
+                        "queries_executed": 12345,
+                        "dashboards_viewed": 567,
+                    },
+                    "segment": {
+                        "status": "connected",
+                        "events_delivered": 789012,
+                        "delivery_rate": 0.9985,
+                    },
                 },
-                "mixpanel": {
-                    "status": "connected",
-                    "events_tracked": 567890,
-                    "unique_users": 23456,
-                    "retention_day1": 0.45,
+                "trends": {
+                    "users": "up",
+                    "events": "up",
+                    "cost": "stable",
                 },
-                "metabase": {
-                    "status": "connected",
-                    "queries_executed": 12345,
-                    "dashboards_viewed": 567,
-                },
-                "segment": {
-                    "status": "connected",
-                    "events_delivered": 789012,
-                    "delivery_rate": 0.9985,
-                },
-            },
-            "trends": {
-                "users": "up",
-                "events": "up",
-                "cost": "stable",
-            },
-            "alerts_active": 2,
-        })
+                "alerts_active": 2,
+            }
+        )
 
     # =========================================================================
     # Utility Methods
@@ -1096,9 +1152,7 @@ def get_cross_platform_analytics_handler() -> CrossPlatformAnalyticsHandler:
     return _handler_instance
 
 
-async def handle_cross_platform_analytics(
-    request: Any, path: str, method: str
-) -> HandlerResult:
+async def handle_cross_platform_analytics(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for cross-platform analytics requests."""
     handler = get_cross_platform_analytics_handler()
     return await handler.handle(request, path, method)

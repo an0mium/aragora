@@ -381,6 +381,7 @@ class WorkflowCategory(Enum):
     LEGAL = "legal"
     HEALTHCARE = "healthcare"
     FINANCE = "finance"
+    ACCOUNTING = "accounting"
     CODE = "code"
     ACADEMIC = "academic"
     COMPLIANCE = "compliance"

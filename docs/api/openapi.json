@@ -12436,8 +12436,8 @@
         "tags": [
           "Control Plane"
         ],
-        "summary": "Run deliberation",
-        "description": "Run or queue a deliberation (async when async=true).",
+        "summary": "Run robust decisionmaking session",
+        "description": "Run or queue a robust decisionmaking session (async when async=true).",
         "security": [
           {
             "bearerAuth": []
@@ -12455,7 +12455,7 @@
         },
         "responses": {
           "200": {
-            "description": "Deliberation completed",
+            "description": "Decisionmaking completed",
             "content": {
               "application/json": {
                 "schema": {
@@ -12465,7 +12465,7 @@
             }
           },
           "202": {
-            "description": "Deliberation queued",
+            "description": "Decisionmaking queued",
             "content": {
               "application/json": {
                 "schema": {
@@ -12599,8 +12599,8 @@
         "tags": [
           "Control Plane"
         ],
-        "summary": "Get deliberation result",
-        "description": "Fetch a stored deliberation record by request ID.",
+        "summary": "Get robust decisionmaking result",
+        "description": "Fetch a stored robust decisionmaking record by request ID.",
         "security": [
           {
             "bearerAuth": []
@@ -12618,7 +12618,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Deliberation record",
+            "description": "Decisionmaking record",
             "content": {
               "application/json": {
                 "schema": {
@@ -12736,8 +12736,8 @@
         "tags": [
           "Control Plane"
         ],
-        "summary": "Get deliberation status",
-        "description": "Check deliberation status for polling.",
+        "summary": "Get robust decisionmaking status",
+        "description": "Check robust decisionmaking status for polling.",
         "security": [
           {
             "bearerAuth": []
@@ -12755,7 +12755,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Deliberation status",
+            "description": "Decisionmaking status",
             "content": {
               "application/json": {
                 "schema": {

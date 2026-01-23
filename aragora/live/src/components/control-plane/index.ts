@@ -150,7 +150,7 @@ export {
   type ActivityEventType,
 } from './ActivityFeed';
 
-// Deliberation Tracker
+// Robust Decisionmaking Tracker
 export {
   DeliberationTracker,
   DeliberationCard,

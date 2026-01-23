@@ -60,7 +60,7 @@ print(suite.to_code())
 - The generator uses static analysis and heuristics. It does not execute code.
 - Generated tests should be reviewed before use in production.
 - For multi-agent review or refactoring workflows, combine this module with
-  Gauntlet or deliberation templates.
+  Gauntlet or robust decisionmaking templates.
 - The module is a library utility; it is not exposed as an HTTP endpoint by
   default.
 

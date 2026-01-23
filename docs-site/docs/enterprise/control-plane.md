@@ -74,7 +74,11 @@ await coordinator.shutdown()
 All endpoints are available under `/api/v1/control-plane` with legacy aliases
 under `/api/control-plane`. Examples below use the legacy path for brevity.
 
-Authentication is required. Task and deliberation operations require the
+Terminology note: in the API and worker identifiers, robust decisionmaking
+sessions are called "deliberations".
+
+Authentication is required. Task and robust decisionmaking operations
+(deliberations in the API) require the
 `controlplane:tasks` permission; agent registration and management require
 `controlplane:agents`.
 
@@ -416,15 +420,15 @@ Response:
 }
 ```
 
-### Deliberations
+### Robust Decisionmaking Sessions (Deliberations)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/control-plane/deliberations` | Run or queue a deliberation |
-| `GET` | `/api/control-plane/deliberations/:id` | Get deliberation result |
-| `GET` | `/api/control-plane/deliberations/:id/status` | Get deliberation status |
+| `POST` | `/api/control-plane/deliberations` | Run or queue a robust decisionmaking session |
+| `GET` | `/api/control-plane/deliberations/:id` | Get robust decisionmaking result |
+| `GET` | `/api/control-plane/deliberations/:id/status` | Get robust decisionmaking status |
 
-#### Submit Deliberation (Sync)
+#### Submit Robust Decisionmaking (Sync)
 
 ```bash
 curl -X POST http://localhost:8080/api/control-plane/deliberations \
@@ -438,7 +442,7 @@ curl -X POST http://localhost:8080/api/control-plane/deliberations \
   }'
 ```
 
-#### Submit Deliberation (Async)
+#### Submit Robust Decisionmaking (Async)
 
 ```bash
 curl -X POST http://localhost:8080/api/control-plane/deliberations \

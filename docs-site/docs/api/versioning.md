@@ -229,7 +229,7 @@ OAuth 2.0 is now required for:
   "resource_type": "debate",
   "resource_id": "deb_abc123",
   "trace_id": "req_xyz789",
-  "support_url": "https://github.com/anthropics/aragora/issues"
+  "support_url": "https://github.com/an0mium/aragora/issues"
 }
 ```
 
@@ -305,15 +305,15 @@ pip install aragora>=2.0.0
 # Node.js
 npm install @aragora/sdk@^2.0.0
 
-# Go
-go get github.com/aragora/go-sdk/v2
+# Go (planned)
+# Contact support for early access builds.
 ```
 
 ### Getting Help
 
 - **Documentation:** https://docs.aragora.ai/migration
 - **Support:** support@aragora.ai
-- **GitHub Issues:** https://github.com/anthropics/aragora/issues
+- **GitHub Issues:** https://github.com/an0mium/aragora/issues
 - **Discord:** https://discord.gg/aragora
 
 ## Usage
@@ -331,7 +331,7 @@ response = client.get("/debates", api_version="v2")
 
 ### TypeScript Client
 ```typescript
-import { AragoraClient } from 'aragora';
+import { AragoraClient } from '@aragora/sdk';
 
 // Specify version
 const client = new AragoraClient({ apiVersion: 'v2' });

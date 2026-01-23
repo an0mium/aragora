@@ -44,6 +44,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [DEBATE_INTERNALS.md](DEBATE_INTERNALS.md)
 - [WORKFLOW_ENGINE.md](WORKFLOW_ENGINE.md)
+- [TEMPLATES.md](TEMPLATES.md)
 - [KNOWLEDGE_MOUND.md](KNOWLEDGE_MOUND.md)
 - [MEMORY_TIERS.md](MEMORY_TIERS.md)
 - [MEMORY.md](MEMORY.md)
@@ -107,6 +108,8 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 - [CONTRIBUTING.md](../CONTRIBUTING.md)
 - [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)
 - [FRONTEND_ROUTES.md](FRONTEND_ROUTES.md)
+- [HANDLERS.md](HANDLERS.md)
+- [HANDLER_DEVELOPMENT.md](HANDLER_DEVELOPMENT.md)
 - [TESTING.md](TESTING.md)
 - [DEPRECATION_POLICY.md](DEPRECATION_POLICY.md)
 
@@ -138,9 +141,9 @@ replacement docs. See [deprecated/README.md](deprecated/README.md).
 
 ## Inventory & Maintenance
 
-- Markdown files under `docs/`: 264 (includes deprecated)
+- Markdown files under `docs/`: 266 (includes deprecated)
 - Sync to docs-site: `node docs-site/scripts/sync-docs.js`
 - API endpoint list: `python scripts/generate_api_docs.py --output docs/API_ENDPOINTS.md`
 - OpenAPI export: `python scripts/export_openapi.py --output-dir docs/api`
 
-Last updated: 2026-01-22
+Last updated: 2026-01-23

@@ -23,7 +23,7 @@ import logging
 import random
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -95,7 +95,6 @@ async def handle_get_dashboard(
         overview = {
             "user_id": user_id,
             "generated_at": now.isoformat(),
-
             # Inbox Stats
             "inbox": {
                 "total_unread": 42,
@@ -104,7 +103,6 @@ async def handle_get_dashboard(
                 "snoozed": 5,
                 "assigned_to_me": 8,
             },
-
             # Today's Activity
             "today": {
                 "emails_received": 28,
@@ -114,7 +112,6 @@ async def handle_get_dashboard(
                 "action_items_completed": 5,
                 "action_items_created": 8,
             },
-
             # Team Stats (for team inbox)
             "team": {
                 "active_members": 5,
@@ -122,7 +119,6 @@ async def handle_get_dashboard(
                 "avg_response_time_mins": 45,
                 "resolved_today": 12,
             },
-
             # AI Stats
             "ai": {
                 "emails_categorized": 156,
@@ -130,7 +126,6 @@ async def handle_get_dashboard(
                 "priority_predictions": 89,
                 "debates_run": 3,
             },
-
             # Quick Stats Cards
             "cards": [
                 {
@@ -216,7 +211,6 @@ async def handle_get_stats(
         stats = {
             "period": period,
             "generated_at": now.isoformat(),
-
             # Email volume over time
             "email_volume": {
                 "labels": labels,
@@ -224,25 +218,21 @@ async def handle_get_stats(
                 "sent": [random.randint(2, 15) for _ in range(data_points)],
                 "archived": [random.randint(10, 40) for _ in range(data_points)],
             },
-
             # Response time distribution
             "response_time": {
                 "labels": ["<15m", "15-30m", "30-60m", "1-2h", "2-4h", ">4h"],
                 "values": [45, 32, 18, 12, 8, 5],
             },
-
             # Priority distribution
             "priority_distribution": {
                 "labels": ["Critical", "High", "Medium", "Low"],
                 "values": [5, 18, 42, 35],
             },
-
             # Category breakdown
             "categories": {
                 "labels": ["Work", "Personal", "Newsletter", "Promotional", "Other"],
                 "values": [45, 12, 20, 15, 8],
             },
-
             # Team performance
             "team_performance": [
                 {"name": "Alice", "resolved": 28, "avg_response": 32},
@@ -250,7 +240,6 @@ async def handle_get_stats(
                 {"name": "Charlie", "resolved": 31, "avg_response": 28},
                 {"name": "Diana", "resolved": 19, "avg_response": 52},
             ],
-
             # Top senders
             "top_senders": [
                 {"email": "ceo@company.com", "count": 12, "priority": "high"},
@@ -258,7 +247,6 @@ async def handle_get_stats(
                 {"email": "support@vendor.com", "count": 8, "priority": "medium"},
                 {"email": "newsletter@news.com", "count": 30, "priority": "low"},
             ],
-
             # Summary metrics
             "summary": {
                 "total_emails": 342,
@@ -385,13 +373,15 @@ async def handle_get_activity(
         total = len(activities)
         activities = activities[offset : offset + limit]
 
-        return success_response({
-            "activities": activities,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "has_more": offset + limit < total,
-        })
+        return success_response(
+            {
+                "activities": activities,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "has_more": offset + limit < total,
+            }
+        )
 
     except Exception as e:
         logger.exception("Failed to get activity")
@@ -417,7 +407,6 @@ async def handle_get_inbox_summary(
 
         summary = {
             "generated_at": now.isoformat(),
-
             # Counts by status
             "counts": {
                 "unread": 42,
@@ -426,7 +415,6 @@ async def handle_get_inbox_summary(
                 "drafts": 3,
                 "trash": 28,
             },
-
             # Priority breakdown
             "by_priority": {
                 "critical": 2,
@@ -434,7 +422,6 @@ async def handle_get_inbox_summary(
                 "medium": 25,
                 "low": 8,
             },
-
             # Category breakdown
             "by_category": {
                 "inbox": 42,
@@ -443,7 +430,6 @@ async def handle_get_inbox_summary(
                 "social": 8,
                 "forums": 5,
             },
-
             # Top labels
             "top_labels": [
                 {"name": "Work", "count": 34, "color": "#4285f4"},
@@ -451,7 +437,6 @@ async def handle_get_inbox_summary(
                 {"name": "Urgent", "count": 7, "color": "#ea4335"},
                 {"name": "Follow-up", "count": 9, "color": "#fbbc05"},
             ],
-
             # Recent high-priority emails
             "urgent_emails": [
                 {
@@ -469,7 +454,6 @@ async def handle_get_inbox_summary(
                     "snippet": "The client is requesting an urgent call...",
                 },
             ],
-
             # Action items from emails
             "pending_actions": [
                 {
@@ -560,10 +544,12 @@ async def handle_get_quick_actions(
             },
         ]
 
-        return success_response({
-            "actions": actions,
-            "count": len(actions),
-        })
+        return success_response(
+            {
+                "actions": actions,
+                "count": len(actions),
+            }
+        )
 
     except Exception as e:
         logger.exception("Failed to get quick actions")
@@ -590,8 +576,8 @@ async def handle_execute_quick_action(
         if not action_id:
             return error_response("action_id is required", status=400)
 
-        confirm = data.get("confirm", False)
-        options = data.get("options", {})
+        data.get("confirm", False)
+        data.get("options", {})
 
         valid_actions = {
             "archive_read",
@@ -618,9 +604,7 @@ async def handle_execute_quick_action(
 
         elif action_id == "snooze_low":
             result["affected_count"] = 12
-            result["snooze_until"] = (
-                datetime.now(timezone.utc) + timedelta(days=1)
-            ).isoformat()
+            result["snooze_until"] = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
             result["message"] = "Snoozed 12 low priority emails until tomorrow"
 
         elif action_id == "mark_spam":

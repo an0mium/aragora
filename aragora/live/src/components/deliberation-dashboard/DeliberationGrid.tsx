@@ -13,7 +13,7 @@ interface DeliberationGridProps {
 export function DeliberationGrid({
   deliberations,
   loading = false,
-  emptyMessage = 'No active deliberations',
+  emptyMessage = 'No active robust decisionmaking sessions',
 }: DeliberationGridProps) {
   if (loading) {
     return (
@@ -51,7 +51,7 @@ export function DeliberationGrid({
     );
   }
 
-  // Sort deliberations: active first, then by updated_at
+  // Sort decisionmaking sessions: active first, then by updated_at
   const sorted = [...deliberations].sort((a, b) => {
     const statusPriority = { active: 0, consensus_forming: 1, initializing: 2, complete: 3, failed: 4 };
     const aPriority = statusPriority[a.status] ?? 5;

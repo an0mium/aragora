@@ -30,7 +30,6 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.decorators import has_permission

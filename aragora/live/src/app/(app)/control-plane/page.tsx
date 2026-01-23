@@ -175,10 +175,10 @@ export default function ControlPlanePage() {
     } : undefined,
   }));
 
-  // Mock deliberations data (would come from API in production)
+  // Mock robust decisionmaking sessions data (would come from API in production)
   const [deliberations, setDeliberations] = useState<Deliberation[]>([]);
 
-  // Fetch deliberations
+  // Fetch robust decisionmaking sessions
   useEffect(() => {
     const fetchDeliberations = async () => {
       try {
@@ -207,7 +207,7 @@ export default function ControlPlanePage() {
           setDeliberations(mapped);
         }
       } catch {
-        // Deliberations endpoint may not be available
+        // Robust decisionmaking endpoint may not be available
       }
     };
     fetchDeliberations();
@@ -236,11 +236,11 @@ export default function ControlPlanePage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || 'Deliberation request failed');
+        throw new Error(data?.error || 'Robust decisionmaking request failed');
       }
       setDeliberationResult(data);
     } catch (err) {
-      setDeliberationError(err instanceof Error ? err.message : 'Deliberation request failed');
+      setDeliberationError(err instanceof Error ? err.message : 'Robust decisionmaking request failed');
     } finally {
       setDeliberationLoading(false);
     }
@@ -521,14 +521,14 @@ export default function ControlPlanePage() {
                       </div>
                     </div>
 
-                    {/* Deliberation Tracker */}
+                    {/* Robust Decisionmaking Tracker */}
                     {deliberations.length > 0 && (
                       <DeliberationTracker
                         deliberations={deliberations}
                         maxVisible={5}
                         onDeliberationClick={(d) => {
-                          // Could open a modal or navigate to deliberation detail
-                          console.log('Selected deliberation:', d.id);
+                          // Could open a modal or navigate to decisionmaking detail
+                          console.log('Selected decisionmaking session:', d.id);
                         }}
                       />
                     )}
@@ -643,18 +643,18 @@ export default function ControlPlanePage() {
                       </div>
                     </div>
 
-                    {/* Deliberation Console */}
+                    {/* Robust Decisionmaking Console */}
                     <div className="card">
                       <div className="p-4 border-b border-border">
-                        <h2 className="font-mono text-sm text-acid-green">Deliberation Console</h2>
+                        <h2 className="font-mono text-sm text-acid-green">Robust Decisionmaking Console</h2>
                         <p className="text-text-muted text-xs font-mono mt-1">
-                          Submit deliberations to the control plane and capture decision receipts.
+                          Submit robust decisionmaking sessions to the control plane and capture decision receipts.
                         </p>
                       </div>
                       <div className="p-4 space-y-4">
                         <textarea
                           className="w-full min-h-[120px] bg-surface border border-border rounded p-3 text-sm font-mono text-text"
-                          placeholder="Describe the decision to deliberate..."
+                          placeholder="Describe the decision for robust decisionmaking..."
                           value={deliberationInput}
                           onChange={(event) => setDeliberationInput(event.target.value)}
                         />
@@ -687,7 +687,7 @@ export default function ControlPlanePage() {
                             onClick={submitDeliberation}
                             disabled={deliberationLoading || !deliberationInput.trim()}
                           >
-                            {deliberationLoading ? 'SUBMITTING...' : 'RUN DELIBERATION'}
+                            {deliberationLoading ? 'SUBMITTING...' : 'RUN ROBUST DECISIONMAKING'}
                           </button>
                         </div>
                         {deliberationError && (

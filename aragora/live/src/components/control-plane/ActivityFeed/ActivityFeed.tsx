@@ -46,7 +46,7 @@ const filterPresets: { label: string; types: ActivityEventType[] }[] = [
     types: ['task_completed', 'task_failed'],
   },
   {
-    label: 'Deliberations',
+    label: 'Robust Decisionmaking',
     types: ['deliberation_started', 'deliberation_consensus', 'deliberation_failed'],
   },
   {
@@ -65,7 +65,7 @@ const filterPresets: { label: string; types: ActivityEventType[] }[] = [
  * Displays:
  * - Agent registrations/failures
  * - Task completions/errors
- * - Deliberation events
+ * - Robust decisionmaking events
  * - Connector sync events
  * - Policy violations
  */

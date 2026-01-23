@@ -5,7 +5,7 @@ description: Agent Catalog (Overview)
 
 # Agent Catalog (Overview)
 
-Aragora supports multiple agent backends for deliberation. This page summarizes
+Aragora supports multiple agent backends for robust decisionmaking. This page summarizes
 the agent families and how to select them. For the full up-to-date catalog,
 see `AGENTS.md` at the repository root.
 

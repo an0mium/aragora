@@ -187,9 +187,9 @@ export function ControlPlaneVisualization() {
 
             <div className="text-center text-acid-green font-mono">↓</div>
 
-            {/* Deliberation */}
+            {/* Robust Decisionmaking */}
             <div className="border border-acid-yellow/40 rounded-lg p-4 bg-surface/30">
-              <div className="text-acid-yellow font-mono text-xs font-bold mb-2">[DELIBERATION] 15+ models</div>
+              <div className="text-acid-yellow font-mono text-xs font-bold mb-2">[ROBUST DECISIONMAKING] 15+ models</div>
               <div className="flex flex-wrap gap-2">
                 {MODELS.slice(0, 4).map((m) => (
                   <span key={m.name} className={`text-xs font-mono ${m.color}`}>{m.name}</span>

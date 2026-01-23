@@ -9,10 +9,11 @@
 **Production Ready** - Aragora 2.1.12 adds comprehensive advertising, marketing, and analytics platform connectors plus real-time email sync services.
 
 #### Key Highlights
-- **44,500+ tests** across 1,210+ test files
+- **45,100+ tests** across 1,220+ test files
 - **6 new advertising/marketing connectors** - Twitter Ads, TikTok Ads, Mailchimp, Klaviyo, Segment
 - **2 real-time email sync services** - Gmail Pub/Sub, Outlook Graph notifications
 - **5 new unified handlers** - Advertising, Analytics, CRM, Support, Ecommerce
+- **25 new e-commerce connector tests** - Shopify, Amazon, WooCommerce, ShipStation
 - **Lines of Code**: 680,000+ LOC
 - **0 production blockers**
 
@@ -72,6 +73,7 @@
 - 250+ new tests for marketing connectors
 - 100+ new tests for analytics connector
 - 120+ new tests for email sync services
+- 25+ new tests for e-commerce connectors
 
 ---
 
@@ -1730,7 +1732,7 @@ All stabilization items addressed:
 | Feature | Status | Location |
 |---------|--------|----------|
 | Multi-Agent Debate | Active | `aragora/debate/orchestrator.py` |
-| Token Streaming | Active | `aragora/agents/api_agents.py` |
+| Token Streaming | Active | `aragora/agents/streaming.py` |
 | ELO Rankings | Active | `aragora/ranking/elo.py` |
 | FlipDetector + Vote Weight | Active | `aragora/insights/flip_detector.py` (→ orchestrator.py:1423-1433) |
 | Position Ledger | Active | `aragora/agents/grounded.py` |

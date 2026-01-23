@@ -16,11 +16,13 @@ Aragora is the **control plane for multi-agent robust decisionmaking across orga
 | `HackerNewsConnector` | Hacker News | No | 500/day | Tech discussions |
 | `WebConnector` | Web search | No | 10/min | Live web content |
 | `GitHubConnector` | GitHub API | Optional | 60/hr (5000 w/token) | Issues, PRs, code |
+| `RepositoryCrawler` | Local repo checkout | No | N/A | Codebase indexing, symbols, deps |
 | `RedditConnector` | Reddit API | Yes | 60/min | Community sentiment |
 | `TwitterConnector` | Twitter/X API | Yes | Varies | Real-time discourse |
 | `NewsAPIConnector` | NewsAPI | Yes | 1000/day | News articles |
 | `SECConnector` | SEC EDGAR | No | 10/sec | Financial filings |
 | `SQLConnector` | SQL databases | No | N/A | Structured data |
+| `WhisperConnector` | Audio/video files | No | N/A | Transcription & diarization |
 
 ## Operational Platform Connectors
 
@@ -55,6 +57,25 @@ REDDIT_CLIENT_SECRET=your_client_secret
 Operational platform connectors typically use OAuth credentials passed to the
 connector constructor or managed via the enterprise credential provider stack.
 See the connector subpackage for required fields.
+
+## Enterprise Knowledge Connectors
+
+Enterprise-grade connectors live under `aragora/connectors/enterprise/` and
+cover collaboration systems, document stores, databases, and streaming backends.
+They are used by control plane workflows, inbox automation, and knowledge ingestion.
+
+| Domain | Subpackage | Examples |
+|--------|------------|----------|
+| Collaboration | `enterprise/collaboration` | Asana, Confluence, Jira, Linear, Monday, Notion, Slack, Teams |
+| Documents | `enterprise/documents` | Google Drive, Google Sheets, SharePoint, OneDrive, Dropbox, S3 |
+| Communication | `enterprise/communication` | Gmail, Outlook |
+| Databases | `enterprise/database` | Postgres, MongoDB, Snowflake |
+| Git | `enterprise/git` | GitHub |
+| ITSM | `enterprise/itsm` | ServiceNow |
+| Streaming | `enterprise/streaming` | Kafka, RabbitMQ |
+
+Sync orchestration and durable state live in `enterprise/sync/` and
+`enterprise/sync_store.py`.
 
 ## Quick Start
 
@@ -163,6 +184,31 @@ connector = GitHubConnector(
     repos=["anthropics/claude-code"],
 )
 issues = connector.search("memory leak", content_type="issues")
+```
+
+### RepositoryCrawler
+Index a local repository for files, symbols, dependencies, and metadata.
+
+```python
+from aragora.connectors import RepositoryCrawler, CrawlConfig
+
+crawler = RepositoryCrawler()
+result = crawler.crawl(
+    "/path/to/repo",
+    config=CrawlConfig(include_tests=False, max_file_size_kb=256),
+)
+print(result.summary())
+```
+
+### WhisperConnector
+Transcribe audio/video to text with timestamps and optional diarization.
+
+```python
+from aragora.connectors import WhisperConnector
+
+connector = WhisperConnector(model_size="base")
+transcript = connector.transcribe("/path/to/audio.wav")
+print(transcript.text)
 ```
 
 ## Error Handling

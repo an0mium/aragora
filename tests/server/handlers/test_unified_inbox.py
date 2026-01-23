@@ -346,10 +346,12 @@ class TestUnifiedInboxHandler:
 
         request = MagicMock()
         request.tenant_id = "test_tenant"
-        request.json = AsyncMock(return_value={
-            "message_ids": ["msg_1"],
-            "action": "invalid_action",
-        })
+        request.json = AsyncMock(
+            return_value={
+                "message_ids": ["msg_1"],
+                "action": "invalid_action",
+            }
+        )
 
         result = await handler.handle(request, "/api/v1/inbox/bulk-action", "POST")
 

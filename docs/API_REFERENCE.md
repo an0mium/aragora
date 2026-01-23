@@ -34,8 +34,8 @@ The generated OpenAPI spec lives in `docs/api/openapi.json` and
 python scripts/export_openapi.py --output-dir docs/api
 ```
 
-The canonical spec is produced by `aragora/server/openapi` and
-`aragora/server/openapi_impl.py`. If you add or change endpoints, update the
+The canonical spec is produced by `aragora/server/openapi` and the endpoint
+definitions under `aragora/server/openapi/endpoints/`. If you add or change endpoints, update the
 OpenAPI endpoint definitions and re-export the docs.
 
 ## Auth Signup & SSO API
@@ -504,9 +504,9 @@ Threat intelligence endpoints live under `/api/v1/threat`.
 
 | Endpoint | Description | Status |
 |----------|-------------|--------|
-| `POST /api/control-plane/deliberations` | Run or queue a deliberation | NEW |
-| `GET /api/control-plane/deliberations/:id` | Get deliberation result | NEW |
-| `GET /api/control-plane/deliberations/:id/status` | Get deliberation status | NEW |
+| `POST /api/control-plane/deliberations` | Run or queue a robust decisionmaking session | NEW |
+| `GET /api/control-plane/deliberations/:id` | Get robust decisionmaking result | NEW |
+| `GET /api/control-plane/deliberations/:id/status` | Get robust decisionmaking status | NEW |
 | `POST /api/v1/decisions` | Create a decision request | NEW |
 | `GET /api/v1/decisions/:id` | Get decision result | NEW |
 | `GET /api/v1/decisions/:id/status` | Get decision status | NEW |

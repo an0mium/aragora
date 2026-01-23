@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
   title: 'ARAGORA // LIVE',
   description: 'Control plane for multi-agent robust decisionmaking across org knowledge and channels. Ingest from any source, deliver defensible decisions anywhere.',
-  keywords: ['AI', 'multi-agent', 'deliberation', 'control plane', 'decision making', 'debate', 'consensus', 'LLM', 'aragora', 'Claude', 'GPT', 'Gemini', 'Slack', 'Teams', 'Discord'],
+  keywords: ['AI', 'multi-agent', 'robust decisionmaking', 'control plane', 'decision making', 'debate', 'consensus', 'LLM', 'aragora', 'Claude', 'GPT', 'Gemini', 'Slack', 'Teams', 'Discord'],
   authors: [{ name: 'Aragora Team' }],
   manifest: '/manifest.json',
   appleWebApp: {

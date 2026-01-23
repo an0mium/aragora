@@ -1,15 +1,15 @@
 """
-Deliberations API Handler.
+Robust Decisionmaking (Deliberations) API Handler.
 
-Provides endpoints for the multi-deliberation dashboard:
-- List active deliberations
-- Get deliberation statistics
+Provides endpoints for the robust decisionmaking dashboard:
+- List active robust decisionmaking sessions
+- Get robust decisionmaking statistics
 - WebSocket stream for real-time updates
 
 Usage:
-    GET    /api/v1/deliberations/active    - List active deliberations
+    GET    /api/v1/deliberations/active    - List active robust decisionmaking sessions
     GET    /api/v1/deliberations/stats     - Get aggregate statistics
-    GET    /api/v1/deliberations/{id}      - Get deliberation details
+    GET    /api/v1/deliberations/{id}      - Get robust decisionmaking details
     WS     /api/v1/deliberations/stream    - Real-time event stream
 """
 
@@ -38,7 +38,7 @@ _stats: dict[str, Any] = {
 
 class DeliberationsHandler(BaseHandler):
     """
-    Handler for deliberation dashboard endpoints.
+    Handler for robust decisionmaking dashboard endpoints.
 
     Provides visibility into multi-agent robust decisionmaking sessions across the system.
     """
@@ -76,7 +76,7 @@ class DeliberationsHandler(BaseHandler):
         return {"error": "Not found"}, 404
 
     async def _get_active_deliberations(self, request: Any) -> tuple[dict[str, Any], int]:
-        """Get list of active deliberations."""
+        """Get list of active robust decisionmaking sessions."""
         try:
             # Try to get real deliberations from debate store
             deliberations = await self._fetch_active_from_store()
@@ -91,7 +91,7 @@ class DeliberationsHandler(BaseHandler):
             return {"error": str(e)}, 500
 
     async def _fetch_active_from_store(self) -> list[dict[str, Any]]:
-        """Fetch active deliberations from the debate store."""
+        """Fetch active robust decisionmaking sessions from the debate store."""
         deliberations = []
 
         try:

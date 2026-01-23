@@ -19,6 +19,9 @@ The Aragora Control Plane is the central orchestration layer that manages multi-
 - **Multi-Region Support**: Regional routing for compliance and latency optimization
 - **Governance**: Policy enforcement, RBAC, and audit logging
 
+Terminology note: in the API and worker identifiers, robust decisionmaking
+sessions are called "deliberations".
+
 ---
 
 ## Architecture
@@ -211,9 +214,9 @@ aliases under `/api/control-plane` for backward compatibility.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/control-plane/deliberations` | Run or queue a deliberation |
-| `GET` | `/api/control-plane/deliberations/\{id\}` | Get deliberation result |
-| `GET` | `/api/control-plane/deliberations/\{id\}/status` | Get deliberation status |
+| `POST` | `/api/control-plane/deliberations` | Run or queue a robust decisionmaking session |
+| `GET` | `/api/control-plane/deliberations/\{id\}` | Get robust decisionmaking result |
+| `GET` | `/api/control-plane/deliberations/\{id\}/status` | Get robust decisionmaking status |
 
 ### Queue Endpoints
 
@@ -301,7 +304,7 @@ The control plane dashboard includes specialized widgets:
 | `FleetStatusWidget` | Real-time agent fleet overview with health indicators |
 | `FleetHealthGauge` | Visual gauge showing fleet health percentage |
 | `ActivityFeed` | Real-time event timeline for system activity |
-| `DeliberationTracker` | In-flight deliberation progress with round tracking |
+| `DeliberationTracker` | In-flight robust decisionmaking progress with round tracking |
 | `SystemHealthDashboard` | Comprehensive system health monitoring |
 | `ConnectorDashboard` | Data connector status and sync timeline |
 | `KnowledgeExplorer` | Knowledge Mound browser with graph visualization |
@@ -418,7 +421,7 @@ await router.configure_channel(ChannelConfig(
 - `task.submitted` - New task queued
 - `task.completed` - Task finished successfully
 - `task.failed` - Task failed after retries
-- `deliberation.started` - New deliberation began
+- `deliberation.started` - Robust decisionmaking session began
 - `deliberation.consensus` - Consensus was reached
 
 ---
@@ -469,7 +472,7 @@ is_valid = await audit.verify_integrity()
 | `task.claimed` | Task claimed by agent |
 | `task.completed` | Task completed successfully |
 | `task.failed` | Task failed |
-| `deliberation.started` | Deliberation initiated |
+| `deliberation.started` | Robust decisionmaking initiated |
 | `deliberation.consensus` | Consensus reached |
 | `notification.sent` | Notification delivered |
 | `policy.evaluated` | Policy check performed |

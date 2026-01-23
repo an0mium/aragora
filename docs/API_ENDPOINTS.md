@@ -713,11 +713,11 @@ GET /api/v1/decisions/*
 
 ## Deliberations
 
-Handler for deliberation dashboard endpoints.
+Handler for robust decisionmaking dashboard endpoints.
 
 ### `GET` `/api/v1/deliberations/active`
 
-Fetch active deliberations from the debate store
+Fetch active robust decisionmaking sessions from the debate store
 
 ### `GET` `/api/v1/deliberations/stats`
 
@@ -829,7 +829,7 @@ Update prioritization config
 
 ## EmailDebate
 
-Handler for email deliberation API endpoints.
+Handler for email robust decisionmaking API endpoints.
 
 ### `GET` `/api/v1/email/prioritize`
 
@@ -1487,11 +1487,11 @@ Unified Orchestration Handler for Aragora Control Plane.
 
 ### `POST` `/api/v1/orchestration/deliberate`
 
-Unified deliberation endpoint
+Unified robust decisionmaking endpoint
 
 ### `GET` `/api/v1/orchestration/status/:id`
 
-Get deliberation status
+Get robust decisionmaking status
 
 ### `GET` `/api/v1/orchestration/templates`
 
@@ -1499,7 +1499,7 @@ List available templates
 
 ### `POST` `/api/v1/orchestration/deliberate/sync`
 
-Synchronous deliberation
+Synchronous robust decisionmaking
 
 ---
 

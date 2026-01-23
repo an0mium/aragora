@@ -723,6 +723,6 @@ async def handle_custom(ctx: CommandContext) -> CommandResult:
 
 ## Support
 
-- Report issues: [GitHub Issues](https://github.com/aragora-ai/aragora/issues)
+- Report issues: [GitHub Issues](https://github.com/an0mium/aragora/issues)
 - Documentation: [https://docs.aragora.ai](https://docs.aragora.ai)
 - Discord: [Aragora Community](https://discord.gg/aragora)
