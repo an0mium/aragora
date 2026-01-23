@@ -171,6 +171,6 @@ Metrics are organized by domain in `aragora/observability/metrics/`:
 
 ## Getting Help
 
-- Check [CLAUDE.md](../CLAUDE.md) for AI assistant context
+- Check `CLAUDE.md` in the repo root for AI assistant context
 - See [docs/STATUS.md](./STATUS.md) for feature implementation status
-- Review [docs/ADR/](./ADR/) for architectural decisions
+- Review [docs/ADR/README.md](./ADR/README.md) for architectural decisions

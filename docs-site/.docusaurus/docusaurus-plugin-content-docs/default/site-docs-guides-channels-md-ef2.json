@@ -1,0 +1,20 @@
+{
+  "id": "guides/channels",
+  "title": "Aragora Channels",
+  "description": "Aragora Channels",
+  "source": "@site/docs/guides/channels.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/channels",
+  "permalink": "/docs/guides/channels",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/channels.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Channels",
+    "description": "Aragora Channels"
+  }
+}

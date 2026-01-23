@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/rlm-semantic-compression",
+  "title": "ADR-008: Recursive Language Model (RLM) Semantic Compression",
+  "description": "ADR-008: Recursive Language Model (RLM) Semantic Compression",
+  "source": "@site/docs/analysis/adr/008-rlm-semantic-compression.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/008-rlm-semantic-compression",
+  "permalink": "/docs/analysis/adr/008-rlm-semantic-compression",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/008-rlm-semantic-compression.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 8,
+  "frontMatter": {
+    "slug": "008-rlm-semantic-compression",
+    "title": "ADR-008: Recursive Language Model (RLM) Semantic Compression",
+    "description": "ADR-008: Recursive Language Model (RLM) Semantic Compression"
+  }
+}

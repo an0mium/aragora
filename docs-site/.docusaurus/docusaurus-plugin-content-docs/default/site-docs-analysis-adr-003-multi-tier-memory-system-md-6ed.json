@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/multi-tier-memory-system",
+  "title": "ADR-003: Multi-Tier Memory System",
+  "description": "ADR-003: Multi-Tier Memory System",
+  "source": "@site/docs/analysis/adr/003-multi-tier-memory-system.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/003-multi-tier-memory-system",
+  "permalink": "/docs/analysis/adr/003-multi-tier-memory-system",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/003-multi-tier-memory-system.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "slug": "003-multi-tier-memory-system",
+    "title": "ADR-003: Multi-Tier Memory System",
+    "description": "ADR-003: Multi-Tier Memory System"
+  }
+}

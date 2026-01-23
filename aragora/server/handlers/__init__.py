@@ -148,6 +148,11 @@ from .workspace import WorkspaceHandler
 from .features import PluginsHandler  # Moved to features/
 from .agents import ProbesHandler  # Moved to agents/
 from .features import PulseHandler  # Moved to features/
+from .features import AdvertisingHandler  # Unified advertising platforms API
+from .features import AnalyticsPlatformsHandler  # Unified analytics platforms API
+from .features import CRMHandler  # Unified CRM platforms API
+from .features import SupportHandler  # Unified support platforms API
+from .features import EcommerceHandler  # Unified ecommerce platforms API
 from .social import RelationshipHandler  # Moved to social/
 from .replays import ReplaysHandler
 from .reviews import ReviewsHandler
@@ -341,6 +346,12 @@ ALL_HANDLERS = [
     APAutomationHandler,  # Accounts payable automation
     # Code review handler (Phase 5 - SME Vertical)
     CodeReviewHandler,  # Multi-agent code review
+    # Connector platform handlers (unified APIs)
+    AdvertisingHandler,  # Google Ads, Meta, LinkedIn, Microsoft, Twitter, TikTok
+    AnalyticsPlatformsHandler,  # Metabase, GA4, Mixpanel, Segment
+    CRMHandler,  # HubSpot, Salesforce
+    SupportHandler,  # Zendesk, Freshdesk, Intercom, HelpScout
+    EcommerceHandler,  # Shopify, ShipStation, Walmart
 ]
 
 # Handler stability classifications
@@ -476,6 +487,12 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "APAutomationHandler": Stability.EXPERIMENTAL,  # Accounts payable automation - new
     # Code review handler (Phase 5 - SME Vertical)
     "CodeReviewHandler": Stability.EXPERIMENTAL,  # Multi-agent code review - new
+    # Connector platform handlers (unified APIs)
+    "AdvertisingHandler": Stability.EXPERIMENTAL,  # Unified advertising platforms API - new
+    "AnalyticsPlatformsHandler": Stability.EXPERIMENTAL,  # Unified analytics platforms API - new
+    "CRMHandler": Stability.EXPERIMENTAL,  # Unified CRM platforms API - new
+    "SupportHandler": Stability.EXPERIMENTAL,  # Unified support platforms API - new
+    "EcommerceHandler": Stability.EXPERIMENTAL,  # Unified ecommerce platforms API - new
 }
 
 
@@ -654,6 +671,12 @@ __all__ = [
     "APAutomationHandler",
     # Code review handler (Phase 5 - SME Vertical)
     "CodeReviewHandler",
+    # Connector platform handlers
+    "AdvertisingHandler",
+    "AnalyticsPlatformsHandler",
+    "CRMHandler",
+    "SupportHandler",
+    "EcommerceHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

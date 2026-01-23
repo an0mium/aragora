@@ -12,7 +12,7 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769115225000,
   "frontMatter": {
     "title": "Debate Phases Architecture",
     "description": "Debate Phases Architecture"
@@ -23,7 +23,7 @@
     "permalink": "/docs/getting-started/first-debate"
   },
   "next": {
-    "title": "Custom Agent Development Guide",
+    "title": "Agent Catalog (Overview)",
     "permalink": "/docs/core-concepts/agents"
   }
 }

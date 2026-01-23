@@ -31,15 +31,17 @@ const DOC_MAP = {
   // =========================================================================
   'DEBATE_PHASES.md': 'core-concepts/debates.md',
   'DEBATE_INTERNALS.md': 'core-concepts/debate-internals.md',
-  'CUSTOM_AGENTS.md': 'core-concepts/agents.md',
+  'AGENTS.md': 'core-concepts/agents.md',
   'AGENT_DEVELOPMENT.md': 'core-concepts/agent-development.md',
   'AGENT_SELECTION.md': 'core-concepts/agent-selection.md',
   'algorithms/CONSENSUS.md': 'core-concepts/consensus.md',
   'MEMORY_TIERS.md': 'core-concepts/memory.md',
+  'MEMORY.md': 'core-concepts/memory-overview.md',
   'MEMORY_STRATEGY.md': 'core-concepts/memory-strategy.md',
   'KNOWLEDGE_MOUND.md': 'core-concepts/knowledge-mound.md',
   'ARCHITECTURE.md': 'core-concepts/architecture.md',
   'REASONING.md': 'core-concepts/reasoning.md',
+  'WORKFLOW_ENGINE.md': 'core-concepts/workflow-engine.md',
 
   // =========================================================================
   // Guides
@@ -49,15 +51,25 @@ const DOC_MAP = {
   'API_USAGE.md': 'guides/api-usage.md',
   'WORKFLOWS.md': 'guides/workflows.md',
   'INTEGRATIONS.md': 'guides/integrations.md',
+  'DOCUMENTS.md': 'guides/documents.md',
+  'CHANNELS.md': 'guides/channels.md',
   'BOT_INTEGRATIONS.md': 'guides/bot-integrations.md',
+  'CUSTOM_AGENTS.md': 'guides/custom-agents.md',
   'CHAT_CONNECTOR_GUIDE.md': 'guides/chat-connector.md',
   'CONNECTORS.md': 'guides/connectors.md',
   'CONNECTORS_SETUP.md': 'guides/connectors-setup.md',
   'CONNECTOR_TROUBLESHOOTING.md': 'guides/connector-troubleshooting.md',
   'EVIDENCE.md': 'guides/evidence.md',
+  'EVIDENCE_API_GUIDE.md': 'api/evidence.md',
   'GRAPH_DEBATES.md': 'guides/graph-debates.md',
   'MATRIX_DEBATES.md': 'guides/matrix-debates.md',
   'GAUNTLET.md': 'guides/gauntlet.md',
+  'GAUNTLET_ARCHITECTURE.md': 'guides/gauntlet-architecture.md',
+  'PROBE_STRATEGIES.md': 'guides/probe-strategies.md',
+  'HARNESSES_GUIDE.md': 'guides/harnesses.md',
+  'MODES_GUIDE.md': 'guides/modes.md',
+  'MODES_REFERENCE.md': 'guides/modes-reference.md',
+  'USER_ONBOARDING.md': 'guides/user-onboarding.md',
   'AUTOMATION_INTEGRATIONS.md': 'guides/automation.md',
   'EMAIL_PRIORITIZATION.md': 'guides/email-prioritization.md',
   'SHARED_INBOX.md': 'guides/shared-inbox.md',
@@ -66,6 +78,9 @@ const DOC_MAP = {
   'BROADCAST.md': 'guides/broadcast.md',
   'PULSE.md': 'guides/pulse.md',
   'WEBSOCKET_EVENTS.md': 'guides/websocket-events.md',
+  'SDK_TYPESCRIPT.md': 'guides/sdk-typescript.md',
+  'LIBRARY_USAGE.md': 'guides/library-usage.md',
+  'PLUGIN_GUIDE.md': 'guides/plugin-guide.md',
 
   // =========================================================================
   // API Reference
@@ -79,6 +94,7 @@ const DOC_MAP = {
   'API_DISCOVERY.md': 'api/discovery.md',
   'CLI_REFERENCE.md': 'api/cli.md',
   'GITHUB_PR_REVIEW.md': 'api/github-pr-review.md',
+  'api/WEBHOOKS.md': 'api/webhooks.md',
 
   // =========================================================================
   // Deployment
@@ -88,12 +104,18 @@ const DOC_MAP = {
   'SCALING.md': 'deployment/scaling.md',
   'CAPACITY_PLANNING.md': 'deployment/capacity-planning.md',
   'REDIS_HA.md': 'deployment/redis-ha.md',
+  'KUBERNETES.md': 'deployment/kubernetes.md',
+  'STREAMING_DEPLOYMENT.md': 'deployment/streaming.md',
+  'PRODUCTION_DEPLOYMENT.md': 'deployment/production-deployment.md',
   'DATABASE_SETUP.md': 'deployment/database-setup.md',
   'DATABASE.md': 'deployment/database.md',
   'DATABASE_SCHEMA.md': 'deployment/database-schema.md',
   'DISASTER_RECOVERY.md': 'deployment/disaster-recovery.md',
   'DR_DRILL_PROCEDURES.md': 'deployment/dr-drills.md',
-  'OBSERVABILITY.md': 'deployment/observability-setup.md',
+  'OBSERVABILITY.md': 'deployment/observability.md',
+  'OBSERVABILITY_SETUP.md': 'deployment/observability-setup.md',
+  'TLS.md': 'deployment/tls.md',
+  'SECRETS_MIGRATION.md': 'deployment/secrets-migration.md',
 
   // =========================================================================
   // Operations / Runbooks
@@ -103,6 +125,12 @@ const DOC_MAP = {
   'runbooks/RUNBOOK_DATABASE_ISSUES.md': 'operations/runbook-database.md',
   'runbooks/RUNBOOK_PROVIDER_FAILURE.md': 'operations/runbook-provider.md',
   'ALERT_RUNBOOKS.md': 'operations/alert-runbooks.md',
+  'RUNBOOK.md': 'operations/runbook.md',
+  'PRODUCTION_RUNBOOK.md': 'operations/production-runbook.md',
+  'RUNBOOK_METRICS.md': 'operations/runbook-metrics.md',
+  'INCIDENT_RESPONSE.md': 'operations/incident-response.md',
+  'INCIDENT_RESPONSE_PLAYBOOKS.md': 'operations/incident-response-playbooks.md',
+  'INCIDENT_COMMUNICATION.md': 'operations/incident-communication.md',
 
   // =========================================================================
   // Enterprise
@@ -116,13 +144,17 @@ const DOC_MAP = {
   'COMMERCIAL_POSITIONING.md': 'enterprise/positioning.md',
   'BILLING.md': 'enterprise/billing.md',
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
+  'SSO_SETUP.md': 'enterprise/sso.md',
+  'STRIPE_SETUP.md': 'enterprise/stripe-setup.md',
+  'SLA.md': 'enterprise/sla.md',
 
   // =========================================================================
   // Security & Compliance
   // =========================================================================
   'SECURITY.md': 'security/overview.md',
   'AUTH_GUIDE.md': 'security/authentication.md',
-  'COMPLIANCE.md': 'security/compliance.md',
+  'COMPLIANCE.md': 'enterprise/compliance.md',
+  'COMPLIANCE_PRESETS.md': 'security/compliance-presets.md',
   'DATA_CLASSIFICATION.md': 'security/data-classification.md',
   'DATA_RESIDENCY.md': 'security/data-residency.md',
   'PRIVACY_POLICY.md': 'security/privacy-policy.md',
@@ -130,6 +162,11 @@ const DOC_MAP = {
   'CI_CD_SECURITY.md': 'security/ci-cd.md',
   'REMOTE_WORK_SECURITY.md': 'security/remote-work.md',
   'DSAR_WORKFLOW.md': 'security/dsar.md',
+  'SECURITY_RUNTIME.md': 'security/runtime.md',
+  'SECURITY_PATTERNS.md': 'security/patterns.md',
+  'OAUTH_GUIDE.md': 'security/oauth-guide.md',
+  'OAUTH_SETUP.md': 'security/oauth-setup.md',
+  'SESSION_MANAGEMENT.md': 'security/session-management.md',
 
   // =========================================================================
   // Admin & Management
@@ -156,14 +193,48 @@ const DOC_MAP = {
   'ANALYSIS.md': 'analysis/overview.md',
   'CODEBASE_ANALYSIS.md': 'analysis/codebase.md',
   'BENCHMARK_RESULTS.md': 'analysis/benchmarks.md',
+  'case-studies/README.md': 'analysis/case-studies/index.md',
+  'case-studies/architecture-stress-test.md': 'analysis/case-studies/architecture-stress-test.md',
+  'case-studies/gdpr-compliance-audit.md': 'analysis/case-studies/gdpr-compliance-audit.md',
+  'case-studies/epic-strategic-debate.md': 'analysis/case-studies/epic-strategic-debate.md',
+  'case-studies/security-api-review.md': 'analysis/case-studies/security-api-review.md',
+
+  // =========================================================================
+  // Architecture Decision Records
+  // =========================================================================
+  'ADR/README.md': 'analysis/adr/index.md',
+  'ADR/001-phase-based-debate-execution.md': 'analysis/adr/001-phase-based-debate-execution.md',
+  'ADR/002-agent-fallback-openrouter.md': 'analysis/adr/002-agent-fallback-openrouter.md',
+  'ADR/003-multi-tier-memory-system.md': 'analysis/adr/003-multi-tier-memory-system.md',
+  'ADR/004-incremental-type-safety.md': 'analysis/adr/004-incremental-type-safety.md',
+  'ADR/005-composition-over-inheritance.md': 'analysis/adr/005-composition-over-inheritance.md',
+  'ADR/006-api-versioning-strategy.md': 'analysis/adr/006-api-versioning-strategy.md',
+  'ADR/007-selection-plugin-architecture.md': 'analysis/adr/007-selection-plugin-architecture.md',
+  'ADR/008-rlm-semantic-compression.md': 'analysis/adr/008-rlm-semantic-compression.md',
+  'ADR/009-control-plane-architecture.md': 'analysis/adr/009-control-plane-architecture.md',
+  'ADR/010-debate-orchestration-pattern.md': 'analysis/adr/010-debate-orchestration-pattern.md',
+  'ADR/011-multi-tier-memory-comparison.md': 'analysis/adr/011-multi-tier-memory-comparison.md',
+  'ADR/012-agent-fallback-strategy.md': 'analysis/adr/012-agent-fallback-strategy.md',
+  'ADR/013-workflow-dag-design.md': 'analysis/adr/013-workflow-dag-design.md',
+  'ADR/014-knowledge-mound-architecture.md': 'analysis/adr/014-knowledge-mound-architecture.md',
+  'ADR/015-lazy-import-patterns.md': 'analysis/adr/015-lazy-import-patterns.md',
+  'ADR/016-marketplace-architecture.md': 'analysis/adr/016-marketplace-architecture.md',
 
   // =========================================================================
   // Contributing
   // =========================================================================
   'CONTRIBUTING.md': 'contributing/guide.md',
+  'FIRST_CONTRIBUTION.md': 'contributing/first-contribution.md',
+  'INDEX.md': 'contributing/documentation-index.md',
+  'DOCUMENTATION_MAP.md': 'contributing/documentation-map.md',
   'DEPRECATION_POLICY.md': 'contributing/deprecation.md',
   'STATUS.md': 'contributing/status.md',
   'DEPENDENCIES.md': 'contributing/dependencies.md',
+  'FRONTEND_DEVELOPMENT.md': 'contributing/frontend-development.md',
+  'FRONTEND_ROUTES.md': 'contributing/frontend-routes.md',
+  'HANDLER_DEVELOPMENT.md': 'contributing/handler-development.md',
+  'TESTING.md': 'contributing/testing.md',
+  'HANDLERS.md': 'contributing/handlers.md',
 
   // =========================================================================
   // Additional Missing Files (commonly referenced)
@@ -171,7 +242,7 @@ const DOC_MAP = {
   // Core
   'TROUBLESHOOTING.md': 'operations/troubleshooting.md',
   'QUEUE.md': 'guides/queue.md',
-  'RATE_LIMITING.md': 'api/rate-limits.md',
+  'RATE_LIMITING.md': 'deployment/rate-limiting.md',
   'SECRETS_MANAGEMENT.md': 'deployment/secrets-management.md',
   'MEMORY_ANALYTICS.md': 'core-concepts/memory-analytics.md',
 
@@ -205,7 +276,7 @@ const DOC_MAP = {
 };
 
 // Add frontmatter to markdown files
-function addFrontmatter(content, title, description) {
+function addFrontmatter(content, title, description, slug) {
   // Check if already has frontmatter
   if (content.startsWith('---')) {
     return content;
@@ -223,8 +294,9 @@ function addFrontmatter(content, title, description) {
   const safeTitle = escapeYaml(title);
   const safeDesc = escapeYaml(description || title);
 
+  const slugLine = slug ? `slug: ${slug}\n` : '';
   const frontmatter = `---
-title: ${safeTitle}
+${slugLine}title: ${safeTitle}
 description: ${safeDesc}
 ---
 
@@ -272,7 +344,7 @@ function fixContent(content, destPath) {
   // Transform internal doc links to Docusaurus paths
   // Match links like [text](./FILE.md), [text](../FILE.md), [text](FILE.md)
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Z_\/]+\.md)(#[^)]+)?\)/gi,
+    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+\.md)(#[^)]+)?\)/g,
     (match, filePath, anchor) => {
       // Try to find the destination path in our mapping
       const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
@@ -283,14 +355,18 @@ function fixContent(content, destPath) {
         const targetDir = path.dirname(newPath);
         const targetFile = path.basename(newPath, '.md');
 
-        // If same directory, use just the filename
+        const isIndex = targetFile === 'index';
+
+        // If same directory, use ./ or filename
         if (targetDir === currentDir) {
-          return `](./${targetFile}${anchor || ''})`;
+          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
         }
 
         // Calculate relative path
         const relativePath = path.relative(currentDir, targetDir);
-        const relativeLink = relativePath ? `${relativePath}/${targetFile}` : targetFile;
+        const relativeLink = isIndex
+          ? relativePath
+          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
         return `](${relativeLink}${anchor || ''})`;
       }
 
@@ -299,25 +375,32 @@ function fixContent(content, destPath) {
     }
   );
 
-  // Also fix links without .md extension
+  // Also fix links without .md extension when they match known docs
   content = content.replace(
-    /\]\((?:\.\.\/|\.\/)?([A-Z_\/]+)(#[^)]+)?\)(?!\.md)/gi,
+    /\]\((?:\.\.\/|\.\/)?([A-Za-z0-9_./-]+)(#[^)]+)?\)(?!\.md)/g,
     (match, filePath, anchor) => {
-      // Check if this looks like an internal doc link
-      if (!filePath.includes('/') && filePath === filePath.toUpperCase() && filePath.length > 3) {
-        const newPath = REVERSE_LOOKUP[filePath] || REVERSE_LOOKUP[filePath + '.md'];
-        if (newPath) {
-          const targetDir = path.dirname(newPath);
-          const targetFile = path.basename(newPath, '.md');
+      const normalized = filePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
+      const newPath =
+        REVERSE_LOOKUP[normalized] ||
+        REVERSE_LOOKUP[path.basename(normalized)] ||
+        REVERSE_LOOKUP[normalized + '.md'] ||
+        REVERSE_LOOKUP[path.basename(normalized) + '.md'];
 
-          if (targetDir === currentDir) {
-            return `](./${targetFile}${anchor || ''})`;
-          }
+      if (newPath) {
+        const targetDir = path.dirname(newPath);
+        const targetFile = path.basename(newPath, '.md');
 
-          const relativePath = path.relative(currentDir, targetDir);
-          const relativeLink = relativePath ? `${relativePath}/${targetFile}` : targetFile;
-          return `](${relativeLink}${anchor || ''})`;
+        const isIndex = targetFile === 'index';
+
+        if (targetDir === currentDir) {
+          return isIndex ? `](./${anchor || ''})` : `](./${targetFile}${anchor || ''})`;
         }
+
+        const relativePath = path.relative(currentDir, targetDir);
+        const relativeLink = isIndex
+          ? relativePath
+          : `${relativePath ? `${relativePath}/` : ''}${targetFile}`;
+        return `](${relativeLink}${anchor || ''})`;
       }
       return match;
     }
@@ -335,9 +418,13 @@ function processFile(srcPath, destPath) {
 
   let content = fs.readFileSync(srcPath, 'utf8');
   const title = extractTitle(content);
+  const relSrcPath = path.relative(SOURCE_DIR, srcPath);
+  const baseName = path.basename(relSrcPath, '.md');
+  const isAdr = relSrcPath.startsWith('ADR' + path.sep);
+  const slug = isAdr && baseName !== 'README' ? baseName : null;
 
   // Add frontmatter
-  content = addFrontmatter(content, title);
+  content = addFrontmatter(content, title, undefined, slug);
 
   // Fix content for compatibility (pass relative dest path)
   const relDestPath = destPath.replace(DEST_DIR + '/', '');

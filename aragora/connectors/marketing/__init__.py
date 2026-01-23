@@ -1,0 +1,93 @@
+"""
+Marketing Platform Connectors.
+
+Integrations for email marketing and marketing automation platforms:
+- Mailchimp (Email marketing, audiences, campaigns)
+- Klaviyo (E-commerce email/SMS marketing, flows)
+"""
+
+from aragora.connectors.marketing.mailchimp import (
+    MailchimpConnector,
+    MailchimpCredentials,
+    Audience as MailchimpAudience,
+    AudienceStats,
+    Member,
+    MemberStatus as MailchimpMemberStatus,
+    Campaign as MailchimpCampaign,
+    CampaignStatus as MailchimpCampaignStatus,
+    CampaignType as MailchimpCampaignType,
+    CampaignReport,
+    Template as MailchimpTemplate,
+    Automation,
+    AutomationStatus as MailchimpAutomationStatus,
+    MailchimpError,
+    get_mock_audience as get_mock_mailchimp_audience,
+    get_mock_campaign as get_mock_mailchimp_campaign,
+    get_mock_report as get_mock_mailchimp_report,
+)
+from aragora.connectors.marketing.klaviyo import (
+    KlaviyoConnector,
+    KlaviyoCredentials,
+    KlaviyoList,
+    Segment as KlaviyoSegment,
+    Profile as KlaviyoProfile,
+    Campaign as KlaviyoCampaign,
+    CampaignMessage,
+    CampaignStatus as KlaviyoCampaignStatus,
+    Flow,
+    FlowAction,
+    FlowStatus,
+    Metric,
+    Event as KlaviyoEvent,
+    Template as KlaviyoTemplate,
+    MessageChannel,
+    ProfileSubscriptionStatus,
+    SegmentType,
+    KlaviyoError,
+    get_mock_list as get_mock_klaviyo_list,
+    get_mock_profile as get_mock_klaviyo_profile,
+    get_mock_campaign as get_mock_klaviyo_campaign,
+)
+
+__all__ = [
+    # Mailchimp
+    "MailchimpConnector",
+    "MailchimpCredentials",
+    "MailchimpAudience",
+    "AudienceStats",
+    "Member",
+    "MailchimpMemberStatus",
+    "MailchimpCampaign",
+    "MailchimpCampaignStatus",
+    "MailchimpCampaignType",
+    "CampaignReport",
+    "MailchimpTemplate",
+    "Automation",
+    "MailchimpAutomationStatus",
+    "MailchimpError",
+    "get_mock_mailchimp_audience",
+    "get_mock_mailchimp_campaign",
+    "get_mock_mailchimp_report",
+    # Klaviyo
+    "KlaviyoConnector",
+    "KlaviyoCredentials",
+    "KlaviyoList",
+    "KlaviyoSegment",
+    "KlaviyoProfile",
+    "KlaviyoCampaign",
+    "CampaignMessage",
+    "KlaviyoCampaignStatus",
+    "Flow",
+    "FlowAction",
+    "FlowStatus",
+    "Metric",
+    "KlaviyoEvent",
+    "KlaviyoTemplate",
+    "MessageChannel",
+    "ProfileSubscriptionStatus",
+    "SegmentType",
+    "KlaviyoError",
+    "get_mock_klaviyo_list",
+    "get_mock_klaviyo_profile",
+    "get_mock_klaviyo_campaign",
+]

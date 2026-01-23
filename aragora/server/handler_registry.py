@@ -127,6 +127,11 @@ GoogleChatHandler: HandlerType = None
 ExplainabilityHandler: HandlerType = None
 A2AHandler: HandlerType = None
 CodeIntelligenceHandler: HandlerType = None
+AdvertisingHandler: HandlerType = None
+AnalyticsPlatformsHandler: HandlerType = None
+CRMHandler: HandlerType = None
+SupportHandler: HandlerType = None
+EcommerceHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -380,6 +385,21 @@ try:
     from aragora.server.handlers.codebase import (
         IntelligenceHandler as _CodeIntelligenceHandler,
     )
+    from aragora.server.handlers.features import (
+        AdvertisingHandler as _AdvertisingHandler,
+    )
+    from aragora.server.handlers.features import (
+        AnalyticsPlatformsHandler as _AnalyticsPlatformsHandler,
+    )
+    from aragora.server.handlers.features import (
+        CRMHandler as _CRMHandler,
+    )
+    from aragora.server.handlers.features import (
+        SupportHandler as _SupportHandler,
+    )
+    from aragora.server.handlers.features import (
+        EcommerceHandler as _EcommerceHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -464,6 +484,11 @@ try:
     ExplainabilityHandler = _ExplainabilityHandler
     A2AHandler = _A2AHandler
     CodeIntelligenceHandler = _CodeIntelligenceHandler
+    AdvertisingHandler = _AdvertisingHandler
+    AnalyticsPlatformsHandler = _AnalyticsPlatformsHandler
+    CRMHandler = _CRMHandler
+    SupportHandler = _SupportHandler
+    EcommerceHandler = _EcommerceHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -561,6 +586,11 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_explainability_handler", ExplainabilityHandler),
     ("_a2a_handler", A2AHandler),
     ("_code_intelligence_handler", CodeIntelligenceHandler),
+    ("_advertising_handler", AdvertisingHandler),
+    ("_analytics_platforms_handler", AnalyticsPlatformsHandler),
+    ("_crm_handler", CRMHandler),
+    ("_support_handler", SupportHandler),
+    ("_ecommerce_handler", EcommerceHandler),
 ]
 
 
@@ -683,6 +713,26 @@ class RouteIndex:
             "_code_intelligence_handler": [
                 "/api/codebase/",
                 "/api/v1/codebase/",
+            ],
+            "_advertising_handler": [
+                "/api/advertising/",
+                "/api/v1/advertising/",
+            ],
+            "_analytics_platforms_handler": [
+                "/api/analytics-platforms/",
+                "/api/v1/analytics-platforms/",
+            ],
+            "_crm_handler": [
+                "/api/crm/",
+                "/api/v1/crm/",
+            ],
+            "_support_handler": [
+                "/api/support/",
+                "/api/v1/support/",
+            ],
+            "_ecommerce_handler": [
+                "/api/ecommerce/",
+                "/api/v1/ecommerce/",
             ],
         }
 
@@ -1063,6 +1113,11 @@ class HandlerRegistryMixin:
     _google_chat_handler: Optional["BaseHandler"] = None
     _explainability_handler: Optional["BaseHandler"] = None
     _a2a_handler: Optional["BaseHandler"] = None
+    _advertising_handler: Optional["BaseHandler"] = None
+    _analytics_platforms_handler: Optional["BaseHandler"] = None
+    _crm_handler: Optional["BaseHandler"] = None
+    _support_handler: Optional["BaseHandler"] = None
+    _ecommerce_handler: Optional["BaseHandler"] = None
     _handlers_initialized: bool = False
 
     @classmethod

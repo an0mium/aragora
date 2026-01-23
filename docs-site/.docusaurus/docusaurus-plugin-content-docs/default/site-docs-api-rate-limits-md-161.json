@@ -1,7 +1,7 @@
 {
   "id": "api/rate-limits",
-  "title": "API Rate Limiting",
-  "description": "API Rate Limiting",
+  "title": "API Rate Limits",
+  "description": "API Rate Limits",
   "source": "@site/docs/api/rate-limits.md",
   "sourceDirName": "api",
   "slug": "/api/rate-limits",
@@ -12,9 +12,9 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769115225000,
   "frontMatter": {
-    "title": "API Rate Limiting",
-    "description": "API Rate Limiting"
+    "title": "API Rate Limits",
+    "description": "API Rate Limits"
   }
 }

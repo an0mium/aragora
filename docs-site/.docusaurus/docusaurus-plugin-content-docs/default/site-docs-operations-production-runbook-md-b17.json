@@ -1,0 +1,20 @@
+{
+  "id": "operations/production-runbook",
+  "title": "Aragora Production Runbook",
+  "description": "Aragora Production Runbook",
+  "source": "@site/docs/operations/production-runbook.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/production-runbook",
+  "permalink": "/docs/operations/production-runbook",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/production-runbook.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Production Runbook",
+    "description": "Aragora Production Runbook"
+  }
+}

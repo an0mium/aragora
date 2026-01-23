@@ -8,7 +8,7 @@ description: Aragora API Reference
 > **Last Updated:** 2026-01-22 (control plane deliberations + decision endpoints)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
-for multi-agent deliberation across organizational knowledge and channels.
+for multi-agent robust decisionmaking across organizational knowledge and channels.
 
 ## Related Documentation
 
@@ -278,6 +278,22 @@ integration and financial dashboards.
 | GET | `/api/accounting/customers` | List customers |
 | GET | `/api/accounting/transactions` | List transactions |
 | POST | `/api/accounting/report` | Generate report |
+
+## Payroll (Gusto) API
+
+Payroll endpoints live under `/api/accounting/gusto` for Gusto OAuth and payroll
+data sync.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/accounting/gusto/status` | Connection status |
+| GET | `/api/accounting/gusto/connect` | Start OAuth connection |
+| GET | `/api/accounting/gusto/callback` | OAuth callback |
+| POST | `/api/accounting/gusto/disconnect` | Disconnect Gusto |
+| GET | `/api/accounting/gusto/employees` | List employees |
+| GET | `/api/accounting/gusto/payrolls` | List payroll runs |
+| GET | `/api/accounting/gusto/payrolls/\{payroll_id\}` | Payroll run details |
+| POST | `/api/accounting/gusto/payrolls/\{payroll_id\}/journal-entry` | Generate journal entry |
 
 ## Cost Visibility API
 

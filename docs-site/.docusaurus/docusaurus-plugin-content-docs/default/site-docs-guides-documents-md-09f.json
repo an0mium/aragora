@@ -1,0 +1,20 @@
+{
+  "id": "guides/documents",
+  "title": "Document Ingestion & Processing",
+  "description": "Document Ingestion & Processing",
+  "source": "@site/docs/guides/documents.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/documents",
+  "permalink": "/docs/guides/documents",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/documents.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Document Ingestion & Processing",
+    "description": "Document Ingestion & Processing"
+  }
+}

@@ -8,7 +8,7 @@
 
 ## Overview
 
-This Service Level Agreement (SLA) defines the service commitments for Aragora's multi-agent deliberation control plane. It establishes measurable targets for availability, performance, and support response times.
+This Service Level Agreement (SLA) defines the service commitments for Aragora's multi-agent robust decisionmaking control plane. It establishes measurable targets for availability, performance, and support response times.
 
 ---
 

@@ -173,7 +173,7 @@ curl -vI https://your-domain.com/api/health 2>&1 | grep -E "SSL|subject|expire"
 |------|--------|---------------------|
 | **OAuth redirect URLs set** | [ ] | Check `GOOGLE_OAUTH_REDIRECT_URI`, `OAUTH_SUCCESS_URL` |
 | **Allowed hosts configured** | [ ] | Check `OAUTH_ALLOWED_REDIRECT_HOSTS` |
-| **SSO configured (if used)** | [ ] | See [SSO_SETUP.md](SSO_SETUP.md) |
+| **SSO configured (if used)** | [ ] | See [SSO_SETUP.md](../enterprise/sso) |
 | **Session timeout reasonable** | [ ] | Check `ARAGORA_JWT_EXPIRY_HOURS` (max 168h) |
 
 **Production OAuth Configuration:**
@@ -277,7 +277,7 @@ resources:
 | **Backup retention policy** | [ ] | Document: ___ days |
 | **Restore procedure tested** | [ ] | Document last test: ______ |
 | **Rollback procedure documented** | [ ] | See [DISASTER_RECOVERY.md](../deployment/disaster-recovery) |
-| **Incident response plan** | [ ] | See [RUNBOOK.md](RUNBOOK.md) |
+| **Incident response plan** | [ ] | See [RUNBOOK.md](./runbook) |
 
 ---
 
@@ -518,7 +518,7 @@ kubectl scale deployment aragora --replicas=3 -n aragora
 
 ## Related Documentation
 
-- [RUNBOOK.md](RUNBOOK.md) - Operational procedures and incident response
+- [RUNBOOK.md](./runbook) - Operational procedures and incident response
 - [DISASTER_RECOVERY.md](../deployment/disaster-recovery) - Recovery procedures
 - [ENVIRONMENT.md](../getting-started/environment) - Complete environment variable reference
 - [DEPLOYMENT.md](../deployment/overview) - Kubernetes and Docker deployment guides

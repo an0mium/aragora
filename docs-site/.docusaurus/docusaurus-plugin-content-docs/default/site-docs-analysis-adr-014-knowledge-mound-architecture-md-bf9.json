@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/knowledge-mound-architecture",
+  "title": "ADR-014: Knowledge Mound Architecture",
+  "description": "ADR-014: Knowledge Mound Architecture",
+  "source": "@site/docs/analysis/adr/014-knowledge-mound-architecture.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/014-knowledge-mound-architecture",
+  "permalink": "/docs/analysis/adr/014-knowledge-mound-architecture",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/014-knowledge-mound-architecture.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 14,
+  "frontMatter": {
+    "slug": "014-knowledge-mound-architecture",
+    "title": "ADR-014: Knowledge Mound Architecture",
+    "description": "ADR-014: Knowledge Mound Architecture"
+  }
+}

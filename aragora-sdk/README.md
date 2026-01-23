@@ -1,6 +1,6 @@
 # Aragora SDK
 
-Python SDK for the Aragora control plane for multi-agent deliberation. Use AI agents to review designs, validate compliance, and stress-test specifications before implementation.
+Python SDK for the Aragora control plane for multi-agent robust decisionmaking. Use AI agents to review designs, validate compliance, and stress-test specifications before implementation.
 
 ## Installation
 

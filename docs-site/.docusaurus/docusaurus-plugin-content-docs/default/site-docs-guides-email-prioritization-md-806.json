@@ -1,0 +1,20 @@
+{
+  "id": "guides/email-prioritization",
+  "title": "Email Prioritization & Inbox Operations",
+  "description": "Email Prioritization & Inbox Operations",
+  "source": "@site/docs/guides/email-prioritization.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/email-prioritization",
+  "permalink": "/docs/guides/email-prioritization",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/email-prioritization.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769140033000,
+  "frontMatter": {
+    "title": "Email Prioritization & Inbox Operations",
+    "description": "Email Prioritization & Inbox Operations"
+  }
+}

@@ -5,7 +5,7 @@
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Aragora Documentation',
-  tagline: 'Control plane for multi-agent deliberation across org knowledge and channels',
+  tagline: 'Control plane for multi-agent robust decisionmaking across org knowledge and channels',
   favicon: 'img/favicon.ico',
 
   // Production URL

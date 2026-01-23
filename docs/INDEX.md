@@ -20,6 +20,7 @@ Use this index for fast navigation. For a fuller map, see
 | Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | Email prioritization | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
 | Shared inbox | [SHARED_INBOX.md](SHARED_INBOX.md) |
+| Document ingestion | [DOCUMENTS.md](DOCUMENTS.md) |
 | Codebase analysis | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
 | GitHub PR review API | [GITHUB_PR_REVIEW.md](GITHUB_PR_REVIEW.md) |
 | Coding assistance | [CODING_ASSISTANCE.md](CODING_ASSISTANCE.md) |
@@ -32,6 +33,9 @@ Use this index for fast navigation. For a fuller map, see
 - Workflow engine: [WORKFLOW_ENGINE.md](WORKFLOW_ENGINE.md)
 - Knowledge Mound: [KNOWLEDGE_MOUND.md](KNOWLEDGE_MOUND.md)
 - Memory tiers: [MEMORY_TIERS.md](MEMORY_TIERS.md)
+- Memory overview: [MEMORY.md](MEMORY.md)
+- Document ingestion: [DOCUMENTS.md](DOCUMENTS.md)
+- Agent catalog: [AGENTS.md](AGENTS.md)
 
 ## Control Plane & Operations
 
@@ -66,6 +70,7 @@ Use this index for fast navigation. For a fuller map, see
 
 - Governance: [GOVERNANCE.md](GOVERNANCE.md)
 - Compliance: [COMPLIANCE.md](COMPLIANCE.md)
+- Compliance presets: [COMPLIANCE_PRESETS.md](COMPLIANCE_PRESETS.md)
 - Security overview: [SECURITY.md](SECURITY.md)
 - Authentication guide: [AUTH_GUIDE.md](AUTH_GUIDE.md)
 - SSO setup: [SSO_SETUP.md](SSO_SETUP.md)
@@ -95,5 +100,5 @@ Deprecated docs are archived in `docs/deprecated/`. See
 
 ## Inventory
 
-- Markdown files under `docs/`: 260 (includes deprecated)
+- Markdown files under `docs/`: 264 (includes deprecated)
 - Last updated: 2026-01-22

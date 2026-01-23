@@ -6,7 +6,7 @@
 
 ## Overview
 
-Aragora is the control plane for multi-agent deliberation across organizational **knowledge and channels**. This document describes the channel integrations that enable:
+Aragora is the control plane for multi-agent robust decisionmaking across organizational **knowledge and channels**. This document describes the channel integrations that enable:
 
 - **Inbound Queries**: Receive deliberation requests from any channel
 - **Outbound Results**: Automatically route results back to the originating channel
@@ -114,6 +114,28 @@ The router extracts:
 - User/channel identity
 - Thread context (for replies)
 - Attachments
+
+---
+
+## Voice Integration
+
+Aragora supports bidirectional voice I/O over WebSocket:
+
+- **STT**: Live transcription via Whisper connector
+- **TTS**: Optional synthesized responses from agent messages
+
+**Endpoint:** `/ws/voice/{debate_id}`
+
+**Location:** `aragora/server/stream/voice_stream.py`
+
+**Key settings:**
+
+```bash
+ARAGORA_VOICE_TTS_ENABLED=true
+ARAGORA_VOICE_TTS_DEFAULT_VOICE=narrator
+ARAGORA_VOICE_MAX_SESSION=300
+ARAGORA_VOICE_INTERVAL=3000
+```
 
 ---
 

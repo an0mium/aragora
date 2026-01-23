@@ -925,7 +925,7 @@ class ChatPlatformConnector(ABC):
         Fetch recent context from a channel for deliberation.
 
         This method retrieves recent messages and participants from a channel
-        to provide context for multi-agent deliberations. It's used by the
+        to provide context for multi-agent robust decisionmaking sessions. It's used by the
         orchestration handler to auto-fetch context before starting debates.
 
         Args:

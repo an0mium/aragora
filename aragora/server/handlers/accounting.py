@@ -1,19 +1,38 @@
 """
-Accounting handlers for QuickBooks Online integration.
+Accounting handlers for QuickBooks Online and Gusto payroll integration.
 
 Provides HTTP endpoints for:
-- OAuth connection flow
-- Transaction sync
-- Customer management
+- QuickBooks OAuth connection flow
+- Transaction sync and customer management
 - Financial report generation
+- Gusto payroll OAuth + employee/payroll sync
+
+Endpoints:
+- GET /api/accounting/status - QuickBooks status + dashboard data
+- GET /api/accounting/connect - Start QuickBooks OAuth
+- GET /api/accounting/callback - QuickBooks OAuth callback
+- POST /api/accounting/disconnect - Disconnect QuickBooks
+- GET /api/accounting/customers - List QuickBooks customers
+- GET /api/accounting/transactions - List QuickBooks transactions
+- POST /api/accounting/report - Generate accounting report
+- GET /api/accounting/gusto/status - Gusto connection status
+- GET /api/accounting/gusto/connect - Start Gusto OAuth
+- GET /api/accounting/gusto/callback - Gusto OAuth callback
+- POST /api/accounting/gusto/disconnect - Disconnect Gusto
+- GET /api/accounting/gusto/employees - List employees
+- GET /api/accounting/gusto/payrolls - List payroll runs
+- GET /api/accounting/gusto/payrolls/{payroll_id} - Payroll run details
+- POST /api/accounting/gusto/payrolls/{payroll_id}/journal-entry - Generate journal entry
 """
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional
 
 from aiohttp import web
+
+from aragora.connectors.accounting.gusto import GustoConnector
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +150,30 @@ MOCK_TRANSACTIONS = [
 async def get_qbo_connector(request: web.Request) -> Optional[Any]:
     """Get QBO connector from app state if available."""
     return request.app.get("qbo_connector")
+
+
+async def get_gusto_connector(request: web.Request) -> GustoConnector:
+    """Get or create Gusto connector from app state."""
+    connector = request.app.get("gusto_connector")
+    if not connector:
+        connector = GustoConnector()
+        request.app["gusto_connector"] = connector
+
+    credentials = request.app.get("gusto_credentials")
+    if credentials:
+        connector.set_credentials(credentials)
+
+    return connector
+
+
+def _parse_iso_date(value: Optional[str], field_name: str) -> Optional[date]:
+    """Parse an ISO date query param."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid {field_name}: {value}") from exc
 
 
 async def handle_accounting_status(request: web.Request) -> web.Response:
@@ -661,6 +704,372 @@ def _generate_mock_report(
         return {"error": f"Unknown report type: {report_type}"}
 
 
+async def handle_gusto_status(request: web.Request) -> web.Response:
+    """
+    GET /api/accounting/gusto/status
+
+    Check Gusto connection status.
+    """
+    try:
+        connector = await get_gusto_connector(request)
+        credentials = request.app.get("gusto_credentials")
+        connected = bool(credentials) and connector.is_authenticated
+
+        return web.json_response(
+            {
+                "configured": connector.is_configured,
+                "connected": connected,
+                "company": {
+                    "id": credentials.company_id,
+                    "name": credentials.company_name,
+                }
+                if credentials
+                else None,
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting Gusto status: {e}")
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+async def handle_gusto_connect(request: web.Request) -> web.Response:
+    """
+    GET /api/accounting/gusto/connect
+
+    Initiate OAuth flow to connect Gusto.
+    """
+    try:
+        connector = await get_gusto_connector(request)
+
+        if not connector.is_configured:
+            return web.json_response(
+                {
+                    "error": "Gusto connector not configured",
+                    "message": "Set GUSTO_CLIENT_ID, GUSTO_CLIENT_SECRET, GUSTO_REDIRECT_URI",
+                },
+                status=503,
+            )
+
+        auth_url = connector.get_authorization_url()
+        raise web.HTTPFound(location=auth_url)
+
+    except web.HTTPFound:
+        raise
+    except Exception as e:
+        logger.error(f"Error initiating Gusto connection: {e}")
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+async def handle_gusto_callback(request: web.Request) -> web.Response:
+    """
+    GET /api/accounting/gusto/callback
+
+    Handle OAuth callback from Gusto.
+    """
+    try:
+        code = request.query.get("code")
+        error = request.query.get("error")
+
+        if error:
+            return web.json_response(
+                {
+                    "error": error,
+                    "description": request.query.get("error_description", ""),
+                },
+                status=400,
+            )
+
+        if not code:
+            return web.json_response(
+                {
+                    "error": "Missing authorization code",
+                },
+                status=400,
+            )
+
+        connector = await get_gusto_connector(request)
+
+        if not connector.is_configured:
+            return web.json_response(
+                {
+                    "error": "Gusto connector not available",
+                },
+                status=503,
+            )
+
+        credentials = await connector.exchange_code(code)
+        request.app["gusto_credentials"] = credentials
+        request.app["gusto_connector"] = connector
+
+        raise web.HTTPFound(location="/accounting?connected=true&provider=gusto")
+
+    except web.HTTPFound:
+        raise
+    except Exception as e:
+        logger.error(f"Error handling Gusto OAuth callback: {e}")
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+async def handle_gusto_disconnect(request: web.Request) -> web.Response:
+    """
+    POST /api/accounting/gusto/disconnect
+
+    Disconnect Gusto integration.
+    """
+    try:
+        if "gusto_credentials" in request.app:
+            del request.app["gusto_credentials"]
+
+        return web.json_response(
+            {
+                "success": True,
+                "message": "Gusto disconnected",
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error disconnecting Gusto: {e}")
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+async def handle_gusto_employees(request: web.Request) -> web.Response:
+    """
+    GET /api/accounting/gusto/employees
+
+    List employees from Gusto.
+    """
+    try:
+        connector = await get_gusto_connector(request)
+        if not connector.is_authenticated:
+            return web.json_response(
+                {
+                    "error": "Gusto not connected",
+                },
+                status=503,
+            )
+
+        active_only = request.query.get("active", "true").lower() == "true"
+        employees = await connector.list_employees(active_only=active_only)
+
+        return web.json_response(
+            {
+                "employees": [employee.to_dict() for employee in employees],
+                "total": len(employees),
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error listing Gusto employees: {e}")
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+async def handle_gusto_payrolls(request: web.Request) -> web.Response:
+    """
+    GET /api/accounting/gusto/payrolls
+
+    List payroll runs from Gusto.
+    """
+    try:
+        connector = await get_gusto_connector(request)
+        if not connector.is_authenticated:
+            return web.json_response(
+                {
+                    "error": "Gusto not connected",
+                },
+                status=503,
+            )
+
+        start_date = _parse_iso_date(request.query.get("start_date"), "start_date")
+        end_date = _parse_iso_date(request.query.get("end_date"), "end_date")
+        processed_only = request.query.get("processed", "true").lower() == "true"
+
+        payrolls = await connector.list_payrolls(
+            start_date=start_date,
+            end_date=end_date,
+            processed_only=processed_only,
+        )
+
+        return web.json_response(
+            {
+                "payrolls": [payroll.to_dict() for payroll in payrolls],
+                "total": len(payrolls),
+            }
+        )
+
+    except ValueError as e:
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=400,
+        )
+    except Exception as e:
+        logger.error(f"Error listing Gusto payrolls: {e}")
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
+    """
+    GET /api/accounting/gusto/payrolls/{payroll_id}
+
+    Get payroll run details.
+    """
+    try:
+        connector = await get_gusto_connector(request)
+        if not connector.is_authenticated:
+            return web.json_response(
+                {
+                    "error": "Gusto not connected",
+                },
+                status=503,
+            )
+
+        payroll_id = request.match_info.get("payroll_id")
+        if not payroll_id:
+            return web.json_response(
+                {
+                    "error": "Missing payroll_id",
+                },
+                status=400,
+            )
+
+        payroll = await connector.get_payroll(payroll_id)
+        if not payroll:
+            return web.json_response(
+                {
+                    "error": "Payroll not found",
+                },
+                status=404,
+            )
+
+        payroll_data = payroll.to_dict()
+        payroll_data["payroll_items"] = [
+            item.to_dict() for item in payroll.payroll_items
+        ]
+
+        return web.json_response(
+            {
+                "payroll": payroll_data,
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching Gusto payroll: {e}")
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
+    """
+    POST /api/accounting/gusto/payrolls/{payroll_id}/journal-entry
+
+    Generate a journal entry for a payroll run.
+    """
+    try:
+        connector = await get_gusto_connector(request)
+        if not connector.is_authenticated:
+            return web.json_response(
+                {
+                    "error": "Gusto not connected",
+                },
+                status=503,
+            )
+
+        payroll_id = request.match_info.get("payroll_id")
+        if not payroll_id:
+            return web.json_response(
+                {
+                    "error": "Missing payroll_id",
+                },
+                status=400,
+            )
+
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            body = {}
+
+        account_mappings = {}
+        raw_mappings = body.get("account_mappings", {}) if isinstance(body, dict) else {}
+        for key, value in raw_mappings.items():
+            if isinstance(value, dict):
+                account_id = value.get("account_id") or value.get("id")
+                account_name = value.get("account_name") or value.get("name")
+                if account_id and account_name:
+                    account_mappings[key] = (str(account_id), str(account_name))
+            elif isinstance(value, (list, tuple)) and len(value) == 2:
+                account_mappings[key] = (str(value[0]), str(value[1]))
+
+        payroll = await connector.get_payroll(payroll_id)
+        if not payroll:
+            return web.json_response(
+                {
+                    "error": "Payroll not found",
+                },
+                status=404,
+            )
+
+        journal = connector.generate_journal_entry(
+            payroll, account_mappings if account_mappings else None
+        )
+
+        payroll_data = payroll.to_dict()
+        payroll_data["payroll_items"] = [
+            item.to_dict() for item in payroll.payroll_items
+        ]
+
+        return web.json_response(
+            {
+                "payroll": payroll_data,
+                "journal_entry": journal.to_dict(),
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating Gusto journal entry: {e}")
+        return web.json_response(
+            {
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
 def register_accounting_routes(app: web.Application) -> None:
     """Register accounting routes with the application."""
     app.router.add_get("/api/accounting/status", handle_accounting_status)
@@ -670,3 +1079,16 @@ def register_accounting_routes(app: web.Application) -> None:
     app.router.add_get("/api/accounting/customers", handle_accounting_customers)
     app.router.add_get("/api/accounting/transactions", handle_accounting_transactions)
     app.router.add_post("/api/accounting/report", handle_accounting_report)
+    app.router.add_get("/api/accounting/gusto/status", handle_gusto_status)
+    app.router.add_get("/api/accounting/gusto/connect", handle_gusto_connect)
+    app.router.add_get("/api/accounting/gusto/callback", handle_gusto_callback)
+    app.router.add_post("/api/accounting/gusto/disconnect", handle_gusto_disconnect)
+    app.router.add_get("/api/accounting/gusto/employees", handle_gusto_employees)
+    app.router.add_get("/api/accounting/gusto/payrolls", handle_gusto_payrolls)
+    app.router.add_get(
+        "/api/accounting/gusto/payrolls/{payroll_id}", handle_gusto_payroll_detail
+    )
+    app.router.add_post(
+        "/api/accounting/gusto/payrolls/{payroll_id}/journal-entry",
+        handle_gusto_journal_entry,
+    )

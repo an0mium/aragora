@@ -12,7 +12,7 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769130078000,
   "sidebarPosition": 1,
   "frontMatter": {
     "title": "Debates API",
@@ -25,7 +25,7 @@
     "permalink": "/docs/api-reference/"
   },
   "next": {
-    "title": "create",
+    "title": "Create Debate",
     "permalink": "/docs/api-reference/debates/create"
   }
 }

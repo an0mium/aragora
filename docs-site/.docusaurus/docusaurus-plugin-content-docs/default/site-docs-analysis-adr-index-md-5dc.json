@@ -1,0 +1,20 @@
+{
+  "id": "analysis/adr/index",
+  "title": "Architecture Decision Records (ADRs)",
+  "description": "Architecture Decision Records (ADRs)",
+  "source": "@site/docs/analysis/adr/index.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/",
+  "permalink": "/docs/analysis/adr/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Architecture Decision Records (ADRs)",
+    "description": "Architecture Decision Records (ADRs)"
+  }
+}

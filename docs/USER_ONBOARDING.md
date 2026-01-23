@@ -180,7 +180,7 @@ aragora ask "What could go wrong with this deployment plan?" \
 
 | Goal | Guide |
 |------|-------|
-| Run adversarial stress-tests | [GAUNTLET_GUIDE.md](GAUNTLET_GUIDE.md) |
+| Run adversarial stress-tests | [GAUNTLET.md](GAUNTLET.md) |
 | Build custom agents | [CUSTOM_AGENTS.md](CUSTOM_AGENTS.md) |
 | Troubleshoot issues | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | API integration | [API_REFERENCE.md](API_REFERENCE.md) |
@@ -190,7 +190,7 @@ aragora ask "What could go wrong with this deployment plan?" \
 
 - **GitHub Issues**: [github.com/an0mium/aragora/issues](https://github.com/an0mium/aragora/issues)
 - **Documentation**: [docs/](.)
-- **Examples**: [examples/](../examples/)
+- **Examples**: https://github.com/aragora/aragora/tree/main/examples
 
 ---
 

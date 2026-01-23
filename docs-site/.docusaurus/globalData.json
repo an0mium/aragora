@@ -51,12 +51,120 @@
               "path": "/docs/advanced/"
             },
             {
+              "id": "advanced/rlm",
+              "path": "/docs/advanced/rlm"
+            },
+            {
+              "id": "advanced/rlm-developer",
+              "path": "/docs/advanced/rlm-developer"
+            },
+            {
+              "id": "advanced/rlm-integration",
+              "path": "/docs/advanced/rlm-integration"
+            },
+            {
+              "id": "advanced/rlm-user",
+              "path": "/docs/advanced/rlm-user"
+            },
+            {
               "id": "advanced/trickster",
               "path": "/docs/advanced/trickster"
             },
             {
+              "id": "analysis/adr/agent-fallback-openrouter",
+              "path": "/docs/analysis/adr/002-agent-fallback-openrouter"
+            },
+            {
+              "id": "analysis/adr/agent-fallback-strategy",
+              "path": "/docs/analysis/adr/012-agent-fallback-strategy"
+            },
+            {
+              "id": "analysis/adr/api-versioning-strategy",
+              "path": "/docs/analysis/adr/006-api-versioning-strategy"
+            },
+            {
+              "id": "analysis/adr/composition-over-inheritance",
+              "path": "/docs/analysis/adr/005-composition-over-inheritance"
+            },
+            {
+              "id": "analysis/adr/control-plane-architecture",
+              "path": "/docs/analysis/adr/009-control-plane-architecture"
+            },
+            {
+              "id": "analysis/adr/debate-orchestration-pattern",
+              "path": "/docs/analysis/adr/010-debate-orchestration-pattern"
+            },
+            {
+              "id": "analysis/adr/incremental-type-safety",
+              "path": "/docs/analysis/adr/004-incremental-type-safety"
+            },
+            {
+              "id": "analysis/adr/index",
+              "path": "/docs/analysis/adr/"
+            },
+            {
+              "id": "analysis/adr/knowledge-mound-architecture",
+              "path": "/docs/analysis/adr/014-knowledge-mound-architecture"
+            },
+            {
+              "id": "analysis/adr/lazy-import-patterns",
+              "path": "/docs/analysis/adr/015-lazy-import-patterns"
+            },
+            {
+              "id": "analysis/adr/marketplace-architecture",
+              "path": "/docs/analysis/adr/016-marketplace-architecture"
+            },
+            {
+              "id": "analysis/adr/multi-tier-memory-comparison",
+              "path": "/docs/analysis/adr/011-multi-tier-memory-comparison"
+            },
+            {
+              "id": "analysis/adr/multi-tier-memory-system",
+              "path": "/docs/analysis/adr/003-multi-tier-memory-system"
+            },
+            {
+              "id": "analysis/adr/phase-based-debate-execution",
+              "path": "/docs/analysis/adr/001-phase-based-debate-execution"
+            },
+            {
+              "id": "analysis/adr/rlm-semantic-compression",
+              "path": "/docs/analysis/adr/008-rlm-semantic-compression"
+            },
+            {
+              "id": "analysis/adr/selection-plugin-architecture",
+              "path": "/docs/analysis/adr/007-selection-plugin-architecture"
+            },
+            {
+              "id": "analysis/adr/workflow-dag-design",
+              "path": "/docs/analysis/adr/013-workflow-dag-design"
+            },
+            {
               "id": "analysis/benchmarks",
               "path": "/docs/analysis/benchmarks"
+            },
+            {
+              "id": "analysis/case-studies/architecture-stress-test",
+              "path": "/docs/analysis/case-studies/architecture-stress-test"
+            },
+            {
+              "id": "analysis/case-studies/epic-strategic-debate",
+              "path": "/docs/analysis/case-studies/epic-strategic-debate"
+            },
+            {
+              "id": "analysis/case-studies/gdpr-compliance-audit",
+              "path": "/docs/analysis/case-studies/gdpr-compliance-audit"
+            },
+            {
+              "id": "analysis/case-studies/index",
+              "path": "/docs/analysis/case-studies/"
+            },
+            {
+              "id": "analysis/case-studies/security-api-review",
+              "path": "/docs/analysis/case-studies/security-api-review"
+            },
+            {
+              "id": "analysis/codebase",
+              "path": "/docs/analysis/codebase"
             },
             {
               "id": "analysis/index",
@@ -149,8 +257,16 @@
               "path": "/docs/api/endpoints"
             },
             {
+              "id": "api/evidence",
+              "path": "/docs/api/evidence"
+            },
+            {
               "id": "api/examples",
               "path": "/docs/api/examples"
+            },
+            {
+              "id": "api/github-pr-review",
+              "path": "/docs/api/github-pr-review"
             },
             {
               "id": "api/index",
@@ -173,6 +289,10 @@
               "path": "/docs/api/versioning"
             },
             {
+              "id": "api/webhooks",
+              "path": "/docs/api/webhooks"
+            },
+            {
               "id": "contributing/dependencies",
               "path": "/docs/contributing/dependencies"
             },
@@ -181,8 +301,36 @@
               "path": "/docs/contributing/deprecation"
             },
             {
+              "id": "contributing/documentation-index",
+              "path": "/docs/contributing/documentation-index"
+            },
+            {
+              "id": "contributing/documentation-map",
+              "path": "/docs/contributing/documentation-map"
+            },
+            {
+              "id": "contributing/first-contribution",
+              "path": "/docs/contributing/first-contribution"
+            },
+            {
+              "id": "contributing/frontend-development",
+              "path": "/docs/contributing/frontend-development"
+            },
+            {
+              "id": "contributing/frontend-routes",
+              "path": "/docs/contributing/frontend-routes"
+            },
+            {
               "id": "contributing/guide",
               "path": "/docs/contributing/guide"
+            },
+            {
+              "id": "contributing/handler-development",
+              "path": "/docs/contributing/handler-development"
+            },
+            {
+              "id": "contributing/handlers",
+              "path": "/docs/contributing/handlers"
             },
             {
               "id": "contributing/index",
@@ -191,6 +339,14 @@
             {
               "id": "contributing/status",
               "path": "/docs/contributing/status"
+            },
+            {
+              "id": "contributing/testing",
+              "path": "/docs/contributing/testing"
+            },
+            {
+              "id": "core-concepts/agent-catalog",
+              "path": "/docs/core-concepts/agent-catalog"
             },
             {
               "id": "core-concepts/agent-development",
@@ -250,12 +406,20 @@
               "path": "/docs/core-concepts/memory-analytics"
             },
             {
+              "id": "core-concepts/memory-overview",
+              "path": "/docs/core-concepts/memory-overview"
+            },
+            {
               "id": "core-concepts/memory-strategy",
               "path": "/docs/core-concepts/memory-strategy"
             },
             {
               "id": "core-concepts/reasoning",
               "path": "/docs/core-concepts/reasoning"
+            },
+            {
+              "id": "core-concepts/workflow-engine",
+              "path": "/docs/core-concepts/workflow-engine"
             },
             {
               "id": "deployment/capacity-planning",
@@ -316,6 +480,14 @@
               "path": "/docs/deployment/postgresql-migration"
             },
             {
+              "id": "deployment/production-deployment",
+              "path": "/docs/deployment/production-deployment"
+            },
+            {
+              "id": "deployment/rate-limiting",
+              "path": "/docs/deployment/rate-limiting"
+            },
+            {
               "id": "deployment/redis",
               "path": "/docs/deployment/redis"
             },
@@ -337,9 +509,21 @@
               "path": "/docs/deployment/secrets-management"
             },
             {
+              "id": "deployment/secrets-migration",
+              "path": "/docs/deployment/secrets-migration"
+            },
+            {
               "id": "deployment/security",
               "path": "/docs/deployment/security",
               "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "deployment/streaming",
+              "path": "/docs/deployment/streaming"
+            },
+            {
+              "id": "deployment/tls",
+              "path": "/docs/deployment/tls"
             },
             {
               "id": "enterprise/audit-logs",
@@ -372,6 +556,10 @@
               "path": "/docs/enterprise/control-plane-feasibility"
             },
             {
+              "id": "enterprise/control-plane-overview",
+              "path": "/docs/enterprise/control-plane-overview"
+            },
+            {
               "id": "enterprise/features",
               "path": "/docs/enterprise/features"
             },
@@ -397,9 +585,17 @@
               "path": "/docs/enterprise/positioning"
             },
             {
+              "id": "enterprise/sla",
+              "path": "/docs/enterprise/sla"
+            },
+            {
               "id": "enterprise/sso",
               "path": "/docs/enterprise/sso",
               "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "enterprise/stripe-setup",
+              "path": "/docs/enterprise/stripe-setup"
             },
             {
               "id": "enterprise/support",
@@ -433,6 +629,10 @@
               "sidebar": "gettingStartedSidebar"
             },
             {
+              "id": "getting-started/overview",
+              "path": "/docs/getting-started/overview"
+            },
+            {
               "id": "getting-started/quickstart",
               "path": "/docs/getting-started/quickstart",
               "sidebar": "gettingStartedSidebar"
@@ -458,8 +658,16 @@
               "path": "/docs/guides/broadcast"
             },
             {
+              "id": "guides/channels",
+              "path": "/docs/guides/channels"
+            },
+            {
               "id": "guides/chat-connector",
               "path": "/docs/guides/chat-connector"
+            },
+            {
+              "id": "guides/coding-assistance",
+              "path": "/docs/guides/coding-assistance"
             },
             {
               "id": "guides/connector-troubleshooting",
@@ -474,9 +682,21 @@
               "path": "/docs/guides/connectors-setup"
             },
             {
+              "id": "guides/cost-visibility",
+              "path": "/docs/guides/cost-visibility"
+            },
+            {
               "id": "guides/custom-agents",
               "path": "/docs/guides/custom-agents",
               "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/documents",
+              "path": "/docs/guides/documents"
+            },
+            {
+              "id": "guides/email-prioritization",
+              "path": "/docs/guides/email-prioritization"
             },
             {
               "id": "guides/evidence",
@@ -492,8 +712,16 @@
               "path": "/docs/guides/gauntlet"
             },
             {
+              "id": "guides/gauntlet-architecture",
+              "path": "/docs/guides/gauntlet-architecture"
+            },
+            {
               "id": "guides/graph-debates",
               "path": "/docs/guides/graph-debates"
+            },
+            {
+              "id": "guides/harnesses",
+              "path": "/docs/guides/harnesses"
             },
             {
               "id": "guides/index",
@@ -503,6 +731,10 @@
               "id": "guides/integrations",
               "path": "/docs/guides/integrations",
               "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/library-usage",
+              "path": "/docs/guides/library-usage"
             },
             {
               "id": "guides/matrix-debates",
@@ -517,6 +749,22 @@
               "path": "/docs/guides/mcp-integration"
             },
             {
+              "id": "guides/modes",
+              "path": "/docs/guides/modes"
+            },
+            {
+              "id": "guides/modes-reference",
+              "path": "/docs/guides/modes-reference"
+            },
+            {
+              "id": "guides/plugin-guide",
+              "path": "/docs/guides/plugin-guide"
+            },
+            {
+              "id": "guides/probe-strategies",
+              "path": "/docs/guides/probe-strategies"
+            },
+            {
               "id": "guides/pulse",
               "path": "/docs/guides/pulse"
             },
@@ -528,6 +776,18 @@
               "id": "guides/sdk",
               "path": "/docs/guides/sdk",
               "sidebar": "guidesSidebar"
+            },
+            {
+              "id": "guides/sdk-typescript",
+              "path": "/docs/guides/sdk-typescript"
+            },
+            {
+              "id": "guides/shared-inbox",
+              "path": "/docs/guides/shared-inbox"
+            },
+            {
+              "id": "guides/user-onboarding",
+              "path": "/docs/guides/user-onboarding"
             },
             {
               "id": "guides/verticals",
@@ -547,6 +807,18 @@
               "path": "/docs/operations/alert-runbooks"
             },
             {
+              "id": "operations/incident-communication",
+              "path": "/docs/operations/incident-communication"
+            },
+            {
+              "id": "operations/incident-response",
+              "path": "/docs/operations/incident-response"
+            },
+            {
+              "id": "operations/incident-response-playbooks",
+              "path": "/docs/operations/incident-response-playbooks"
+            },
+            {
               "id": "operations/index",
               "path": "/docs/operations/"
             },
@@ -563,6 +835,14 @@
               "path": "/docs/operations/production-readiness"
             },
             {
+              "id": "operations/production-runbook",
+              "path": "/docs/operations/production-runbook"
+            },
+            {
+              "id": "operations/runbook",
+              "path": "/docs/operations/runbook"
+            },
+            {
               "id": "operations/runbook-database",
               "path": "/docs/operations/runbook-database"
             },
@@ -573,6 +853,10 @@
             {
               "id": "operations/runbook-incident",
               "path": "/docs/operations/runbook-incident"
+            },
+            {
+              "id": "operations/runbook-metrics",
+              "path": "/docs/operations/runbook-metrics"
             },
             {
               "id": "operations/runbook-provider",
@@ -599,6 +883,10 @@
               "path": "/docs/security/compliance"
             },
             {
+              "id": "security/compliance-presets",
+              "path": "/docs/security/compliance-presets"
+            },
+            {
               "id": "security/data-classification",
               "path": "/docs/security/data-classification"
             },
@@ -615,8 +903,20 @@
               "path": "/docs/security/"
             },
             {
+              "id": "security/oauth-guide",
+              "path": "/docs/security/oauth-guide"
+            },
+            {
+              "id": "security/oauth-setup",
+              "path": "/docs/security/oauth-setup"
+            },
+            {
               "id": "security/overview",
               "path": "/docs/security/overview"
+            },
+            {
+              "id": "security/patterns",
+              "path": "/docs/security/patterns"
             },
             {
               "id": "security/privacy-policy",
@@ -625,6 +925,14 @@
             {
               "id": "security/remote-work",
               "path": "/docs/security/remote-work"
+            },
+            {
+              "id": "security/runtime",
+              "path": "/docs/security/runtime"
+            },
+            {
+              "id": "security/session-management",
+              "path": "/docs/security/session-management"
             }
           ],
           "draftIds": [],

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "aragora-api-collection",
     "name": "Aragora API",
-    "description": "Control plane for multi-agent deliberation across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
+    "description": "Control plane for multi-agent robust decisionmaking across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": "1.0.0"
   },
@@ -9047,6 +9047,300 @@
               ]
             },
             "description": "Generate an accounting report.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Gusto status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/gusto/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "gusto",
+                "status"
+              ]
+            },
+            "description": "Fetch Gusto connection status."
+          },
+          "response": []
+        },
+        {
+          "name": "Start Gusto OAuth",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/gusto/connect",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "gusto",
+                "connect"
+              ]
+            },
+            "description": "Start Gusto OAuth flow."
+          },
+          "response": []
+        },
+        {
+          "name": "Gusto OAuth callback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/gusto/callback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "gusto",
+                "callback"
+              ]
+            },
+            "description": "Handle Gusto OAuth callback."
+          },
+          "response": []
+        },
+        {
+          "name": "Disconnect Gusto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/gusto/disconnect",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "gusto",
+                "disconnect"
+              ]
+            },
+            "description": "Disconnect Gusto integration."
+          },
+          "response": []
+        },
+        {
+          "name": "List employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/gusto/employees",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "gusto",
+                "employees"
+              ],
+              "query": [
+                {
+                  "key": "active",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List employees from Gusto."
+          },
+          "response": []
+        },
+        {
+          "name": "List payrolls",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/gusto/payrolls",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "gusto",
+                "payrolls"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "end_date",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "processed",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List payroll runs from Gusto."
+          },
+          "response": []
+        },
+        {
+          "name": "Get payroll",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/gusto/payrolls/:payroll_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "gusto",
+                "payrolls",
+                ":payroll_id"
+              ],
+              "variable": [
+                {
+                  "key": "payroll_id",
+                  "value": "",
+                  "description": "Path parameter: payroll_id"
+                }
+              ]
+            },
+            "description": "Fetch a payroll run by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate journal entry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/accounting/gusto/payrolls/:payroll_id/journal-entry",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "accounting",
+                "gusto",
+                "payrolls",
+                ":payroll_id",
+                "journal-entry"
+              ],
+              "variable": [
+                {
+                  "key": "payroll_id",
+                  "value": "",
+                  "description": "Path parameter: payroll_id"
+                }
+              ]
+            },
+            "description": "Generate a journal entry for a payroll run.",
             "body": {
               "mode": "raw",
               "raw": "{}",

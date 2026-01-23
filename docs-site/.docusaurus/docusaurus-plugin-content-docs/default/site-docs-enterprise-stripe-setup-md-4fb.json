@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/stripe-setup",
+  "title": "Stripe Payment Setup Guide",
+  "description": "Stripe Payment Setup Guide",
+  "source": "@site/docs/enterprise/stripe-setup.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/stripe-setup",
+  "permalink": "/docs/enterprise/stripe-setup",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/stripe-setup.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Stripe Payment Setup Guide",
+    "description": "Stripe Payment Setup Guide"
+  }
+}

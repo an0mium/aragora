@@ -115,6 +115,13 @@ try:
 except ImportError:
     CODEBASE_HANDLER_AVAILABLE = False
 
+try:
+    from aragora.server.handlers.accounting import register_accounting_routes
+
+    ACCOUNTING_HANDLER_AVAILABLE = True
+except ImportError:
+    ACCOUNTING_HANDLER_AVAILABLE = False
+
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
 TRUSTED_PROXIES = frozenset(
@@ -1399,6 +1406,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         if CODEBASE_HANDLER_AVAILABLE:
             register_codebase_routes(app)
             logger.info("Registered codebase analysis routes")
+        if ACCOUNTING_HANDLER_AVAILABLE:
+            register_accounting_routes(app)
+            logger.info("Registered accounting routes")
 
         # Start drain loop
         asyncio.create_task(self._drain_loop())

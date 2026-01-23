@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/phase-based-debate-execution",
+  "title": "ADR-001: Phase-Based Debate Execution",
+  "description": "ADR-001: Phase-Based Debate Execution",
+  "source": "@site/docs/analysis/adr/001-phase-based-debate-execution.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/001-phase-based-debate-execution",
+  "permalink": "/docs/analysis/adr/001-phase-based-debate-execution",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/001-phase-based-debate-execution.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "slug": "001-phase-based-debate-execution",
+    "title": "ADR-001: Phase-Based Debate Execution",
+    "description": "ADR-001: Phase-Based Debate Execution"
+  }
+}

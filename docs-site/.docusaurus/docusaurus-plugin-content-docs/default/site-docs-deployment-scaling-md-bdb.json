@@ -12,14 +12,14 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769115225000,
   "frontMatter": {
     "title": "Scaling Guide",
     "description": "Scaling Guide"
   },
   "sidebar": "guidesSidebar",
   "previous": {
-    "title": "kubernetes",
+    "title": "Kubernetes Deployment Guide",
     "permalink": "/docs/deployment/kubernetes"
   },
   "next": {

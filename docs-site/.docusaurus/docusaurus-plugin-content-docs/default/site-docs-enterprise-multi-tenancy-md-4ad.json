@@ -23,7 +23,7 @@
     "permalink": "/docs/deployment/security"
   },
   "next": {
-    "title": "sso",
+    "title": "SSO/Enterprise Authentication Setup",
     "permalink": "/docs/enterprise/sso"
   }
 }

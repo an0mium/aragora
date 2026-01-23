@@ -29,7 +29,7 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
@@ -37,6 +37,7 @@ from uuid import uuid4
 
 if TYPE_CHECKING:
     from aragora.connectors.accounting.qbo import QuickBooksConnector
+    from aragora.storage.expense_store import ExpenseStoreBackend
 
 logger = logging.getLogger(__name__)
 
@@ -353,6 +354,8 @@ class ExpenseTracker:
         qbo_connector: Optional[QuickBooksConnector] = None,
         enable_ocr: bool = True,
         enable_llm_categorization: bool = True,
+        use_persistent_storage: bool = False,
+        store: Optional[ExpenseStoreBackend] = None,
     ):
         """
         Initialize expense tracker.
@@ -361,17 +364,27 @@ class ExpenseTracker:
             qbo_connector: QuickBooks connector for syncing
             enable_ocr: Enable OCR for receipt processing
             enable_llm_categorization: Use LLM for smart categorization
+            use_persistent_storage: Use database storage instead of in-memory
+            store: Custom store backend (uses default if None)
         """
         self.qbo = qbo_connector
         self.enable_ocr = enable_ocr
         self.enable_llm_categorization = enable_llm_categorization
+        self._use_persistent = use_persistent_storage
+        self._store = store
 
-        # In-memory storage (would be persisted in production)
+        # In-memory storage (used when persistent storage is disabled)
         self._expenses: Dict[str, ExpenseRecord] = {}
         self._by_vendor: Dict[str, Set[str]] = {}
         self._by_category: Dict[ExpenseCategory, Set[str]] = {}
         self._by_date: Dict[str, Set[str]] = {}  # YYYY-MM-DD -> expense_ids
         self._hash_index: Dict[str, str] = {}  # hash_key -> expense_id
+
+        # Lazily initialize persistent store
+        if self._use_persistent and self._store is None:
+            from aragora.storage.expense_store import get_expense_store
+
+            self._store = get_expense_store()
 
     async def process_receipt(
         self,
@@ -416,8 +429,9 @@ class ExpenseTracker:
             expense.confidence_score = extracted.get("confidence", 0.5)
             expense.status = ExpenseStatus.PROCESSED
 
-        # Store
+        # Store in memory and persist
         self._store_expense(expense)
+        await self._persist_expense(expense)
 
         logger.info(
             f"Processed receipt -> expense {expense_id}: {expense.vendor_name} ${expense.amount}"
@@ -660,6 +674,7 @@ class ExpenseTracker:
             expense.status = ExpenseStatus.DUPLICATE
 
         self._store_expense(expense)
+        await self._persist_expense(expense)
         return expense
 
     async def categorize_expense(self, expense: ExpenseRecord) -> ExpenseCategory:
@@ -985,9 +1000,95 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
         # Hash index for duplicate detection
         self._hash_index[expense.hash_key] = expense.id
 
+    async def _persist_expense(self, expense: ExpenseRecord) -> None:
+        """Persist expense to database store if enabled."""
+        if self._use_persistent and self._store:
+            await self._store.save(self._expense_to_dict(expense))
+
+    def _expense_to_dict(self, expense: ExpenseRecord) -> Dict[str, Any]:
+        """Convert expense record to dict for storage."""
+        return {
+            "id": expense.id,
+            "vendor_name": expense.vendor_name,
+            "amount": str(expense.amount),
+            "currency": expense.currency,
+            "expense_date": expense.date.isoformat(),
+            "category": expense.category.value,
+            "status": expense.status.value,
+            "payment_method": expense.payment_method.value,
+            "description": expense.description,
+            "notes": expense.notes,
+            "receipt_text": expense.receipt_text,
+            "line_items": [li.to_dict() for li in expense.line_items],
+            "tax_amount": str(expense.tax_amount),
+            "tip_amount": str(expense.tip_amount),
+            "is_reimbursable": expense.is_reimbursable,
+            "is_billable": expense.is_billable,
+            "project_id": expense.project_id,
+            "client_id": expense.client_id,
+            "employee_id": expense.employee_id,
+            "qbo_expense_id": expense.qbo_id,
+            "synced_to_qbo": expense.qbo_id is not None,
+            "confidence_score": expense.confidence_score,
+            "created_at": expense.created_at.isoformat(),
+            "updated_at": expense.updated_at.isoformat(),
+            "synced_at": expense.synced_at.isoformat() if expense.synced_at else None,
+            "tags": expense.tags,
+        }
+
+    def _dict_to_expense(self, data: Dict[str, Any]) -> ExpenseRecord:
+        """Convert stored dict back to expense record."""
+        return ExpenseRecord(
+            id=data["id"],
+            vendor_name=data.get("vendor_name", "Unknown"),
+            amount=Decimal(str(data.get("amount", 0))),
+            currency=data.get("currency", "USD"),
+            date=datetime.fromisoformat(data["expense_date"].replace("Z", "+00:00"))
+            if data.get("expense_date")
+            else datetime.now(timezone.utc),
+            category=ExpenseCategory(data.get("category", "other")),
+            status=ExpenseStatus(data.get("status", "pending")),
+            payment_method=PaymentMethod(data.get("payment_method", "credit_card")),
+            description=data.get("description", ""),
+            notes=data.get("notes", ""),
+            receipt_text=data.get("receipt_text", ""),
+            tax_amount=Decimal(str(data.get("tax_amount", 0))),
+            tip_amount=Decimal(str(data.get("tip_amount", 0))),
+            is_reimbursable=data.get("is_reimbursable", False),
+            is_billable=data.get("is_billable", False),
+            project_id=data.get("project_id"),
+            client_id=data.get("client_id"),
+            employee_id=data.get("employee_id"),
+            qbo_id=data.get("qbo_expense_id"),
+            confidence_score=data.get("confidence_score", 0.0),
+            created_at=datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
+            if data.get("created_at")
+            else datetime.now(timezone.utc),
+            updated_at=datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
+            if data.get("updated_at")
+            else datetime.now(timezone.utc),
+            synced_at=datetime.fromisoformat(data["synced_at"].replace("Z", "+00:00"))
+            if data.get("synced_at")
+            else None,
+            tags=data.get("tags", []),
+        )
+
     async def get_expense(self, expense_id: str) -> Optional[ExpenseRecord]:
         """Get expense by ID."""
-        return self._expenses.get(expense_id)
+        # Check in-memory first
+        if expense_id in self._expenses:
+            return self._expenses[expense_id]
+
+        # Try persistent store
+        if self._use_persistent and self._store:
+            data = await self._store.get(expense_id)
+            if data:
+                expense = self._dict_to_expense(data)
+                # Cache in memory
+                self._expenses[expense_id] = expense
+                return expense
+
+        return None
 
     async def list_expenses(
         self,
@@ -1058,7 +1159,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
         tags: Optional[List[str]] = None,
     ) -> Optional[ExpenseRecord]:
         """Update an expense record."""
-        expense = self._expenses.get(expense_id)
+        expense = await self.get_expense(expense_id)
         if not expense:
             return None
 
@@ -1077,7 +1178,12 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
         if tags is not None:
             expense.tags = tags
 
-        expense.updated_at = datetime.now()
+        expense.updated_at = datetime.now(timezone.utc)
+
+        # Update in-memory and persist
+        self._expenses[expense_id] = expense
+        await self._persist_expense(expense)
+
         return expense
 
     async def approve_expense(self, expense_id: str) -> Optional[ExpenseRecord]:
@@ -1086,36 +1192,50 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
     async def reject_expense(self, expense_id: str, reason: str = "") -> Optional[ExpenseRecord]:
         """Reject an expense."""
-        expense = self._expenses.get(expense_id)
+        expense = await self.get_expense(expense_id)
         if expense:
             expense.status = ExpenseStatus.REJECTED
             expense.notes = reason
-            expense.updated_at = datetime.now()
+            expense.updated_at = datetime.now(timezone.utc)
+            self._expenses[expense_id] = expense
+            await self._persist_expense(expense)
         return expense
 
     async def delete_expense(self, expense_id: str) -> bool:
         """Delete an expense."""
-        if expense_id not in self._expenses:
+        expense = self._expenses.get(expense_id)
+
+        # Also try loading from persistent store
+        if not expense and self._use_persistent and self._store:
+            data = await self._store.get(expense_id)
+            if data:
+                expense = self._dict_to_expense(data)
+
+        if not expense:
             return False
 
-        expense = self._expenses[expense_id]
+        # Remove from in-memory indexes
+        if expense_id in self._expenses:
+            vendor_lower = expense.vendor_name.lower()
+            if vendor_lower in self._by_vendor:
+                self._by_vendor[vendor_lower].discard(expense_id)
 
-        # Remove from indexes
-        vendor_lower = expense.vendor_name.lower()
-        if vendor_lower in self._by_vendor:
-            self._by_vendor[vendor_lower].discard(expense_id)
+            if expense.category in self._by_category:
+                self._by_category[expense.category].discard(expense_id)
 
-        if expense.category in self._by_category:
-            self._by_category[expense.category].discard(expense_id)
+            date_key = expense.date.strftime("%Y-%m-%d")
+            if date_key in self._by_date:
+                self._by_date[date_key].discard(expense_id)
 
-        date_key = expense.date.strftime("%Y-%m-%d")
-        if date_key in self._by_date:
-            self._by_date[date_key].discard(expense_id)
+            if expense.hash_key in self._hash_index:
+                del self._hash_index[expense.hash_key]
 
-        if expense.hash_key in self._hash_index:
-            del self._hash_index[expense.hash_key]
+            del self._expenses[expense_id]
 
-        del self._expenses[expense_id]
+        # Delete from persistent store
+        if self._use_persistent and self._store:
+            await self._store.delete(expense_id)
+
         return True
 
     def get_stats(

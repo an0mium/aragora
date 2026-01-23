@@ -1,253 +1,255 @@
 ---
-title: API Rate Limiting
-description: API Rate Limiting
+title: API Rate Limits
+description: API Rate Limits
 ---
 
-# API Rate Limiting
+# API Rate Limits
 
-This document describes the rate limiting policies for the Aragora API.
+> **Audience:** This guide is for **API consumers** who need to understand and work with rate limits.
+> For implementation details and developer documentation, see [RATE_LIMITING.md](../deployment/rate-limiting).
 
-## Overview
-
-Rate limiting protects the API from abuse and ensures fair usage across all clients. Aragora implements tiered rate limits based on authentication level and endpoint type.
+Aragora implements rate limiting to ensure fair usage and service stability. This document describes the rate limiting system and how to work within its constraints.
 
 ## Rate Limit Tiers
 
-### Anonymous (Unauthenticated)
+Rate limits are based on your subscription tier:
 
-| Endpoint Type | Limit | Window |
-|---------------|-------|--------|
-| Read endpoints | 60 requests | 1 minute |
-| Write endpoints | 10 requests | 1 minute |
-| WebSocket connections | 2 | concurrent |
+| Tier | Requests/Minute | Burst Size | Notes |
+|------|-----------------|------------|-------|
+| **Free** | 10 | 60 | Unauthenticated or free tier |
+| **Starter** | 50 | 100 | Basic paid plan |
+| **Professional** | 200 | 400 | Standard paid plan |
+| **Enterprise** | 1000 | 2000 | Custom limits available |
 
-### Authenticated (API Key)
+### What is "Burst Size"?
 
-| Endpoint Type | Limit | Window |
-|---------------|-------|--------|
-| Read endpoints | 1000 requests | 1 minute |
-| Write endpoints | 100 requests | 1 minute |
-| Debate creation | 20 debates | 1 hour |
-| WebSocket connections | 10 | concurrent |
+The burst size allows short spikes above your sustained rate. For example, a free tier user can make up to 60 requests in quick succession, but sustained usage must stay under 10 req/min.
 
-### Premium/Enterprise
+## Default Limits
 
-| Endpoint Type | Limit | Window |
-|---------------|-------|--------|
-| Read endpoints | 10000 requests | 1 minute |
-| Write endpoints | 1000 requests | 1 minute |
-| Debate creation | Unlimited | - |
-| WebSocket connections | 100 | concurrent |
+For endpoints without tier-specific limits:
 
-## Endpoint-Specific Limits
-
-### High-Cost Endpoints
-
-These endpoints have stricter limits due to computational cost:
-
-| Endpoint | Limit | Window |
-|----------|-------|--------|
-| `POST /api/debates` | 20/hour | per API key |
-| `POST /api/debates/\{id\}/analyze` | 10/hour | per API key |
-| `POST /api/agents/train` | 5/day | per API key |
-| `POST /api/knowledge/ingest` | 100/hour | per API key |
-
-### Bulk Operations
-
-| Endpoint | Limit | Window |
-|----------|-------|--------|
-| `POST /api/batch/*` | 10/hour | per API key |
-| `GET /api/export/*` | 5/hour | per API key |
+| Limit Type | Default | Environment Variable |
+|------------|---------|---------------------|
+| Per-endpoint | 60 req/min | `ARAGORA_RATE_LIMIT` |
+| Per-IP (global) | 120 req/min | `ARAGORA_IP_RATE_LIMIT` |
+| Burst multiplier | 2x | `ARAGORA_BURST_MULTIPLIER` |
 
 ## Response Headers
 
-All API responses include rate limit headers:
+Rate-limited responses include these headers:
 
-```http
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 999
-X-RateLimit-Reset: 1640000000
-X-RateLimit-Policy: authenticated
+```
+X-RateLimit-Limit: 60          # Your rate limit
+X-RateLimit-Remaining: 45      # Requests remaining in window
+X-RateLimit-Reset: 1705123456  # Unix timestamp when limit resets
+Retry-After: 30                # Seconds to wait (only on 429)
 ```
 
-| Header | Description |
-|--------|-------------|
-| `X-RateLimit-Limit` | Maximum requests allowed in window |
-| `X-RateLimit-Remaining` | Requests remaining in current window |
-| `X-RateLimit-Reset` | Unix timestamp when limit resets |
-| `X-RateLimit-Policy` | Active rate limit policy |
+## Rate Limit Responses
 
-## Rate Limit Exceeded Response
+When rate limited, the API returns:
 
-When rate limit is exceeded, the API returns:
-
-```http
+```json
 HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 Retry-After: 30
 
 {
-  "error": "RATE_LIMIT_EXCEEDED",
-  "message": "Rate limit exceeded. Please retry after 30 seconds.",
+  "error": "Rate limit exceeded",
   "retry_after": 30,
-  "limit": 1000,
-  "reset_at": "2026-01-20T12:00:00Z"
+  "limit": 60,
+  "remaining": 0
 }
-```
-
-## Implementation Details
-
-### Token Bucket Algorithm
-
-Aragora uses a token bucket algorithm with Redis for distributed rate limiting:
-
-```python
-# Rate limiter configuration
-RATE_LIMIT_CONFIG = {
-    "anonymous": {
-        "read": {"tokens": 60, "interval": 60},
-        "write": {"tokens": 10, "interval": 60},
-    },
-    "authenticated": {
-        "read": {"tokens": 1000, "interval": 60},
-        "write": {"tokens": 100, "interval": 60},
-    },
-    "premium": {
-        "read": {"tokens": 10000, "interval": 60},
-        "write": {"tokens": 1000, "interval": 60},
-    },
-}
-```
-
-### Redis Key Structure
-
-```
-ratelimit:\{api_key\}:\{endpoint_type\}:\{window\}
-```
-
-Example:
-```
-ratelimit:sk_abc123:read:1640000000
 ```
 
 ## Best Practices
 
-### Client Implementation
+### 1. Implement Exponential Backoff
 
-1. **Respect Retry-After**: Always wait the specified time before retrying
-2. **Implement exponential backoff**: For repeated 429s, increase wait time
-3. **Cache responses**: Reduce API calls by caching read responses
-4. **Batch requests**: Use batch endpoints when available
-
-### Example: Python Client
+When you receive a 429 response, wait and retry with increasing delays:
 
 ```python
 import time
-import requests
-from tenacity import retry, wait_exponential, retry_if_result
+import random
 
-def is_rate_limited(response):
-    return response.status_code == 429
+def make_request_with_backoff(url, max_retries=5):
+    for attempt in range(max_retries):
+        response = requests.get(url)
 
-@retry(
-    retry=retry_if_result(is_rate_limited),
-    wait=wait_exponential(multiplier=1, min=1, max=60)
-)
-def api_request(url, **kwargs):
-    response = requests.get(url, **kwargs)
-    if response.status_code == 429:
-        retry_after = int(response.headers.get('Retry-After', 30))
+        if response.status_code != 429:
+            return response
+
+        # Get retry delay from header or calculate
+        retry_after = int(response.headers.get('Retry-After', 0))
+        if not retry_after:
+            retry_after = min(60, (2 ** attempt) + random.random())
+
         time.sleep(retry_after)
-    return response
+
+    raise Exception("Max retries exceeded")
 ```
 
-### Example: JavaScript Client
+### 2. Monitor Your Usage
 
-```javascript
-async function apiRequest(url, options = {}) {
-  const response = await fetch(url, options);
-
-  if (response.status === 429) {
-    const retryAfter = parseInt(response.headers.get('Retry-After') || '30');
-    await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-    return apiRequest(url, options);  // Retry
-  }
-
-  return response;
-}
-```
-
-## Monitoring
-
-### Prometheus Metrics
-
-```
-# Rate limit hits
-aragora_ratelimit_hits_total{policy="authenticated", endpoint_type="read"}
-
-# Rate limit rejections
-aragora_ratelimit_rejected_total{policy="authenticated", endpoint_type="read"}
-
-# Current token count
-aragora_ratelimit_tokens_remaining{api_key_hash="xxx"}
-```
-
-### Alerts
-
-| Alert | Condition | Severity |
-|-------|-----------|----------|
-| High Rejection Rate | >10% requests rejected | Warning |
-| Single Client Abuse | >50% of capacity | Warning |
-| Distributed Attack | Many clients at limit | Critical |
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RATE_LIMIT_ENABLED` | `true` | Enable/disable rate limiting |
-| `RATE_LIMIT_REDIS_URL` | - | Redis URL for distributed limiting |
-| `RATE_LIMIT_DEFAULT_TIER` | `anonymous` | Default tier for unauth requests |
-
-### API Key Tier Override
-
-Admins can set custom limits per API key:
+Check the `X-RateLimit-Remaining` header to see how many requests you have left:
 
 ```python
-# Admin API
-POST /api/admin/rate-limits
+response = requests.get(f"\{API_BASE\}/api/debates")
+remaining = int(response.headers.get('X-RateLimit-Remaining', 0))
+
+if remaining < 10:
+    print(f"Warning: Only \{remaining\} requests remaining")
+```
+
+### 3. Batch Operations When Possible
+
+Instead of making many small requests, use batch endpoints:
+
+```python
+# Instead of this (10 requests):
+for debate_id in debate_ids:
+    response = requests.get(f"\{API_BASE\}/api/debates/\{debate_id\}")
+
+# Do this (1 request):
+response = requests.post(f"\{API_BASE\}/api/debates/batch", json={
+    "debate_ids": debate_ids
+})
+```
+
+### 4. Cache Responses
+
+Cache responses that don't change frequently:
+
+- Debate results (after completion)
+- Agent rankings and ELO scores
+- Historical analytics
+
+### 5. Use Webhooks for Real-Time Updates
+
+Instead of polling for debate status, register webhooks:
+
+```python
+requests.post(f"\{API_BASE\}/api/webhooks", json={
+    "url": "https://your-app.com/webhook",
+    "events": ["debate.completed", "debate.verdict"]
+})
+```
+
+## Per-User Rate Limiting
+
+For authenticated users, Aragora implements per-user rate limiting based on user ID rather than IP address. This provides fairer limits when users share IPs (e.g., corporate networks) and prevents abuse via IP rotation.
+
+### Action-Based Limits
+
+Different operations have different limits per authenticated user:
+
+| Action | Limit (req/min) | Description |
+|--------|-----------------|-------------|
+| `default` | 60 | Default for authenticated requests |
+| `debate_create` | 10 | Creating new debates |
+| `vote` | 30 | Voting on proposals |
+| `agent_call` | 120 | Calling agent APIs |
+| `export` | 5 | Exporting data |
+| `admin` | 300 | Admin operations |
+
+### How It Works
+
+1. **Authenticated requests** are rate-limited by `user_id`
+2. **Unauthenticated requests** fall back to IP-based limiting
+3. Each action has its own bucket (limits don't share)
+4. Burst multiplier (2x) allows short spikes
+
+### Response Headers
+
+Per-user rate-limited responses include additional context:
+
+```
+X-RateLimit-Limit: 10           # Your limit for this action
+X-RateLimit-Remaining: 7        # Requests remaining
+X-RateLimit-Reset: 1705123456   # Reset timestamp
+X-RateLimit-Action: debate_create  # Which action was limited
+```
+
+### Decorator Usage
+
+Backend handlers use the `@user_rate_limit` decorator:
+
+```python
+from aragora.server.handlers.utils.rate_limit import user_rate_limit
+
+class DebatesHandler(BaseHandler):
+    @user_rate_limit(action="debate_create")
+    def _create_debate(self, handler):
+        # Limited to 10 debates/minute per user
+        ...
+
+    @user_rate_limit(action="vote")
+    def _submit_vote(self, handler):
+        # Limited to 30 votes/minute per user
+        ...
+```
+
+### Checking Your Status
+
+To see your current rate limit status across all actions:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  https://api.aragora.ai/api/rate-limit/status
+```
+
+Response:
+```json
 {
-  "api_key": "sk_xxx",
-  "tier": "premium",
-  "custom_limits": {
-    "debates_per_hour": 50
+  "user_id": "user-123",
+  "limits": {
+    "debate_create": { "remaining": 8, "limit": 10, "retry_after": 0 },
+    "vote": { "remaining": 30, "limit": 30, "retry_after": 0 }
   }
 }
 ```
 
-## Exemptions
+## Endpoint-Specific Limits
 
-The following are exempt from rate limiting:
+Some endpoints have stricter limits to prevent abuse:
 
-1. Health check endpoint (`/api/health`)
-2. Metrics endpoint (`/metrics`)
-3. Internal service-to-service calls (via service mesh)
-4. Whitelisted IP addresses (configurable)
+| Endpoint | Limit | Notes |
+|----------|-------|-------|
+| `POST /api/debate` | 10/min | Debate creation is expensive |
+| `POST /api/gauntlet` | 5/min | Stress tests are resource-intensive |
+| `GET /api/health` | 120/min | Higher limit for monitoring |
+| `GET /api/debates` | 60/min | Standard list endpoint |
 
-## Troubleshooting
+## IP-Based Limits
 
-### Sudden Rate Limit Issues
+In addition to tier limits, there's a global per-IP limit of **120 req/min** across all endpoints. This prevents a single source from overwhelming the API even with multiple accounts.
 
-1. Check for leaked API keys
-2. Review client implementation for request loops
-3. Check for WebSocket reconnection storms
-4. Verify clock synchronization
+## Trusted Proxies
 
-### Capacity Planning
+If you're behind a load balancer or proxy, configure `ARAGORA_TRUSTED_PROXIES` so rate limits apply to the real client IP:
 
-| Tier | Users | Expected RPS | Redis Memory |
-|------|-------|--------------|--------------|
-| 100 anonymous | - | 100 | 10 MB |
-| 1000 authenticated | - | 1000 | 100 MB |
-| 100 premium | - | 10000 | 100 MB |
+```bash
+export ARAGORA_TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+```
+
+## Need Higher Limits?
+
+Enterprise customers can request custom rate limits. Contact support or upgrade your tier at `/billing`.
+
+## Debugging Rate Limits
+
+To check your current rate limit status:
+
+```bash
+curl -v https://api.aragora.ai/api/health 2>&1 | grep -i ratelimit
+```
+
+Or in your code:
+
+```python
+response = requests.get(f"\{API_BASE\}/api/health")
+print(f"Limit: {response.headers.get('X-RateLimit-Limit')}")
+print(f"Remaining: {response.headers.get('X-RateLimit-Remaining')}")
+print(f"Resets at: {response.headers.get('X-RateLimit-Reset')}")
+```

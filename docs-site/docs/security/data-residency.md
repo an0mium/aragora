@@ -362,4 +362,4 @@ eu-rep@aragora.ai
 - [Data Classification Policy](./data-classification)
 - [DSAR Workflow](./dsar)
 - [Breach Notification SLA](./breach-notification)
-- [Incident Response Plan](./INCIDENT_RESPONSE.md)
+- [Incident Response Plan](../operations/incident-response)

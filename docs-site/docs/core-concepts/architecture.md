@@ -8,7 +8,7 @@ description: Aragora Architecture
 > **Last Updated:** 2026-01-21
 
 
-This document describes the high-level architecture of Aragora, the control plane for multi-agent deliberation across organizational knowledge and channels. The multi-agent debate system is the engine that powers adversarial validation and decision assurance.
+This document describes the high-level architecture of Aragora, the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. The multi-agent debate system is the engine that powers adversarial validation and decision assurance.
 
 ## System Overview
 
@@ -568,19 +568,19 @@ Phase 7: Feedback
     └─→ ELO updates, persona refinement, memory persistence
 ```
 
-Each phase is implemented as a separate class with an `async execute(ctx)` method. See [ADR-001](./ADR/001-phase-based-debate-execution.md) for details.
+Each phase is implemented as a separate class with an `async execute(ctx)` method. See [ADR-001](../analysis/adr/001-phase-based-debate-execution) for details.
 
 ## Architecture Decision Records
 
-Key architectural decisions are documented in the [ADR directory](./ADR/):
+Key architectural decisions are documented in the [ADR directory](../analysis/adr):
 
 | ADR | Decision |
 |-----|----------|
-| [001](./ADR/001-phase-based-debate-execution.md) | Phase-based debate execution |
-| [002](./ADR/002-agent-fallback-openrouter.md) | Agent fallback via OpenRouter |
-| [003](./ADR/003-multi-tier-memory-system.md) | Multi-tier memory system |
-| [004](./ADR/004-incremental-type-safety.md) | Incremental type safety migration |
-| [005](./ADR/005-composition-over-inheritance.md) | Composition over inheritance for APIs |
+| [001](../analysis/adr/001-phase-based-debate-execution) | Phase-based debate execution |
+| [002](../analysis/adr/002-agent-fallback-openrouter) | Agent fallback via OpenRouter |
+| [003](../analysis/adr/003-multi-tier-memory-system) | Multi-tier memory system |
+| [004](../analysis/adr/004-incremental-type-safety) | Incremental type safety migration |
+| [005](../analysis/adr/005-composition-over-inheritance) | Composition over inheritance for APIs |
 
 ## Debate Phase Flow (Mermaid)
 

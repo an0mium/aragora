@@ -327,11 +327,11 @@ class GoogleChatHandler(BaseHandler):
 
         return self._card_response(
             title="Welcome to Aragora!",
-            body="I'm a control plane for multi-agent deliberation.\n\n"
+            body="I'm a control plane for multi-agent robust decisionmaking.\n\n"
             "I orchestrate 15+ AI models (Claude, GPT, Gemini, Grok and more) "
             "to debate and deliver defensible decisions.\n\n"
             "*Commands:*\n"
-            "/debate <topic> - Start a multi-agent deliberation\n"
+            "/debate <topic> - Start a multi-agent robust decisionmaking\n"
             "/gauntlet <statement> - Run adversarial validation\n"
             "/status - Check system status\n"
             "/help - Show available commands\n\n"

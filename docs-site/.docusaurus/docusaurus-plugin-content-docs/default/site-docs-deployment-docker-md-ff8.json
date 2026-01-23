@@ -24,7 +24,7 @@
     "permalink": "/docs/guides/evidence"
   },
   "next": {
-    "title": "kubernetes",
+    "title": "Kubernetes Deployment Guide",
     "permalink": "/docs/deployment/kubernetes"
   }
 }

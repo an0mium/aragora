@@ -1,7 +1,7 @@
 {
   "id": "api-reference/knowledge/store",
-  "title": "store",
-  "description": "",
+  "title": "Store Knowledge",
+  "description": "Store items in Knowledge Mound",
   "source": "@site/docs/api-reference/knowledge/store.md",
   "sourceDirName": "api-reference/knowledge",
   "slug": "/api-reference/knowledge/store",
@@ -12,11 +12,16 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
-  "frontMatter": {},
+  "lastUpdatedAt": 1769130078000,
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "title": "Store Knowledge",
+    "description": "Store items in Knowledge Mound",
+    "sidebar_position": 3
+  },
   "sidebar": "apiSidebar",
   "previous": {
-    "title": "query",
+    "title": "Query Knowledge",
     "permalink": "/docs/api-reference/knowledge/query"
   },
   "next": {

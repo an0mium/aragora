@@ -1,0 +1,20 @@
+{
+  "id": "operations/incident-response",
+  "title": "Incident Response Playbooks",
+  "description": "Incident Response Playbooks",
+  "source": "@site/docs/operations/incident-response.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/incident-response",
+  "permalink": "/docs/operations/incident-response",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/incident-response.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Incident Response Playbooks",
+    "description": "Incident Response Playbooks"
+  }
+}

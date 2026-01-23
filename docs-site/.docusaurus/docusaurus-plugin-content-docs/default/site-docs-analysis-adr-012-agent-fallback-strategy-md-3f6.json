@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/agent-fallback-strategy",
+  "title": "ADR-012: Agent Fallback Strategy",
+  "description": "ADR-012: Agent Fallback Strategy",
+  "source": "@site/docs/analysis/adr/012-agent-fallback-strategy.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/012-agent-fallback-strategy",
+  "permalink": "/docs/analysis/adr/012-agent-fallback-strategy",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/012-agent-fallback-strategy.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 12,
+  "frontMatter": {
+    "slug": "012-agent-fallback-strategy",
+    "title": "ADR-012: Agent Fallback Strategy",
+    "description": "ADR-012: Agent Fallback Strategy"
+  }
+}

@@ -64,6 +64,14 @@ from aragora.workflow.templates.patterns import (
     get_pattern_template,
     list_pattern_templates,
 )
+from aragora.workflow.templates.marketing import (
+    AD_PERFORMANCE_REVIEW_TEMPLATE,
+    LEAD_TO_CRM_SYNC_TEMPLATE,
+    CROSS_PLATFORM_ANALYTICS_TEMPLATE,
+    SUPPORT_TICKET_TRIAGE_TEMPLATE,
+    ECOMMERCE_ORDER_SYNC_TEMPLATE,
+    MARKETING_TEMPLATES,
+)
 
 # Template registry
 WORKFLOW_TEMPLATES = {
@@ -95,6 +103,14 @@ WORKFLOW_TEMPLATES = {
     "product/feature-spec": FEATURE_SPEC_TEMPLATE,
     "product/user-research": USER_RESEARCH_TEMPLATE,
     "product/launch-readiness": LAUNCH_READINESS_TEMPLATE,
+    # Marketing/Advertising
+    "marketing/ad-performance-review": AD_PERFORMANCE_REVIEW_TEMPLATE,
+    "marketing/lead-to-crm-sync": LEAD_TO_CRM_SYNC_TEMPLATE,
+    "marketing/cross-platform-analytics": CROSS_PLATFORM_ANALYTICS_TEMPLATE,
+    # Support
+    "support/ticket-triage": SUPPORT_TICKET_TRIAGE_TEMPLATE,
+    # E-commerce
+    "ecommerce/order-sync": ECOMMERCE_ORDER_SYNC_TEMPLATE,
     # Note: Pattern templates (hive-mind, map-reduce, review-cycle) are not included
     # in WORKFLOW_TEMPLATES as they are factory patterns with a different schema.
     # Use PATTERN_TEMPLATES or create_*_workflow() functions instead.
@@ -192,4 +208,11 @@ __all__ = [
     "create_review_cycle_workflow",
     "get_pattern_template",
     "list_pattern_templates",
+    # Marketing
+    "AD_PERFORMANCE_REVIEW_TEMPLATE",
+    "LEAD_TO_CRM_SYNC_TEMPLATE",
+    "CROSS_PLATFORM_ANALYTICS_TEMPLATE",
+    "SUPPORT_TICKET_TRIAGE_TEMPLATE",
+    "ECOMMERCE_ORDER_SYNC_TEMPLATE",
+    "MARKETING_TEMPLATES",
 ]

@@ -1,6 +1,6 @@
 # Aragora VS Code Extension
 
-Control plane for multi-agent deliberation - Visual Studio Code integration.
+Control plane for multi-agent robust decisionmaking - Visual Studio Code integration.
 
 ## Features
 

@@ -1,12 +1,12 @@
 # Aragora Control Plane
 
-**Enterprise orchestration for multi-agent deliberation**
+**Enterprise orchestration for multi-agent robust decisionmaking**
 
 ---
 
 ## Overview
 
-The Aragora Control Plane is the central orchestration layer that manages multi-agent deliberation across your organization's knowledge and communication channels. It provides:
+The Aragora Control Plane is the central orchestration layer that manages multi-agent robust decisionmaking across your organization's knowledge and communication channels. It provides:
 
 - **Agent Orchestration**: Coordinate 15+ AI models with role assignment and capability matching
 - **Task Scheduling**: Priority-based task distribution with Redis-backed queues

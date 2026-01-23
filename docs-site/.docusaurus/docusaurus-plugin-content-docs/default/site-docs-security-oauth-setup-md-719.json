@@ -1,0 +1,20 @@
+{
+  "id": "security/oauth-setup",
+  "title": "OAuth and SAML Setup Guide",
+  "description": "OAuth and SAML Setup Guide",
+  "source": "@site/docs/security/oauth-setup.md",
+  "sourceDirName": "security",
+  "slug": "/security/oauth-setup",
+  "permalink": "/docs/security/oauth-setup",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/oauth-setup.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "OAuth and SAML Setup Guide",
+    "description": "OAuth and SAML Setup Guide"
+  }
+}

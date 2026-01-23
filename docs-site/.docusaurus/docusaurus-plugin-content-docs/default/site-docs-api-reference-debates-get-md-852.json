@@ -1,7 +1,7 @@
 {
   "id": "api-reference/debates/get",
-  "title": "get",
-  "description": "",
+  "title": "Get Debate",
+  "description": "Fetch debate details",
   "source": "@site/docs/api-reference/debates/get.md",
   "sourceDirName": "api-reference/debates",
   "slug": "/api-reference/debates/get",
@@ -12,15 +12,20 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
-  "frontMatter": {},
+  "lastUpdatedAt": 1769130078000,
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "title": "Get Debate",
+    "description": "Fetch debate details",
+    "sidebar_position": 3
+  },
   "sidebar": "apiSidebar",
   "previous": {
-    "title": "create",
+    "title": "Create Debate",
     "permalink": "/docs/api-reference/debates/create"
   },
   "next": {
-    "title": "list",
+    "title": "List Debates",
     "permalink": "/docs/api-reference/debates/list"
   }
 }

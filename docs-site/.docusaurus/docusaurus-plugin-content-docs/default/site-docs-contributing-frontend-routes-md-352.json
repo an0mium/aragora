@@ -1,0 +1,20 @@
+{
+  "id": "contributing/frontend-routes",
+  "title": "Frontend Routes and Feature Map",
+  "description": "Frontend Routes and Feature Map",
+  "source": "@site/docs/contributing/frontend-routes.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/frontend-routes",
+  "permalink": "/docs/contributing/frontend-routes",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/frontend-routes.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Frontend Routes and Feature Map",
+    "description": "Frontend Routes and Feature Map"
+  }
+}

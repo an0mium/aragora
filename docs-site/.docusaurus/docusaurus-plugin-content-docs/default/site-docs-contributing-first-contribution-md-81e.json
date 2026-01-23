@@ -1,0 +1,20 @@
+{
+  "id": "contributing/first-contribution",
+  "title": "First Contribution Guide",
+  "description": "First Contribution Guide",
+  "source": "@site/docs/contributing/first-contribution.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/first-contribution",
+  "permalink": "/docs/contributing/first-contribution",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/first-contribution.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "First Contribution Guide",
+    "description": "First Contribution Guide"
+  }
+}

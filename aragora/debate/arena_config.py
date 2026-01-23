@@ -126,6 +126,11 @@ class ArenaConfig:
     # Agent configuration
     agent_weights: Optional[Dict[str, float]] = None
 
+    # Vertical personas (industry-specific configuration)
+    vertical: Optional[str] = None  # Industry vertical: "software", "legal", "healthcare", etc.
+    vertical_persona_manager: Optional[Any] = None  # VerticalPersonaManager instance
+    auto_detect_vertical: bool = True  # Auto-detect vertical from task description
+
     # Tracking subsystems
     position_tracker: Optional[PositionTrackerProtocol] = None
     position_ledger: Optional[PositionLedgerProtocol] = None

@@ -1,0 +1,20 @@
+{
+  "id": "guides/modes-reference",
+  "title": "Debate Modes Reference",
+  "description": "Debate Modes Reference",
+  "source": "@site/docs/guides/modes-reference.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/modes-reference",
+  "permalink": "/docs/guides/modes-reference",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/modes-reference.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Debate Modes Reference",
+    "description": "Debate Modes Reference"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "core-concepts/workflow-engine",
+  "title": "Workflow Engine",
+  "description": "Workflow Engine",
+  "source": "@site/docs/core-concepts/workflow-engine.md",
+  "sourceDirName": "core-concepts",
+  "slug": "/core-concepts/workflow-engine",
+  "permalink": "/docs/core-concepts/workflow-engine",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/core-concepts/workflow-engine.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Workflow Engine",
+    "description": "Workflow Engine"
+  }
+}

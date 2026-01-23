@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/control-plane-architecture",
+  "title": "ADR-009: Control Plane Architecture",
+  "description": "ADR-009: Control Plane Architecture",
+  "source": "@site/docs/analysis/adr/009-control-plane-architecture.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/009-control-plane-architecture",
+  "permalink": "/docs/analysis/adr/009-control-plane-architecture",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/009-control-plane-architecture.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 9,
+  "frontMatter": {
+    "slug": "009-control-plane-architecture",
+    "title": "ADR-009: Control Plane Architecture",
+    "description": "ADR-009: Control Plane Architecture"
+  }
+}

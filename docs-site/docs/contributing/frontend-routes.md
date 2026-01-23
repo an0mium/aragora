@@ -1,0 +1,129 @@
+---
+title: Frontend Routes and Feature Map
+description: Frontend Routes and Feature Map
+---
+
+# Frontend Routes and Feature Map
+
+This document maps the primary UI routes in `aragora/live` to their purpose and related documentation.
+It is the canonical map for the user-facing surface area.
+
+## Canonical UI Domains
+
+- `https://aragora.ai` serves the live dashboard.
+- `https://www.aragora.ai` serves the marketing landing page.
+
+Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` from `.env.local`.
+
+## Core Debate Surfaces
+
+- `/` - Live dashboard (streaming debate view, panels, and controls). Landing page when hosted on `www.aragora.ai`.
+  - Related docs: [GETTING_STARTED](../getting-started/overview), [FEATURES](../guides/features), [WEBSOCKET_EVENTS](../guides/websocket-events)
+- `/debate/[id]` - Live/archived debate viewer with streaming transcript and metadata.
+  - Related docs: [DEBATE_PHASES](../core-concepts/debates), [WEBSOCKET_EVENTS](../guides/websocket-events)
+- `/debates` - Debate archive list with filtering and sharing links.
+  - Related docs: [API_USAGE](../guides/api-usage), [CLI_REFERENCE](../api/cli)
+- `/debates/graph` - Graph debate browser for counterfactual branching.
+  - Related docs: [GRAPH_DEBATES](../guides/graph-debates)
+- `/debates/matrix` - Scenario matrix runner and comparison grid.
+  - Related docs: [MATRIX_DEBATES](../guides/matrix-debates)
+- `/deliberations` - Control plane deliberations dashboard and live status.
+  - Related docs: [CONTROL_PLANE](../enterprise/control-plane-overview), [CONTROL_PLANE_GUIDE](../enterprise/control-plane)
+- `/gauntlet/[id]` - Live gauntlet run viewer (adversarial stress-test).
+  - Related docs: [GAUNTLET](../guides/gauntlet), [GAUNTLET_ARCHITECTURE](../guides/gauntlet-architecture)
+- `/replays` - Replay browser to review historical debates and fork at checkpoints.
+  - Related docs: [API_USAGE](../guides/api-usage), [FEATURES](../guides/features)
+- `/reviews` - Shareable multi-agent code reviews and consensus summaries.
+  - Related docs: [CLI_REFERENCE](../api/cli), [INDEX](./documentation-index)
+- `/code-review` - Guided code review workspace with review templates.
+  - Related docs: [CODING_ASSISTANCE](../guides/coding-assistance), [GITHUB_PR_REVIEW](../api/github-pr-review)
+- `/control-plane` - Control plane dashboard (agents, queue, deliberations).
+  - Related docs: [CONTROL_PLANE](../enterprise/control-plane-overview), [CONTROL_PLANE_GUIDE](../enterprise/control-plane)
+
+## Analysis, Insights, and Memory
+
+- `/insights` - Pattern analysis, position flips, and learning metrics dashboard.
+  - Related docs: [FEATURES](../guides/features), [MEMORY_ANALYTICS](../core-concepts/memory-analytics)
+- `/evidence` - Evidence and dissent explorer for rebuttals, warnings, and audit trails.
+  - Related docs: [TRICKSTER](../advanced/trickster), [FEATURES](../guides/features)
+- `/memory` - Continuum memory explorer (fast/medium/slow/glacial tiers).
+  - Related docs: [MEMORY_STRATEGY](../core-concepts/memory-strategy), [MEMORY_ANALYTICS](../core-concepts/memory-analytics)
+- `/pulse` - Pulse scheduler for automated trending-topic debates.
+  - Related docs: [PULSE](../guides/pulse)
+- `/repository` - Repository indexing and knowledge graph explorer.
+  - Related docs: [KNOWLEDGE_MOUND](../core-concepts/knowledge-mound), [ARCHITECTURE](../core-concepts/architecture)
+- `/security-scan` - Codebase security scans and dependency intelligence.
+  - Related docs: [CODEBASE_ANALYSIS](../analysis/codebase)
+- `/audit` - Audit dashboard for sessions, findings, and exports.
+  - Related docs: [API_REFERENCE](../api/reference), [SECURITY_RUNTIME](../security/runtime)
+- `/audit/[id]` - Audit session detail view (findings, events, report export).
+  - Related docs: [API_REFERENCE](../api/reference)
+- `/audit/new` - Launch a new audit session.
+  - Related docs: [API_REFERENCE](../api/reference)
+- `/audit/templates` - Audit templates and presets.
+  - Related docs: [GAUNTLET](../guides/gauntlet), [FEATURES](../guides/features)
+- `/network` - Agent relationship network visualization.
+  - Related docs: [FEATURES](../guides/features), [AGENT_SELECTION](../core-concepts/agent-selection)
+- `/tournaments` - Agent tournaments and rankings dashboard.
+  - Related docs: [FEATURES](../guides/features), [AGENT_SELECTION](../core-concepts/agent-selection)
+- `/agents` - Agent recommender and leaderboard explorer.
+  - Related docs: [AGENT_SELECTION](../core-concepts/agent-selection)
+- `/agent/[name]` - Individual agent profile with stats and comparisons.
+  - Related docs: [AGENT_DEVELOPMENT](../core-concepts/agent-development), [AGENT_SELECTION](../core-concepts/agent-selection)
+
+## Experimentation and Governance
+
+- `/laboratory` - Persona laboratory (emergent traits, pollinations, evolution, patterns).
+  - Related docs: [EVOLUTION_PATTERNS](../advanced/evolution-patterns), [AGENT_DEVELOPMENT](../core-concepts/agent-development)
+- `/evolution` - Evolution dashboard for genetic optimization and breeding.
+  - Related docs: [GENESIS](../advanced/genesis), [EVOLUTION_PATTERNS](../advanced/evolution-patterns)
+- `/ab-testing` - A/B test management for prompt/evolution variants.
+  - Related docs: [A_B_TESTING](../admin/ab-testing)
+- `/breakpoints` - Human-in-the-loop approvals triggered by Trickster breakpoints.
+  - Related docs: [TRICKSTER](../advanced/trickster), [API_REFERENCE](../api/reference)
+- `/verification` - Formal verification workspace (Z3 and Lean4 proofs).
+  - Related docs: [FORMAL_VERIFICATION](../advanced/formal-verification)
+- `/batch` - Batch debate submission and monitoring.
+  - Related docs: [WORKFLOWS](../guides/workflows), [CLI_REFERENCE](../api/cli)
+- `/plugins` - Plugin marketplace and integration manager.
+  - Related docs: [PLUGIN_GUIDE](../guides/plugin-guide), [MCP_INTEGRATION](../guides/mcp-integration)
+
+## Account, Org, and Billing
+
+- `/auth/login` - Login UI (email/password + OAuth).
+  - Related docs: [SECURITY](../security/overview), [SSO_SETUP](../enterprise/sso)
+- `/auth/register` - Registration UI.
+  - Related docs: [SECURITY](../security/overview)
+- `/developer` - Developer portal for API key management and usage stats.
+  - Related docs: [SDK_GUIDE](../guides/sdk), [SDK_TYPESCRIPT](../guides/sdk-typescript)
+- `/settings` - User preferences, integrations, and API configuration.
+  - Related docs: [ENVIRONMENT](../getting-started/environment), [INTEGRATIONS](../guides/integrations)
+- `/inbox` - AI smart inbox with prioritization and Gmail sync.
+  - Related docs: [EMAIL_PRIORITIZATION](../guides/email-prioritization)
+- `/command-center` - Unified inbox command center for quick actions.
+  - Related docs: [EMAIL_PRIORITIZATION](../guides/email-prioritization)
+- `/shared-inbox` - Shared inbox dashboard for team triage and routing rules.
+  - Related docs: [SHARED_INBOX](../guides/shared-inbox), [EMAIL_PRIORITIZATION](../guides/email-prioritization)
+- `/accounting` - QuickBooks accounting dashboard.
+  - Related docs: [API_REFERENCE](../api/reference), [BILLING](../enterprise/billing)
+- `/organization` - Organization profile settings (name, tier, limits).
+  - Related docs: [BILLING](../enterprise/billing), [SSO_SETUP](../enterprise/sso)
+- `/organization/members` - Member invites, roles, and removal.
+  - Related docs: [BILLING](../enterprise/billing), [SSO_SETUP](../enterprise/sso)
+- `/pricing` - Plan and pricing page.
+  - Related docs: [BILLING](../enterprise/billing)
+- `/billing` - Subscription management portal.
+  - Related docs: [BILLING](../enterprise/billing), [STRIPE_SETUP](../enterprise/stripe-setup)
+- `/billing/success` - Post-checkout confirmation.
+  - Related docs: [BILLING](../enterprise/billing)
+- `/costs` - Cost visibility dashboard (usage, budgets, alerts).
+  - Related docs: [COST_VISIBILITY](../guides/cost-visibility), [BILLING](../enterprise/billing)
+- `/api-explorer` - Interactive API explorer for live endpoint testing.
+  - Related docs: [API_REFERENCE](../api/reference), [API_ENDPOINTS](../api/endpoints)
+- `/admin` - Admin console for system health, rate limits, and diagnostics.
+  - Related docs: [OPERATIONS](../operations/overview), [RUNBOOK](../operations/runbook)
+
+## Informational
+
+- `/about` - Product overview, Nomic loop explanation, and links.
+  - Related docs: [ARCHITECTURE](../core-concepts/architecture), [NOMIC_LOOP](../admin/nomic-loop)

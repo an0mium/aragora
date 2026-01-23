@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/debate-orchestration-pattern",
+  "title": "ADR-010: Debate Orchestration Pattern",
+  "description": "ADR-010: Debate Orchestration Pattern",
+  "source": "@site/docs/analysis/adr/010-debate-orchestration-pattern.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/010-debate-orchestration-pattern",
+  "permalink": "/docs/analysis/adr/010-debate-orchestration-pattern",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/010-debate-orchestration-pattern.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 10,
+  "frontMatter": {
+    "slug": "010-debate-orchestration-pattern",
+    "title": "ADR-010: Debate Orchestration Pattern",
+    "description": "ADR-010: Debate Orchestration Pattern"
+  }
+}

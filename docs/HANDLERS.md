@@ -4,7 +4,7 @@ This document indexes all HTTP handlers in `aragora/server/handlers/`.
 
 ## Overview
 
-The server uses a modular handler architecture with **119 handler modules** organized by domain. Each handler extends `BaseHandler` and registers routes it can handle. See the [Experimental Handlers](#experimental-handlers-18-total) section for features in development.
+The server uses a modular handler architecture with **119 handler modules** organized by domain. Each handler extends `BaseHandler` and registers routes it can handle. See the [Experimental Handlers](#experimental-handlers-20-total) section for features in development.
 
 ## Handler Structure
 

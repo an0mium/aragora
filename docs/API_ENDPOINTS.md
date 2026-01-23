@@ -5,6 +5,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 ## Table of Contents
 
 - [A2A](#a2a)
+- [Accounting](#accounting)
 - [Analytics](#analytics)
 - [Analytics Dashboard](#analytics-dashboard)
 - [Audit Export](#audit-export)
@@ -105,6 +106,72 @@ Stream task (WebSocket upgrade)
 ### `GET` `/api/a2a/.well-known/agent.json`
 
 Discovery endpoint
+
+---
+
+## Accounting
+
+Accounting handlers for QuickBooks Online and Gusto payroll integration.
+
+### `GET` `/api/accounting/status`
+
+QuickBooks status + dashboard data
+
+### `GET` `/api/accounting/connect`
+
+Start QuickBooks OAuth
+
+### `GET` `/api/accounting/callback`
+
+QuickBooks OAuth callback
+
+### `POST` `/api/accounting/disconnect`
+
+Disconnect QuickBooks
+
+### `GET` `/api/accounting/customers`
+
+List QuickBooks customers
+
+### `GET` `/api/accounting/transactions`
+
+List QuickBooks transactions
+
+### `POST` `/api/accounting/report`
+
+Generate accounting report
+
+### `GET` `/api/accounting/gusto/status`
+
+Gusto connection status
+
+### `GET` `/api/accounting/gusto/connect`
+
+Start Gusto OAuth
+
+### `GET` `/api/accounting/gusto/callback`
+
+Gusto OAuth callback
+
+### `POST` `/api/accounting/gusto/disconnect`
+
+Disconnect Gusto
+
+### `GET` `/api/accounting/gusto/employees`
+
+List employees
+
+### `GET` `/api/accounting/gusto/payrolls`
+
+List payroll runs
+
+### `GET` `/api/accounting/gusto/payrolls/{payroll_id}`
+
+Payroll run details
+
+### `POST` `/api/accounting/gusto/payrolls/{payroll_id}/journal-entry`
+
+Generate journal entry
 
 ---
 

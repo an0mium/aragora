@@ -3,7 +3,7 @@
 > **Last Updated:** 2026-01-22
 
 
-This document provides detailed documentation for all 65+ features implemented in aragora through 21 phases of self-improvement.
+This document provides a snapshot of major features and their origins. For live counts and recent updates, see `docs/STATUS.md`.
 
 ## Table of Contents
 

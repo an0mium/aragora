@@ -1154,8 +1154,8 @@ Adapters sync in priority order (highest first). This ensures critical data is p
 
 ## See Also
 
-- [ADR-014: Knowledge Mound Architecture](ADR/014-knowledge-mound-architecture.md)
+- [ADR-014: Knowledge Mound Architecture](../analysis/adr/014-knowledge-mound-architecture)
 - [Verticals Documentation](../guides/verticals)
-- [Memory Systems](./memory)
+- [Memory Systems](./memory-overview)
 - [Evidence Collection](../guides/evidence)
 - [API Reference](../api/reference)

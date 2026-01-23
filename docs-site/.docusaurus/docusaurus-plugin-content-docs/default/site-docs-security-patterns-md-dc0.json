@@ -1,0 +1,20 @@
+{
+  "id": "security/patterns",
+  "title": "Security Patterns in Aragora",
+  "description": "Security Patterns in Aragora",
+  "source": "@site/docs/security/patterns.md",
+  "sourceDirName": "security",
+  "slug": "/security/patterns",
+  "permalink": "/docs/security/patterns",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/patterns.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Security Patterns in Aragora",
+    "description": "Security Patterns in Aragora"
+  }
+}

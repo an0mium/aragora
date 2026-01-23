@@ -183,6 +183,9 @@ analytics events emitted directly by the debate pipeline.
 - `error`
 - `log_message`
 
+### Verification events
+Verification-related events are listed under **Nomic loop** and **Claim verification**.
+
 ### Multi-loop management
 - `loop_register`
 - `loop_unregister`

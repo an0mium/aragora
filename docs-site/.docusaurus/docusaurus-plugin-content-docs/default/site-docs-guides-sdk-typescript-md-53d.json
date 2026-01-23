@@ -1,0 +1,20 @@
+{
+  "id": "guides/sdk-typescript",
+  "title": "Aragora TypeScript SDK",
+  "description": "Aragora TypeScript SDK",
+  "source": "@site/docs/guides/sdk-typescript.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/sdk-typescript",
+  "permalink": "/docs/guides/sdk-typescript",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/sdk-typescript.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora TypeScript SDK",
+    "description": "Aragora TypeScript SDK"
+  }
+}

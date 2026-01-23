@@ -1,7 +1,7 @@
 {
   "id": "api-reference/debates/consensus",
-  "title": "consensus",
-  "description": "",
+  "title": "Debate Consensus",
+  "description": "Consensus data for debates",
   "source": "@site/docs/api-reference/debates/consensus.md",
   "sourceDirName": "api-reference/debates",
   "slug": "/api-reference/debates/consensus",
@@ -12,11 +12,16 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
-  "frontMatter": {},
+  "lastUpdatedAt": 1769130078000,
+  "sidebarPosition": 5,
+  "frontMatter": {
+    "title": "Debate Consensus",
+    "description": "Consensus data for debates",
+    "sidebar_position": 5
+  },
   "sidebar": "apiSidebar",
   "previous": {
-    "title": "list",
+    "title": "List Debates",
     "permalink": "/docs/api-reference/debates/list"
   },
   "next": {

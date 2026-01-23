@@ -233,6 +233,43 @@ CWE: [CWE-XXX if applicable]"""
             system_prompt=system_prompt,
             **kwargs,
         )
+        self._finding_counter = 0
+
+    async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
+        """
+        Review code for security vulnerabilities.
+
+        Args:
+            code: Source code to review
+            language: Programming language
+
+        Returns:
+            List of security findings
+        """
+        findings = []
+        lines = code.split("\n")
+
+        for pattern, description, severity in SECURITY_PATTERNS:
+            for i, line in enumerate(lines):
+                if re.search(pattern, line, re.IGNORECASE):
+                    self._finding_counter += 1
+                    findings.append(
+                        ReviewFinding(
+                            id=f"sec_{self._finding_counter}",
+                            category=ReviewCategory.SECURITY,
+                            severity=severity,
+                            title=description,
+                            description=f"Found in line {i + 1}: {line.strip()[:100]}",
+                            location=CodeLocation(
+                                file_path="unknown",
+                                start_line=i + 1,
+                                code_snippet=line.strip(),
+                            ),
+                            reviewer="security_reviewer",
+                        )
+                    )
+
+        return findings
 
 
 class PerformanceReviewer(BaseDebateAgent):
@@ -269,6 +306,43 @@ SUGGESTION: [how to optimize]"""
             system_prompt=system_prompt,
             **kwargs,
         )
+        self._finding_counter = 0
+
+    async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
+        """
+        Review code for performance issues.
+
+        Args:
+            code: Source code to review
+            language: Programming language
+
+        Returns:
+            List of performance findings
+        """
+        findings = []
+        lines = code.split("\n")
+
+        for pattern, description, severity in PERFORMANCE_PATTERNS:
+            for i, line in enumerate(lines):
+                if re.search(pattern, line, re.IGNORECASE):
+                    self._finding_counter += 1
+                    findings.append(
+                        ReviewFinding(
+                            id=f"perf_{self._finding_counter}",
+                            category=ReviewCategory.PERFORMANCE,
+                            severity=severity,
+                            title=description,
+                            description=f"Found in line {i + 1}: {line.strip()[:100]}",
+                            location=CodeLocation(
+                                file_path="unknown",
+                                start_line=i + 1,
+                                code_snippet=line.strip(),
+                            ),
+                            reviewer="performance_reviewer",
+                        )
+                    )
+
+        return findings
 
 
 class MaintainabilityReviewer(BaseDebateAgent):
@@ -305,6 +379,43 @@ SUGGESTION: [how to improve]"""
             system_prompt=system_prompt,
             **kwargs,
         )
+        self._finding_counter = 0
+
+    async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
+        """
+        Review code for maintainability issues.
+
+        Args:
+            code: Source code to review
+            language: Programming language
+
+        Returns:
+            List of maintainability findings
+        """
+        findings = []
+        lines = code.split("\n")
+
+        for pattern, description, severity in MAINTAINABILITY_PATTERNS:
+            for i, line in enumerate(lines):
+                if re.search(pattern, line, re.IGNORECASE):
+                    self._finding_counter += 1
+                    findings.append(
+                        ReviewFinding(
+                            id=f"maint_{self._finding_counter}",
+                            category=ReviewCategory.MAINTAINABILITY,
+                            severity=severity,
+                            title=description,
+                            description=f"Found in line {i + 1}: {line.strip()[:100]}",
+                            location=CodeLocation(
+                                file_path="unknown",
+                                start_line=i + 1,
+                                code_snippet=line.strip(),
+                            ),
+                            reviewer="maintainability_reviewer",
+                        )
+                    )
+
+        return findings
 
 
 class TestCoverageReviewer(BaseDebateAgent):

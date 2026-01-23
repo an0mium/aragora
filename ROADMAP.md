@@ -7,7 +7,7 @@
 
 ## Vision
 
-Aragora is the control plane for multi-agent deliberation across organizational knowledge and channels. We orchestrate heterogeneous AI agents to debate, synthesize, and deliver defensible decisions through structured deliberation—building institutional memory with full audit trails.
+Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. We orchestrate heterogeneous AI agents to debate, synthesize, and deliver defensible decisions through structured robust decisionmaking—building institutional memory with full audit trails.
 
 ---
 

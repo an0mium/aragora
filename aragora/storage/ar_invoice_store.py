@@ -26,7 +26,7 @@ import sqlite3
 import threading
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
@@ -219,9 +219,7 @@ class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
     ) -> list[dict[str, Any]]:
         with self._lock:
             items = [i for i in self._invoices.values() if i.get("status") == status]
-            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[
-                :limit
-            ]
+            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
     async def list_by_customer(
         self,
@@ -229,12 +227,8 @@ class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         with self._lock:
-            items = [
-                i for i in self._invoices.values() if i.get("customer_id") == customer_id
-            ]
-            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[
-                :limit
-            ]
+            items = [i for i in self._invoices.values() if i.get("customer_id") == customer_id]
+            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
     async def list_overdue(self) -> list[dict[str, Any]]:
         now = datetime.now(timezone.utc)
@@ -313,9 +307,7 @@ class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
             if invoice_id not in self._invoices:
                 return False
             self._invoices[invoice_id]["status"] = status
-            self._invoices[invoice_id]["updated_at"] = datetime.now(
-                timezone.utc
-            ).isoformat()
+            self._invoices[invoice_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
             return True
 
     async def record_payment(
@@ -437,15 +429,11 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                     )
                     """
                 )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_ar_status ON ar_invoices(status)"
-                )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_ar_status ON ar_invoices(status)")
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_ar_customer ON ar_invoices(customer_id)"
                 )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_ar_due ON ar_invoices(due_date)"
-                )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_ar_due ON ar_invoices(due_date)")
 
                 # Customers table
                 cursor.execute(
@@ -559,8 +547,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                     (limit, offset),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -584,8 +571,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                     (status, limit),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -609,8 +595,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                     (customer_id, limit),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -632,8 +617,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                     (now,),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -667,9 +651,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                         buckets["current"].append(inv)
                         continue
 
-                    due_date = datetime.fromisoformat(
-                        due_date_str.replace("Z", "+00:00")
-                    )
+                    due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
                     days_overdue = (now - due_date).days
 
                     if days_overdue <= 0:

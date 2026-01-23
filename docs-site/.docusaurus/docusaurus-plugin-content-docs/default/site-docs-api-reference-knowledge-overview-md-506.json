@@ -12,7 +12,7 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769130078000,
   "sidebarPosition": 1,
   "frontMatter": {
     "title": "Knowledge API",
@@ -21,11 +21,11 @@
   },
   "sidebar": "apiSidebar",
   "previous": {
-    "title": "stats",
+    "title": "Agent Stats",
     "permalink": "/docs/api-reference/agents/stats"
   },
   "next": {
-    "title": "query",
+    "title": "Query Knowledge",
     "permalink": "/docs/api-reference/knowledge/query"
   }
 }

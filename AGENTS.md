@@ -1,6 +1,6 @@
 # Aragora Agents
 
-Aragora is the control plane for multi-agent deliberation across organizational knowledge and channels. It implements structured deliberation through a society of heterogeneous AI agents. This document describes the agent system architecture.
+Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. It implements structured robust decisionmaking through a society of heterogeneous AI agents. This document describes the agent system architecture.
 
 ## Agent Types
 

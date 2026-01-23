@@ -5,11 +5,11 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Aragora is the control plane for multi-agent deliberation across organizational knowledge and channels.**
+**Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels.**
 
 It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, Telegram, WhatsApp, voice).
 
-**Omnivorous by design**: Aragora ingests 25+ document formats, images, audio, and video from 24 data connectors. Results route automatically to the originating channel—ask questions wherever you are, get answers backed by multi-agent consensus.
+**Omnivorous by design**: Aragora ingests common document formats (PDF, Office, Markdown, HTML, JSON, CSV), code, images, audio, and video via a broad connector library. Results route automatically to the originating channel—ask questions wherever you are, get answers backed by multi-agent consensus.
 
 **Unlike chatbots**, Aragora builds institutional memory with full audit trails. Deliberation is the engine. The product is a defensible decision record.
 
@@ -187,7 +187,7 @@ Case studies:
 
 ## Quick Start
 
-Start here: [docs/START_HERE.md](docs/START_HERE.md) for the canonical 5-minute setup.
+Start here: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the canonical 5-minute setup.
 
 ```bash
 # Clone and install

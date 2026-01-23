@@ -209,9 +209,7 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
     ) -> list[dict[str, Any]]:
         with self._lock:
             items = [e for e in self._data.values() if e.get("status") == status]
-            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[
-                :limit
-            ]
+            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
     async def list_by_employee(
         self,
@@ -219,12 +217,8 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         with self._lock:
-            items = [
-                e for e in self._data.values() if e.get("employee_id") == employee_id
-            ]
-            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[
-                :limit
-            ]
+            items = [e for e in self._data.values() if e.get("employee_id") == employee_id]
+            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
     async def list_by_category(
         self,
@@ -233,9 +227,7 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
     ) -> list[dict[str, Any]]:
         with self._lock:
             items = [e for e in self._data.values() if e.get("category") == category]
-            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[
-                :limit
-            ]
+            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
     async def list_pending_sync(self) -> list[dict[str, Any]]:
         with self._lock:
@@ -251,12 +243,9 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
         amount: Decimal,
         date_tolerance_days: int = 3,
     ) -> list[dict[str, Any]]:
-        from datetime import timedelta
-
         with self._lock:
             results = []
             now = datetime.now(timezone.utc)
-            tolerance = timedelta(days=date_tolerance_days)
 
             for expense in self._data.values():
                 if expense.get("vendor_name", "").lower() == vendor_name.lower():
@@ -267,9 +256,7 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
                         exp_date = expense.get("expense_date")
                         if exp_date:
                             if isinstance(exp_date, str):
-                                exp_date = datetime.fromisoformat(
-                                    exp_date.replace("Z", "+00:00")
-                                )
+                                exp_date = datetime.fromisoformat(exp_date.replace("Z", "+00:00"))
                             if abs((now - exp_date).days) <= date_tolerance_days:
                                 results.append(expense)
             return results
@@ -289,9 +276,7 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
                     exp_date = e.get("expense_date")
                     if exp_date:
                         if isinstance(exp_date, str):
-                            exp_date = datetime.fromisoformat(
-                                exp_date.replace("Z", "+00:00")
-                            )
+                            exp_date = datetime.fromisoformat(exp_date.replace("Z", "+00:00"))
                         if start_date and exp_date < start_date:
                             continue
                         if end_date and exp_date > end_date:
@@ -392,9 +377,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                     )
                     """
                 )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_expense_status ON expenses(status)"
-                )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_expense_status ON expenses(status)")
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_expense_employee ON expenses(employee_id)"
                 )
@@ -505,8 +488,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                     (limit, offset),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -530,8 +512,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                     (status, limit),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -555,8 +536,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                     (employee_id, limit),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -580,8 +560,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                     (category, limit),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -599,8 +578,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                     """
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -625,8 +603,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
                     (vendor_name, str(amount), f"-{date_tolerance_days} days"),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -1079,10 +1056,7 @@ class PostgresExpenseStore(ExpenseStoreBackend):
                 """,
                 *params,
             )
-            by_category = {
-                row[0] or "uncategorized": str(Decimal(str(row[1])))
-                for row in cat_rows
-            }
+            by_category = {row[0] or "uncategorized": str(Decimal(str(row[1]))) for row in cat_rows}
 
             # By status
             status_rows = await conn.fetch(

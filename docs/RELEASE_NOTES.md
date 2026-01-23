@@ -403,7 +403,7 @@ Benchmarks on 4-core, 8GB RAM instance:
 
 ## Migration
 
-See [MIGRATION_0.8_to_1.0.md](MIGRATION_0.8_to_1.0.md) for detailed upgrade instructions.
+See [deprecated/migrations/MIGRATION_0.8_to_1.0.md](deprecated/migrations/MIGRATION_0.8_to_1.0.md) for detailed upgrade instructions.
 
 **Quick checklist:**
 - [ ] Update API calls to use `/api/v2/` prefix

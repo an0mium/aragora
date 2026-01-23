@@ -5,7 +5,7 @@ Tests the bias mitigation features in realistic debate scenarios:
 - Position shuffling in vote collection
 - Self-vote detection in weight calculation
 - Verbosity normalization in consensus
-- Judge deliberation protocol
+- Judge robust decisionmaking protocol
 - Process evaluation bonuses
 """
 
@@ -244,11 +244,11 @@ class TestVerbosityIntegration:
 
 
 class TestJudgeDeliberationIntegration:
-    """Integration tests for judge deliberation protocol."""
+    """Integration tests for judge robust decisionmaking protocol."""
 
     @pytest.mark.asyncio
     async def test_judge_panel_deliberation(self):
-        """Test JudgePanel deliberation process."""
+        """Test JudgePanel robust decisionmaking process."""
         judges = [
             MockAgent(name="judge1"),
             MockAgent(name="judge2"),

@@ -338,7 +338,7 @@ class OrchestrationHandler(BaseHandler):
     Unified orchestration handler for the Aragora control plane.
 
     This handler provides the primary API for the "Control plane for
-    multi-agent deliberation across org knowledge and channels" positioning.
+    multi-agent robust decisionmaking across org knowledge and channels" positioning.
     """
 
     def can_handle(self, path: str) -> bool:

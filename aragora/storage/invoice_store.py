@@ -224,9 +224,7 @@ class InMemoryInvoiceStore(InvoiceStoreBackend):
     ) -> list[dict[str, Any]]:
         with self._lock:
             items = [i for i in self._data.values() if i.get("status") == status]
-            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[
-                :limit
-            ]
+            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
     async def list_by_vendor(
         self,
@@ -235,17 +233,14 @@ class InMemoryInvoiceStore(InvoiceStoreBackend):
     ) -> list[dict[str, Any]]:
         with self._lock:
             items = [i for i in self._data.values() if i.get("vendor_id") == vendor_id]
-            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[
-                :limit
-            ]
+            return sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
 
     async def list_pending_approval(self) -> list[dict[str, Any]]:
         with self._lock:
             return [
                 i
                 for i in self._data.values()
-                if i.get("status") == "pending_approval"
-                or i.get("requires_approval", False)
+                if i.get("status") == "pending_approval" or i.get("requires_approval", False)
             ]
 
     async def list_scheduled_payments(
@@ -402,21 +397,15 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     )
                     """
                 )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_invoice_status ON invoices(status)"
-                )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_invoice_status ON invoices(status)")
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_invoice_vendor ON invoices(vendor_id)"
                 )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_invoice_po ON invoices(po_number)"
-                )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_invoice_po ON invoices(po_number)")
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_invoice_number ON invoices(invoice_number)"
                 )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_invoice_due ON invoices(due_date)"
-                )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_invoice_due ON invoices(due_date)")
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_invoice_payment ON invoices(scheduled_payment_date)"
                 )
@@ -516,8 +505,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     (limit, offset),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -541,8 +529,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     (status, limit),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -566,8 +553,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     (vendor_id, limit),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -585,8 +571,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     """
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -620,8 +605,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     params,
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -645,8 +629,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     (vendor_id, invoice_number, str(total_amount)),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()
@@ -661,8 +644,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     (po_number,),
                 )
                 return [
-                    json.loads(row[0], object_hook=decimal_decoder)
-                    for row in cursor.fetchall()
+                    json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
             finally:
                 conn.close()

@@ -99,4 +99,4 @@ Content-Type: application/json
 - Review runs are asynchronous; poll `/api/v1/github/pr/review/{review_id}` for
   completion.
 - The current implementation performs a lightweight heuristic review. Wire this
-  into multi-agent deliberation for deeper analysis.
+  into multi-agent robust decisionmaking for deeper analysis.

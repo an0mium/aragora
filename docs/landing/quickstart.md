@@ -2,7 +2,7 @@
 
 Get up and running with Aragora in 5 minutes.
 
-Aragora is the control plane for multi-agent deliberation across organizational
+Aragora is the control plane for multi-agent robust decisionmaking across organizational
 knowledge and channels. Gauntlet is the fastest path to a decision stress-test,
 and the decision router is the fastest path to a deliberation.
 

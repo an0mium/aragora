@@ -1,0 +1,20 @@
+{
+  "id": "guides/gauntlet-architecture",
+  "title": "Gauntlet Architecture",
+  "description": "Gauntlet Architecture",
+  "source": "@site/docs/guides/gauntlet-architecture.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/gauntlet-architecture",
+  "permalink": "/docs/guides/gauntlet-architecture",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/gauntlet-architecture.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Gauntlet Architecture",
+    "description": "Gauntlet Architecture"
+  }
+}

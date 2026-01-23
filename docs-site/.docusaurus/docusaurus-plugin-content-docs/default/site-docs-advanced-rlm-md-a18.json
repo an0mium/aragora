@@ -1,0 +1,20 @@
+{
+  "id": "advanced/rlm",
+  "title": "RLM (Recursive Language Model) Patterns in Aragora",
+  "description": "RLM (Recursive Language Model) Patterns in Aragora",
+  "source": "@site/docs/advanced/rlm.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/rlm",
+  "permalink": "/docs/advanced/rlm",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/rlm.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "RLM (Recursive Language Model) Patterns in Aragora",
+    "description": "RLM (Recursive Language Model) Patterns in Aragora"
+  }
+}

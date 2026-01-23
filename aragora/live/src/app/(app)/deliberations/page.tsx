@@ -202,7 +202,7 @@ export default function DeliberationsPage() {
                   Deliberation Dashboard
                 </h1>
                 <p className="text-text-muted font-mono text-sm">
-                  Real-time view of multi-agent deliberations across your organization
+                  Real-time view of multi-agent robust decisionmaking sessions across your organization
                 </p>
               </div>
               <div className="flex items-center gap-2">

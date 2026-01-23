@@ -666,7 +666,7 @@ print(f"Healthy agents: {stats['health']['healthy_count']}")
 
 ## Architecture Decisions
 
-See [ADR-002: Control Plane Architecture](./ADR/009-control-plane-architecture.md) for detailed architectural decisions.
+See [ADR-002: Control Plane Architecture](../analysis/adr/009-control-plane-architecture) for detailed architectural decisions.
 
 ## Related Documentation
 

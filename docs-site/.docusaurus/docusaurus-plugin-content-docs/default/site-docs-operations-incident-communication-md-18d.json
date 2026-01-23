@@ -1,0 +1,20 @@
+{
+  "id": "operations/incident-communication",
+  "title": "Incident Communication Procedures",
+  "description": "Incident Communication Procedures",
+  "source": "@site/docs/operations/incident-communication.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/incident-communication",
+  "permalink": "/docs/operations/incident-communication",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/incident-communication.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Incident Communication Procedures",
+    "description": "Incident Communication Procedures"
+  }
+}

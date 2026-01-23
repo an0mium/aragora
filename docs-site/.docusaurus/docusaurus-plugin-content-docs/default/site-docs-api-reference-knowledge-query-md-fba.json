@@ -1,7 +1,7 @@
 {
   "id": "api-reference/knowledge/query",
-  "title": "query",
-  "description": "",
+  "title": "Query Knowledge",
+  "description": "Query Knowledge Mound",
   "source": "@site/docs/api-reference/knowledge/query.md",
   "sourceDirName": "api-reference/knowledge",
   "slug": "/api-reference/knowledge/query",
@@ -12,15 +12,20 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
-  "frontMatter": {},
+  "lastUpdatedAt": 1769130078000,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "Query Knowledge",
+    "description": "Query Knowledge Mound",
+    "sidebar_position": 2
+  },
   "sidebar": "apiSidebar",
   "previous": {
     "title": "Knowledge API",
     "permalink": "/docs/api-reference/knowledge/overview"
   },
   "next": {
-    "title": "store",
+    "title": "Store Knowledge",
     "permalink": "/docs/api-reference/knowledge/store"
   }
 }

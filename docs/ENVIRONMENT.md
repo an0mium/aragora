@@ -778,6 +778,23 @@ ARAGORA_WHISPER_MODEL=medium
 ARAGORA_WHISPER_BACKEND=whisper-cpp
 ```
 
+## Accounting & Payroll Integrations
+
+Configuration for accounting and payroll connectors (enable only if used).
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `QBO_CLIENT_ID` | Optional | QuickBooks OAuth client ID | - |
+| `QBO_CLIENT_SECRET` | Optional | QuickBooks OAuth client secret | - |
+| `QBO_REDIRECT_URI` | Optional | QuickBooks OAuth callback URL | - |
+| `QBO_ENVIRONMENT` | Optional | QuickBooks environment (`sandbox`, `production`) | `sandbox` |
+| `PLAID_CLIENT_ID` | Optional | Plaid client ID | - |
+| `PLAID_SECRET` | Optional | Plaid secret key | - |
+| `PLAID_ENVIRONMENT` | Optional | Plaid environment (`sandbox`, `development`, `production`) | `sandbox` |
+| `GUSTO_CLIENT_ID` | Optional | Gusto OAuth client ID | - |
+| `GUSTO_CLIENT_SECRET` | Optional | Gusto OAuth client secret | - |
+| `GUSTO_REDIRECT_URI` | Optional | Gusto OAuth callback URL | - |
+
 ## Bot Integrations
 
 Configuration for chat platform bots (Discord, Teams, Zoom, Slack).

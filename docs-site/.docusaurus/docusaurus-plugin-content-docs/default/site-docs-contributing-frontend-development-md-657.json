@@ -1,0 +1,20 @@
+{
+  "id": "contributing/frontend-development",
+  "title": "Frontend Development Guide",
+  "description": "Frontend Development Guide",
+  "source": "@site/docs/contributing/frontend-development.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/frontend-development",
+  "permalink": "/docs/contributing/frontend-development",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/frontend-development.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Frontend Development Guide",
+    "description": "Frontend Development Guide"
+  }
+}

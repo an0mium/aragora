@@ -1,0 +1,20 @@
+{
+  "id": "deployment/production-deployment",
+  "title": "Aragora Production Deployment Guide",
+  "description": "Aragora Production Deployment Guide",
+  "source": "@site/docs/deployment/production-deployment.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/production-deployment",
+  "permalink": "/docs/deployment/production-deployment",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/production-deployment.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Production Deployment Guide",
+    "description": "Aragora Production Deployment Guide"
+  }
+}

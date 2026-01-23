@@ -1,0 +1,20 @@
+{
+  "id": "api/webhooks",
+  "title": "Webhook API Documentation",
+  "description": "Webhook API Documentation",
+  "source": "@site/docs/api/webhooks.md",
+  "sourceDirName": "api",
+  "slug": "/api/webhooks",
+  "permalink": "/docs/api/webhooks",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/webhooks.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Webhook API Documentation",
+    "description": "Webhook API Documentation"
+  }
+}

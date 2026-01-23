@@ -1,0 +1,20 @@
+{
+  "id": "contributing/handler-development",
+  "title": "Handler Development Guide",
+  "description": "Handler Development Guide",
+  "source": "@site/docs/contributing/handler-development.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/handler-development",
+  "permalink": "/docs/contributing/handler-development",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/handler-development.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Handler Development Guide",
+    "description": "Handler Development Guide"
+  }
+}

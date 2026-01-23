@@ -1,7 +1,7 @@
 {
   "id": "api-reference/debates/list",
-  "title": "list",
-  "description": "",
+  "title": "List Debates",
+  "description": "List debate sessions",
   "source": "@site/docs/api-reference/debates/list.md",
   "sourceDirName": "api-reference/debates",
   "slug": "/api-reference/debates/list",
@@ -12,15 +12,20 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
-  "frontMatter": {},
+  "lastUpdatedAt": 1769130078000,
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "title": "List Debates",
+    "description": "List debate sessions",
+    "sidebar_position": 4
+  },
   "sidebar": "apiSidebar",
   "previous": {
-    "title": "get",
+    "title": "Get Debate",
     "permalink": "/docs/api-reference/debates/get"
   },
   "next": {
-    "title": "consensus",
+    "title": "Debate Consensus",
     "permalink": "/docs/api-reference/debates/consensus"
   }
 }

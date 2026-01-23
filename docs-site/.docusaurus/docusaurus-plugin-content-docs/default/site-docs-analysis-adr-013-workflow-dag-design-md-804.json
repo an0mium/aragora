@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/workflow-dag-design",
+  "title": "ADR-013: Workflow DAG Design",
+  "description": "ADR-013: Workflow DAG Design",
+  "source": "@site/docs/analysis/adr/013-workflow-dag-design.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/013-workflow-dag-design",
+  "permalink": "/docs/analysis/adr/013-workflow-dag-design",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/013-workflow-dag-design.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 13,
+  "frontMatter": {
+    "slug": "013-workflow-dag-design",
+    "title": "ADR-013: Workflow DAG Design",
+    "description": "ADR-013: Workflow DAG Design"
+  }
+}

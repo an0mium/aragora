@@ -2,7 +2,7 @@
 """
 Aragora CLI - Control Plane for Multi-Agent Deliberation
 
-Orchestrate multi-agent deliberation across your organization's knowledge and channels.
+Orchestrate multi-agent robust decisionmaking across your organization's knowledge and channels.
 
 Usage:
     aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3
@@ -1435,7 +1435,7 @@ def get_version() -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Aragora - Control plane for multi-agent deliberation across org knowledge and channels",
+        description="Aragora - Control plane for multi-agent robust decisionmaking across org knowledge and channels",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -1923,7 +1923,7 @@ Configure in claude_desktop_config.json:
         "control-plane",
         help="Control plane status and management",
         description="""
-Aragora Control Plane - orchestrate multi-agent deliberation.
+Aragora Control Plane - orchestrate multi-agent robust decisionmaking.
 
 Show control plane status, list registered agents, and view connected channels.
 

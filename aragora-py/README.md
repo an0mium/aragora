@@ -1,6 +1,6 @@
 # aragora-client
 
-Python SDK for the Aragora control plane for multi-agent deliberation across organizational knowledge and channels.
+Python SDK for the Aragora control plane for multi-agent robust decisionmaking across organizational knowledge and channels.
 
 ## Installation
 

@@ -4,6 +4,9 @@ Welcome to Aragora's documentation. The `docs/` directory is the canonical
 source. The published site in `docs-site/` is synced from these files via
 `docs-site/scripts/sync-docs.js`.
 
+Aragora is the **control plane for multi-agent robust decisionmaking across
+organizational knowledge and channels**.
+
 ## Quick Start
 
 | Document | Description |
@@ -23,6 +26,8 @@ source. The published site in `docs-site/` is synced from these files via
 | [RESILIENCE](./RESILIENCE.md) | Circuit breaker and fault tolerance |
 | [CONTROL_PLANE](./CONTROL_PLANE.md) | Control plane architecture |
 | [CONTROL_PLANE_GUIDE](./CONTROL_PLANE_GUIDE.md) | Control plane operations guide |
+| [MEMORY](./MEMORY.md) | Memory systems overview |
+| [DOCUMENTS](./DOCUMENTS.md) | Document ingestion and parsing |
 
 ## Using Aragora
 
@@ -41,7 +46,7 @@ source. The published site in `docs-site/` is synced from these files via
 | Document | Description |
 |----------|-------------|
 | [AGENT_SELECTION](./AGENT_SELECTION.md) | Agent selection algorithms |
-| [AGENTS](../AGENTS.md) | Agent type catalog and defaults |
+| [AGENTS](./AGENTS.md) | Agent type catalog and defaults |
 | [AGENT_DEVELOPMENT](./AGENT_DEVELOPMENT.md) | Creating custom agents |
 | [CUSTOM_AGENTS](./CUSTOM_AGENTS.md) | Custom agent configuration |
 | [MEMORY_STRATEGY](./MEMORY_STRATEGY.md) | Memory tier architecture |
@@ -89,6 +94,7 @@ source. The published site in `docs-site/` is synced from these files via
 | [SECURITY_DEPLOYMENT](./SECURITY_DEPLOYMENT.md) | Secure deployment practices |
 | [SECRETS_MANAGEMENT](./SECRETS_MANAGEMENT.md) | Managing API keys and secrets |
 | [SSO_SETUP](./SSO_SETUP.md) | SSO configuration |
+| [COMPLIANCE_PRESETS](./COMPLIANCE_PRESETS.md) | Built-in audit presets |
 
 ## Configuration
 

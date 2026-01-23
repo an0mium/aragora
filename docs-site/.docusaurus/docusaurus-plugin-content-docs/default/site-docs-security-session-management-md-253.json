@@ -1,0 +1,20 @@
+{
+  "id": "security/session-management",
+  "title": "Session Management",
+  "description": "Session Management",
+  "source": "@site/docs/security/session-management.md",
+  "sourceDirName": "security",
+  "slug": "/security/session-management",
+  "permalink": "/docs/security/session-management",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/session-management.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Session Management",
+    "description": "Session Management"
+  }
+}

@@ -3,14 +3,14 @@
 > **Last Updated:** 2026-01-18
 
 
-**Aragora** is the control plane for multi-agent deliberation across organizational knowledge and channels. It orchestrates diverse AI models to debate your data and deliver defensible decisions wherever your team works. This is the canonical onboarding guide.
+**Aragora** is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. It orchestrates diverse AI models to debate your data and deliver defensible decisions wherever your team works. This is the canonical onboarding guide.
 
 **Choose your path:**
 - [Quick Start](#quick-start) - Get running in 5 minutes
 - [CLI User Guide](#cli-user-guide) - Run debates from the terminal
 - [API Integrator Guide](#api-integrator-guide) - Build on Aragora's API
 - [Live Dashboard Dev](./FRONTEND_DEVELOPMENT.md) - Build the Next.js UI
-- [TypeScript SDK](../aragora-js/README.md) - Use the JS client library
+- [TypeScript SDK](SDK_TYPESCRIPT.md) - Use the JS client library
 - [Gauntlet Guide](#gauntlet-guide) - Stress-test documents and policies
 - [Troubleshooting](#troubleshooting) - Fix common issues
 
@@ -120,7 +120,7 @@ use `--agents anthropic-api,openai-api` or another API-backed set.
 | `kimi` | Moonshot (Kimi) | `KIMI_API_KEY` |
 | `ollama` | Local models | None (local) |
 
-Note: OpenRouter agents require `OPENROUTER_API_KEY`. Full catalog is in [AGENTS.md](../AGENTS.md).
+Note: OpenRouter agents require `OPENROUTER_API_KEY`. Full catalog is in [AGENTS.md](AGENTS.md).
 
 ### Common Options
 
@@ -461,7 +461,7 @@ pip install -e .
 - **Deep Dive**: [Architecture Guide](./ARCHITECTURE.md)
 - **All Options**: [Environment Variables](./ENVIRONMENT.md)
 - **Full API**: [API Reference](./API_REFERENCE.md)
-- **Gauntlet Details**: [Gauntlet Guide](./GAUNTLET_GUIDE.md)
+- **Gauntlet Details**: [Gauntlet Guide](./GAUNTLET.md)
 - **Self-Improvement**: [Nomic Loop](./NOMIC_LOOP.md)
 - **Custom Agents**: [Custom Agents Guide](./CUSTOM_AGENTS.md)
 

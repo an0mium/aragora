@@ -1,0 +1,20 @@
+{
+  "id": "guides/shared-inbox",
+  "title": "Shared Inbox & Routing Rules",
+  "description": "Shared Inbox & Routing Rules",
+  "source": "@site/docs/guides/shared-inbox.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/shared-inbox",
+  "permalink": "/docs/guides/shared-inbox",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/shared-inbox.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769136900000,
+  "frontMatter": {
+    "title": "Shared Inbox & Routing Rules",
+    "description": "Shared Inbox & Routing Rules"
+  }
+}

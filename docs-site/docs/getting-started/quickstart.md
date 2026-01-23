@@ -161,7 +161,7 @@ python scripts/verify_system_health.py
 | [API_REFERENCE.md](../api/reference) | REST API documentation |
 | [POSTGRESQL_MIGRATION.md](../deployment/postgresql-migration) | PostgreSQL setup guide |
 | [AGENT_DEVELOPMENT.md](../core-concepts/agent-development) | Creating custom agents |
-| [RLM_GUIDE.md](./RLM_GUIDE.md) | Recursive Language Model usage |
+| [RLM_GUIDE.md](../advanced/rlm) | Recursive Language Model usage |
 | [MEMORY_TIERS.md](../core-concepts/memory) | Memory system design |
 
 ## Metrics
@@ -176,6 +176,6 @@ Metrics are organized by domain in `aragora/observability/metrics/`:
 
 ## Getting Help
 
-- Check [CLAUDE.md](../CLAUDE.md) for AI assistant context
+- Check `CLAUDE.md` in the repo root for AI assistant context
 - See [docs/STATUS.md](../contributing/status) for feature implementation status
-- Review [docs/ADR/](./ADR/) for architectural decisions
+- Review [docs/ADR/README.md](../analysis/adr) for architectural decisions

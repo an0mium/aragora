@@ -470,10 +470,10 @@ Post-migration monitoring for 48 hours:
 
 ### Related Documentation
 
-- [DATABASE_SETUP.md](DATABASE_SETUP.md) - Initial database setup
-- [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) - Recovery procedures
-- [SCALING.md](SCALING.md) - Scaling guidelines
-- [REDIS_HA.md](REDIS_HA.md) - Redis high availability
+- [DATABASE_SETUP.md](../DATABASE_SETUP.md) - Initial database setup
+- [DISASTER_RECOVERY.md](../DISASTER_RECOVERY.md) - Recovery procedures
+- [SCALING.md](../SCALING.md) - Scaling guidelines
+- [REDIS_HA.md](../REDIS_HA.md) - Redis high availability
 
 ---
 

@@ -195,7 +195,7 @@ curl -H "Authorization: Bearer $OPENROUTER_API_KEY" \
 
 ### Database Unavailable (SEV1)
 
-See [Database Issues Runbook](RUNBOOK_DATABASE_ISSUES.md)
+See [Database Issues Runbook](../operations/runbook-database)
 
 ### Authentication Broken (SEV2)
 
@@ -273,6 +273,6 @@ git checkout <commit>
 
 ## Related Runbooks
 
-- [Deployment](RUNBOOK_DEPLOYMENT.md)
-- [Database Issues](RUNBOOK_DATABASE_ISSUES.md)
-- [Provider Failure](RUNBOOK_PROVIDER_FAILURE.md)
+- [Deployment](../operations/runbook-deployment)
+- [Database Issues](../operations/runbook-database)
+- [Provider Failure](../operations/runbook-provider)

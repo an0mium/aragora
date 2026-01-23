@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/marketplace-architecture",
+  "title": "ADR 016: Agent Template Marketplace Architecture",
+  "description": "ADR 016: Agent Template Marketplace Architecture",
+  "source": "@site/docs/analysis/adr/016-marketplace-architecture.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/016-marketplace-architecture",
+  "permalink": "/docs/analysis/adr/016-marketplace-architecture",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/016-marketplace-architecture.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 16,
+  "frontMatter": {
+    "slug": "016-marketplace-architecture",
+    "title": "ADR 016: Agent Template Marketplace Architecture",
+    "description": "ADR 016: Agent Template Marketplace Architecture"
+  }
+}

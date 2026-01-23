@@ -745,5 +745,5 @@ result = await github.sync()  # Will do full sync
 ## Related Documentation
 
 - [Control Plane Guide](../enterprise/control-plane)
-- [Knowledge Mound Architecture](./ADR/014-knowledge-mound-architecture.md)
+- [Knowledge Mound Architecture](../analysis/adr/014-knowledge-mound-architecture)
 - [API Reference](../api/reference)

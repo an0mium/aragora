@@ -3,7 +3,7 @@
 > **Last Updated:** 2026-01-21
 
 
-This document describes the high-level architecture of Aragora, the control plane for multi-agent deliberation across organizational knowledge and channels. The multi-agent debate system is the engine that powers adversarial validation and decision assurance.
+This document describes the high-level architecture of Aragora, the control plane for multi-agent robust decisionmaking across organizational knowledge and channels. The multi-agent debate system is the engine that powers adversarial validation and decision assurance.
 
 ## System Overview
 
@@ -567,7 +567,7 @@ Each phase is implemented as a separate class with an `async execute(ctx)` metho
 
 ## Architecture Decision Records
 
-Key architectural decisions are documented in the [ADR directory](./ADR/):
+Key architectural decisions are documented in the [ADR directory](./ADR/README.md):
 
 | ADR | Decision |
 |-----|----------|

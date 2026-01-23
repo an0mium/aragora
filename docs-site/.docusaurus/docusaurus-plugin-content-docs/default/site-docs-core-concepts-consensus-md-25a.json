@@ -12,14 +12,14 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769115225000,
   "frontMatter": {
     "title": "Consensus Mechanism",
     "description": "Consensus Mechanism"
   },
   "sidebar": "gettingStartedSidebar",
   "previous": {
-    "title": "Custom Agent Development Guide",
+    "title": "Agent Catalog (Overview)",
     "permalink": "/docs/core-concepts/agents"
   },
   "next": {

@@ -117,11 +117,11 @@ export function ReportBuilder({
         sections: [
           {
             title: 'Executive Summary',
-            content: `This report documents the deliberation process and outcome for debate ${debateId.slice(0, 8)}...\n\n**Task:** ${debateTask || 'Debate task'}\n\n**Outcome:** Consensus REACHED\n**Confidence Level:** 85%\n**Rounds Completed:** 5`,
+            content: `This report documents the robust decisionmaking process and outcome for debate ${debateId.slice(0, 8)}...\n\n**Task:** ${debateTask || 'Debate task'}\n\n**Outcome:** Consensus REACHED\n**Confidence Level:** 85%\n**Rounds Completed:** 5`,
           },
           {
             title: 'Decision Overview',
-            content: '**Winning Position:** Multi-agent consensus\n\n**Final Decision:** The agents reached agreement through structured deliberation following established protocols.',
+            content: '**Winning Position:** Multi-agent consensus\n\n**Final Decision:** The agents reached agreement through structured robust decisionmaking following established protocols.',
           },
           {
             title: 'Participants',

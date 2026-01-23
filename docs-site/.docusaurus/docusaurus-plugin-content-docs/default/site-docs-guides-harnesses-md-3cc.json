@@ -1,0 +1,20 @@
+{
+  "id": "guides/harnesses",
+  "title": "Harnesses Integration Guide",
+  "description": "Harnesses Integration Guide",
+  "source": "@site/docs/guides/harnesses.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/harnesses",
+  "permalink": "/docs/guides/harnesses",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/harnesses.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Harnesses Integration Guide",
+    "description": "Harnesses Integration Guide"
+  }
+}

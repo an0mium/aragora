@@ -1,7 +1,7 @@
 {
   "id": "api-reference/agents/list",
-  "title": "list",
-  "description": "",
+  "title": "List Agents",
+  "description": "List available agents",
   "source": "@site/docs/api-reference/agents/list.md",
   "sourceDirName": "api-reference/agents",
   "slug": "/api-reference/agents/list",
@@ -12,15 +12,20 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
-  "frontMatter": {},
+  "lastUpdatedAt": 1769130078000,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "List Agents",
+    "description": "List available agents",
+    "sidebar_position": 2
+  },
   "sidebar": "apiSidebar",
   "previous": {
     "title": "Agents API",
     "permalink": "/docs/api-reference/agents/overview"
   },
   "next": {
-    "title": "stats",
+    "title": "Agent Stats",
     "permalink": "/docs/api-reference/agents/stats"
   }
 }

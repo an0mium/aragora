@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/composition-over-inheritance",
+  "title": "ADR-005: Composition Over Inheritance for APIs",
+  "description": "ADR-005: Composition Over Inheritance for APIs",
+  "source": "@site/docs/analysis/adr/005-composition-over-inheritance.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/005-composition-over-inheritance",
+  "permalink": "/docs/analysis/adr/005-composition-over-inheritance",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/005-composition-over-inheritance.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 5,
+  "frontMatter": {
+    "slug": "005-composition-over-inheritance",
+    "title": "ADR-005: Composition Over Inheritance for APIs",
+    "description": "ADR-005: Composition Over Inheritance for APIs"
+  }
+}

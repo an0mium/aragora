@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/incremental-type-safety",
+  "title": "ADR-004: Incremental Type Safety Migration",
+  "description": "ADR-004: Incremental Type Safety Migration",
+  "source": "@site/docs/analysis/adr/004-incremental-type-safety.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/004-incremental-type-safety",
+  "permalink": "/docs/analysis/adr/004-incremental-type-safety",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/004-incremental-type-safety.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "slug": "004-incremental-type-safety",
+    "title": "ADR-004: Incremental Type Safety Migration",
+    "description": "ADR-004: Incremental Type Safety Migration"
+  }
+}

@@ -153,6 +153,9 @@ class Arena:
         enable_position_ledger: bool = False,  # Auto-create PositionLedger if True
         elo_system=None,  # Optional EloSystem for relationship tracking
         persona_manager=None,  # Optional PersonaManager for agent specialization
+        vertical=None,  # Industry vertical: "software", "legal", "healthcare", etc.
+        vertical_persona_manager=None,  # Optional VerticalPersonaManager for industry-specific personas
+        auto_detect_vertical: bool = True,  # Auto-detect vertical from task description
         dissent_retriever=None,  # Optional DissentRetriever for historical minority views
         consensus_memory=None,  # Optional ConsensusMemory for historical outcomes
         flip_detector=None,  # Optional FlipDetector for position reversal detection
@@ -351,6 +354,10 @@ class Arena:
             enable_knowledge_retrieval=enable_knowledge_retrieval,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
             enable_belief_guidance=enable_belief_guidance,
+            vertical=vertical,
+            vertical_persona_manager=vertical_persona_manager,
+            auto_detect_vertical=auto_detect_vertical,
+            task=environment.task,
         )
 
         # Unpack tracker components to instance attributes
@@ -540,6 +547,8 @@ class Arena:
         self.enable_knowledge_ingestion = trackers.enable_knowledge_ingestion
         self.enable_belief_guidance = trackers.enable_belief_guidance
         self._trackers = trackers.coordinator
+        self.vertical = trackers.vertical
+        self.vertical_persona_manager = trackers.vertical_persona_manager
 
     def _broadcast_health_event(self, event: dict) -> None:
         """Broadcast health events. Delegates to EventEmitter."""
@@ -836,6 +845,8 @@ class Arena:
             audience_manager=self.audience_manager,
             spectator=self.spectator,
             notify_callback=self._notify_spectator,
+            vertical=getattr(self, "vertical", None),
+            vertical_persona_manager=getattr(self, "vertical_persona_manager", None),
         )
 
     def _init_context_delegator(self) -> None:

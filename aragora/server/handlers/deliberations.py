@@ -40,7 +40,7 @@ class DeliberationsHandler(BaseHandler):
     """
     Handler for deliberation dashboard endpoints.
 
-    Provides visibility into multi-agent deliberations across the system.
+    Provides visibility into multi-agent robust decisionmaking sessions across the system.
     """
 
     ROUTES = [

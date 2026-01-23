@@ -74,6 +74,11 @@ from .cloud_storage import (
 from .gmail_ingest import GmailIngestHandler
 from .gmail_query import GmailQueryHandler
 from .routing_rules import RoutingRulesHandler, routing_rules_handler
+from .advertising import AdvertisingHandler
+from .analytics_platforms import AnalyticsPlatformsHandler
+from .crm import CRMHandler
+from .support import SupportHandler
+from .ecommerce import EcommerceHandler
 
 __all__ = [
     "AudioHandler",
@@ -144,4 +149,10 @@ __all__ = [
     "GmailQueryHandler",
     "RoutingRulesHandler",
     "routing_rules_handler",
+    # Connector API handlers
+    "AdvertisingHandler",
+    "AnalyticsPlatformsHandler",
+    "CRMHandler",
+    "SupportHandler",
+    "EcommerceHandler",
 ]

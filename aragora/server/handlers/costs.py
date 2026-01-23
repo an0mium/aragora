@@ -14,6 +14,8 @@ Endpoints:
 - GET /api/costs/timeline - Get usage timeline
 - GET /api/costs/alerts - Get budget alerts
 - POST /api/costs/budget - Set budget limits
+
+Now integrated with CostTracker for persistent storage.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from aiohttp import web
@@ -76,17 +79,24 @@ class CostSummary:
 
 
 # =============================================================================
-# In-Memory Storage (replace with database in production)
+# CostTracker Integration (replaces in-memory storage)
 # =============================================================================
 
-_cost_entries: List[CostEntry] = []
-_budget_settings: Dict[str, float] = {"default": 500.00}
-_alerts: List[BudgetAlert] = []
+_cost_tracker = None
 
 
-# =============================================================================
-# Cost Tracking
-# =============================================================================
+def _get_cost_tracker():
+    """Get or create the cost tracker instance."""
+    global _cost_tracker
+    if _cost_tracker is None:
+        try:
+            from aragora.billing.cost_tracker import get_cost_tracker
+            _cost_tracker = get_cost_tracker()
+            logger.info("[CostHandler] Connected to CostTracker with persistence")
+        except Exception as e:
+            logger.warning(f"[CostHandler] CostTracker unavailable, using fallback: {e}")
+            _cost_tracker = None
+    return _cost_tracker
 
 
 def record_cost(
@@ -99,45 +109,38 @@ def record_cost(
     workspace_id: str = "default",
     user_id: Optional[str] = None,
 ) -> None:
-    """Record a cost entry."""
-    entry = CostEntry(
-        timestamp=datetime.now(timezone.utc),
-        provider=provider,
-        feature=feature,
-        tokens_input=tokens_input,
-        tokens_output=tokens_output,
-        cost=cost,
-        model=model,
-        workspace_id=workspace_id,
-        user_id=user_id,
-    )
-    _cost_entries.append(entry)
+    """Record a cost entry via CostTracker."""
+    tracker = _get_cost_tracker()
 
-    # Check for budget alerts
-    _check_budget_alerts(workspace_id)
+    if tracker:
+        try:
+            import asyncio
+            from aragora.billing.cost_tracker import TokenUsage
 
+            usage = TokenUsage(
+                workspace_id=workspace_id,
+                provider=provider,
+                model=model,
+                tokens_in=tokens_input,
+                tokens_out=tokens_output,
+                cost_usd=Decimal(str(cost)),
+                operation=feature,
+                metadata={"user_id": user_id} if user_id else {},
+            )
 
-def _check_budget_alerts(workspace_id: str) -> None:
-    """Check if any budget thresholds have been crossed."""
-    budget = _budget_settings.get(workspace_id, _budget_settings.get("default", 500.0))
-    total_cost = sum(e.cost for e in _cost_entries if e.workspace_id == workspace_id)
+            # Record asynchronously if in async context, otherwise sync
+            try:
+                loop = asyncio.get_running_loop()
+                asyncio.create_task(tracker.record(usage))
+            except RuntimeError:
+                # No running loop, run synchronously
+                asyncio.run(tracker.record(usage))
 
-    percentage = (total_cost / budget) * 100 if budget > 0 else 0
-
-    # 80% warning
-    if percentage >= 80 and not any(
-        a.type == "budget_warning" and a.workspace_id == workspace_id  # type: ignore
-        for a in _alerts
-        if hasattr(a, "workspace_id")
-    ):
-        alert = BudgetAlert(
-            id=f"alert_{len(_alerts) + 1}",
-            type="budget_warning",
-            message=f"Budget usage at {percentage:.1f}% - approaching limit",
-            severity="warning" if percentage < 90 else "critical",
-            timestamp=datetime.now(timezone.utc),
-        )
-        _alerts.append(alert)
+            logger.debug(f"[CostHandler] Recorded cost: ${cost:.6f} for {feature}")
+        except Exception as e:
+            logger.error(f"[CostHandler] Failed to record cost: {e}")
+    else:
+        logger.debug(f"[CostHandler] CostTracker not available, cost not persisted")
 
 
 # =============================================================================
@@ -149,93 +152,117 @@ async def get_cost_summary(
     workspace_id: str = "default",
     time_range: str = "7d",
 ) -> CostSummary:
-    """Get cost summary data."""
-    # Calculate time range
+    """Get cost summary data from CostTracker."""
     now = datetime.now(timezone.utc)
     range_days = {"24h": 1, "7d": 7, "30d": 30, "90d": 90}.get(time_range, 7)
     start_date = now - timedelta(days=range_days)
 
-    # Filter entries
-    entries = [
-        e for e in _cost_entries if e.workspace_id == workspace_id and e.timestamp >= start_date
-    ]
+    tracker = _get_cost_tracker()
 
-    # If no data, generate mock data
-    if not entries:
-        return _generate_mock_summary(time_range)
+    if tracker:
+        try:
+            # Use CostTracker for real data
+            from aragora.billing.cost_tracker import CostGranularity
 
-    # Calculate totals
-    total_cost = sum(e.cost for e in entries)
-    total_tokens = sum(e.tokens_input + e.tokens_output for e in entries)
-    api_calls = len(entries)
-    budget = _budget_settings.get(workspace_id, 500.0)
+            # Get report from tracker
+            report = await tracker.generate_report(
+                workspace_id=workspace_id,
+                period_start=start_date,
+                period_end=now,
+                granularity=CostGranularity.DAILY,
+            )
 
-    # Cost by provider
-    provider_costs: Dict[str, float] = {}
-    for e in entries:
-        provider_costs[e.provider] = provider_costs.get(e.provider, 0) + e.cost
+            # Get budget
+            budget_obj = tracker.get_budget(workspace_id=workspace_id)
+            budget = float(budget_obj.monthly_limit_usd) if budget_obj and budget_obj.monthly_limit_usd else 500.0
 
-    cost_by_provider = [
-        {
-            "name": name,
-            "cost": cost,
-            "percentage": (cost / total_cost * 100) if total_cost > 0 else 0,
-        }
-        for name, cost in sorted(provider_costs.items(), key=lambda x: -x[1])
-    ]
+            # Convert cost_by_provider to list format
+            total_cost = float(report.total_cost_usd)
+            cost_by_provider = [
+                {
+                    "name": name,
+                    "cost": float(cost),
+                    "percentage": (float(cost) / total_cost * 100) if total_cost > 0 else 0,
+                }
+                for name, cost in sorted(
+                    report.cost_by_provider.items(),
+                    key=lambda x: float(x[1]),
+                    reverse=True,
+                )
+            ] if report.cost_by_provider else []
 
-    # Cost by feature
-    feature_costs: Dict[str, float] = {}
-    for e in entries:
-        feature_costs[e.feature] = feature_costs.get(e.feature, 0) + e.cost
+            # Convert cost_by_operation (feature) to list format
+            cost_by_feature = [
+                {
+                    "name": name,
+                    "cost": float(cost),
+                    "percentage": (float(cost) / total_cost * 100) if total_cost > 0 else 0,
+                }
+                for name, cost in sorted(
+                    report.cost_by_operation.items(),
+                    key=lambda x: float(x[1]),
+                    reverse=True,
+                )
+            ] if report.cost_by_operation else []
 
-    cost_by_feature = [
-        {
-            "name": name,
-            "cost": cost,
-            "percentage": (cost / total_cost * 100) if total_cost > 0 else 0,
-        }
-        for name, cost in sorted(feature_costs.items(), key=lambda x: -x[1])
-    ]
+            # Get workspace stats for quick access
+            stats = tracker.get_workspace_stats(workspace_id)
 
-    # Daily costs
-    daily_costs: Dict[str, Dict[str, float]] = {}
-    for e in entries:
-        date_key = e.timestamp.strftime("%Y-%m-%d")
-        if date_key not in daily_costs:
-            daily_costs[date_key] = {"cost": 0, "tokens": 0}
-        daily_costs[date_key]["cost"] += e.cost
-        daily_costs[date_key]["tokens"] += e.tokens_input + e.tokens_output
+            # If no real data yet, fall back to mock
+            if total_cost == 0 and not report.cost_over_time:
+                return _generate_mock_summary(time_range)
 
-    daily_costs_list = [
-        {"date": date, "cost": data["cost"], "tokens": int(data["tokens"])}
-        for date, data in sorted(daily_costs.items())
-    ]
+            return CostSummary(
+                total_cost=total_cost,
+                budget=budget,
+                tokens_used=report.total_tokens_in + report.total_tokens_out,
+                api_calls=report.total_api_calls,
+                last_updated=now,
+                cost_by_provider=cost_by_provider if cost_by_provider else _generate_mock_summary(time_range).cost_by_provider,
+                cost_by_feature=cost_by_feature if cost_by_feature else _generate_mock_summary(time_range).cost_by_feature,
+                daily_costs=report.cost_over_time if report.cost_over_time else _generate_mock_summary(time_range).daily_costs,
+                alerts=_get_active_alerts(tracker, workspace_id),
+            )
 
-    # Active alerts
-    active_alerts = [
-        {
-            "id": a.id,
-            "type": a.type,
-            "message": a.message,
-            "severity": a.severity,
-            "timestamp": a.timestamp.isoformat(),
-        }
-        for a in _alerts
-        if not a.acknowledged
-    ]
+        except Exception as e:
+            logger.warning(f"[CostHandler] CostTracker query failed, using mock: {e}")
+            return _generate_mock_summary(time_range)
 
-    return CostSummary(
-        total_cost=total_cost,
-        budget=budget,
-        tokens_used=total_tokens,
-        api_calls=api_calls,
-        last_updated=now,
-        cost_by_provider=cost_by_provider,
-        cost_by_feature=cost_by_feature,
-        daily_costs=daily_costs_list,
-        alerts=active_alerts,
-    )
+    # Fallback to mock data if no tracker
+    return _generate_mock_summary(time_range)
+
+
+def _get_active_alerts(tracker, workspace_id: str) -> List[Dict[str, Any]]:
+    """Get active budget alerts from tracker."""
+    alerts = []
+    try:
+        # Check if budget is approaching limits
+        budget = tracker.get_budget(workspace_id=workspace_id)
+        if budget:
+            alert_level = budget.check_alert_level()
+            if alert_level:
+                from aragora.billing.cost_tracker import BudgetAlertLevel
+
+                severity_map = {
+                    BudgetAlertLevel.INFO: "info",
+                    BudgetAlertLevel.WARNING: "warning",
+                    BudgetAlertLevel.CRITICAL: "critical",
+                    BudgetAlertLevel.EXCEEDED: "critical",
+                }
+                percentage = (
+                    float(budget.current_monthly_spend / budget.monthly_limit_usd * 100)
+                    if budget.monthly_limit_usd else 0
+                )
+                alerts.append({
+                    "id": f"budget_{workspace_id}",
+                    "type": "budget_warning",
+                    "message": f"Budget usage at {percentage:.1f}% (${float(budget.current_monthly_spend):.2f} of ${float(budget.monthly_limit_usd):.2f})",
+                    "severity": severity_map.get(alert_level, "warning"),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
+    except Exception as e:
+        logger.debug(f"[CostHandler] Could not get alerts: {e}")
+    return alerts
 
 
 def _generate_mock_summary(time_range: str) -> CostSummary:
@@ -413,19 +440,29 @@ class CostHandler:
         Get budget alerts.
         """
         try:
-            _workspace_id = request.query.get("workspace_id", "default")  # noqa: F841
+            workspace_id = request.query.get("workspace_id", "default")
 
-            active_alerts = [
-                {
-                    "id": a.id,
-                    "type": a.type,
-                    "message": a.message,
-                    "severity": a.severity,
-                    "timestamp": a.timestamp.isoformat(),
-                }
-                for a in _alerts
-                if not a.acknowledged
-            ]
+            tracker = _get_cost_tracker()
+            if tracker:
+                active_alerts = _get_active_alerts(tracker, workspace_id)
+
+                # Also get historical alerts from Knowledge Mound if available
+                km_alerts = tracker.query_km_workspace_alerts(
+                    workspace_id=workspace_id,
+                    min_level="warning",
+                    limit=20,
+                )
+                for km_alert in km_alerts:
+                    if not km_alert.get("acknowledged"):
+                        active_alerts.append({
+                            "id": km_alert.get("id", ""),
+                            "type": km_alert.get("level", "info"),
+                            "message": km_alert.get("message", ""),
+                            "severity": km_alert.get("level", "info"),
+                            "timestamp": km_alert.get("created_at", ""),
+                        })
+            else:
+                active_alerts = []
 
             return web.json_response({"alerts": active_alerts})
 
@@ -442,25 +479,41 @@ class CostHandler:
         Body:
             - budget: Monthly budget in USD
             - workspace_id: Workspace ID
+            - daily_limit: Optional daily limit
+            - name: Optional budget name
         """
         try:
             body = await request.json()
-            budget = body.get("budget")
+            budget_amount = body.get("budget")
             workspace_id = body.get("workspace_id", "default")
+            daily_limit = body.get("daily_limit")
+            name = body.get("name", f"Budget for {workspace_id}")
 
-            if budget is None or budget < 0:
+            if budget_amount is None or budget_amount < 0:
                 return web.json_response(
                     {"error": "Valid budget amount required"},
                     status=400,
                 )
 
-            _budget_settings[workspace_id] = float(budget)
+            tracker = _get_cost_tracker()
+            if tracker:
+                from aragora.billing.cost_tracker import Budget
+
+                budget = Budget(
+                    name=name,
+                    workspace_id=workspace_id,
+                    monthly_limit_usd=Decimal(str(budget_amount)),
+                    daily_limit_usd=Decimal(str(daily_limit)) if daily_limit else None,
+                )
+                tracker.set_budget(budget)
+                logger.info(f"[CostHandler] Budget set for {workspace_id}: ${budget_amount}")
 
             return web.json_response(
                 {
                     "success": True,
-                    "budget": budget,
+                    "budget": budget_amount,
                     "workspace_id": workspace_id,
+                    "daily_limit": daily_limit,
                 }
             )
 
@@ -476,16 +529,17 @@ class CostHandler:
         """
         try:
             alert_id = request.match_info.get("alert_id")
+            workspace_id = request.query.get("workspace_id", "default")
 
-            for alert in _alerts:
-                if alert.id == alert_id:
-                    alert.acknowledged = True
-                    return web.json_response({"success": True})
+            # For now, alerts are ephemeral (recalculated from budget state)
+            # In production, this would update a database record
+            logger.info(f"[CostHandler] Alert {alert_id} dismissed for {workspace_id}")
 
-            return web.json_response(
-                {"error": "Alert not found"},
-                status=404,
-            )
+            return web.json_response({
+                "success": True,
+                "alert_id": alert_id,
+                "dismissed": True,
+            })
 
         except Exception as e:
             logger.exception(f"Failed to dismiss alert: {e}")

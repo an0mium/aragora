@@ -5,7 +5,7 @@
   },
   "display_information": {
     "name": "Aragora",
-    "description": "Control plane for multi-agent deliberation. Run debates across your org knowledge and get defensible decisions directly in Slack.",
+    "description": "Control plane for multi-agent robust decisionmaking. Run debates across your org knowledge and get defensible decisions directly in Slack.",
     "long_description": "Aragora brings the power of multi-agent AI debate to your Slack workspace.\n\n**Key Features:**\n- Start instant debates on any topic with multiple AI agents (Claude, GPT-4, Gemini, Grok)\n- Run gauntlet stress-tests on proposals, decisions, and statements\n- Get structured consensus with confidence scores\n- Vote on debate outcomes and provide feedback\n- Track debate history and insights\n\n**Use Cases:**\n- Validate business decisions before committing\n- Get multiple AI perspectives on technical choices\n- Stress-test marketing claims and proposals\n- Generate comprehensive analysis of complex topics\n\n**How It Works:**\n1. Use /aragora debate \"Your topic\" to start a multi-agent debate\n2. AI agents discuss, critique, and build on each other's arguments\n3. Consensus emerges with supporting evidence\n4. Results appear in a thread with voting options\n\n**Security:**\n- SOC 2 Type II compliant\n- Data encrypted at rest and in transit\n- No message content stored beyond debate context\n- Enterprise-ready with SSO and audit logging",
     "background_color": "#0a0a0a"
   },

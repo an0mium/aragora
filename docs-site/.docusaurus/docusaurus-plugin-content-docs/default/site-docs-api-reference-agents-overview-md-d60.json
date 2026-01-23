@@ -12,7 +12,7 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769130078000,
   "sidebarPosition": 1,
   "frontMatter": {
     "title": "Agents API",
@@ -21,11 +21,11 @@
   },
   "sidebar": "apiSidebar",
   "previous": {
-    "title": "consensus",
+    "title": "Debate Consensus",
     "permalink": "/docs/api-reference/debates/consensus"
   },
   "next": {
-    "title": "list",
+    "title": "List Agents",
     "permalink": "/docs/api-reference/agents/list"
   }
 }

@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/selection-plugin-architecture",
+  "title": "ADR-007: Selection Plugin Architecture",
+  "description": "ADR-007: Selection Plugin Architecture",
+  "source": "@site/docs/analysis/adr/007-selection-plugin-architecture.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/007-selection-plugin-architecture",
+  "permalink": "/docs/analysis/adr/007-selection-plugin-architecture",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/007-selection-plugin-architecture.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 7,
+  "frontMatter": {
+    "slug": "007-selection-plugin-architecture",
+    "title": "ADR-007: Selection Plugin Architecture",
+    "description": "ADR-007: Selection Plugin Architecture"
+  }
+}

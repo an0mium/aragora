@@ -1,6 +1,6 @@
 # Email Prioritization & Inbox Operations
 
-Intelligent inbox management powered by multi-agent deliberation, sender history,
+Intelligent inbox management powered by multi-agent robust decisionmaking, sender history,
 and cross-channel context.
 
 ## Overview

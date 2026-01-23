@@ -1002,7 +1002,7 @@ asyncio.run(validate())
 
 - [SECURITY.md](../security/overview) - Security policies and incident response
 - [TROUBLESHOOTING.md](../operations/troubleshooting) - Common issues and solutions
-- [RUNBOOK.md](RUNBOOK.md) - Operational procedures
+- [RUNBOOK.md](../operations/runbook) - Operational procedures
 - [DATABASE.md](./database) - Database operations and encryption
 - [SECRETS_MANAGEMENT.md](./secrets-management) - Encryption key management
 - [QUEUE.md](../guides/queue) - Job queue operations

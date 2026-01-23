@@ -321,4 +321,4 @@ def get_memory_stats(self) -> dict:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System overview
 - [DEBATE_PHASES.md](DEBATE_PHASES.md) - Debate execution phases
-- [DATABASE_CONSOLIDATION.md](DATABASE_CONSOLIDATION.md) - Database strategy
+- [DATABASE.md](DATABASE.md) - Database strategy

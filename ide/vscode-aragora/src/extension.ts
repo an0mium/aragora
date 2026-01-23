@@ -1,7 +1,7 @@
 /**
  * Aragora VS Code Extension
  *
- * Control plane for multi-agent deliberation with rich code analysis.
+ * Control plane for multi-agent robust decisionmaking with rich code analysis.
  * Provides integration with the Aragora multi-agent debate API,
  * security diagnostics, code actions, and real-time streaming.
  */
@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { AragoraDiagnosticsProvider } from './providers/DiagnosticsProvider';
 import { AragoraCodeActionsProvider, registerCodeActionsCommands } from './providers/CodeActionsProvider';
 import { SecurityTreeProvider, registerSecurityTreeCommands } from './providers/SecurityTreeProvider';
+import { registerHoverProvider } from './providers/HoverProvider';
 import { StreamManager } from './services/StreamManager';
 import { DebatePanel, registerDebatePanelCommands } from './panels/DebatePanel';
 import { ReviewPanel, registerReviewPanelCommands } from './panels/ReviewPanel';
@@ -707,6 +708,9 @@ export function activate(context: vscode.ExtensionContext) {
       }
     )
   );
+
+  // Register Hover Provider for security findings
+  registerHoverProvider(context, diagnosticsProvider);
 
   // Register commands from new providers
   registerCodeActionsCommands(context, client);

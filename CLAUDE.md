@@ -31,7 +31,7 @@ Context for Claude Code when working with the Aragora codebase.
 
 ## Project Overview
 
-Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
+Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
 **Codebase Scale:** 1000+ Python modules | 41,950+ tests | 1200 test files | 117 debate modules | 70 HTTP handlers + 15 WebSocket streams | 26+ enterprise connectors
 

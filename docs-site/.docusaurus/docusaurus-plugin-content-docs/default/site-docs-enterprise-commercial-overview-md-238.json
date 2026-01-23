@@ -1,7 +1,7 @@
 {
   "id": "enterprise/commercial-overview",
-  "title": "Aragora - Omnivorous Multi Agent Decision Making Platform",
-  "description": "Aragora - Omnivorous Multi Agent Decision Making Platform",
+  "title": "Aragora - Control Plane for Multi-Agent Deliberation",
+  "description": "Aragora - Control Plane for Multi-Agent Deliberation",
   "source": "@site/docs/enterprise/commercial-overview.md",
   "sourceDirName": "enterprise",
   "slug": "/enterprise/commercial-overview",
@@ -12,9 +12,9 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769140033000,
   "frontMatter": {
-    "title": "Aragora - Omnivorous Multi Agent Decision Making Platform",
-    "description": "Aragora - Omnivorous Multi Agent Decision Making Platform"
+    "title": "Aragora - Control Plane for Multi-Agent Deliberation",
+    "description": "Aragora - Control Plane for Multi-Agent Deliberation"
   }
 }

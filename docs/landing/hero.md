@@ -3,7 +3,7 @@
 ## Above-the-Fold Content
 
 ### Headline
-**Control plane for multi-agent deliberation across organizational knowledge**
+**Control plane for multi-agent robust decisionmaking across organizational knowledge**
 
 ### Subheadline
 Orchestrate 15+ AI models to debate your documents, data, and APIs, then deliver
@@ -63,6 +63,6 @@ to fix 6 months later. It paid for itself in one session."
 
 ## Technical Credibility
 
-- **Open-source core** - Inspect the deliberation engine
+- **Open-source core** - Inspect the robust decisionmaking engine
 - **Self-hostable** - Your data never leaves your infrastructure
 - **API-first** - Integrate with workflows, chat, and automation

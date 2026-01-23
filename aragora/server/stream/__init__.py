@@ -150,6 +150,52 @@ _EXPORTS = {
         "aragora.server.stream.autonomous_stream",
         "register_autonomous_stream_routes",
     ),
+    # Team inbox stream
+    "TeamInboxEmitter": (
+        "aragora.server.stream.team_inbox",
+        "TeamInboxEmitter",
+    ),
+    "TeamInboxEvent": (
+        "aragora.server.stream.team_inbox",
+        "TeamInboxEvent",
+    ),
+    "TeamInboxEventType": (
+        "aragora.server.stream.team_inbox",
+        "TeamInboxEventType",
+    ),
+    "get_team_inbox_emitter": (
+        "aragora.server.stream.team_inbox",
+        "get_team_inbox_emitter",
+    ),
+    "TeamMember": (
+        "aragora.server.stream.team_inbox",
+        "TeamMember",
+    ),
+    "Mention": (
+        "aragora.server.stream.team_inbox",
+        "Mention",
+    ),
+    "InternalNote": (
+        "aragora.server.stream.team_inbox",
+        "InternalNote",
+    ),
+    # Inbox sync stream
+    "InboxSyncEmitter": (
+        "aragora.server.stream.inbox_sync",
+        "InboxSyncEmitter",
+    ),
+    "InboxSyncEvent": (
+        "aragora.server.stream.inbox_sync",
+        "InboxSyncEvent",
+    ),
+    "InboxSyncEventType": (
+        "aragora.server.stream.inbox_sync",
+        "InboxSyncEventType",
+    ),
+    "get_inbox_sync_emitter": (
+        "aragora.server.stream.inbox_sync",
+        "get_inbox_sync_emitter",
+    ),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
@@ -229,6 +275,19 @@ __all__ = [
     "emit_learning_event",
     "autonomous_websocket_handler",
     "register_autonomous_stream_routes",
+    # Team inbox stream
+    "TeamInboxEmitter",
+    "TeamInboxEvent",
+    "TeamInboxEventType",
+    "get_team_inbox_emitter",
+    "TeamMember",
+    "Mention",
+    "InternalNote",
+    # Inbox sync stream
+    "InboxSyncEmitter",
+    "InboxSyncEvent",
+    "InboxSyncEventType",
+    "get_inbox_sync_emitter",
     # Backward compatibility
     "_cleanup_stale_debates_stream",
     "_wrap_agent_for_streaming",

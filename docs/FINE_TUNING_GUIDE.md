@@ -399,6 +399,6 @@ The training service is not running. Check:
 ## Related Documentation
 
 - [Training Data Export](./FEATURES.md#traininghandler) - More on export formats
-- [Gauntlet Guide](./GAUNTLET_GUIDE.md) - Adversarial testing
+- [Gauntlet Guide](./GAUNTLET.md) - Adversarial testing
 - [API Usage](./API_USAGE.md) - General API documentation
 - [Observability](./OBSERVABILITY.md) - Monitoring and metrics

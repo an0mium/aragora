@@ -1,0 +1,20 @@
+{
+  "id": "api/evidence",
+  "title": "Evidence API Guide",
+  "description": "Evidence API Guide",
+  "source": "@site/docs/api/evidence.md",
+  "sourceDirName": "api",
+  "slug": "/api/evidence",
+  "permalink": "/docs/api/evidence",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/evidence.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Evidence API Guide",
+    "description": "Evidence API Guide"
+  }
+}

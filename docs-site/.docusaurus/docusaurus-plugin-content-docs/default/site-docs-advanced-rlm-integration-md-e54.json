@@ -1,0 +1,20 @@
+{
+  "id": "advanced/rlm-integration",
+  "title": "RLM (Recursive Language Models) Integration Guide",
+  "description": "RLM (Recursive Language Models) Integration Guide",
+  "source": "@site/docs/advanced/rlm-integration.md",
+  "sourceDirName": "advanced",
+  "slug": "/advanced/rlm-integration",
+  "permalink": "/docs/advanced/rlm-integration",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/advanced/rlm-integration.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "RLM (Recursive Language Models) Integration Guide",
+    "description": "RLM (Recursive Language Models) Integration Guide"
+  }
+}

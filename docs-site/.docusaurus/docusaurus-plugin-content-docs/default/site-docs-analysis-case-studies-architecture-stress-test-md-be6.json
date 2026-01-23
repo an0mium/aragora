@@ -1,0 +1,20 @@
+{
+  "id": "analysis/case-studies/architecture-stress-test",
+  "title": "Architecture Stress Test: Hypothetical Example",
+  "description": "Architecture Stress Test: Hypothetical Example",
+  "source": "@site/docs/analysis/case-studies/architecture-stress-test.md",
+  "sourceDirName": "analysis/case-studies",
+  "slug": "/analysis/case-studies/architecture-stress-test",
+  "permalink": "/docs/analysis/case-studies/architecture-stress-test",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/case-studies/architecture-stress-test.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Architecture Stress Test: Hypothetical Example",
+    "description": "Architecture Stress Test: Hypothetical Example"
+  }
+}

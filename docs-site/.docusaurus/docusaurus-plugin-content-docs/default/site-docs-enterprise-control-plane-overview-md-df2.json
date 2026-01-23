@@ -1,0 +1,20 @@
+{
+  "id": "enterprise/control-plane-overview",
+  "title": "Aragora Control Plane",
+  "description": "Aragora Control Plane",
+  "source": "@site/docs/enterprise/control-plane-overview.md",
+  "sourceDirName": "enterprise",
+  "slug": "/enterprise/control-plane-overview",
+  "permalink": "/docs/enterprise/control-plane-overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/enterprise/control-plane-overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Control Plane",
+    "description": "Aragora Control Plane"
+  }
+}

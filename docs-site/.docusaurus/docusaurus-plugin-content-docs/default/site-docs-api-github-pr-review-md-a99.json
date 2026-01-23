@@ -1,0 +1,20 @@
+{
+  "id": "api/github-pr-review",
+  "title": "GitHub PR Review API",
+  "description": "GitHub PR Review API",
+  "source": "@site/docs/api/github-pr-review.md",
+  "sourceDirName": "api",
+  "slug": "/api/github-pr-review",
+  "permalink": "/docs/api/github-pr-review",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/api/github-pr-review.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769134784000,
+  "frontMatter": {
+    "title": "GitHub PR Review API",
+    "description": "GitHub PR Review API"
+  }
+}

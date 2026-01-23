@@ -3,7 +3,7 @@
 > **Last Updated:** 2026-01-22 (control plane deliberations + decision endpoints)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
-for multi-agent deliberation across organizational knowledge and channels.
+for multi-agent robust decisionmaking across organizational knowledge and channels.
 
 ## Related Documentation
 
@@ -273,6 +273,61 @@ integration and financial dashboards.
 | GET | `/api/accounting/customers` | List customers |
 | GET | `/api/accounting/transactions` | List transactions |
 | POST | `/api/accounting/report` | Generate report |
+
+## Payroll (Gusto) API
+
+Payroll endpoints live under `/api/accounting/gusto` for Gusto OAuth and payroll
+data sync.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/accounting/gusto/status` | Connection status |
+| GET | `/api/accounting/gusto/connect` | Start OAuth connection |
+| GET | `/api/accounting/gusto/callback` | OAuth callback |
+| POST | `/api/accounting/gusto/disconnect` | Disconnect Gusto |
+| GET | `/api/accounting/gusto/employees` | List employees |
+| GET | `/api/accounting/gusto/payrolls` | List payroll runs |
+| GET | `/api/accounting/gusto/payrolls/{payroll_id}` | Payroll run details |
+| POST | `/api/accounting/gusto/payrolls/{payroll_id}/journal-entry` | Generate journal entry |
+
+## Banking (Plaid) API
+
+Banking endpoints live under `/api/accounting/plaid` for Plaid Link integration
+and bank account syncing.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/accounting/plaid/link/token` | Create Link token |
+| POST | `/api/accounting/plaid/exchange` | Exchange public token |
+| GET | `/api/accounting/plaid/status` | Connection status |
+| POST | `/api/accounting/plaid/disconnect` | Disconnect Plaid |
+| GET | `/api/accounting/plaid/accounts` | List bank accounts |
+| GET | `/api/accounting/plaid/transactions` | List transactions |
+| POST | `/api/accounting/plaid/transactions/sync` | Sync transactions |
+| GET | `/api/accounting/plaid/balance` | Get account balances |
+| GET | `/api/accounting/plaid/institutions/search` | Search institutions |
+
+## Xero Accounting API
+
+Xero endpoints live under `/api/accounting/xero` for Xero OAuth and accounting
+data sync.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/accounting/xero/status` | Connection status |
+| GET | `/api/accounting/xero/connect` | Start OAuth connection |
+| GET | `/api/accounting/xero/callback` | OAuth callback |
+| POST | `/api/accounting/xero/disconnect` | Disconnect Xero |
+| GET | `/api/accounting/xero/contacts` | List contacts |
+| GET | `/api/accounting/xero/contacts/{contact_id}` | Contact details |
+| POST | `/api/accounting/xero/contacts` | Create contact |
+| GET | `/api/accounting/xero/invoices` | List invoices |
+| GET | `/api/accounting/xero/invoices/{invoice_id}` | Invoice details |
+| POST | `/api/accounting/xero/invoices` | Create invoice |
+| GET | `/api/accounting/xero/accounts` | List chart of accounts |
+| GET | `/api/accounting/xero/bank-transactions` | List bank transactions |
+| POST | `/api/accounting/xero/manual-journals` | Create manual journal |
+| GET | `/api/accounting/xero/payments` | List payments |
 
 ## Cost Visibility API
 

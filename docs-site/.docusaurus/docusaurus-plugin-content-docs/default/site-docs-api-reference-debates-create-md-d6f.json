@@ -1,7 +1,7 @@
 {
   "id": "api-reference/debates/create",
-  "title": "create",
-  "description": "",
+  "title": "Create Debate",
+  "description": "Create a new debate",
   "source": "@site/docs/api-reference/debates/create.md",
   "sourceDirName": "api-reference/debates",
   "slug": "/api-reference/debates/create",
@@ -12,15 +12,20 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
-  "frontMatter": {},
+  "lastUpdatedAt": 1769130078000,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "Create Debate",
+    "description": "Create a new debate",
+    "sidebar_position": 2
+  },
   "sidebar": "apiSidebar",
   "previous": {
     "title": "Debates API",
     "permalink": "/docs/api-reference/debates/overview"
   },
   "next": {
-    "title": "get",
+    "title": "Get Debate",
     "permalink": "/docs/api-reference/debates/get"
   }
 }

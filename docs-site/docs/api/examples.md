@@ -380,6 +380,20 @@ async def accounting_status():
 asyncio.run(accounting_status())
 ```
 
+### Payroll (Gusto)
+
+```python
+async def list_gusto_payrolls():
+    """List recent payroll runs."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        payrolls = await client.get("/api/accounting/gusto/payrolls", params={
+            "processed": "true",
+        })
+        print(payrolls.json())
+
+asyncio.run(list_gusto_payrolls())
+```
+
 ### Gauntlet Compliance Audit
 
 ```python

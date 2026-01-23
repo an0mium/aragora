@@ -1,7 +1,7 @@
 """
 Tests for the unified orchestration handler.
 
-Tests the core "Control plane for multi-agent deliberation across
+Tests the core "Control plane for multi-agent robust decisionmaking across
 org knowledge and channels" functionality.
 """
 

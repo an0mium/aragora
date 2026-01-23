@@ -1,7 +1,7 @@
 {
   "id": "getting-started/introduction",
   "title": "Introduction to Aragora",
-  "description": "Multi-agent debate platform for collaborative AI reasoning",
+  "description": "Control plane for multi-agent deliberation across org knowledge and channels",
   "source": "@site/docs/getting-started/introduction.md",
   "sourceDirName": "getting-started",
   "slug": "/getting-started/introduction",
@@ -12,11 +12,11 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769114008000,
   "sidebarPosition": 1,
   "frontMatter": {
     "title": "Introduction to Aragora",
-    "description": "Multi-agent debate platform for collaborative AI reasoning",
+    "description": "Control plane for multi-agent deliberation across org knowledge and channels",
     "sidebar_position": 1
   },
   "sidebar": "gettingStartedSidebar",

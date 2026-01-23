@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/multi-tier-memory-comparison",
+  "title": "ADR-011: Multi-Tier Memory System",
+  "description": "ADR-011: Multi-Tier Memory System",
+  "source": "@site/docs/analysis/adr/011-multi-tier-memory-comparison.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/011-multi-tier-memory-comparison",
+  "permalink": "/docs/analysis/adr/011-multi-tier-memory-comparison",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/011-multi-tier-memory-comparison.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 11,
+  "frontMatter": {
+    "slug": "011-multi-tier-memory-comparison",
+    "title": "ADR-011: Multi-Tier Memory System",
+    "description": "ADR-011: Multi-Tier Memory System"
+  }
+}

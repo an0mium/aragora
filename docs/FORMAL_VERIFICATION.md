@@ -420,6 +420,6 @@ class SandboxResult:
 
 ## See Also
 
-- [Verification Module](../aragora/verification/) - Source code
+- Verification module source: https://github.com/aragora/aragora/tree/main/aragora/verification
 - [Sandbox Security](./SECURITY.md#proof-sandbox) - Security details
 - [WebSocket Events](./WEBSOCKET_EVENTS.md#verification-events) - Streaming events

@@ -5,7 +5,7 @@
  */
 export default {
   "title": "Aragora Documentation",
-  "tagline": "Multi-Agent Debate Platform for Collaborative AI Reasoning",
+  "tagline": "Control plane for multi-agent deliberation across org knowledge and channels",
   "favicon": "img/favicon.ico",
   "url": "https://docs.aragora.ai",
   "baseUrl": "/",

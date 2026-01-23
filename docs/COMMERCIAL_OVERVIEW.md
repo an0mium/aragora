@@ -1,10 +1,11 @@
 # Aragora - Control Plane for Multi-Agent Deliberation
 
-*Version 2.1 | Commercial Overview*
+*Version 2.1 | Commercial Overview*  
+*Status: Internal snapshot; metrics are directional unless sourced in docs/STATUS.md.*
 
 ## Executive Summary
 
-Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
+Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
 Unlike chatbots, Aragora builds institutional memory with full audit trails. **Deliberation is the engine. The product is a defensible decision record.**
 
@@ -56,14 +57,14 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **D
 │  └──────────────────────────────┬───────────────────────────────────┘   │
 │                                  ▼                                       │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    DEBATE ENGINE (117 modules)                    │   │
+│  │                    DEBATE ENGINE                                  │   │
 │  │  • 9-round structured protocol (Propose → Critique → Synthesize)  │   │
 │  │  • Graph debates with branching │ Matrix debates for scenarios    │   │
 │  │  • Consensus detection │ Convergence analysis │ Forking support   │   │
 │  └──────────────────────────────┬───────────────────────────────────┘   │
 │                                  ▼                                       │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    KNOWLEDGE LAYER (16 modules)                   │   │
+│  │                    KNOWLEDGE LAYER                                │   │
 │  │  • Belief networks with Bayesian propagation                      │   │
 │  │  • Claims kernel with typed relationships                         │   │
 │  │  • Evidence provenance with hash chains                           │   │
@@ -72,7 +73,7 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **D
 │                                  ▼                                       │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │                    MEMORY SYSTEM (4 tiers)                        │   │
-│  │  Fast (1hr) → Medium (24hr) → Slow (7d) → Glacial (30d)          │   │
+│  │  Fast → Medium → Slow → Glacial                                   │   │
 │  │  • Surprise-based learning │ Consolidation scoring                │   │
 │  │  • Cross-session pattern extraction                               │   │
 │  └──────────────────────────────┬───────────────────────────────────┘   │
@@ -89,7 +90,7 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **D
 
 ## Commercial Readiness Assessment
 
-### Overall: 85% Production Ready
+### Overall: 85% Production Ready (internal estimate)
 
 | Category | Score | Status | Notes |
 |----------|-------|--------|-------|
@@ -97,7 +98,7 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **D
 | Security & Authentication | 88% | Ready | OIDC/SAML, MFA, encryption, audit logging |
 | Scalability & Performance | 92% | Ready | Connection pooling, caching, rate limiting |
 | Observability & Monitoring | 90% | Ready | Prometheus, Grafana, OpenTelemetry |
-| Testing & QA | 93% | Ready | 34,400+ tests |
+| Testing & QA | 93% | Ready | See `docs/STATUS.md` for current counts |
 | Documentation | 91% | Ready | API docs, runbooks, compliance guides |
 | Compliance & Governance | 78% | Partial | RBAC needs enhancement |
 | **OVERALL** | **85%** | **SMB Ready** | Enterprise: 4-6 weeks additional |
@@ -181,16 +182,12 @@ Structured debate for strategic decisions with evidence-based recommendations.
 
 ## Platform Statistics
 
-| Metric | Value |
-|--------|-------|
-| Python Modules | 1,000+ |
-| Test Coverage | 34,400+ tests |
-| HTTP Handlers | 65 |
-| WebSocket Streams | 15 |
-| Agent Implementations | 15+ |
-| Enterprise Connectors | 24+ |
-| Debate Modules | 117 |
-| Memory Tiers | 4 |
+| Metric | Source |
+|--------|--------|
+| Codebase size & tests | See `docs/STATUS.md` |
+| Agent catalog | `AGENTS.md` |
+| Connector catalog | `docs/CONNECTORS.md` |
+| Memory tiers | 4 (see `docs/MEMORY_TIERS.md`) |
 
 ---
 

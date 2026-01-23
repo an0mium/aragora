@@ -288,7 +288,7 @@ RLM metrics are exported to Prometheus via `/metrics`:
 
 ## Related Documentation
 
-- [Arena Configuration](ARCHITECTURE.md#arena-config)
+- [Arena Configuration](ARCHITECTURE.md#arenaconfig-options)
 - [Memory Systems](MEMORY.md)
 - [Knowledge Mound](KNOWLEDGE_MOUND.md)
-- [API Reference](API_REFERENCE.md#rlm-endpoints)
+- [API Reference](API_REFERENCE.md)

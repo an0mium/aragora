@@ -314,6 +314,6 @@ Supabase provides automatic daily backups. For point-in-time recovery:
 
 ## Support
 
-- Documentation: [docs/](../docs/)
+- Documentation: [INDEX.md](INDEX.md)
 - Issues: [GitHub Issues](https://github.com/yourusername/aragora/issues)
 - Community: [Discord](https://discord.gg/aragora)

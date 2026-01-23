@@ -11,7 +11,7 @@ export function CapabilitiesSection() {
       <div className="container mx-auto px-4">
         <SectionHeader title="UNIQUE CAPABILITIES" />
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-          These capabilities power the control plane for multi-agent deliberation.
+          These capabilities power the control plane for multi-agent robust decisionmaking.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">

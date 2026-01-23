@@ -783,7 +783,7 @@ aragora training list-models
 
 ## Agent Types
 
-Available agent types for the `--agents` option. The full catalog and defaults live in [AGENTS.md](../AGENTS.md).
+Available agent types for the `--agents` option. The full catalog and defaults live in [AGENTS.md](AGENTS.md).
 
 ### Direct API agents
 

@@ -1,0 +1,20 @@
+{
+  "id": "guides/coding-assistance",
+  "title": "Coding Assistance",
+  "description": "Coding Assistance",
+  "source": "@site/docs/guides/coding-assistance.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/coding-assistance",
+  "permalink": "/docs/guides/coding-assistance",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/coding-assistance.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": "an0mium",
+  "lastUpdatedAt": 1769140033000,
+  "frontMatter": {
+    "title": "Coding Assistance",
+    "description": "Coding Assistance"
+  }
+}

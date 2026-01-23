@@ -1,7 +1,7 @@
 {
   "name": "Aragora - Control Plane for Multi-Agent Deliberation",
   "short_name": "Aragora",
-  "description": "Control plane for multi-agent deliberation across org knowledge and channels",
+  "description": "Control plane for multi-agent robust decisionmaking across org knowledge and channels",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",

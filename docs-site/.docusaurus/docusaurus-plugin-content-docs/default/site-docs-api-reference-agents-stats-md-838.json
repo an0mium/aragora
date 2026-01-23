@@ -1,7 +1,7 @@
 {
   "id": "api-reference/agents/stats",
-  "title": "stats",
-  "description": "",
+  "title": "Agent Stats",
+  "description": "Agent statistics endpoints",
   "source": "@site/docs/api-reference/agents/stats.md",
   "sourceDirName": "api-reference/agents",
   "slug": "/api-reference/agents/stats",
@@ -12,11 +12,16 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
-  "frontMatter": {},
+  "lastUpdatedAt": 1769130078000,
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "title": "Agent Stats",
+    "description": "Agent statistics endpoints",
+    "sidebar_position": 3
+  },
   "sidebar": "apiSidebar",
   "previous": {
-    "title": "list",
+    "title": "List Agents",
     "permalink": "/docs/api-reference/agents/list"
   },
   "next": {

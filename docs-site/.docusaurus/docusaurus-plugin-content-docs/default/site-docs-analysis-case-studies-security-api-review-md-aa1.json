@@ -1,0 +1,20 @@
+{
+  "id": "analysis/case-studies/security-api-review",
+  "title": "API Security Review: Hypothetical Example",
+  "description": "API Security Review: Hypothetical Example",
+  "source": "@site/docs/analysis/case-studies/security-api-review.md",
+  "sourceDirName": "analysis/case-studies",
+  "slug": "/analysis/case-studies/security-api-review",
+  "permalink": "/docs/analysis/case-studies/security-api-review",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/case-studies/security-api-review.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "API Security Review: Hypothetical Example",
+    "description": "API Security Review: Hypothetical Example"
+  }
+}

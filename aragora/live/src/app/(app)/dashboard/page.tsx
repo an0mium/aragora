@@ -40,12 +40,12 @@ export default function DashboardPage() {
       statsContent: (
         <div className="space-y-3">
           <div className="text-xs text-[var(--text-muted)] font-mono">
-            Control plane overview for multi-agent deliberation across your org.
+            Control plane overview for multi-agent robust decisionmaking across your org.
           </div>
           <div className="border-t border-[var(--border)] pt-3">
             <div className="text-xs text-[var(--acid-green)] font-mono mb-1">POSITIONING</div>
             <div className="text-xs text-[var(--text)] font-mono leading-relaxed">
-              &quot;Control plane for multi-agent deliberation across org knowledge and channels&quot;
+              &quot;Control plane for multi-agent robust decisionmaking across org knowledge and channels&quot;
             </div>
           </div>
         </div>
@@ -104,7 +104,7 @@ export default function DashboardPage() {
                   {'>'} EXECUTIVE DASHBOARD
                 </h1>
                 <p className="text-xs text-[var(--text-muted)] font-mono">
-                  Control plane for multi-agent deliberation across org knowledge and channels
+                  Control plane for multi-agent robust decisionmaking across org knowledge and channels
                 </p>
               </div>
               <div className="flex items-center gap-2">

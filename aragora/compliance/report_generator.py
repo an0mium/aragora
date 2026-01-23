@@ -209,7 +209,7 @@ class ComplianceReportGenerator:
         confidence = getattr(result, "confidence", 0.0)
 
         content = f"""
-This report documents the deliberation process and outcome for debate {debate_id[:8]}...
+This report documents the robust decisionmaking process and outcome for debate {debate_id[:8]}...
 
 **Task:** {result.task}
 
@@ -218,7 +218,7 @@ This report documents the deliberation process and outcome for debate {debate_id
 **Rounds Completed:** {result.rounds_used}
 **Participating Agents:** {len(getattr(result, 'agents', []))}
 
-The decision was reached through multi-agent deliberation following established protocols
+The decision was reached through multi-agent robust decisionmaking following established protocols
 with full audit trail preservation.
         """.strip()
 

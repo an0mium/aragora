@@ -1,7 +1,7 @@
 {
   "id": "enterprise/sso",
-  "title": "sso",
-  "description": "Enterprise feature documentation coming soon.",
+  "title": "SSO/Enterprise Authentication Setup",
+  "description": "SSO/Enterprise Authentication Setup",
   "source": "@site/docs/enterprise/sso.md",
   "sourceDirName": "enterprise",
   "slug": "/enterprise/sso",
@@ -13,10 +13,9 @@
   "version": "current",
   "lastUpdatedBy": "an0mium",
   "lastUpdatedAt": 1769103634000,
-  "sidebarPosition": 2,
   "frontMatter": {
-    "title": "sso",
-    "sidebar_position": 2
+    "title": "SSO/Enterprise Authentication Setup",
+    "description": "SSO/Enterprise Authentication Setup"
   },
   "sidebar": "guidesSidebar",
   "previous": {

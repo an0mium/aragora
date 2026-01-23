@@ -1,12 +1,12 @@
 ---
 title: Introduction to Aragora
-description: Control plane for multi-agent deliberation across org knowledge and channels
+description: Control plane for multi-agent robust decisionmaking across org knowledge and channels
 sidebar_position: 1
 ---
 
 # Introduction to Aragora
 
-Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels**. It orchestrates 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
+Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
 ## Why Multi-Agent Debate?
 
@@ -15,7 +15,7 @@ Single AI models have inherent biases and blind spots. Multi-agent debate addres
 - **Diverse perspectives**: Different models (Claude, GPT, Gemini, etc.) bring unique reasoning approaches
 - **Self-correction**: Agents critique and improve each other's responses
 - **Consensus building**: Final answers represent agreement across multiple AI systems
-- **Transparency**: The deliberation process is fully auditable
+- **Transparency**: The robust decisionmaking process is fully auditable
 
 ## Core Features
 
@@ -76,7 +76,7 @@ Have agents debate and synthesize findings from multiple sources, ensuring compr
 
 ### Decision Support
 
-Complex business decisions benefit from multi-perspective analysis and structured deliberation.
+Complex business decisions benefit from multi-perspective analysis and structured robust decisionmaking.
 
 ### Content Review
 

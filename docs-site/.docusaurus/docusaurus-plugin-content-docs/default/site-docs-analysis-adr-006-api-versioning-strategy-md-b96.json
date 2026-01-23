@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/api-versioning-strategy",
+  "title": "ADR-006: API Versioning Strategy",
+  "description": "ADR-006: API Versioning Strategy",
+  "source": "@site/docs/analysis/adr/006-api-versioning-strategy.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/006-api-versioning-strategy",
+  "permalink": "/docs/analysis/adr/006-api-versioning-strategy",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/006-api-versioning-strategy.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 6,
+  "frontMatter": {
+    "slug": "006-api-versioning-strategy",
+    "title": "ADR-006: API Versioning Strategy",
+    "description": "ADR-006: API Versioning Strategy"
+  }
+}

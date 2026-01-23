@@ -16,11 +16,11 @@ This document covers security features implemented in Aragora, including authent
 |----------|---------|-------------|
 | **SECURITY.md** (this) | Security overview & auth | Start here for security concepts |
 | [SECURITY_DEPLOYMENT.md](../deployment/security) | Production hardening | Deploying to production |
-| [SECURITY_PATTERNS.md](./SECURITY_PATTERNS.md) | Secure coding patterns | Writing secure code |
-| [SECURITY_RUNTIME.md](./SECURITY_RUNTIME.md) | Runtime monitoring | Ops & incident response |
-| [OAUTH_SETUP.md](./OAUTH_SETUP.md) | OAuth provider setup | Configuring SSO/OAuth |
-| [SSO_SETUP.md](./SSO_SETUP.md) | Enterprise SSO (SAML/OIDC) | Enterprise authentication |
-| [TLS.md](./TLS.md) | TLS certificate setup | HTTPS configuration |
+| [SECURITY_PATTERNS.md](./patterns) | Secure coding patterns | Writing secure code |
+| [SECURITY_RUNTIME.md](./runtime) | Runtime monitoring | Ops & incident response |
+| [OAUTH_SETUP.md](./oauth-setup) | OAuth provider setup | Configuring SSO/OAuth |
+| [SSO_SETUP.md](../enterprise/sso) | Enterprise SSO (SAML/OIDC) | Enterprise authentication |
+| [TLS.md](../deployment/tls) | TLS certificate setup | HTTPS configuration |
 
 ## Table of Contents
 
@@ -383,7 +383,7 @@ except asyncio.TimeoutError:
 
 ## Rate Limiting
 
-See [RATE_LIMITING.md](../api/rate-limits) for detailed documentation.
+See [RATE_LIMITING.md](../deployment/rate-limiting) for detailed documentation.
 
 ### Quick Overview
 
@@ -687,9 +687,9 @@ GET /api/audit/export?format=csv&category=auth
 
 ## See Also
 
-- [Rate Limiting](../api/rate-limits) - Detailed rate limiting docs
+- [Rate Limiting](../deployment/rate-limiting) - Detailed rate limiting docs
 - [Formal Verification](../advanced/formal-verification) - Sandbox security details
 - [Environment](../getting-started/environment) - All environment variables
 - [API Reference](../api/reference) - Authentication headers
 - [Secrets Management](../deployment/secrets-management) - External secrets configuration
-- [Secrets Migration](./SECRETS_MIGRATION.md) - Migration from plaintext
+- [Secrets Migration](../deployment/secrets-migration) - Migration from plaintext

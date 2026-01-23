@@ -28,8 +28,8 @@ export function HeroSection({
         {ASCII_BANNER}
       </pre>
 
-      <h1 className="text-lg sm:text-[1.75rem] font-mono text-center mb-4 text-text">
-        Control plane for multi-agent knowledge work
+      <h1 className="text-base sm:text-2xl font-mono text-center mb-4 text-text">
+        Control plane for multi-agent decisionmaking
       </h1>
 
       {/* Fleet Status Indicator */}

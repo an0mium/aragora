@@ -310,5 +310,5 @@ const response = await fetch('/api/admin/users', {
 
 - [API Reference](../api/reference) - Full API documentation
 - [Authentication Guide](../security/overview) - Auth configuration
-- [Runbook](RUNBOOK.md) - Operational procedures
+- [Runbook](../operations/runbook) - Operational procedures
 - [Evidence System](../guides/evidence) - Evidence connectors

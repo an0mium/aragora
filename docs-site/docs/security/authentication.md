@@ -362,7 +362,7 @@ Download or configure your IdP with these values:
 
 ## Session Management
 
-Aragora provides comprehensive session management. See [SESSION_MANAGEMENT.md](./SESSION_MANAGEMENT.md) for details.
+Aragora provides comprehensive session management. See [SESSION_MANAGEMENT.md](./session-management) for details.
 
 ### Key Features
 
@@ -472,7 +472,7 @@ tail -f logs/aragora.log | grep -iE "(auth|oauth|sso|jwt)"
 
 ## Related Documentation
 
-- [SESSION_MANAGEMENT.md](./SESSION_MANAGEMENT.md) - Detailed session management
+- [SESSION_MANAGEMENT.md](./session-management) - Detailed session management
 - [API_RATE_LIMITS.md](../api/rate-limits) - Rate limiting configuration
 - [SECURITY.md](./overview) - Security policies
 - [API_REFERENCE.md](../api/reference) - Full API documentation

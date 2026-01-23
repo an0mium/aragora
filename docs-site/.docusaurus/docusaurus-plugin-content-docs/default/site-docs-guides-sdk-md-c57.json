@@ -12,14 +12,14 @@
   "tags": [],
   "version": "current",
   "lastUpdatedBy": "an0mium",
-  "lastUpdatedAt": 1769103634000,
+  "lastUpdatedAt": 1769115225000,
   "frontMatter": {
     "title": "Aragora Python SDK",
     "description": "Aragora Python SDK"
   },
   "sidebar": "guidesSidebar",
   "next": {
-    "title": "Agent Development Guide",
+    "title": "Custom Agent Development Guide",
     "permalink": "/docs/guides/custom-agents"
   }
 }

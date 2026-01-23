@@ -114,6 +114,9 @@ class TrackerComponents:
     enable_knowledge_ingestion: bool
     enable_belief_guidance: bool
     coordinator: SubsystemCoordinator
+    # Vertical personas
+    vertical: Any = None  # Vertical enum
+    vertical_persona_manager: Any = None  # VerticalPersonaManager
 
 
 class ArenaInitializer:
@@ -381,6 +384,10 @@ class ArenaInitializer:
         enable_knowledge_retrieval: bool = True,
         enable_knowledge_ingestion: bool = True,
         enable_belief_guidance: bool = False,
+        vertical=None,
+        vertical_persona_manager=None,
+        auto_detect_vertical: bool = True,
+        task: str = "",
     ) -> TrackerComponents:
         """Initialize tracking subsystems.
 
@@ -445,6 +452,19 @@ class ArenaInitializer:
             enable_moment_detection=False,
         )
 
+        # Auto-detect vertical from task if enabled and no vertical specified
+        detected_vertical = vertical
+        if auto_detect_vertical and not vertical and task:
+            try:
+                from aragora.agents.vertical_personas import VerticalPersonaManager
+
+                if vertical_persona_manager is None:
+                    vertical_persona_manager = VerticalPersonaManager()
+                detected_vertical = vertical_persona_manager.detect_vertical_from_task(task)
+                logger.debug(f"Auto-detected vertical: {detected_vertical.value}")
+            except (ImportError, AttributeError) as e:
+                logger.debug(f"Vertical auto-detection unavailable: {e}")
+
         return TrackerComponents(
             position_tracker=position_tracker,
             position_ledger=position_ledger,
@@ -463,6 +483,8 @@ class ArenaInitializer:
             enable_knowledge_ingestion=enable_knowledge_ingestion,
             enable_belief_guidance=enable_belief_guidance,
             coordinator=coordinator,
+            vertical=detected_vertical,
+            vertical_persona_manager=vertical_persona_manager,
         )
 
     def _auto_init_breakpoint_manager(self, protocol: DebateProtocol):

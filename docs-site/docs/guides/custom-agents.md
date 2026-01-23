@@ -1,948 +1,405 @@
 ---
-title: Agent Development Guide
-description: Agent Development Guide
+title: Custom Agent Development Guide
+description: Custom Agent Development Guide
 ---
 
-# Agent Development Guide
+# Custom Agent Development Guide
 
-Build custom AI agents for the Aragora debate framework.
-
-## Overview
-
-Aragora agents are autonomous participants in multi-agent debates. Each agent:
-- Responds to prompts with positions and arguments
-- Critiques other agents' responses
-- Votes on proposals and consensus
-- Learns from debate outcomes via ELO ratings
-
-## Quick Start
-
-### Minimal Agent
-
-```python
-from aragora.core import Agent, Critique, Message
-
-class MyAgent(Agent):
-    """A simple custom agent."""
-
-    def __init__(self, name: str = "my-agent", model: str = "custom", role: str = "proposer"):
-        super().__init__(name=name, model=model, role=role)
-
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        # Your logic here
-        return "My response to the prompt"
-
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        return Critique(
-            agent=self.name,
-            target_agent="proposal",
-            target_content=proposal[:200],
-            issues=["Missing edge case analysis"],
-            suggestions=["Address failure modes explicitly"],
-            severity=0.4,
-            reasoning=f"Quick critique for task: {task}",
-        )
-```
-
-### Register and Use
-
-```python
-from aragora import Arena, Environment, DebateProtocol
-from aragora.agents.base import create_agent
-from aragora.agents.registry import AgentRegistry
-
-# Register your agent for use with create_agent()
-AgentRegistry.register(
-    "my-agent",
-    default_model="custom",
-    agent_type="Custom",
-)(MyAgent)
-
-# Use in a debate
-env = Environment(task="Discuss the best sorting algorithm")
-protocol = DebateProtocol(rounds=3)
-agents = [
-    create_agent("anthropic-api"),
-    create_agent("openai-api"),
-    create_agent("my-agent"),
-]
-arena = Arena(env, agents, protocol)
-
-result = await arena.run()
-```
+Build your own agents for Aragora stress-tests. This guide covers creating API agents, CLI agents, and integrating with the registry.
 
 ## Agent Architecture
 
-### Base Agent Interface
+All agents implement a common interface:
 
 ```python
-from aragora.core import Agent, Critique, Message, Vote
+class Agent:
+    name: str           # Unique identifier
+    role: str           # "proposer", "critic", "synthesizer"
 
-class Agent(ABC):
-    """Abstract base class for all agents."""
-
-    def __init__(self, name: str, model: str, role: str = "proposer"):
-        self.name = name
-        self.model = model
-        self.role = role
-        self.system_prompt = ""
-        self.agent_type = "unknown"
-        self.stance = "neutral"
-
-    @abstractmethod
-    async def generate(
-        self,
-        prompt: str,
-        context: list[Message] | None = None,
-    ) -> str:
+    async def generate(self, prompt: str, context: dict) -> str:
         """Generate a response to the prompt."""
-        pass
 
-    @abstractmethod
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        """Critique another agent's proposal."""
-        pass
-
-    async def vote(self, proposals: dict[str, str], task: str) -> Vote:
-        """Vote on proposals (default implementation uses generate())."""
-        ...
+    async def critique(self, content: str, context: dict) -> str:
+        """Critique another agent's content."""
 ```
 
-### Core Models
+## Creating an API Agent
+
+### Step 1: Create the Agent File
+
+Create `aragora/agents/api_agents/my_provider.py`:
 
 ```python
-@dataclass
-class Message:
-    role: str
-    agent: str
-    content: str
-    timestamp: datetime = field(default_factory=datetime.now)
-    round: int = 0
+"""
+MyProvider API Agent.
 
-@dataclass
-class Critique:
-    agent: str
-    target_agent: str
-    target_content: str
-    issues: list[str]
-    suggestions: list[str]
-    severity: float
-    reasoning: str
+Integrates with MyProvider's API for adversarial stress-tests.
+"""
 
-@dataclass
-class Vote:
-    agent: str
-    choice: str
-    reasoning: str
-    confidence: float = 1.0
-    continue_debate: bool = True
-```
+from __future__ import annotations
 
-## Building API Agents
+import os
+import logging
+from typing import Optional
 
-### OpenAI-Compatible Agent
-
-```python
 import httpx
-from aragora.agents.api_agents.base import APIAgent
-from aragora.core import Critique, Message
 
-class OpenAICompatibleAgent(APIAgent):
-    """Agent for any OpenAI-compatible API."""
+from aragora.agents.registry import AgentRegistry
+from .base import APIAgent, APIAgentConfig
+
+logger = logging.getLogger(__name__)
+
+
+@AgentRegistry.register(
+    "my-provider",
+    default_model="my-model-v1",
+    agent_type="API",
+    env_vars="MY_PROVIDER_API_KEY",
+    description="MyProvider AI for adversarial stress-tests",
+    accepts_api_key=True,
+)
+class MyProviderAgent(APIAgent):
+    """Agent using MyProvider's API."""
+
+    BASE_URL = "https://api.myprovider.com/v1"
 
     def __init__(
         self,
-        name: str,
-        api_key: str,
-        base_url: str = "https://api.openai.com/v1",
-        model: str = "gpt-5.2",
+        name: str = "my-provider",
         role: str = "proposer",
-        timeout: int = 120,
+        model: str = "my-model-v1",
+        api_key: Optional[str] = None,
     ):
-        super().__init__(
-            name=name,
-            model=model,
-            role=role,
-            timeout=timeout,
-            api_key=api_key,
-            base_url=base_url,
-        )
-        self.agent_type = "openai-compatible"
+        super().__init__(name=name, role=role)
+        self.model = model
+        self.api_key = api_key or os.getenv("MY_PROVIDER_API_KEY")
+
+        if not self.api_key:
+            raise ValueError("MY_PROVIDER_API_KEY environment variable required")
+
         self.client = httpx.AsyncClient(
-            base_url=base_url,
-            headers={"Authorization": f"Bearer {api_key}"}
+            base_url=self.BASE_URL,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            timeout=60.0,
         )
 
-    async def generate(
-        self,
-        prompt: str,
-        context: list[Message] | None = None,
-    ) -> str:
-        full_prompt = self._build_context_prompt(context) + prompt if context else prompt
-        messages = [{"role": "user", "content": full_prompt}]
+    async def generate(self, prompt: str, context: dict = None) -> str:
+        """Generate a response using MyProvider API."""
+        messages = self._build_messages(prompt, context)
 
         response = await self.client.post(
             "/chat/completions",
             json={
                 "model": self.model,
                 "messages": messages,
-            }
+                "temperature": 0.7,
+                "max_tokens": 2000,
+            },
         )
         response.raise_for_status()
-        data = response.json()
 
+        data = response.json()
         return data["choices"][0]["message"]["content"]
 
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        critique_prompt = f"""Critically analyze this proposal:
+    async def critique(self, content: str, context: dict = None) -> str:
+        """Critique another agent's content."""
+        critique_prompt = f"""You are an adversarial reviewer in a decision stress-test.
 
-Task: {task}
-Proposal: {proposal}
+Analyze the following content and provide constructive criticism:
 
-Format your response as:
-ISSUES:
-- issue 1
-- issue 2
+\{content\}
 
-SUGGESTIONS:
-- suggestion 1
-- suggestion 2
+Focus on:
+1. Logical flaws or unsupported claims
+2. Missing considerations
+3. Potential risks or edge cases
+4. Alternative perspectives
 
-SEVERITY: X.X
-REASONING: explanation"""
+Be specific and actionable in your critique."""
 
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        return await self.generate(critique_prompt, context)
+
+    def _build_messages(self, prompt: str, context: dict = None) -> list:
+        """Build message list for API call."""
+        messages = []
+
+        # System message based on role
+        system_prompts = {
+            "proposer": "You are a thoughtful proposer in a decision stress-test. Make clear, risk-aware arguments.",
+            "critic": "You are a critical analyst. Red-team the proposal and surface flaws, risks, and missing considerations.",
+            "synthesizer": "You synthesize multiple perspectives into a balanced, defensible conclusion.",
+        }
+        messages.append({
+            "role": "system",
+            "content": system_prompts.get(self.role, system_prompts["proposer"]),
+        })
+
+        # Add context if provided
+        if context and context.get("history"):
+            for msg in context["history"][-5:]:  # Last 5 messages
+                messages.append({
+                    "role": "user" if msg["agent"] != self.name else "assistant",
+                    "content": f"[{msg['agent']}]: {msg['content']}",
+                })
+
+        # Add the prompt
+        messages.append({"role": "user", "content": prompt})
+
+        return messages
+
+    async def close(self):
+        """Close the HTTP client."""
+        await self.client.aclose()
 ```
 
-### Anthropic Agent
+### Step 2: Register in the Package
+
+Add to `aragora/agents/api_agents/__init__.py`:
 
 ```python
-import anthropic
-from aragora.agents.api_agents.base import APIAgent
-from aragora.core import Critique, Message
+from .my_provider import MyProviderAgent
 
-class AnthropicAgent(APIAgent):
-    """Agent using Anthropic's Claude models."""
-
-    def __init__(
-        self,
-        name: str = "anthropic-api",
-        model: str = "claude-opus-4-5-20251101",
-        api_key: str | None = None,
-        role: str = "proposer",
-        timeout: int = 120,
-    ):
-        super().__init__(
-            name=name,
-            model=model,
-            role=role,
-            timeout=timeout,
-            api_key=api_key,
-            base_url="https://api.anthropic.com/v1",
-        )
-        self.agent_type = "anthropic"
-        self.client = anthropic.AsyncAnthropic(api_key=api_key)
-
-    async def generate(
-        self,
-        prompt: str,
-        context: list[Message] | None = None,
-    ) -> str:
-        full_prompt = self._build_context_prompt(context) + prompt if context else prompt
-        response = await self.client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            system=self.system_prompt or "You are a helpful assistant participating in a debate.",
-            messages=[{"role": "user", "content": full_prompt}]
-        )
-        return response.content[0].text
-
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        critique_prompt = f"""Critically analyze this proposal:
-
-Task: {task}
-Proposal: {proposal}
-
-Format your response as:
-ISSUES:
-- issue 1
-- issue 2
-
-SUGGESTIONS:
-- suggestion 1
-- suggestion 2
-
-SEVERITY: X.X
-REASONING: explanation"""
-
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+__all__ = [
+    # ... existing exports
+    "MyProviderAgent",
+]
 ```
 
-## Building Local Agents
-
-### Ollama Agent
+### Step 3: Test Your Agent
 
 ```python
-import httpx
-from aragora.agents.api_agents.base import APIAgent
-from aragora.core import Critique, Message
+# tests/agents/test_my_provider.py
+import pytest
+from unittest.mock import AsyncMock, patch
 
-class OllamaAgent(APIAgent):
-    """Agent for local Ollama models."""
+from aragora.agents.api_agents.my_provider import MyProviderAgent
 
-    def __init__(
-        self,
-        name: str = "ollama",
-        model: str = "llama3.2",
-        base_url: str = "http://localhost:11434",
-        role: str = "proposer",
-        timeout: int = 120,
-    ):
-        super().__init__(
-            name=name,
-            model=model,
-            role=role,
-            timeout=timeout,
-            api_key=None,
-            base_url=base_url,
-        )
-        self.agent_type = "ollama"
 
-    async def generate(
-        self,
-        prompt: str,
-        context: list[Message] | None = None,
-    ) -> str:
-        full_prompt = self._build_context_prompt(context) + prompt if context else prompt
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": full_prompt,
-                    "options": {
-                        "temperature": self.temperature or 0.7,
-                        "num_predict": 4096
-                    },
-                    "stream": False
-                },
-                timeout=120.0
-            )
-            response.raise_for_status()
-            data = response.json()
+class TestMyProviderAgent:
+    """Tests for MyProviderAgent."""
 
-        return data["response"]
+    def test_init_requires_api_key(self):
+        """Should require API key."""
+        with pytest.raises(ValueError, match="API_KEY"):
+            MyProviderAgent(api_key=None)
 
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        critique_prompt = f"""Critically analyze this proposal:
+    def test_init_with_api_key(self):
+        """Should initialize with API key."""
+        agent = MyProviderAgent(api_key="test-key")
+        assert agent.name == "my-provider"
+        assert agent.role == "proposer"
 
-Task: {task}
-Proposal: {proposal}
+    @pytest.mark.asyncio
+    async def test_generate(self):
+        """Should generate response."""
+        agent = MyProviderAgent(api_key="test-key")
 
-Format your response as:
-ISSUES:
-- issue 1
-- issue 2
+        with patch.object(agent.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value.json.return_value = {
+                "choices": [{"message": {"content": "Test response"}}]
+            }
+            mock_post.return_value.raise_for_status = lambda: None
 
-SUGGESTIONS:
-- suggestion 1
-- suggestion 2
+            result = await agent.generate("Test prompt")
+            assert result == "Test response"
 
-SEVERITY: X.X
-REASONING: explanation"""
+    @pytest.mark.asyncio
+    async def test_critique(self):
+        """Should critique content."""
+        agent = MyProviderAgent(api_key="test-key", role="critic")
 
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
+        with patch.object(agent, "generate", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = "Critique: Missing edge cases"
+
+            result = await agent.critique("Some content to review")
+            assert "Critique" in result
 ```
 
-### vLLM Agent
+## Creating a CLI Agent
+
+For agents that wrap CLI tools (like `claude` or `codex`):
 
 ```python
-from aragora.agents.api_agents.base import APIAgent
-from aragora.core import Critique, Message
-from openai import AsyncOpenAI
+# aragora/agents/cli_agents/my_cli.py
 
-class VLLMAgent(APIAgent):
-    """Agent for vLLM server."""
+import subprocess
+import asyncio
+from aragora.agents.registry import AgentRegistry
+from .base import CLIAgent
 
-    def __init__(
-        self,
-        name: str = "vllm",
-        model: str = "meta-llama/Llama-3.1-8B-Instruct",
-        base_url: str = "http://localhost:8000/v1",
-        role: str = "proposer",
-        timeout: int = 120,
-    ):
-        super().__init__(
-            name=name,
-            model=model,
-            role=role,
-            timeout=timeout,
-            api_key="not-needed",
-            base_url=base_url,
-        )
-        self.agent_type = "vllm"
-        self.client = AsyncOpenAI(
-            base_url=base_url,
-            api_key="not-needed"  # vLLM doesn't require auth by default
-        )
 
-    async def generate(
-        self,
-        prompt: str,
-        context: list[Message] | None = None,
-    ) -> str:
-        full_prompt = self._build_context_prompt(context) + prompt if context else prompt
-        messages = [{"role": "user", "content": full_prompt}]
-
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=self.temperature or 0.7,
-            max_tokens=4096
-        )
-
-        return response.choices[0].message.content
-
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        critique_prompt = f"""Critically analyze this proposal:
-
-Task: {task}
-Proposal: {proposal}
-
-Format your response as:
-ISSUES:
-- issue 1
-- issue 2
-
-SUGGESTIONS:
-- suggestion 1
-- suggestion 2
-
-SEVERITY: X.X
-REASONING: explanation"""
-
-        response = await self.generate(critique_prompt, context)
-        return self._parse_critique(response, "proposal", proposal)
-```
-
-## Specialized Agents
-
-### Expert Agent
-
-An agent with domain expertise:
-
-```python
-class ExpertAgent(Agent):
-    """Agent with specialized domain knowledge."""
-
-    def __init__(
-        self,
-        name: str,
-        domain: str,
-        expertise_prompt: str,
-        base_agent: Agent,
-        role: str = "proposer",
-    ):
-        super().__init__(name=name, model=base_agent.model, role=role)
-        self.domain = domain
-        self.expertise_prompt = expertise_prompt
-        self.base_agent = base_agent
-
-    async def generate(
-        self,
-        prompt: str,
-        context: list[Message] | None = None,
-    ) -> str:
-        enhanced_prompt = f"""You are an expert in {self.domain}.
-
-{self.expertise_prompt}
-
-Task prompt:
-{prompt}"""
-
-        return await self.base_agent.generate(enhanced_prompt, context)
-
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        critique = await self.base_agent.critique(proposal, task, context)
-        critique.agent = self.name
-        return critique
-
-# Usage
-security_expert = ExpertAgent(
-    name="security-expert",
-    domain="cybersecurity",
-    expertise_prompt="""You have deep expertise in:
-- Application security (OWASP Top 10)
-- Network security and penetration testing
-- Cryptography and secure protocols
-- Security architecture and threat modeling
-
-Always consider security implications in your responses.""",
-    base_agent=AnthropicAgent()
+@AgentRegistry.register(
+    "my-cli",
+    agent_type="CLI",
+    requires="my-cli tool (npm install -g my-cli)",
+    description="CLI agent wrapping my-cli tool",
 )
+class MyCLIAgent(CLIAgent):
+    """Agent wrapping a CLI tool."""
+
+    COMMAND = "my-cli"
+
+    def __init__(self, name: str = "my-cli", role: str = "proposer"):
+        super().__init__(name=name, role=role)
+        self._verify_cli_available()
+
+    def _verify_cli_available(self):
+        """Check if CLI tool is installed."""
+        try:
+            subprocess.run(
+                [self.COMMAND, "--version"],
+                capture_output=True,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            raise RuntimeError(f"{self.COMMAND} not found. Install with: npm install -g {self.COMMAND}")
+
+    async def generate(self, prompt: str, context: dict = None) -> str:
+        """Generate response via CLI."""
+        # Write prompt to temp file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(prompt)
+            prompt_file = f.name
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                self.COMMAND,
+                "generate",
+                "--input", prompt_file,
+                "--format", "text",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+
+            if proc.returncode != 0:
+                raise RuntimeError(f"CLI error: {stderr.decode()}")
+
+            return stdout.decode().strip()
+        finally:
+            import os
+            os.unlink(prompt_file)
 ```
 
-### Devil's Advocate Agent
+## Using OpenRouter for Quick Integration
 
-An agent that challenges consensus:
+For models available on OpenRouter, use the base class:
 
 ```python
-class DevilsAdvocateAgent(Agent):
-    """Agent that deliberately challenges the majority position."""
+# Quick integration via OpenRouter
+from aragora.agents.api_agents.openrouter import OpenRouterAgent
+from aragora.agents.registry import AgentRegistry
 
-    def __init__(self, base_agent: Agent, name: str = "devils-advocate", role: str = "critic"):
-        super().__init__(name=name, model=base_agent.model, role=role)
-        self.base_agent = base_agent
 
-    async def generate(
-        self,
-        prompt: str,
-        context: list[Message] | None = None,
-    ) -> str:
-        contrarian_prompt = """You are a devil's advocate. Your role is to:
-1. Identify the most commonly held position
-2. Argue against it with compelling counterarguments
-3. Find weaknesses and edge cases
-4. Challenge assumptions
+@AgentRegistry.register(
+    "my-openrouter-model",
+    default_model="my-provider/my-model",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="My model via OpenRouter",
+)
+class MyOpenRouterModel(OpenRouterAgent):
+    """Access my-model via OpenRouter."""
 
-Be intellectually rigorous, not contrarian for its own sake.
-
-Task prompt:
-"""
-
-        return await self.base_agent.generate(contrarian_prompt + prompt, context)
-
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        critique = await self.base_agent.critique(proposal, task, context)
-        critique.agent = self.name
-        return critique
+    def __init__(self, name: str = "my-model", role: str = "proposer"):
+        super().__init__(
+            name=name,
+            role=role,
+            model="my-provider/my-model",
+        )
 ```
 
-### Ensemble Agent
+## Advanced Features
 
-Combines multiple agents:
+### Streaming Responses
 
 ```python
-class EnsembleAgent(Agent):
-    """Agent that synthesizes responses from multiple sub-agents."""
-
-    def __init__(
-        self,
-        name: str,
-        agents: list[Agent],
-        synthesizer: Agent,
-        role: str = "synthesizer",
-    ):
-        super().__init__(name=name, model=synthesizer.model, role=role)
-        self.agents = agents
-        self.synthesizer = synthesizer
-
-    async def generate(
-        self,
-        prompt: str,
-        context: list[Message] | None = None,
-    ) -> str:
-        # Gather responses from all sub-agents
-        import asyncio
-        responses = await asyncio.gather(*[
-            agent.generate(prompt, context)
-            for agent in self.agents
-        ])
-
-        # Synthesize into a single response
-        synthesis_prompt = f"""Given these responses to the prompt "{prompt}":
-
-{chr(10).join(f'Agent {agent.name}: {response}' for agent, response in zip(self.agents, responses))}
-
-Synthesize these into a single, coherent response that captures the best insights from each."""
-
-        return await self.synthesizer.generate(synthesis_prompt, context)
-
-    async def critique(
-        self,
-        proposal: str,
-        task: str,
-        context: list[Message] | None = None,
-    ) -> Critique:
-        critique = await self.synthesizer.critique(proposal, task, context)
-        critique.agent = self.name
-        return critique
+async def generate_stream(self, prompt: str, context: dict = None):
+    """Stream response tokens."""
+    async with self.client.stream(
+        "POST",
+        "/chat/completions",
+        json={"model": self.model, "messages": [...], "stream": True},
+    ) as response:
+        async for line in response.aiter_lines():
+            if line.startswith("data: "):
+                data = json.loads(line[6:])
+                if content := data["choices"][0]["delta"].get("content"):
+                    yield content
 ```
 
-## Agent Configuration
-
-### From YAML
-
-```yaml
-# agents.yaml
-agents:
-  claude-expert:
-    type: anthropic-api
-    model: claude-opus-4-5-20251101
-    role: proposer
-    system_prompt: "You are a helpful expert assistant."
-
-  gpt-analyst:
-    type: openai-api
-    model: gpt-5.2
-    role: critic
-    system_prompt: "You are a careful analyst who examines evidence."
-
-  local-llama:
-    type: ollama
-    model: llama3.2:70b
-    extra:
-      base_url: http://localhost:11434
-```
-
-Load configuration:
+### Error Handling and Fallback
 
 ```python
-import yaml
+from aragora.agents.fallback import with_fallback
+
+@with_fallback("openrouter")  # Fall back to OpenRouter on failure
+class MyProviderAgent(APIAgent):
+    ...
+```
+
+### Rate Limiting
+
+```python
+from aragora.resilience import RateLimiter
+
+class MyProviderAgent(APIAgent):
+    def __init__(self, ...):
+        super().__init__(...)
+        self.rate_limiter = RateLimiter(
+            max_requests=60,
+            time_window=60,  # seconds
+        )
+
+    async def generate(self, prompt: str, context: dict = None) -> str:
+        await self.rate_limiter.acquire()
+        return await self._generate_impl(prompt, context)
+```
+
+## Testing Your Agent in Debates
+
+```python
+# Interactive test
+import asyncio
 from aragora.agents.registry import AgentRegistry, register_all_agents
 
 register_all_agents()
 
-with open("agents.yaml", "r", encoding="utf-8") as handle:
-    config = yaml.safe_load(handle)
+async def test_debate():
+    agent = AgentRegistry.create("my-provider", role="proposer")
 
-agents = []
-for name, spec in config["agents"].items():
-    extra = spec.get("extra", {})
-    agent = AgentRegistry.create(
-        spec["type"],
-        name=name,
-        role=spec.get("role", "proposer"),
-        model=spec.get("model"),
-        api_key=spec.get("api_key"),
-        **extra,
+    response = await agent.generate(
+        "Should we use microservices or monolith?",
+        context={"topic": "architecture"}
     )
-    if spec.get("system_prompt"):
-        agent.system_prompt = spec["system_prompt"]
-    agents.append(agent)
+    print(f"Response: \{response\}")
+
+    critique = await agent.critique(response)
+    print(f"Self-critique: \{critique\}")
+
+asyncio.run(test_debate())
 ```
 
-### From Environment (Server Defaults)
+## Checklist
 
-```bash
-export ARAGORA_DEFAULT_AGENTS="anthropic-api,openai-api,gemini"
-export ARAGORA_STREAMING_AGENTS="anthropic-api,openai-api"
-```
+Before submitting your agent:
 
-## Error Handling
+- [ ] Implements `generate()` and `critique()` methods
+- [ ] Registered with `@AgentRegistry.register`
+- [ ] Has unit tests
+- [ ] Handles API errors gracefully
+- [ ] Documents required environment variables
+- [ ] Added to `__init__.py` exports
+- [ ] Tested in a real debate
 
-### Retry Logic
+## Examples
 
-```python
-from aragora.core import Agent, Critique, Message
-from aragora.resilience import CircuitBreaker, CircuitOpenError, with_retry
+See existing agents for reference:
+- `aragora/agents/api_agents/anthropic.py` - Full-featured API agent
+- `aragora/agents/api_agents/openrouter.py` - OpenRouter integration
+- `aragora/agents/cli_agents.py` - CLI agent patterns
 
-class ResilientAgent(Agent):
-    """Agent with built-in resilience."""
+---
 
-    def __init__(self, base_agent: Agent):
-        super().__init__(
-            name=base_agent.name,
-            model=base_agent.model,
-            role=base_agent.role,
-        )
-        self.base_agent = base_agent
-        self.circuit_breaker = CircuitBreaker(
-            failure_threshold=3,
-            recovery_timeout=60
-        )
-
-    @with_retry(max_attempts=3, backoff_factor=2)
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        if not self.circuit_breaker.allow_request():
-            raise CircuitOpenError(f"Circuit open for {self.name}")
-
-        try:
-            response = await self.base_agent.generate(prompt, context)
-            self.circuit_breaker.record_success()
-            return response
-        except Exception as e:
-            self.circuit_breaker.record_failure()
-            raise
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        critique = await self.base_agent.critique(proposal, task, context)
-        critique.agent = self.name
-        return critique
-```
-
-### Fallback Agents
-
-```python
-from aragora.agents.fallback import AgentFallbackChain
-from aragora.agents.api_agents import AnthropicAPIAgent, OpenAIAPIAgent, OpenRouterAgent
-from aragora.resilience import CircuitBreaker
-
-# Primary: Anthropic, fallback: OpenAI, last resort: OpenRouter
-chain = AgentFallbackChain(
-    providers=["anthropic", "openai", "openrouter"],
-    circuit_breaker=CircuitBreaker(failure_threshold=3, cooldown_seconds=60),
-)
-chain.register_provider("anthropic", lambda: AnthropicAPIAgent())
-chain.register_provider("openai", lambda: OpenAIAPIAgent())
-chain.register_provider("openrouter", lambda: OpenRouterAgent(model="anthropic/claude-sonnet-4"))
-
-# Generate with automatic fallback
-response = await chain.generate("Summarize the trade-offs", context=None)
-```
-
-## Testing Agents
-
-### Unit Tests
-
-```python
-import pytest
-from unittest.mock import AsyncMock, patch
-
-@pytest.mark.asyncio
-async def test_my_agent_generate():
-    agent = MyAgent()
-
-    response = await agent.generate("What is 2+2?")
-
-    assert isinstance(response, str)
-    assert response
-
-@pytest.mark.asyncio
-async def test_my_agent_critique():
-    agent = MyAgent()
-
-    critique = await agent.critique("The answer is 5", "Math problem")
-
-    assert critique.issues
-    assert critique.reasoning
-```
-
-### Integration Tests
-
-```python
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_agent_in_debate():
-    from aragora import Arena, Environment, DebateProtocol
-    from aragora.agents.base import create_agent
-
-    env = Environment(task="Simple test debate")
-    protocol = DebateProtocol(rounds=1)
-    agents = [
-        MyAgent(),
-        create_agent("anthropic-api"),
-    ]
-    arena = Arena(env, agents, protocol)
-
-    result = await arena.run()
-
-    assert result.messages
-    assert any(m.agent == "my-agent" for m in result.messages)
-```
-
-### Mock Agents for Testing
-
-```python
-class MockAgent(Agent):
-    """Deterministic agent for testing."""
-
-    def __init__(self, responses: list[str], name: str = "mock", model: str = "mock"):
-        super().__init__(name=name, model=model)
-        self.responses = responses
-        self.call_count = 0
-
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        response = self.responses[self.call_count % len(self.responses)]
-        self.call_count += 1
-        return response
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        return Critique(
-            agent=self.name,
-            target_agent="proposal",
-            target_content=proposal[:200],
-            issues=["mock critique"],
-            suggestions=[],
-            severity=0.1,
-            reasoning="mock critique",
-        )
-```
-
-## Best Practices
-
-### 1. Handle Rate Limits
-
-```python
-import asyncio
-from aragora.utils.rate_limit import RateLimiter
-
-class RateLimitedAgent(Agent):
-    def __init__(self, base_agent: Agent, requests_per_minute: int = 60):
-        super().__init__(name=base_agent.name, model=base_agent.model, role=base_agent.role)
-        self.base_agent = base_agent
-        self.limiter = RateLimiter(requests_per_minute)
-
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        await self.limiter.acquire()
-        return await self.base_agent.generate(prompt, context)
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        critique = await self.base_agent.critique(proposal, task, context)
-        critique.agent = self.name
-        return critique
-```
-
-### 2. Log All Interactions
-
-```python
-import structlog
-
-logger = structlog.get_logger()
-
-class LoggingAgent(Agent):
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        logger.info("agent.generate.start", agent=self.name, prompt_length=len(prompt))
-
-        try:
-            response = await self._generate_impl(prompt, context)
-            logger.info("agent.generate.success",
-                       agent=self.name,
-                       response_length=len(response))
-            return response
-        except Exception as e:
-            logger.error("agent.generate.error", agent=self.name, error=str(e))
-            raise
-```
-
-### 3. Validate Responses
-
-```python
-from pydantic import BaseModel, validator
-
-class ValidatedOutput(BaseModel):
-    content: str
-    confidence: float
-
-    @validator("content")
-    def content_not_empty(cls, v):
-        if not v.strip():
-            raise ValueError("Output content cannot be empty")
-        return v
-
-    @validator("confidence")
-    def confidence_in_range(cls, v):
-        if not 0 <= v <= 1:
-            raise ValueError("Confidence must be between 0 and 1")
-        return v
-```
-
-### 4. Support Streaming
-
-```python
-from typing import AsyncIterator
-
-class StreamingAgent(Agent):
-    async def generate_stream(
-        self,
-        prompt: str,
-        **kwargs
-    ) -> AsyncIterator[str]:
-        """Stream response tokens."""
-        async for chunk in self._stream_impl(prompt, **kwargs):
-            yield chunk
-
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Non-streaming wrapper."""
-        chunks = []
-        async for chunk in self.generate_stream(prompt, **kwargs):
-            chunks.append(chunk)
-        return "".join(chunks)
-
-    async def critique(self, proposal: str, task: str, context: list[Message] | None = None) -> Critique:
-        critique_prompt = f"Task: {task}\nProposal: {proposal}\nProvide issues and suggestions."
-        response = await self.generate(critique_prompt, context)
-        return Critique(
-            agent=self.name,
-            target_agent="proposal",
-            target_content=proposal[:200],
-            issues=[response],
-            suggestions=[],
-            severity=0.3,
-            reasoning="Streaming critique stub",
-        )
-```
-
-## Agent Registry
-
-### Register Custom Agents
-
-```python
-from aragora.agents.base import create_agent
-from aragora.agents.registry import AgentRegistry
-
-# Register
-AgentRegistry.register("my-agent", default_model="custom", agent_type="Custom")(MyAgent)
-
-# Retrieve
-agent = create_agent("my-agent")
-```
-
-### List Available Agents
-
-```python
-from aragora.agents.base import list_available_agents
-
-agents = list_available_agents()
-# list(agents.keys()) -> ['anthropic-api', 'openai-api', 'gemini', 'grok', ...]
-```
-
-## Related Documentation
-
-- [API Reference](API_REFERENCE.md) - Full API documentation
-- [Custom Agents](CUSTOM_AGENTS.md) - More agent examples
-- [Architecture](ARCHITECTURE.md) - System architecture
-- [Memory Architecture](MEMORY_STRATEGY.md) - How agents learn
+*Build agents. Shape debates. Improve outcomes.*

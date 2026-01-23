@@ -1,7 +1,7 @@
 {
   "id": "deployment/kubernetes",
-  "title": "kubernetes",
-  "description": "See the deployment guide at /docs/DEPLOYMENT_GUIDE.md for detailed instructions.",
+  "title": "Kubernetes Deployment Guide",
+  "description": "Kubernetes Deployment Guide",
   "source": "@site/docs/deployment/kubernetes.md",
   "sourceDirName": "deployment",
   "slug": "/deployment/kubernetes",
@@ -13,10 +13,9 @@
   "version": "current",
   "lastUpdatedBy": "an0mium",
   "lastUpdatedAt": 1769103634000,
-  "sidebarPosition": 2,
   "frontMatter": {
-    "title": "kubernetes",
-    "sidebar_position": 2
+    "title": "Kubernetes Deployment Guide",
+    "description": "Kubernetes Deployment Guide"
   },
   "sidebar": "guidesSidebar",
   "previous": {

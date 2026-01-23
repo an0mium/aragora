@@ -1,0 +1,20 @@
+{
+  "id": "guides/modes",
+  "title": "Aragora Modes Guide",
+  "description": "Aragora Modes Guide",
+  "source": "@site/docs/guides/modes.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/modes",
+  "permalink": "/docs/guides/modes",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/modes.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Modes Guide",
+    "description": "Aragora Modes Guide"
+  }
+}

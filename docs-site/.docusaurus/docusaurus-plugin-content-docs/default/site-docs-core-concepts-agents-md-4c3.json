@@ -1,7 +1,7 @@
 {
   "id": "core-concepts/agents",
-  "title": "Custom Agent Development Guide",
-  "description": "Custom Agent Development Guide",
+  "title": "Agent Catalog (Overview)",
+  "description": "Agent Catalog (Overview)",
   "source": "@site/docs/core-concepts/agents.md",
   "sourceDirName": "core-concepts",
   "slug": "/core-concepts/agents",
@@ -14,8 +14,8 @@
   "lastUpdatedBy": "an0mium",
   "lastUpdatedAt": 1769103634000,
   "frontMatter": {
-    "title": "Custom Agent Development Guide",
-    "description": "Custom Agent Development Guide"
+    "title": "Agent Catalog (Overview)",
+    "description": "Agent Catalog (Overview)"
   },
   "sidebar": "gettingStartedSidebar",
   "previous": {

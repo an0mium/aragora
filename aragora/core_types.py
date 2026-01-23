@@ -1,5 +1,5 @@
 """
-Core abstractions for the Aragora control plane for multi-agent deliberation.
+Core abstractions for the Aragora control plane for multi-agent robust decisionmaking.
 """
 
 from __future__ import annotations

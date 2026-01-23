@@ -1,0 +1,20 @@
+{
+  "id": "getting-started/overview",
+  "title": "Getting Started with Aragora",
+  "description": "Getting Started with Aragora",
+  "source": "@site/docs/getting-started/overview.md",
+  "sourceDirName": "getting-started",
+  "slug": "/getting-started/overview",
+  "permalink": "/docs/getting-started/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/getting-started/overview.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Getting Started with Aragora",
+    "description": "Getting Started with Aragora"
+  }
+}

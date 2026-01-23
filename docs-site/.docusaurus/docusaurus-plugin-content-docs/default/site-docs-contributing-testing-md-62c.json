@@ -1,0 +1,20 @@
+{
+  "id": "contributing/testing",
+  "title": "Testing Guide",
+  "description": "Testing Guide",
+  "source": "@site/docs/contributing/testing.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/testing",
+  "permalink": "/docs/contributing/testing",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/testing.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Testing Guide",
+    "description": "Testing Guide"
+  }
+}

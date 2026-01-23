@@ -5,8 +5,7 @@ Integrations for analytics and BI platforms:
 - Metabase (BI dashboards, SQL queries)
 - Google Analytics (GA4 reporting)
 - Mixpanel (product analytics)
-- Amplitude - planned
-- Segment - planned
+- Segment (Customer Data Platform)
 """
 
 from aragora.connectors.analytics.metabase import (
@@ -57,6 +56,24 @@ from aragora.connectors.analytics.mixpanel import (
     get_mock_event,
     get_mock_insight_result,
 )
+from aragora.connectors.analytics.segment import (
+    SegmentConnector,
+    SegmentCredentials,
+    Source,
+    Destination,
+    TrackEvent,
+    IdentifyCall,
+    PageEvent,
+    GroupCall,
+    Audience as SegmentAudience,
+    Profile,
+    SegmentError,
+    SourceType,
+    DestinationType,
+    EventType as SegmentEventType,
+    get_mock_source,
+    get_mock_profile,
+)
 
 __all__ = [
     # Metabase
@@ -104,4 +121,21 @@ __all__ = [
     "EventType",
     "get_mock_event",
     "get_mock_insight_result",
+    # Segment
+    "SegmentConnector",
+    "SegmentCredentials",
+    "Source",
+    "Destination",
+    "TrackEvent",
+    "IdentifyCall",
+    "PageEvent",
+    "GroupCall",
+    "SegmentAudience",
+    "Profile",
+    "SegmentError",
+    "SourceType",
+    "DestinationType",
+    "SegmentEventType",
+    "get_mock_source",
+    "get_mock_profile",
 ]

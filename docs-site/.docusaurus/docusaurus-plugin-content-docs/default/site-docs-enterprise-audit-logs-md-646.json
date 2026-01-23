@@ -20,7 +20,7 @@
   },
   "sidebar": "guidesSidebar",
   "previous": {
-    "title": "sso",
+    "title": "SSO/Enterprise Authentication Setup",
     "permalink": "/docs/enterprise/sso"
   },
   "next": {

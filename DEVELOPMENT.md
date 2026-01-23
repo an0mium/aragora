@@ -2,7 +2,7 @@
 
 This guide helps new contributors get set up and productive with Aragora development.
 
-If you just want to run a debate (not contribute), start at [docs/START_HERE.md](docs/START_HERE.md).
+If you just want to run a debate (not contribute), start at [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
 
 ## Quick Start
 

@@ -1,0 +1,20 @@
+{
+  "id": "security/compliance-presets",
+  "title": "Compliance & Audit Presets",
+  "description": "Compliance & Audit Presets",
+  "source": "@site/docs/security/compliance-presets.md",
+  "sourceDirName": "security",
+  "slug": "/security/compliance-presets",
+  "permalink": "/docs/security/compliance-presets",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/compliance-presets.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Compliance & Audit Presets",
+    "description": "Compliance & Audit Presets"
+  }
+}

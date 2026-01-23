@@ -16,7 +16,7 @@ This document provides operational procedures for responding to Aragora alerts. 
 4. [Agent Alerts](#agent-alerts)
 5. [Security Alerts](#security-alerts)
 6. [Infrastructure Alerts](#infrastructure-alerts)
-7. [SLO/Error Budget Alerts](#slo-error-budget-alerts)
+7. [SLO Error Budget Alerts](#slo-error-budget-alerts)
 
 ---
 
@@ -130,6 +130,8 @@ histogram_quantile(0.99, rate(aragora_api_latency_seconds_bucket[5m])) > 2
 - If sustained >30 min: Page backend engineer
 
 ---
+
+## Agent Alerts
 
 ### HighAgentLatency
 
@@ -368,7 +370,7 @@ process_resident_memory_bytes / process_virtual_memory_bytes > 0.9
 
 ---
 
-## SLO/Error Budget Alerts
+## SLO Error Budget Alerts
 
 ### FastBurnRate
 

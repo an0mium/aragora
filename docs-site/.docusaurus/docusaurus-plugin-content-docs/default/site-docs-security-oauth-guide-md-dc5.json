@@ -1,0 +1,20 @@
+{
+  "id": "security/oauth-guide",
+  "title": "OAuth Integration Guide",
+  "description": "OAuth Integration Guide",
+  "source": "@site/docs/security/oauth-guide.md",
+  "sourceDirName": "security",
+  "slug": "/security/oauth-guide",
+  "permalink": "/docs/security/oauth-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/security/oauth-guide.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "OAuth Integration Guide",
+    "description": "OAuth Integration Guide"
+  }
+}

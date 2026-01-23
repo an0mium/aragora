@@ -1,0 +1,20 @@
+{
+  "id": "operations/runbook-metrics",
+  "title": "Aragora Metrics Runbook",
+  "description": "Aragora Metrics Runbook",
+  "source": "@site/docs/operations/runbook-metrics.md",
+  "sourceDirName": "operations",
+  "slug": "/operations/runbook-metrics",
+  "permalink": "/docs/operations/runbook-metrics",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/operations/runbook-metrics.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Metrics Runbook",
+    "description": "Aragora Metrics Runbook"
+  }
+}

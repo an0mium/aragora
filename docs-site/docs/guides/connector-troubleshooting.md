@@ -622,6 +622,6 @@ If issues persist:
 
 ## See Also
 
-- [Evidence API Guide](EVIDENCE_API_GUIDE.md) - Using the evidence system
+- [Evidence API Guide](../api/evidence) - Using the evidence system
 - [API Usage](./api-usage) - Server API reference
-- [Observability](../deployment/observability-setup) - Monitoring and logging
+- [Observability](../deployment/observability) - Monitoring and logging

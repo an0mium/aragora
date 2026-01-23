@@ -18,6 +18,7 @@ from aragora.audience.suggestions import cluster_suggestions, format_for_prompt
 
 if TYPE_CHECKING:
     from aragora.agents.personas import PersonaManager
+    from aragora.agents.vertical_personas import Vertical, VerticalPersonaManager
     from aragora.core import Agent, Critique
     from aragora.insights.flip_detector import FlipDetector
     from aragora.debate.audience_manager import AudienceManager
@@ -57,6 +58,8 @@ class PromptContextBuilder:
         audience_manager: Optional["AudienceManager"] = None,
         spectator: Optional["SpectatorStream"] = None,
         notify_callback: Optional[Callable[..., Any]] = None,
+        vertical: Optional["Vertical"] = None,
+        vertical_persona_manager: Optional["VerticalPersonaManager"] = None,
     ) -> None:
         """Initialize prompt context builder.
 
@@ -68,6 +71,8 @@ class PromptContextBuilder:
             audience_manager: Manager for audience events and suggestions
             spectator: Optional spectator stream for notifications
             notify_callback: Optional callback for spectator notifications
+            vertical: Industry vertical for domain-specific context
+            vertical_persona_manager: Manager for vertical-specific personas
         """
         self.persona_manager = persona_manager
         self.flip_detector = flip_detector
@@ -76,6 +81,8 @@ class PromptContextBuilder:
         self.audience_manager = audience_manager
         self.spectator = spectator
         self._notify_callback = notify_callback
+        self.vertical = vertical
+        self.vertical_persona_manager = vertical_persona_manager
 
     def get_persona_context(self, agent: "Agent") -> str:
         """Get persona context for agent specialization.
@@ -103,6 +110,85 @@ class PromptContextBuilder:
                 return ""
 
         return persona.to_prompt_context()
+
+    def get_vertical_context(self, task: str = "") -> str:
+        """Get vertical-specific context for industry compliance and expertise.
+
+        Provides context about:
+        - Industry vertical and its specific requirements
+        - Applicable compliance frameworks
+        - Recommended expertise domains
+        - Task-specific guidance
+
+        Args:
+            task: Optional task description for auto-detection
+
+        Returns:
+            Formatted vertical context string, or empty string if not applicable
+        """
+        if not self.vertical and not self.vertical_persona_manager:
+            return ""
+
+        try:
+            # Import here to avoid circular imports
+            from aragora.agents.vertical_personas import (
+                Vertical,
+                VerticalPersonaManager,
+                VERTICAL_CONFIGS,
+            )
+
+            # Get or create manager
+            manager = self.vertical_persona_manager
+            if not manager:
+                manager = VerticalPersonaManager()
+
+            # Auto-detect vertical if not set
+            vertical = self.vertical
+            if not vertical and task:
+                vertical = manager.detect_vertical_from_task(task)
+
+            if not vertical or vertical == Vertical.GENERAL:
+                return ""
+
+            # Get vertical config
+            config = manager.get_vertical_config(vertical)
+
+            # Build context
+            lines = ["## Industry Vertical Context"]
+            lines.append(f"**Vertical:** {config.vertical.value.title()}")
+            lines.append(f"**Focus:** {config.description}")
+
+            # Compliance frameworks
+            if config.compliance_frameworks:
+                frameworks = ", ".join(config.compliance_frameworks[:5])
+                lines.append(f"**Compliance Frameworks:** {frameworks}")
+                lines.append(
+                    "Consider regulatory requirements and industry standards in your analysis."
+                )
+
+            # Expertise domains
+            if config.expertise_domains:
+                domains = ", ".join(config.expertise_domains[:6])
+                lines.append(f"**Key Expertise Areas:** {domains}")
+
+            # Accuracy requirements
+            if config.requires_high_accuracy:
+                lines.append(
+                    "**Note:** This vertical requires high accuracy. "
+                    "Prioritize precision and cite sources when possible."
+                )
+
+            # Temperature guidance
+            if config.max_temperature < 0.5:
+                lines.append(
+                    "Maintain a formal, precise tone appropriate for this professional domain."
+                )
+
+            return "\n".join(lines)
+
+        except (ImportError, AttributeError, KeyError) as e:
+            logger.debug(f"Vertical context error: {e}")
+            return ""
 
     def get_flip_context(self, agent: "Agent") -> str:
         """Get flip/consistency context for agent self-awareness.

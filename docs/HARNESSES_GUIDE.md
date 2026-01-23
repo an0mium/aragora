@@ -496,6 +496,6 @@ from aragora.harnesses import (
 
 ## Further Reading
 
-- [Audit System Documentation](./AUDIT_GUIDE.md)
-- [Debate Service Guide](./DEBATE_SERVICE.md)
+- [Gauntlet](./GAUNTLET.md)
+- [Debate Internals](./DEBATE_INTERNALS.md)
 - [Memory Strategy](./MEMORY_STRATEGY.md)

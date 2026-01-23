@@ -1,0 +1,20 @@
+{
+  "id": "analysis/case-studies/index",
+  "title": "Aragora Example Scenarios",
+  "description": "Aragora Example Scenarios",
+  "source": "@site/docs/analysis/case-studies/index.md",
+  "sourceDirName": "analysis/case-studies",
+  "slug": "/analysis/case-studies/",
+  "permalink": "/docs/analysis/case-studies/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/case-studies/index.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora Example Scenarios",
+    "description": "Aragora Example Scenarios"
+  }
+}

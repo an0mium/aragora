@@ -649,5 +649,5 @@ curl http://localhost:9090/metrics
 ## See Also
 
 - [DEPLOYMENT.md](./overview) - Kubernetes deployment
-- [RATE_LIMITING.md](./RATE_LIMITING.md) - Rate limiting configuration
+- [RATE_LIMITING.md](./rate-limiting) - Rate limiting configuration
 - [SECURITY.md](../security/overview) - Security configuration

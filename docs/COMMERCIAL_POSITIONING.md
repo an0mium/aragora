@@ -2,15 +2,16 @@
 
 **Control Plane for Multi-Agent Deliberation Across Org Knowledge and Channels**
 
-*Version 2.0 | January 2026*
+*Version 2.0 | January 2026*  
+*Status: Internal positioning draft; numbers are targets unless noted.*
 
 ---
 
 ## Executive Summary
 
-Aragora is the control plane for multi-agent deliberation—orchestrating 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike chatbots and single-model wrappers, Aragora builds institutional memory with full audit trails.
+Aragora is the control plane for multi-agent robust decisionmaking—orchestrating 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike chatbots and single-model wrappers, Aragora builds institutional memory with full audit trails.
 
-**Key Value:** Replace expensive human expert review ($15K-$100K per decision) with orchestrated multi-agent deliberation that runs in 15-45 minutes, produces compliance-ready Decision Receipts, and builds organizational knowledge over time.
+**Key Value:** Replace expensive human expert review ($15K-$100K per decision) with orchestrated multi-agent robust decisionmaking that runs in 15-45 minutes, produces compliance-ready Decision Receipts, and builds organizational knowledge over time.
 
 ---
 
@@ -26,11 +27,11 @@ Aragora is the control plane for multi-agent deliberation—orchestrating 15+ AI
 
 ### What Aragora Is NOT
 
-- **Not a chatbot** - Structured deliberation protocol with phases, roles, and evidence chains
+- **Not a chatbot** - Structured robust decisionmaking protocol with phases, roles, and evidence chains
 - **Not a copilot** - Institutional learning that ACCUMULATES organizational knowledge
 - **Not single-model** - Heterogeneous 15+ provider ensemble that argues toward truth
 - **Not stateless** - Remembers outcomes, builds knowledge graphs, improves itself
-- **Not text-only** - Multimodal ingestion (25+ formats) + multi-channel bidirectional output
+- **Not text-only** - Multimodal ingestion (PDF, Office, HTML, JSON, CSV, audio, images) + multi-channel bidirectional output
 
 ---
 
@@ -155,6 +156,8 @@ Aragora is the control plane for multi-agent deliberation—orchestrating 15+ AI
 
 ## Pricing Model
 
+*Illustrative tiering for planning. Validate pricing before external use.*
+
 | Tier | Price | Debates/Month | Features |
 |------|-------|---------------|----------|
 | **Free** | $0/forever | 10 | CLI, 2 models |
@@ -162,8 +165,8 @@ Aragora is the control plane for multi-agent deliberation—orchestrating 15+ AI
 | **Professional** | $199/mo | 500 | All models, Gauntlet, DecisionReceipts |
 | **Enterprise** | Custom | Unlimited | On-premise, SSO, priority support |
 
-**Unit Economics:**
-- Cost per debate: $0.10-$2.00 (depending on models and rounds)
+**Unit Economics (targets):**
+- Per-debate costs vary by model mix and rounds
 - Target gross margin: 70%+
 
 ---
@@ -205,14 +208,14 @@ print(result.decision_receipt)
 
 ---
 
-## Success Metrics
+## Success Metrics (Targets)
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| Time to decision | <45 min | 15-30 min avg |
-| Cost vs. human review | 99% reduction | $2 vs. $50,000 |
-| Blind spot detection | >90% | Field testing |
-| Customer retention | >90% | Pre-launch |
+| Metric | Target | Notes |
+|--------|--------|-------|
+| Time to decision | <45 min | Depends on debate rounds and sources |
+| Cost vs. human review | 90%+ reduction | Varies by model mix and volume |
+| Blind spot detection | >90% | Validate per domain with Gauntlet |
+| Customer retention | >90% | Post-launch goal |
 
 ---
 
@@ -220,10 +223,10 @@ print(result.decision_receipt)
 
 | Standard | Status |
 |----------|--------|
-| SOC 2 Type II | 92% ready, audit Q1 2026 |
-| GDPR | Compliant |
-| HIPAA | BAA available |
-| AI Act | Built-in compliance personas |
+| SOC 2 Type II | In progress (see security/audit docs) |
+| GDPR | Supported with data residency + DSAR workflows |
+| HIPAA | BAA availability depends on deployment |
+| AI Act | Supported via compliance personas + audit trails |
 
 **Security Features:**
 - API key isolation per tenant

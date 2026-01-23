@@ -34,10 +34,10 @@ See the [Authentication Guide](/docs/security/authentication) for details on obt
 
 | Section | Description |
 |---------|-------------|
-| [Debates](/docs/api-reference/debates) | Create, manage, and query debates |
-| [Agents](/docs/api-reference/agents) | Agent configuration and management |
-| [Knowledge](/docs/api-reference/knowledge) | Knowledge Mound operations |
-| [Workflows](/docs/api-reference/workflows) | Automated workflow execution |
+| [Debates](/docs/api-reference/debates/overview) | Create, manage, and query debates |
+| [Agents](/docs/api-reference/agents/overview) | Agent configuration and management |
+| [Knowledge](/docs/api-reference/knowledge/overview) | Knowledge Mound operations |
+| [Workflows](/docs/api-reference/workflows/overview) | Automated workflow execution |
 | [Control Plane](/docs/enterprise/control-plane) | Orchestrate agents, tasks, and deliberations |
 | [Decisions](/docs/api/reference) | Unified decision routing (full generated reference) |
 
@@ -47,7 +47,7 @@ For the complete endpoint list, see the generated API docs:
 
 - [API Reference (generated)](/docs/api/reference)
 - [API Endpoints (generated)](/docs/api/endpoints)
-- [OpenAPI JSON](/api/v1/openapi.json)
+- [OpenAPI JSON](https://api.aragora.ai/api/v1/openapi.json)
 
 ## Rate Limits
 
@@ -96,7 +96,7 @@ All errors follow a consistent format:
 Official SDKs are available for:
 
 - [TypeScript/JavaScript](/docs/guides/sdk-typescript)
-- [Python](/docs/guides/sdk-python)
+- [Python](/docs/guides/sdk)
 
 ## OpenAPI Specification
 

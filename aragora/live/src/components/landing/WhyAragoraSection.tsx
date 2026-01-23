@@ -33,7 +33,7 @@ export function WhyAragoraSection() {
         <SectionHeader title="WHY ARAGORA?" />
 
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-          Aragora is the control plane for multi-agent deliberation. Unlike single-model chatbots, it orchestrates 15+ AI models
+          Aragora is the control plane for multi-agent robust decisionmaking. Unlike single-model chatbots, it orchestrates 15+ AI models
           to debate your org knowledge and deliver defensible decisions with full audit trails.
         </p>
 

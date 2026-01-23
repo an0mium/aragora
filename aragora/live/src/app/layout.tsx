@@ -18,7 +18,7 @@ import { ThemeProvider, themeInitScript } from '@/context/ThemeContext';
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
   title: 'ARAGORA // LIVE',
-  description: 'Control plane for multi-agent deliberation across org knowledge and channels. Ingest from any source, deliver defensible decisions anywhere.',
+  description: 'Control plane for multi-agent robust decisionmaking across org knowledge and channels. Ingest from any source, deliver defensible decisions anywhere.',
   keywords: ['AI', 'multi-agent', 'deliberation', 'control plane', 'decision making', 'debate', 'consensus', 'LLM', 'aragora', 'Claude', 'GPT', 'Gemini', 'Slack', 'Teams', 'Discord'],
   authors: [{ name: 'Aragora Team' }],
   manifest: '/manifest.json',
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'ARAGORA // LIVE',
-    description: 'Control plane for multi-agent deliberation. Ingest any source, deliver decisions anywhere.',
+    description: 'Control plane for multi-agent robust decisionmaking. Ingest any source, deliver decisions anywhere.',
     type: 'website',
     images: ['/aragora-logo.png'],
   },

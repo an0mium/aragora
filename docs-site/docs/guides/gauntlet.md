@@ -14,9 +14,9 @@ Gauntlet is Aragora's adversarial validation engine for stress-testing high-stak
 | Document | Purpose |
 |----------|---------|
 | **GAUNTLET.md** (this) | Overview and usage guide |
-| [GAUNTLET_ARCHITECTURE.md](./GAUNTLET_ARCHITECTURE.md) | Package structure and internals |
-| [PROBE_STRATEGIES.md](./PROBE_STRATEGIES.md) | Probing strategy reference |
-| [MODES_REFERENCE.md](./MODES_REFERENCE.md) | Debate modes (RedTeam, Prober) |
+| [GAUNTLET_ARCHITECTURE.md](./gauntlet-architecture) | Package structure and internals |
+| [PROBE_STRATEGIES.md](./probe-strategies) | Probing strategy reference |
+| [MODES_REFERENCE.md](./modes-reference) | Debate modes (RedTeam, Prober) |
 
 ## Overview
 

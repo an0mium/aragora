@@ -29,7 +29,7 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
 - `/replays` - Replay browser to review historical debates and fork at checkpoints.
   - Related docs: [API_USAGE](./API_USAGE.md), [FEATURES](./FEATURES.md)
 - `/reviews` - Shareable multi-agent code reviews and consensus summaries.
-  - Related docs: [CLI_REFERENCE](./CLI_REFERENCE.md), [README](../README.md)
+  - Related docs: [CLI_REFERENCE](./CLI_REFERENCE.md), [INDEX](./INDEX.md)
 - `/code-review` - Guided code review workspace with review templates.
   - Related docs: [CODING_ASSISTANCE](./CODING_ASSISTANCE.md), [GITHUB_PR_REVIEW](./GITHUB_PR_REVIEW.md)
 - `/control-plane` - Control plane dashboard (agents, queue, deliberations).

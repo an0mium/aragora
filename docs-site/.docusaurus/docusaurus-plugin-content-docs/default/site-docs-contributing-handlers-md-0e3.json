@@ -1,0 +1,20 @@
+{
+  "id": "contributing/handlers",
+  "title": "HTTP Handler Reference",
+  "description": "HTTP Handler Reference",
+  "source": "@site/docs/contributing/handlers.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/handlers",
+  "permalink": "/docs/contributing/handlers",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/contributing/handlers.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "HTTP Handler Reference",
+    "description": "HTTP Handler Reference"
+  }
+}

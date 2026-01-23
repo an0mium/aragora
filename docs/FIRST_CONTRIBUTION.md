@@ -213,7 +213,7 @@ export function Component({ title, onAction }: Props) {
 
 - **Questions**: Open a [Discussion](https://github.com/an0mium/aragora/discussions)
 - **Bugs**: Open an [Issue](https://github.com/an0mium/aragora/issues)
-- **Docs**: Check [docs/](./docs/) folder
+- **Docs**: Check [INDEX.md](INDEX.md) for doc navigation
 
 ## Architecture Decision Tree
 

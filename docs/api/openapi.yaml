@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Aragora API",
-    "description": "Control plane for multi-agent deliberation across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
+    "description": "Control plane for multi-agent robust decisionmaking across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
     "version": "1.0.0",
     "contact": {
       "name": "Aragora Team"
@@ -28938,6 +28938,548 @@
                       "error": "Invalid value for 'rounds': must be between 1 and 10",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/gusto/status": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "summary": "Gusto status",
+        "description": "Fetch Gusto connection status.",
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "Status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/gusto/connect": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "summary": "Start Gusto OAuth",
+        "description": "Start Gusto OAuth flow.",
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "Connect",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/gusto/callback": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "summary": "Gusto OAuth callback",
+        "description": "Handle Gusto OAuth callback.",
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "Callback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/gusto/disconnect": {
+      "post": {
+        "tags": [
+          "Accounting"
+        ],
+        "summary": "Disconnect Gusto",
+        "description": "Disconnect Gusto integration.",
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "Disconnected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/gusto/employees": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "summary": "List employees",
+        "description": "List employees from Gusto.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Employees",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/gusto/payrolls": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "summary": "List payrolls",
+        "description": "List payroll runs from Gusto.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "processed",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payrolls",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/gusto/payrolls/{payroll_id}": {
+      "get": {
+        "tags": [
+          "Accounting"
+        ],
+        "summary": "Get payroll",
+        "description": "Fetch a payroll run by ID.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "payroll_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payroll",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/gusto/payrolls/{payroll_id}/journal-entry": {
+      "post": {
+        "tags": [
+          "Accounting"
+        ],
+        "summary": "Generate journal entry",
+        "description": "Generate a journal entry for a payroll run.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "payroll_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Journal entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
                       "trace_id": "req_abc123xyz"
                     }
                   }

@@ -1,7 +1,7 @@
 {
   "id": "guides/custom-agents",
-  "title": "Agent Development Guide",
-  "description": "Agent Development Guide",
+  "title": "Custom Agent Development Guide",
+  "description": "Custom Agent Development Guide",
   "source": "@site/docs/guides/custom-agents.md",
   "sourceDirName": "guides",
   "slug": "/guides/custom-agents",
@@ -14,8 +14,8 @@
   "lastUpdatedBy": "an0mium",
   "lastUpdatedAt": 1769103634000,
   "frontMatter": {
-    "title": "Agent Development Guide",
-    "description": "Agent Development Guide"
+    "title": "Custom Agent Development Guide",
+    "description": "Custom Agent Development Guide"
   },
   "sidebar": "guidesSidebar",
   "previous": {

@@ -443,4 +443,4 @@ POST /api/v2/auth/mfa/enable
 
 ## Changelog Reference
 
-See [CHANGELOG.md](../CHANGELOG.md) for complete version history.
+See [CHANGELOG.md](../../../CHANGELOG.md) for complete version history.

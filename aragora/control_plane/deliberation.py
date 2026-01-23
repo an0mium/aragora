@@ -1,7 +1,7 @@
 """
 Deliberation Integration for the Aragora Control Plane.
 
-Provides comprehensive integration between the debate/deliberation system
+Provides comprehensive integration between the debate/robust decisionmaking system
 and the control plane task scheduler. Deliberations are treated as first-class
 tasks that can be:
 - Scheduled through the coordinator with priority and SLA settings
@@ -9,7 +9,7 @@ tasks that can be:
 - Tracked for compliance with response time SLAs
 - Fed back to the ELO ranking system for agent performance updates
 
-This module is critical for the "Control plane for multi-agent deliberation"
+This module is critical for the "Control plane for multi-agent robust decisionmaking"
 positioning.
 """
 

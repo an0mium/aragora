@@ -1,7 +1,7 @@
 {
   "application": {
     "name": "Aragora",
-    "description": "Control plane for multi-agent deliberation. Get defensible decisions across your org knowledge.",
+    "description": "Control plane for multi-agent robust decisionmaking. Get defensible decisions across your org knowledge.",
     "bot_public": true,
     "bot_require_code_grant": false,
     "tags": ["AI", "debate", "productivity", "research", "validation"]

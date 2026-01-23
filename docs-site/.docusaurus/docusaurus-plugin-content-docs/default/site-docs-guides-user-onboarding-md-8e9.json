@@ -1,0 +1,20 @@
+{
+  "id": "guides/user-onboarding",
+  "title": "Aragora User Onboarding Guide",
+  "description": "Aragora User Onboarding Guide",
+  "source": "@site/docs/guides/user-onboarding.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/user-onboarding",
+  "permalink": "/docs/guides/user-onboarding",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/guides/user-onboarding.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "Aragora User Onboarding Guide",
+    "description": "Aragora User Onboarding Guide"
+  }
+}

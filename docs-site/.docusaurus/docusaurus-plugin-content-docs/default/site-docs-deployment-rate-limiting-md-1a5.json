@@ -1,0 +1,20 @@
+{
+  "id": "deployment/rate-limiting",
+  "title": "API Rate Limiting",
+  "description": "API Rate Limiting",
+  "source": "@site/docs/deployment/rate-limiting.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/rate-limiting",
+  "permalink": "/docs/deployment/rate-limiting",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/deployment/rate-limiting.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {
+    "title": "API Rate Limiting",
+    "description": "API Rate Limiting"
+  }
+}

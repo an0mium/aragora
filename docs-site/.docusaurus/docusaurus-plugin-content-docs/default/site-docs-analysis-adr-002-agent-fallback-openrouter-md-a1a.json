@@ -1,0 +1,22 @@
+{
+  "id": "analysis/adr/agent-fallback-openrouter",
+  "title": "ADR-002: Agent Fallback via OpenRouter",
+  "description": "ADR-002: Agent Fallback via OpenRouter",
+  "source": "@site/docs/analysis/adr/002-agent-fallback-openrouter.md",
+  "sourceDirName": "analysis/adr",
+  "slug": "/analysis/adr/002-agent-fallback-openrouter",
+  "permalink": "/docs/analysis/adr/002-agent-fallback-openrouter",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/aragora/aragora/tree/main/docs/docs/analysis/adr/002-agent-fallback-openrouter.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "slug": "002-agent-fallback-openrouter",
+    "title": "ADR-002: Agent Fallback via OpenRouter",
+    "description": "ADR-002: Agent Fallback via OpenRouter"
+  }
+}
