@@ -107,7 +107,7 @@ class TestMemoryAnalyticsRoutes:
 
             handler = MemoryAnalyticsHandler({})
 
-            assert handler.can_handle("/api/memory/analytics") is True
+            assert handler.can_handle("/api/v1/memory/analytics") is True
         except ImportError:
             pytest.skip("MemoryAnalyticsHandler not available")
 
@@ -118,7 +118,7 @@ class TestMemoryAnalyticsRoutes:
 
             handler = MemoryAnalyticsHandler({})
 
-            assert handler.can_handle("/api/memory/analytics/snapshot") is True
+            assert handler.can_handle("/api/v1/memory/analytics/snapshot") is True
         except ImportError:
             pytest.skip("MemoryAnalyticsHandler not available")
 
@@ -129,10 +129,10 @@ class TestMemoryAnalyticsRoutes:
 
             handler = MemoryAnalyticsHandler({})
 
-            assert handler.can_handle("/api/memory/analytics/tier/fast") is True
-            assert handler.can_handle("/api/memory/analytics/tier/medium") is True
-            assert handler.can_handle("/api/memory/analytics/tier/slow") is True
-            assert handler.can_handle("/api/memory/analytics/tier/glacial") is True
+            assert handler.can_handle("/api/v1/memory/analytics/tier/fast") is True
+            assert handler.can_handle("/api/v1/memory/analytics/tier/medium") is True
+            assert handler.can_handle("/api/v1/memory/analytics/tier/slow") is True
+            assert handler.can_handle("/api/v1/memory/analytics/tier/glacial") is True
         except ImportError:
             pytest.skip("MemoryAnalyticsHandler not available")
 
@@ -143,8 +143,8 @@ class TestMemoryAnalyticsRoutes:
 
             handler = MemoryAnalyticsHandler({})
 
-            assert handler.can_handle("/api/memory/other") is False
-            assert handler.can_handle("/api/debates") is False
+            assert handler.can_handle("/api/v1/memory/other") is False
+            assert handler.can_handle("/api/v1/debates") is False
         except ImportError:
             pytest.skip("MemoryAnalyticsHandler not available")
 

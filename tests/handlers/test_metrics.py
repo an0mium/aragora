@@ -63,35 +63,35 @@ class TestMetricsHandlerRouting:
         from aragora.server.handlers.metrics import MetricsHandler
 
         handler = MetricsHandler({})
-        assert handler.can_handle("/api/metrics") is True
+        assert handler.can_handle("/api/v1/metrics") is True
 
     def test_can_handle_health(self):
         """Test can_handle for /api/metrics/health."""
         from aragora.server.handlers.metrics import MetricsHandler
 
         handler = MetricsHandler({})
-        assert handler.can_handle("/api/metrics/health") is True
+        assert handler.can_handle("/api/v1/metrics/health") is True
 
     def test_can_handle_cache(self):
         """Test can_handle for /api/metrics/cache."""
         from aragora.server.handlers.metrics import MetricsHandler
 
         handler = MetricsHandler({})
-        assert handler.can_handle("/api/metrics/cache") is True
+        assert handler.can_handle("/api/v1/metrics/cache") is True
 
     def test_can_handle_verification(self):
         """Test can_handle for /api/metrics/verification."""
         from aragora.server.handlers.metrics import MetricsHandler
 
         handler = MetricsHandler({})
-        assert handler.can_handle("/api/metrics/verification") is True
+        assert handler.can_handle("/api/v1/metrics/verification") is True
 
     def test_can_handle_system(self):
         """Test can_handle for /api/metrics/system."""
         from aragora.server.handlers.metrics import MetricsHandler
 
         handler = MetricsHandler({})
-        assert handler.can_handle("/api/metrics/system") is True
+        assert handler.can_handle("/api/v1/metrics/system") is True
 
     def test_can_handle_prometheus(self):
         """Test can_handle for /metrics (Prometheus)."""
@@ -105,8 +105,8 @@ class TestMetricsHandlerRouting:
         from aragora.server.handlers.metrics import MetricsHandler
 
         handler = MetricsHandler({})
-        assert handler.can_handle("/api/other") is False
-        assert handler.can_handle("/api/metrics/unknown") is False
+        assert handler.can_handle("/api/v1/other") is False
+        assert handler.can_handle("/api/v1/metrics/unknown") is False
 
 
 class TestMetricsHandler:

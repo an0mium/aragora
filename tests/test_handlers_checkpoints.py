@@ -168,41 +168,41 @@ class TestCheckpointRouting:
 
     def test_can_handle_checkpoints_list(self, checkpoint_handler):
         """Handler can handle /api/checkpoints."""
-        assert checkpoint_handler.can_handle("/api/checkpoints") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints") is True
 
     def test_can_handle_checkpoints_resumable(self, checkpoint_handler):
         """Handler can handle /api/checkpoints/resumable."""
-        assert checkpoint_handler.can_handle("/api/checkpoints/resumable") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints/resumable") is True
 
     def test_can_handle_checkpoint_detail(self, checkpoint_handler):
         """Handler can handle /api/checkpoints/{id}."""
-        assert checkpoint_handler.can_handle("/api/checkpoints/cp-test-001") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints/cp-test-001") is True
 
     def test_can_handle_checkpoint_resume(self, checkpoint_handler):
         """Handler can handle /api/checkpoints/{id}/resume."""
-        assert checkpoint_handler.can_handle("/api/checkpoints/cp-test-001/resume") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints/cp-test-001/resume") is True
 
     def test_can_handle_checkpoint_intervention(self, checkpoint_handler):
         """Handler can handle /api/checkpoints/{id}/intervention."""
-        assert checkpoint_handler.can_handle("/api/checkpoints/cp-test-001/intervention") is True
+        assert checkpoint_handler.can_handle("/api/v1/checkpoints/cp-test-001/intervention") is True
 
     def test_can_handle_debate_checkpoints(self, checkpoint_handler):
         """Handler can handle /api/debates/{id}/checkpoints."""
-        assert checkpoint_handler.can_handle("/api/debates/debate-123/checkpoints") is True
+        assert checkpoint_handler.can_handle("/api/v1/debates/debate-123/checkpoints") is True
 
     def test_can_handle_debate_checkpoint_create(self, checkpoint_handler):
         """Handler can handle /api/debates/{id}/checkpoint."""
-        assert checkpoint_handler.can_handle("/api/debates/debate-123/checkpoint") is True
+        assert checkpoint_handler.can_handle("/api/v1/debates/debate-123/checkpoint") is True
 
     def test_can_handle_debate_checkpoint_pause(self, checkpoint_handler):
         """Handler can handle /api/debates/{id}/checkpoint/pause."""
-        assert checkpoint_handler.can_handle("/api/debates/debate-123/checkpoint/pause") is True
+        assert checkpoint_handler.can_handle("/api/v1/debates/debate-123/checkpoint/pause") is True
 
     def test_cannot_handle_unrelated_routes(self, checkpoint_handler):
         """Handler doesn't handle unrelated routes."""
-        assert checkpoint_handler.can_handle("/api/debates") is False
-        assert checkpoint_handler.can_handle("/api/agents") is False
-        assert checkpoint_handler.can_handle("/api/replays") is False
+        assert checkpoint_handler.can_handle("/api/v1/debates") is False
+        assert checkpoint_handler.can_handle("/api/v1/agents") is False
+        assert checkpoint_handler.can_handle("/api/v1/replays") is False
 
 
 # ============================================================================

@@ -100,22 +100,22 @@ class TestPluginsRouting:
     """Tests for route matching."""
 
     def test_can_handle_plugins_list(self, plugins_handler):
-        assert plugins_handler.can_handle("/api/plugins") is True
+        assert plugins_handler.can_handle("/api/v1/plugins") is True
 
     def test_can_handle_plugin_details(self, plugins_handler):
-        assert plugins_handler.can_handle("/api/plugins/test-plugin") is True
+        assert plugins_handler.can_handle("/api/v1/plugins/test-plugin") is True
 
     def test_can_handle_plugin_with_hyphen(self, plugins_handler):
-        assert plugins_handler.can_handle("/api/plugins/my-cool-plugin") is True
+        assert plugins_handler.can_handle("/api/v1/plugins/my-cool-plugin") is True
 
     def test_can_handle_plugin_run(self, plugins_handler):
         # POST /api/plugins/{name}/run is now handled by this handler
-        assert plugins_handler.can_handle("/api/plugins/test/run") is True
+        assert plugins_handler.can_handle("/api/v1/plugins/test/run") is True
 
     def test_cannot_handle_unrelated_routes(self, plugins_handler):
-        assert plugins_handler.can_handle("/api/plugin") is False
-        assert plugins_handler.can_handle("/api/plugins/name/extra/more") is False
-        assert plugins_handler.can_handle("/api/agents") is False
+        assert plugins_handler.can_handle("/api/v1/plugin") is False
+        assert plugins_handler.can_handle("/api/v1/plugins/name/extra/more") is False
+        assert plugins_handler.can_handle("/api/v1/agents") is False
 
 
 # ============================================================================

@@ -807,29 +807,29 @@ class TestCanHandle:
         """Test that HealthHandler can handle health routes."""
         assert health_handler.can_handle("/healthz") is True
         assert health_handler.can_handle("/readyz") is True
-        assert health_handler.can_handle("/api/health") is True
-        assert health_handler.can_handle("/api/health/detailed") is True
-        assert health_handler.can_handle("/api/health/deep") is True
+        assert health_handler.can_handle("/api/v1/health") is True
+        assert health_handler.can_handle("/api/v1/health/detailed") is True
+        assert health_handler.can_handle("/api/v1/health/deep") is True
 
     def test_can_handle_nomic_routes(self, nomic_handler):
         """Test that NomicHandler can handle nomic routes."""
-        assert nomic_handler.can_handle("/api/nomic/state") is True
-        assert nomic_handler.can_handle("/api/nomic/health") is True
-        assert nomic_handler.can_handle("/api/nomic/log") is True
-        assert nomic_handler.can_handle("/api/nomic/risk-register") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/state") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/health") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/log") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/risk-register") is True
 
     def test_can_handle_history_routes(self, system_handler):
         """Test that SystemHandler can handle history routes."""
-        assert system_handler.can_handle("/api/history/cycles") is True
-        assert system_handler.can_handle("/api/history/events") is True
-        assert system_handler.can_handle("/api/history/debates") is True
-        assert system_handler.can_handle("/api/history/summary") is True
+        assert system_handler.can_handle("/api/v1/history/cycles") is True
+        assert system_handler.can_handle("/api/v1/history/events") is True
+        assert system_handler.can_handle("/api/v1/history/debates") is True
+        assert system_handler.can_handle("/api/v1/history/summary") is True
 
     def test_cannot_handle_unknown_routes(self, system_handler, health_handler):
         """Test that handlers reject unknown routes."""
-        assert system_handler.can_handle("/api/unknown") is False
+        assert system_handler.can_handle("/api/v1/unknown") is False
         assert system_handler.can_handle("/other/path") is False
-        assert health_handler.can_handle("/api/unknown") is False
+        assert health_handler.can_handle("/api/v1/unknown") is False
 
 
 # =============================================================================

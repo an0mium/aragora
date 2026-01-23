@@ -208,56 +208,56 @@ class TestBillingRouteHandling:
 
     def test_can_handle_plans_route(self, billing_handler):
         """Test can_handle for plans endpoint."""
-        assert billing_handler.can_handle("/api/billing/plans") is True
+        assert billing_handler.can_handle("/api/v1/billing/plans") is True
 
     def test_can_handle_usage_route(self, billing_handler):
         """Test can_handle for usage endpoint."""
-        assert billing_handler.can_handle("/api/billing/usage") is True
+        assert billing_handler.can_handle("/api/v1/billing/usage") is True
 
     def test_can_handle_subscription_route(self, billing_handler):
         """Test can_handle for subscription endpoint."""
-        assert billing_handler.can_handle("/api/billing/subscription") is True
+        assert billing_handler.can_handle("/api/v1/billing/subscription") is True
 
     def test_can_handle_checkout_route(self, billing_handler):
         """Test can_handle for checkout endpoint."""
-        assert billing_handler.can_handle("/api/billing/checkout") is True
+        assert billing_handler.can_handle("/api/v1/billing/checkout") is True
 
     def test_can_handle_portal_route(self, billing_handler):
         """Test can_handle for portal endpoint."""
-        assert billing_handler.can_handle("/api/billing/portal") is True
+        assert billing_handler.can_handle("/api/v1/billing/portal") is True
 
     def test_can_handle_cancel_route(self, billing_handler):
         """Test can_handle for cancel endpoint."""
-        assert billing_handler.can_handle("/api/billing/cancel") is True
+        assert billing_handler.can_handle("/api/v1/billing/cancel") is True
 
     def test_can_handle_resume_route(self, billing_handler):
         """Test can_handle for resume endpoint."""
-        assert billing_handler.can_handle("/api/billing/resume") is True
+        assert billing_handler.can_handle("/api/v1/billing/resume") is True
 
     def test_can_handle_audit_log_route(self, billing_handler):
         """Test can_handle for audit-log endpoint."""
-        assert billing_handler.can_handle("/api/billing/audit-log") is True
+        assert billing_handler.can_handle("/api/v1/billing/audit-log") is True
 
     def test_can_handle_usage_export_route(self, billing_handler):
         """Test can_handle for usage export endpoint."""
-        assert billing_handler.can_handle("/api/billing/usage/export") is True
+        assert billing_handler.can_handle("/api/v1/billing/usage/export") is True
 
     def test_can_handle_usage_forecast_route(self, billing_handler):
         """Test can_handle for usage forecast endpoint."""
-        assert billing_handler.can_handle("/api/billing/usage/forecast") is True
+        assert billing_handler.can_handle("/api/v1/billing/usage/forecast") is True
 
     def test_can_handle_invoices_route(self, billing_handler):
         """Test can_handle for invoices endpoint."""
-        assert billing_handler.can_handle("/api/billing/invoices") is True
+        assert billing_handler.can_handle("/api/v1/billing/invoices") is True
 
     def test_can_handle_stripe_webhook_route(self, billing_handler):
         """Test can_handle for Stripe webhook endpoint."""
-        assert billing_handler.can_handle("/api/webhooks/stripe") is True
+        assert billing_handler.can_handle("/api/v1/webhooks/stripe") is True
 
     def test_cannot_handle_unknown_route(self, billing_handler):
         """Test can_handle returns False for unknown routes."""
-        assert billing_handler.can_handle("/api/billing/unknown") is False
-        assert billing_handler.can_handle("/api/other/endpoint") is False
+        assert billing_handler.can_handle("/api/v1/billing/unknown") is False
+        assert billing_handler.can_handle("/api/v1/other/endpoint") is False
         assert billing_handler.can_handle("/billing/plans") is False
 
     def test_all_routes_in_routes_constant(self, billing_handler):

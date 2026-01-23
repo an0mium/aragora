@@ -209,36 +209,36 @@ class TestAuthHandlerRoutes:
 
     def test_can_handle_register(self, auth_handler):
         """Test handler recognizes register route."""
-        assert auth_handler.can_handle("/api/auth/register")
+        assert auth_handler.can_handle("/api/v1/auth/register")
 
     def test_can_handle_login(self, auth_handler):
         """Test handler recognizes login route."""
-        assert auth_handler.can_handle("/api/auth/login")
+        assert auth_handler.can_handle("/api/v1/auth/login")
 
     def test_can_handle_logout(self, auth_handler):
         """Test handler recognizes logout route."""
-        assert auth_handler.can_handle("/api/auth/logout")
+        assert auth_handler.can_handle("/api/v1/auth/logout")
 
     def test_can_handle_refresh(self, auth_handler):
         """Test handler recognizes refresh route."""
-        assert auth_handler.can_handle("/api/auth/refresh")
+        assert auth_handler.can_handle("/api/v1/auth/refresh")
 
     def test_can_handle_me(self, auth_handler):
         """Test handler recognizes me route."""
-        assert auth_handler.can_handle("/api/auth/me")
+        assert auth_handler.can_handle("/api/v1/auth/me")
 
     def test_can_handle_password(self, auth_handler):
         """Test handler recognizes password route."""
-        assert auth_handler.can_handle("/api/auth/password")
+        assert auth_handler.can_handle("/api/v1/auth/password")
 
     def test_can_handle_api_key(self, auth_handler):
         """Test handler recognizes api-key route."""
-        assert auth_handler.can_handle("/api/auth/api-key")
+        assert auth_handler.can_handle("/api/v1/auth/api-key")
 
     def test_cannot_handle_unknown_route(self, auth_handler):
         """Test handler rejects unknown routes."""
-        assert not auth_handler.can_handle("/api/auth/unknown")
-        assert not auth_handler.can_handle("/api/users")
+        assert not auth_handler.can_handle("/api/v1/auth/unknown")
+        assert not auth_handler.can_handle("/api/v1/users")
 
 
 # ============================================================================

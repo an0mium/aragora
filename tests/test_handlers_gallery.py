@@ -197,21 +197,21 @@ class TestGalleryHandlerRoutes:
 
     def test_can_handle_gallery_list(self, gallery_handler):
         """Test handler recognizes gallery list route."""
-        assert gallery_handler.can_handle("/api/gallery")
+        assert gallery_handler.can_handle("/api/v1/gallery")
 
     def test_can_handle_specific_debate(self, gallery_handler):
         """Test handler recognizes specific debate route."""
-        assert gallery_handler.can_handle("/api/gallery/abc123def")
+        assert gallery_handler.can_handle("/api/v1/gallery/abc123def")
 
     def test_can_handle_embed_route(self, gallery_handler):
         """Test handler recognizes embed route."""
-        assert gallery_handler.can_handle("/api/gallery/abc123def/embed")
+        assert gallery_handler.can_handle("/api/v1/gallery/abc123def/embed")
 
     def test_cannot_handle_unknown_route(self, gallery_handler):
         """Test handler rejects unknown routes."""
-        assert not gallery_handler.can_handle("/api/gallery/")  # trailing slash only
-        assert not gallery_handler.can_handle("/api/debates")
-        assert not gallery_handler.can_handle("/api/public")
+        assert not gallery_handler.can_handle("/api/v1/gallery/")  # trailing slash only
+        assert not gallery_handler.can_handle("/api/v1/debates")
+        assert not gallery_handler.can_handle("/api/v1/public")
 
 
 # ============================================================================

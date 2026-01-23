@@ -480,9 +480,9 @@ class TestOAuthFlow:
         assert handler is not None
 
         # Handler should recognize OAuth routes
-        assert handler.can_handle("/api/auth/oauth/google")
-        assert handler.can_handle("/api/auth/oauth/google/callback")
-        assert handler.can_handle("/api/auth/oauth/providers")
+        assert handler.can_handle("/api/v1/auth/oauth/google")
+        assert handler.can_handle("/api/v1/auth/oauth/google/callback")
+        assert handler.can_handle("/api/v1/auth/oauth/providers")
 
     def test_oauth_providers_endpoint(self):
         """E2E: OAuth providers endpoint should list available providers."""

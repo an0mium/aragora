@@ -16,11 +16,11 @@ class TestVerificationHandlerRouting:
         return VerificationHandler(ctx)
 
     def test_can_handle_verification_status(self, handler):
-        assert handler.can_handle("/api/verification/status") is True
+        assert handler.can_handle("/api/v1/verification/status") is True
 
     def test_cannot_handle_unknown_route(self, handler):
-        assert handler.can_handle("/api/other") is False
-        assert handler.can_handle("/api/verification/verify") is False
+        assert handler.can_handle("/api/v1/other") is False
+        assert handler.can_handle("/api/v1/verification/verify") is False
 
 
 class TestVerificationStatusEndpoint:
@@ -101,7 +101,7 @@ class TestVerificationFormalVerifyEndpoint:
 
     def test_can_handle_formal_verify(self, handler):
         """Handler can handle formal-verify route."""
-        assert handler.can_handle("/api/verification/formal-verify") is True
+        assert handler.can_handle("/api/v1/verification/formal-verify") is True
 
     def test_formal_verify_unavailable(self, handler, mock_handler):
         """Returns 503 when verification not available."""

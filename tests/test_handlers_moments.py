@@ -35,31 +35,31 @@ class TestMomentsHandlerRouting:
 
     def test_can_handle_summary(self, handler):
         """Should handle /api/moments/summary."""
-        assert handler.can_handle("/api/moments/summary") is True
+        assert handler.can_handle("/api/v1/moments/summary") is True
 
     def test_can_handle_timeline(self, handler):
         """Should handle /api/moments/timeline."""
-        assert handler.can_handle("/api/moments/timeline") is True
+        assert handler.can_handle("/api/v1/moments/timeline") is True
 
     def test_can_handle_trending(self, handler):
         """Should handle /api/moments/trending."""
-        assert handler.can_handle("/api/moments/trending") is True
+        assert handler.can_handle("/api/v1/moments/trending") is True
 
     def test_can_handle_by_type(self, handler):
         """Should handle /api/moments/by-type/{type}."""
-        assert handler.can_handle("/api/moments/by-type/upset_victory") is True
-        assert handler.can_handle("/api/moments/by-type/position_reversal") is True
+        assert handler.can_handle("/api/v1/moments/by-type/upset_victory") is True
+        assert handler.can_handle("/api/v1/moments/by-type/position_reversal") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Should not handle unrelated routes."""
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/agent/claude/moments") is False
-        assert handler.can_handle("/api/relationships/summary") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/agent/claude/moments") is False
+        assert handler.can_handle("/api/v1/relationships/summary") is False
 
     def test_cannot_handle_incomplete_paths(self, handler):
         """Should not handle incomplete paths."""
-        assert handler.can_handle("/api/moments") is False
-        assert handler.can_handle("/api/moments/by-type") is False
+        assert handler.can_handle("/api/v1/moments") is False
+        assert handler.can_handle("/api/v1/moments/by-type") is False
 
 
 class TestSummaryEndpoint:

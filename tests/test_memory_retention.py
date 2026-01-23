@@ -366,6 +366,6 @@ class TestMemoryHandler:
         from aragora.server.handlers.memory import MemoryHandler
 
         handler = MemoryHandler({})
-        assert handler.can_handle("/api/memory/continuum/cleanup")
-        assert handler.can_handle("/api/memory/tier-stats")
-        assert handler.can_handle("/api/memory/archive-stats")
+        assert handler.can_handle("/api/v1/memory/continuum/cleanup")
+        assert handler.can_handle("/api/v1/memory/tier-stats")
+        assert handler.can_handle("/api/v1/memory/archive-stats")

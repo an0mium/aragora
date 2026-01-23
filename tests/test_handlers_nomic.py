@@ -73,34 +73,34 @@ class TestNomicRouting:
 
     def test_can_handle_nomic_state(self, nomic_handler):
         """Handler can handle /api/nomic/state."""
-        assert nomic_handler.can_handle("/api/nomic/state") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/state") is True
 
     def test_can_handle_nomic_health(self, nomic_handler):
         """Handler can handle /api/nomic/health."""
-        assert nomic_handler.can_handle("/api/nomic/health") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/health") is True
 
     def test_can_handle_nomic_metrics(self, nomic_handler):
         """Handler can handle /api/nomic/metrics."""
-        assert nomic_handler.can_handle("/api/nomic/metrics") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/metrics") is True
 
     def test_can_handle_nomic_log(self, nomic_handler):
         """Handler can handle /api/nomic/log."""
-        assert nomic_handler.can_handle("/api/nomic/log") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/log") is True
 
     def test_can_handle_risk_register(self, nomic_handler):
         """Handler can handle /api/nomic/risk-register."""
-        assert nomic_handler.can_handle("/api/nomic/risk-register") is True
+        assert nomic_handler.can_handle("/api/v1/nomic/risk-register") is True
 
     def test_can_handle_modes(self, nomic_handler):
         """Handler can handle /api/modes."""
-        assert nomic_handler.can_handle("/api/modes") is True
+        assert nomic_handler.can_handle("/api/v1/modes") is True
 
     def test_cannot_handle_unrelated_routes(self, nomic_handler):
         """Handler doesn't handle unrelated routes."""
-        assert nomic_handler.can_handle("/api/debates") is False
-        assert nomic_handler.can_handle("/api/agents") is False
-        assert nomic_handler.can_handle("/api/replays") is False
-        assert nomic_handler.can_handle("/api/nomic/unknown") is False
+        assert nomic_handler.can_handle("/api/v1/debates") is False
+        assert nomic_handler.can_handle("/api/v1/agents") is False
+        assert nomic_handler.can_handle("/api/v1/replays") is False
+        assert nomic_handler.can_handle("/api/v1/nomic/unknown") is False
 
 
 # ============================================================================

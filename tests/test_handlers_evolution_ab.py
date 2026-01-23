@@ -254,29 +254,29 @@ class TestRouteMatching:
 
     def test_can_handle_ab_tests_list(self, ab_handler):
         """Test handler matches A/B tests list route."""
-        assert ab_handler.can_handle("/api/evolution/ab-tests") is True
-        assert ab_handler.can_handle("/api/evolution/ab-tests/") is True
+        assert ab_handler.can_handle("/api/v1/evolution/ab-tests") is True
+        assert ab_handler.can_handle("/api/v1/evolution/ab-tests/") is True
 
     def test_can_handle_ab_test_detail(self, ab_handler):
         """Test handler matches A/B test detail route."""
-        assert ab_handler.can_handle("/api/evolution/ab-tests/test-123") is True
+        assert ab_handler.can_handle("/api/v1/evolution/ab-tests/test-123") is True
 
     def test_can_handle_active_test(self, ab_handler):
         """Test handler matches active test route."""
-        assert ab_handler.can_handle("/api/evolution/ab-tests/claude/active") is True
+        assert ab_handler.can_handle("/api/v1/evolution/ab-tests/claude/active") is True
 
     def test_can_handle_record(self, ab_handler):
         """Test handler matches record route."""
-        assert ab_handler.can_handle("/api/evolution/ab-tests/test-123/record") is True
+        assert ab_handler.can_handle("/api/v1/evolution/ab-tests/test-123/record") is True
 
     def test_can_handle_conclude(self, ab_handler):
         """Test handler matches conclude route."""
-        assert ab_handler.can_handle("/api/evolution/ab-tests/test-123/conclude") is True
+        assert ab_handler.can_handle("/api/v1/evolution/ab-tests/test-123/conclude") is True
 
     def test_cannot_handle_unrelated(self, ab_handler):
         """Test handler rejects unrelated routes."""
-        assert ab_handler.can_handle("/api/debates") is False
-        assert ab_handler.can_handle("/api/evolution/mutations") is False
+        assert ab_handler.can_handle("/api/v1/debates") is False
+        assert ab_handler.can_handle("/api/v1/evolution/mutations") is False
 
 
 # =============================================================================

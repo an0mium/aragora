@@ -67,29 +67,29 @@ class TestCanHandle:
 
     def test_can_handle_best_teams_route(self, routing_handler):
         """Test matching best-teams endpoint."""
-        assert routing_handler.can_handle("/api/routing/best-teams")
+        assert routing_handler.can_handle("/api/v1/routing/best-teams")
 
     def test_can_handle_recommendations_route(self, routing_handler):
         """Test matching recommendations endpoint."""
-        assert routing_handler.can_handle("/api/routing/recommendations")
+        assert routing_handler.can_handle("/api/v1/routing/recommendations")
 
     def test_can_handle_auto_route_route(self, routing_handler):
         """Test matching auto-route endpoint."""
-        assert routing_handler.can_handle("/api/routing/auto-route")
+        assert routing_handler.can_handle("/api/v1/routing/auto-route")
 
     def test_can_handle_detect_domain_route(self, routing_handler):
         """Test matching detect-domain endpoint."""
-        assert routing_handler.can_handle("/api/routing/detect-domain")
+        assert routing_handler.can_handle("/api/v1/routing/detect-domain")
 
     def test_can_handle_domain_leaderboard_route(self, routing_handler):
         """Test matching domain-leaderboard endpoint."""
-        assert routing_handler.can_handle("/api/routing/domain-leaderboard")
+        assert routing_handler.can_handle("/api/v1/routing/domain-leaderboard")
 
     def test_cannot_handle_unknown_route(self, routing_handler):
         """Test rejection of unknown routes."""
-        assert not routing_handler.can_handle("/api/unknown")
-        assert not routing_handler.can_handle("/api/routing")
-        assert not routing_handler.can_handle("/api/routing/unknown")
+        assert not routing_handler.can_handle("/api/v1/unknown")
+        assert not routing_handler.can_handle("/api/v1/routing")
+        assert not routing_handler.can_handle("/api/v1/routing/unknown")
 
 
 # =============================================================================

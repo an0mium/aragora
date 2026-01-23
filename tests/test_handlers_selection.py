@@ -83,40 +83,40 @@ class TestSelectionRouting:
 
     def test_can_handle_plugins_list(self, selection_handler):
         """Handler can handle /api/selection/plugins."""
-        assert selection_handler.can_handle("/api/selection/plugins") is True
+        assert selection_handler.can_handle("/api/v1/selection/plugins") is True
 
     def test_can_handle_defaults(self, selection_handler):
         """Handler can handle /api/selection/defaults."""
-        assert selection_handler.can_handle("/api/selection/defaults") is True
+        assert selection_handler.can_handle("/api/v1/selection/defaults") is True
 
     def test_can_handle_score(self, selection_handler):
         """Handler can handle /api/selection/score."""
-        assert selection_handler.can_handle("/api/selection/score") is True
+        assert selection_handler.can_handle("/api/v1/selection/score") is True
 
     def test_can_handle_team(self, selection_handler):
         """Handler can handle /api/selection/team."""
-        assert selection_handler.can_handle("/api/selection/team") is True
+        assert selection_handler.can_handle("/api/v1/selection/team") is True
 
     def test_can_handle_scorer_detail(self, selection_handler):
         """Handler can handle /api/selection/scorers/<name>."""
-        assert selection_handler.can_handle("/api/selection/scorers/weighted") is True
-        assert selection_handler.can_handle("/api/selection/scorers/elo-based") is True
+        assert selection_handler.can_handle("/api/v1/selection/scorers/weighted") is True
+        assert selection_handler.can_handle("/api/v1/selection/scorers/elo-based") is True
 
     def test_can_handle_team_selector_detail(self, selection_handler):
         """Handler can handle /api/selection/team-selectors/<name>."""
-        assert selection_handler.can_handle("/api/selection/team-selectors/top-k") is True
-        assert selection_handler.can_handle("/api/selection/team-selectors/diverse") is True
+        assert selection_handler.can_handle("/api/v1/selection/team-selectors/top-k") is True
+        assert selection_handler.can_handle("/api/v1/selection/team-selectors/diverse") is True
 
     def test_can_handle_role_assigner_detail(self, selection_handler):
         """Handler can handle /api/selection/role-assigners/<name>."""
-        assert selection_handler.can_handle("/api/selection/role-assigners/round-robin") is True
+        assert selection_handler.can_handle("/api/v1/selection/role-assigners/round-robin") is True
 
     def test_cannot_handle_unrelated_routes(self, selection_handler):
         """Handler doesn't handle unrelated routes."""
-        assert selection_handler.can_handle("/api/debates") is False
-        assert selection_handler.can_handle("/api/agents") is False
-        assert selection_handler.can_handle("/api/selection") is False
-        assert selection_handler.can_handle("/api/plugins") is False
+        assert selection_handler.can_handle("/api/v1/debates") is False
+        assert selection_handler.can_handle("/api/v1/agents") is False
+        assert selection_handler.can_handle("/api/v1/selection") is False
+        assert selection_handler.can_handle("/api/v1/plugins") is False
 
 
 # ============================================================================

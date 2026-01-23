@@ -17,16 +17,16 @@ class TestCoordinatorHandler:
 
     def test_can_handle_metrics_endpoint(self, handler):
         """Test handler recognizes metrics endpoint."""
-        assert handler.can_handle("/api/memory/coordinator/metrics") is True
+        assert handler.can_handle("/api/v1/memory/coordinator/metrics") is True
 
     def test_can_handle_config_endpoint(self, handler):
         """Test handler recognizes config endpoint."""
-        assert handler.can_handle("/api/memory/coordinator/config") is True
+        assert handler.can_handle("/api/v1/memory/coordinator/config") is True
 
     def test_cannot_handle_unknown_endpoint(self, handler):
         """Test handler rejects unknown endpoints."""
-        assert handler.can_handle("/api/memory/coordinator/unknown") is False
-        assert handler.can_handle("/api/memory/other") is False
+        assert handler.can_handle("/api/v1/memory/coordinator/unknown") is False
+        assert handler.can_handle("/api/v1/memory/other") is False
 
     def test_metrics_without_coordinator(self, handler):
         """Test metrics returns default when no coordinator configured."""

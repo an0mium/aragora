@@ -16,14 +16,14 @@ class TestLaboratoryHandlerRouting:
         return LaboratoryHandler(ctx)
 
     def test_can_handle_emergent_traits(self, handler):
-        assert handler.can_handle("/api/laboratory/emergent-traits") is True
+        assert handler.can_handle("/api/v1/laboratory/emergent-traits") is True
 
     def test_can_handle_cross_pollinations(self, handler):
-        assert handler.can_handle("/api/laboratory/cross-pollinations/suggest") is True
+        assert handler.can_handle("/api/v1/laboratory/cross-pollinations/suggest") is True
 
     def test_cannot_handle_unknown_route(self, handler):
-        assert handler.can_handle("/api/laboratory/unknown") is False
-        assert handler.can_handle("/api/other") is False
+        assert handler.can_handle("/api/v1/laboratory/unknown") is False
+        assert handler.can_handle("/api/v1/other") is False
 
 
 class TestEmergentTraitsEndpoint:

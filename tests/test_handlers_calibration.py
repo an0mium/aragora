@@ -97,20 +97,20 @@ class TestCalibrationRouting:
     """Tests for route matching."""
 
     def test_can_handle_calibration_curve(self, calibration_handler):
-        assert calibration_handler.can_handle("/api/agent/claude/calibration-curve") is True
+        assert calibration_handler.can_handle("/api/v1/agent/claude/calibration-curve") is True
 
     def test_can_handle_calibration_summary(self, calibration_handler):
-        assert calibration_handler.can_handle("/api/agent/claude/calibration-summary") is True
+        assert calibration_handler.can_handle("/api/v1/agent/claude/calibration-summary") is True
 
     def test_can_handle_with_hyphenated_agent(self, calibration_handler):
-        assert calibration_handler.can_handle("/api/agent/gpt-4/calibration-curve") is True
-        assert calibration_handler.can_handle("/api/agent/gpt-4/calibration-summary") is True
+        assert calibration_handler.can_handle("/api/v1/agent/gpt-4/calibration-curve") is True
+        assert calibration_handler.can_handle("/api/v1/agent/gpt-4/calibration-summary") is True
 
     def test_cannot_handle_unrelated_routes(self, calibration_handler):
-        assert calibration_handler.can_handle("/api/agent/claude") is False
-        assert calibration_handler.can_handle("/api/agent/claude/persona") is False
-        assert calibration_handler.can_handle("/api/calibration") is False
-        assert calibration_handler.can_handle("/api/agents/claude/calibration-curve") is False
+        assert calibration_handler.can_handle("/api/v1/agent/claude") is False
+        assert calibration_handler.can_handle("/api/v1/agent/claude/persona") is False
+        assert calibration_handler.can_handle("/api/v1/calibration") is False
+        assert calibration_handler.can_handle("/api/v1/agents/claude/calibration-curve") is False
 
 
 # ============================================================================

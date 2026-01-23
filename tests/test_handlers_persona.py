@@ -81,37 +81,37 @@ class TestCanHandle:
 
     def test_can_handle_personas_route(self, persona_handler):
         """Test matching all personas endpoint."""
-        assert persona_handler.can_handle("/api/personas")
+        assert persona_handler.can_handle("/api/v1/personas")
 
     def test_can_handle_agent_persona_route(self, persona_handler):
         """Test matching agent persona endpoint."""
-        assert persona_handler.can_handle("/api/agent/claude/persona")
+        assert persona_handler.can_handle("/api/v1/agent/claude/persona")
 
     def test_can_handle_grounded_persona_route(self, persona_handler):
         """Test matching grounded persona endpoint."""
-        assert persona_handler.can_handle("/api/agent/claude/grounded-persona")
+        assert persona_handler.can_handle("/api/v1/agent/claude/grounded-persona")
 
     def test_can_handle_identity_prompt_route(self, persona_handler):
         """Test matching identity prompt endpoint."""
-        assert persona_handler.can_handle("/api/agent/claude/identity-prompt")
+        assert persona_handler.can_handle("/api/v1/agent/claude/identity-prompt")
 
     def test_can_handle_performance_route(self, persona_handler):
         """Test matching performance endpoint."""
-        assert persona_handler.can_handle("/api/agent/claude/performance")
+        assert persona_handler.can_handle("/api/v1/agent/claude/performance")
 
     def test_can_handle_domains_route(self, persona_handler):
         """Test matching domains endpoint."""
-        assert persona_handler.can_handle("/api/agent/claude/domains")
+        assert persona_handler.can_handle("/api/v1/agent/claude/domains")
 
     def test_can_handle_accuracy_route(self, persona_handler):
         """Test matching accuracy endpoint."""
-        assert persona_handler.can_handle("/api/agent/claude/accuracy")
+        assert persona_handler.can_handle("/api/v1/agent/claude/accuracy")
 
     def test_cannot_handle_unknown_route(self, persona_handler):
         """Test rejection of unknown routes."""
-        assert not persona_handler.can_handle("/api/unknown")
-        assert not persona_handler.can_handle("/api/agent/claude/unknown")
-        assert not persona_handler.can_handle("/api/agent/")
+        assert not persona_handler.can_handle("/api/v1/unknown")
+        assert not persona_handler.can_handle("/api/v1/agent/claude/unknown")
+        assert not persona_handler.can_handle("/api/v1/agent/")
 
 
 # =============================================================================

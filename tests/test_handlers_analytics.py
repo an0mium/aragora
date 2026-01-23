@@ -103,33 +103,33 @@ class TestAnalyticsHandlerRouting:
 
     def test_can_handle_disagreements(self, analytics_handler):
         """Should handle /api/analytics/disagreements."""
-        assert analytics_handler.can_handle("/api/analytics/disagreements") is True
+        assert analytics_handler.can_handle("/api/v1/analytics/disagreements") is True
 
     def test_can_handle_role_rotation(self, analytics_handler):
         """Should handle /api/analytics/role-rotation."""
-        assert analytics_handler.can_handle("/api/analytics/role-rotation") is True
+        assert analytics_handler.can_handle("/api/v1/analytics/role-rotation") is True
 
     def test_can_handle_early_stops(self, analytics_handler):
         """Should handle /api/analytics/early-stops."""
-        assert analytics_handler.can_handle("/api/analytics/early-stops") is True
+        assert analytics_handler.can_handle("/api/v1/analytics/early-stops") is True
 
     def test_can_handle_ranking_stats(self, analytics_handler):
         """Should handle /api/ranking/stats."""
-        assert analytics_handler.can_handle("/api/ranking/stats") is True
+        assert analytics_handler.can_handle("/api/v1/ranking/stats") is True
 
     def test_can_handle_memory_stats(self, analytics_handler):
         """Should handle /api/memory/stats."""
-        assert analytics_handler.can_handle("/api/memory/stats") is True
+        assert analytics_handler.can_handle("/api/v1/memory/stats") is True
 
     def test_cannot_handle_memory_tier_stats(self, analytics_handler):
         """Should NOT handle /api/memory/tier-stats (moved to MemoryHandler)."""
-        assert analytics_handler.can_handle("/api/memory/tier-stats") is False
+        assert analytics_handler.can_handle("/api/v1/memory/tier-stats") is False
 
     def test_cannot_handle_unknown_routes(self, analytics_handler):
         """Should not handle unknown routes."""
-        assert analytics_handler.can_handle("/api/analytics/unknown") is False
-        assert analytics_handler.can_handle("/api/debates") is False
-        assert analytics_handler.can_handle("/api/leaderboard") is False
+        assert analytics_handler.can_handle("/api/v1/analytics/unknown") is False
+        assert analytics_handler.can_handle("/api/v1/debates") is False
+        assert analytics_handler.can_handle("/api/v1/leaderboard") is False
 
     def test_handle_returns_none_for_unknown(self, analytics_handler):
         """Should return None for unknown paths."""

@@ -188,6 +188,7 @@ def clear_rate_limits():
     """Clear rate limiters before each test to prevent pollution."""
     from aragora.server.handlers.utils.rate_limit import clear_all_limiters
     from aragora.server.handlers.knowledge_base import handler as kh
+
     clear_all_limiters()
     # Also clear the module-level knowledge handler limiter
     kh._knowledge_limiter.clear()
@@ -412,35 +413,35 @@ class TestKnowledgeHandlerRouting:
 
     def test_can_handle_query_endpoint(self, knowledge_handler):
         """Test can_handle recognizes query endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/query") is True
+        assert knowledge_handler.can_handle("/api/v1/knowledge/query") is True
 
     def test_can_handle_facts_endpoint(self, knowledge_handler):
         """Test can_handle recognizes facts endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/facts") is True
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts") is True
 
     def test_can_handle_facts_with_id(self, knowledge_handler):
         """Test can_handle recognizes facts with ID."""
-        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-123") is True
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts/fact-123") is True
 
     def test_can_handle_facts_with_action(self, knowledge_handler):
         """Test can_handle recognizes facts with actions."""
-        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-1/verify") is True
-        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-1/contradictions") is True
-        assert knowledge_handler.can_handle("/api/knowledge/facts/fact-1/relations") is True
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts/fact-1/verify") is True
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts/fact-1/contradictions") is True
+        assert knowledge_handler.can_handle("/api/v1/knowledge/facts/fact-1/relations") is True
 
     def test_can_handle_search_endpoint(self, knowledge_handler):
         """Test can_handle recognizes search endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/search") is True
+        assert knowledge_handler.can_handle("/api/v1/knowledge/search") is True
 
     def test_can_handle_stats_endpoint(self, knowledge_handler):
         """Test can_handle recognizes stats endpoint."""
-        assert knowledge_handler.can_handle("/api/knowledge/stats") is True
+        assert knowledge_handler.can_handle("/api/v1/knowledge/stats") is True
 
     def test_cannot_handle_unrelated_paths(self, knowledge_handler):
         """Test can_handle rejects unrelated paths."""
-        assert knowledge_handler.can_handle("/api/debates") is False
-        assert knowledge_handler.can_handle("/api/agents") is False
-        assert knowledge_handler.can_handle("/api/users") is False
+        assert knowledge_handler.can_handle("/api/v1/debates") is False
+        assert knowledge_handler.can_handle("/api/v1/agents") is False
+        assert knowledge_handler.can_handle("/api/v1/users") is False
         assert knowledge_handler.can_handle("/") is False
 
     def test_routes_class_attribute(self, knowledge_handler):

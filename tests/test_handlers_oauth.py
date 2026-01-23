@@ -314,27 +314,27 @@ class TestOAuthHandlerRouting:
 
     def test_can_handle_google_auth(self, oauth_handler):
         """Test handler can handle Google auth endpoint."""
-        assert oauth_handler.can_handle("/api/auth/oauth/google")
+        assert oauth_handler.can_handle("/api/v1/auth/oauth/google")
 
     def test_can_handle_callback(self, oauth_handler):
         """Test handler can handle callback endpoint."""
-        assert oauth_handler.can_handle("/api/auth/oauth/google/callback")
+        assert oauth_handler.can_handle("/api/v1/auth/oauth/google/callback")
 
     def test_can_handle_link(self, oauth_handler):
         """Test handler can handle link endpoint."""
-        assert oauth_handler.can_handle("/api/auth/oauth/link")
+        assert oauth_handler.can_handle("/api/v1/auth/oauth/link")
 
     def test_can_handle_unlink(self, oauth_handler):
         """Test handler can handle unlink endpoint."""
-        assert oauth_handler.can_handle("/api/auth/oauth/unlink")
+        assert oauth_handler.can_handle("/api/v1/auth/oauth/unlink")
 
     def test_can_handle_providers(self, oauth_handler):
         """Test handler can handle providers endpoint."""
-        assert oauth_handler.can_handle("/api/auth/oauth/providers")
+        assert oauth_handler.can_handle("/api/v1/auth/oauth/providers")
 
     def test_cannot_handle_unknown(self, oauth_handler):
         """Test handler rejects unknown paths."""
-        assert not oauth_handler.can_handle("/api/auth/unknown")
+        assert not oauth_handler.can_handle("/api/v1/auth/unknown")
 
     def test_routes_list(self, oauth_handler):
         """Test handler has expected routes."""

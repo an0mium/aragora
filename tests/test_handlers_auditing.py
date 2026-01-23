@@ -616,24 +616,24 @@ class TestAuditingHandler:
 
     def test_can_handle_capability_probe(self, auditing_handler):
         """Test can_handle for capability probe."""
-        assert auditing_handler.can_handle("/api/debates/capability-probe") is True
+        assert auditing_handler.can_handle("/api/v1/debates/capability-probe") is True
 
     def test_can_handle_deep_audit(self, auditing_handler):
         """Test can_handle for deep audit."""
-        assert auditing_handler.can_handle("/api/debates/deep-audit") is True
+        assert auditing_handler.can_handle("/api/v1/debates/deep-audit") is True
 
     def test_can_handle_attack_types(self, auditing_handler):
         """Test can_handle for attack types."""
-        assert auditing_handler.can_handle("/api/redteam/attack-types") is True
+        assert auditing_handler.can_handle("/api/v1/redteam/attack-types") is True
 
     def test_can_handle_red_team(self, auditing_handler):
         """Test can_handle for red team analysis."""
-        assert auditing_handler.can_handle("/api/debates/abc123/red-team") is True
+        assert auditing_handler.can_handle("/api/v1/debates/abc123/red-team") is True
 
     def test_can_handle_unrelated_path(self, auditing_handler):
         """Test can_handle returns False for unrelated paths."""
-        assert auditing_handler.can_handle("/api/debates") is False
-        assert auditing_handler.can_handle("/api/other") is False
+        assert auditing_handler.can_handle("/api/v1/debates") is False
+        assert auditing_handler.can_handle("/api/v1/other") is False
 
     def test_handle_routes_capability_probe(self, auditing_handler, mock_handler):
         """Test handle routes to capability probe."""

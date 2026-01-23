@@ -28,6 +28,14 @@ from .base import BaseRepository, EntityNotFoundError, RepositoryError
 from .debate import DebateEntity, DebateMetadata, DebateRepository
 from .elo import EloRepository, LeaderboardEntry, MatchEntity, RatingEntity
 from .memory import MemoryEntity, MemoryRepository, ReflectionSchedule, RetrievedMemory
+from .phase2 import (
+    InboxRepository,
+    SecurityScanRepository,
+    PRReviewRepository,
+    get_inbox_repository,
+    get_security_scan_repository,
+    get_pr_review_repository,
+)
 
 __all__ = [
     # Base
@@ -48,4 +56,11 @@ __all__ = [
     "MemoryEntity",
     "RetrievedMemory",
     "ReflectionSchedule",
+    # Phase 2
+    "InboxRepository",
+    "SecurityScanRepository",
+    "PRReviewRepository",
+    "get_inbox_repository",
+    "get_security_scan_repository",
+    "get_pr_review_repository",
 ]

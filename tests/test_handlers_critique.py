@@ -113,26 +113,26 @@ class TestCanHandle:
 
     def test_can_handle_patterns_route(self, critique_handler):
         """Test matching patterns endpoint."""
-        assert critique_handler.can_handle("/api/critiques/patterns")
+        assert critique_handler.can_handle("/api/v1/critiques/patterns")
 
     def test_can_handle_archive_route(self, critique_handler):
         """Test matching archive endpoint."""
-        assert critique_handler.can_handle("/api/critiques/archive")
+        assert critique_handler.can_handle("/api/v1/critiques/archive")
 
     def test_can_handle_all_reputations_route(self, critique_handler):
         """Test matching all reputations endpoint."""
-        assert critique_handler.can_handle("/api/reputation/all")
+        assert critique_handler.can_handle("/api/v1/reputation/all")
 
     def test_can_handle_agent_reputation_route(self, critique_handler):
         """Test matching agent reputation endpoint."""
-        assert critique_handler.can_handle("/api/agent/claude/reputation")
-        assert critique_handler.can_handle("/api/agent/gpt4/reputation")
+        assert critique_handler.can_handle("/api/v1/agent/claude/reputation")
+        assert critique_handler.can_handle("/api/v1/agent/gpt4/reputation")
 
     def test_cannot_handle_unknown_route(self, critique_handler):
         """Test rejection of unknown routes."""
-        assert not critique_handler.can_handle("/api/unknown")
-        assert not critique_handler.can_handle("/api/critiques")
-        assert not critique_handler.can_handle("/api/agent/claude/other")
+        assert not critique_handler.can_handle("/api/v1/unknown")
+        assert not critique_handler.can_handle("/api/v1/critiques")
+        assert not critique_handler.can_handle("/api/v1/agent/claude/other")
 
 
 # =============================================================================

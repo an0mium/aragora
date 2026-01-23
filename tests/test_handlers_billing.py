@@ -137,40 +137,40 @@ class TestBillingHandlerRoutes:
 
     def test_can_handle_plans(self, billing_handler):
         """Test handler recognizes plans route."""
-        assert billing_handler.can_handle("/api/billing/plans")
+        assert billing_handler.can_handle("/api/v1/billing/plans")
 
     def test_can_handle_usage(self, billing_handler):
         """Test handler recognizes usage route."""
-        assert billing_handler.can_handle("/api/billing/usage")
+        assert billing_handler.can_handle("/api/v1/billing/usage")
 
     def test_can_handle_subscription(self, billing_handler):
         """Test handler recognizes subscription route."""
-        assert billing_handler.can_handle("/api/billing/subscription")
+        assert billing_handler.can_handle("/api/v1/billing/subscription")
 
     def test_can_handle_checkout(self, billing_handler):
         """Test handler recognizes checkout route."""
-        assert billing_handler.can_handle("/api/billing/checkout")
+        assert billing_handler.can_handle("/api/v1/billing/checkout")
 
     def test_can_handle_portal(self, billing_handler):
         """Test handler recognizes portal route."""
-        assert billing_handler.can_handle("/api/billing/portal")
+        assert billing_handler.can_handle("/api/v1/billing/portal")
 
     def test_can_handle_cancel(self, billing_handler):
         """Test handler recognizes cancel route."""
-        assert billing_handler.can_handle("/api/billing/cancel")
+        assert billing_handler.can_handle("/api/v1/billing/cancel")
 
     def test_can_handle_resume(self, billing_handler):
         """Test handler recognizes resume route."""
-        assert billing_handler.can_handle("/api/billing/resume")
+        assert billing_handler.can_handle("/api/v1/billing/resume")
 
     def test_can_handle_stripe_webhook(self, billing_handler):
         """Test handler recognizes Stripe webhook route."""
-        assert billing_handler.can_handle("/api/webhooks/stripe")
+        assert billing_handler.can_handle("/api/v1/webhooks/stripe")
 
     def test_cannot_handle_unknown_route(self, billing_handler):
         """Test handler rejects unknown routes."""
-        assert not billing_handler.can_handle("/api/billing/unknown")
-        assert not billing_handler.can_handle("/api/payments")
+        assert not billing_handler.can_handle("/api/v1/billing/unknown")
+        assert not billing_handler.can_handle("/api/v1/payments")
 
 
 # ============================================================================
@@ -556,7 +556,7 @@ class TestStripeWebhook:
 
     def test_webhook_route_recognized(self, billing_handler):
         """Test webhook route is recognized."""
-        assert billing_handler.can_handle("/api/webhooks/stripe")
+        assert billing_handler.can_handle("/api/v1/webhooks/stripe")
 
 
 # ============================================================================

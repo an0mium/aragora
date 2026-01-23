@@ -35,43 +35,43 @@ class TestCanHandle:
 
     def test_handles_debates_list_endpoint(self) -> None:
         """Test /api/debates endpoint is handled."""
-        assert self.handler.can_handle("/api/debates") is True
+        assert self.handler.can_handle("/api/v1/debates") is True
 
     def test_handles_debates_with_slash(self) -> None:
         """Test /api/debates/{id} pattern is handled."""
-        assert self.handler.can_handle("/api/debates/my-debate-123") is True
+        assert self.handler.can_handle("/api/v1/debates/my-debate-123") is True
 
     def test_handles_debates_slug(self) -> None:
         """Test /api/debates/slug/{slug} pattern is handled."""
-        assert self.handler.can_handle("/api/debates/slug/my-slug") is True
+        assert self.handler.can_handle("/api/v1/debates/slug/my-slug") is True
 
     def test_handles_impasse(self) -> None:
         """Test impasse endpoint is handled."""
-        assert self.handler.can_handle("/api/debates/test-123/impasse") is True
+        assert self.handler.can_handle("/api/v1/debates/test-123/impasse") is True
 
     def test_handles_convergence(self) -> None:
         """Test convergence endpoint is handled."""
-        assert self.handler.can_handle("/api/debates/test-123/convergence") is True
+        assert self.handler.can_handle("/api/v1/debates/test-123/convergence") is True
 
     def test_handles_citations(self) -> None:
         """Test citations endpoint is handled."""
-        assert self.handler.can_handle("/api/debates/test-123/citations") is True
+        assert self.handler.can_handle("/api/v1/debates/test-123/citations") is True
 
     def test_handles_meta_critique(self) -> None:
         """Test meta-critique endpoint is handled."""
-        assert self.handler.can_handle("/api/debate/test-123/meta-critique") is True
+        assert self.handler.can_handle("/api/v1/debate/test-123/meta-critique") is True
 
     def test_handles_graph_stats(self) -> None:
         """Test graph/stats endpoint is handled."""
-        assert self.handler.can_handle("/api/debate/test-123/graph/stats") is True
+        assert self.handler.can_handle("/api/v1/debate/test-123/graph/stats") is True
 
     def test_does_not_handle_agents(self) -> None:
         """Test agents endpoint is not handled."""
-        assert self.handler.can_handle("/api/agents") is False
+        assert self.handler.can_handle("/api/v1/agents") is False
 
     def test_does_not_handle_rankings(self) -> None:
         """Test rankings endpoint is not handled."""
-        assert self.handler.can_handle("/api/rankings") is False
+        assert self.handler.can_handle("/api/v1/rankings") is False
 
     def test_does_not_handle_random_path(self) -> None:
         """Test random paths are not handled."""

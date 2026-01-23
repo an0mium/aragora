@@ -556,24 +556,24 @@ class TestBillingHandlerRouting:
 
     def test_can_handle_billing_paths(self, billing_handler):
         """Test can_handle identifies billing paths."""
-        assert billing_handler.can_handle("/api/billing/plans")
-        assert billing_handler.can_handle("/api/billing/usage")
-        assert billing_handler.can_handle("/api/billing/subscription")
-        assert billing_handler.can_handle("/api/billing/checkout")
-        assert billing_handler.can_handle("/api/billing/portal")
-        assert billing_handler.can_handle("/api/billing/cancel")
-        assert billing_handler.can_handle("/api/billing/resume")
-        assert billing_handler.can_handle("/api/billing/audit-log")
-        assert billing_handler.can_handle("/api/billing/usage/export")
-        assert billing_handler.can_handle("/api/billing/usage/forecast")
-        assert billing_handler.can_handle("/api/billing/invoices")
-        assert billing_handler.can_handle("/api/webhooks/stripe")
+        assert billing_handler.can_handle("/api/v1/billing/plans")
+        assert billing_handler.can_handle("/api/v1/billing/usage")
+        assert billing_handler.can_handle("/api/v1/billing/subscription")
+        assert billing_handler.can_handle("/api/v1/billing/checkout")
+        assert billing_handler.can_handle("/api/v1/billing/portal")
+        assert billing_handler.can_handle("/api/v1/billing/cancel")
+        assert billing_handler.can_handle("/api/v1/billing/resume")
+        assert billing_handler.can_handle("/api/v1/billing/audit-log")
+        assert billing_handler.can_handle("/api/v1/billing/usage/export")
+        assert billing_handler.can_handle("/api/v1/billing/usage/forecast")
+        assert billing_handler.can_handle("/api/v1/billing/invoices")
+        assert billing_handler.can_handle("/api/v1/webhooks/stripe")
 
     def test_cannot_handle_non_billing_paths(self, billing_handler):
         """Test can_handle rejects non-billing paths."""
-        assert not billing_handler.can_handle("/api/debates")
-        assert not billing_handler.can_handle("/api/users")
-        assert not billing_handler.can_handle("/api/admin/stats")
+        assert not billing_handler.can_handle("/api/v1/debates")
+        assert not billing_handler.can_handle("/api/v1/users")
+        assert not billing_handler.can_handle("/api/v1/admin/stats")
 
 
 class TestRateLimiting:

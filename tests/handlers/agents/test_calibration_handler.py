@@ -140,8 +140,8 @@ class TestCalibrationHandlerInit:
         """Test can_handle rejects non-calibration paths."""
         assert not calibration_handler.can_handle("/api/v1/agent/claude")
         assert not calibration_handler.can_handle("/api/v1/agent/claude/elo")
-        assert not calibration_handler.can_handle("/api/debates")
-        assert not calibration_handler.can_handle("/api/calibration")
+        assert not calibration_handler.can_handle("/api/v1/debates")
+        assert not calibration_handler.can_handle("/api/v1/calibration")
 
 
 # =============================================================================

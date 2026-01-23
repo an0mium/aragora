@@ -96,48 +96,48 @@ class TestAgentsHandlerRouting:
 
     def test_can_handle_leaderboard(self, agents_handler):
         """Should handle /api/leaderboard."""
-        assert agents_handler.can_handle("/api/leaderboard") is True
+        assert agents_handler.can_handle("/api/v1/leaderboard") is True
 
     def test_can_handle_rankings(self, agents_handler):
         """Should handle /api/rankings."""
-        assert agents_handler.can_handle("/api/rankings") is True
+        assert agents_handler.can_handle("/api/v1/rankings") is True
 
     def test_cannot_handle_calibration_leaderboard(self, agents_handler):
         """Should NOT handle /api/calibration/leaderboard (moved to CalibrationHandler)."""
-        assert agents_handler.can_handle("/api/calibration/leaderboard") is False
+        assert agents_handler.can_handle("/api/v1/calibration/leaderboard") is False
 
     def test_can_handle_matches_recent(self, agents_handler):
         """Should handle /api/matches/recent."""
-        assert agents_handler.can_handle("/api/matches/recent") is True
+        assert agents_handler.can_handle("/api/v1/matches/recent") is True
 
     def test_can_handle_agent_compare(self, agents_handler):
         """Should handle /api/agent/compare."""
-        assert agents_handler.can_handle("/api/agent/compare") is True
+        assert agents_handler.can_handle("/api/v1/agent/compare") is True
 
     def test_can_handle_agent_profile(self, agents_handler):
         """Should handle /api/agent/{name}/profile."""
-        assert agents_handler.can_handle("/api/agent/claude/profile") is True
+        assert agents_handler.can_handle("/api/v1/agent/claude/profile") is True
 
     def test_can_handle_agent_history(self, agents_handler):
         """Should handle /api/agent/{name}/history."""
-        assert agents_handler.can_handle("/api/agent/claude/history") is True
+        assert agents_handler.can_handle("/api/v1/agent/claude/history") is True
 
     def test_can_handle_agent_head_to_head(self, agents_handler):
         """Should handle /api/agent/{name}/head-to-head/{opponent}."""
-        assert agents_handler.can_handle("/api/agent/claude/head-to-head/gpt4") is True
+        assert agents_handler.can_handle("/api/v1/agent/claude/head-to-head/gpt4") is True
 
     def test_can_handle_flips_recent(self, agents_handler):
         """Should handle /api/flips/recent."""
-        assert agents_handler.can_handle("/api/flips/recent") is True
+        assert agents_handler.can_handle("/api/v1/flips/recent") is True
 
     def test_can_handle_flips_summary(self, agents_handler):
         """Should handle /api/flips/summary."""
-        assert agents_handler.can_handle("/api/flips/summary") is True
+        assert agents_handler.can_handle("/api/v1/flips/summary") is True
 
     def test_cannot_handle_unknown_route(self, agents_handler):
         """Should not handle unknown routes."""
-        assert agents_handler.can_handle("/api/debates") is False
-        assert agents_handler.can_handle("/api/unknown") is False
+        assert agents_handler.can_handle("/api/v1/debates") is False
+        assert agents_handler.can_handle("/api/v1/unknown") is False
 
 
 # ============================================================================

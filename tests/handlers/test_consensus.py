@@ -178,37 +178,37 @@ class TestConsensusHandlerRouting:
 
     def test_can_handle_similar(self, consensus_handler):
         """Test can_handle for /api/consensus/similar."""
-        assert consensus_handler.can_handle("/api/consensus/similar") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/similar") is True
 
     def test_can_handle_settled(self, consensus_handler):
         """Test can_handle for /api/consensus/settled."""
-        assert consensus_handler.can_handle("/api/consensus/settled") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/settled") is True
 
     def test_can_handle_stats(self, consensus_handler):
         """Test can_handle for /api/consensus/stats."""
-        assert consensus_handler.can_handle("/api/consensus/stats") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/stats") is True
 
     def test_can_handle_dissents(self, consensus_handler):
         """Test can_handle for /api/consensus/dissents."""
-        assert consensus_handler.can_handle("/api/consensus/dissents") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/dissents") is True
 
     def test_can_handle_contrarian(self, consensus_handler):
         """Test can_handle for /api/consensus/contrarian-views."""
-        assert consensus_handler.can_handle("/api/consensus/contrarian-views") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/contrarian-views") is True
 
     def test_can_handle_risk_warnings(self, consensus_handler):
         """Test can_handle for /api/consensus/risk-warnings."""
-        assert consensus_handler.can_handle("/api/consensus/risk-warnings") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/risk-warnings") is True
 
     def test_can_handle_domain(self, consensus_handler):
         """Test can_handle for /api/consensus/domain/:domain."""
-        assert consensus_handler.can_handle("/api/consensus/domain/security") is True
-        assert consensus_handler.can_handle("/api/consensus/domain/performance") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/domain/security") is True
+        assert consensus_handler.can_handle("/api/v1/consensus/domain/performance") is True
 
     def test_cannot_handle_invalid(self, consensus_handler):
         """Test can_handle rejects invalid paths."""
-        assert consensus_handler.can_handle("/api/other/endpoint") is False
-        assert consensus_handler.can_handle("/api/consensus") is False
+        assert consensus_handler.can_handle("/api/v1/other/endpoint") is False
+        assert consensus_handler.can_handle("/api/v1/consensus") is False
 
 
 class TestConsensusHandlerSimilar:

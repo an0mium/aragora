@@ -890,8 +890,8 @@ class TestTournamentHandlerRegistration:
         """Handler can handle all declared routes."""
         handler = TournamentHandler(tournament_ctx)
 
-        assert handler.can_handle("/api/tournaments")
-        assert handler.can_handle("/api/tournaments/any-id/standings")
+        assert handler.can_handle("/api/v1/tournaments")
+        assert handler.can_handle("/api/v1/tournaments/any-id/standings")
 
     def test_max_tournaments_constant(self):
         """MAX_TOURNAMENTS_TO_LIST is reasonable."""

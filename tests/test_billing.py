@@ -484,10 +484,10 @@ class TestAuthHandler:
 
     def test_can_handle(self, handler):
         auth_handler, _ = handler
-        assert auth_handler.can_handle("/api/auth/register") is True
-        assert auth_handler.can_handle("/api/auth/login") is True
-        assert auth_handler.can_handle("/api/auth/me") is True
-        assert auth_handler.can_handle("/api/other") is False
+        assert auth_handler.can_handle("/api/v1/auth/register") is True
+        assert auth_handler.can_handle("/api/v1/auth/login") is True
+        assert auth_handler.can_handle("/api/v1/auth/me") is True
+        assert auth_handler.can_handle("/api/v1/other") is False
 
     def test_validate_email(self):
         from aragora.server.handlers.auth import validate_email
@@ -563,11 +563,11 @@ class TestBillingHandler:
         return BillingHandler(ctx)
 
     def test_can_handle(self, handler):
-        assert handler.can_handle("/api/billing/plans") is True
-        assert handler.can_handle("/api/billing/usage") is True
-        assert handler.can_handle("/api/billing/checkout") is True
-        assert handler.can_handle("/api/webhooks/stripe") is True
-        assert handler.can_handle("/api/other") is False
+        assert handler.can_handle("/api/v1/billing/plans") is True
+        assert handler.can_handle("/api/v1/billing/usage") is True
+        assert handler.can_handle("/api/v1/billing/checkout") is True
+        assert handler.can_handle("/api/v1/webhooks/stripe") is True
+        assert handler.can_handle("/api/v1/other") is False
 
     def test_get_plans(self, handler):
         result = handler._get_plans()

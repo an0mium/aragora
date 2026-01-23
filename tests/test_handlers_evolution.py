@@ -90,20 +90,20 @@ class TestEvolutionRouting:
     """Tests for route matching."""
 
     def test_can_handle_evolution_history(self, evolution_handler):
-        assert evolution_handler.can_handle("/api/evolution/claude/history") is True
+        assert evolution_handler.can_handle("/api/v1/evolution/claude/history") is True
 
     def test_can_handle_hyphenated_agent(self, evolution_handler):
-        assert evolution_handler.can_handle("/api/evolution/gpt-4/history") is True
+        assert evolution_handler.can_handle("/api/v1/evolution/gpt-4/history") is True
 
     def test_cannot_handle_base_route(self, evolution_handler):
-        assert evolution_handler.can_handle("/api/evolution") is False
+        assert evolution_handler.can_handle("/api/v1/evolution") is False
 
     def test_cannot_handle_agent_without_history(self, evolution_handler):
-        assert evolution_handler.can_handle("/api/evolution/claude") is False
+        assert evolution_handler.can_handle("/api/v1/evolution/claude") is False
 
     def test_cannot_handle_unrelated_routes(self, evolution_handler):
-        assert evolution_handler.can_handle("/api/agents") is False
-        assert evolution_handler.can_handle("/api/evolution/claude/other") is False
+        assert evolution_handler.can_handle("/api/v1/agents") is False
+        assert evolution_handler.can_handle("/api/v1/evolution/claude/other") is False
 
 
 # ============================================================================

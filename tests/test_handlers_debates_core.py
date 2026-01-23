@@ -97,49 +97,49 @@ class TestCanHandle:
 
     def test_can_handle_debates_list(self, handler):
         """Test matching /api/debates."""
-        assert handler.can_handle("/api/debates") is True
+        assert handler.can_handle("/api/v1/debates") is True
 
     def test_can_handle_debate_create(self, handler):
         """Test matching /api/debate (legacy POST)."""
-        assert handler.can_handle("/api/debate") is True
+        assert handler.can_handle("/api/v1/debate") is True
 
     def test_can_handle_search(self, handler):
         """Test matching /api/search."""
-        assert handler.can_handle("/api/search") is True
+        assert handler.can_handle("/api/v1/search") is True
 
     def test_can_handle_debates_by_slug(self, handler):
         """Test matching /api/debates/slug/{slug}."""
-        assert handler.can_handle("/api/debates/slug/my-debate") is True
+        assert handler.can_handle("/api/v1/debates/slug/my-debate") is True
 
     def test_can_handle_debates_by_id(self, handler):
         """Test matching /api/debates/{id}."""
-        assert handler.can_handle("/api/debates/debate-123") is True
+        assert handler.can_handle("/api/v1/debates/debate-123") is True
 
     def test_can_handle_impasse(self, handler):
         """Test matching /api/debates/{id}/impasse."""
-        assert handler.can_handle("/api/debates/debate-123/impasse") is True
+        assert handler.can_handle("/api/v1/debates/debate-123/impasse") is True
 
     def test_can_handle_convergence(self, handler):
         """Test matching /api/debates/{id}/convergence."""
-        assert handler.can_handle("/api/debates/debate-123/convergence") is True
+        assert handler.can_handle("/api/v1/debates/debate-123/convergence") is True
 
     def test_can_handle_export(self, handler):
         """Test matching /api/debates/{id}/export/{format}."""
-        assert handler.can_handle("/api/debates/debate-123/export/json") is True
+        assert handler.can_handle("/api/v1/debates/debate-123/export/json") is True
 
     def test_can_handle_meta_critique(self, handler):
         """Test matching /api/debate/{id}/meta-critique."""
-        assert handler.can_handle("/api/debate/debate-123/meta-critique") is True
+        assert handler.can_handle("/api/v1/debate/debate-123/meta-critique") is True
 
     def test_can_handle_graph_stats(self, handler):
         """Test matching /api/debate/{id}/graph/stats."""
-        assert handler.can_handle("/api/debate/debate-123/graph/stats") is True
+        assert handler.can_handle("/api/v1/debate/debate-123/graph/stats") is True
 
     def test_cannot_handle_other_paths(self, handler):
         """Test non-matching paths."""
-        assert handler.can_handle("/api/agents") is False
-        assert handler.can_handle("/api/health") is False
-        assert handler.can_handle("/api/elo") is False
+        assert handler.can_handle("/api/v1/agents") is False
+        assert handler.can_handle("/api/v1/health") is False
+        assert handler.can_handle("/api/v1/elo") is False
 
 
 # =============================================================================

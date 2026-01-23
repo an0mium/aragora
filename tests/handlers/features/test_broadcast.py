@@ -91,10 +91,10 @@ class TestBroadcastHandlerInit:
 
     def test_cannot_handle_other_paths(self, broadcast_handler):
         """Test can_handle rejects non-broadcast paths."""
-        assert not broadcast_handler.can_handle("/api/debates")
+        assert not broadcast_handler.can_handle("/api/v1/debates")
         assert not broadcast_handler.can_handle("/api/v1/debates/abc123")
-        assert not broadcast_handler.can_handle("/api/users")
-        assert not broadcast_handler.can_handle("/api/podcast")
+        assert not broadcast_handler.can_handle("/api/v1/users")
+        assert not broadcast_handler.can_handle("/api/v1/podcast")
 
 
 # =============================================================================

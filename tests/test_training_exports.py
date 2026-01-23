@@ -362,14 +362,14 @@ class TestTrainingHandler:
 
     def test_can_handle_training_paths(self, handler):
         """Should handle training paths."""
-        assert handler.can_handle("/api/training/export/sft")
-        assert handler.can_handle("/api/training/stats")
-        assert handler.can_handle("/api/training/formats")
+        assert handler.can_handle("/api/v1/training/export/sft")
+        assert handler.can_handle("/api/v1/training/stats")
+        assert handler.can_handle("/api/v1/training/formats")
 
     def test_cannot_handle_other_paths(self, handler):
         """Should not handle non-training paths."""
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/agents")
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/agents")
 
     def test_handle_formats(self, handler):
         """Should return format documentation."""

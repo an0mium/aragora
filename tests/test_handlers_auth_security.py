@@ -267,55 +267,55 @@ class TestRouteHandling:
 
     def test_can_handle_register(self, auth_handler):
         """can_handle should return True for register route."""
-        assert auth_handler.can_handle("/api/auth/register") is True
+        assert auth_handler.can_handle("/api/v1/auth/register") is True
 
     def test_can_handle_login(self, auth_handler):
         """can_handle should return True for login route."""
-        assert auth_handler.can_handle("/api/auth/login") is True
+        assert auth_handler.can_handle("/api/v1/auth/login") is True
 
     def test_can_handle_logout(self, auth_handler):
         """can_handle should return True for logout route."""
-        assert auth_handler.can_handle("/api/auth/logout") is True
+        assert auth_handler.can_handle("/api/v1/auth/logout") is True
 
     def test_can_handle_refresh(self, auth_handler):
         """can_handle should return True for refresh route."""
-        assert auth_handler.can_handle("/api/auth/refresh") is True
+        assert auth_handler.can_handle("/api/v1/auth/refresh") is True
 
     def test_can_handle_revoke(self, auth_handler):
         """can_handle should return True for revoke route."""
-        assert auth_handler.can_handle("/api/auth/revoke") is True
+        assert auth_handler.can_handle("/api/v1/auth/revoke") is True
 
     def test_can_handle_me(self, auth_handler):
         """can_handle should return True for me route."""
-        assert auth_handler.can_handle("/api/auth/me") is True
+        assert auth_handler.can_handle("/api/v1/auth/me") is True
 
     def test_can_handle_password(self, auth_handler):
         """can_handle should return True for password route."""
-        assert auth_handler.can_handle("/api/auth/password") is True
+        assert auth_handler.can_handle("/api/v1/auth/password") is True
 
     def test_can_handle_api_key(self, auth_handler):
         """can_handle should return True for api-key route."""
-        assert auth_handler.can_handle("/api/auth/api-key") is True
+        assert auth_handler.can_handle("/api/v1/auth/api-key") is True
 
     def test_can_handle_mfa_setup(self, auth_handler):
         """can_handle should return True for mfa setup route."""
-        assert auth_handler.can_handle("/api/auth/mfa/setup") is True
+        assert auth_handler.can_handle("/api/v1/auth/mfa/setup") is True
 
     def test_can_handle_mfa_enable(self, auth_handler):
         """can_handle should return True for mfa enable route."""
-        assert auth_handler.can_handle("/api/auth/mfa/enable") is True
+        assert auth_handler.can_handle("/api/v1/auth/mfa/enable") is True
 
     def test_can_handle_mfa_disable(self, auth_handler):
         """can_handle should return True for mfa disable route."""
-        assert auth_handler.can_handle("/api/auth/mfa/disable") is True
+        assert auth_handler.can_handle("/api/v1/auth/mfa/disable") is True
 
     def test_can_handle_mfa_verify(self, auth_handler):
         """can_handle should return True for mfa verify route."""
-        assert auth_handler.can_handle("/api/auth/mfa/verify") is True
+        assert auth_handler.can_handle("/api/v1/auth/mfa/verify") is True
 
     def test_can_handle_mfa_backup_codes(self, auth_handler):
         """can_handle should return True for mfa backup-codes route."""
-        assert auth_handler.can_handle("/api/auth/mfa/backup-codes") is True
+        assert auth_handler.can_handle("/api/v1/auth/mfa/backup-codes") is True
 
     def test_cannot_handle_invalid_routes(self, auth_handler):
         """can_handle should return False for invalid routes."""
@@ -516,9 +516,9 @@ class TestSecurityEdgeCases:
     def test_route_prefix_matching(self, auth_handler):
         """Routes should match exactly, not by prefix."""
         # These should NOT match
-        assert auth_handler.can_handle("/api/auth/register_malicious") is False
-        assert auth_handler.can_handle("/api/auth/loginattack") is False
-        assert auth_handler.can_handle("/api/auth/me.json") is False
+        assert auth_handler.can_handle("/api/v1/auth/register_malicious") is False
+        assert auth_handler.can_handle("/api/v1/auth/loginattack") is False
+        assert auth_handler.can_handle("/api/v1/auth/me.json") is False
 
     def test_api_key_format_validation(self):
         """API keys should have specific format."""

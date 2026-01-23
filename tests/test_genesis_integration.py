@@ -322,7 +322,7 @@ class TestGenesisAPIEndpoint:
         from aragora.server.handlers.genesis import GenesisHandler
 
         handler = GenesisHandler({})
-        assert handler.can_handle("/api/genesis/population")
+        assert handler.can_handle("/api/v1/genesis/population")
 
     @pytest.mark.asyncio
     async def test_genesis_population_response_format(self, temp_dir):

@@ -473,9 +473,9 @@ class TestSpeechHandlerImports:
         mock_context = MagicMock()
         handler = SpeechHandler(mock_context)
 
-        assert handler.can_handle("/api/speech/transcribe") is True
-        assert handler.can_handle("/api/speech/providers") is True
-        assert handler.can_handle("/api/other") is False
+        assert handler.can_handle("/api/v1/speech/transcribe") is True
+        assert handler.can_handle("/api/v1/speech/providers") is True
+        assert handler.can_handle("/api/v1/other") is False
 
     def test_get_providers(self):
         """Test GET /api/speech/providers handler."""

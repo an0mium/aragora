@@ -106,22 +106,22 @@ class TestHealthRouting:
 
     def test_can_handle_api_health(self, health_handler):
         """Handler can handle /api/health."""
-        assert health_handler.can_handle("/api/health") is True
+        assert health_handler.can_handle("/api/v1/health") is True
 
     def test_can_handle_api_health_detailed(self, health_handler):
         """Handler can handle /api/health/detailed."""
-        assert health_handler.can_handle("/api/health/detailed") is True
+        assert health_handler.can_handle("/api/v1/health/detailed") is True
 
     def test_can_handle_api_health_deep(self, health_handler):
         """Handler can handle /api/health/deep."""
-        assert health_handler.can_handle("/api/health/deep") is True
+        assert health_handler.can_handle("/api/v1/health/deep") is True
 
     def test_cannot_handle_unrelated_routes(self, health_handler):
         """Handler doesn't handle unrelated routes."""
-        assert health_handler.can_handle("/api/debates") is False
-        assert health_handler.can_handle("/api/agents") is False
+        assert health_handler.can_handle("/api/v1/debates") is False
+        assert health_handler.can_handle("/api/v1/agents") is False
         assert health_handler.can_handle("/healthz/extra") is False
-        assert health_handler.can_handle("/api/health/unknown") is False
+        assert health_handler.can_handle("/api/v1/health/unknown") is False
 
 
 # ============================================================================
@@ -584,7 +584,7 @@ class TestStoresHealthRouting:
 
     def test_can_handle_stores_route(self, health_handler):
         """Handler can handle /api/health/stores."""
-        assert health_handler.can_handle("/api/health/stores") is True
+        assert health_handler.can_handle("/api/v1/health/stores") is True
 
     def test_handle_routes_to_stores_health(self, health_handler):
         """handle() correctly routes /api/health/stores."""

@@ -122,20 +122,20 @@ class TestABTestingRouting:
 
     def test_can_handle_base_route(self, handler):
         """Test can_handle for base route."""
-        assert handler.can_handle("/api/evolution/ab-tests") is True
+        assert handler.can_handle("/api/v1/evolution/ab-tests") is True
 
     def test_can_handle_test_route(self, handler):
         """Test can_handle for test ID route."""
-        assert handler.can_handle("/api/evolution/ab-tests/test-123") is True
+        assert handler.can_handle("/api/v1/evolution/ab-tests/test-123") is True
 
     def test_can_handle_active_route(self, handler):
         """Test can_handle for active test route."""
-        assert handler.can_handle("/api/evolution/ab-tests/claude/active") is True
+        assert handler.can_handle("/api/v1/evolution/ab-tests/claude/active") is True
 
     def test_cannot_handle_unrelated_routes(self, handler):
         """Test can_handle returns False for unrelated routes."""
-        assert handler.can_handle("/api/evolution/history") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/evolution/history") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
 
 # ============================================================================

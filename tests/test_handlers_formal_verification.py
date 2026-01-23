@@ -23,28 +23,28 @@ class TestFormalVerificationHandlerRouting:
 
     def test_can_handle_verify_claim(self, handler):
         """Handler can handle /api/verify/claim."""
-        assert handler.can_handle("/api/verify/claim") is True
+        assert handler.can_handle("/api/v1/verify/claim") is True
 
     def test_can_handle_verify_batch(self, handler):
         """Handler can handle /api/verify/batch."""
-        assert handler.can_handle("/api/verify/batch") is True
+        assert handler.can_handle("/api/v1/verify/batch") is True
 
     def test_can_handle_verify_status(self, handler):
         """Handler can handle /api/verify/status."""
-        assert handler.can_handle("/api/verify/status") is True
+        assert handler.can_handle("/api/v1/verify/status") is True
 
     def test_can_handle_verify_translate(self, handler):
         """Handler can handle /api/verify/translate."""
-        assert handler.can_handle("/api/verify/translate") is True
+        assert handler.can_handle("/api/v1/verify/translate") is True
 
     def test_cannot_handle_unknown_route(self, handler):
         """Handler does not handle unknown routes."""
-        assert handler.can_handle("/api/other") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/other") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
     def test_can_handle_verify_prefix(self, handler):
         """Handler can handle any /api/verify/* route."""
-        assert handler.can_handle("/api/verify/custom") is True
+        assert handler.can_handle("/api/v1/verify/custom") is True
 
 
 class TestVerifyClaimEndpoint:

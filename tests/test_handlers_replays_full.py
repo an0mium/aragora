@@ -94,24 +94,24 @@ class TestReplaysHandlerRouting:
 
     def test_can_handle_replays_list(self, replays_handler):
         """Should handle /api/replays."""
-        assert replays_handler.can_handle("/api/replays") is True
+        assert replays_handler.can_handle("/api/v1/replays") is True
 
     def test_can_handle_specific_replay(self, replays_handler):
         """Should handle /api/replays/{replay_id}."""
-        assert replays_handler.can_handle("/api/replays/replay-001") is True
+        assert replays_handler.can_handle("/api/v1/replays/replay-001") is True
 
     def test_can_handle_learning_evolution(self, replays_handler):
         """Should handle /api/learning/evolution."""
-        assert replays_handler.can_handle("/api/learning/evolution") is True
+        assert replays_handler.can_handle("/api/v1/learning/evolution") is True
 
     def test_cannot_handle_nested_replay_path(self, replays_handler):
         """Should not handle deeply nested replay paths."""
-        assert replays_handler.can_handle("/api/replays/replay-001/events") is False
+        assert replays_handler.can_handle("/api/v1/replays/replay-001/events") is False
 
     def test_cannot_handle_unknown_routes(self, replays_handler):
         """Should not handle unknown routes."""
-        assert replays_handler.can_handle("/api/unknown") is False
-        assert replays_handler.can_handle("/api/debates") is False
+        assert replays_handler.can_handle("/api/v1/unknown") is False
+        assert replays_handler.can_handle("/api/v1/debates") is False
 
     def test_handle_returns_none_for_unknown(self, replays_handler):
         """Should return None for unknown paths."""

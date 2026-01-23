@@ -274,37 +274,37 @@ class TestConsensusHandler:
 
     def test_can_handle_similar(self, handler):
         """Test can_handle for similar endpoint."""
-        assert handler.can_handle("/api/consensus/similar") is True
+        assert handler.can_handle("/api/v1/consensus/similar") is True
 
     def test_can_handle_settled(self, handler):
         """Test can_handle for settled endpoint."""
-        assert handler.can_handle("/api/consensus/settled") is True
+        assert handler.can_handle("/api/v1/consensus/settled") is True
 
     def test_can_handle_stats(self, handler):
         """Test can_handle for stats endpoint."""
-        assert handler.can_handle("/api/consensus/stats") is True
+        assert handler.can_handle("/api/v1/consensus/stats") is True
 
     def test_can_handle_dissents(self, handler):
         """Test can_handle for dissents endpoint."""
-        assert handler.can_handle("/api/consensus/dissents") is True
+        assert handler.can_handle("/api/v1/consensus/dissents") is True
 
     def test_can_handle_contrarian(self, handler):
         """Test can_handle for contrarian-views endpoint."""
-        assert handler.can_handle("/api/consensus/contrarian-views") is True
+        assert handler.can_handle("/api/v1/consensus/contrarian-views") is True
 
     def test_can_handle_risk_warnings(self, handler):
         """Test can_handle for risk-warnings endpoint."""
-        assert handler.can_handle("/api/consensus/risk-warnings") is True
+        assert handler.can_handle("/api/v1/consensus/risk-warnings") is True
 
     def test_can_handle_domain(self, handler):
         """Test can_handle for domain-specific endpoint."""
-        assert handler.can_handle("/api/consensus/domain/security") is True
-        assert handler.can_handle("/api/consensus/domain/performance") is True
+        assert handler.can_handle("/api/v1/consensus/domain/security") is True
+        assert handler.can_handle("/api/v1/consensus/domain/performance") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/agents") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/agents") is False
 
     def test_similar_requires_topic(self, handler):
         """Test similar endpoint requires topic parameter."""
@@ -344,28 +344,28 @@ class TestBeliefHandler:
 
     def test_cannot_handle_emergent_traits(self, handler):
         """Test can_handle for emergent-traits (moved to LaboratoryHandler)."""
-        assert handler.can_handle("/api/laboratory/emergent-traits") is False
+        assert handler.can_handle("/api/v1/laboratory/emergent-traits") is False
 
     def test_can_handle_cruxes(self, handler):
         """Test can_handle for cruxes endpoint."""
-        assert handler.can_handle("/api/belief-network/debate-123/cruxes") is True
+        assert handler.can_handle("/api/v1/belief-network/debate-123/cruxes") is True
 
     def test_can_handle_load_bearing(self, handler):
         """Test can_handle for load-bearing-claims endpoint."""
-        assert handler.can_handle("/api/belief-network/debate-456/load-bearing-claims") is True
+        assert handler.can_handle("/api/v1/belief-network/debate-456/load-bearing-claims") is True
 
     def test_can_handle_claim_support(self, handler):
         """Test can_handle for claim support endpoint."""
-        assert handler.can_handle("/api/provenance/debate-123/claims/claim-456/support") is True
+        assert handler.can_handle("/api/v1/provenance/debate-123/claims/claim-456/support") is True
 
     def test_can_handle_graph_stats(self, handler):
         """Test can_handle for graph-stats endpoint."""
-        assert handler.can_handle("/api/debate/debate-789/graph-stats") is True
+        assert handler.can_handle("/api/v1/debate/debate-789/graph-stats") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
     def test_emergent_traits_not_handled(self, handler):
         """Test BeliefHandler does not handle emergent-traits (moved to LaboratoryHandler)."""
@@ -459,7 +459,7 @@ class TestHandlerSecurity:
     def test_path_traversal_blocked(self, belief_handler):
         """Test path traversal attempts are blocked."""
         # Attempt path traversal in debate_id
-        assert belief_handler.can_handle("/api/belief-network/../etc/passwd/cruxes") is True
+        assert belief_handler.can_handle("/api/v1/belief-network/../etc/passwd/cruxes") is True
         # But the handler should reject invalid IDs
         result = belief_handler.handle("/api/belief-network/../etc/passwd/cruxes", {}, Mock())
         # Should either return None (not handling) or 400 (bad request)
@@ -539,38 +539,38 @@ class TestAgentsHandler:
 
     def test_can_handle_leaderboard(self, handler):
         """Test can_handle for leaderboard endpoint."""
-        assert handler.can_handle("/api/leaderboard") is True
-        assert handler.can_handle("/api/rankings") is True
+        assert handler.can_handle("/api/v1/leaderboard") is True
+        assert handler.can_handle("/api/v1/rankings") is True
 
     def test_cannot_handle_calibration(self, handler):
         """Test can_handle for calibration (moved to CalibrationHandler)."""
-        assert handler.can_handle("/api/calibration/leaderboard") is False
+        assert handler.can_handle("/api/v1/calibration/leaderboard") is False
 
     def test_can_handle_matches(self, handler):
         """Test can_handle for matches endpoint."""
-        assert handler.can_handle("/api/matches/recent") is True
+        assert handler.can_handle("/api/v1/matches/recent") is True
 
     def test_can_handle_agent_profile(self, handler):
         """Test can_handle for agent profile endpoint."""
-        assert handler.can_handle("/api/agent/claude/profile") is True
-        assert handler.can_handle("/api/agent/gpt-4/profile") is True
+        assert handler.can_handle("/api/v1/agent/claude/profile") is True
+        assert handler.can_handle("/api/v1/agent/gpt-4/profile") is True
 
     def test_can_handle_agent_history(self, handler):
         """Test can_handle for agent history endpoint."""
-        assert handler.can_handle("/api/agent/claude/history") is True
+        assert handler.can_handle("/api/v1/agent/claude/history") is True
 
     def test_can_handle_head_to_head(self, handler):
         """Test can_handle for head-to-head endpoint."""
-        assert handler.can_handle("/api/agent/claude/head-to-head/gpt-4") is True
+        assert handler.can_handle("/api/v1/agent/claude/head-to-head/gpt-4") is True
 
     def test_can_handle_compare(self, handler):
         """Test can_handle for compare endpoint."""
-        assert handler.can_handle("/api/agent/compare") is True
+        assert handler.can_handle("/api/v1/agent/compare") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
     def test_leaderboard_returns_503_when_no_elo(self):
         """Test returns 503 when ELO system unavailable."""
@@ -613,30 +613,30 @@ class TestAnalyticsHandler:
 
     def test_can_handle_disagreements(self, handler):
         """Test can_handle for disagreements endpoint."""
-        assert handler.can_handle("/api/analytics/disagreements") is True
+        assert handler.can_handle("/api/v1/analytics/disagreements") is True
 
     def test_can_handle_role_rotation(self, handler):
         """Test can_handle for role-rotation endpoint."""
-        assert handler.can_handle("/api/analytics/role-rotation") is True
+        assert handler.can_handle("/api/v1/analytics/role-rotation") is True
 
     def test_can_handle_early_stops(self, handler):
         """Test can_handle for early-stops endpoint."""
-        assert handler.can_handle("/api/analytics/early-stops") is True
+        assert handler.can_handle("/api/v1/analytics/early-stops") is True
 
     def test_can_handle_ranking_stats(self, handler):
         """Test can_handle for ranking stats endpoint."""
-        assert handler.can_handle("/api/ranking/stats") is True
+        assert handler.can_handle("/api/v1/ranking/stats") is True
 
     def test_can_handle_memory_stats(self, handler):
         """Test can_handle for memory stats endpoint."""
-        assert handler.can_handle("/api/memory/stats") is True
+        assert handler.can_handle("/api/v1/memory/stats") is True
         # Note: /api/memory/tier-stats moved to MemoryHandler
-        assert handler.can_handle("/api/memory/tier-stats") is False
+        assert handler.can_handle("/api/v1/memory/tier-stats") is False
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
 
 # ============================================================================
@@ -660,24 +660,24 @@ class TestDebatesHandler:
 
     def test_can_handle_debates_list(self, handler):
         """Test can_handle for debates list endpoint."""
-        assert handler.can_handle("/api/debates") is True
+        assert handler.can_handle("/api/v1/debates") is True
 
     def test_can_handle_debate_by_slug(self, handler):
         """Test can_handle for debate by slug endpoint."""
-        assert handler.can_handle("/api/debates/test-debate-123") is True
+        assert handler.can_handle("/api/v1/debates/test-debate-123") is True
 
     def test_can_handle_export(self, handler):
         """Test can_handle for export endpoint."""
-        assert handler.can_handle("/api/debates/test-debate/export") is True
+        assert handler.can_handle("/api/v1/debates/test-debate/export") is True
 
     def test_can_handle_impasse(self, handler):
         """Test can_handle for impasse endpoint."""
-        assert handler.can_handle("/api/debates/test-debate/impasse") is True
+        assert handler.can_handle("/api/v1/debates/test-debate/impasse") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/agents") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/agents") is False
 
 
 # ============================================================================
@@ -701,27 +701,27 @@ class TestSystemHandler:
 
     def test_can_handle_health(self, handler):
         """Test can_handle for health endpoint."""
-        assert handler.can_handle("/api/health") is True
+        assert handler.can_handle("/api/v1/health") is True
 
     def test_can_handle_nomic_state(self, handler):
         """Test can_handle for nomic state endpoint."""
-        assert handler.can_handle("/api/nomic/state") is True
+        assert handler.can_handle("/api/v1/nomic/state") is True
 
     def test_can_handle_modes(self, handler):
         """Test can_handle for modes endpoint."""
-        assert handler.can_handle("/api/modes") is True
+        assert handler.can_handle("/api/v1/modes") is True
 
     def test_can_handle_history(self, handler):
         """Test can_handle for history endpoints."""
-        assert handler.can_handle("/api/history/cycles") is True
-        assert handler.can_handle("/api/history/events") is True
-        assert handler.can_handle("/api/history/debates") is True
-        assert handler.can_handle("/api/history/summary") is True
+        assert handler.can_handle("/api/v1/history/cycles") is True
+        assert handler.can_handle("/api/v1/history/events") is True
+        assert handler.can_handle("/api/v1/history/debates") is True
+        assert handler.can_handle("/api/v1/history/summary") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
 
 # ============================================================================
@@ -744,16 +744,16 @@ class TestPulseHandler:
 
     def test_can_handle_trending(self, handler):
         """Test can_handle for trending endpoint."""
-        assert handler.can_handle("/api/pulse/trending") is True
+        assert handler.can_handle("/api/v1/pulse/trending") is True
 
     def test_can_handle_suggest(self, handler):
         """Test can_handle for suggest endpoint."""
-        assert handler.can_handle("/api/pulse/suggest") is True
+        assert handler.can_handle("/api/v1/pulse/suggest") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
 
 # ============================================================================
@@ -778,24 +778,24 @@ class TestMetricsHandler:
 
     def test_can_handle_metrics(self, handler):
         """Test can_handle for metrics endpoint."""
-        assert handler.can_handle("/api/metrics") is True
+        assert handler.can_handle("/api/v1/metrics") is True
 
     def test_can_handle_health(self, handler):
         """Test can_handle for health endpoint."""
-        assert handler.can_handle("/api/metrics/health") is True
+        assert handler.can_handle("/api/v1/metrics/health") is True
 
     def test_can_handle_cache_stats(self, handler):
         """Test can_handle for cache stats endpoint."""
-        assert handler.can_handle("/api/metrics/cache") is True
+        assert handler.can_handle("/api/v1/metrics/cache") is True
 
     def test_can_handle_system_info(self, handler):
         """Test can_handle for system info endpoint."""
-        assert handler.can_handle("/api/metrics/system") is True
+        assert handler.can_handle("/api/v1/metrics/system") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
 
 # ============================================================================
@@ -818,25 +818,25 @@ class TestCritiqueHandler:
 
     def test_can_handle_patterns(self, handler):
         """Test can_handle for patterns endpoint."""
-        assert handler.can_handle("/api/critiques/patterns") is True
+        assert handler.can_handle("/api/v1/critiques/patterns") is True
 
     def test_can_handle_archive(self, handler):
         """Test can_handle for archive endpoint."""
-        assert handler.can_handle("/api/critiques/archive") is True
+        assert handler.can_handle("/api/v1/critiques/archive") is True
 
     def test_can_handle_all_reputations(self, handler):
         """Test can_handle for all reputations endpoint."""
-        assert handler.can_handle("/api/reputation/all") is True
+        assert handler.can_handle("/api/v1/reputation/all") is True
 
     def test_can_handle_agent_reputation(self, handler):
         """Test can_handle for agent-specific reputation."""
-        assert handler.can_handle("/api/agent/claude/reputation") is True
-        assert handler.can_handle("/api/agent/gpt-4/reputation") is True
+        assert handler.can_handle("/api/v1/agent/claude/reputation") is True
+        assert handler.can_handle("/api/v1/agent/gpt-4/reputation") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
     @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", False)
     def test_returns_503_when_unavailable(self, handler):
@@ -875,24 +875,24 @@ class TestGenesisHandler:
 
     def test_can_handle_stats(self, handler):
         """Test can_handle for stats endpoint."""
-        assert handler.can_handle("/api/genesis/stats") is True
+        assert handler.can_handle("/api/v1/genesis/stats") is True
 
     def test_can_handle_events(self, handler):
         """Test can_handle for events endpoint."""
-        assert handler.can_handle("/api/genesis/events") is True
+        assert handler.can_handle("/api/v1/genesis/events") is True
 
     def test_can_handle_lineage(self, handler):
         """Test can_handle for lineage endpoint."""
-        assert handler.can_handle("/api/genesis/lineage/genome-123") is True
+        assert handler.can_handle("/api/v1/genesis/lineage/genome-123") is True
 
     def test_can_handle_tree(self, handler):
         """Test can_handle for tree endpoint."""
-        assert handler.can_handle("/api/genesis/tree/debate-456") is True
+        assert handler.can_handle("/api/v1/genesis/tree/debate-456") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/consensus/stats") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
     @patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", False)
     def test_returns_503_when_unavailable(self, handler):
@@ -940,22 +940,22 @@ class TestReplaysHandler:
 
     def test_can_handle_replays_list(self, handler):
         """Test can_handle for replays list endpoint."""
-        assert handler.can_handle("/api/replays") is True
+        assert handler.can_handle("/api/v1/replays") is True
 
     def test_can_handle_replay_detail(self, handler):
         """Test can_handle for specific replay endpoint."""
-        assert handler.can_handle("/api/replays/replay-123") is True
-        assert handler.can_handle("/api/replays/my_replay") is True
+        assert handler.can_handle("/api/v1/replays/replay-123") is True
+        assert handler.can_handle("/api/v1/replays/my_replay") is True
 
     def test_can_handle_learning_evolution(self, handler):
         """Test can_handle for learning evolution endpoint."""
-        assert handler.can_handle("/api/learning/evolution") is True
+        assert handler.can_handle("/api/v1/learning/evolution") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Test rejects unrelated endpoints."""
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/agents") is False
-        assert handler.can_handle("/api/replays/foo/bar/baz") is False  # Too deep
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/agents") is False
+        assert handler.can_handle("/api/v1/replays/foo/bar/baz") is False  # Too deep
 
     def test_list_replays_empty(self, handler, tmp_path):
         """Test listing replays when no replays exist."""
@@ -1051,7 +1051,7 @@ class TestReplaysHandler:
         assert result.status_code == 400
         result = handler.handle("/api/replays/foo/bar", {}, Mock())
         # This would be caught by can_handle returning False
-        assert handler.can_handle("/api/replays/foo/bar") is False
+        assert handler.can_handle("/api/v1/replays/foo/bar") is False
 
     def test_learning_evolution_no_db(self, handler, tmp_path):
         """Test learning evolution when no database exists."""

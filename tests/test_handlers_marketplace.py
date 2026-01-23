@@ -75,34 +75,34 @@ class TestCanHandle:
     """Test can_handle method routing."""
 
     def test_browse_templates(self, handler):
-        assert handler.can_handle("/api/marketplace/templates") is True
+        assert handler.can_handle("/api/v1/marketplace/templates") is True
 
     def test_get_template(self, handler):
-        assert handler.can_handle("/api/marketplace/templates/tpl-123") is True
+        assert handler.can_handle("/api/v1/marketplace/templates/tpl-123") is True
 
     def test_rate_template(self, handler):
-        assert handler.can_handle("/api/marketplace/templates/tpl-123/rate") is True
+        assert handler.can_handle("/api/v1/marketplace/templates/tpl-123/rate") is True
 
     def test_review_template(self, handler):
-        assert handler.can_handle("/api/marketplace/templates/tpl-123/review") is True
+        assert handler.can_handle("/api/v1/marketplace/templates/tpl-123/review") is True
 
     def test_import_template(self, handler):
-        assert handler.can_handle("/api/marketplace/templates/tpl-123/import") is True
+        assert handler.can_handle("/api/v1/marketplace/templates/tpl-123/import") is True
 
     def test_featured(self, handler):
-        assert handler.can_handle("/api/marketplace/featured") is True
+        assert handler.can_handle("/api/v1/marketplace/featured") is True
 
     def test_trending(self, handler):
-        assert handler.can_handle("/api/marketplace/trending") is True
+        assert handler.can_handle("/api/v1/marketplace/trending") is True
 
     def test_categories(self, handler):
-        assert handler.can_handle("/api/marketplace/categories") is True
+        assert handler.can_handle("/api/v1/marketplace/categories") is True
 
     def test_invalid_path(self, handler):
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
     def test_non_marketplace_path(self, handler):
-        assert handler.can_handle("/api/workflow/templates") is False
+        assert handler.can_handle("/api/v1/workflow/templates") is False
 
 
 # ============================================================================
@@ -123,7 +123,9 @@ class TestBrowseTemplates:
         assert isinstance(body["templates"], list)
 
     def test_browse_with_category_filter(self, handler, mock_get_request):
-        result = handler.handle("/api/marketplace/templates", {"category": "security"}, mock_get_request)
+        result = handler.handle(
+            "/api/marketplace/templates", {"category": "security"}, mock_get_request
+        )
         body, status = parse_handler_result(result)
 
         assert status == 200
@@ -138,14 +140,18 @@ class TestBrowseTemplates:
         # Search should return templates matching "code" in name/description/tags
 
     def test_browse_with_pagination(self, handler, mock_get_request):
-        result = handler.handle("/api/marketplace/templates", {"limit": "2", "offset": "0"}, mock_get_request)
+        result = handler.handle(
+            "/api/marketplace/templates", {"limit": "2", "offset": "0"}, mock_get_request
+        )
         body, status = parse_handler_result(result)
 
         assert status == 200
         assert len(body["templates"]) <= 2
 
     def test_browse_sort_by_rating(self, handler, mock_get_request):
-        result = handler.handle("/api/marketplace/templates", {"sort_by": "rating"}, mock_get_request)
+        result = handler.handle(
+            "/api/marketplace/templates", {"sort_by": "rating"}, mock_get_request
+        )
         body, status = parse_handler_result(result)
 
         assert status == 200
@@ -171,7 +177,9 @@ class TestGetTemplate:
 
         if browse_body["templates"]:
             template_id = browse_body["templates"][0]["id"]
-            result = handler.handle(f"/api/marketplace/templates/{template_id}", {}, mock_get_request)
+            result = handler.handle(
+                f"/api/marketplace/templates/{template_id}", {}, mock_get_request
+            )
             body, status = parse_handler_result(result)
 
             assert status == 200
@@ -197,6 +205,7 @@ class TestPublishTemplate:
 
     def test_publish_valid_template(self, handler, mock_post_request):
         import uuid
+
         body = {
             "name": f"My Test Template {uuid.uuid4().hex[:8]}",  # Unique name to avoid conflicts
             "description": "A test template for unit tests",
@@ -217,7 +226,9 @@ class TestPublishTemplate:
         assert "template_id" in response_body
 
     def test_publish_missing_required_fields(self, handler, mock_post_request):
-        body = {"name": "Incomplete Template"}  # Missing description, category, pattern, workflow_definition
+        body = {
+            "name": "Incomplete Template"
+        }  # Missing description, category, pattern, workflow_definition
         mock_post_request.rfile = Mock()
         mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
         mock_post_request.headers["Content-Length"] = len(json.dumps(body))
@@ -250,7 +261,9 @@ class TestRateTemplate:
             mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
             mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-            result = handler.handle(f"/api/marketplace/templates/{template_id}/rate", {}, mock_post_request)
+            result = handler.handle(
+                f"/api/marketplace/templates/{template_id}/rate", {}, mock_post_request
+            )
             response_body, status = parse_handler_result(result)
 
             assert status == 200
@@ -269,7 +282,9 @@ class TestRateTemplate:
             mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
             mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-            result = handler.handle(f"/api/marketplace/templates/{template_id}/rate", {}, mock_post_request)
+            result = handler.handle(
+                f"/api/marketplace/templates/{template_id}/rate", {}, mock_post_request
+            )
             response_body, status = parse_handler_result(result)
 
             assert status == 400
@@ -301,7 +316,9 @@ class TestReviewTemplate:
             mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
             mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-            result = handler.handle(f"/api/marketplace/templates/{template_id}/reviews", {}, mock_post_request)
+            result = handler.handle(
+                f"/api/marketplace/templates/{template_id}/reviews", {}, mock_post_request
+            )
             response_body, status = parse_handler_result(result)
 
             assert status == 201
@@ -330,7 +347,9 @@ class TestImportTemplate:
             mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
             mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-            result = handler.handle(f"/api/marketplace/templates/{template_id}/import", {}, mock_post_request)
+            result = handler.handle(
+                f"/api/marketplace/templates/{template_id}/import", {}, mock_post_request
+            )
             response_body, status = parse_handler_result(result)
 
             assert status == 200
@@ -343,7 +362,9 @@ class TestImportTemplate:
         mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
         mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-        result = handler.handle("/api/marketplace/templates/nonexistent-id/import", {}, mock_post_request)
+        result = handler.handle(
+            "/api/marketplace/templates/nonexistent-id/import", {}, mock_post_request
+        )
         response_body, status = parse_handler_result(result)
 
         assert status == 404

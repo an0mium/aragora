@@ -85,10 +85,10 @@ class TestGraphDebatesHandlerInit:
 
     def test_cannot_handle_other_paths(self, graph_handler):
         """Test can_handle rejects non-graph paths."""
-        assert not graph_handler.can_handle("/api/debates")
+        assert not graph_handler.can_handle("/api/v1/debates")
         assert not graph_handler.can_handle("/api/v1/debates/abc123")
         assert not graph_handler.can_handle("/api/v1/debates/matrix")
-        assert not graph_handler.can_handle("/api/users")
+        assert not graph_handler.can_handle("/api/v1/users")
 
 
 # =============================================================================

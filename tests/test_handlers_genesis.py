@@ -155,27 +155,27 @@ class TestGenesisHandlerRouting:
 
     def test_can_handle_stats(self, genesis_handler):
         """Should handle /api/genesis/stats."""
-        assert genesis_handler.can_handle("/api/genesis/stats") is True
+        assert genesis_handler.can_handle("/api/v1/genesis/stats") is True
 
     def test_can_handle_events(self, genesis_handler):
         """Should handle /api/genesis/events."""
-        assert genesis_handler.can_handle("/api/genesis/events") is True
+        assert genesis_handler.can_handle("/api/v1/genesis/events") is True
 
     def test_can_handle_lineage_pattern(self, genesis_handler):
         """Should handle /api/genesis/lineage/:genome_id pattern."""
-        assert genesis_handler.can_handle("/api/genesis/lineage/genome-001") is True
-        assert genesis_handler.can_handle("/api/genesis/lineage/abc123") is True
+        assert genesis_handler.can_handle("/api/v1/genesis/lineage/genome-001") is True
+        assert genesis_handler.can_handle("/api/v1/genesis/lineage/abc123") is True
 
     def test_can_handle_tree_pattern(self, genesis_handler):
         """Should handle /api/genesis/tree/:debate_id pattern."""
-        assert genesis_handler.can_handle("/api/genesis/tree/debate-001") is True
-        assert genesis_handler.can_handle("/api/genesis/tree/xyz789") is True
+        assert genesis_handler.can_handle("/api/v1/genesis/tree/debate-001") is True
+        assert genesis_handler.can_handle("/api/v1/genesis/tree/xyz789") is True
 
     def test_cannot_handle_unknown_route(self, genesis_handler):
         """Should not handle unknown routes."""
-        assert genesis_handler.can_handle("/api/unknown") is False
-        assert genesis_handler.can_handle("/api/genesis/unknown") is False
-        assert genesis_handler.can_handle("/api/genesis") is False
+        assert genesis_handler.can_handle("/api/v1/unknown") is False
+        assert genesis_handler.can_handle("/api/v1/genesis/unknown") is False
+        assert genesis_handler.can_handle("/api/v1/genesis") is False
 
 
 # ============================================================================

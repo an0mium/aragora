@@ -92,19 +92,19 @@ class TestWhatsAppRouteMatching:
 
     def test_can_handle_webhook(self, whatsapp_handler):
         """Test webhook route is matched."""
-        assert whatsapp_handler.can_handle("/api/bots/whatsapp/webhook") is True
+        assert whatsapp_handler.can_handle("/api/v1/bots/whatsapp/webhook") is True
 
     def test_can_handle_status(self, whatsapp_handler):
         """Test status route is matched."""
-        assert whatsapp_handler.can_handle("/api/bots/whatsapp/status") is True
+        assert whatsapp_handler.can_handle("/api/v1/bots/whatsapp/status") is True
 
     def test_cannot_handle_other(self, whatsapp_handler):
         """Test other routes are not matched."""
-        assert whatsapp_handler.can_handle("/api/other/path") is False
+        assert whatsapp_handler.can_handle("/api/v1/other/path") is False
 
     def test_cannot_handle_telegram(self, whatsapp_handler):
         """Test telegram route is not matched."""
-        assert whatsapp_handler.can_handle("/api/bots/telegram/webhook") is False
+        assert whatsapp_handler.can_handle("/api/v1/bots/telegram/webhook") is False
 
 
 # =============================================================================

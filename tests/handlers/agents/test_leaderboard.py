@@ -81,9 +81,9 @@ class TestLeaderboardViewHandlerInit:
     def test_cannot_handle_other_paths(self, leaderboard_handler):
         """Test can_handle rejects non-leaderboard paths."""
         assert not leaderboard_handler.can_handle("/api/v1/leaderboard")
-        assert not leaderboard_handler.can_handle("/api/agent/claude")
-        assert not leaderboard_handler.can_handle("/api/debates")
-        assert not leaderboard_handler.can_handle("/api/calibration/leaderboard")
+        assert not leaderboard_handler.can_handle("/api/v1/agent/claude")
+        assert not leaderboard_handler.can_handle("/api/v1/debates")
+        assert not leaderboard_handler.can_handle("/api/v1/calibration/leaderboard")
 
 
 # =============================================================================

@@ -31,19 +31,19 @@ class TestDocumentHandlerRouting:
         return DocumentHandler(ctx)
 
     def test_can_handle_documents_list(self, doc_handler):
-        assert doc_handler.can_handle("/api/documents") is True
+        assert doc_handler.can_handle("/api/v1/documents") is True
 
     def test_can_handle_documents_formats(self, doc_handler):
-        assert doc_handler.can_handle("/api/documents/formats") is True
+        assert doc_handler.can_handle("/api/v1/documents/formats") is True
 
     def test_can_handle_document_by_id(self, doc_handler):
-        assert doc_handler.can_handle("/api/documents/abc123") is True
+        assert doc_handler.can_handle("/api/v1/documents/abc123") is True
 
     def test_cannot_handle_nested_path(self, doc_handler):
-        assert doc_handler.can_handle("/api/documents/abc/nested") is False
+        assert doc_handler.can_handle("/api/v1/documents/abc/nested") is False
 
     def test_cannot_handle_unknown_route(self, doc_handler):
-        assert doc_handler.can_handle("/api/other") is False
+        assert doc_handler.can_handle("/api/v1/other") is False
 
 
 class TestListDocumentsEndpoint:

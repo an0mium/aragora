@@ -160,18 +160,18 @@ class TestRouteMatching:
     def test_can_handle_exact_match(self):
         """Test exact route matching."""
         handler = TestHandler(server_context={})
-        assert handler.can_handle("/api/test") is True
+        assert handler.can_handle("/api/v1/test") is True
 
     def test_can_handle_no_match(self):
         """Test non-matching route."""
         handler = TestHandler(server_context={})
-        assert handler.can_handle("/api/other") is False
+        assert handler.can_handle("/api/v1/other") is False
 
     def test_can_handle_partial_match_fails(self):
         """Test partial match doesn't succeed."""
         handler = TestHandler(server_context={})
-        assert handler.can_handle("/api/tes") is False
-        assert handler.can_handle("/api/test/extra/path") is False
+        assert handler.can_handle("/api/v1/tes") is False
+        assert handler.can_handle("/api/v1/test/extra/path") is False
 
     def test_can_handle_all_routes(self):
         """Test all defined routes can be handled."""

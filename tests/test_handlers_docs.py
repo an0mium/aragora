@@ -51,42 +51,42 @@ class TestDocsRouting:
 
     def test_can_handle_openapi(self, docs_handler):
         """Handler can handle /api/openapi."""
-        assert docs_handler.can_handle("/api/openapi") is True
+        assert docs_handler.can_handle("/api/v1/openapi") is True
 
     def test_can_handle_openapi_json(self, docs_handler):
         """Handler can handle /api/openapi.json."""
-        assert docs_handler.can_handle("/api/openapi.json") is True
+        assert docs_handler.can_handle("/api/v1/openapi.json") is True
 
     def test_can_handle_openapi_yaml(self, docs_handler):
         """Handler can handle /api/openapi.yaml."""
-        assert docs_handler.can_handle("/api/openapi.yaml") is True
+        assert docs_handler.can_handle("/api/v1/openapi.yaml") is True
 
     def test_can_handle_postman(self, docs_handler):
         """Handler can handle /api/postman.json."""
-        assert docs_handler.can_handle("/api/postman.json") is True
+        assert docs_handler.can_handle("/api/v1/postman.json") is True
 
     def test_can_handle_docs(self, docs_handler):
         """Handler can handle /api/docs."""
-        assert docs_handler.can_handle("/api/docs") is True
+        assert docs_handler.can_handle("/api/v1/docs") is True
 
     def test_can_handle_docs_trailing_slash(self, docs_handler):
         """Handler can handle /api/docs/."""
-        assert docs_handler.can_handle("/api/docs/") is True
+        assert docs_handler.can_handle("/api/v1/docs/") is True
 
     def test_can_handle_redoc(self, docs_handler):
         """Handler can handle /api/redoc."""
-        assert docs_handler.can_handle("/api/redoc") is True
+        assert docs_handler.can_handle("/api/v1/redoc") is True
 
     def test_can_handle_redoc_trailing_slash(self, docs_handler):
         """Handler can handle /api/redoc/."""
-        assert docs_handler.can_handle("/api/redoc/") is True
+        assert docs_handler.can_handle("/api/v1/redoc/") is True
 
     def test_cannot_handle_unrelated_routes(self, docs_handler):
         """Handler doesn't handle unrelated routes."""
-        assert docs_handler.can_handle("/api/debates") is False
-        assert docs_handler.can_handle("/api/agents") is False
-        assert docs_handler.can_handle("/api/replays") is False
-        assert docs_handler.can_handle("/api/openapi/extra") is False
+        assert docs_handler.can_handle("/api/v1/debates") is False
+        assert docs_handler.can_handle("/api/v1/agents") is False
+        assert docs_handler.can_handle("/api/v1/replays") is False
+        assert docs_handler.can_handle("/api/v1/openapi/extra") is False
 
 
 # ============================================================================

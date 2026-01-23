@@ -41,22 +41,22 @@ class TestTournamentHandlerRouting:
 
     def test_can_handle_list_tournaments(self, handler):
         """Handler should match /api/tournaments."""
-        assert handler.can_handle("/api/tournaments")
+        assert handler.can_handle("/api/v1/tournaments")
 
     def test_can_handle_standings(self, handler):
         """Handler should match /api/tournaments/{id}/standings."""
-        assert handler.can_handle("/api/tournaments/main/standings")
-        assert handler.can_handle("/api/tournaments/weekly-2024/standings")
+        assert handler.can_handle("/api/v1/tournaments/main/standings")
+        assert handler.can_handle("/api/v1/tournaments/weekly-2024/standings")
 
     def test_cannot_handle_invalid_path(self, handler):
         """Handler should not match invalid paths."""
-        assert not handler.can_handle("/api/tournament")
-        assert not handler.can_handle("/api/tournaments/main")
-        assert not handler.can_handle("/api/tournaments/main/other")
+        assert not handler.can_handle("/api/v1/tournament")
+        assert not handler.can_handle("/api/v1/tournaments/main")
+        assert not handler.can_handle("/api/v1/tournaments/main/other")
 
     def test_cannot_handle_partial_paths(self, handler):
         """Handler should not match partial paths."""
-        assert not handler.can_handle("/api/tournaments/main/standings/extra")
+        assert not handler.can_handle("/api/v1/tournaments/main/standings/extra")
 
 
 class TestListTournamentsEndpoint:

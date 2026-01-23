@@ -119,14 +119,14 @@ class TestQueueHandlerRouting:
 
     def test_can_handle_queue_paths(self, handler):
         """Test handler recognizes queue paths."""
-        assert handler.can_handle("/api/queue/jobs") is True
-        assert handler.can_handle("/api/queue/stats") is True
-        assert handler.can_handle("/api/queue/workers") is True
+        assert handler.can_handle("/api/v1/queue/jobs") is True
+        assert handler.can_handle("/api/v1/queue/stats") is True
+        assert handler.can_handle("/api/v1/queue/workers") is True
 
     def test_cannot_handle_other_paths(self, handler):
         """Test handler rejects non-queue paths."""
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/agents") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/agents") is False
 
 
 class TestGetStats:

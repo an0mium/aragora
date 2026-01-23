@@ -176,43 +176,43 @@ class TestKnowledgeHandlerRouting:
         from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
-        assert handler.can_handle("/api/knowledge/query") is True
+        assert handler.can_handle("/api/v1/knowledge/query") is True
 
     def test_can_handle_facts(self):
         """Test can_handle for /api/knowledge/facts."""
         from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
-        assert handler.can_handle("/api/knowledge/facts") is True
+        assert handler.can_handle("/api/v1/knowledge/facts") is True
 
     def test_can_handle_facts_with_id(self):
         """Test can_handle for /api/knowledge/facts/:id."""
         from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
-        assert handler.can_handle("/api/knowledge/facts/fact-123") is True
+        assert handler.can_handle("/api/v1/knowledge/facts/fact-123") is True
 
     def test_can_handle_search(self):
         """Test can_handle for /api/knowledge/search."""
         from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
-        assert handler.can_handle("/api/knowledge/search") is True
+        assert handler.can_handle("/api/v1/knowledge/search") is True
 
     def test_can_handle_stats(self):
         """Test can_handle for /api/knowledge/stats."""
         from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
-        assert handler.can_handle("/api/knowledge/stats") is True
+        assert handler.can_handle("/api/v1/knowledge/stats") is True
 
     def test_cannot_handle_unrelated(self):
         """Test can_handle returns False for unrelated paths."""
         from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/users") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/users") is False
 
 
 # =============================================================================

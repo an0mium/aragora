@@ -91,27 +91,27 @@ class TestBreakpointsRouting:
 
     def test_can_handle_pending_route(self, handler):
         """Test handler recognizes pending route."""
-        assert handler.can_handle("/api/breakpoints/pending")
+        assert handler.can_handle("/api/v1/breakpoints/pending")
 
     def test_can_handle_status_route(self, handler):
         """Test handler recognizes status route."""
-        assert handler.can_handle("/api/breakpoints/bp-001/status")
+        assert handler.can_handle("/api/v1/breakpoints/bp-001/status")
 
     def test_can_handle_resolve_route(self, handler):
         """Test handler recognizes resolve route."""
-        assert handler.can_handle("/api/breakpoints/bp-001/resolve")
+        assert handler.can_handle("/api/v1/breakpoints/bp-001/resolve")
 
     def test_can_handle_with_complex_id(self, handler):
         """Test handler handles complex breakpoint IDs."""
-        assert handler.can_handle("/api/breakpoints/debate_123_round_2/status")
-        assert handler.can_handle("/api/breakpoints/test-bp-abc_123/resolve")
+        assert handler.can_handle("/api/v1/breakpoints/debate_123_round_2/status")
+        assert handler.can_handle("/api/v1/breakpoints/test-bp-abc_123/resolve")
 
     def test_cannot_handle_unknown_routes(self, handler):
         """Test handler rejects unknown routes."""
-        assert not handler.can_handle("/api/breakpoints")
-        assert not handler.can_handle("/api/breakpoints/")
-        assert not handler.can_handle("/api/breakpoints/bp-001/unknown")
-        assert not handler.can_handle("/api/other")
+        assert not handler.can_handle("/api/v1/breakpoints")
+        assert not handler.can_handle("/api/v1/breakpoints/")
+        assert not handler.can_handle("/api/v1/breakpoints/bp-001/unknown")
+        assert not handler.can_handle("/api/v1/other")
 
 
 # ============================================================================
@@ -420,8 +420,8 @@ class TestBreakpointsValidation:
 
         # The route pattern itself limits what can match
         # So these should return None (not handled)
-        assert not handler_with_manager.can_handle("/api/breakpoints/..//status")
-        assert not handler_with_manager.can_handle("/api/breakpoints/;/status")
+        assert not handler_with_manager.can_handle("/api/v1/breakpoints/..//status")
+        assert not handler_with_manager.can_handle("/api/v1/breakpoints/;/status")
 
 
 # ============================================================================

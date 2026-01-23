@@ -111,9 +111,9 @@ class TestNotificationsStatus:
 
     def test_can_handle_notifications_path(self, notifications_handler):
         """Test that handler recognizes notification paths."""
-        assert notifications_handler.can_handle("/api/notifications/status") is True
-        assert notifications_handler.can_handle("/api/notifications/email/config") is True
-        assert notifications_handler.can_handle("/api/other/path") is False
+        assert notifications_handler.can_handle("/api/v1/notifications/status") is True
+        assert notifications_handler.can_handle("/api/v1/notifications/email/config") is True
+        assert notifications_handler.can_handle("/api/v1/other/path") is False
 
 
 # ============================================================================
@@ -648,7 +648,9 @@ class TestExtendedEmailRecipients:
 
         mock_handler.path = "/api/notifications/email/recipient"
         result = notifications_handler.handle_delete(
-            mock_handler.path, {}, mock_handler  # Missing email param
+            mock_handler.path,
+            {},
+            mock_handler,  # Missing email param
         )
         body, status = parse_result(result)
 

@@ -214,13 +214,13 @@ class TestDashboardRouting:
     """Tests for route matching."""
 
     def test_can_handle_dashboard_debates(self, dashboard_handler):
-        assert dashboard_handler.can_handle("/api/dashboard/debates") is True
+        assert dashboard_handler.can_handle("/api/v1/dashboard/debates") is True
 
     def test_cannot_handle_unrelated_routes(self, dashboard_handler):
-        assert dashboard_handler.can_handle("/api/dashboard") is False
-        assert dashboard_handler.can_handle("/api/debates") is False
-        assert dashboard_handler.can_handle("/api/dashboard/other") is False
-        assert dashboard_handler.can_handle("/api/dashboard/debates/extra") is False
+        assert dashboard_handler.can_handle("/api/v1/dashboard") is False
+        assert dashboard_handler.can_handle("/api/v1/debates") is False
+        assert dashboard_handler.can_handle("/api/v1/dashboard/other") is False
+        assert dashboard_handler.can_handle("/api/v1/dashboard/debates/extra") is False
 
 
 # ============================================================================

@@ -305,12 +305,12 @@ class TestCalibrationLeaderboardEndpoint:
 
     def test_can_handle_leaderboard_path(self, handler):
         """Test handler recognizes leaderboard path."""
-        assert handler.can_handle("/api/calibration/leaderboard") is True
+        assert handler.can_handle("/api/v1/calibration/leaderboard") is True
 
     def test_cannot_handle_other_paths(self, handler):
         """Test handler doesn't match unrelated paths."""
-        assert handler.can_handle("/api/other/endpoint") is False
-        assert handler.can_handle("/api/calibration/other") is False
+        assert handler.can_handle("/api/v1/other/endpoint") is False
+        assert handler.can_handle("/api/v1/calibration/other") is False
 
     def test_routes_include_leaderboard(self, handler):
         """Test ROUTES includes leaderboard endpoint."""

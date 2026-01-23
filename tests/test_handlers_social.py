@@ -275,29 +275,29 @@ class TestSocialMediaHandlerRouting:
 
     def test_can_handle_youtube_auth(self, handler):
         """Handles /api/youtube/auth."""
-        assert handler.can_handle("/api/youtube/auth") is True
+        assert handler.can_handle("/api/v1/youtube/auth") is True
 
     def test_can_handle_youtube_callback(self, handler):
         """Handles /api/youtube/callback."""
-        assert handler.can_handle("/api/youtube/callback") is True
+        assert handler.can_handle("/api/v1/youtube/callback") is True
 
     def test_can_handle_youtube_status(self, handler):
         """Handles /api/youtube/status."""
-        assert handler.can_handle("/api/youtube/status") is True
+        assert handler.can_handle("/api/v1/youtube/status") is True
 
     def test_can_handle_twitter_publish(self, handler):
         """Handles debate Twitter publish."""
-        assert handler.can_handle("/api/debates/abc123/publish/twitter") is True
+        assert handler.can_handle("/api/v1/debates/abc123/publish/twitter") is True
 
     def test_can_handle_youtube_publish(self, handler):
         """Handles debate YouTube publish."""
-        assert handler.can_handle("/api/debates/abc123/publish/youtube") is True
+        assert handler.can_handle("/api/v1/debates/abc123/publish/youtube") is True
 
     def test_cannot_handle_unrelated_paths(self, handler):
         """Doesn't handle unrelated paths."""
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/agents") is False
-        assert handler.can_handle("/api/settings") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/agents") is False
+        assert handler.can_handle("/api/v1/settings") is False
 
 
 class TestSocialMediaHandlerEndpoints:

@@ -122,17 +122,17 @@ class TestAudioHandlerRouting:
 
     def test_can_handle_podcast_feed(self, audio_handler):
         """Should handle podcast feed endpoint."""
-        assert audio_handler.can_handle("/api/podcast/feed.xml")
+        assert audio_handler.can_handle("/api/v1/podcast/feed.xml")
 
     def test_can_handle_podcast_episodes(self, audio_handler):
         """Should handle podcast episodes endpoint."""
-        assert audio_handler.can_handle("/api/podcast/episodes")
+        assert audio_handler.can_handle("/api/v1/podcast/episodes")
 
     def test_cannot_handle_other_routes(self, audio_handler):
         """Should not handle unrelated routes."""
-        assert not audio_handler.can_handle("/api/debates")
+        assert not audio_handler.can_handle("/api/v1/debates")
         assert not audio_handler.can_handle("/audio/")
-        assert not audio_handler.can_handle("/api/podcast/other")
+        assert not audio_handler.can_handle("/api/v1/podcast/other")
 
 
 class TestAudioServing:

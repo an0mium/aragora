@@ -81,18 +81,18 @@ class TestLeaderboardRouting:
 
     def test_can_handle_leaderboard_view(self, handler):
         """can_handle returns True for /api/leaderboard-view."""
-        assert handler.can_handle("/api/leaderboard-view") is True
+        assert handler.can_handle("/api/v1/leaderboard-view") is True
 
     def test_cannot_handle_similar_paths(self, handler):
         """can_handle returns False for similar but different paths."""
-        assert handler.can_handle("/api/leaderboard") is False
-        assert handler.can_handle("/api/leaderboard-view/extra") is False
-        assert handler.can_handle("/api/leaderboard-views") is False
+        assert handler.can_handle("/api/v1/leaderboard") is False
+        assert handler.can_handle("/api/v1/leaderboard-view/extra") is False
+        assert handler.can_handle("/api/v1/leaderboard-views") is False
 
     def test_cannot_handle_unrelated_paths(self, handler):
         """can_handle returns False for unrelated paths."""
-        assert handler.can_handle("/api/agents") is False
-        assert handler.can_handle("/api/metrics") is False
+        assert handler.can_handle("/api/v1/agents") is False
+        assert handler.can_handle("/api/v1/metrics") is False
 
     def test_handle_returns_none_for_unknown(self, handler):
         """handle returns None for paths it doesn't handle."""

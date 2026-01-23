@@ -34,6 +34,7 @@ from aragora.server.handlers.webhooks import (
     get_webhook_store,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
+
 # Import concrete implementation for testing
 from aragora.storage.webhook_config_store import InMemoryWebhookConfigStore
 
@@ -840,15 +841,15 @@ class TestHandlerRouting:
 
     def test_can_handle_webhook_paths(self, webhook_handler):
         """Test that handler recognizes webhook paths."""
-        assert WebhookHandler.can_handle("/api/webhooks") is True
-        assert WebhookHandler.can_handle("/api/webhooks/events") is True
-        assert WebhookHandler.can_handle("/api/webhooks/abc-123") is True
-        assert WebhookHandler.can_handle("/api/webhooks/abc-123/test") is True
+        assert WebhookHandler.can_handle("/api/v1/webhooks") is True
+        assert WebhookHandler.can_handle("/api/v1/webhooks/events") is True
+        assert WebhookHandler.can_handle("/api/v1/webhooks/abc-123") is True
+        assert WebhookHandler.can_handle("/api/v1/webhooks/abc-123/test") is True
 
     def test_does_not_handle_other_paths(self, webhook_handler):
         """Test that handler doesn't claim unrelated paths."""
-        assert WebhookHandler.can_handle("/api/debates") is False
-        assert WebhookHandler.can_handle("/api/agents") is False
+        assert WebhookHandler.can_handle("/api/v1/debates") is False
+        assert WebhookHandler.can_handle("/api/v1/agents") is False
         assert WebhookHandler.can_handle("/health") is False
 
 

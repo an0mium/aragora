@@ -397,7 +397,7 @@ class TestAgentsHandlerE2E:
 
     def test_cannot_handle_calibration_leaderboard(self, agents_handler):
         """AgentsHandler should NOT handle /api/calibration/leaderboard (moved to CalibrationHandler)."""
-        assert agents_handler.can_handle("/api/calibration/leaderboard") is False
+        assert agents_handler.can_handle("/api/v1/calibration/leaderboard") is False
 
 
 # ============================================================================
@@ -411,19 +411,19 @@ class TestHandlerRoutingE2E:
     def test_can_handle_matches_routes(self, system_handler, debates_handler, agents_handler):
         """Test can_handle correctly identifies routes."""
         # SystemHandler routes
-        assert system_handler.can_handle("/api/health") is True
-        assert system_handler.can_handle("/api/nomic/state") is True
-        assert system_handler.can_handle("/api/debates") is False
+        assert system_handler.can_handle("/api/v1/health") is True
+        assert system_handler.can_handle("/api/v1/nomic/state") is True
+        assert system_handler.can_handle("/api/v1/debates") is False
 
         # DebatesHandler routes
-        assert debates_handler.can_handle("/api/debates") is True
-        assert debates_handler.can_handle("/api/debates/test-slug") is True
-        assert debates_handler.can_handle("/api/leaderboard") is False
+        assert debates_handler.can_handle("/api/v1/debates") is True
+        assert debates_handler.can_handle("/api/v1/debates/test-slug") is True
+        assert debates_handler.can_handle("/api/v1/leaderboard") is False
 
         # AgentsHandler routes
-        assert agents_handler.can_handle("/api/leaderboard") is True
-        assert agents_handler.can_handle("/api/agent/claude/profile") is True
-        assert agents_handler.can_handle("/api/health") is False
+        assert agents_handler.can_handle("/api/v1/leaderboard") is True
+        assert agents_handler.can_handle("/api/v1/agent/claude/profile") is True
+        assert agents_handler.can_handle("/api/v1/health") is False
 
     def test_handler_returns_none_for_unhandled(self, system_handler):
         """Test handler returns None for routes it can handle but has no implementation."""
@@ -510,8 +510,8 @@ class TestPulseHandlerE2E:
 
     def test_can_handle_trending(self, pulse_handler):
         """Test PulseHandler handles trending endpoint."""
-        assert pulse_handler.can_handle("/api/pulse/trending") is True
-        assert pulse_handler.can_handle("/api/debates") is False
+        assert pulse_handler.can_handle("/api/v1/pulse/trending") is True
+        assert pulse_handler.can_handle("/api/v1/debates") is False
 
     def test_trending_handles_missing_module(self, pulse_handler):
         """Test /api/pulse/trending returns 503 if module unavailable."""
@@ -625,14 +625,14 @@ class TestAnalyticsHandlerE2E:
 
     def test_can_handle_analytics_routes(self, analytics_handler):
         """Test AnalyticsHandler handles analytics routes."""
-        assert analytics_handler.can_handle("/api/analytics/disagreements") is True
-        assert analytics_handler.can_handle("/api/analytics/role-rotation") is True
-        assert analytics_handler.can_handle("/api/analytics/early-stops") is True
-        assert analytics_handler.can_handle("/api/ranking/stats") is True
-        assert analytics_handler.can_handle("/api/memory/stats") is True
+        assert analytics_handler.can_handle("/api/v1/analytics/disagreements") is True
+        assert analytics_handler.can_handle("/api/v1/analytics/role-rotation") is True
+        assert analytics_handler.can_handle("/api/v1/analytics/early-stops") is True
+        assert analytics_handler.can_handle("/api/v1/ranking/stats") is True
+        assert analytics_handler.can_handle("/api/v1/memory/stats") is True
         # Note: /api/memory/tier-stats moved to MemoryHandler
-        assert analytics_handler.can_handle("/api/memory/tier-stats") is False
-        assert analytics_handler.can_handle("/api/debates") is False
+        assert analytics_handler.can_handle("/api/v1/memory/tier-stats") is False
+        assert analytics_handler.can_handle("/api/v1/debates") is False
 
     def test_disagreement_stats_structure(self, analytics_handler):
         """Test /api/analytics/disagreements returns correct structure."""
@@ -1036,11 +1036,11 @@ class TestMetricsHandlerE2E:
 
     def test_can_handle_metrics_routes(self, metrics_handler):
         """Test MetricsHandler handles metrics routes."""
-        assert metrics_handler.can_handle("/api/metrics") is True
-        assert metrics_handler.can_handle("/api/metrics/health") is True
-        assert metrics_handler.can_handle("/api/metrics/cache") is True
-        assert metrics_handler.can_handle("/api/metrics/system") is True
-        assert metrics_handler.can_handle("/api/debates") is False
+        assert metrics_handler.can_handle("/api/v1/metrics") is True
+        assert metrics_handler.can_handle("/api/v1/metrics/health") is True
+        assert metrics_handler.can_handle("/api/v1/metrics/cache") is True
+        assert metrics_handler.can_handle("/api/v1/metrics/system") is True
+        assert metrics_handler.can_handle("/api/v1/debates") is False
 
     def test_metrics_returns_structure(self, metrics_handler):
         """Test /api/metrics returns correct structure."""

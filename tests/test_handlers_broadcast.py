@@ -204,32 +204,32 @@ class TestBroadcastRouting:
         assert audio_handler.can_handle("/audio/test-debate.mp3") is True
 
     def test_can_handle_podcast_feed(self, audio_handler):
-        assert audio_handler.can_handle("/api/podcast/feed.xml") is True
+        assert audio_handler.can_handle("/api/v1/podcast/feed.xml") is True
 
     def test_can_handle_podcast_episodes(self, audio_handler):
-        assert audio_handler.can_handle("/api/podcast/episodes") is True
+        assert audio_handler.can_handle("/api/v1/podcast/episodes") is True
 
     def test_can_handle_youtube_auth(self, social_handler):
-        assert social_handler.can_handle("/api/youtube/auth") is True
+        assert social_handler.can_handle("/api/v1/youtube/auth") is True
 
     def test_can_handle_youtube_callback(self, social_handler):
-        assert social_handler.can_handle("/api/youtube/callback") is True
+        assert social_handler.can_handle("/api/v1/youtube/callback") is True
 
     def test_can_handle_youtube_status(self, social_handler):
-        assert social_handler.can_handle("/api/youtube/status") is True
+        assert social_handler.can_handle("/api/v1/youtube/status") is True
 
     def test_can_handle_broadcast_generation(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/debates/test-123/broadcast") is True
+        assert broadcast_handler.can_handle("/api/v1/debates/test-123/broadcast") is True
 
     def test_can_handle_twitter_publish(self, social_handler):
-        assert social_handler.can_handle("/api/debates/test-123/publish/twitter") is True
+        assert social_handler.can_handle("/api/v1/debates/test-123/publish/twitter") is True
 
     def test_can_handle_youtube_publish(self, social_handler):
-        assert social_handler.can_handle("/api/debates/test-123/publish/youtube") is True
+        assert social_handler.can_handle("/api/v1/debates/test-123/publish/youtube") is True
 
     def test_cannot_handle_unrelated_routes(self, broadcast_handler):
-        assert broadcast_handler.can_handle("/api/debates") is False
-        assert broadcast_handler.can_handle("/api/agents") is False
+        assert broadcast_handler.can_handle("/api/v1/debates") is False
+        assert broadcast_handler.can_handle("/api/v1/agents") is False
         assert broadcast_handler.can_handle("/audio/test.wav") is False
 
 

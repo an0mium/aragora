@@ -279,10 +279,10 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/privacy/preferences") is True
 
     def test_handles_v2_export_route(self, handler):
-        assert handler.can_handle("/api/v2/users/me/export") is True
+        assert handler.can_handle("/api/v1/v2/users/me/export") is True
 
     def test_handles_v2_user_route(self, handler):
-        assert handler.can_handle("/api/v2/users/me") is True
+        assert handler.can_handle("/api/v1/v2/users/me") is True
 
     def test_does_not_handle_other_routes(self, handler):
         assert handler.can_handle("/api/v1/auth/login") is False

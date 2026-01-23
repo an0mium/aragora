@@ -237,26 +237,26 @@ class TestAuditingHandlerRouting:
 
     def test_can_handle_capability_probe(self, auditing_handler):
         """Test can_handle for capability probe endpoint."""
-        assert auditing_handler.can_handle("/api/debates/capability-probe")
+        assert auditing_handler.can_handle("/api/v1/debates/capability-probe")
 
     def test_can_handle_deep_audit(self, auditing_handler):
         """Test can_handle for deep audit endpoint."""
-        assert auditing_handler.can_handle("/api/debates/deep-audit")
+        assert auditing_handler.can_handle("/api/v1/debates/deep-audit")
 
     def test_can_handle_attack_types(self, auditing_handler):
         """Test can_handle for attack types endpoint."""
-        assert auditing_handler.can_handle("/api/redteam/attack-types")
+        assert auditing_handler.can_handle("/api/v1/redteam/attack-types")
 
     def test_can_handle_red_team(self, auditing_handler):
         """Test can_handle for red team analysis endpoint."""
-        assert auditing_handler.can_handle("/api/debates/test-id/red-team")
-        assert auditing_handler.can_handle("/api/debates/abc-123/red-team")
+        assert auditing_handler.can_handle("/api/v1/debates/test-id/red-team")
+        assert auditing_handler.can_handle("/api/v1/debates/abc-123/red-team")
 
     def test_cannot_handle_non_audit_paths(self, auditing_handler):
         """Test can_handle rejects non-auditing paths."""
-        assert not auditing_handler.can_handle("/api/debates")
-        assert not auditing_handler.can_handle("/api/users")
-        assert not auditing_handler.can_handle("/api/billing/plans")
+        assert not auditing_handler.can_handle("/api/v1/debates")
+        assert not auditing_handler.can_handle("/api/v1/users")
+        assert not auditing_handler.can_handle("/api/v1/billing/plans")
 
 
 class TestAuditRequestParser:

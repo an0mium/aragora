@@ -247,8 +247,8 @@ class TestEvidenceHandlerInit:
 
     def test_cannot_handle_other_paths(self, evidence_handler):
         """Test can_handle returns False for non-evidence paths."""
-        assert not evidence_handler.can_handle("/api/debates")
-        assert not evidence_handler.can_handle("/api/agents")
+        assert not evidence_handler.can_handle("/api/v1/debates")
+        assert not evidence_handler.can_handle("/api/v1/agents")
         assert not evidence_handler.can_handle("/health")
 
 

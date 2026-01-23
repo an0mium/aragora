@@ -57,9 +57,9 @@ class TestProbesHandlerEdge:
 
     def test_can_handle_valid_routes(self, handler):
         """Should handle valid probe routes."""
-        assert handler.can_handle("/api/probes/capability") is True
-        assert handler.can_handle("/api/probes/run") is True
-        assert handler.can_handle("/api/probes/invalid") is False
+        assert handler.can_handle("/api/v1/probes/capability") is True
+        assert handler.can_handle("/api/v1/probes/run") is True
+        assert handler.can_handle("/api/v1/probes/invalid") is False
 
     def test_get_request_returns_none(self, handler):
         """GET requests should return None (not supported)."""
@@ -118,9 +118,9 @@ class TestVerificationHandlerEdge:
 
     def test_can_handle_valid_routes(self, handler):
         """Should handle valid verification routes."""
-        assert handler.can_handle("/api/verification/status") is True
-        assert handler.can_handle("/api/verification/formal-verify") is True
-        assert handler.can_handle("/api/verification/invalid") is False
+        assert handler.can_handle("/api/v1/verification/status") is True
+        assert handler.can_handle("/api/v1/verification/formal-verify") is True
+        assert handler.can_handle("/api/v1/verification/invalid") is False
 
     def test_status_when_unavailable(self, handler):
         """Status should report unavailable when Z3 not installed."""
@@ -175,11 +175,11 @@ class TestDebatesHandlerEdge:
 
     def test_can_handle_all_routes(self, handler):
         """Should handle all debate-related routes."""
-        assert handler.can_handle("/api/debates") is True
-        assert handler.can_handle("/api/debates/some-slug") is True
-        assert handler.can_handle("/api/debates/test/impasse") is True
-        assert handler.can_handle("/api/debates/test/convergence") is True
-        assert handler.can_handle("/api/debates/test/fork") is True
+        assert handler.can_handle("/api/v1/debates") is True
+        assert handler.can_handle("/api/v1/debates/some-slug") is True
+        assert handler.can_handle("/api/v1/debates/test/impasse") is True
+        assert handler.can_handle("/api/v1/debates/test/convergence") is True
+        assert handler.can_handle("/api/v1/debates/test/fork") is True
 
     def test_invalid_debate_id_characters(self, handler):
         """Should reject debate IDs with special characters."""

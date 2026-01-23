@@ -20,7 +20,7 @@ class TestAnalyticsCanHandle:
         mock_ctx = MagicMock()
         handler = AnalyticsHandler(mock_ctx)
 
-        assert handler.can_handle("/api/knowledge/mound/stats") is True
+        assert handler.can_handle("/api/v1/knowledge/mound/stats") is True
 
     def test_can_handle_sharing_stats(self):
         """Test that handler matches sharing stats path."""
@@ -29,7 +29,7 @@ class TestAnalyticsCanHandle:
         mock_ctx = MagicMock()
         handler = AnalyticsHandler(mock_ctx)
 
-        assert handler.can_handle("/api/knowledge/sharing/stats") is True
+        assert handler.can_handle("/api/v1/knowledge/sharing/stats") is True
 
     def test_can_handle_federation_stats(self):
         """Test that handler matches federation stats path."""
@@ -38,7 +38,7 @@ class TestAnalyticsCanHandle:
         mock_ctx = MagicMock()
         handler = AnalyticsHandler(mock_ctx)
 
-        assert handler.can_handle("/api/knowledge/federation/stats") is True
+        assert handler.can_handle("/api/v1/knowledge/federation/stats") is True
 
     def test_can_handle_analytics_summary(self):
         """Test that handler matches analytics summary path."""
@@ -47,7 +47,7 @@ class TestAnalyticsCanHandle:
         mock_ctx = MagicMock()
         handler = AnalyticsHandler(mock_ctx)
 
-        assert handler.can_handle("/api/knowledge/analytics/summary") is True
+        assert handler.can_handle("/api/v1/knowledge/analytics/summary") is True
 
     def test_cannot_handle_other_paths(self):
         """Test that handler doesn't match unrelated paths."""
@@ -56,7 +56,7 @@ class TestAnalyticsCanHandle:
         mock_ctx = MagicMock()
         handler = AnalyticsHandler(mock_ctx)
 
-        assert handler.can_handle("/api/other") is False
+        assert handler.can_handle("/api/v1/other") is False
 
 
 class TestAnalyticsInternalMethods:
@@ -91,6 +91,7 @@ class TestAnalyticsInternalMethods:
         assert hasattr(result, "body") or isinstance(result, dict)
 
         import json
+
         body = result.body if hasattr(result, "body") else result.get("body")
         data = json.loads(body)
 
@@ -110,6 +111,7 @@ class TestAnalyticsInternalMethods:
         assert result is not None
 
         import json
+
         body = result.body if hasattr(result, "body") else result.get("body")
         data = json.loads(body)
 
@@ -128,6 +130,7 @@ class TestAnalyticsInternalMethods:
         assert result is not None
 
         import json
+
         body = result.body if hasattr(result, "body") else result.get("body")
         data = json.loads(body)
 
@@ -174,11 +177,13 @@ class TestFederationStatsIntegration:
             SyncMode,
         )
 
-        mock_callback = AsyncMock(return_value={
-            "items_pushed": 25,
-            "items_pulled": 15,
-            "items_conflicted": 0,
-        })
+        mock_callback = AsyncMock(
+            return_value={
+                "items_pushed": 25,
+                "items_pulled": 15,
+                "items_conflicted": 0,
+            }
+        )
 
         scheduler = FederationScheduler(sync_callback=mock_callback)
 
@@ -219,21 +224,22 @@ class TestSharingStatsIntegration:
 
         # Add some sharing notifications
         for i in range(5):
-            store.add_notification(SharingNotification(
-                id=f"notif_{i}",
-                user_id="user_bob",
-                notification_type=NotificationType.ITEM_SHARED,
-                title=f"Shared {i}",
-                message=f"Item {i} shared",
-            ))
+            store.add_notification(
+                SharingNotification(
+                    id=f"notif_{i}",
+                    user_id="user_bob",
+                    notification_type=NotificationType.ITEM_SHARED,
+                    title=f"Shared {i}",
+                    message=f"Item {i} shared",
+                )
+            )
 
         notifications = store.get_notifications("user_bob")
 
         # Count shared items
-        shared_count = len([
-            n for n in notifications
-            if n.notification_type == NotificationType.ITEM_SHARED
-        ])
+        shared_count = len(
+            [n for n in notifications if n.notification_type == NotificationType.ITEM_SHARED]
+        )
 
         assert shared_count == 5
 
@@ -253,6 +259,7 @@ class TestAnalyticsSummary:
         assert result is not None
 
         import json
+
         body = result.body if hasattr(result, "body") else result.get("body")
         data = json.loads(body)
 

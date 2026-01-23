@@ -408,24 +408,24 @@ class TestSlackRouting:
 
     def test_can_handle_commands(self, slack_handler):
         """Handler routes commands endpoint."""
-        assert slack_handler.can_handle("/api/integrations/slack/commands")
+        assert slack_handler.can_handle("/api/v1/integrations/slack/commands")
 
     def test_can_handle_interactive(self, slack_handler):
         """Handler routes interactive endpoint."""
-        assert slack_handler.can_handle("/api/integrations/slack/interactive")
+        assert slack_handler.can_handle("/api/v1/integrations/slack/interactive")
 
     def test_can_handle_events(self, slack_handler):
         """Handler routes events endpoint."""
-        assert slack_handler.can_handle("/api/integrations/slack/events")
+        assert slack_handler.can_handle("/api/v1/integrations/slack/events")
 
     def test_can_handle_status(self, slack_handler):
         """Handler routes status endpoint."""
-        assert slack_handler.can_handle("/api/integrations/slack/status")
+        assert slack_handler.can_handle("/api/v1/integrations/slack/status")
 
     def test_cannot_handle_other(self, slack_handler):
         """Handler rejects non-Slack routes."""
-        assert not slack_handler.can_handle("/api/debates")
-        assert not slack_handler.can_handle("/api/auth/login")
+        assert not slack_handler.can_handle("/api/v1/debates")
+        assert not slack_handler.can_handle("/api/v1/auth/login")
 
 
 class TestSlackTopicParsing:

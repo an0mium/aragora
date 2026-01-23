@@ -60,19 +60,19 @@ class TestMetricsHandlerRouting:
 
     def test_can_handle_metrics_endpoint(self, handler):
         """can_handle returns True for /api/metrics."""
-        assert handler.can_handle("/api/metrics") is True
+        assert handler.can_handle("/api/v1/metrics") is True
 
     def test_can_handle_health_endpoint(self, handler):
         """can_handle returns True for /api/metrics/health."""
-        assert handler.can_handle("/api/metrics/health") is True
+        assert handler.can_handle("/api/v1/metrics/health") is True
 
     def test_can_handle_cache_endpoint(self, handler):
         """can_handle returns True for /api/metrics/cache."""
-        assert handler.can_handle("/api/metrics/cache") is True
+        assert handler.can_handle("/api/v1/metrics/cache") is True
 
     def test_can_handle_system_endpoint(self, handler):
         """can_handle returns True for /api/metrics/system."""
-        assert handler.can_handle("/api/metrics/system") is True
+        assert handler.can_handle("/api/v1/metrics/system") is True
 
     def test_can_handle_prometheus_endpoint(self, handler):
         """can_handle returns True for /metrics."""
@@ -80,9 +80,9 @@ class TestMetricsHandlerRouting:
 
     def test_cannot_handle_unknown_paths(self, handler):
         """can_handle returns False for unknown paths."""
-        assert handler.can_handle("/api/other") is False
-        assert handler.can_handle("/api/metrics/unknown") is False
-        assert handler.can_handle("/api/leaderboard") is False
+        assert handler.can_handle("/api/v1/other") is False
+        assert handler.can_handle("/api/v1/metrics/unknown") is False
+        assert handler.can_handle("/api/v1/leaderboard") is False
 
     def test_handle_returns_none_for_unknown(self, handler):
         """handle returns None for paths it doesn't handle."""

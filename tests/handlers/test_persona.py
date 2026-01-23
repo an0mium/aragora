@@ -169,59 +169,59 @@ class TestPersonaHandlerRouting:
         from aragora.server.handlers.persona import PersonaHandler
 
         handler = PersonaHandler({})
-        assert handler.can_handle("/api/personas") is True
+        assert handler.can_handle("/api/v1/personas") is True
 
     def test_can_handle_agent_persona(self):
         """Test can_handle for /api/agent/{name}/persona."""
         from aragora.server.handlers.persona import PersonaHandler
 
         handler = PersonaHandler({})
-        assert handler.can_handle("/api/agent/claude/persona") is True
-        assert handler.can_handle("/api/agent/gpt-4/persona") is True
+        assert handler.can_handle("/api/v1/agent/claude/persona") is True
+        assert handler.can_handle("/api/v1/agent/gpt-4/persona") is True
 
     def test_can_handle_grounded_persona(self):
         """Test can_handle for /api/agent/{name}/grounded-persona."""
         from aragora.server.handlers.persona import PersonaHandler
 
         handler = PersonaHandler({})
-        assert handler.can_handle("/api/agent/claude/grounded-persona") is True
+        assert handler.can_handle("/api/v1/agent/claude/grounded-persona") is True
 
     def test_can_handle_identity_prompt(self):
         """Test can_handle for /api/agent/{name}/identity-prompt."""
         from aragora.server.handlers.persona import PersonaHandler
 
         handler = PersonaHandler({})
-        assert handler.can_handle("/api/agent/claude/identity-prompt") is True
+        assert handler.can_handle("/api/v1/agent/claude/identity-prompt") is True
 
     def test_can_handle_performance(self):
         """Test can_handle for /api/agent/{name}/performance."""
         from aragora.server.handlers.persona import PersonaHandler
 
         handler = PersonaHandler({})
-        assert handler.can_handle("/api/agent/claude/performance") is True
+        assert handler.can_handle("/api/v1/agent/claude/performance") is True
 
     def test_can_handle_domains(self):
         """Test can_handle for /api/agent/{name}/domains."""
         from aragora.server.handlers.persona import PersonaHandler
 
         handler = PersonaHandler({})
-        assert handler.can_handle("/api/agent/claude/domains") is True
+        assert handler.can_handle("/api/v1/agent/claude/domains") is True
 
     def test_can_handle_accuracy(self):
         """Test can_handle for /api/agent/{name}/accuracy."""
         from aragora.server.handlers.persona import PersonaHandler
 
         handler = PersonaHandler({})
-        assert handler.can_handle("/api/agent/claude/accuracy") is True
+        assert handler.can_handle("/api/v1/agent/claude/accuracy") is True
 
     def test_cannot_handle_invalid(self):
         """Test can_handle rejects invalid paths."""
         from aragora.server.handlers.persona import PersonaHandler
 
         handler = PersonaHandler({})
-        assert handler.can_handle("/api/agent/claude") is False
-        assert handler.can_handle("/api/agent/claude/unknown") is False
-        assert handler.can_handle("/api/other") is False
+        assert handler.can_handle("/api/v1/agent/claude") is False
+        assert handler.can_handle("/api/v1/agent/claude/unknown") is False
+        assert handler.can_handle("/api/v1/other") is False
 
 
 class TestPersonaHandlerListAll:

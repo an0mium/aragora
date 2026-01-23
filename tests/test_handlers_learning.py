@@ -178,25 +178,25 @@ class TestLearningRouting:
 
     def test_can_handle_cycles_route(self, handler):
         """Test handler recognizes cycles route."""
-        assert handler.can_handle("/api/learning/cycles")
+        assert handler.can_handle("/api/v1/learning/cycles")
 
     def test_can_handle_patterns_route(self, handler):
         """Test handler recognizes patterns route."""
-        assert handler.can_handle("/api/learning/patterns")
+        assert handler.can_handle("/api/v1/learning/patterns")
 
     def test_can_handle_evolution_route(self, handler):
         """Test handler recognizes agent-evolution route."""
-        assert handler.can_handle("/api/learning/agent-evolution")
+        assert handler.can_handle("/api/v1/learning/agent-evolution")
 
     def test_can_handle_insights_route(self, handler):
         """Test handler recognizes insights route."""
-        assert handler.can_handle("/api/learning/insights")
+        assert handler.can_handle("/api/v1/learning/insights")
 
     def test_cannot_handle_unknown_routes(self, handler):
         """Test handler rejects unknown routes."""
-        assert not handler.can_handle("/api/learning")
-        assert not handler.can_handle("/api/learning/other")
-        assert not handler.can_handle("/api/analytics")
+        assert not handler.can_handle("/api/v1/learning")
+        assert not handler.can_handle("/api/v1/learning/other")
+        assert not handler.can_handle("/api/v1/analytics")
 
 
 # ============================================================================

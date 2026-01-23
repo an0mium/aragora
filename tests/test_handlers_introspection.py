@@ -104,24 +104,24 @@ class TestIntrospectionRouting:
     """Tests for route matching."""
 
     def test_can_handle_all_introspection(self, introspection_handler):
-        assert introspection_handler.can_handle("/api/introspection/all") is True
+        assert introspection_handler.can_handle("/api/v1/introspection/all") is True
 
     def test_can_handle_leaderboard(self, introspection_handler):
-        assert introspection_handler.can_handle("/api/introspection/leaderboard") is True
+        assert introspection_handler.can_handle("/api/v1/introspection/leaderboard") is True
 
     def test_can_handle_agent_introspection(self, introspection_handler):
-        assert introspection_handler.can_handle("/api/introspection/agents/claude") is True
-        assert introspection_handler.can_handle("/api/introspection/agents/gpt-4") is True
+        assert introspection_handler.can_handle("/api/v1/introspection/agents/claude") is True
+        assert introspection_handler.can_handle("/api/v1/introspection/agents/gpt-4") is True
 
     def test_can_handle_list_agents(self, introspection_handler):
         """Test that /api/introspection/agents endpoint is handled."""
-        assert introspection_handler.can_handle("/api/introspection/agents") is True
+        assert introspection_handler.can_handle("/api/v1/introspection/agents") is True
 
     def test_cannot_handle_unrelated_routes(self, introspection_handler):
-        assert introspection_handler.can_handle("/api/introspection") is False
+        assert introspection_handler.can_handle("/api/v1/introspection") is False
         # /api/introspection/agents is now a valid endpoint (list agents)
-        assert introspection_handler.can_handle("/api/agents") is False
-        assert introspection_handler.can_handle("/api/personas") is False
+        assert introspection_handler.can_handle("/api/v1/agents") is False
+        assert introspection_handler.can_handle("/api/v1/personas") is False
 
 
 # ============================================================================

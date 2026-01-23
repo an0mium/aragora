@@ -187,47 +187,47 @@ class TestCanHandle:
 
     def test_can_handle_leaderboard(self, handler):
         """Test can_handle for leaderboard."""
-        assert handler.can_handle("/api/leaderboard") is True
+        assert handler.can_handle("/api/v1/leaderboard") is True
 
     def test_can_handle_rankings(self, handler):
         """Test can_handle for rankings."""
-        assert handler.can_handle("/api/rankings") is True
+        assert handler.can_handle("/api/v1/rankings") is True
 
     def test_cannot_handle_calibration_leaderboard(self, handler):
         """Test AgentsHandler does NOT handle calibration (handled by CalibrationHandler)."""
-        assert handler.can_handle("/api/calibration/leaderboard") is False
+        assert handler.can_handle("/api/v1/calibration/leaderboard") is False
 
     def test_can_handle_matches_recent(self, handler):
         """Test can_handle for recent matches."""
-        assert handler.can_handle("/api/matches/recent") is True
+        assert handler.can_handle("/api/v1/matches/recent") is True
 
     def test_can_handle_agent_compare(self, handler):
         """Test can_handle for agent compare."""
-        assert handler.can_handle("/api/agent/compare") is True
+        assert handler.can_handle("/api/v1/agent/compare") is True
 
     def test_can_handle_agent_profile(self, handler):
         """Test can_handle for agent profile."""
-        assert handler.can_handle("/api/agent/test-agent/profile") is True
+        assert handler.can_handle("/api/v1/agent/test-agent/profile") is True
 
     def test_can_handle_agent_history(self, handler):
         """Test can_handle for agent history."""
-        assert handler.can_handle("/api/agent/test-agent/history") is True
+        assert handler.can_handle("/api/v1/agent/test-agent/history") is True
 
     def test_can_handle_flips_recent(self, handler):
         """Test can_handle for recent flips."""
-        assert handler.can_handle("/api/flips/recent") is True
+        assert handler.can_handle("/api/v1/flips/recent") is True
 
     def test_can_handle_flips_summary(self, handler):
         """Test can_handle for flip summary."""
-        assert handler.can_handle("/api/flips/summary") is True
+        assert handler.can_handle("/api/v1/flips/summary") is True
 
     def test_can_handle_unrelated_path(self, handler):
         """Test can_handle for unrelated path."""
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
     def test_can_handle_head_to_head(self, handler):
         """Test can_handle for head-to-head."""
-        assert handler.can_handle("/api/agent/a/head-to-head/b") is True
+        assert handler.can_handle("/api/v1/agent/a/head-to-head/b") is True
 
 
 # =============================================================================
@@ -534,7 +534,9 @@ class TestCompareEndpoint:
     def test_compare_string_agent(self, handler):
         """Test compare handles string agent (single value)."""
         result = handler.handle(
-            "/api/agent/compare", {"agents": "agent-a"}, None  # String instead of list
+            "/api/agent/compare",
+            {"agents": "agent-a"},
+            None,  # String instead of list
         )
 
         # Should fail because only 1 agent

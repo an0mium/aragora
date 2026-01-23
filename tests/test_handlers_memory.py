@@ -53,21 +53,21 @@ class TestMemoryHandlerRouting:
 
     def test_can_handle_retrieve_endpoint(self, handler):
         """Handler should match /api/memory/continuum/retrieve."""
-        assert handler.can_handle("/api/memory/continuum/retrieve")
+        assert handler.can_handle("/api/v1/memory/continuum/retrieve")
 
     def test_can_handle_consolidate_endpoint(self, handler):
         """Handler should match /api/memory/continuum/consolidate."""
-        assert handler.can_handle("/api/memory/continuum/consolidate")
+        assert handler.can_handle("/api/v1/memory/continuum/consolidate")
 
     def test_cannot_handle_invalid_path(self, handler):
         """Handler should not match invalid paths."""
-        assert not handler.can_handle("/api/memory")
-        assert not handler.can_handle("/api/memory/continuum")
-        assert not handler.can_handle("/api/memory/other")
+        assert not handler.can_handle("/api/v1/memory")
+        assert not handler.can_handle("/api/v1/memory/continuum")
+        assert not handler.can_handle("/api/v1/memory/other")
 
     def test_cannot_handle_partial_paths(self, handler):
         """Handler should not match partial paths."""
-        assert not handler.can_handle("/api/memory/continuum/retrieve/extra")
+        assert not handler.can_handle("/api/v1/memory/continuum/retrieve/extra")
 
 
 class TestRetrieveEndpoint:
@@ -369,7 +369,7 @@ class TestMemoryPressureEndpoint:
 
     def test_can_handle_pressure_endpoint(self, handler):
         """Handler recognizes pressure endpoint."""
-        assert handler.can_handle("/api/memory/pressure")
+        assert handler.can_handle("/api/v1/memory/pressure")
 
     def test_pressure_returns_503_when_not_configured(self, mock_ctx):
         """Returns 503 when continuum memory not configured."""

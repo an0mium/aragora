@@ -61,18 +61,18 @@ class TestPulseHandlerRouting:
 
     def test_can_handle_trending(self, handler):
         """can_handle returns True for /api/pulse/trending."""
-        assert handler.can_handle("/api/pulse/trending") is True
+        assert handler.can_handle("/api/v1/pulse/trending") is True
 
     def test_can_handle_suggest(self, handler):
         """can_handle returns True for /api/pulse/suggest."""
-        assert handler.can_handle("/api/pulse/suggest") is True
+        assert handler.can_handle("/api/v1/pulse/suggest") is True
 
     def test_cannot_handle_unrelated_paths(self, handler):
         """can_handle returns False for unrelated paths."""
-        assert handler.can_handle("/api/pulse") is False
-        assert handler.can_handle("/api/pulse/other") is False
-        assert handler.can_handle("/api/trending") is False
-        assert handler.can_handle("/api/metrics") is False
+        assert handler.can_handle("/api/v1/pulse") is False
+        assert handler.can_handle("/api/v1/pulse/other") is False
+        assert handler.can_handle("/api/v1/trending") is False
+        assert handler.can_handle("/api/v1/metrics") is False
 
     def test_handle_returns_none_for_unknown(self, handler):
         """handle returns None for paths it doesn't handle."""
@@ -584,7 +584,7 @@ class TestDebateTopicEndpoint:
 
     def test_can_handle_debate_topic_route(self, handler):
         """can_handle returns True for debate-topic."""
-        assert handler.can_handle("/api/pulse/debate-topic") is True
+        assert handler.can_handle("/api/v1/pulse/debate-topic") is True
 
     def test_debate_topic_validates_topic_presence(self, handler):
         """Returns 400 when topic is missing."""

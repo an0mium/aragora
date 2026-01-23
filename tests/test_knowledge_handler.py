@@ -161,10 +161,10 @@ class TestKnowledgeHandlerCanHandle:
 
         handler = KnowledgeHandler({})
 
-        assert handler.can_handle("/api/knowledge/query")
-        assert handler.can_handle("/api/knowledge/facts")
-        assert handler.can_handle("/api/knowledge/search")
-        assert handler.can_handle("/api/knowledge/stats")
+        assert handler.can_handle("/api/v1/knowledge/query")
+        assert handler.can_handle("/api/v1/knowledge/facts")
+        assert handler.can_handle("/api/v1/knowledge/search")
+        assert handler.can_handle("/api/v1/knowledge/stats")
 
     def test_matches_dynamic_fact_routes(self):
         """Should match dynamic fact routes."""
@@ -172,10 +172,10 @@ class TestKnowledgeHandlerCanHandle:
 
         handler = KnowledgeHandler({})
 
-        assert handler.can_handle("/api/knowledge/facts/fact-123")
-        assert handler.can_handle("/api/knowledge/facts/fact-123/verify")
-        assert handler.can_handle("/api/knowledge/facts/fact-123/contradictions")
-        assert handler.can_handle("/api/knowledge/facts/fact-123/relations")
+        assert handler.can_handle("/api/v1/knowledge/facts/fact-123")
+        assert handler.can_handle("/api/v1/knowledge/facts/fact-123/verify")
+        assert handler.can_handle("/api/v1/knowledge/facts/fact-123/contradictions")
+        assert handler.can_handle("/api/v1/knowledge/facts/fact-123/relations")
 
     def test_rejects_non_matching_paths(self):
         """Should reject non-matching paths."""
@@ -183,8 +183,8 @@ class TestKnowledgeHandlerCanHandle:
 
         handler = KnowledgeHandler({})
 
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/other/endpoint")
+        assert not handler.can_handle("/api/v1/debates")
+        assert not handler.can_handle("/api/v1/other/endpoint")
         assert not handler.can_handle("/knowledge/facts")
 
 
@@ -875,12 +875,12 @@ class TestKnowledgeMoundHandlerCanHandle:
 
         handler = KnowledgeMoundHandler({})
 
-        assert handler.can_handle("/api/knowledge/mound/query")
-        assert handler.can_handle("/api/knowledge/mound/nodes")
-        assert handler.can_handle("/api/knowledge/mound/nodes/node-123")
-        assert handler.can_handle("/api/knowledge/mound/relationships")
-        assert handler.can_handle("/api/knowledge/mound/stats")
-        assert handler.can_handle("/api/knowledge/mound/graph/node-123")
+        assert handler.can_handle("/api/v1/knowledge/mound/query")
+        assert handler.can_handle("/api/v1/knowledge/mound/nodes")
+        assert handler.can_handle("/api/v1/knowledge/mound/nodes/node-123")
+        assert handler.can_handle("/api/v1/knowledge/mound/relationships")
+        assert handler.can_handle("/api/v1/knowledge/mound/stats")
+        assert handler.can_handle("/api/v1/knowledge/mound/graph/node-123")
 
     def test_rejects_non_mound_paths(self):
         """Should reject non-mound paths."""
@@ -888,8 +888,8 @@ class TestKnowledgeMoundHandlerCanHandle:
 
         handler = KnowledgeMoundHandler({})
 
-        assert not handler.can_handle("/api/knowledge/facts")
-        assert not handler.can_handle("/api/debates")
+        assert not handler.can_handle("/api/v1/knowledge/facts")
+        assert not handler.can_handle("/api/v1/debates")
 
 
 class TestKnowledgeMoundHandlerQuery:

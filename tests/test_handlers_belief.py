@@ -103,25 +103,25 @@ class TestCanHandle:
 
     def test_can_handle_cruxes_route(self, belief_handler):
         """Test matching cruxes endpoint."""
-        assert belief_handler.can_handle("/api/belief-network/debate_abc123/cruxes")
+        assert belief_handler.can_handle("/api/v1/belief-network/debate_abc123/cruxes")
 
     def test_can_handle_load_bearing_claims_route(self, belief_handler):
         """Test matching load-bearing-claims endpoint."""
-        assert belief_handler.can_handle("/api/belief-network/debate_abc123/load-bearing-claims")
+        assert belief_handler.can_handle("/api/v1/belief-network/debate_abc123/load-bearing-claims")
 
     def test_can_handle_claim_support_route(self, belief_handler):
         """Test matching claim support endpoint."""
-        assert belief_handler.can_handle("/api/provenance/debate_abc123/claims/claim_1/support")
+        assert belief_handler.can_handle("/api/v1/provenance/debate_abc123/claims/claim_1/support")
 
     def test_can_handle_graph_stats_route(self, belief_handler):
         """Test matching graph-stats endpoint."""
-        assert belief_handler.can_handle("/api/debate/debate_abc123/graph-stats")
+        assert belief_handler.can_handle("/api/v1/debate/debate_abc123/graph-stats")
 
     def test_cannot_handle_unknown_route(self, belief_handler):
         """Test rejection of unknown routes."""
-        assert not belief_handler.can_handle("/api/unknown")
-        assert not belief_handler.can_handle("/api/belief-network/")
-        assert not belief_handler.can_handle("/api/debates")
+        assert not belief_handler.can_handle("/api/v1/unknown")
+        assert not belief_handler.can_handle("/api/v1/belief-network/")
+        assert not belief_handler.can_handle("/api/v1/debates")
 
 
 # =============================================================================

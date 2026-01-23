@@ -95,30 +95,30 @@ class TestGalleryHandlerRouting:
         from aragora.server.handlers.gallery import GalleryHandler
 
         handler = GalleryHandler({})
-        assert handler.can_handle("/api/gallery") is True
+        assert handler.can_handle("/api/v1/gallery") is True
 
     def test_can_handle_debate(self):
         """Test can_handle for /api/gallery/:id."""
         from aragora.server.handlers.gallery import GalleryHandler
 
         handler = GalleryHandler({})
-        assert handler.can_handle("/api/gallery/abc123") is True
-        assert handler.can_handle("/api/gallery/debate_001") is True
+        assert handler.can_handle("/api/v1/gallery/abc123") is True
+        assert handler.can_handle("/api/v1/gallery/debate_001") is True
 
     def test_can_handle_embed(self):
         """Test can_handle for /api/gallery/:id/embed."""
         from aragora.server.handlers.gallery import GalleryHandler
 
         handler = GalleryHandler({})
-        assert handler.can_handle("/api/gallery/abc123/embed") is True
+        assert handler.can_handle("/api/v1/gallery/abc123/embed") is True
 
     def test_cannot_handle_invalid(self):
         """Test can_handle rejects invalid paths."""
         from aragora.server.handlers.gallery import GalleryHandler
 
         handler = GalleryHandler({})
-        assert handler.can_handle("/api/other") is False
-        assert handler.can_handle("/api/debates") is False
+        assert handler.can_handle("/api/v1/other") is False
+        assert handler.can_handle("/api/v1/debates") is False
 
 
 class TestGalleryHandlerList:

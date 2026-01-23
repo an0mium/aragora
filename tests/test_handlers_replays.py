@@ -147,9 +147,9 @@ class TestReplaysRouting:
 
     def test_cannot_handle_unrelated_routes(self, replays_handler):
         """Handler doesn't handle unrelated routes."""
-        assert replays_handler.can_handle("/api/debates") is False
-        assert replays_handler.can_handle("/api/agents") is False
-        assert replays_handler.can_handle("/api/learning") is False
+        assert replays_handler.can_handle("/api/v1/debates") is False
+        assert replays_handler.can_handle("/api/v1/agents") is False
+        assert replays_handler.can_handle("/api/v1/learning") is False
 
 
 # ============================================================================

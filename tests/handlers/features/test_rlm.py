@@ -82,19 +82,19 @@ class TestRLMHandlerInit:
 
     def test_can_handle_rlm_paths(self, rlm_handler):
         """Test can_handle recognizes RLM paths."""
-        assert rlm_handler.can_handle("/api/debates/test-123/query-rlm")
-        assert rlm_handler.can_handle("/api/debates/test-123/compress")
-        assert rlm_handler.can_handle("/api/debates/test-123/context/SUMMARY")
-        assert rlm_handler.can_handle("/api/debates/test-123/refinement-status")
-        assert rlm_handler.can_handle("/api/knowledge/query-rlm")
-        assert rlm_handler.can_handle("/api/rlm/status")
-        assert rlm_handler.can_handle("/api/metrics/rlm")
+        assert rlm_handler.can_handle("/api/v1/debates/test-123/query-rlm")
+        assert rlm_handler.can_handle("/api/v1/debates/test-123/compress")
+        assert rlm_handler.can_handle("/api/v1/debates/test-123/context/SUMMARY")
+        assert rlm_handler.can_handle("/api/v1/debates/test-123/refinement-status")
+        assert rlm_handler.can_handle("/api/v1/knowledge/query-rlm")
+        assert rlm_handler.can_handle("/api/v1/rlm/status")
+        assert rlm_handler.can_handle("/api/v1/metrics/rlm")
 
     def test_cannot_handle_other_paths(self, rlm_handler):
         """Test can_handle rejects non-RLM paths."""
-        assert not rlm_handler.can_handle("/api/debates")
-        assert not rlm_handler.can_handle("/api/debates/test-123")
-        assert not rlm_handler.can_handle("/api/users")
+        assert not rlm_handler.can_handle("/api/v1/debates")
+        assert not rlm_handler.can_handle("/api/v1/debates/test-123")
+        assert not rlm_handler.can_handle("/api/v1/users")
 
 
 # =============================================================================

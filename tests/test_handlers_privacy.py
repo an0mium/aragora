@@ -136,38 +136,38 @@ class TestPrivacyRouting:
 
     def test_can_handle_export(self, privacy_handler):
         """Handler can handle /api/privacy/export."""
-        assert privacy_handler.can_handle("/api/privacy/export") is True
+        assert privacy_handler.can_handle("/api/v1/privacy/export") is True
 
     def test_can_handle_data_inventory(self, privacy_handler):
         """Handler can handle /api/privacy/data-inventory."""
-        assert privacy_handler.can_handle("/api/privacy/data-inventory") is True
+        assert privacy_handler.can_handle("/api/v1/privacy/data-inventory") is True
 
     def test_can_handle_account_delete(self, privacy_handler):
         """Handler can handle /api/privacy/account."""
-        assert privacy_handler.can_handle("/api/privacy/account") is True
+        assert privacy_handler.can_handle("/api/v1/privacy/account") is True
 
     def test_can_handle_preferences(self, privacy_handler):
         """Handler can handle /api/privacy/preferences."""
-        assert privacy_handler.can_handle("/api/privacy/preferences") is True
+        assert privacy_handler.can_handle("/api/v1/privacy/preferences") is True
 
     def test_can_handle_v2_export(self, privacy_handler):
         """Handler can handle /api/v2/users/me/export."""
-        assert privacy_handler.can_handle("/api/v2/users/me/export") is True
+        assert privacy_handler.can_handle("/api/v1/v2/users/me/export") is True
 
     def test_can_handle_v2_data_inventory(self, privacy_handler):
         """Handler can handle /api/v2/users/me/data-inventory."""
-        assert privacy_handler.can_handle("/api/v2/users/me/data-inventory") is True
+        assert privacy_handler.can_handle("/api/v1/v2/users/me/data-inventory") is True
 
     def test_can_handle_v2_users_me(self, privacy_handler):
         """Handler can handle /api/v2/users/me."""
-        assert privacy_handler.can_handle("/api/v2/users/me") is True
+        assert privacy_handler.can_handle("/api/v1/v2/users/me") is True
 
     def test_cannot_handle_unrelated_routes(self, privacy_handler):
         """Handler doesn't handle unrelated routes."""
-        assert privacy_handler.can_handle("/api/debates") is False
-        assert privacy_handler.can_handle("/api/agents") is False
-        assert privacy_handler.can_handle("/api/privacy/unknown") is False
-        assert privacy_handler.can_handle("/api/users") is False
+        assert privacy_handler.can_handle("/api/v1/debates") is False
+        assert privacy_handler.can_handle("/api/v1/agents") is False
+        assert privacy_handler.can_handle("/api/v1/privacy/unknown") is False
+        assert privacy_handler.can_handle("/api/v1/users") is False
 
 
 # ============================================================================

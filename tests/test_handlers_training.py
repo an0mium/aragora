@@ -62,28 +62,28 @@ class TestTrainingRouteHandling:
 
     def test_can_handle_export_sft(self, training_handler):
         """Test can_handle recognizes SFT export path."""
-        assert training_handler.can_handle("/api/training/export/sft") is True
+        assert training_handler.can_handle("/api/v1/training/export/sft") is True
 
     def test_can_handle_export_dpo(self, training_handler):
         """Test can_handle recognizes DPO export path."""
-        assert training_handler.can_handle("/api/training/export/dpo") is True
+        assert training_handler.can_handle("/api/v1/training/export/dpo") is True
 
     def test_can_handle_export_gauntlet(self, training_handler):
         """Test can_handle recognizes Gauntlet export path."""
-        assert training_handler.can_handle("/api/training/export/gauntlet") is True
+        assert training_handler.can_handle("/api/v1/training/export/gauntlet") is True
 
     def test_can_handle_stats(self, training_handler):
         """Test can_handle recognizes stats path."""
-        assert training_handler.can_handle("/api/training/stats") is True
+        assert training_handler.can_handle("/api/v1/training/stats") is True
 
     def test_can_handle_formats(self, training_handler):
         """Test can_handle recognizes formats path."""
-        assert training_handler.can_handle("/api/training/formats") is True
+        assert training_handler.can_handle("/api/v1/training/formats") is True
 
     def test_cannot_handle_unknown_path(self, training_handler):
         """Test can_handle rejects unknown paths."""
-        assert training_handler.can_handle("/api/training/unknown") is False
-        assert training_handler.can_handle("/api/other/path") is False
+        assert training_handler.can_handle("/api/v1/training/unknown") is False
+        assert training_handler.can_handle("/api/v1/other/path") is False
 
     def test_handle_returns_none_for_unknown_path(self, training_handler, mock_handler):
         """Test handle returns None for unrecognized paths."""

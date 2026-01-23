@@ -245,16 +245,16 @@ class TestAdminHandlerRouting:
 
     def test_can_handle_admin_paths(self):
         """Test can_handle identifies admin paths."""
-        assert AdminHandler.can_handle("/api/admin/users")
-        assert AdminHandler.can_handle("/api/admin/organizations")
-        assert AdminHandler.can_handle("/api/admin/stats")
-        assert AdminHandler.can_handle("/api/admin/nomic/status")
+        assert AdminHandler.can_handle("/api/v1/admin/users")
+        assert AdminHandler.can_handle("/api/v1/admin/organizations")
+        assert AdminHandler.can_handle("/api/v1/admin/stats")
+        assert AdminHandler.can_handle("/api/v1/admin/nomic/status")
 
     def test_cannot_handle_non_admin_paths(self):
         """Test can_handle rejects non-admin paths."""
-        assert not AdminHandler.can_handle("/api/debates")
-        assert not AdminHandler.can_handle("/api/users")
-        assert not AdminHandler.can_handle("/api/health")
+        assert not AdminHandler.can_handle("/api/v1/debates")
+        assert not AdminHandler.can_handle("/api/v1/users")
+        assert not AdminHandler.can_handle("/api/v1/health")
 
 
 class TestAdminAuthentication:

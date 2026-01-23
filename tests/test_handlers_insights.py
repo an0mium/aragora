@@ -90,14 +90,14 @@ class TestInsightsHandlerRouting:
 
     def test_can_handle_insights_routes(self, insights_handler):
         """Should handle /api/insights/* paths."""
-        assert insights_handler.can_handle("/api/insights/recent")
-        assert insights_handler.can_handle("/api/insights/extract-detailed")
-        assert insights_handler.can_handle("/api/insights/other")
+        assert insights_handler.can_handle("/api/v1/insights/recent")
+        assert insights_handler.can_handle("/api/v1/insights/extract-detailed")
+        assert insights_handler.can_handle("/api/v1/insights/other")
 
     def test_cannot_handle_other_routes(self, insights_handler):
         """Should not handle non-insights routes."""
-        assert not insights_handler.can_handle("/api/debates")
-        assert not insights_handler.can_handle("/api/agents")
+        assert not insights_handler.can_handle("/api/v1/debates")
+        assert not insights_handler.can_handle("/api/v1/agents")
         assert not insights_handler.can_handle("/insights/recent")
 
 

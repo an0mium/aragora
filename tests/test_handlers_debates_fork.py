@@ -222,19 +222,19 @@ class TestForkHandlerRouting:
 
     def test_can_handle_fork_endpoint(self, debates_handler):
         """Should handle POST /api/debates/{id}/fork."""
-        assert debates_handler.can_handle("/api/debates/debate-001/fork") is True
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/fork") is True
 
     def test_can_handle_verify_endpoint(self, debates_handler):
         """Should handle POST /api/debates/{id}/verify."""
-        assert debates_handler.can_handle("/api/debates/debate-001/verify") is True
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/verify") is True
 
     def test_can_handle_followups_endpoint(self, debates_handler):
         """Should handle GET /api/debates/{id}/followups."""
-        assert debates_handler.can_handle("/api/debates/debate-001/followups") is True
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/followups") is True
 
     def test_can_handle_followup_post_endpoint(self, debates_handler):
         """Should handle POST /api/debates/{id}/followup."""
-        assert debates_handler.can_handle("/api/debates/debate-001/followup") is True
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/followup") is True
 
 
 # ============================================================================

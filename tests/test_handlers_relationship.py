@@ -18,31 +18,31 @@ class TestRelationshipHandlerRouting:
 
     def test_can_handle_summary(self, handler):
         """Should handle /api/relationships/summary."""
-        assert handler.can_handle("/api/relationships/summary") is True
+        assert handler.can_handle("/api/v1/relationships/summary") is True
 
     def test_can_handle_graph(self, handler):
         """Should handle /api/relationships/graph."""
-        assert handler.can_handle("/api/relationships/graph") is True
+        assert handler.can_handle("/api/v1/relationships/graph") is True
 
     def test_can_handle_stats(self, handler):
         """Should handle /api/relationships/stats."""
-        assert handler.can_handle("/api/relationships/stats") is True
+        assert handler.can_handle("/api/v1/relationships/stats") is True
 
     def test_can_handle_pair_detail(self, handler):
         """Should handle /api/relationship/{agent_a}/{agent_b}."""
-        assert handler.can_handle("/api/relationship/claude/gpt4") is True
-        assert handler.can_handle("/api/relationship/agent-1/agent-2") is True
+        assert handler.can_handle("/api/v1/relationship/claude/gpt4") is True
+        assert handler.can_handle("/api/v1/relationship/agent-1/agent-2") is True
 
     def test_cannot_handle_unrelated(self, handler):
         """Should not handle unrelated routes."""
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/agent/claude/profile") is False
-        assert handler.can_handle("/api/consensus/stats") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/agent/claude/profile") is False
+        assert handler.can_handle("/api/v1/consensus/stats") is False
 
     def test_cannot_handle_incomplete_pair_path(self, handler):
         """Should not handle incomplete relationship pair path."""
         # Only one agent specified
-        assert handler.can_handle("/api/relationship/claude") is False
+        assert handler.can_handle("/api/v1/relationship/claude") is False
 
 
 class TestSummaryEndpoint:

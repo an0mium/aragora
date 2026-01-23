@@ -369,7 +369,7 @@ class TestErrorHandling:
         handler = SystemHandler(handler_context)
 
         # Check if handler can handle this path
-        assert not handler.can_handle("/api/nonexistent/endpoint")
+        assert not handler.can_handle("/api/v1/nonexistent/endpoint")
 
     def test_invalid_query_params_handled(self, handler_context):
         """Test invalid query parameters are handled gracefully."""

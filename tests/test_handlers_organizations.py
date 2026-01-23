@@ -148,44 +148,44 @@ class TestOrganizationsRouting:
 
     def test_can_handle_org_detail(self, org_handler):
         """Test handler matches org detail route."""
-        assert org_handler.can_handle("/api/org/org-123") is True
+        assert org_handler.can_handle("/api/v1/org/org-123") is True
 
     def test_can_handle_members(self, org_handler):
         """Test handler matches members route."""
-        assert org_handler.can_handle("/api/org/org-123/members") is True
+        assert org_handler.can_handle("/api/v1/org/org-123/members") is True
 
     def test_can_handle_invite(self, org_handler):
         """Test handler matches invite route."""
-        assert org_handler.can_handle("/api/org/org-123/invite") is True
+        assert org_handler.can_handle("/api/v1/org/org-123/invite") is True
 
     def test_can_handle_invitations(self, org_handler):
         """Test handler matches invitations list route."""
-        assert org_handler.can_handle("/api/org/org-123/invitations") is True
+        assert org_handler.can_handle("/api/v1/org/org-123/invitations") is True
 
     def test_can_handle_invitation_detail(self, org_handler):
         """Test handler matches invitation detail route."""
-        assert org_handler.can_handle("/api/org/org-123/invitations/inv-456") is True
+        assert org_handler.can_handle("/api/v1/org/org-123/invitations/inv-456") is True
 
     def test_can_handle_member_detail(self, org_handler):
         """Test handler matches member detail route."""
-        assert org_handler.can_handle("/api/org/org-123/members/user-456") is True
+        assert org_handler.can_handle("/api/v1/org/org-123/members/user-456") is True
 
     def test_can_handle_role_update(self, org_handler):
         """Test handler matches role update route."""
-        assert org_handler.can_handle("/api/org/org-123/members/user-456/role") is True
+        assert org_handler.can_handle("/api/v1/org/org-123/members/user-456/role") is True
 
     def test_can_handle_pending_invitations(self, org_handler):
         """Test handler matches pending invitations route."""
-        assert org_handler.can_handle("/api/invitations/pending") is True
+        assert org_handler.can_handle("/api/v1/invitations/pending") is True
 
     def test_can_handle_accept_invitation(self, org_handler):
         """Test handler matches accept invitation route."""
-        assert org_handler.can_handle("/api/invitations/token-abc/accept") is True
+        assert org_handler.can_handle("/api/v1/invitations/token-abc/accept") is True
 
     def test_cannot_handle_unknown(self, org_handler):
         """Test handler rejects unknown routes."""
-        assert org_handler.can_handle("/api/users") is False
-        assert org_handler.can_handle("/api/org") is False
+        assert org_handler.can_handle("/api/v1/users") is False
+        assert org_handler.can_handle("/api/v1/org") is False
 
 
 # =============================================================================

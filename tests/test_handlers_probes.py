@@ -87,16 +87,16 @@ class TestProbesRouting:
     """Tests for route matching."""
 
     def test_can_handle_capability(self, probes_handler):
-        assert probes_handler.can_handle("/api/probes/capability") is True
+        assert probes_handler.can_handle("/api/v1/probes/capability") is True
 
     def test_can_handle_run(self, probes_handler):
         # Legacy route
-        assert probes_handler.can_handle("/api/probes/run") is True
+        assert probes_handler.can_handle("/api/v1/probes/run") is True
 
     def test_cannot_handle_unrelated_routes(self, probes_handler):
-        assert probes_handler.can_handle("/api/probes") is False
-        assert probes_handler.can_handle("/api/probes/other") is False
-        assert probes_handler.can_handle("/api/agents") is False
+        assert probes_handler.can_handle("/api/v1/probes") is False
+        assert probes_handler.can_handle("/api/v1/probes/other") is False
+        assert probes_handler.can_handle("/api/v1/agents") is False
 
 
 # ============================================================================

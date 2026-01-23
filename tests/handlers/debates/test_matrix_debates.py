@@ -84,10 +84,10 @@ class TestMatrixDebatesHandlerInit:
 
     def test_cannot_handle_other_paths(self, matrix_handler):
         """Test can_handle rejects non-matrix paths."""
-        assert not matrix_handler.can_handle("/api/debates")
-        assert not matrix_handler.can_handle("/api/debates/abc123")
-        assert not matrix_handler.can_handle("/api/debates/graph")
-        assert not matrix_handler.can_handle("/api/users")
+        assert not matrix_handler.can_handle("/api/v1/debates")
+        assert not matrix_handler.can_handle("/api/v1/debates/abc123")
+        assert not matrix_handler.can_handle("/api/v1/debates/graph")
+        assert not matrix_handler.can_handle("/api/v1/users")
 
 
 # =============================================================================

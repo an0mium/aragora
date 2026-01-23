@@ -137,29 +137,29 @@ class TestAdminRouting:
 
     def test_can_handle_admin_organizations(self, admin_handler):
         """Handler can handle /api/admin/organizations."""
-        assert admin_handler.can_handle("/api/admin/organizations") is True
+        assert admin_handler.can_handle("/api/v1/admin/organizations") is True
 
     def test_can_handle_admin_users(self, admin_handler):
         """Handler can handle /api/admin/users."""
-        assert admin_handler.can_handle("/api/admin/users") is True
+        assert admin_handler.can_handle("/api/v1/admin/users") is True
 
     def test_can_handle_admin_stats(self, admin_handler):
         """Handler can handle /api/admin/stats."""
-        assert admin_handler.can_handle("/api/admin/stats") is True
+        assert admin_handler.can_handle("/api/v1/admin/stats") is True
 
     def test_can_handle_admin_impersonate(self, admin_handler):
         """Handler can handle /api/admin/impersonate/:user_id."""
-        assert admin_handler.can_handle("/api/admin/impersonate/user-123") is True
+        assert admin_handler.can_handle("/api/v1/admin/impersonate/user-123") is True
 
     def test_can_handle_admin_nomic_status(self, admin_handler):
         """Handler can handle /api/admin/nomic/status."""
-        assert admin_handler.can_handle("/api/admin/nomic/status") is True
+        assert admin_handler.can_handle("/api/v1/admin/nomic/status") is True
 
     def test_cannot_handle_non_admin_routes(self, admin_handler):
         """Handler doesn't handle non-admin routes."""
-        assert admin_handler.can_handle("/api/debates") is False
-        assert admin_handler.can_handle("/api/users") is False
-        assert admin_handler.can_handle("/api/agents") is False
+        assert admin_handler.can_handle("/api/v1/debates") is False
+        assert admin_handler.can_handle("/api/v1/users") is False
+        assert admin_handler.can_handle("/api/v1/agents") is False
 
     def test_admin_roles_defined(self):
         """ADMIN_ROLES contains expected roles."""
@@ -397,7 +397,13 @@ class TestDeactivateUser:
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_cannot_deactivate_self(
-        self, mock_extract, mock_mfa, mock_check_permission, admin_handler, mock_handler, mock_auth_context
+        self,
+        mock_extract,
+        mock_mfa,
+        mock_check_permission,
+        admin_handler,
+        mock_handler,
+        mock_auth_context,
     ):
         """Cannot deactivate yourself."""
         mock_extract.return_value = mock_auth_context
@@ -418,7 +424,13 @@ class TestDeactivateUser:
     @patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy")
     @patch("aragora.server.handlers.admin.admin.extract_user_from_request")
     def test_deactivate_user_not_found(
-        self, mock_extract, mock_mfa, mock_check_permission, admin_handler, mock_handler, mock_auth_context
+        self,
+        mock_extract,
+        mock_mfa,
+        mock_check_permission,
+        admin_handler,
+        mock_handler,
+        mock_auth_context,
     ):
         """Returns 404 when user does not exist."""
         mock_extract.return_value = mock_auth_context

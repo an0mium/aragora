@@ -12,14 +12,14 @@ class TestDashboardHandlerRouting:
     def test_can_handle_dashboard_debates(self):
         """Handler can handle /api/dashboard/debates."""
         handler = DashboardHandler({})
-        assert handler.can_handle("/api/dashboard/debates") is True
+        assert handler.can_handle("/api/v1/dashboard/debates") is True
 
     def test_cannot_handle_other_paths(self):
         """Handler cannot handle unrelated paths."""
         handler = DashboardHandler({})
-        assert handler.can_handle("/api/debates") is False
-        assert handler.can_handle("/api/metrics") is False
-        assert handler.can_handle("/api/dashboard/other") is False
+        assert handler.can_handle("/api/v1/debates") is False
+        assert handler.can_handle("/api/v1/metrics") is False
+        assert handler.can_handle("/api/v1/dashboard/other") is False
 
 
 class TestGetDebatesDashboard:

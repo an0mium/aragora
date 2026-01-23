@@ -338,7 +338,7 @@ class TestAPIEndpointLatency:
         iterations = 1000
         start = time.perf_counter()
         for _ in range(iterations):
-            handler.can_handle("/api/test")
+            handler.can_handle("/api/v1/test")
             handler.handle("/api/test", {}, None)
         elapsed = time.perf_counter() - start
 

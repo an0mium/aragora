@@ -312,8 +312,8 @@ class TestHandlerCanHandlePaths:
 
         assert handler.can_handle("/healthz")
         assert handler.can_handle("/readyz")
-        assert handler.can_handle("/api/health")
-        assert not handler.can_handle("/api/debates")
+        assert handler.can_handle("/api/v1/health")
+        assert not handler.can_handle("/api/v1/debates")
 
     def test_debates_handler_paths(self):
         """DebatesHandler should handle debate paths."""
@@ -324,10 +324,10 @@ class TestHandlerCanHandlePaths:
 
         handler = DebatesHandler({})
 
-        assert handler.can_handle("/api/debates")
-        assert handler.can_handle("/api/debates/123")
-        assert handler.can_handle("/api/search")
-        assert not handler.can_handle("/api/agents")
+        assert handler.can_handle("/api/v1/debates")
+        assert handler.can_handle("/api/v1/debates/123")
+        assert handler.can_handle("/api/v1/search")
+        assert not handler.can_handle("/api/v1/agents")
 
     def test_control_plane_handler_paths(self):
         """ControlPlaneHandler should handle control plane paths."""
@@ -338,12 +338,12 @@ class TestHandlerCanHandlePaths:
 
         handler = ControlPlaneHandler({})
 
-        assert handler.can_handle("/api/control-plane/agents")
-        assert handler.can_handle("/api/control-plane/tasks")
-        assert handler.can_handle("/api/control-plane/health")
-        assert handler.can_handle("/api/control-plane/queue")
-        assert handler.can_handle("/api/control-plane/metrics")
-        assert not handler.can_handle("/api/debates")
+        assert handler.can_handle("/api/v1/control-plane/agents")
+        assert handler.can_handle("/api/v1/control-plane/tasks")
+        assert handler.can_handle("/api/v1/control-plane/health")
+        assert handler.can_handle("/api/v1/control-plane/queue")
+        assert handler.can_handle("/api/v1/control-plane/metrics")
+        assert not handler.can_handle("/api/v1/debates")
 
 
 class TestHandlerRoutes:
@@ -478,11 +478,11 @@ class TestKnowledgeHandler:
         handler = KnowledgeHandler({})
 
         # KnowledgeHandler handles these specific routes
-        assert handler.can_handle("/api/knowledge/facts")
-        assert handler.can_handle("/api/knowledge/stats")
-        assert handler.can_handle("/api/knowledge/query")
-        assert handler.can_handle("/api/knowledge/search")
-        assert not handler.can_handle("/api/debates")
+        assert handler.can_handle("/api/v1/knowledge/facts")
+        assert handler.can_handle("/api/v1/knowledge/stats")
+        assert handler.can_handle("/api/v1/knowledge/query")
+        assert handler.can_handle("/api/v1/knowledge/search")
+        assert not handler.can_handle("/api/v1/debates")
 
 
 class TestWorkflowHandler:
@@ -524,5 +524,5 @@ class TestFeaturesHandler:
 
         handler = FeaturesHandler({})
 
-        assert handler.can_handle("/api/features")
-        assert not handler.can_handle("/api/debates")
+        assert handler.can_handle("/api/v1/features")
+        assert not handler.can_handle("/api/v1/debates")

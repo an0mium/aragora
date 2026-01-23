@@ -131,7 +131,7 @@ class TestDebateBatchEndpoints:
         handler = DebatesHandler(handler_ctx)
 
         # DebatesHandler handles all /api/debates/* routes including batch
-        assert handler.can_handle("/api/debates/batch")
+        assert handler.can_handle("/api/v1/debates/batch")
 
 
 class TestEvidenceEndpoints:
@@ -287,7 +287,7 @@ class TestGraphDebatesEndpoints:
 
         handler = GraphDebatesHandler(handler_ctx)
 
-        assert handler.can_handle("/api/debates/graph")
+        assert handler.can_handle("/api/v1/debates/graph")
 
     def test_matrix_routes(self, handler_ctx):
         """Verify matrix debate routes are handled."""
@@ -295,7 +295,7 @@ class TestGraphDebatesEndpoints:
 
         handler = MatrixDebatesHandler(handler_ctx)
 
-        assert handler.can_handle("/api/debates/matrix")
+        assert handler.can_handle("/api/v1/debates/matrix")
 
 
 class TestMetricsEndpoints:
@@ -424,8 +424,8 @@ class TestCalibrationEndpoints:
         handler = CalibrationHandler(handler_ctx)
 
         # Agent-specific routes use pattern matching
-        assert handler.can_handle("/api/agent/claude/calibration-curve")
-        assert handler.can_handle("/api/agent/gpt4/calibration-summary")
+        assert handler.can_handle("/api/v1/agent/claude/calibration-curve")
+        assert handler.can_handle("/api/v1/agent/gpt4/calibration-summary")
 
 
 class TestVerificationEndpoints:
@@ -439,7 +439,9 @@ class TestVerificationEndpoints:
 
     def test_formal_verification_handler_exists(self):
         """Verify FormalVerificationHandler can be imported."""
-        from aragora.server.handlers.verification.formal_verification import FormalVerificationHandler
+        from aragora.server.handlers.verification.formal_verification import (
+            FormalVerificationHandler,
+        )
 
         assert FormalVerificationHandler is not None
 
@@ -449,7 +451,7 @@ class TestVerificationEndpoints:
 
         handler = VerificationHandler(handler_ctx)
 
-        assert handler.can_handle("/api/verification/status")
+        assert handler.can_handle("/api/v1/verification/status")
 
 
 # Run quick smoke tests
