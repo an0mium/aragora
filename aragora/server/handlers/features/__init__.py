@@ -135,6 +135,8 @@ from .marketplace import (
     TemplateDeployment,
     TemplateRating,
 )
+from .legal import LegalHandler
+from .devops import DevOpsHandler
 
 __all__ = [
     "AudioHandler",
@@ -261,4 +263,8 @@ __all__ = [
     "TemplateMetadata",
     "TemplateDeployment",
     "TemplateRating",
+    # Legal
+    "LegalHandler",
+    # DevOps
+    "DevOpsHandler",
 ]
