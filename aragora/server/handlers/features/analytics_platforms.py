@@ -339,10 +339,10 @@ class AnalyticsPlatformsHandler(SecureHandler):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching dashboards from {platform}: {result}")
                 continue
-            all_dashboards.extend(result)
+            all_dashboards.extend(result)  # type: ignore[arg-type]
 
         return self._json_response(
             200,
@@ -877,6 +877,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
         creds = _platform_credentials[platform]["credentials"]
 
+        connector: Any = None
         try:
             if platform == "metabase":
                 from aragora.connectors.analytics.metabase import (

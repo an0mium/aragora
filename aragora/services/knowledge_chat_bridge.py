@@ -349,12 +349,11 @@ class KnowledgeChatBridge:
             content = "\n".join(content_parts)
 
             # Create knowledge node
-            from aragora.knowledge.mound_core import KnowledgeNode, ProvenanceChain
+            from aragora.knowledge.mound_core import KnowledgeNode, ProvenanceChain, ProvenanceType
 
             node = KnowledgeNode(
                 content=content[:5000],  # Limit content size
-                node_type=node_type,
-                source=f"{platform}:{channel_id}",
+                node_type=node_type,  # type: ignore[arg-type]
                 confidence=0.7,
                 metadata={
                     "workspace_id": workspace_id,
@@ -362,10 +361,12 @@ class KnowledgeChatBridge:
                     "channel_name": channel_name,
                     "platform": platform,
                     "message_count": len(messages),
+                    "source": f"{platform}:{channel_id}",
                 },
                 provenance=ProvenanceChain(
-                    source=f"Chat conversation in {channel_name}",
-                    transformations=["chat_to_knowledge"],
+                    source_type=ProvenanceType.USER,
+                    source_id=f"Chat conversation in {channel_name}",
+                    transformations=[{"type": "chat_to_knowledge"}],
                 ),
             )
 

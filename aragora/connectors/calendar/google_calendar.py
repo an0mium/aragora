@@ -412,7 +412,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
                 return await resp.json()
 
-        return await self._circuit_breaker.call(_make_request)
+        return await self._circuit_breaker.execute(_make_request)  # type: ignore[union-attr]
 
     async def get_calendars(self) -> List[CalendarInfo]:
         """Get list of user's calendars."""
@@ -684,7 +684,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         events = await self.get_events(
             time_min=proposed_start,
             time_max=proposed_end,
-            calendar_ids=calendar_ids[0] if calendar_ids else "primary",
+            calendar_id=calendar_ids[0] if calendar_ids else "primary",
         )
 
         conflicts = []
@@ -704,11 +704,11 @@ class GoogleCalendarConnector(EnterpriseConnector):
             await self._session.close()
             self._session = None
 
-    async def sync(
+    async def sync(  # type: ignore[override]
         self,
         state: Optional[SyncState] = None,
         full_sync: bool = False,
-    ):
+    ) -> Dict[str, Any]:
         """
         Sync events from calendars.
 

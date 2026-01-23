@@ -41,6 +41,32 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# Bug Detector Lazy Import
+# =============================================================================
+
+_bug_detector_imported = False
+_BugDetector = None
+_BugSeverity = None
+
+
+def _import_bug_detector():
+    """Lazy import bug detector to avoid circular imports."""
+    global _bug_detector_imported, _BugDetector, _BugSeverity
+    if _bug_detector_imported:
+        return _BugDetector is not None
+    _bug_detector_imported = True
+    try:
+        from aragora.analysis.codebase.bug_detector import BugDetector, BugSeverity
+
+        _BugDetector = BugDetector
+        _BugSeverity = BugSeverity
+        return True
+    except ImportError as e:
+        logger.debug(f"BugDetector not available: {e}")
+        return False
+
+
+# =============================================================================
 # Data Models
 # =============================================================================
 
@@ -494,6 +520,135 @@ async def handle_trigger_pr_review(
         }
 
 
+async def _run_bug_detector_analysis(
+    pr_details: PRDetails,
+) -> tuple[List[ReviewComment], List[str]]:
+    """
+    Run bug detector analysis on changed files.
+
+    Args:
+        pr_details: The pull request details containing changed files
+
+    Returns:
+        Tuple of (review comments, critical issues found)
+    """
+    import ast as ast_module
+    import re
+
+    comments = []
+    critical_issues = []
+
+    if not _import_bug_detector():
+        return comments, critical_issues
+
+    try:
+        detector = _BugDetector()
+
+        for file_info in pr_details.changed_files:
+            filename = file_info.get("filename", "")
+            patch = file_info.get("patch", "")
+
+            # Only analyze Python files for now
+            if not filename.endswith(".py"):
+                continue
+
+            # Skip test files for bug detection
+            if "test_" in filename or "/tests/" in filename:
+                continue
+
+            # Extract added lines from the patch with line mapping
+            added_lines = []
+            line_mapping = {}  # Maps pseudo-line to actual PR line
+            current_line = 0
+            for line in patch.split("\n"):
+                if line.startswith("@@"):
+                    # Parse the line number from the hunk header
+                    match = re.search(r"\+(\d+)", line)
+                    if match:
+                        current_line = int(match.group(1)) - 1
+                elif line.startswith("+") and not line.startswith("+++"):
+                    current_line += 1
+                    pseudo_line = len(added_lines) + 1
+                    line_mapping[pseudo_line] = current_line
+                    added_lines.append(line[1:])  # Remove the + prefix
+                elif line.startswith("-"):
+                    pass  # Removed line, don't increment
+                else:
+                    current_line += 1
+
+            if not added_lines:
+                continue
+
+            # Construct pseudo-file content for analysis
+            code_content = "\n".join(added_lines)
+
+            # Parse AST if possible
+            ast_tree = None
+            try:
+                ast_tree = ast_module.parse(code_content)
+            except SyntaxError:
+                # Partial code may not parse - that's OK
+                pass
+
+            # Run each detector pattern
+            for pattern in detector.patterns:
+                try:
+                    findings = pattern.detect(code_content, filename, ast_tree)
+                    for finding in findings:
+                        # Filter by confidence
+                        if finding.confidence < detector.min_confidence:
+                            continue
+
+                        # Map BugSeverity to comment severity
+                        severity_map = {
+                            _BugSeverity.CRITICAL: "error",
+                            _BugSeverity.HIGH: "error",
+                            _BugSeverity.MEDIUM: "warning",
+                            _BugSeverity.LOW: "info",
+                        }
+                        severity = severity_map.get(finding.severity, "info")
+
+                        # Track critical issues
+                        if finding.severity in (_BugSeverity.CRITICAL, _BugSeverity.HIGH):
+                            critical_issues.append(f"bug_{finding.bug_type.value}")
+
+                        # Build the comment body
+                        bug_name = finding.bug_type.value.replace("_", " ").title()
+                        body = f"**{bug_name}**: {finding.message}"
+                        if finding.description:
+                            body += f"\n\n{finding.description}"
+                        if finding.suggested_fix:
+                            body += f"\n\n**Suggested fix:** {finding.suggested_fix}"
+
+                        # Map the pseudo-line to actual PR line
+                        pseudo_line = finding.line_number
+                        actual_line = line_mapping.get(pseudo_line, pseudo_line)
+
+                        comments.append(
+                            ReviewComment(
+                                id=f"bugdet_{uuid.uuid4().hex[:8]}",
+                                file_path=filename,
+                                line=actual_line,
+                                body=body,
+                                severity=severity,
+                                category="bug_detection",
+                                suggestion=finding.suggested_fix,
+                            )
+                        )
+                except Exception as pe:
+                    logger.debug(f"Pattern {pattern.__class__.__name__} failed: {pe}")
+                    continue
+
+        logger.info(
+            f"[PRReview] Bug detector found {len(comments)} issues across {len(pr_details.changed_files)} files"
+        )
+
+    except Exception as e:
+        logger.warning(f"Bug detector analysis failed: {e}")
+
+    return comments, critical_issues
+
+
 async def _perform_review(
     pr_details: PRDetails,
     review_type: str,
@@ -518,13 +673,29 @@ async def _perform_review(
         try:
             debate_result = await _perform_debate_review(pr_details, review_type)
             if debate_result:
+                # Even if debate succeeds, run bug detector for additional findings
+                bug_comments, bug_issues = await _run_bug_detector_analysis(pr_details)
+                if bug_comments:
+                    debate_comments, debate_verdict, debate_summary = debate_result
+                    combined_comments = debate_comments + bug_comments
+                    # Upgrade verdict if bug detector found critical issues
+                    if bug_issues and debate_verdict == ReviewVerdict.APPROVE:
+                        return (
+                            combined_comments,
+                            ReviewVerdict.REQUEST_CHANGES,
+                            f"{debate_summary}\n\nBug detector found critical issues that require attention.",
+                        )
+                    return combined_comments, debate_verdict, debate_summary
                 return debate_result
         except Exception as e:
             logger.warning(f"Debate review failed, falling back to heuristic: {e}")
 
+    # Run bug detector analysis first
+    bug_comments, bug_issues = await _run_bug_detector_analysis(pr_details)
+
     # Fallback to heuristic analysis
-    comments = []
-    issues_found = []
+    comments = list(bug_comments)  # Start with bug detector findings
+    issues_found = list(bug_issues)
 
     # Analyze each changed file
     for file in pr_details.changed_files:
@@ -590,10 +761,19 @@ async def _perform_review(
                 )
 
     # Determine verdict
+    # Check for critical bug detector findings
+    critical_bugs = [i for i in issues_found if i.startswith("bug_")]
+
     if "potential_secrets" in issues_found:
         verdict = ReviewVerdict.REQUEST_CHANGES
         summary = (
             "Security concerns detected. Please address the highlighted issues before merging."
+        )
+    elif critical_bugs:
+        verdict = ReviewVerdict.REQUEST_CHANGES
+        bug_types = ", ".join(b.replace("bug_", "").replace("_", " ") for b in critical_bugs)
+        summary = (
+            f"Bug detector found critical issues ({bug_types}). Please address before merging."
         )
     elif "debug_logging" in issues_found:
         verdict = ReviewVerdict.COMMENT

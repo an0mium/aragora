@@ -175,6 +175,89 @@ class CheckpointStore(Protocol):
         ...
 
 
+class CachingCheckpointStore:
+    """
+    Caching wrapper for any CheckpointStore implementation.
+
+    Provides an LRU cache layer on top of any backend store, reducing
+    redundant reads for frequently accessed checkpoints.
+
+    Usage:
+        base_store = RedisCheckpointStore()
+        cached_store = CachingCheckpointStore(base_store)
+
+        # First load hits backend, subsequent loads hit cache
+        cp1 = await cached_store.load(checkpoint_id)  # Backend
+        cp2 = await cached_store.load(checkpoint_id)  # Cache hit
+    """
+
+    def __init__(
+        self,
+        store: CheckpointStore,
+        max_cache_size: int = MAX_CHECKPOINT_CACHE_SIZE,
+    ):
+        """
+        Initialize caching checkpoint store.
+
+        Args:
+            store: The underlying CheckpointStore to wrap
+            max_cache_size: Maximum number of checkpoints to cache (default 100)
+        """
+        self._store = store
+        self._cache = LRUCheckpointCache(max_size=max_cache_size)
+
+    async def save(self, checkpoint: WorkflowCheckpoint) -> str:
+        """Save checkpoint to store and update cache."""
+        checkpoint_id = await self._store.save(checkpoint)
+        # Update cache with saved checkpoint
+        self._cache.put(checkpoint_id, checkpoint)
+        return checkpoint_id
+
+    async def load(self, checkpoint_id: str) -> Optional[WorkflowCheckpoint]:
+        """Load checkpoint from cache or store."""
+        # Check cache first
+        cached = self._cache.get(checkpoint_id)
+        if cached is not None:
+            return cached
+
+        # Miss - load from backend
+        checkpoint = await self._store.load(checkpoint_id)
+        if checkpoint is not None:
+            self._cache.put(checkpoint_id, checkpoint)
+        return checkpoint
+
+    async def load_latest(self, workflow_id: str) -> Optional[WorkflowCheckpoint]:
+        """Load latest checkpoint for workflow (always hits backend)."""
+        # Always go to backend for latest since we don't track recency
+        checkpoint = await self._store.load_latest(workflow_id)
+        if checkpoint is not None:
+            self._cache.put(checkpoint.checkpoint_id, checkpoint)
+        return checkpoint
+
+    async def list_checkpoints(self, workflow_id: str) -> List[str]:
+        """List checkpoint IDs for workflow (always hits backend)."""
+        return await self._store.list_checkpoints(workflow_id)
+
+    async def delete(self, checkpoint_id: str) -> bool:
+        """Delete checkpoint from store and cache."""
+        self._cache.remove(checkpoint_id)
+        return await self._store.delete(checkpoint_id)
+
+    def clear_cache(self) -> None:
+        """Clear the cache without affecting the backend store."""
+        self._cache.clear()
+
+    @property
+    def cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        return self._cache.stats
+
+    @property
+    def backend_store(self) -> CheckpointStore:
+        """Get the underlying backend store."""
+        return self._store
+
+
 class RedisCheckpointStore:
     """
     Redis-backed checkpoint store for distributed, fast checkpoint storage.
@@ -1294,6 +1377,8 @@ def get_checkpoint_store(
     use_default_mound: bool = True,
     prefer_redis: bool = True,
     prefer_postgres: bool = False,
+    enable_caching: bool = False,
+    cache_size: int = MAX_CHECKPOINT_CACHE_SIZE,
 ) -> CheckpointStore:
     """
     Get the appropriate checkpoint store based on availability.
@@ -1301,6 +1386,7 @@ def get_checkpoint_store(
     Environment Variables:
     - ARAGORA_DB_BACKEND: If set to "postgres" or "postgresql", enables PostgreSQL preference
     - ARAGORA_CHECKPOINT_STORE_BACKEND: Store-specific override ("postgres", "redis", "file")
+    - ARAGORA_CHECKPOINT_CACHE: If "true", enables caching layer
 
     Priority order:
     1. Explicitly provided KnowledgeMound
@@ -1315,13 +1401,27 @@ def get_checkpoint_store(
         use_default_mound: Whether to use the default mound if no mound provided
         prefer_redis: Try Redis before file fallback (default True)
         prefer_postgres: Try Postgres before file fallback (default False)
+        enable_caching: Wrap store with LRU cache (default False)
+        cache_size: Maximum cache entries when caching enabled (default 100)
 
     Returns:
-        CheckpointStore implementation
+        CheckpointStore implementation (optionally wrapped with cache)
     """
     # Check environment variables for backend preference
     store_backend = os.environ.get("ARAGORA_CHECKPOINT_STORE_BACKEND", "").lower()
     global_backend = os.environ.get("ARAGORA_DB_BACKEND", "").lower()
+    cache_env = os.environ.get("ARAGORA_CHECKPOINT_CACHE", "").lower()
+
+    # Check if caching enabled via environment
+    if cache_env in ("true", "1", "yes", "on"):
+        enable_caching = True
+
+    def _maybe_wrap_with_cache(store: CheckpointStore) -> CheckpointStore:
+        """Wrap store with caching if enabled."""
+        if enable_caching:
+            logger.debug(f"Wrapping checkpoint store with cache (size={cache_size})")
+            return CachingCheckpointStore(store, max_cache_size=cache_size)
+        return store
 
     # Store-specific override takes precedence
     if store_backend == "postgres" or store_backend == "postgresql":
@@ -1338,12 +1438,12 @@ def get_checkpoint_store(
     # Use explicitly provided mound
     if mound is not None:
         logger.debug("Using provided KnowledgeMound for checkpoints")
-        return KnowledgeMoundCheckpointStore(mound)
+        return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(mound))
 
     # Try default mound
     if use_default_mound and _default_mound is not None:
         logger.debug("Using default KnowledgeMound for checkpoints")
-        return KnowledgeMoundCheckpointStore(_default_mound)
+        return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(_default_mound))
 
     # Try Redis if preferred
     if prefer_redis and REDIS_AVAILABLE:
@@ -1353,7 +1453,7 @@ def get_checkpoint_store(
             redis = store._get_redis()
             if redis is not None:
                 logger.info("Using RedisCheckpointStore for checkpoints")
-                return store
+                return _maybe_wrap_with_cache(store)
         except Exception as e:
             logger.debug(f"Redis checkpoint store not available: {e}")
 
@@ -1375,7 +1475,7 @@ def get_checkpoint_store(
                     store = PostgresCheckpointStore(pool)  # type: ignore[arg-type,assignment]
                     loop.run_until_complete(store.initialize())  # type: ignore[attr-defined]
                     logger.info("Using PostgresCheckpointStore for checkpoints")
-                    return store
+                    return _maybe_wrap_with_cache(store)
             except RuntimeError:
                 # No event loop
                 logger.debug("No event loop for Postgres initialization")
@@ -1399,7 +1499,7 @@ def get_checkpoint_store(
         pass  # Guards not available, allow fallback
 
     logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
-    return FileCheckpointStore(fallback_dir)
+    return _maybe_wrap_with_cache(FileCheckpointStore(fallback_dir))
 
 
 async def get_checkpoint_store_async(
@@ -1408,6 +1508,8 @@ async def get_checkpoint_store_async(
     use_default_mound: bool = True,
     prefer_redis: bool = True,
     prefer_postgres: bool = True,
+    enable_caching: bool = False,
+    cache_size: int = MAX_CHECKPOINT_CACHE_SIZE,
 ) -> CheckpointStore:
     """
     Get the appropriate checkpoint store (async version).
@@ -1418,6 +1520,7 @@ async def get_checkpoint_store_async(
     Environment Variables:
     - ARAGORA_DB_BACKEND: If set to "postgres" or "postgresql", enables PostgreSQL preference
     - ARAGORA_CHECKPOINT_STORE_BACKEND: Store-specific override ("postgres", "redis", "file")
+    - ARAGORA_CHECKPOINT_CACHE: If "true", enables caching layer
 
     Priority order:
     1. Explicitly provided KnowledgeMound
@@ -1432,13 +1535,27 @@ async def get_checkpoint_store_async(
         use_default_mound: Whether to use the default mound if no mound provided
         prefer_redis: Try Redis before file fallback (default True)
         prefer_postgres: Try Postgres before file fallback (default True)
+        enable_caching: Wrap store with LRU cache (default False)
+        cache_size: Maximum cache entries when caching enabled (default 100)
 
     Returns:
-        CheckpointStore implementation
+        CheckpointStore implementation (optionally wrapped with cache)
     """
     # Check environment variables for backend preference
     store_backend = os.environ.get("ARAGORA_CHECKPOINT_STORE_BACKEND", "").lower()
     global_backend = os.environ.get("ARAGORA_DB_BACKEND", "").lower()
+    cache_env = os.environ.get("ARAGORA_CHECKPOINT_CACHE", "").lower()
+
+    # Check if caching enabled via environment
+    if cache_env in ("true", "1", "yes", "on"):
+        enable_caching = True
+
+    def _maybe_wrap_with_cache(store: CheckpointStore) -> CheckpointStore:
+        """Wrap store with caching if enabled."""
+        if enable_caching:
+            logger.debug(f"Wrapping checkpoint store with cache (size={cache_size})")
+            return CachingCheckpointStore(store, max_cache_size=cache_size)
+        return store
 
     # Store-specific override takes precedence
     if store_backend == "postgres" or store_backend == "postgresql":
@@ -1456,12 +1573,12 @@ async def get_checkpoint_store_async(
     # Use explicitly provided mound
     if mound is not None:
         logger.debug("Using provided KnowledgeMound for checkpoints")
-        return KnowledgeMoundCheckpointStore(mound)
+        return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(mound))
 
     # Try default mound
     if use_default_mound and _default_mound is not None:
         logger.debug("Using default KnowledgeMound for checkpoints")
-        return KnowledgeMoundCheckpointStore(_default_mound)
+        return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(_default_mound))
 
     # Try Redis if preferred
     if prefer_redis and REDIS_AVAILABLE:
@@ -1470,7 +1587,7 @@ async def get_checkpoint_store_async(
             redis = store._get_redis()
             if redis is not None:
                 logger.info("Using RedisCheckpointStore for checkpoints")
-                return store
+                return _maybe_wrap_with_cache(store)
         except Exception as e:
             logger.debug(f"Redis checkpoint store not available: {e}")
 
@@ -1483,7 +1600,7 @@ async def get_checkpoint_store_async(
             store = PostgresCheckpointStore(pool)  # type: ignore[arg-type,assignment]
             await store.initialize()  # type: ignore[attr-defined]
             logger.info("Using PostgresCheckpointStore for checkpoints")
-            return store
+            return _maybe_wrap_with_cache(store)
         except Exception as e:
             logger.debug(f"Postgres checkpoint store not available: {e}")
 
@@ -1504,4 +1621,4 @@ async def get_checkpoint_store_async(
         pass  # Guards not available, allow fallback
 
     logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
-    return FileCheckpointStore(fallback_dir)
+    return _maybe_wrap_with_cache(FileCheckpointStore(fallback_dir))

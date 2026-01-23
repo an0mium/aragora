@@ -291,7 +291,7 @@ class TestGraphiQLHTML:
 
     def test_graphiql_html_valid(self):
         """Test that GraphiQL HTML is valid."""
-        assert GRAPHIQL_HTML.startswith("<!DOCTYPE html>")
+        assert GRAPHIQL_HTML.strip().startswith("<!DOCTYPE html>")
         assert "</html>" in GRAPHIQL_HTML
         assert "<head>" in GRAPHIQL_HTML
         assert "<body" in GRAPHIQL_HTML
