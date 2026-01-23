@@ -281,7 +281,7 @@ async def fetch_aragora_metrics(tenant_id: str, time_range: str) -> Dict[str, fl
 async def fetch_ga4_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
     """Fetch Google Analytics 4 metrics."""
     try:
-        from aragora.connectors.analytics.google_analytics import GoogleAnalyticsClient
+        from aragora.connectors.analytics.google_analytics import GoogleAnalyticsClient  # noqa: F401
         # In real implementation, would use actual client
     except ImportError:
         pass
@@ -301,7 +301,7 @@ async def fetch_ga4_metrics(tenant_id: str, time_range: str) -> Dict[str, float]
 async def fetch_mixpanel_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
     """Fetch Mixpanel metrics."""
     try:
-        from aragora.connectors.analytics.mixpanel import MixpanelClient
+        from aragora.connectors.analytics.mixpanel import MixpanelClient  # noqa: F401
         # In real implementation, would use actual client
     except ImportError:
         pass
@@ -320,7 +320,7 @@ async def fetch_mixpanel_metrics(tenant_id: str, time_range: str) -> Dict[str, f
 async def fetch_metabase_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
     """Fetch Metabase dashboard metrics."""
     try:
-        from aragora.connectors.analytics.metabase import MetabaseClient
+        from aragora.connectors.analytics.metabase import MetabaseClient  # noqa: F401
         # In real implementation, would use actual client
     except ImportError:
         pass
@@ -337,7 +337,7 @@ async def fetch_metabase_metrics(tenant_id: str, time_range: str) -> Dict[str, f
 async def fetch_segment_metrics(tenant_id: str, time_range: str) -> Dict[str, float]:
     """Fetch Segment metrics."""
     try:
-        from aragora.connectors.analytics.segment import SegmentClient
+        from aragora.connectors.analytics.segment import SegmentClient  # noqa: F401
         # In real implementation, would use actual client
     except ImportError:
         pass

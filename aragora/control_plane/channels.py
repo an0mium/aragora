@@ -237,7 +237,7 @@ class SlackProvider(ChannelProvider):
             NotificationPriority.URGENT: ":rotating_light:",
         }.get(message.priority, ":large_blue_diamond:")
 
-        blocks = [
+        blocks: list[dict[str, Any]] = [
             {
                 "type": "header",
                 "text": {

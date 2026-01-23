@@ -333,7 +333,7 @@ async def _queue_notification(notification: WebhookNotification) -> None:
 async def _trigger_gmail_sync(notification: WebhookNotification) -> None:
     """Trigger Gmail sync for new notification."""
     try:
-        from aragora.connectors.email import GmailSyncService
+        from aragora.connectors.email import GmailSyncService  # noqa: F401
 
         # In production, get the sync service instance for this account
         # and call sync_from_history_id(notification.metadata["history_id"])
@@ -346,7 +346,7 @@ async def _trigger_gmail_sync(notification: WebhookNotification) -> None:
 async def _trigger_outlook_sync(notification: WebhookNotification) -> None:
     """Trigger Outlook sync for new notification."""
     try:
-        from aragora.connectors.email import OutlookSyncService
+        from aragora.connectors.email import OutlookSyncService  # noqa: F401
 
         # In production, get the sync service instance and fetch the message
         logger.debug(f"Would trigger Outlook sync for resource={notification.resource_id}")
@@ -626,7 +626,7 @@ class EmailWebhooksHandler(BaseHandler):
     async def _create_gmail_subscription(self, subscription: WebhookSubscription) -> Dict[str, Any]:
         """Create Gmail Pub/Sub watch."""
         try:
-            from aragora.connectors.email import GmailSyncService
+            from aragora.connectors.email import GmailSyncService  # noqa: F401
 
             # In production, call Gmail API to create push notification watch
             # This requires Pub/Sub topic and project configuration
@@ -642,7 +642,7 @@ class EmailWebhooksHandler(BaseHandler):
     ) -> Dict[str, Any]:
         """Create Outlook Graph subscription."""
         try:
-            from aragora.connectors.email import OutlookSyncService
+            from aragora.connectors.email import OutlookSyncService  # noqa: F401
 
             # In production, call Microsoft Graph API to create subscription
             return {"success": True}

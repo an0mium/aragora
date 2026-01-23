@@ -91,6 +91,7 @@ def _get_cost_tracker():
     if _cost_tracker is None:
         try:
             from aragora.billing.cost_tracker import get_cost_tracker
+
             _cost_tracker = get_cost_tracker()
             logger.info("[CostHandler] Connected to CostTracker with persistence")
         except Exception as e:
@@ -174,36 +175,48 @@ async def get_cost_summary(
 
             # Get budget
             budget_obj = tracker.get_budget(workspace_id=workspace_id)
-            budget = float(budget_obj.monthly_limit_usd) if budget_obj and budget_obj.monthly_limit_usd else 500.0
+            budget = (
+                float(budget_obj.monthly_limit_usd)
+                if budget_obj and budget_obj.monthly_limit_usd
+                else 500.0
+            )
 
             # Convert cost_by_provider to list format
             total_cost = float(report.total_cost_usd)
-            cost_by_provider = [
-                {
-                    "name": name,
-                    "cost": float(cost),
-                    "percentage": (float(cost) / total_cost * 100) if total_cost > 0 else 0,
-                }
-                for name, cost in sorted(
-                    report.cost_by_provider.items(),
-                    key=lambda x: float(x[1]),
-                    reverse=True,
-                )
-            ] if report.cost_by_provider else []
+            cost_by_provider = (
+                [
+                    {
+                        "name": name,
+                        "cost": float(cost),
+                        "percentage": (float(cost) / total_cost * 100) if total_cost > 0 else 0,
+                    }
+                    for name, cost in sorted(
+                        report.cost_by_provider.items(),
+                        key=lambda x: float(x[1]),
+                        reverse=True,
+                    )
+                ]
+                if report.cost_by_provider
+                else []
+            )
 
             # Convert cost_by_operation (feature) to list format
-            cost_by_feature = [
-                {
-                    "name": name,
-                    "cost": float(cost),
-                    "percentage": (float(cost) / total_cost * 100) if total_cost > 0 else 0,
-                }
-                for name, cost in sorted(
-                    report.cost_by_operation.items(),
-                    key=lambda x: float(x[1]),
-                    reverse=True,
-                )
-            ] if report.cost_by_operation else []
+            cost_by_feature = (
+                [
+                    {
+                        "name": name,
+                        "cost": float(cost),
+                        "percentage": (float(cost) / total_cost * 100) if total_cost > 0 else 0,
+                    }
+                    for name, cost in sorted(
+                        report.cost_by_operation.items(),
+                        key=lambda x: float(x[1]),
+                        reverse=True,
+                    )
+                ]
+                if report.cost_by_operation
+                else []
+            )
 
             # If no real data yet, fall back to mock
             if total_cost == 0 and not report.cost_over_time:
@@ -215,9 +228,15 @@ async def get_cost_summary(
                 tokens_used=report.total_tokens_in + report.total_tokens_out,
                 api_calls=report.total_api_calls,
                 last_updated=now,
-                cost_by_provider=cost_by_provider if cost_by_provider else _generate_mock_summary(time_range).cost_by_provider,
-                cost_by_feature=cost_by_feature if cost_by_feature else _generate_mock_summary(time_range).cost_by_feature,
-                daily_costs=report.cost_over_time if report.cost_over_time else _generate_mock_summary(time_range).daily_costs,
+                cost_by_provider=cost_by_provider
+                if cost_by_provider
+                else _generate_mock_summary(time_range).cost_by_provider,
+                cost_by_feature=cost_by_feature
+                if cost_by_feature
+                else _generate_mock_summary(time_range).cost_by_feature,
+                daily_costs=report.cost_over_time
+                if report.cost_over_time
+                else _generate_mock_summary(time_range).daily_costs,
                 alerts=_get_active_alerts(tracker, workspace_id),
             )
 
@@ -248,15 +267,18 @@ def _get_active_alerts(tracker, workspace_id: str) -> List[Dict[str, Any]]:
                 }
                 percentage = (
                     float(budget.current_monthly_spend / budget.monthly_limit_usd * 100)
-                    if budget.monthly_limit_usd else 0
+                    if budget.monthly_limit_usd
+                    else 0
                 )
-                alerts.append({
-                    "id": f"budget_{workspace_id}",
-                    "type": "budget_warning",
-                    "message": f"Budget usage at {percentage:.1f}% (${float(budget.current_monthly_spend):.2f} of ${float(budget.monthly_limit_usd):.2f})",
-                    "severity": severity_map.get(alert_level, "warning"),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                alerts.append(
+                    {
+                        "id": f"budget_{workspace_id}",
+                        "type": "budget_warning",
+                        "message": f"Budget usage at {percentage:.1f}% (${float(budget.current_monthly_spend):.2f} of ${float(budget.monthly_limit_usd):.2f})",
+                        "severity": severity_map.get(alert_level, "warning"),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
     except Exception as e:
         logger.debug(f"[CostHandler] Could not get alerts: {e}")
     return alerts
@@ -451,13 +473,15 @@ class CostHandler:
                 )
                 for km_alert in km_alerts:
                     if not km_alert.get("acknowledged"):
-                        active_alerts.append({
-                            "id": km_alert.get("id", ""),
-                            "type": km_alert.get("level", "info"),
-                            "message": km_alert.get("message", ""),
-                            "severity": km_alert.get("level", "info"),
-                            "timestamp": km_alert.get("created_at", ""),
-                        })
+                        active_alerts.append(
+                            {
+                                "id": km_alert.get("id", ""),
+                                "type": km_alert.get("level", "info"),
+                                "message": km_alert.get("message", ""),
+                                "severity": km_alert.get("level", "info"),
+                                "timestamp": km_alert.get("created_at", ""),
+                            }
+                        )
             else:
                 active_alerts = []
 
@@ -532,11 +556,13 @@ class CostHandler:
             # In production, this would update a database record
             logger.info(f"[CostHandler] Alert {alert_id} dismissed for {workspace_id}")
 
-            return web.json_response({
-                "success": True,
-                "alert_id": alert_id,
-                "dismissed": True,
-            })
+            return web.json_response(
+                {
+                    "success": True,
+                    "alert_id": alert_id,
+                    "dismissed": True,
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Failed to dismiss alert: {e}")

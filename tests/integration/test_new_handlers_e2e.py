@@ -157,12 +157,12 @@ class TestUnifiedInboxWebhookIntegration:
         stats_result = await inbox_handler.handle(stats_request, "/api/v1/inbox/stats", "GET")
         assert stats_result.status_code == 200
 
-        # Step 2: Triage a message (simulated)
+        # Step 2: Triage messages (simulated)
         triage_request = MagicMock()
         triage_request.tenant_id = tenant_id
         triage_request.json = AsyncMock(
             return_value={
-                "message_id": "msg_test_123",
+                "message_ids": ["msg_test_123", "msg_test_456"],
                 "use_agents": True,
             }
         )

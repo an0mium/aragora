@@ -7,7 +7,7 @@ description: "Aragora: Commercial Positioning & Value Proposition"
 
 **Control Plane for Multi-Agent Deliberation Across Org Knowledge and Channels**
 
-*Version 2.0 | January 2026*  
+*Version 2.0 | January 2026*
 *Status: Internal positioning draft; numbers are targets unless noted.*
 
 ---

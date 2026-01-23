@@ -387,7 +387,7 @@ class UnifiedInboxHandler(BaseHandler):
     ) -> Dict[str, Any]:
         """Connect Gmail account via OAuth."""
         try:
-            from aragora.connectors.email import GmailSyncService, GmailSyncConfig
+            from aragora.connectors.email import GmailSyncService, GmailSyncConfig  # noqa: F401
 
             GmailSyncConfig(
                 enable_prioritization=True,
@@ -420,7 +420,7 @@ class UnifiedInboxHandler(BaseHandler):
     ) -> Dict[str, Any]:
         """Connect Outlook account via OAuth."""
         try:
-            from aragora.connectors.email import OutlookSyncService, OutlookSyncConfig
+            from aragora.connectors.email import OutlookSyncService, OutlookSyncConfig  # noqa: F401
 
             OutlookSyncConfig(
                 enable_prioritization=True,
@@ -645,7 +645,7 @@ class UnifiedInboxHandler(BaseHandler):
     ) -> List[UnifiedMessage]:
         """Apply priority scoring to messages."""
         try:
-            from aragora.services.email_prioritization import (
+            from aragora.services.email_prioritization import (  # noqa: F401
                 EmailPrioritizer,
                 EmailPriority,
             )
@@ -756,7 +756,7 @@ class UnifiedInboxHandler(BaseHandler):
     ) -> TriageResult:
         """Triage a single message using multi-agent debate."""
         try:
-            from aragora.debate import Arena, Environment, DebateProtocol
+            from aragora.debate import Arena, Environment, DebateProtocol  # noqa: F401
 
             # Build debate environment
             Environment(

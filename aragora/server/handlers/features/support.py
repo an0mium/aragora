@@ -102,7 +102,9 @@ class UnifiedTicket:
             "tags": self.tags,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "first_response_at": self.first_response_at.isoformat() if self.first_response_at else None,
+            "first_response_at": self.first_response_at.isoformat()
+            if self.first_response_at
+            else None,
             "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
         }
 
@@ -223,19 +225,24 @@ class SupportHandler(SecureHandler):
         platforms = []
         for platform_id, meta in SUPPORTED_PLATFORMS.items():
             connected = platform_id in _platform_credentials
-            platforms.append({
-                "id": platform_id,
-                "name": meta["name"],
-                "description": meta["description"],
-                "features": meta["features"],
-                "connected": connected,
-                "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
-            })
+            platforms.append(
+                {
+                    "id": platform_id,
+                    "name": meta["name"],
+                    "description": meta["description"],
+                    "features": meta["features"],
+                    "connected": connected,
+                    "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
+                }
+            )
 
-        return self._json_response(200, {
-            "platforms": platforms,
-            "connected_count": sum(1 for p in platforms if p["connected"]),
-        })
+        return self._json_response(
+            200,
+            {
+                "platforms": platforms,
+                "connected_count": sum(1 for p in platforms if p["connected"]),
+            },
+        )
 
     async def _connect_platform(self, request: Any) -> dict[str, Any]:
         """Connect a support platform with credentials."""
@@ -274,11 +281,14 @@ class SupportHandler(SecureHandler):
 
         logger.info(f"Connected support platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-            "connected_at": _platform_credentials[platform]["connected_at"],
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+                "connected_at": _platform_credentials[platform]["connected_at"],
+            },
+        )
 
     async def _disconnect_platform(self, request: Any, platform: str) -> dict[str, Any]:
         """Disconnect a support platform."""
@@ -295,10 +305,13 @@ class SupportHandler(SecureHandler):
 
         logger.info(f"Disconnected support platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+            },
+        )
 
     # Ticket operations
 
@@ -325,11 +338,14 @@ class SupportHandler(SecureHandler):
         # Sort by created_at descending
         all_tickets.sort(key=lambda t: t.get("created_at") or "", reverse=True)
 
-        return self._json_response(200, {
-            "tickets": all_tickets[:limit],
-            "total": len(all_tickets),
-            "platforms_queried": list(_platform_credentials.keys()),
-        })
+        return self._json_response(
+            200,
+            {
+                "tickets": all_tickets[:limit],
+                "total": len(all_tickets),
+                "platforms_queried": list(_platform_credentials.keys()),
+            },
+        )
 
     async def _fetch_platform_tickets(
         self,
@@ -376,11 +392,14 @@ class SupportHandler(SecureHandler):
 
         tickets = await self._fetch_platform_tickets(platform, status, priority, limit)
 
-        return self._json_response(200, {
-            "tickets": tickets,
-            "total": len(tickets),
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "tickets": tickets,
+                "total": len(tickets),
+                "platform": platform,
+            },
+        )
 
     async def _get_ticket(self, request: Any, platform: str, ticket_id: str) -> dict[str, Any]:
         """Get a specific ticket with its conversation history."""
@@ -395,18 +414,24 @@ class SupportHandler(SecureHandler):
             if platform == "zendesk":
                 ticket = await connector.get_ticket(int(ticket_id))
                 comments = await connector.get_ticket_comments(int(ticket_id))
-                return self._json_response(200, {
-                    **self._normalize_zendesk_ticket(ticket),
-                    "comments": [self._normalize_zendesk_comment(c) for c in comments],
-                })
+                return self._json_response(
+                    200,
+                    {
+                        **self._normalize_zendesk_ticket(ticket),
+                        "comments": [self._normalize_zendesk_comment(c) for c in comments],
+                    },
+                )
 
             elif platform == "freshdesk":
                 ticket = await connector.get_ticket(int(ticket_id))
                 conversations = await connector.get_ticket_conversations(int(ticket_id))
-                return self._json_response(200, {
-                    **self._normalize_freshdesk_ticket(ticket),
-                    "conversations": conversations,
-                })
+                return self._json_response(
+                    200,
+                    {
+                        **self._normalize_freshdesk_ticket(ticket),
+                        "conversations": conversations,
+                    },
+                )
 
             elif platform == "intercom":
                 conversation = await connector.get_conversation(ticket_id)
@@ -415,10 +440,13 @@ class SupportHandler(SecureHandler):
             elif platform == "helpscout":
                 conversation = await connector.get_conversation(int(ticket_id))
                 threads = await connector.get_conversation_threads(int(ticket_id))
-                return self._json_response(200, {
-                    **self._normalize_helpscout_conversation(conversation),
-                    "threads": threads,
-                })
+                return self._json_response(
+                    200,
+                    {
+                        **self._normalize_helpscout_conversation(conversation),
+                        "threads": threads,
+                    },
+                )
 
         except Exception as e:
             return self._error_response(404, f"Ticket not found: {e}")
@@ -481,7 +509,9 @@ class SupportHandler(SecureHandler):
                     subject=subject or "Support Request",
                     text=description,
                 )
-                return self._json_response(201, self._normalize_helpscout_conversation(conversation))
+                return self._json_response(
+                    201, self._normalize_helpscout_conversation(conversation)
+                )
 
         except Exception as e:
             return self._error_response(500, f"Failed to create ticket: {e}")
@@ -552,7 +582,9 @@ class SupportHandler(SecureHandler):
 
                 await connector.update_conversation(int(ticket_id), **updates)
                 conversation = await connector.get_conversation(int(ticket_id))
-                return self._json_response(200, self._normalize_helpscout_conversation(conversation))
+                return self._json_response(
+                    200, self._normalize_helpscout_conversation(conversation)
+                )
 
         except Exception as e:
             return self._error_response(500, f"Failed to update ticket: {e}")
@@ -664,12 +696,16 @@ class SupportHandler(SecureHandler):
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         recent_tickets = [
-            t for t in tickets
-            if t.get("created_at") and datetime.fromisoformat(t["created_at"].replace("Z", "+00:00")) >= cutoff
+            t
+            for t in tickets
+            if t.get("created_at")
+            and datetime.fromisoformat(t["created_at"].replace("Z", "+00:00")) >= cutoff
         ]
 
         open_count = sum(1 for t in recent_tickets if t.get("status") in ["open", "new", "pending"])
-        resolved_count = sum(1 for t in recent_tickets if t.get("status") in ["solved", "closed", "resolved"])
+        resolved_count = sum(
+            1 for t in recent_tickets if t.get("status") in ["solved", "closed", "resolved"]
+        )
 
         return {
             "total_tickets": len(recent_tickets),
@@ -711,26 +747,31 @@ class SupportHandler(SecureHandler):
         # Perform triage analysis
         triage_results = []
         for ticket in tickets_to_triage[:50]:  # Limit to 50 tickets
-            triage_results.append({
-                "ticket_id": ticket.get("id"),
-                "platform": ticket.get("platform"),
-                "subject": ticket.get("subject"),
-                "suggested_priority": self._suggest_priority(ticket),
-                "suggested_category": self._suggest_category(ticket),
-                "sentiment": self._analyze_sentiment(ticket),
-                "urgency_score": self._calculate_urgency(ticket),
-                "suggested_response_template": self._suggest_response_template(ticket),
-            })
+            triage_results.append(
+                {
+                    "ticket_id": ticket.get("id"),
+                    "platform": ticket.get("platform"),
+                    "subject": ticket.get("subject"),
+                    "suggested_priority": self._suggest_priority(ticket),
+                    "suggested_category": self._suggest_category(ticket),
+                    "sentiment": self._analyze_sentiment(ticket),
+                    "urgency_score": self._calculate_urgency(ticket),
+                    "suggested_response_template": self._suggest_response_template(ticket),
+                }
+            )
 
         # Sort by urgency
         triage_results.sort(key=lambda t: t["urgency_score"], reverse=True)
 
-        return self._json_response(200, {
-            "triage_id": str(uuid4()),
-            "tickets_analyzed": len(triage_results),
-            "results": triage_results,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        return self._json_response(
+            200,
+            {
+                "triage_id": str(uuid4()),
+                "tickets_analyzed": len(triage_results),
+                "results": triage_results,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
     # Auto-respond
 
@@ -788,16 +829,19 @@ class SupportHandler(SecureHandler):
             },
         ]
 
-        return self._json_response(200, {
-            "ticket_id": ticket_id,
-            "platform": platform,
-            "suggestions": suggestions,
-            "ticket_context": {
-                "subject": ticket_data.get("subject"),
-                "status": ticket_data.get("status"),
-                "priority": ticket_data.get("priority"),
+        return self._json_response(
+            200,
+            {
+                "ticket_id": ticket_id,
+                "platform": platform,
+                "suggestions": suggestions,
+                "ticket_context": {
+                    "subject": ticket_data.get("subject"),
+                    "status": ticket_data.get("status"),
+                    "priority": ticket_data.get("priority"),
+                },
             },
-        })
+        )
 
     # Search
 
@@ -834,11 +878,14 @@ class SupportHandler(SecureHandler):
             except Exception as e:
                 logger.error(f"Error searching {platform}: {e}")
 
-        return self._json_response(200, {
-            "query": query,
-            "results": results[:limit],
-            "total": len(results),
-        })
+        return self._json_response(
+            200,
+            {
+                "query": query,
+                "results": results[:limit],
+                "total": len(results),
+            },
+        )
 
     # Helper methods
 
@@ -868,6 +915,7 @@ class SupportHandler(SecureHandler):
                     ZendeskConnector,
                     ZendeskCredentials,
                 )
+
                 connector = ZendeskConnector(ZendeskCredentials(**creds))
 
             elif platform == "freshdesk":
@@ -875,6 +923,7 @@ class SupportHandler(SecureHandler):
                     FreshdeskConnector,
                     FreshdeskCredentials,
                 )
+
                 connector = FreshdeskConnector(FreshdeskCredentials(**creds))
 
             elif platform == "intercom":
@@ -882,6 +931,7 @@ class SupportHandler(SecureHandler):
                     IntercomConnector,
                     IntercomCredentials,
                 )
+
                 connector = IntercomConnector(IntercomCredentials(**creds))
 
             elif platform == "helpscout":
@@ -889,6 +939,7 @@ class SupportHandler(SecureHandler):
                     HelpScoutConnector,
                     HelpScoutCredentials,
                 )
+
                 connector = HelpScoutConnector(HelpScoutCredentials(**creds))
 
             else:
@@ -909,7 +960,9 @@ class SupportHandler(SecureHandler):
             "subject": ticket.subject,
             "description": ticket.description,
             "status": ticket.status.value if hasattr(ticket.status, "value") else ticket.status,
-            "priority": ticket.priority.value if hasattr(ticket.priority, "value") else ticket.priority,
+            "priority": ticket.priority.value
+            if hasattr(ticket.priority, "value")
+            else ticket.priority,
             "requester_email": ticket.requester_email,
             "requester_name": ticket.requester_name,
             "assignee_id": str(ticket.assignee_id) if ticket.assignee_id else None,
@@ -952,12 +1005,22 @@ class SupportHandler(SecureHandler):
             "id": conv.id,
             "platform": "intercom",
             "subject": conv.title if hasattr(conv, "title") else None,
-            "description": conv.source.body if hasattr(conv, "source") and hasattr(conv.source, "body") else None,
+            "description": conv.source.body
+            if hasattr(conv, "source") and hasattr(conv.source, "body")
+            else None,
             "status": conv.state,
-            "priority": conv.priority.value if hasattr(conv, "priority") and hasattr(conv.priority, "value") else None,
-            "requester_email": conv.contacts[0].email if hasattr(conv, "contacts") and conv.contacts else None,
-            "created_at": conv.created_at.isoformat() if hasattr(conv, "created_at") and conv.created_at else None,
-            "updated_at": conv.updated_at.isoformat() if hasattr(conv, "updated_at") and conv.updated_at else None,
+            "priority": conv.priority.value
+            if hasattr(conv, "priority") and hasattr(conv.priority, "value")
+            else None,
+            "requester_email": conv.contacts[0].email
+            if hasattr(conv, "contacts") and conv.contacts
+            else None,
+            "created_at": conv.created_at.isoformat()
+            if hasattr(conv, "created_at") and conv.created_at
+            else None,
+            "updated_at": conv.updated_at.isoformat()
+            if hasattr(conv, "updated_at") and conv.updated_at
+            else None,
         }
 
     def _normalize_helpscout_conversation(self, conv: Any) -> dict[str, Any]:
@@ -969,11 +1032,19 @@ class SupportHandler(SecureHandler):
             "description": conv.preview if hasattr(conv, "preview") else None,
             "status": conv.status.value if hasattr(conv.status, "value") else conv.status,
             "priority": None,  # Help Scout doesn't have priority on conversations
-            "requester_email": conv.customer.email if hasattr(conv, "customer") and conv.customer else None,
-            "requester_name": f"{conv.customer.first_name} {conv.customer.last_name}".strip() if hasattr(conv, "customer") and conv.customer else None,
-            "assignee_id": str(conv.assignee.id) if hasattr(conv, "assignee") and conv.assignee else None,
+            "requester_email": conv.customer.email
+            if hasattr(conv, "customer") and conv.customer
+            else None,
+            "requester_name": f"{conv.customer.first_name} {conv.customer.last_name}".strip()
+            if hasattr(conv, "customer") and conv.customer
+            else None,
+            "assignee_id": str(conv.assignee.id)
+            if hasattr(conv, "assignee") and conv.assignee
+            else None,
             "tags": conv.tags if hasattr(conv, "tags") else [],
-            "created_at": conv.created_at.isoformat() if hasattr(conv, "created_at") and conv.created_at else None,
+            "created_at": conv.created_at.isoformat()
+            if hasattr(conv, "created_at") and conv.created_at
+            else None,
         }
 
     def _map_freshdesk_status(self, status: int) -> str:

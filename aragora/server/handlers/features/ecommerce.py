@@ -272,19 +272,24 @@ class EcommerceHandler(SecureHandler):
         platforms = []
         for platform_id, meta in SUPPORTED_PLATFORMS.items():
             connected = platform_id in _platform_credentials
-            platforms.append({
-                "id": platform_id,
-                "name": meta["name"],
-                "description": meta["description"],
-                "features": meta["features"],
-                "connected": connected,
-                "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
-            })
+            platforms.append(
+                {
+                    "id": platform_id,
+                    "name": meta["name"],
+                    "description": meta["description"],
+                    "features": meta["features"],
+                    "connected": connected,
+                    "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
+                }
+            )
 
-        return self._json_response(200, {
-            "platforms": platforms,
-            "connected_count": sum(1 for p in platforms if p["connected"]),
-        })
+        return self._json_response(
+            200,
+            {
+                "platforms": platforms,
+                "connected_count": sum(1 for p in platforms if p["connected"]),
+            },
+        )
 
     async def _connect_platform(self, request: Any) -> dict[str, Any]:
         """Connect an e-commerce platform with credentials."""
@@ -323,11 +328,14 @@ class EcommerceHandler(SecureHandler):
 
         logger.info(f"Connected e-commerce platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-            "connected_at": _platform_credentials[platform]["connected_at"],
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+                "connected_at": _platform_credentials[platform]["connected_at"],
+            },
+        )
 
     async def _disconnect_platform(self, request: Any, platform: str) -> dict[str, Any]:
         """Disconnect an e-commerce platform."""
@@ -344,10 +352,13 @@ class EcommerceHandler(SecureHandler):
 
         logger.info(f"Disconnected e-commerce platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+            },
+        )
 
     # Order operations
 
@@ -374,11 +385,14 @@ class EcommerceHandler(SecureHandler):
         # Sort by created_at descending
         all_orders.sort(key=lambda o: o.get("created_at") or "", reverse=True)
 
-        return self._json_response(200, {
-            "orders": all_orders[:limit],
-            "total": len(all_orders),
-            "platforms_queried": list(_platform_credentials.keys()),
-        })
+        return self._json_response(
+            200,
+            {
+                "orders": all_orders[:limit],
+                "total": len(all_orders),
+                "platforms_queried": list(_platform_credentials.keys()),
+            },
+        )
 
     async def _fetch_platform_orders(
         self,
@@ -431,11 +445,14 @@ class EcommerceHandler(SecureHandler):
 
         orders = await self._fetch_platform_orders(platform, status, limit, days)
 
-        return self._json_response(200, {
-            "orders": orders,
-            "total": len(orders),
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "orders": orders,
+                "total": len(orders),
+                "platform": platform,
+            },
+        )
 
     async def _get_order(self, request: Any, platform: str, order_id: str) -> dict[str, Any]:
         """Get a specific order with details."""
@@ -485,10 +502,13 @@ class EcommerceHandler(SecureHandler):
                 continue
             all_products.extend(result)
 
-        return self._json_response(200, {
-            "products": all_products[:limit],
-            "total": len(all_products),
-        })
+        return self._json_response(
+            200,
+            {
+                "products": all_products[:limit],
+                "total": len(all_products),
+            },
+        )
 
     async def _fetch_platform_products(
         self,
@@ -525,11 +545,14 @@ class EcommerceHandler(SecureHandler):
 
         products = await self._fetch_platform_products(platform, status, limit)
 
-        return self._json_response(200, {
-            "products": products,
-            "total": len(products),
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "products": products,
+                "total": len(products),
+                "platform": platform,
+            },
+        )
 
     async def _get_product(self, request: Any, platform: str, product_id: str) -> dict[str, Any]:
         """Get a specific product."""
@@ -572,11 +595,11 @@ class EcommerceHandler(SecureHandler):
                     levels = await connector.get_inventory_levels()
                     inventory["shopify"] = [
                         {
-                            "inventory_item_id": str(l.inventory_item_id),
-                            "location_id": str(l.location_id),
-                            "available": l.available,
+                            "inventory_item_id": str(level.inventory_item_id),
+                            "location_id": str(level.location_id),
+                            "available": level.available,
                         }
-                        for l in levels
+                        for level in levels
                     ]
 
                 elif platform == "walmart":
@@ -593,10 +616,13 @@ class EcommerceHandler(SecureHandler):
                 logger.error(f"Error fetching {platform} inventory: {e}")
                 inventory[platform] = [{"error": str(e)}]
 
-        return self._json_response(200, {
-            "inventory": inventory,
-            "platforms": list(inventory.keys()),
-        })
+        return self._json_response(
+            200,
+            {
+                "inventory": inventory,
+                "platforms": list(inventory.keys()),
+            },
+        )
 
     async def _sync_inventory(self, request: Any) -> dict[str, Any]:
         """Sync inventory across platforms."""
@@ -657,11 +683,14 @@ class EcommerceHandler(SecureHandler):
             except Exception as e:
                 results[platform] = {"error": str(e)}
 
-        return self._json_response(200, {
-            "sku": sku,
-            "quantity": quantity,
-            "results": results,
-        })
+        return self._json_response(
+            200,
+            {
+                "sku": sku,
+                "quantity": quantity,
+                "results": results,
+            },
+        )
 
     # Fulfillment operations
 
@@ -687,35 +716,42 @@ class EcommerceHandler(SecureHandler):
                     order = await connector.get_order(int(order_id))
                     if hasattr(order, "fulfillments"):
                         for f in order.fulfillments:
-                            fulfillments.append({
-                                "platform": p,
-                                "order_id": order_id,
-                                "fulfillment_id": str(f.id),
-                                "status": f.status,
-                                "tracking_number": f.tracking_number,
-                                "tracking_url": f.tracking_url,
-                                "carrier": f.tracking_company,
-                            })
+                            fulfillments.append(
+                                {
+                                    "platform": p,
+                                    "order_id": order_id,
+                                    "fulfillment_id": str(f.id),
+                                    "status": f.status,
+                                    "tracking_number": f.tracking_number,
+                                    "tracking_url": f.tracking_url,
+                                    "carrier": f.tracking_company,
+                                }
+                            )
 
                 elif p == "shipstation":
                     shipments = await connector.get_shipments(order_id=order_id)
                     for s in shipments:
-                        fulfillments.append({
-                            "platform": p,
-                            "order_id": str(s.order_id),
-                            "shipment_id": str(s.shipment_id),
-                            "status": s.shipment_status,
-                            "tracking_number": s.tracking_number,
-                            "carrier": s.carrier_code,
-                        })
+                        fulfillments.append(
+                            {
+                                "platform": p,
+                                "order_id": str(s.order_id),
+                                "shipment_id": str(s.shipment_id),
+                                "status": s.shipment_status,
+                                "tracking_number": s.tracking_number,
+                                "carrier": s.carrier_code,
+                            }
+                        )
 
             except Exception as e:
                 logger.error(f"Error fetching {p} fulfillment: {e}")
 
-        return self._json_response(200, {
-            "fulfillments": fulfillments,
-            "total": len(fulfillments),
-        })
+        return self._json_response(
+            200,
+            {
+                "fulfillments": fulfillments,
+                "total": len(fulfillments),
+            },
+        )
 
     async def _create_shipment(self, request: Any) -> dict[str, Any]:
         """Create a shipment for an order."""
@@ -746,12 +782,19 @@ class EcommerceHandler(SecureHandler):
                     carrier_code=carrier,
                     service_code=service,
                 )
-                return self._json_response(201, {
-                    "shipment_id": str(label.shipment_id) if hasattr(label, "shipment_id") else None,
-                    "tracking_number": label.tracking_number if hasattr(label, "tracking_number") else None,
-                    "label_url": label.label_data if hasattr(label, "label_data") else None,
-                    "platform": platform,
-                })
+                return self._json_response(
+                    201,
+                    {
+                        "shipment_id": str(label.shipment_id)
+                        if hasattr(label, "shipment_id")
+                        else None,
+                        "tracking_number": label.tracking_number
+                        if hasattr(label, "tracking_number")
+                        else None,
+                        "label_url": label.label_data if hasattr(label, "label_data") else None,
+                        "platform": platform,
+                    },
+                )
 
             elif platform == "shopify":
                 fulfillment = await connector.create_fulfillment(
@@ -759,11 +802,14 @@ class EcommerceHandler(SecureHandler):
                     tracking_number=body.get("tracking_number"),
                     tracking_company=carrier,
                 )
-                return self._json_response(201, {
-                    "fulfillment_id": str(fulfillment.id),
-                    "status": fulfillment.status,
-                    "platform": platform,
-                })
+                return self._json_response(
+                    201,
+                    {
+                        "fulfillment_id": str(fulfillment.id),
+                        "status": fulfillment.status,
+                        "platform": platform,
+                    },
+                )
 
         except Exception as e:
             return self._error_response(500, f"Failed to create shipment: {e}")
@@ -794,7 +840,9 @@ class EcommerceHandler(SecureHandler):
 
                 metrics["totals"]["total_orders"] += platform_metrics.get("total_orders", 0)
                 metrics["totals"]["total_revenue"] += platform_metrics.get("total_revenue", 0)
-                metrics["totals"]["orders_pending_fulfillment"] += platform_metrics.get("pending_fulfillment", 0)
+                metrics["totals"]["orders_pending_fulfillment"] += platform_metrics.get(
+                    "pending_fulfillment", 0
+                )
 
             except Exception as e:
                 logger.error(f"Error fetching {platform} metrics: {e}")
@@ -812,7 +860,9 @@ class EcommerceHandler(SecureHandler):
         orders = await self._fetch_platform_orders(platform, limit=1000, days=days)
 
         total_revenue = sum(o.get("total_price", 0) for o in orders)
-        pending = sum(1 for o in orders if o.get("fulfillment_status") in [None, "unfulfilled", "partial"])
+        pending = sum(
+            1 for o in orders if o.get("fulfillment_status") in [None, "unfulfilled", "partial"]
+        )
 
         return {
             "total_orders": len(orders),
@@ -849,6 +899,7 @@ class EcommerceHandler(SecureHandler):
                     ShopifyConnector,
                     ShopifyCredentials,
                 )
+
                 connector = ShopifyConnector(ShopifyCredentials(**creds))
 
             elif platform == "shipstation":
@@ -856,6 +907,7 @@ class EcommerceHandler(SecureHandler):
                     ShipStationConnector,
                     ShipStationCredentials,
                 )
+
                 connector = ShipStationConnector(ShipStationCredentials(**creds))
 
             elif platform == "walmart":
@@ -863,6 +915,7 @@ class EcommerceHandler(SecureHandler):
                     WalmartConnector,
                     WalmartCredentials,
                 )
+
                 connector = WalmartConnector(WalmartCredentials(**creds))
 
             else:
@@ -885,10 +938,14 @@ class EcommerceHandler(SecureHandler):
             "financial_status": order.financial_status,
             "fulfillment_status": order.fulfillment_status,
             "customer_email": order.email,
-            "customer_name": f"{order.customer.first_name} {order.customer.last_name}".strip() if hasattr(order, "customer") and order.customer else None,
+            "customer_name": f"{order.customer.first_name} {order.customer.last_name}".strip()
+            if hasattr(order, "customer") and order.customer
+            else None,
             "total_price": float(order.total_price),
             "subtotal": float(order.subtotal_price),
-            "shipping_price": float(order.total_shipping_price_set.shop_money.amount) if hasattr(order, "total_shipping_price_set") else 0,
+            "shipping_price": float(order.total_shipping_price_set.shop_money.amount)
+            if hasattr(order, "total_shipping_price_set")
+            else 0,
             "tax": float(order.total_tax),
             "currency": order.currency,
             "line_items": [
@@ -914,13 +971,19 @@ class EcommerceHandler(SecureHandler):
             "financial_status": order.payment_status if hasattr(order, "payment_status") else None,
             "fulfillment_status": order.order_status,
             "customer_email": order.customer_email if hasattr(order, "customer_email") else None,
-            "customer_name": order.ship_to.name if hasattr(order, "ship_to") and order.ship_to else None,
+            "customer_name": order.ship_to.name
+            if hasattr(order, "ship_to") and order.ship_to
+            else None,
             "total_price": float(order.order_total) if hasattr(order, "order_total") else 0,
             "subtotal": float(order.order_total) if hasattr(order, "order_total") else 0,
-            "shipping_price": float(order.shipping_amount) if hasattr(order, "shipping_amount") else 0,
+            "shipping_price": float(order.shipping_amount)
+            if hasattr(order, "shipping_amount")
+            else 0,
             "tax": float(order.tax_amount) if hasattr(order, "tax_amount") else 0,
             "currency": "USD",
-            "created_at": order.order_date.isoformat() if hasattr(order, "order_date") and order.order_date else None,
+            "created_at": order.order_date.isoformat()
+            if hasattr(order, "order_date") and order.order_date
+            else None,
         }
 
     def _normalize_walmart_order(self, order: Any) -> dict[str, Any]:
@@ -929,17 +992,25 @@ class EcommerceHandler(SecureHandler):
             "id": order.purchase_order_id,
             "platform": "walmart",
             "order_number": order.customer_order_id,
-            "status": order.order_status.value if hasattr(order.order_status, "value") else order.order_status,
+            "status": order.order_status.value
+            if hasattr(order.order_status, "value")
+            else order.order_status,
             "financial_status": None,
-            "fulfillment_status": order.order_status.value if hasattr(order.order_status, "value") else order.order_status,
+            "fulfillment_status": order.order_status.value
+            if hasattr(order.order_status, "value")
+            else order.order_status,
             "customer_email": order.customer_email if hasattr(order, "customer_email") else None,
-            "customer_name": order.shipping_info.postal_address.name if hasattr(order, "shipping_info") and order.shipping_info else None,
+            "customer_name": order.shipping_info.postal_address.name
+            if hasattr(order, "shipping_info") and order.shipping_info
+            else None,
             "total_price": float(order.order_total) if hasattr(order, "order_total") else 0,
             "subtotal": float(order.order_total) if hasattr(order, "order_total") else 0,
             "shipping_price": 0,
             "tax": 0,
             "currency": "USD",
-            "created_at": order.order_date.isoformat() if hasattr(order, "order_date") and order.order_date else None,
+            "created_at": order.order_date.isoformat()
+            if hasattr(order, "order_date") and order.order_date
+            else None,
         }
 
     def _normalize_shopify_product(self, product: Any) -> dict[str, Any]:
@@ -952,7 +1023,9 @@ class EcommerceHandler(SecureHandler):
             "sku": variant.sku if variant else None,
             "barcode": variant.barcode if variant else None,
             "price": float(variant.price) if variant else 0,
-            "compare_at_price": float(variant.compare_at_price) if variant and variant.compare_at_price else None,
+            "compare_at_price": float(variant.compare_at_price)
+            if variant and variant.compare_at_price
+            else None,
             "inventory_quantity": variant.inventory_quantity if variant else 0,
             "status": product.status,
             "vendor": product.vendor,
@@ -973,7 +1046,9 @@ class EcommerceHandler(SecureHandler):
             "price": float(item.price.amount) if hasattr(item, "price") else 0,
             "compare_at_price": None,
             "inventory_quantity": item.quantity if hasattr(item, "quantity") else 0,
-            "status": item.lifecycle_status.value if hasattr(item.lifecycle_status, "value") else item.lifecycle_status,
+            "status": item.lifecycle_status.value
+            if hasattr(item.lifecycle_status, "value")
+            else item.lifecycle_status,
             "vendor": item.brand if hasattr(item, "brand") else None,
             "product_type": item.product_type if hasattr(item, "product_type") else None,
             "tags": [],

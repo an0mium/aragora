@@ -196,7 +196,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 40,500+ tests across 1,136 test files
+**Test Suite:** 45,100+ tests across 1,220 test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)
