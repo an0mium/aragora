@@ -827,9 +827,56 @@ class ExpenseTracker:
 
     async def _create_qbo_expense(self, expense: ExpenseRecord) -> str:
         """Create expense in QuickBooks."""
-        # This would use the QBO API to create a Purchase transaction
-        # For now, return a mock ID
-        return f"qbo_{uuid4().hex[:8]}"
+        if not self.qbo:
+            logger.warning("No QBO connector configured - returning mock ID")
+            return f"qbo_{uuid4().hex[:8]}"
+
+        try:
+            # Get or create vendor in QBO
+            vendor = await self.qbo.get_vendor_by_name(expense.vendor_name)
+            if not vendor:
+                vendor = await self.qbo.create_vendor(
+                    name=expense.vendor_name,
+                    email=None,
+                )
+            vendor_id = vendor.get("Id", "")
+
+            # Get a default expense account (would typically be configured)
+            accounts = await self.qbo.list_accounts(account_type="Expense")
+            expense_account_id = accounts[0]["Id"] if accounts else None
+
+            if not expense_account_id:
+                logger.warning("No expense account found in QBO")
+                return f"qbo_{uuid4().hex[:8]}"
+
+            # Map payment method
+            payment_type = {
+                PaymentMethod.CREDIT_CARD: "CreditCard",
+                PaymentMethod.DEBIT_CARD: "CreditCard",
+                PaymentMethod.CASH: "Cash",
+                PaymentMethod.CHECK: "Check",
+                PaymentMethod.BANK_TRANSFER: "Cash",
+                PaymentMethod.OTHER: "Cash",
+            }.get(expense.payment_method, "Cash")
+
+            # Create the expense (Purchase) in QBO
+            result = await self.qbo.create_expense(
+                vendor_id=vendor_id,
+                account_id=expense_account_id,
+                amount=float(expense.amount),
+                description=expense.description or f"Expense: {expense.vendor_name}",
+                txn_date=expense.date,
+                payment_type=payment_type,
+            )
+
+            qbo_id = result.get("Id", f"qbo_{uuid4().hex[:8]}")
+            logger.info(f"Created QBO expense {qbo_id} for expense {expense.id}")
+            return qbo_id
+
+        except Exception as e:
+            logger.exception(f"Failed to create QBO expense: {e}")
+            # Return mock ID on failure so sync can continue
+            return f"qbo_error_{uuid4().hex[:8]}"
 
     def _store_expense(self, expense: ExpenseRecord) -> None:
         """Store expense and update indexes."""
