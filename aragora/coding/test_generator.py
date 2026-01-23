@@ -322,7 +322,7 @@ class TestGenerator:
         except SyntaxError:
             return {"error": "Failed to parse code"}
 
-        analysis = {
+        analysis: Dict[str, Any] = {
             "function_name": function_name,
             "parameters": [],
             "return_type": None,

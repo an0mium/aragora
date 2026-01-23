@@ -6,12 +6,9 @@ Formats receipts using Discord's embed format for rich message display.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 from .formatter import ReceiptFormatter, register_formatter
-
-if TYPE_CHECKING:
-    from aragora.export.decision_receipt import DecisionReceipt
 
 
 @register_formatter
@@ -24,7 +21,7 @@ class DiscordReceiptFormatter(ReceiptFormatter):
 
     def format(
         self,
-        receipt: "DecisionReceipt",
+        receipt: Any,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """

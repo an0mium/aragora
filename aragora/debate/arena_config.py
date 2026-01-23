@@ -237,9 +237,7 @@ class ArenaConfig:
     consensus_early_termination_threshold: float = 0.85  # Probability threshold for early stop
 
     # RLM Cognitive Load Limiter (for long debates)
-    use_rlm_limiter: bool = (
-        True  # Use RLM-enhanced cognitive limiter for context compression (auto-triggers after rlm_compression_round_threshold)
-    )
+    use_rlm_limiter: bool = True  # Use RLM-enhanced cognitive limiter for context compression (auto-triggers after rlm_compression_round_threshold)
     rlm_limiter: Optional[Any] = None  # Pre-configured RLMCognitiveLoadLimiter
     rlm_compression_threshold: int = 3000  # Chars above which to trigger RLM compression
     rlm_max_recent_messages: int = 5  # Keep N most recent messages at full detail

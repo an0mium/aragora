@@ -381,7 +381,7 @@ class SBOMGenerator:
         metadata: SBOMMetadata,
     ) -> str:
         """Generate CycloneDX 1.4 JSON format."""
-        bom = {
+        bom: Dict[str, Any] = {
             "bomFormat": "CycloneDX",
             "specVersion": "1.4",
             "serialNumber": metadata.serial_number,
@@ -410,7 +410,7 @@ class SBOMGenerator:
 
         # Add components
         for comp in components:
-            component_json = {
+            component_json: Dict[str, Any] = {
                 "type": comp.component_type.value,
                 "bom-ref": comp.bom_ref,
                 "name": comp.name,
@@ -597,7 +597,7 @@ class SBOMGenerator:
         # Create document ID
         doc_namespace = f"https://aragora.io/spdx/{uuid.uuid4()}"
 
-        spdx = {
+        spdx: Dict[str, Any] = {
             "spdxVersion": "SPDX-2.3",
             "dataLicense": "CC0-1.0",
             "SPDXID": "SPDXRef-DOCUMENT",
@@ -640,7 +640,7 @@ class SBOMGenerator:
         for i, comp in enumerate(components):
             spdx_id = f"SPDXRef-Package-{i}"
 
-            pkg = {
+            pkg: Dict[str, Any] = {
                 "SPDXID": spdx_id,
                 "name": comp.name,
                 "versionInfo": comp.version,

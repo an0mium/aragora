@@ -842,7 +842,7 @@ class DependencyAnalyzer:
         vulnerabilities: list[Vulnerability],
     ) -> str:
         """Generate CycloneDX format SBOM."""
-        sbom = {
+        sbom: dict[str, Any] = {
             "bomFormat": "CycloneDX",
             "specVersion": "1.5",
             "serialNumber": f"urn:uuid:aragora-{datetime.now().strftime('%Y%m%d%H%M%S')}",
@@ -914,7 +914,7 @@ class DependencyAnalyzer:
         vulnerabilities: list[Vulnerability],  # noqa: ARG002
     ) -> str:
         """Generate SPDX format SBOM."""
-        sbom = {
+        sbom: dict[str, Any] = {
             "spdxVersion": "SPDX-2.3",
             "dataLicense": "CC0-1.0",
             "SPDXID": "SPDXRef-DOCUMENT",

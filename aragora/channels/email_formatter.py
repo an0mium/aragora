@@ -6,12 +6,9 @@ Formats receipts as HTML emails for delivery via email channels.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 from .formatter import ReceiptFormatter, register_formatter
-
-if TYPE_CHECKING:
-    from aragora.export.decision_receipt import DecisionReceipt
 
 
 @register_formatter
@@ -24,7 +21,7 @@ class EmailReceiptFormatter(ReceiptFormatter):
 
     def format(
         self,
-        receipt: "DecisionReceipt",
+        receipt: Any,
         options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
@@ -313,7 +310,7 @@ class EmailReceiptFormatter(ReceiptFormatter):
             .replace("'", "&#x27;")
         )
 
-    def _generate_plain_text(self, receipt: "DecisionReceipt", compact: bool) -> str:
+    def _generate_plain_text(self, receipt: Any, compact: bool) -> str:
         """Generate plain text version of the receipt."""
         lines: List[str] = []
 

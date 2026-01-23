@@ -13,7 +13,7 @@ Provides formatted output for debate results including:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
