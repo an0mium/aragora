@@ -535,10 +535,152 @@ class TimelineAgent(BaseDebateAgent):
         self.persona = persona
 
 
+class CategorizationAgent(BaseDebateAgent):
+    """
+    Categorizes emails into smart folders.
+
+    Categories:
+    - invoices: Financial documents, bills, receipts
+    - hr: HR, benefits, payroll
+    - newsletters: Marketing, digests
+    - projects: Project threads, task updates
+    - meetings: Calendar-related
+    - support: Customer support tickets
+    - security: Security alerts, 2FA
+    - receipts: Order confirmations
+    - social: Social media notifications
+    """
+
+    CATEGORIES = [
+        "invoices",
+        "hr",
+        "newsletters",
+        "projects",
+        "meetings",
+        "support",
+        "security",
+        "receipts",
+        "social",
+        "personal",
+        "uncategorized",
+    ]
+
+    def __init__(self, **kwargs):
+        persona = EmailAgentPersona(
+            name="CategorizationAgent",
+            role="Email Category Classifier",
+            focus="""Classify emails into the most appropriate folder:
+- INVOICES: Bills, payment requests, financial statements
+- HR: Payroll, PTO, benefits, performance reviews
+- NEWSLETTERS: Marketing emails, weekly digests, unsubscribe-able content
+- PROJECTS: Task updates, code reviews, sprint notifications
+- MEETINGS: Calendar invites, reschedule requests, agenda items
+- SUPPORT: Customer tickets, help desk responses
+- SECURITY: 2FA codes, password resets, security alerts
+- RECEIPTS: Order confirmations, shipping notifications
+- SOCIAL: LinkedIn, Facebook, Twitter notifications
+- PERSONAL: Family, friends, non-work correspondence
+
+Your task is to identify the MOST appropriate category based on content, sender, and context.""",
+            priority_bias="Focuses on categorization accuracy over priority",
+        )
+
+        super().__init__(
+            name="categorization",
+            system_prompt=persona.get_system_prompt(),
+            **kwargs,
+        )
+        self.persona = persona
+
+    def analyze_category(self, email_content: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Pre-analysis of email for category signals.
+
+        Args:
+            email_content: Dict with subject, body, sender
+
+        Returns:
+            Analysis dict with category scores and signals
+        """
+        import re
+
+        signals = []
+        scores = {cat: 0.0 for cat in self.CATEGORIES}
+
+        subject = email_content.get("subject", "")
+        body = email_content.get("body", "")
+        sender = email_content.get("from", "")
+        text = f"{subject} {body}".lower()
+
+        # Invoice patterns
+        if re.search(r"\b(invoice|billing|payment\s+due|\$\d+[\d,]*\.\d{2})\b", text):
+            scores["invoices"] += 0.4
+            signals.append("Financial patterns detected")
+
+        # HR patterns
+        if re.search(r"\b(payroll|pto|benefits|401k|hr@|human.?resources)\b", text):
+            scores["hr"] += 0.4
+            signals.append("HR-related content")
+
+        # Newsletter patterns
+        if re.search(r"\b(unsubscribe|newsletter|weekly\s+digest|view\s+in\s+browser)\b", text):
+            scores["newsletters"] += 0.5
+            signals.append("Newsletter indicators")
+
+        # Project patterns
+        if re.search(r"\b(task|sprint|pull\s+request|code\s+review|jira|asana|github)\b", text):
+            scores["projects"] += 0.4
+            signals.append("Project management content")
+
+        # Meeting patterns
+        if re.search(r"\b(meeting|calendar|invite|agenda|reschedule|zoom|teams)\b", text):
+            scores["meetings"] += 0.4
+            signals.append("Meeting-related content")
+
+        # Support patterns
+        if re.search(r"\b(ticket\s*#|case\s*#|support|help\s+desk|zendesk)\b", text):
+            scores["support"] += 0.4
+            signals.append("Support ticket indicators")
+
+        # Security patterns
+        if re.search(r"\b(2fa|verification\s+code|password|security\s+alert|sign-?in)\b", text):
+            scores["security"] += 0.5
+            signals.append("Security/auth content")
+
+        # Receipt patterns
+        if re.search(r"\b(order\s+(confirm|shipped)|receipt|tracking|delivery)\b", text):
+            scores["receipts"] += 0.4
+            signals.append("Order/receipt content")
+
+        # Social patterns
+        if re.search(r"\b(liked|commented|followed|linkedin|facebook|twitter)\b", text):
+            scores["social"] += 0.4
+            signals.append("Social media notification")
+
+        # Sender domain checks
+        if "noreply" in sender.lower():
+            scores["newsletters"] += 0.2
+
+        # Find best category
+        best_category = max(scores, key=scores.get)  # type: ignore
+        best_score = scores[best_category]
+
+        if best_score < 0.2:
+            best_category = "uncategorized"
+
+        return {
+            "category": best_category,
+            "confidence": min(0.95, best_score),
+            "signals": signals,
+            "all_scores": scores,
+        }
+
+
 def get_email_agent_team(
     knowledge_mound=None,
     include_billing: bool = True,
     include_timeline: bool = False,
+    include_categorization: bool = False,
 ) -> List[BaseDebateAgent]:
     """
     Get the standard email prioritization agent team.
@@ -547,6 +689,7 @@ def get_email_agent_team(
         knowledge_mound: Optional KM for context queries
         include_billing: Include billing/financial agent
         include_timeline: Include timeline/schedule agent
+        include_categorization: Include categorization agent
 
     Returns:
         List of configured email agents
@@ -563,7 +706,24 @@ def get_email_agent_team(
     if include_timeline:
         agents.append(TimelineAgent())  # type: ignore[abstract]
 
+    if include_categorization:
+        agents.append(CategorizationAgent())  # type: ignore[abstract]
+
     return agents
+
+
+def get_categorization_agent_team() -> List[BaseDebateAgent]:
+    """
+    Get the agent team for email categorization debates.
+
+    Returns:
+        List of agents specialized for categorization
+    """
+    return [
+        CategorizationAgent(),  # type: ignore[abstract]
+        ContentUrgencyAgent(),  # type: ignore[abstract]
+        BillingCriticalityAgent(),  # type: ignore[abstract]
+    ]
 
 
 # Agent configuration for AGENTS.md registration
@@ -592,5 +752,15 @@ AGENT_CONFIGS = {
         "class": "TimelineAgent",
         "description": "Considers schedule and response patterns",
         "capabilities": ["calendar_integration", "response_prediction", "timing_optimization"],
+    },
+    "categorization": {
+        "class": "CategorizationAgent",
+        "description": "Classifies emails into smart folder categories",
+        "capabilities": [
+            "category_detection",
+            "folder_assignment",
+            "newsletter_filtering",
+            "auto_archive_suggestion",
+        ],
     },
 }
