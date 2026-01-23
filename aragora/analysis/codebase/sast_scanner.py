@@ -1060,9 +1060,8 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         if not self.config.emit_security_events or not self._security_emitter:
             return
 
-        # Count critical and high severity findings
+        # Count critical severity findings
         critical_findings = [f for f in result.findings if f.severity == SASTSeverity.CRITICAL]
-        _high_findings = [f for f in result.findings if f.severity == SASTSeverity.ERROR]
 
         # Emit event if threshold is met
         if len(critical_findings) >= self.config.critical_finding_threshold:
