@@ -238,6 +238,195 @@ CODEBASE_SECURITY_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/codebase/analyze-dependencies": {
+        "post": {
+            "tags": ["Codebase"],
+            "summary": "Analyze dependencies",
+            "description": "Analyze dependency graph and inventory.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/CodebaseDependencyAnalysisRequest"}
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Dependency analysis", "CodebaseDependencyAnalysisResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/scan-vulnerabilities": {
+        "post": {
+            "tags": ["Codebase"],
+            "summary": "Scan vulnerabilities",
+            "description": "Scan a repository for CVEs.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/CodebaseDependencyScanRequest"}
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Vulnerability scan", "CodebaseDependencyScanResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/check-licenses": {
+        "post": {
+            "tags": ["Codebase"],
+            "summary": "Check licenses",
+            "description": "Check license compatibility.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/CodebaseLicenseCheckRequest"}
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("License check", "CodebaseLicenseCheckResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/sbom": {
+        "post": {
+            "tags": ["Codebase"],
+            "summary": "Generate SBOM",
+            "description": "Generate SBOM for a repository.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/CodebaseSBOMRequest"}
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("SBOM generated", "CodebaseSBOMResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/scan/secrets": {
+        "post": {
+            "tags": ["Codebase"],
+            "summary": "Trigger secrets scan",
+            "description": "Trigger secrets scan for a repository.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/CodebaseSecretsScanRequest"}
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Secrets scan started", "CodebaseSecretsScanStartResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/scan/secrets/latest": {
+        "get": {
+            "tags": ["Codebase"],
+            "summary": "Get latest secrets scan",
+            "description": "Fetch the latest secrets scan.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response("Secrets scan", "CodebaseSecretsScanResultResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/scan/secrets/{scan_id}": {
+        "get": {
+            "tags": ["Codebase"],
+            "summary": "Get secrets scan by ID",
+            "description": "Fetch a secrets scan result by ID.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+                {"name": "scan_id", "in": "path", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response("Secrets scan", "CodebaseSecretsScanResultResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/secrets": {
+        "get": {
+            "tags": ["Codebase"],
+            "summary": "List secrets",
+            "description": "List secrets from the latest scan.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response("Secrets list", "CodebaseSecretsListResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/scans/secrets": {
+        "get": {
+            "tags": ["Codebase"],
+            "summary": "List secrets scans",
+            "description": "List secrets scan history.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response("Secrets scan list", "CodebaseSecretsScanListResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
 }
 
 __all__ = ["CODEBASE_SECURITY_ENDPOINTS"]

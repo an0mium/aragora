@@ -32,6 +32,8 @@ from aragora.server.openapi.endpoints.decisions import DECISION_ENDPOINTS
 from aragora.server.openapi.endpoints.codebase_security import CODEBASE_SECURITY_ENDPOINTS
 from aragora.server.openapi.endpoints.codebase_metrics import CODEBASE_METRICS_ENDPOINTS
 from aragora.server.openapi.endpoints.github import GITHUB_ENDPOINTS
+from aragora.server.openapi.endpoints.costs import COSTS_ENDPOINTS
+from aragora.server.openapi.endpoints.shared_inbox import INBOX_ENDPOINTS
 
 # Combined endpoints dictionary
 ALL_ENDPOINTS = {
@@ -63,6 +65,8 @@ ALL_ENDPOINTS = {
     **CODEBASE_SECURITY_ENDPOINTS,
     **CODEBASE_METRICS_ENDPOINTS,
     **GITHUB_ENDPOINTS,
+    **COSTS_ENDPOINTS,
+    **INBOX_ENDPOINTS,
 }
 
 __all__ = [
@@ -94,5 +98,7 @@ __all__ = [
     "CODEBASE_SECURITY_ENDPOINTS",
     "CODEBASE_METRICS_ENDPOINTS",
     "GITHUB_ENDPOINTS",
+    "COSTS_ENDPOINTS",
+    "INBOX_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]
