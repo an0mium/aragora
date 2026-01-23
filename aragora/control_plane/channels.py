@@ -384,7 +384,9 @@ class TeamsProvider(ChannelProvider):
 
         # Add action button if link provided
         if message.link_url:
-            card["attachments"][0]["content"]["actions"] = [
+            attachments: List[Dict[str, Any]] = card["attachments"]  # type: ignore[assignment]
+            content: Dict[str, Any] = attachments[0]["content"]
+            content["actions"] = [
                 {
                     "type": "Action.OpenUrl",
                     "title": message.link_text or "View Details",

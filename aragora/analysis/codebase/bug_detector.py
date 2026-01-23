@@ -803,7 +803,7 @@ class BugDetector:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for file_path, result in zip(files_to_scan, results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 errors.append(f"Error scanning {file_path}: {result}")
                 continue
 

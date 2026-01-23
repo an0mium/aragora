@@ -260,15 +260,15 @@ class DocuSignConnector:
         self.account_id = account_id or os.getenv("DOCUSIGN_ACCOUNT_ID")
         self.private_key_path = private_key_path or os.getenv("DOCUSIGN_PRIVATE_KEY")
 
-        env_str = environment or os.getenv("DOCUSIGN_ENVIRONMENT", "demo")
-        if isinstance(env_str, str):
+        if environment is not None:
+            self.environment = environment
+        else:
+            env_str = os.getenv("DOCUSIGN_ENVIRONMENT", "demo")
             self.environment = (
                 DocuSignEnvironment.PRODUCTION
                 if env_str.lower() == "production"
                 else DocuSignEnvironment.DEMO
             )
-        else:
-            self.environment = env_str
 
         # Set URLs based on environment
         if self.environment == DocuSignEnvironment.PRODUCTION:
@@ -434,7 +434,7 @@ class DocuSignConnector:
         carbon_copies = []
 
         for recipient in request.recipients:
-            recipient_data = {
+            recipient_data: Dict[str, Any] = {
                 "email": recipient.email,
                 "name": recipient.name,
                 "recipientId": recipient.recipient_id or str(recipient.routing_order),

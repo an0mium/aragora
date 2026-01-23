@@ -228,13 +228,16 @@ class PlaidConnector:
         self.client_id = client_id or os.getenv("PLAID_CLIENT_ID")
         self.secret = secret or os.getenv("PLAID_SECRET")
 
-        env_str = (environment or os.getenv("PLAID_ENVIRONMENT", "sandbox")).lower()
-        if env_str == "production":
-            self.environment = PlaidEnvironment.PRODUCTION
-        elif env_str == "development":
-            self.environment = PlaidEnvironment.DEVELOPMENT
+        if environment is not None:
+            self.environment = environment
         else:
-            self.environment = PlaidEnvironment.SANDBOX
+            env_str = os.getenv("PLAID_ENVIRONMENT", "sandbox").lower()
+            if env_str == "production":
+                self.environment = PlaidEnvironment.PRODUCTION
+            elif env_str == "development":
+                self.environment = PlaidEnvironment.DEVELOPMENT
+            else:
+                self.environment = PlaidEnvironment.SANDBOX
 
         self.base_url = {
             PlaidEnvironment.SANDBOX: self.SANDBOX_URL,
