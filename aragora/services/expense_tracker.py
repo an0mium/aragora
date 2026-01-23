@@ -347,6 +347,7 @@ class ExpenseTracker:
 
     Provides receipt OCR, auto-categorization, duplicate detection,
     and integration with accounting systems like QuickBooks.
+    Includes circuit breaker protection for external service calls.
     """
 
     def __init__(
@@ -356,6 +357,7 @@ class ExpenseTracker:
         enable_llm_categorization: bool = True,
         use_persistent_storage: bool = False,
         store: Optional[ExpenseStoreBackend] = None,
+        enable_circuit_breakers: bool = True,
     ):
         """
         Initialize expense tracker.
@@ -366,12 +368,14 @@ class ExpenseTracker:
             enable_llm_categorization: Use LLM for smart categorization
             use_persistent_storage: Use database storage instead of in-memory
             store: Custom store backend (uses default if None)
+            enable_circuit_breakers: Enable circuit breaker protection
         """
         self.qbo = qbo_connector
         self.enable_ocr = enable_ocr
         self.enable_llm_categorization = enable_llm_categorization
         self._use_persistent = use_persistent_storage
         self._store = store
+        self._enable_circuit_breakers = enable_circuit_breakers
 
         # In-memory storage (used when persistent storage is disabled)
         self._expenses: Dict[str, ExpenseRecord] = {}
@@ -380,11 +384,52 @@ class ExpenseTracker:
         self._by_date: Dict[str, Set[str]] = {}  # YYYY-MM-DD -> expense_ids
         self._hash_index: Dict[str, str] = {}  # hash_key -> expense_id
 
+        # Circuit breakers for external service resilience
+        self._circuit_breakers: Dict[str, Any] = {}
+        if enable_circuit_breakers:
+            from aragora.resilience import get_circuit_breaker
+
+            self._circuit_breakers = {
+                "ocr": get_circuit_breaker("expense_tracker_ocr", 3, 60.0),
+                "llm": get_circuit_breaker("expense_tracker_llm", 3, 60.0),
+                "qbo": get_circuit_breaker("expense_tracker_qbo", 5, 120.0),
+            }
+
         # Lazily initialize persistent store
         if self._use_persistent and self._store is None:
             from aragora.storage.expense_store import get_expense_store
 
             self._store = get_expense_store()
+
+    def _check_circuit_breaker(self, service: str) -> bool:
+        """Check if circuit breaker allows the request."""
+        if service not in self._circuit_breakers:
+            return True
+        cb = self._circuit_breakers[service]
+        if not cb.can_proceed():
+            logger.warning(f"Circuit breaker open for {service}")
+            return False
+        return True
+
+    def _record_cb_success(self, service: str) -> None:
+        """Record successful external call."""
+        if service in self._circuit_breakers:
+            self._circuit_breakers[service].record_success()
+
+    def _record_cb_failure(self, service: str) -> None:
+        """Record failed external call."""
+        if service in self._circuit_breakers:
+            self._circuit_breakers[service].record_failure()
+
+    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+        """Get status of all circuit breakers."""
+        return {
+            "enabled": self._enable_circuit_breakers,
+            "services": {
+                svc: {"status": cb.get_status(), "failures": cb.failure_count}
+                for svc, cb in self._circuit_breakers.items()
+            },
+        }
 
     async def process_receipt(
         self,
