@@ -104,16 +104,47 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         RBACMiddlewareConfig(
             route_permissions=DEFAULT_ROUTE_PERMISSIONS,
             bypass_paths={
+                # Health checks (required by load balancers/orchestrators)
                 "/health",
                 "/healthz",
                 "/ready",
+                "/readyz",
+                # Observability
                 "/metrics",
+                # API documentation
                 "/api/docs",
+                "/api/docs/",
+                "/api/redoc",
+                "/api/redoc/",
                 "/openapi.json",
-                "/api/public/",  # Public API endpoints
+                "/api/openapi",
+                "/api/openapi.json",
+                "/api/openapi.yaml",
+                "/api/postman.json",
+                "/api/v1/docs",
+                "/api/v1/docs/",
+                "/api/v1/openapi",
+                "/api/v1/openapi.json",
+                # Auth endpoints (must be accessible before authentication)
+                "/api/v1/auth/register",
+                "/api/v1/auth/login",
+                "/api/v1/auth/refresh",
+                "/api/v1/auth/signup",
+                "/api/v1/auth/verify-email",
+                "/api/v1/auth/resend-verification",
+                "/api/v1/auth/accept-invite",
+                "/api/v1/auth/check-invite",
+                # OAuth endpoints (callbacks must be public)
+                "/api/v1/auth/oauth/",
+                "/api/auth/oauth/",
+                # SSO endpoints
+                "/api/v1/auth/sso/",
+                "/auth/sso/",
+                # Explicit public endpoints
+                "/api/public/",
             },
             bypass_methods={"OPTIONS"},
-            default_authenticated=False,  # Allow unauthenticated by default for unmatched routes
+            default_authenticated=True,  # SECURITY: Require auth by default for unmatched routes
         )
     )
     nomic_state_file: Optional[Path] = None

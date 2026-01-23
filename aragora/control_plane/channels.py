@@ -115,6 +115,7 @@ class ChannelConfig:
     channel_type: NotificationChannel
     enabled: bool = True
     workspace_id: Optional[str] = None
+    config_id: Optional[str] = None  # Unique identifier for persistence
 
     # Slack settings
     slack_webhook_url: Optional[str] = None
@@ -137,6 +138,60 @@ class ChannelConfig:
     # Filtering
     event_types: Optional[List[NotificationEventType]] = None  # None = all events
     min_priority: NotificationPriority = NotificationPriority.LOW
+
+    def __post_init__(self) -> None:
+        """Generate a config_id if not provided."""
+        import uuid
+
+        if self.config_id is None:
+            self.config_id = str(uuid.uuid4())
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary for persistence."""
+        return {
+            "config_id": self.config_id,
+            "channel_type": self.channel_type.value,
+            "enabled": self.enabled,
+            "workspace_id": self.workspace_id,
+            "slack_webhook_url": self.slack_webhook_url,
+            "slack_channel": self.slack_channel,
+            "slack_bot_token": self.slack_bot_token,
+            "teams_webhook_url": self.teams_webhook_url,
+            "email_recipients": self.email_recipients,
+            "email_from": self.email_from,
+            "smtp_host": self.smtp_host,
+            "smtp_port": self.smtp_port,
+            "webhook_url": self.webhook_url,
+            "webhook_headers": self.webhook_headers,
+            "event_types": [e.value for e in self.event_types] if self.event_types else None,
+            "min_priority": self.min_priority.value,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ChannelConfig":
+        """Deserialize from dictionary."""
+        event_types = None
+        if data.get("event_types"):
+            event_types = [NotificationEventType(e) for e in data["event_types"]]
+
+        return cls(
+            config_id=data.get("config_id"),
+            channel_type=NotificationChannel(data["channel_type"]),
+            enabled=data.get("enabled", True),
+            workspace_id=data.get("workspace_id"),
+            slack_webhook_url=data.get("slack_webhook_url"),
+            slack_channel=data.get("slack_channel"),
+            slack_bot_token=data.get("slack_bot_token"),
+            teams_webhook_url=data.get("teams_webhook_url"),
+            email_recipients=data.get("email_recipients", []),
+            email_from=data.get("email_from"),
+            smtp_host=data.get("smtp_host"),
+            smtp_port=data.get("smtp_port", 587),
+            webhook_url=data.get("webhook_url"),
+            webhook_headers=data.get("webhook_headers", {}),
+            event_types=event_types,
+            min_priority=NotificationPriority(data.get("min_priority", "low")),
+        )
 
 
 @dataclass
@@ -473,9 +528,22 @@ class NotificationManager:
             title="Task Completed",
             body="Task xyz finished successfully",
         )
+
+        # With persistence (Redis):
+        manager = NotificationManager(redis_client=redis_client)
+        await manager.load_channels()  # Load persisted configs
     """
 
-    def __init__(self) -> None:
+    REDIS_CHANNEL_KEY = "aragora:notification_channels"
+
+    def __init__(self, redis_client: Optional[Any] = None) -> None:
+        """
+        Initialize the notification manager.
+
+        Args:
+            redis_client: Optional Redis client for channel config persistence.
+                         If provided, channel configs will be persisted to Redis.
+        """
         self._channels: List[ChannelConfig] = []
         self._providers: Dict[NotificationChannel, ChannelProvider] = {
             NotificationChannel.SLACK: SlackProvider(),
@@ -485,25 +553,139 @@ class NotificationManager:
         self._event_handlers: Dict[NotificationEventType, List[Callable[..., None]]] = {}
         self._notification_history: List[NotificationResult] = []
         self._max_history = 1000
+        self._redis = redis_client
+
+    async def load_channels(self) -> int:
+        """
+        Load channel configurations from persistent storage.
+
+        Returns:
+            Number of channels loaded
+        """
+        if not self._redis:
+            logger.debug("No Redis client configured, skipping channel load")
+            return 0
+
+        try:
+            import json
+
+            raw_configs = await self._redis.hgetall(self.REDIS_CHANNEL_KEY)
+            loaded = 0
+            for config_id, config_json in raw_configs.items():
+                try:
+                    data = json.loads(config_json)
+                    config = ChannelConfig.from_dict(data)
+                    self._channels.append(config)
+                    loaded += 1
+                except Exception as e:
+                    logger.warning(f"Failed to load channel config {config_id}: {e}")
+
+            logger.info(f"Loaded {loaded} notification channel configs from Redis")
+            return loaded
+        except Exception as e:
+            logger.warning(f"Failed to load channel configs: {e}")
+            return 0
+
+    async def _persist_channel(self, config: ChannelConfig) -> bool:
+        """Persist a channel configuration to Redis."""
+        if not self._redis:
+            return False
+
+        try:
+            import json
+
+            await self._redis.hset(
+                self.REDIS_CHANNEL_KEY,
+                config.config_id,
+                json.dumps(config.to_dict()),
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to persist channel config: {e}")
+            return False
+
+    async def _delete_persisted_channel(self, config_id: str) -> bool:
+        """Delete a channel configuration from Redis."""
+        if not self._redis:
+            return False
+
+        try:
+            await self._redis.hdel(self.REDIS_CHANNEL_KEY, config_id)
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to delete channel config: {e}")
+            return False
 
     def add_channel(self, config: ChannelConfig) -> None:
         """Add a notification channel configuration."""
         self._channels.append(config)
         logger.info(
             f"Added notification channel: {config.channel_type.value}",
-            extra={"workspace_id": config.workspace_id},
+            extra={"workspace_id": config.workspace_id, "config_id": config.config_id},
         )
+
+        # Persist asynchronously if Redis is available
+        if self._redis:
+            asyncio.create_task(self._persist_channel(config))
+
+    async def add_channel_async(self, config: ChannelConfig) -> bool:
+        """Add and persist a notification channel configuration (async)."""
+        self._channels.append(config)
+        logger.info(
+            f"Added notification channel: {config.channel_type.value}",
+            extra={"workspace_id": config.workspace_id, "config_id": config.config_id},
+        )
+
+        if self._redis:
+            return await self._persist_channel(config)
+        return True
 
     def remove_channel(
         self, channel_type: NotificationChannel, workspace_id: Optional[str] = None
     ) -> bool:
         """Remove a notification channel."""
+        removed_configs = [
+            c
+            for c in self._channels
+            if c.channel_type == channel_type and c.workspace_id == workspace_id
+        ]
+
         initial_count = len(self._channels)
         self._channels = [
             c
             for c in self._channels
             if not (c.channel_type == channel_type and c.workspace_id == workspace_id)
         ]
+
+        # Delete from persistence asynchronously
+        if self._redis:
+            for config in removed_configs:
+                asyncio.create_task(self._delete_persisted_channel(config.config_id))
+
+        return len(self._channels) < initial_count
+
+    async def remove_channel_async(
+        self, channel_type: NotificationChannel, workspace_id: Optional[str] = None
+    ) -> bool:
+        """Remove a notification channel (async with persistence)."""
+        removed_configs = [
+            c
+            for c in self._channels
+            if c.channel_type == channel_type and c.workspace_id == workspace_id
+        ]
+
+        initial_count = len(self._channels)
+        self._channels = [
+            c
+            for c in self._channels
+            if not (c.channel_type == channel_type and c.workspace_id == workspace_id)
+        ]
+
+        # Delete from persistence
+        if self._redis:
+            for config in removed_configs:
+                await self._delete_persisted_channel(config.config_id)
+
         return len(self._channels) < initial_count
 
     def get_channels(self, workspace_id: Optional[str] = None) -> List[ChannelConfig]:

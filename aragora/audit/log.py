@@ -814,6 +814,57 @@ def audit_admin_action(
     )
 
 
+# Singleton management
+_audit_log_instance: Optional[AuditLog] = None
+
+
+def get_audit_log(
+    db_path: Optional[Path] = None,
+    retention_days: int = 365 * 7,
+) -> AuditLog:
+    """
+    Get or create the singleton audit log instance.
+
+    In production mode, this will raise DistributedStateError if no
+    distributed backend (PostgreSQL) is configured, enforcing multi-instance
+    consistency for compliance audit trails.
+
+    Args:
+        db_path: Path to SQLite database (default: .nomic/audit.db)
+        retention_days: Days to retain logs (default: 7 years for SOX)
+
+    Returns:
+        Configured AuditLog instance
+    """
+    global _audit_log_instance
+
+    if _audit_log_instance is not None:
+        return _audit_log_instance
+
+    # SECURITY: Enforce distributed storage in production for audit logs
+    # Audit trails MUST be centralized for compliance (SOC2, HIPAA, SOX)
+    from aragora.storage.production_guards import require_distributed_store, StorageMode
+
+    require_distributed_store(
+        "audit_log",
+        StorageMode.SQLITE,
+        "Audit logs must use distributed storage in production for "
+        "compliance requirements (SOC2, HIPAA, SOX). Configure PostgreSQL.",
+    )
+
+    if db_path is None:
+        db_path = Path(".nomic/audit.db")
+
+    _audit_log_instance = AuditLog(db_path=db_path, retention_days=retention_days)
+    return _audit_log_instance
+
+
+def reset_audit_log() -> None:
+    """Reset the singleton audit log instance (for testing)."""
+    global _audit_log_instance
+    _audit_log_instance = None
+
+
 __all__ = [
     "AuditCategory",
     "AuditEvent",
@@ -823,4 +874,6 @@ __all__ = [
     "audit_admin_action",
     "audit_auth_login",
     "audit_data_access",
+    "get_audit_log",
+    "reset_audit_log",
 ]

@@ -1123,6 +1123,81 @@ async def init_gauntlet_worker() -> bool:
     return False
 
 
+async def init_notification_worker() -> bool:
+    """Initialize the notification dispatcher worker for queue processing.
+
+    Starts the background worker that processes queued notifications with
+    retry logic, circuit breakers, and dead letter queue support.
+
+    Requires Redis for queue persistence. If Redis is not available, the
+    worker will not start but notifications can still be sent synchronously.
+
+    Environment Variables:
+        REDIS_URL: Redis connection URL for queue persistence
+        ARAGORA_NOTIFICATION_WORKER: Set to "0" to disable (enabled by default)
+
+    Returns:
+        True if worker was started, False otherwise
+    """
+    import os
+
+    # Enabled by default - set to "0" to disable
+    if os.environ.get("ARAGORA_NOTIFICATION_WORKER", "1").lower() in ("0", "false", "no"):
+        logger.debug("Notification worker not started (ARAGORA_NOTIFICATION_WORKER disabled)")
+        return False
+
+    # Check if Redis is available
+    redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
+    if not redis_url:
+        logger.debug("Notification worker not started (no REDIS_URL configured)")
+        return False
+
+    try:
+        import redis.asyncio as aioredis
+
+        from aragora.control_plane.notifications import (
+            create_notification_dispatcher,
+            NotificationDispatcherConfig,
+        )
+        from aragora.control_plane.channels import NotificationManager
+
+        # Connect to Redis
+        redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+
+        # Test connection
+        await redis_client.ping()
+
+        # Create manager with Redis persistence and load persisted channel configs
+        manager = NotificationManager(redis_client=redis_client)
+        channel_count = await manager.load_channels()
+
+        config = NotificationDispatcherConfig(
+            queue_enabled=True,
+            max_concurrent_deliveries=int(os.environ.get("ARAGORA_NOTIFICATION_CONCURRENCY", "20")),
+        )
+        dispatcher = create_notification_dispatcher(
+            manager=manager,
+            redis=redis_client,
+            config=config,
+        )
+
+        # Start the worker
+        await dispatcher.start_worker()
+
+        logger.info(
+            f"Notification worker started "
+            f"(concurrency={config.max_concurrent_deliveries}, channels_loaded={channel_count})"
+        )
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Notification worker dependencies not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start notification worker: {e}")
+
+    return False
+
+
 def init_workflow_checkpoint_persistence() -> bool:
     """Wire Knowledge Mound to workflow checkpoint persistence.
 
@@ -1186,6 +1261,7 @@ def _get_degraded_status() -> dict[str, Any]:
         "redis_state_backend": False,
         "key_rotation_scheduler": False,
         "rbac_distributed_cache": False,
+        "notification_worker": False,
     }
 
 
@@ -1312,6 +1388,7 @@ async def run_startup_sequence(
         "redis_state_backend": False,
         "key_rotation_scheduler": False,
         "rbac_distributed_cache": False,
+        "notification_worker": False,
     }
 
     # Initialize in parallel where possible
@@ -1344,6 +1421,9 @@ async def run_startup_sequence(
 
     # Start gauntlet worker for durable queue processing (if enabled)
     status["gauntlet_worker"] = await init_gauntlet_worker()
+
+    # Start notification dispatcher worker for queue processing
+    status["notification_worker"] = await init_notification_worker()
 
     # Initialize Redis state backend for horizontal scaling
     status["redis_state_backend"] = await init_redis_state_backend()
@@ -1687,5 +1767,6 @@ __all__ = [
     "init_key_rotation_scheduler",
     "init_rbac_distributed_cache",
     "init_approval_gate_recovery",
+    "init_notification_worker",
     "run_startup_sequence",
 ]

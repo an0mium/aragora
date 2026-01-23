@@ -196,6 +196,57 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/audit/workflow/states$", "GET", "findings.read"),
     RoutePermission(r"^/api/audit/presets$", "GET", "findings.read"),
     RoutePermission(r"^/api/audit/types$", "GET", "findings.read"),
+    # =========================================================================
+    # External Webhooks - MUST be publicly accessible (called by external services)
+    # =========================================================================
+    # Payment webhooks (Stripe calls these)
+    RoutePermission(r"^/api/(v1/)?webhooks/stripe$", "POST", "", allow_unauthenticated=True),
+    # Email service webhooks (Gmail Pub/Sub, Outlook Graph, SendGrid, SES)
+    RoutePermission(
+        r"^/api/(v1/)?webhooks/(gmail|outlook)(/validate)?$", "POST", "", allow_unauthenticated=True
+    ),
+    RoutePermission(
+        r"^/api/(v1/)?bots/email/webhook/(sendgrid|ses)$", "POST", "", allow_unauthenticated=True
+    ),
+    # Chat platform webhooks (Telegram, WhatsApp, Google Chat, Slack, Discord, Teams)
+    RoutePermission(
+        r"^/api/(v1/)?bots/telegram/webhook(/[^/]+)?$", "*", "", allow_unauthenticated=True
+    ),
+    RoutePermission(r"^/api/(v1/)?bots/whatsapp/webhook$", "*", "", allow_unauthenticated=True),
+    RoutePermission(
+        r"^/api/(v1/)?bots/google-chat/webhook$", "POST", "", allow_unauthenticated=True
+    ),
+    RoutePermission(r"^/api/(v1/)?bots/slack/webhook$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?bots/discord/webhook$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?bots/zoom/events$", "POST", "", allow_unauthenticated=True),
+    # Unified chat router webhooks
+    RoutePermission(r"^/api/(v1/)?chat/webhook$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(
+        r"^/api/(v1/)?chat/(slack|teams|discord|google_chat|telegram|whatsapp)/webhook$",
+        "POST",
+        "",
+        allow_unauthenticated=True,
+    ),
+    # Social integrations webhooks
+    RoutePermission(
+        r"^/api/(v1/)?integrations/(telegram|whatsapp)/webhook$",
+        "*",
+        "",
+        allow_unauthenticated=True,
+    ),
+    # Scheduler trigger webhooks (internal but may be called by cron services)
+    RoutePermission(
+        r"^/api/(v1/)?scheduler/webhooks/[^/]+$", "POST", "", allow_unauthenticated=True
+    ),
+    # Health endpoints (additional patterns)
+    RoutePermission(
+        r"^/api/(v1/)?health(/detailed|/deep|/stores)?$", "GET", "", allow_unauthenticated=True
+    ),
+    # OAuth callbacks (user returns from external auth provider)
+    RoutePermission(
+        r"^/api/(v1/)?auth/oauth/callback(/[^/]+)?$", "*", "", allow_unauthenticated=True
+    ),
+    RoutePermission(r"^/api/(v1/)?auth/oauth/providers$", "GET", "", allow_unauthenticated=True),
 ]
 
 
@@ -238,9 +289,13 @@ class RBACMiddleware:
         Returns:
             Tuple of (allowed, reason, permission_key)
         """
-        # Bypass paths
+        # Bypass paths (exact match or prefix match for paths ending with /)
         if path in self.config.bypass_paths:
             return True, "Bypass path", None
+        # Check prefix matches for bypass paths ending with /
+        for bypass_path in self.config.bypass_paths:
+            if bypass_path.endswith("/") and path.startswith(bypass_path):
+                return True, "Bypass path prefix", None
 
         # Bypass methods
         if method.upper() in self.config.bypass_methods:

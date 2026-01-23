@@ -279,18 +279,18 @@ def check_multi_instance_readiness() -> dict[str, bool]:
     """
     from aragora.storage import (  # type: ignore[attr-defined]
         get_integration_store,
-        get_webhook_config_store,
+        get_webhook_store,
         get_gmail_token_store,
     )
-    from aragora.queue.job_queue import get_job_queue_store
 
     stores = {
         "integration_store": False,
-        "webhook_config_store": False,
+        "webhook_store": False,
         "gmail_token_store": False,
-        "job_queue_store": False,
         "workflow_store": False,
         "checkpoint_store": False,
+        "user_store": False,
+        "audit_log": False,
     }
 
     # Check each store's backend
@@ -301,10 +301,10 @@ def check_multi_instance_readiness() -> dict[str, bool]:
         logger.debug(f"Could not check integration_store: {e}")
 
     try:
-        webhook_store = get_webhook_config_store()
-        stores["webhook_config_store"] = getattr(webhook_store, "_uses_distributed", False)
+        webhook_store = get_webhook_store()
+        stores["webhook_store"] = getattr(webhook_store, "_uses_distributed", False)
     except Exception as e:
-        logger.debug(f"Could not check webhook_config_store: {e}")
+        logger.debug(f"Could not check webhook_store: {e}")
 
     try:
         gmail_store = get_gmail_token_store()
@@ -312,11 +312,25 @@ def check_multi_instance_readiness() -> dict[str, bool]:
     except Exception as e:
         logger.debug(f"Could not check gmail_token_store: {e}")
 
+    # Check user store - critical for authentication
     try:
-        job_store = get_job_queue_store()
-        stores["job_queue_store"] = getattr(job_store, "_uses_distributed", False)
+        from aragora.storage.user_store import get_user_store, PostgresUserStore
+
+        user_store = get_user_store()
+        stores["user_store"] = isinstance(user_store, PostgresUserStore)
     except Exception as e:
-        logger.debug(f"Could not check job_queue_store: {e}")
+        logger.debug(f"Could not check user_store: {e}")
+
+    # Check audit log - critical for compliance
+    try:
+        from aragora.audit.log import get_audit_log
+
+        audit_log = get_audit_log()
+        # Currently SQLite-only, so always False
+        # TODO: Add PostgresAuditLog backend
+        stores["audit_log"] = getattr(audit_log, "_uses_distributed", False)
+    except Exception as e:
+        logger.debug(f"Could not check audit_log: {e}")
 
     return stores
 

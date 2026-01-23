@@ -2404,6 +2404,16 @@ def get_user_store() -> Optional[UserStore | PostgresUserStore]:
         env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
         data_dir = Path(env_dir or ".nomic")
 
+    # SECURITY: Enforce distributed storage in production for critical user data
+    from aragora.storage.production_guards import require_distributed_store, StorageMode
+
+    require_distributed_store(
+        "user_store",
+        StorageMode.SQLITE,
+        "PostgreSQL connection failed or ARAGORA_DB_BACKEND=sqlite. "
+        "User data must use PostgreSQL in production for multi-instance consistency.",
+    )
+
     db_path = data_dir / "users.db"
     logger.info(f"Using SQLite user store: {db_path}")
     _user_store_instance = UserStore(db_path)
