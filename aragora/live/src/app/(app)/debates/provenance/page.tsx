@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
@@ -9,7 +9,7 @@ import { ProvenanceGraph } from '@/components/provenance/ProvenanceGraph';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { logger } from '@/utils/logger';
 
-export default function ProvenancePage() {
+function ProvenancePageContent() {
   const searchParams = useSearchParams();
   const debateIdParam = searchParams.get('debate');
 
@@ -299,5 +299,19 @@ export default function ProvenancePage() {
         </footer>
       </main>
     </>
+  );
+}
+
+export default function ProvenancePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
+        <div className="text-[var(--acid-green)] font-mono animate-pulse">
+          Loading provenance data...
+        </div>
+      </div>
+    }>
+      <ProvenancePageContent />
+    </Suspense>
   );
 }
