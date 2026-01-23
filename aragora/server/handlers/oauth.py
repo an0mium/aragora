@@ -1671,9 +1671,13 @@ class OAuthHandler(SecureHandler):
         )
 
     def _redirect_with_tokens(self, redirect_url: str, tokens) -> HandlerResult:
-        """Redirect to frontend with tokens in URL fragment."""
-        # Use URL fragment for tokens (more secure than query params)
-        fragment = urlencode(
+        """Redirect to frontend with tokens in URL query parameters.
+
+        Note: We use query params instead of URL fragments because fragments
+        are stripped during HTTP redirects (by proxies like Cloudflare).
+        The frontend callback page handles extracting tokens from query params.
+        """
+        params = urlencode(
             {
                 "access_token": tokens.access_token,
                 "refresh_token": tokens.refresh_token,
@@ -1681,7 +1685,7 @@ class OAuthHandler(SecureHandler):
                 "expires_in": tokens.expires_in,
             }
         )
-        url = f"{redirect_url}#{fragment}"
+        url = f"{redirect_url}?{params}"
 
         return HandlerResult(
             status_code=302,

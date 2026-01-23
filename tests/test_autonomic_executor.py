@@ -48,7 +48,11 @@ class MockAgent(Agent):
         return self.generate_response
 
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         self.call_count += 1
         if self.generate_delay > 0:
@@ -57,7 +61,7 @@ class MockAgent(Agent):
             raise self.raise_error
         return Critique(
             agent=self.name,
-            target_agent="other_agent",
+            target_agent=target_agent or "other_agent",
             target_content=proposal[:100],
             issues=["Test issue"],
             suggestions=["Test suggestion"],
@@ -352,7 +356,6 @@ class TestAutonomicExecutorGenerate:
 # === Critique Tests ===
 
 
-@pytest.mark.skip(reason="Critique tests return false in CI - mock issue")
 class TestAutonomicExecutorCritique:
     """Tests for AutonomicExecutor.critique() method."""
 
