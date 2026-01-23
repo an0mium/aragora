@@ -79,7 +79,7 @@ function detectDomain(text: string): string {
 
 export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputProps) {
   const router = useRouter();
-  const { tokens } = useAuth();
+  const { tokens, isLoading: authLoading, isAuthenticated } = useAuth();
   const [question, setQuestion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -299,16 +299,27 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     const trimmedQuestion = question.trim() || placeholder;
     if (!trimmedQuestion || isSubmitting) return;
 
+    // Check auth state before submitting
+    if (authLoading) {
+      console.log('[DebateInput] Auth still loading, waiting...');
+      onError?.('Please wait, authentication is loading...');
+      return;
+    }
+
+    if (!isAuthenticated || !tokens?.access_token) {
+      console.log('[DebateInput] Not authenticated, redirecting to login');
+      onError?.('Please log in to start a debate');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const modeConfig = DEBATE_MODES[debateMode];
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tokens.access_token}`,
       };
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`;
-      }
 
       // Debug: Log request details
       const requestUrl = `${apiBase}${modeConfig.endpoint}`;
@@ -433,9 +444,9 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
       setIsSubmitting(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedVertical changes are handled separately
-  }, [question, placeholder, agents, rounds, debateMode, debateFormat, apiBase, isSubmitting, onDebateStarted, onError, router, tokens]);
+  }, [question, placeholder, agents, rounds, debateMode, debateFormat, apiBase, isSubmitting, onDebateStarted, onError, router, tokens, authLoading, isAuthenticated]);
 
-  const isDisabled = isSubmitting || apiStatus === 'offline' || apiStatus === 'checking';
+  const isDisabled = isSubmitting || apiStatus === 'offline' || apiStatus === 'checking' || authLoading;
 
   return (
     <div className="w-full max-w-3xl mx-auto">

@@ -56,16 +56,19 @@ function OAuthCallbackContent() {
 
       if (accessToken && refreshToken) {
         try {
-          // Store tokens
-          setTokens(accessToken, refreshToken);
+          // Store tokens and wait for user profile to be fetched
+          // This is async - we must await it before redirecting
+          await setTokens(accessToken, refreshToken);
           setStatus('success');
           setMessage('Authentication successful');
           // Clear the hash from URL for security
           window.history.replaceState(null, '', window.location.pathname);
-          setTimeout(() => router.push('/'), 1500);
-        } catch {
+          // Small delay for user to see success message, then redirect
+          setTimeout(() => router.push('/'), 500);
+        } catch (err) {
+          console.error('[OAuth Callback] Failed to set tokens:', err);
           setStatus('error');
-          setMessage('Failed to store authentication tokens');
+          setMessage('Failed to complete authentication');
         }
       } else {
         setStatus('error');
