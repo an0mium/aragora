@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { VirtualList } from './VirtualList';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface DebateSummary {
   id: string;
@@ -22,6 +23,7 @@ interface DebateListPanelProps {
 }
 
 export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [debates, setDebates] = useState<DebateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +34,22 @@ export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelP
   const apiBase = API_BASE_URL;
 
   const fetchDebates = useCallback(async (reset = false) => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const currentOffset = reset ? 0 : offset;
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
       const response = await fetch(
-        `${apiBase}/api/debates?limit=${limit}&offset=${currentOffset}`
+        `${apiBase}/api/debates?limit=${limit}&offset=${currentOffset}`,
+        { headers }
       );
 
       if (!response.ok) {
@@ -61,7 +74,7 @@ export function DebateListPanel({ onSelectDebate, limit = 20 }: DebateListPanelP
     } finally {
       setLoading(false);
     }
-  }, [apiBase, limit, offset]);
+  }, [apiBase, limit, offset, isAuthenticated, authLoading, tokens?.access_token]);
 
   useEffect(() => {
     fetchDebates(true);

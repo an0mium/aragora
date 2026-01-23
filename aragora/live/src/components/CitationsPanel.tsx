@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
+import { useAuth } from '@/context/AuthContext';
 
 interface CitationsPanelProps {
   events: StreamEvent[];
@@ -65,6 +66,7 @@ const QUALITY_CONFIG: Record<CitationQuality, { icon: string; label: string; col
 };
 
 export function CitationsPanel({ events, debateId, apiBase }: CitationsPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<CitationType | 'all'>('all');
   const [apiCitations, setApiCitations] = useState<Citation[]>([]);
@@ -73,10 +75,16 @@ export function CitationsPanel({ events, debateId, apiBase }: CitationsPanelProp
   // Fetch evidence from API when debateId is available
   const fetchEvidence = useCallback(async () => {
     if (!debateId || !apiBase) return;
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) return;
 
     setLoading(true);
     try {
-      const response = await fetch(`${apiBase}/api/debates/${debateId}/evidence`);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`${apiBase}/api/debates/${debateId}/evidence`, { headers });
       if (response.ok) {
         const data = await response.json();
         const fetchedCitations: Citation[] = [];
@@ -121,7 +129,7 @@ export function CitationsPanel({ events, debateId, apiBase }: CitationsPanelProp
     } finally {
       setLoading(false);
     }
-  }, [debateId, apiBase]);
+  }, [debateId, apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   // Fetch evidence when debateId changes
   useEffect(() => {

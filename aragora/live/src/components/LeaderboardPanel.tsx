@@ -161,7 +161,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
     }
 
     setLoading(false);
-  }, [apiBase, loopId, selectedDomain]);
+  }, [apiBase, loopId, selectedDomain, isAuthenticated, authLoading, tokens?.access_token]);
 
   // Legacy fallback kept as separate function for testing
   const _fetchDataLegacy = useCallback(async () => {

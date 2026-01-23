@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 interface UploadedDocument {
   id: string;
@@ -54,6 +55,7 @@ export function DocumentUpload({
   apiBase = '',
   enableAudioVideo = true,
 }: DocumentUploadProps) {
+  const { tokens } = useAuth();
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [mediaFiles, setMediaFiles] = useState<UploadedMedia[]>([]);
   const [status, setStatus] = useState<UploadStatus>('idle');
@@ -88,7 +90,11 @@ export function DocumentUpload({
     const pollInterval = setInterval(async () => {
       for (const job of pendingJobs) {
         try {
-          const response = await fetch(`${apiBase}/api/transcription/${job.job_id}`);
+          const headers: HeadersInit = {};
+          if (tokens?.access_token) {
+            headers['Authorization'] = `Bearer ${tokens.access_token}`;
+          }
+          const response = await fetch(`${apiBase}/api/transcription/${job.job_id}`, { headers });
           if (!response.ok) continue;
 
           const data = await response.json();
@@ -126,9 +132,15 @@ export function DocumentUpload({
     const formData = new FormData();
     formData.append('file', file);
 
+    const headers: HeadersInit = {};
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+
     const response = await fetch(`${apiBase}/api/documents/upload`, {
       method: 'POST',
       body: formData,
+      headers,
     });
 
     const data = await response.json();
@@ -150,16 +162,22 @@ export function DocumentUpload({
       onDocumentsChange?.(updated.map((d) => d.id));
       return updated;
     });
-  }, [apiBase, onDocumentsChange]);
+  }, [apiBase, onDocumentsChange, tokens?.access_token]);
 
   // Upload media file for transcription
   const uploadMedia = useCallback(async (file: File, fileType: 'audio' | 'video') => {
     const formData = new FormData();
     formData.append('file', file);
 
+    const headers: HeadersInit = {};
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+
     const response = await fetch(`${apiBase}/api/transcription/upload`, {
       method: 'POST',
       body: formData,
+      headers,
     });
 
     const data = await response.json();
@@ -181,7 +199,7 @@ export function DocumentUpload({
       onTranscriptionsChange?.(updated);
       return updated;
     });
-  }, [apiBase, onTranscriptionsChange]);
+  }, [apiBase, onTranscriptionsChange, tokens?.access_token]);
 
   // Main upload handler
   const uploadFile = useCallback(async (file: File) => {

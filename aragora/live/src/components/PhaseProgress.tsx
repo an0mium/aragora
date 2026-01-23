@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface NomicState {
   phase: string;
@@ -24,11 +25,19 @@ const DEFAULT_API_BASE = API_BASE_URL;
 const PHASES = ['debate', 'design', 'implement', 'verify', 'commit'];
 
 export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE }: PhaseProgressProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [nomicState, setNomicState] = useState<NomicState | null>(null);
 
   const fetchNomicState = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) return;
+
     try {
-      const response = await fetch(`${apiBase}/api/nomic/state`);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`${apiBase}/api/nomic/state`, { headers });
       if (response.ok) {
         const data = await response.json();
         setNomicState(data);
@@ -36,7 +45,7 @@ export function PhaseProgress({ events, currentPhase, apiBase = DEFAULT_API_BASE
     } catch (err) {
       logger.error('Failed to fetch nomic state:', err);
     }
-  }, [apiBase]);
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   useEffect(() => {
     fetchNomicState();
