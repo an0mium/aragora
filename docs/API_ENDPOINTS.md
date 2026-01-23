@@ -8,18 +8,22 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Accounting](#accounting)
 - [Analytics](#analytics)
 - [Analytics Dashboard](#analytics-dashboard)
+- [Ap Automation](#ap-automation)
+- [Ar Automation](#ar-automation)
 - [Audit Export](#audit-export)
 - [Audit Trail](#audit-trail)
 - [Auditing](#auditing)
 - [Belief](#belief)
 - [Breakpoints](#breakpoints)
 - [Checkpoints](#checkpoints)
+- [Code Review](#code-review)
 - [Composite](#composite)
 - [Consensus](#consensus)
 - [Control Plane](#control-plane)
 - [Costs](#costs)
 - [Critique](#critique)
 - [Cross Pollination](#cross-pollination)
+- [Dashboard](#dashboard)
 - [Decision](#decision)
 - [Deliberations](#deliberations)
 - [Dependency Analysis](#dependency-analysis)
@@ -28,6 +32,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [EmailDebate](#emaildebate)
 - [Email Services](#email-services)
 - [Evaluation](#evaluation)
+- [Expenses](#expenses)
 - [Explainability](#explainability)
 - [External Integrations](#external-integrations)
 - [Gallery](#gallery)
@@ -35,6 +40,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Genesis](#genesis)
 - [Inbox Command](#inbox-command)
 - [Introspection](#introspection)
+- [Invoices](#invoices)
 - [KnowledgeChat](#knowledgechat)
 - [Laboratory](#laboratory)
 - [Metrics](#metrics)
@@ -251,6 +257,90 @@ Flip trends over time
 
 ---
 
+## Ap Automation
+
+HTTP API Handlers for Accounts Payable Automation.
+
+### `POST` `/api/v1/accounting/ap/invoices`
+
+Add payable invoice
+
+### `GET` `/api/v1/accounting/ap/invoices`
+
+List payable invoices
+
+### `GET` `/api/v1/accounting/ap/invoices/{id}`
+
+Get invoice by ID
+
+### `POST` `/api/v1/accounting/ap/invoices/{id}/payment`
+
+Record payment
+
+### `POST` `/api/v1/accounting/ap/optimize`
+
+Optimize payment timing
+
+### `POST` `/api/v1/accounting/ap/batch`
+
+Create batch payment
+
+### `GET` `/api/v1/accounting/ap/forecast`
+
+Get cash flow forecast
+
+### `GET` `/api/v1/accounting/ap/discounts`
+
+Get discount opportunities
+
+---
+
+## Ar Automation
+
+HTTP API Handlers for Accounts Receivable Automation.
+
+### `POST` `/api/v1/accounting/ar/invoices`
+
+Create invoice
+
+### `GET` `/api/v1/accounting/ar/invoices`
+
+List invoices
+
+### `GET` `/api/v1/accounting/ar/invoices/{id}`
+
+Get invoice by ID
+
+### `POST` `/api/v1/accounting/ar/invoices/{id}/send`
+
+Send invoice to customer
+
+### `POST` `/api/v1/accounting/ar/invoices/{id}/reminder`
+
+Send payment reminder
+
+### `POST` `/api/v1/accounting/ar/invoices/{id}/payment`
+
+Record payment
+
+### `GET` `/api/v1/accounting/ar/aging`
+
+Get AR aging report
+
+### `GET` `/api/v1/accounting/ar/collections`
+
+Get collection suggestions
+
+### `POST` `/api/v1/accounting/ar/customers`
+
+Add customer
+
+### `GET` `/api/v1/accounting/ar/customers/{id}/balance`
+
+Get customer balance
+
+---
+
 ## Audit Export
 
 Audit Export API Handler.
@@ -403,6 +493,32 @@ Pause debate and create checkpoint
 
 ---
 
+## Code Review
+
+HTTP API Handlers for Code Review.
+
+### `POST` `/api/v1/code-review/review`
+
+Review code snippet
+
+### `POST` `/api/v1/code-review/diff`
+
+Review diff/patch
+
+### `POST` `/api/v1/code-review/pr`
+
+Review GitHub PR
+
+### `GET` `/api/v1/code-review/results/{id}`
+
+Get review results
+
+### `GET` `/api/v1/code-review/history`
+
+Get review history
+
+---
+
 ## Composite
 
 Handler for composite API endpoints that aggregate multiple data sources.
@@ -548,6 +664,36 @@ Arena event bridge status
 ### `POST` `/api/cross-pollination/reset`
 
 Reset subscriber statistics
+
+---
+
+## Dashboard
+
+HTTP API Handlers for Dashboard.
+
+### `GET` `/api/v1/dashboard`
+
+Get dashboard overview
+
+### `GET` `/api/v1/dashboard/stats`
+
+Get detailed stats
+
+### `GET` `/api/v1/dashboard/activity`
+
+Get recent activity
+
+### `GET` `/api/v1/dashboard/inbox-summary`
+
+Get inbox summary
+
+### `GET` `/api/v1/dashboard/quick-actions`
+
+Get available quick actions
+
+### `POST` `/api/v1/dashboard/quick-actions/{action}`
+
+Execute quick action
 
 ---
 
@@ -764,6 +910,64 @@ List available evaluation dimensions
 ### `GET` `/api/v1/evaluate/profiles` 🔒
 
 List available evaluation weight profiles
+
+---
+
+## Expenses
+
+HTTP API Handlers for Expense Tracking.
+
+### `POST` `/api/v1/accounting/expenses/upload`
+
+Upload and process receipt
+
+### `POST` `/api/v1/accounting/expenses`
+
+Create expense manually
+
+### `GET` `/api/v1/accounting/expenses`
+
+List expenses with filters
+
+### `GET` `/api/v1/accounting/expenses/{id}`
+
+Get expense by ID
+
+### `PUT` `/api/v1/accounting/expenses/{id}`
+
+Update expense
+
+### `DELETE` `/api/v1/accounting/expenses/{id}`
+
+Delete expense
+
+### `POST` `/api/v1/accounting/expenses/{id}/approve`
+
+Approve expense
+
+### `POST` `/api/v1/accounting/expenses/{id}/reject`
+
+Reject expense
+
+### `POST` `/api/v1/accounting/expenses/categorize`
+
+Auto-categorize expenses
+
+### `POST` `/api/v1/accounting/expenses/sync`
+
+Sync expenses to QBO
+
+### `GET` `/api/v1/accounting/expenses/stats`
+
+Get expense statistics
+
+### `GET` `/api/v1/accounting/expenses/pending`
+
+Get pending approvals
+
+### `GET` `/api/v1/accounting/expenses/export`
+
+Export expenses
 
 ---
 
@@ -1034,6 +1238,72 @@ List available agents
 ### `GET` `/api/introspection/agents/{name}`
 
 Get introspection for specific agent
+
+---
+
+## Invoices
+
+HTTP API Handlers for Invoice Processing.
+
+### `POST` `/api/v1/accounting/invoices/upload`
+
+Upload and extract invoice
+
+### `POST` `/api/v1/accounting/invoices`
+
+Create invoice manually
+
+### `GET` `/api/v1/accounting/invoices`
+
+List invoices with filters
+
+### `GET` `/api/v1/accounting/invoices/{id}`
+
+Get invoice by ID
+
+### `PUT` `/api/v1/accounting/invoices/{id}`
+
+Update invoice
+
+### `POST` `/api/v1/accounting/invoices/{id}/approve`
+
+Approve invoice
+
+### `POST` `/api/v1/accounting/invoices/{id}/reject`
+
+Reject invoice
+
+### `POST` `/api/v1/accounting/invoices/{id}/match`
+
+Match to PO
+
+### `POST` `/api/v1/accounting/invoices/{id}/schedule`
+
+Schedule payment
+
+### `GET` `/api/v1/accounting/invoices/{id}/anomalies`
+
+Get anomalies
+
+### `GET` `/api/v1/accounting/invoices/pending`
+
+Get pending approvals
+
+### `GET` `/api/v1/accounting/invoices/overdue`
+
+Get overdue invoices
+
+### `GET` `/api/v1/accounting/invoices/stats`
+
+Get statistics
+
+### `POST` `/api/v1/accounting/purchase-orders`
+
+Add purchase order
+
+### `GET` `/api/v1/accounting/payments/scheduled`
+
+Get scheduled payments
 
 ---
 
