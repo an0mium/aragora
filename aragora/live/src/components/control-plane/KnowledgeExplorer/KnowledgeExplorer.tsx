@@ -433,7 +433,7 @@ export function KnowledgeExplorer({
         className={className}
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={(tab) => {
+        onTabChange={(tab: string) => {
           setActiveTab(tab as ExplorerTab);
           // Load data for new tabs (also handled by useEffect but this ensures immediate load)
           if (tab === 'shared') {

@@ -511,7 +511,7 @@ export function OutboundChannelsPanel({
           onRetry={handleRetryDelivery}
           onViewDetails={(entry) => {
             // Could open a modal with full details
-            logger.info('View delivery details:', entry);
+            logger.debug('View delivery details:', entry);
           }}
         />
       )}

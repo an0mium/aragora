@@ -84,7 +84,7 @@ function getStatusLabel(status: ChannelStatus): string {
     case 'rate_limited':
       return 'RATE LIMITED';
     default:
-      return status.toUpperCase();
+      return (status as string).toUpperCase();
   }
 }
 

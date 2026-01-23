@@ -13,6 +13,12 @@ Endpoints:
 - GET  /api/analytics/flips/recent      - Recent flip events
 - GET  /api/analytics/flips/consistency - Agent consistency scores
 - GET  /api/analytics/flips/trends      - Flip trends over time
+
+Deliberation Analytics:
+- GET  /api/v1/analytics/deliberations           - Deliberation summary
+- GET  /api/v1/analytics/deliberations/channels  - Deliberations by channel
+- GET  /api/v1/analytics/deliberations/consensus - Consensus rates by team
+- GET  /api/v1/analytics/deliberations/performance - Performance metrics
 """
 
 from __future__ import annotations
@@ -55,6 +61,11 @@ class AnalyticsDashboardHandler(BaseHandler):
         "/api/v1/analytics/flips/recent",
         "/api/v1/analytics/flips/consistency",
         "/api/v1/analytics/flips/trends",
+        # Deliberation analytics
+        "/api/v1/analytics/deliberations",
+        "/api/v1/analytics/deliberations/channels",
+        "/api/v1/analytics/deliberations/consensus",
+        "/api/v1/analytics/deliberations/performance",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -92,6 +103,15 @@ class AnalyticsDashboardHandler(BaseHandler):
             return self._get_agent_consistency(query_params)
         elif path == "/api/v1/analytics/flips/trends":
             return self._get_flip_trends(query_params)
+        # Deliberation analytics
+        elif path == "/api/v1/analytics/deliberations":
+            return self._get_deliberation_summary(query_params)
+        elif path == "/api/v1/analytics/deliberations/channels":
+            return self._get_deliberation_by_channel(query_params)
+        elif path == "/api/v1/analytics/deliberations/consensus":
+            return self._get_consensus_rates(query_params)
+        elif path == "/api/v1/analytics/deliberations/performance":
+            return self._get_deliberation_performance(query_params)
 
         return None
 
