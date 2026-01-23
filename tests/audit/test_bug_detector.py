@@ -488,7 +488,8 @@ class TestBugDetector:
         (tmp_path / "module1.py").write_text(CODE_WITH_EXCEPTION_ISSUES)
         (tmp_path / "module2.py").write_text(CLEAN_CODE)
 
-        report = detector.detect_in_directory(str(tmp_path))
+        # Pass empty exclude_patterns to avoid default exclusions (which include 'test')
+        report = detector.detect_in_directory(str(tmp_path), exclude_patterns=[])
 
         assert isinstance(report, BugReport)
         assert report.files_scanned >= 2
@@ -497,11 +498,11 @@ class TestBugDetector:
     def test_detect_with_exclusions(self, detector, tmp_path):
         """Test detecting with exclusion patterns."""
         (tmp_path / "main.py").write_text(CODE_WITH_EXCEPTION_ISSUES)
-        (tmp_path / "test_module.py").write_text(CODE_WITH_EXCEPTION_ISSUES)
+        (tmp_path / "skip_module.py").write_text(CODE_WITH_EXCEPTION_ISSUES)
 
-        report = detector.detect_in_directory(str(tmp_path), exclude_patterns=["test"])
+        report = detector.detect_in_directory(str(tmp_path), exclude_patterns=["skip_"])
 
-        # test_module.py should be excluded
+        # skip_module.py should be excluded
         assert report.files_scanned == 1
 
     def test_detector_without_smells(self, tmp_path):

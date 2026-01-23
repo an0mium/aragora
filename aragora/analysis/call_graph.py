@@ -259,7 +259,11 @@ class CallGraph:
         total_dead_lines = 0
         for node in unreachable_functions + unreachable_classes:
             if node.location:
-                lines = node.metadata.get("end_line", node.location.line) - node.location.line + 1
+                lines = (
+                    node.metadata.get("end_line", node.location.start_line)
+                    - node.location.start_line
+                    + 1
+                )
                 total_dead_lines += lines
 
         return DeadCodeResult(
@@ -406,7 +410,7 @@ class CallGraph:
                     "qualified_name": n.qualified_name,
                     "location": {
                         "file": n.location.file_path,
-                        "line": n.location.line,
+                        "line": n.location.start_line,
                     }
                     if n.location
                     else None,
@@ -457,7 +461,10 @@ class CallGraphBuilder:
         graph = CallGraph()
 
         # First pass: collect all symbols
-        analyses = self.code_intel.analyze_directory(directory, exclude_patterns=exclude_patterns)
+        analyses_dict = self.code_intel.analyze_directory(
+            directory, exclude_patterns=exclude_patterns
+        )
+        analyses = list(analyses_dict.values())
 
         for analysis in analyses:
             self._process_file_symbols(analysis, graph)
@@ -499,7 +506,9 @@ class CallGraphBuilder:
             kind=SymbolKind.MODULE,
             name=Path(file_path).stem,
             qualified_name=module_name,
-            location=SourceLocation(file_path=file_path, line=1, column=0),
+            location=SourceLocation(
+                file_path=file_path, start_line=1, start_column=0, end_line=1, end_column=0
+            ),
         )
         graph.add_node(module_node)
         self._symbol_table[module_name] = module_node
@@ -529,7 +538,9 @@ class CallGraphBuilder:
                 metadata={
                     "bases": cls.bases,
                     "decorators": cls.decorators,
-                    "end_line": cls.location.line + len(cls.methods) * 5 if cls.location else 0,
+                    "end_line": cls.location.start_line + len(cls.methods) * 5
+                    if cls.location
+                    else 0,
                 },
             )
             graph.add_node(cls_node)
@@ -670,7 +681,7 @@ class CallGraphBuilder:
             if not func.location:
                 continue
 
-            start_line = func.location.line - 1  # 0-indexed
+            start_line = func.location.start_line - 1  # 0-indexed
             # Estimate end line (simplified)
             end_line = min(start_line + 100, len(lines))
 
@@ -709,8 +720,10 @@ class CallGraphBuilder:
                             callee=callee_name if not receiver else f"{receiver}.{callee_name}",
                             location=SourceLocation(
                                 file_path=file_path,
-                                line=line_idx + 1,
-                                column=match.start(),
+                                start_line=line_idx + 1,
+                                start_column=match.start(),
+                                end_line=line_idx + 1,
+                                end_column=match.end(),
                             ),
                             is_method_call=receiver is not None,
                             receiver=receiver,
@@ -839,15 +852,18 @@ class ImportGraph:
         for analysis in analyses:
             module = Path(analysis.file_path).stem
             for imp in analysis.imports:
-                graph.add_import(
-                    module,
-                    imp.module,
-                    SourceLocation(
+                loc = (
+                    imp.location
+                    if imp.location
+                    else SourceLocation(
                         file_path=analysis.file_path,
-                        line=imp.line,
-                        column=0,
-                    ),
+                        start_line=1,
+                        start_column=0,
+                        end_line=1,
+                        end_column=0,
+                    )
                 )
+                graph.add_import(module, imp.module, loc)
 
         return graph
 
@@ -889,7 +905,9 @@ def analyze_codebase_dependencies(
                 {
                     "name": n.qualified_name,
                     "kind": n.kind.value,
-                    "location": f"{n.location.file_path}:{n.location.line}" if n.location else None,
+                    "location": f"{n.location.file_path}:{n.location.start_line}"
+                    if n.location
+                    else None,
                 }
                 for n in dead_code.unreachable_functions[:20]
             ],
@@ -901,7 +919,7 @@ def analyze_codebase_dependencies(
             {
                 "name": node.qualified_name,
                 "callers": degree,
-                "location": f"{node.location.file_path}:{node.location.line}"
+                "location": f"{node.location.file_path}:{node.location.start_line}"
                 if node.location
                 else None,
             }
