@@ -664,7 +664,7 @@ class APAutomation:
 
     async def get_discount_opportunities(self) -> List[Dict[str, Any]]:
         """Get invoices with available early payment discounts."""
-        opportunities = []
+        opportunities: List[Dict[str, Any]] = []
 
         for invoice in self._invoices.values():
             if invoice.balance <= 0:

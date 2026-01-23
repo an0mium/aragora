@@ -292,7 +292,6 @@ class TestTrueRLMRouting:
         assert mock_true_rlm_result.used_true_rlm is True
         assert mock_true_rlm_result.answer is not None
 
-    @pytest.mark.skip(reason="Logging assertion flaky on CI")
     def test_factory_logging_indicates_rlm_type(self):
         """Factory should log whether TRUE RLM or compression fallback is used."""
         import logging

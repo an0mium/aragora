@@ -196,14 +196,22 @@ class TestArenaBuilderTracking:
 
         assert arena.agent_weights == weights
 
-    @pytest.mark.skip(reason="Requires proper ELO mock with get_rating method - complex setup")
     def test_builder_with_full_tracking(self) -> None:
         """with_full_tracking sets all tracking components."""
         env = Environment(task="Test task")
         agents = [MockAgent()]
+
+        # Configure ELO mock with get_rating method
         elo = MagicMock()
+        elo.get_rating.return_value = 1000.0
+
         persona = MagicMock()
+
+        # Configure calibration mock to return proper numeric brier_score
         calibration = MagicMock()
+        calibration_result = MagicMock()
+        calibration_result.brier_score = 0.25
+        calibration.get_calibration.return_value = calibration_result
 
         arena = (
             ArenaBuilder(env, agents)

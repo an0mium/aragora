@@ -648,10 +648,17 @@ class GustoConnector:
             benefits = emp_comp.get("benefits", [])
 
             # Calculate earnings
-            gross = sum(Decimal(str(c.get("amount", 0))) for c in fixed_comps)
+            gross: Decimal = sum(
+                (Decimal(str(c.get("amount", 0))) for c in fixed_comps),
+                Decimal("0"),
+            )
             gross += sum(
-                Decimal(str(c.get("hours", 0))) * Decimal(str(c.get("compensation_multiplier", 1)))
-                for c in hourly_comps
+                (
+                    Decimal(str(c.get("hours", 0)))
+                    * Decimal(str(c.get("compensation_multiplier", 1)))
+                    for c in hourly_comps
+                ),
+                Decimal("0"),
             )
 
             item = PayrollItem(
