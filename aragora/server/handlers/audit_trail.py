@@ -47,8 +47,7 @@ class AuditTrailHandler(BaseHandler):
     for compliance documentation and integrity verification.
     """
 
-    # In-memory storage for demo purposes
-    # In production, this would be backed by a database
+    # Legacy in-memory storage (kept for backward compatibility during migration)
     _trails: Dict[str, Dict[str, Any]] = {}
     _receipts: Dict[str, Dict[str, Any]] = {}
 
@@ -56,7 +55,12 @@ class AuditTrailHandler(BaseHandler):
         """Initialize with server context."""
         super().__init__(server_context)
 
-    def can_handle(self, method: str, path: str) -> bool:
+        # Use database-backed store for persistence
+        from aragora.storage.audit_trail_store import get_audit_trail_store
+
+        self._store = get_audit_trail_store()
+
+    def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the request."""
         if path.startswith("/api/v1/audit-trails"):
             return method in ("GET", "POST")
@@ -115,35 +119,40 @@ class AuditTrailHandler(BaseHandler):
         """List recent audit trails with pagination."""
         limit = int(query_params.get("limit", "20"))
         offset = int(query_params.get("offset", "0"))
+        verdict = query_params.get("verdict")
 
-        # Get trails from storage (would be database in production)
-        trails = list(self._trails.values())
+        # Get trails from database-backed store
+        summaries = self._store.list_trails(
+            limit=limit,
+            offset=offset,
+            verdict=verdict,
+        )
+        total = self._store.count_trails(verdict=verdict)
 
-        # Sort by created_at descending
-        trails.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-
-        # Paginate
-        paginated = trails[offset : offset + limit]
-
-        # Return summary for each trail (not full event list)
-        summaries = [
-            {
-                "trail_id": t.get("trail_id"),
-                "gauntlet_id": t.get("gauntlet_id"),
-                "created_at": t.get("created_at"),
-                "verdict": t.get("verdict"),
-                "confidence": t.get("confidence"),
-                "total_findings": t.get("total_findings"),
-                "duration_seconds": t.get("duration_seconds"),
-                "checksum": t.get("checksum"),
-            }
-            for t in paginated
-        ]
+        # Fall back to in-memory for backward compatibility
+        if not summaries and self._trails:
+            trails = list(self._trails.values())
+            trails.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+            paginated = trails[offset : offset + limit]
+            summaries = [
+                {
+                    "trail_id": t.get("trail_id"),
+                    "gauntlet_id": t.get("gauntlet_id"),
+                    "created_at": t.get("created_at"),
+                    "verdict": t.get("verdict"),
+                    "confidence": t.get("confidence"),
+                    "total_findings": t.get("total_findings"),
+                    "duration_seconds": t.get("duration_seconds"),
+                    "checksum": t.get("checksum"),
+                }
+                for t in paginated
+            ]
+            total = len(trails)
 
         return json_response(
             {
                 "trails": summaries,
-                "total": len(trails),
+                "total": total,
                 "limit": limit,
                 "offset": offset,
             }
@@ -151,7 +160,12 @@ class AuditTrailHandler(BaseHandler):
 
     async def _get_audit_trail(self, trail_id: str) -> HandlerResult:
         """Get a specific audit trail by ID."""
-        trail = self._trails.get(trail_id)
+        # Try database-backed store first
+        trail = self._store.get_trail(trail_id)
+
+        # Fall back to in-memory cache
+        if not trail:
+            trail = self._trails.get(trail_id)
 
         if not trail:
             # Try to load from gauntlet results if available
@@ -168,7 +182,10 @@ class AuditTrailHandler(BaseHandler):
         """Export audit trail in specified format."""
         format_type = query_params.get("format", "json")
 
-        trail = self._trails.get(trail_id)
+        # Try database-backed store first
+        trail = self._store.get_trail(trail_id)
+        if not trail:
+            trail = self._trails.get(trail_id)
         if not trail:
             trail = await self._load_trail_from_gauntlet(trail_id)
 
@@ -266,30 +283,42 @@ class AuditTrailHandler(BaseHandler):
         """List recent decision receipts with pagination."""
         limit = int(query_params.get("limit", "20"))
         offset = int(query_params.get("offset", "0"))
+        verdict = query_params.get("verdict")
+        risk_level = query_params.get("risk_level")
 
-        receipts = list(self._receipts.values())
-        receipts.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        # Get from database-backed store
+        summaries = self._store.list_receipts(
+            limit=limit,
+            offset=offset,
+            verdict=verdict,
+            risk_level=risk_level,
+        )
+        total = self._store.count_receipts(verdict=verdict, risk_level=risk_level)
 
-        paginated = receipts[offset : offset + limit]
-
-        summaries = [
-            {
-                "receipt_id": r.get("receipt_id"),
-                "gauntlet_id": r.get("gauntlet_id"),
-                "timestamp": r.get("timestamp"),
-                "verdict": r.get("verdict"),
-                "confidence": r.get("confidence"),
-                "risk_level": r.get("risk_level"),
-                "findings_count": len(r.get("findings", [])),
-                "checksum": r.get("checksum"),
-            }
-            for r in paginated
-        ]
+        # Fall back to in-memory for backward compatibility
+        if not summaries and self._receipts:
+            receipts = list(self._receipts.values())
+            receipts.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            paginated = receipts[offset : offset + limit]
+            summaries = [
+                {
+                    "receipt_id": r.get("receipt_id"),
+                    "gauntlet_id": r.get("gauntlet_id"),
+                    "timestamp": r.get("timestamp"),
+                    "verdict": r.get("verdict"),
+                    "confidence": r.get("confidence"),
+                    "risk_level": r.get("risk_level"),
+                    "findings_count": len(r.get("findings", [])),
+                    "checksum": r.get("checksum"),
+                }
+                for r in paginated
+            ]
+            total = len(receipts)
 
         return json_response(
             {
                 "receipts": summaries,
-                "total": len(receipts),
+                "total": total,
                 "limit": limit,
                 "offset": offset,
             }
@@ -297,7 +326,12 @@ class AuditTrailHandler(BaseHandler):
 
     async def _get_receipt(self, receipt_id: str) -> HandlerResult:
         """Get a specific decision receipt by ID."""
-        receipt = self._receipts.get(receipt_id)
+        # Try database-backed store first
+        receipt = self._store.get_receipt(receipt_id)
+
+        # Fall back to in-memory cache
+        if not receipt:
+            receipt = self._receipts.get(receipt_id)
 
         if not receipt:
             receipt = await self._load_receipt_from_gauntlet(receipt_id)
@@ -309,7 +343,10 @@ class AuditTrailHandler(BaseHandler):
 
     async def _verify_receipt(self, receipt_id: str) -> HandlerResult:
         """Verify decision receipt integrity."""
-        receipt = self._receipts.get(receipt_id)
+        # Try database-backed store first
+        receipt = self._store.get_receipt(receipt_id)
+        if not receipt:
+            receipt = self._receipts.get(receipt_id)
         if not receipt:
             receipt = await self._load_receipt_from_gauntlet(receipt_id)
 
@@ -365,6 +402,11 @@ class AuditTrailHandler(BaseHandler):
         else:
             gauntlet_id = trail_id
 
+        # Try database store first (by gauntlet_id)
+        trail_dict = self._store.get_trail_by_gauntlet(gauntlet_id)
+        if trail_dict:
+            return trail_dict
+
         # Try to get from gauntlet handler's result cache
         gauntlet_handler = self.ctx.get("gauntlet_handler")
         if gauntlet_handler and hasattr(gauntlet_handler, "_results"):
@@ -375,7 +417,9 @@ class AuditTrailHandler(BaseHandler):
 
                     trail = generate_audit_trail(result)
                     trail_dict = trail.to_dict()
-                    # Cache it
+                    # Persist to database store
+                    self._store.save_trail(trail_dict)
+                    # Also cache in-memory for backward compatibility
                     self._trails[trail_id] = trail_dict
                     return trail_dict
                 except Exception as e:
@@ -395,6 +439,11 @@ class AuditTrailHandler(BaseHandler):
         else:
             gauntlet_id = receipt_id
 
+        # Try database store first (by gauntlet_id)
+        receipt_dict = self._store.get_receipt_by_gauntlet(gauntlet_id)
+        if receipt_dict:
+            return receipt_dict
+
         gauntlet_handler = self.ctx.get("gauntlet_handler")
         if gauntlet_handler and hasattr(gauntlet_handler, "_results"):
             result = gauntlet_handler._results.get(gauntlet_id)
@@ -406,6 +455,9 @@ class AuditTrailHandler(BaseHandler):
 
                     receipt = generate_decision_receipt(result)
                     receipt_dict = receipt.to_dict()
+                    # Persist to database store
+                    self._store.save_receipt(receipt_dict)
+                    # Also cache in-memory for backward compatibility
                     self._receipts[receipt_id] = receipt_dict
                     return receipt_dict
                 except Exception as e:
