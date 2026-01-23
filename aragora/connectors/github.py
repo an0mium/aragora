@@ -21,7 +21,7 @@ import json
 import logging
 import re
 import subprocess
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.config.timeouts import Timeouts
 from aragora.connectors.base import BaseConnector, Evidence
@@ -618,7 +618,7 @@ class GitHubConnector(BaseConnector):
             return False
 
         # Use gh api to post review
-        review_data = {
+        review_data: dict[str, Any] = {
             "body": body,
             "event": event,
         }

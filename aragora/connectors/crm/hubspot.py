@@ -358,7 +358,7 @@ class HubSpotConnector:
         method: str,
         path: str,
         params: dict | None = None,
-        json_data: dict | None = None,
+        json_data: Any = None,
     ) -> dict[str, Any]:
         """Make API request."""
         client = await self._get_client()

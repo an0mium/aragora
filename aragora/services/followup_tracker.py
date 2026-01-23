@@ -295,7 +295,7 @@ class FollowUpTracker:
             try:
                 # Get thread messages
                 thread = await self.gmail.get_thread(thread_id)
-                messages = thread.get("messages", [])
+                messages = thread.messages
 
                 if len(messages) <= 1:
                     continue  # No replies yet
@@ -386,7 +386,7 @@ class FollowUpTracker:
 
                     # Check if thread has replies
                     thread = await self.gmail.get_thread(thread_id)
-                    messages = thread.get("messages", [])
+                    messages = thread.messages
 
                     # Only track if no reply yet and sent > threshold days ago
                     sent_date = msg.date

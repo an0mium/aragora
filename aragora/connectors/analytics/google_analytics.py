@@ -469,8 +469,8 @@ class GoogleAnalyticsConnector:
         page_path: str | None = None,
     ) -> ReportResponse:
         """Get page views report."""
-        dimensions = ["pagePath", "pageTitle"]
-        metrics = ["screenPageViews", "averageSessionDuration", "bounceRate"]
+        dimensions: list[str | Dimension] = ["pagePath", "pageTitle"]
+        metrics: list[str | Metric] = ["screenPageViews", "averageSessionDuration", "bounceRate"]
 
         dimension_filter = None
         if page_path:

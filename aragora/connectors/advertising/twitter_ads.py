@@ -438,7 +438,7 @@ class TwitterAdsConnector:
         status: CampaignStatus = CampaignStatus.PAUSED,
     ) -> Campaign:
         """Create a new campaign."""
-        data = {
+        data: dict[str, Any] = {
             "name": name,
             "funding_instrument_id": funding_instrument_id,
             "objective": objective.value,
