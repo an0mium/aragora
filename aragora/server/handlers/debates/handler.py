@@ -384,16 +384,17 @@ class DebatesHandler(
         return None
 
     def _extract_debate_id(self, path: str) -> tuple[Optional[str], Optional[str]]:
-        """Extract and validate debate ID from path like /api/debates/{id}/impasse.
+        """Extract and validate debate ID from path like /api/v1/debates/{id}/impasse.
 
         Returns:
             Tuple of (debate_id, error_message). If error_message is set, debate_id is None.
         """
         parts = path.split("/")
-        if len(parts) < 4:
+        if len(parts) < 5:
             return None, "Invalid path"
 
-        debate_id = parts[3]
+        # For v1 routes: ['', 'api', 'v1', 'debates', '{id}', ...]
+        debate_id = parts[4]
         is_valid, err = validate_debate_id(debate_id)
         if not is_valid:
             return None, err

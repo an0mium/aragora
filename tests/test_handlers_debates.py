@@ -1390,7 +1390,7 @@ class TestSpecificExceptionHandling:
         # Search with query uses storage.search() method
         mock_storage.search.side_effect = StorageError("Storage unavailable")
 
-        result = debates_handler.handle("/api/search", {"q": "test"}, None)
+        result = debates_handler.handle("/api/v1/search", {"q": "test"}, None)
 
         assert result is not None
         assert result.status_code == 500
@@ -1404,7 +1404,7 @@ class TestSpecificExceptionHandling:
         # Search with query uses storage.search() method
         mock_storage.search.side_effect = DatabaseError("DB connection lost")
 
-        result = debates_handler.handle("/api/search", {"q": "test"}, None)
+        result = debates_handler.handle("/api/v1/search", {"q": "test"}, None)
 
         assert result is not None
         assert result.status_code == 500
@@ -1416,7 +1416,7 @@ class TestSpecificExceptionHandling:
         # Search with query uses storage.search() method
         mock_storage.search.side_effect = ValueError("Invalid search pattern")
 
-        result = debates_handler.handle("/api/search", {"q": "test"}, None)
+        result = debates_handler.handle("/api/v1/search", {"q": "test"}, None)
 
         assert result is not None
         assert result.status_code == 400
