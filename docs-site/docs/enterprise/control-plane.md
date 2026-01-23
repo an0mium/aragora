@@ -420,7 +420,7 @@ Response:
 }
 ```
 
-### Robust Decisionmaking Sessions (Deliberations)
+### Vetted Decisionmaking Sessions (Deliberations)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -428,7 +428,7 @@ Response:
 | `GET` | `/api/control-plane/deliberations/:id` | Get vetted decisionmaking result |
 | `GET` | `/api/control-plane/deliberations/:id/status` | Get vetted decisionmaking status |
 
-#### Submit Robust Decisionmaking (Sync)
+#### Submit Vetted Decisionmaking (Sync)
 
 ```bash
 curl -X POST http://localhost:8080/api/control-plane/deliberations \
@@ -442,7 +442,7 @@ curl -X POST http://localhost:8080/api/control-plane/deliberations \
   }'
 ```
 
-#### Submit Robust Decisionmaking (Async)
+#### Submit Vetted Decisionmaking (Async)
 
 ```bash
 curl -X POST http://localhost:8080/api/control-plane/deliberations \

@@ -1,7 +1,7 @@
 /**
  * Aragora VS Code Extension
  *
- * Control plane for multi-agent robust decisionmaking with rich code analysis.
+ * Control plane for multi-agent vetted decisionmaking with rich code analysis.
  * Provides integration with the Aragora multi-agent debate API,
  * security diagnostics, code actions, and real-time streaming.
  */

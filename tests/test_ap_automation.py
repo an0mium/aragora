@@ -451,8 +451,9 @@ class TestPayableInvoice:
         d = invoice.to_dict()
 
         assert d["id"] == "apinv_123"
-        assert d["vendor_name"] == "Test Vendor"
-        assert d["total_amount"] == "1000.00"
+        # Uses camelCase keys and float values
+        assert d["vendorName"] == "Test Vendor"
+        assert d["totalAmount"] == 1000.0
         assert d["priority"] == "normal"
 
     def test_days_until_due(self):
@@ -511,20 +512,19 @@ class TestPaymentSchedule:
     def test_to_dict(self):
         """Test conversion to dictionary."""
         schedule = PaymentSchedule(
-            id="sched_123",
             total_amount=Decimal("5000.00"),
-            scheduled_payments=[
-                {"invoice_id": "inv1", "amount": "2000.00", "date": "2024-01-15"},
-                {"invoice_id": "inv2", "amount": "3000.00", "date": "2024-01-20"},
+            total_discount_captured=Decimal("100.00"),
+            payments=[
+                {"invoice_id": "inv1", "amount": 2000.00, "date": "2024-01-15"},
+                {"invoice_id": "inv2", "amount": 3000.00, "date": "2024-01-20"},
             ],
-            discount_captured=Decimal("100.00"),
         )
 
         d = schedule.to_dict()
 
-        assert d["id"] == "sched_123"
-        assert d["total_amount"] == "5000.00"
-        assert len(d["scheduled_payments"]) == 2
+        # Uses camelCase keys and float values
+        assert d["totalAmount"] == 5000.0
+        assert len(d["payments"]) == 2
 
 
 # =============================================================================
@@ -539,15 +539,17 @@ class TestBatchPaymentDataclass:
         """Test conversion to dictionary."""
         batch = BatchPayment(
             id="batch_123",
-            invoice_ids=["inv1", "inv2"],
+            payment_date=datetime(2024, 1, 15),
             total_amount=Decimal("3000.00"),
             payment_method=PaymentMethod.ACH,
-            payment_date=datetime(2024, 1, 15),
+            invoices=[{"id": "inv1"}, {"id": "inv2"}],
+            payment_count=2,
         )
 
         d = batch.to_dict()
 
         assert d["id"] == "batch_123"
-        assert d["total_amount"] == "3000.00"
-        assert d["payment_method"] == "ach"
-        assert len(d["invoice_ids"]) == 2
+        # Uses camelCase keys and float values
+        assert d["totalAmount"] == 3000.0
+        assert d["paymentMethod"] == "ach"
+        assert len(d["invoices"]) == 2

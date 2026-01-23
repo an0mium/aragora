@@ -231,11 +231,17 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 | `ARAGORA_PG_SSL_MODE` | Optional | Postgres SSL mode | `require` |
 | `ARAGORA_POSTGRESQL_POOL_SIZE` | Optional | Postgres pool size (storage backend) | `5` |
 | `ARAGORA_POSTGRESQL_POOL_MAX_OVERFLOW` | Optional | Postgres overflow (storage backend) | `10` |
+| `ARAGORA_POLICY_STORE_BACKEND` | Optional | Policy store backend: `sqlite`, `postgres`, `postgresql` | Uses `ARAGORA_DB_BACKEND` |
+| `ARAGORA_AUDIT_STORE_BACKEND` | Optional | Audit log backend: `sqlite`, `postgres`, `postgresql` | Uses `ARAGORA_DB_BACKEND` |
+| `ARAGORA_REQUIRE_DISTRIBUTED` | Optional | Fail closed when stores fall back to local (prod default) | `auto` |
+| `ARAGORA_STORAGE_MODE` | Optional | Force storage mode: `postgres`, `redis`, `sqlite`, `file` | `auto` |
 
 **\*Auto-detect Behavior:**
 - If `DATABASE_URL` or `ARAGORA_POSTGRES_DSN` is set → uses PostgreSQL
 - Otherwise → uses SQLite for local development
 - Set `ARAGORA_DB_BACKEND` explicitly to override auto-detection
+- Store-specific backends (policy/audit) inherit `ARAGORA_DB_BACKEND` unless overridden
+- `ARAGORA_REQUIRE_DISTRIBUTED=true` enforces distributed stores in production
 
 **Production Setup:**
 ```bash
@@ -292,6 +298,8 @@ explicitly if you need consistent pooling across subsystems.
 | `ARAGORA_WS_MAX_MESSAGE_SIZE` | Optional | Max WebSocket message size | `65536` |
 | `ARAGORA_WS_HEARTBEAT` | Optional | WebSocket heartbeat interval (seconds) | `30` |
 | `ARAGORA_DEFAULT_HOST` | Optional | Fallback host for link generation | `localhost:8080` |
+| `ARAGORA_NOTIFICATION_WORKER` | Optional | Enable notification worker (`0` to disable) | `1` |
+| `ARAGORA_NOTIFICATION_CONCURRENCY` | Optional | Max concurrent notification deliveries | `20` |
 
 ## Debate Defaults
 
@@ -934,6 +942,7 @@ These variables are legacy aliases maintained for backwards compatibility:
 |----------|-----------|-------------|
 | `ARAGORA_SQL_CONNECTION` | `DATABASE_URL` | Legacy SQL connection string |
 | `ARAGORA_POSTGRES_DSN` | `DATABASE_URL` | Legacy Postgres DSN |
+| `ARAGORA_REQUIRE_DISTRIBUTED_STATE` | `ARAGORA_REQUIRE_DISTRIBUTED` | Deprecated distributed-state flag |
 
 ## Validation Rules
 

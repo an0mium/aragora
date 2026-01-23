@@ -199,7 +199,7 @@ export default function DeliberationsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-mono text-acid-green mb-2">
-                  Robust Decisionmaking Dashboard
+                  Vetted Decisionmaking Dashboard
                 </h1>
                 <p className="text-text-muted font-mono text-sm">
                   Real-time view of multi-agent vetted decisionmaking sessions across your organization
@@ -223,7 +223,7 @@ export default function DeliberationsPage() {
         </div>
 
         <div className="container mx-auto px-4 py-6 space-y-6">
-          <PanelErrorBoundary panelName="Robust Decisionmaking">
+          <PanelErrorBoundary panelName="Vetted Decisionmaking">
             {/* Stats */}
             <DeliberationStats stats={stats} loading={loading} />
 
@@ -256,7 +256,7 @@ export default function DeliberationsPage() {
               ))}
             </div>
 
-            {/* Robust Decisionmaking Grid */}
+            {/* Vetted Decisionmaking Grid */}
             <DeliberationGrid
               deliberations={filteredDeliberations}
               loading={loading}

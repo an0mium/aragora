@@ -1,7 +1,7 @@
 """
 Aragora: Control Plane for Multi-Agent Deliberation
 
-The control plane for multi-agent robust decisionmaking across organizational knowledge
+The control plane for multi-agent vetted decisionmaking across organizational knowledge
 and channels. Aragora orchestrates 15+ AI models to debate your organization's
 knowledge and deliver defensible decisions to any channel.
 Deliberation is the engine; the product is a defensible decision record.

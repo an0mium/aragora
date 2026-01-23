@@ -30,7 +30,6 @@ from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult, SyncState
-from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -383,15 +382,15 @@ class ShopifyConnector(EnterpriseConnector):
             credentials: Shopify OAuth credentials
             environment: Development or production environment
         """
-        super().__init__(name="shopify", source_type=SourceType.ECOMMERCE)
-        self.credentials = credentials
+        super().__init__(connector_id="shopify", tenant_id="default")
+        self._shop_credentials = credentials
         self.environment = environment
-        self._session = None
+        self._session: Any = None
 
     @property
     def base_url(self) -> str:
         """Get Shopify API base URL."""
-        return f"https://{self.credentials.shop_domain}/admin/api/{self.credentials.api_version}"
+        return f"https://{self._shop_credentials.shop_domain}/admin/api/{self._shop_credentials.api_version}"
 
     async def connect(self) -> bool:
         """Establish connection to Shopify API."""
@@ -399,7 +398,7 @@ class ShopifyConnector(EnterpriseConnector):
             import aiohttp
 
             headers = {
-                "X-Shopify-Access-Token": self.credentials.access_token,
+                "X-Shopify-Access-Token": self._shop_credentials.access_token,
                 "Content-Type": "application/json",
             }
             self._session = aiohttp.ClientSession(headers=headers)

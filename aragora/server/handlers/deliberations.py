@@ -1,15 +1,15 @@
 """
-Robust Decisionmaking (Deliberations) API Handler.
+Vetted Decisionmaking (Deliberations) API Handler.
 
-Provides endpoints for the robust decisionmaking dashboard:
-- List active robust decisionmaking sessions
-- Get robust decisionmaking statistics
+Provides endpoints for the vetted decisionmaking dashboard:
+- List active vetted decisionmaking sessions
+- Get vetted decisionmaking statistics
 - WebSocket stream for real-time updates
 
 Usage:
-    GET    /api/v1/deliberations/active    - List active robust decisionmaking sessions
+    GET    /api/v1/deliberations/active    - List active vetted decisionmaking sessions
     GET    /api/v1/deliberations/stats     - Get aggregate statistics
-    GET    /api/v1/deliberations/{id}      - Get robust decisionmaking details
+    GET    /api/v1/deliberations/{id}      - Get vetted decisionmaking details
     WS     /api/v1/deliberations/stream    - Real-time event stream
 """
 
@@ -38,9 +38,9 @@ _stats: dict[str, Any] = {
 
 class DeliberationsHandler(BaseHandler):
     """
-    Handler for robust decisionmaking dashboard endpoints.
+    Handler for vetted decisionmaking dashboard endpoints.
 
-    Provides visibility into multi-agent robust decisionmaking sessions across the system.
+    Provides visibility into multi-agent vetted decisionmaking sessions across the system.
     """
 
     ROUTES = [
@@ -76,7 +76,7 @@ class DeliberationsHandler(BaseHandler):
         return {"error": "Not found"}, 404
 
     async def _get_active_deliberations(self, request: Any) -> tuple[dict[str, Any], int]:
-        """Get list of active robust decisionmaking sessions."""
+        """Get list of active vetted decisionmaking sessions."""
         try:
             # Try to get real deliberations from debate store
             deliberations = await self._fetch_active_from_store()
@@ -91,7 +91,7 @@ class DeliberationsHandler(BaseHandler):
             return {"error": str(e)}, 500
 
     async def _fetch_active_from_store(self) -> list[dict[str, Any]]:
-        """Fetch active robust decisionmaking sessions from the debate store."""
+        """Fetch active vetted decisionmaking sessions from the debate store."""
         deliberations = []
 
         try:

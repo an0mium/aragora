@@ -2,19 +2,19 @@
 Unified Orchestration Handler for Aragora Control Plane.
 
 Provides a single API that embodies "Control plane for multi-agent
-robust decisionmaking across org knowledge and channels":
+vetted decisionmaking across org knowledge and channels":
 
 - Accept knowledge context sources (Slack channel, Confluence page, etc.)
-- Auto-fetch content as robust decisionmaking context
-- Run robust decisionmaking with specified or auto-selected agent team
+- Auto-fetch content as vetted decisionmaking context
+- Run vetted decisionmaking with specified or auto-selected agent team
 - Route results to output channels
 - Return receipt with full provenance
 
 Endpoints:
-    POST /api/v1/orchestration/deliberate     - Unified robust decisionmaking endpoint
-    GET  /api/v1/orchestration/status/:id     - Get robust decisionmaking status
+    POST /api/v1/orchestration/deliberate     - Unified vetted decisionmaking endpoint
+    GET  /api/v1/orchestration/status/:id     - Get vetted decisionmaking status
     GET  /api/v1/orchestration/templates      - List available templates
-    POST /api/v1/orchestration/deliberate/sync - Synchronous robust decisionmaking
+    POST /api/v1/orchestration/deliberate/sync - Synchronous vetted decisionmaking
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ class TeamStrategy(Enum):
 
 
 class OutputFormat(Enum):
-    """Format for robust decisionmaking output."""
+    """Format for vetted decisionmaking output."""
 
     STANDARD = "standard"  # Default JSON response
     DECISION_RECEIPT = "decision_receipt"  # Full audit receipt
@@ -66,7 +66,7 @@ class OutputFormat(Enum):
 
 @dataclass
 class KnowledgeContextSource:
-    """A source of knowledge context for robust decisionmaking."""
+    """A source of knowledge context for vetted decisionmaking."""
 
     source_type: str  # slack, confluence, github, document, etc.
     source_id: str  # Channel ID, page ID, PR number, etc.
@@ -84,7 +84,7 @@ class KnowledgeContextSource:
 
 @dataclass
 class OutputChannel:
-    """A channel to route robust decisionmaking results to."""
+    """A channel to route vetted decisionmaking results to."""
 
     channel_type: str  # slack, teams, discord, telegram, email, webhook
     channel_id: str  # Channel ID, email address, webhook URL
@@ -119,7 +119,7 @@ class OutputChannel:
 
 @dataclass
 class OrchestrationRequest:
-    """Request for a unified orchestration robust decisionmaking session."""
+    """Request for a unified orchestration vetted decisionmaking session."""
 
     question: str
     knowledge_sources: List[KnowledgeContextSource] = field(default_factory=list)
@@ -212,7 +212,7 @@ class OrchestrationRequest:
 
 @dataclass
 class OrchestrationResult:
-    """Result of a unified orchestration robust decisionmaking session."""
+    """Result of a unified orchestration vetted decisionmaking session."""
 
     request_id: str
     success: bool
@@ -266,7 +266,7 @@ except ImportError:
     # Fallback if templates module not available
     @dataclass
     class DeliberationTemplate:  # type: ignore[no-redef]
-        """Pre-built robust decisionmaking pattern (fallback)."""
+        """Pre-built vetted decisionmaking pattern (fallback)."""
 
         name: str
         description: str
@@ -338,7 +338,7 @@ class OrchestrationHandler(BaseHandler):
     Unified orchestration handler for the Aragora control plane.
 
     This handler provides the primary API for the "Control plane for
-    multi-agent robust decisionmaking across org knowledge and channels" positioning.
+    multi-agent vetted decisionmaking across org knowledge and channels" positioning.
     """
 
     def can_handle(self, path: str) -> bool:
@@ -382,7 +382,7 @@ class OrchestrationHandler(BaseHandler):
         """
         GET /api/v1/orchestration/templates
 
-        Returns list of available robust decisionmaking templates.
+        Returns list of available vetted decisionmaking templates.
         """
         templates = [t.to_dict() for t in TEMPLATES.values()]
         return json_response(
@@ -396,7 +396,7 @@ class OrchestrationHandler(BaseHandler):
         """
         GET /api/v1/orchestration/status/:id
 
-        Returns status of a robust decisionmaking request.
+        Returns status of a vetted decisionmaking request.
         """
         if request_id in _orchestration_results:
             result = _orchestration_results[request_id]
@@ -427,10 +427,10 @@ class OrchestrationHandler(BaseHandler):
         POST /api/v1/orchestration/deliberate
         POST /api/v1/orchestration/deliberate/sync
 
-        Unified robust decisionmaking endpoint that:
+        Unified vetted decisionmaking endpoint that:
         1. Fetches context from knowledge sources
         2. Selects agent team based on strategy
-        3. Runs robust decisionmaking
+        3. Runs vetted decisionmaking
         4. Routes results to output channels
         5. Returns receipt with provenance
         """
@@ -482,12 +482,12 @@ class OrchestrationHandler(BaseHandler):
     # =========================================================================
 
     async def _execute_and_store(self, request: OrchestrationRequest) -> None:
-        """Execute robust decisionmaking and store result."""
+        """Execute vetted decisionmaking and store result."""
         try:
             result = await self._execute_deliberation(request)
             _orchestration_results[request.request_id] = result
         except Exception as e:
-            logger.exception(f"Async robust decisionmaking failed: {e}")
+            logger.exception(f"Async vetted decisionmaking failed: {e}")
             _orchestration_results[request.request_id] = OrchestrationResult(
                 request_id=request.request_id,
                 success=False,
@@ -499,7 +499,7 @@ class OrchestrationHandler(BaseHandler):
 
     async def _execute_deliberation(self, request: OrchestrationRequest) -> OrchestrationResult:
         """
-        Execute a unified orchestration robust decisionmaking session.
+        Execute a unified orchestration vetted decisionmaking session.
 
         This is the core method that ties together:
         - Knowledge context fetching
@@ -535,7 +535,7 @@ class OrchestrationHandler(BaseHandler):
             # Step 2: Select agent team
             agents = await self._select_agent_team(request)
 
-            # Step 3: Run robust decisionmaking
+            # Step 3: Run vetted decisionmaking
             from aragora.control_plane.deliberation import DeliberationManager
 
             coordinator = self.ctx.get("control_plane_coordinator")
@@ -588,7 +588,7 @@ class OrchestrationHandler(BaseHandler):
                         knowledge_context_used=knowledge_context_used,
                     )
             else:
-                # Fallback: Direct robust decisionmaking without control plane
+                # Fallback: Direct vetted decisionmaking without control plane
                 from aragora.core.decision import DecisionRequest, get_decision_router, DecisionType
 
                 decision_request = DecisionRequest(
@@ -792,7 +792,7 @@ class OrchestrationHandler(BaseHandler):
         result: OrchestrationResult,
         request: OrchestrationRequest,
     ) -> None:
-        """Route robust decisionmaking result to an output channel."""
+        """Route vetted decisionmaking result to an output channel."""
         channel_type = channel.channel_type.lower()
 
         # Format message based on output format

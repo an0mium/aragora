@@ -7,18 +7,18 @@ these constants to ensure consistency across the codebase.
 """
 
 # Primary tagline (under 15 words)
-TAGLINE = "Control plane for multi-agent robust decisionmaking across org knowledge and channels."
+TAGLINE = "Control plane for multi-agent vetted decisionmaking across org knowledge and channels."
 
 # Short description (under 50 words)
 DESCRIPTION_SHORT = (
-    "Aragora is the control plane for multi-agent robust decisionmaking—orchestrating "
+    "Aragora is the control plane for multi-agent vetted decisionmaking—orchestrating "
     "15+ AI models to debate your organization's knowledge (documents, databases, "
     "APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice)."
 )
 
 # Full description with differentiators
 DESCRIPTION_FULL = (
-    "Aragora is the control plane for multi-agent robust decisionmaking—orchestrating "
+    "Aragora is the control plane for multi-agent vetted decisionmaking—orchestrating "
     "15+ AI models to debate your organization's knowledge (documents, databases, APIs) "
     "and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). "
     "Unlike chatbots, Aragora builds institutional memory and provides full audit trails "
@@ -27,11 +27,11 @@ DESCRIPTION_FULL = (
 
 # Elevator pitch (100 words)
 ELEVATOR_PITCH = (
-    "Aragora is an enterprise control plane that orchestrates multi-agent robust decisionmaking "
+    "Aragora is an enterprise control plane that orchestrates multi-agent vetted decisionmaking "
     "across your organization's knowledge and communication channels.\n\n"
     "It ingests anything—25+ document formats, databases, APIs—debates it across 15+ "
     "frontier AI models, and delivers defensible answers wherever your team works. "
-    "The structured robust decisionmaking protocol produces decisions with evidence chains, "
+    "The structured vetted decisionmaking protocol produces decisions with evidence chains, "
     "not black-box outputs.\n\n"
     "Aragora's 4-tier memory builds institutional knowledge that compounds over time. "
     "For legal, finance, compliance, and security teams where accountability matters, "
@@ -40,7 +40,7 @@ ELEVATOR_PITCH = (
 
 # Key differentiators vs. chatbots and single-model tools
 DIFFERENTIATORS = {
-    "not_chatbot": "Structured robust decisionmaking protocol with phases, roles, and evidence chains",
+    "not_chatbot": "Structured vetted decisionmaking protocol with phases, roles, and evidence chains",
     "not_copilot": "Institutional learning that accumulates across sessions",
     "not_single_model": "Heterogeneous ensemble (15+ AI providers) that argues toward truth",
     "not_stateless": "Remembers outcomes, builds knowledge, improves itself",
@@ -49,7 +49,7 @@ DIFFERENTIATORS = {
 
 # What Aragora is NOT (competitive positioning)
 NOT_STATEMENTS = {
-    "chatbot": "NOT a chatbot: Structured robust decisionmaking protocol with phases, roles, and evidence chains",
+    "chatbot": "NOT a chatbot: Structured vetted decisionmaking protocol with phases, roles, and evidence chains",
     "copilot": "NOT a copilot: Institutional learning that ACCUMULATES organizational knowledge",
     "single_model": "NOT single-model: Heterogeneous 15+ provider ensemble that argues toward truth",
     "stateless": "NOT stateless: Remembers outcomes, builds knowledge graphs, improves itself",
@@ -75,7 +75,7 @@ CORE_CAPABILITIES = {
     },
     "debate_synthesis": {
         "name": "Debate & Synthesis",
-        "description": "Structured robust decisionmaking protocol (Thesis→Antithesis→Synthesis), multi-agent consensus",
+        "description": "Structured vetted decisionmaking protocol (Thesis→Antithesis→Synthesis), multi-agent consensus",
         "maturity": "95%",
     },
     "long_context": {
@@ -109,9 +109,9 @@ SERVICE_OFFERINGS = {
 # Terminology guidance for external communications
 TERMINOLOGY = {
     # Use externally
-    "deliberation": "Use 'robust decisionmaking' instead of 'debate' in external communications",
+    "deliberation": "Use 'vetted decisionmaking' instead of 'deliberation' in external communications",
     "control_plane": "Use 'control plane' to emphasize enterprise orchestration",
-    "structured_protocol": "Use 'structured robust decisionmaking protocol' instead of 'Hegelian'",
+    "structured_protocol": "Use 'structured vetted decisionmaking protocol' instead of 'Hegelian'",
     "decision_assurance": "Use 'decision assurance' for enterprise positioning",
     # Keep internal
     "nomic_loop": "Keep 'Nomic Loop' for internal/technical documentation",

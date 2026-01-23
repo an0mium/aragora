@@ -1,7 +1,7 @@
 """
-Email Robust Decisionmaking HTTP Handler.
+Email Vetted Decisionmaking HTTP Handler.
 
-Provides REST API endpoints for multi-agent email robust decisionmaking:
+Provides REST API endpoints for multi-agent email vetted decisionmaking:
 - POST /api/v1/email/prioritize - Prioritize a single email
 - POST /api/v1/email/prioritize/batch - Prioritize multiple emails
 - POST /api/v1/email/triage - Triage inbox with full categorization
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class EmailDebateHandler(BaseHandler):
     """
-    Handler for email robust decisionmaking API endpoints.
+    Handler for email vetted decisionmaking API endpoints.
 
     Provides multi-agent email prioritization and triage.
     """
@@ -42,7 +42,7 @@ class EmailDebateHandler(BaseHandler):
 
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests (not supported)."""
-        return error_response("Use POST method for email robust decisionmaking", 405)
+        return error_response("Use POST method for email vetted decisionmaking", 405)
 
     def handle_post(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle POST requests."""

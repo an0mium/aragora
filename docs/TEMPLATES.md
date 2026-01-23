@@ -1,4 +1,4 @@
-# Robust Decisionmaking Templates
+# Vetted Decisionmaking Templates
 
 Aragora ships with built-in vetted decisionmaking templates for common enterprise
 workflows (code review, security audit, compliance, inbox triage). The template

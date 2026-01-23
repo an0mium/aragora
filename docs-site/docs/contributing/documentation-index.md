@@ -51,6 +51,8 @@ Use this index for fast navigation. For a fuller map, see
 - Operations runbook: [OPERATIONS.md](../operations/overview)
 - Production readiness: [PRODUCTION_READINESS.md](../operations/production-readiness)
 - Observability: [OBSERVABILITY.md](../deployment/observability)
+- Async gateway setup: [deployment/ASYNC_GATEWAY.md](../deployment/async-gateway)
+- Container volume guidance: [deployment/CONTAINER_VOLUMES.md](../deployment/container-volumes)
 
 ## Channels & Inbox
 

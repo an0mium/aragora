@@ -22,9 +22,9 @@ Endpoints:
     - POST /api/control-plane/tasks/:id/cancel - Cancel task
     - POST /api/control-plane/tasks/claim - Claim next task
 
-    - POST /api/control-plane/deliberations - Run or queue a robust decisionmaking session
-    - GET  /api/control-plane/deliberations/:id - Get robust decisionmaking result
-    - GET  /api/control-plane/deliberations/:id/status - Get robust decisionmaking status
+    - POST /api/control-plane/deliberations - Run or queue a vetted decisionmaking session
+    - GET  /api/control-plane/deliberations/:id - Get vetted decisionmaking result
+    - GET  /api/control-plane/deliberations/:id/status - Get vetted decisionmaking status
 
     - GET  /api/control-plane/health - System health
     - GET  /api/control-plane/health/:agent_id - Agent health

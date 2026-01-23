@@ -39,7 +39,7 @@ const statusToFilter: Record<DeliberationStatus, FilterTab> = {
 };
 
 /**
- * Robust Decisionmaking Tracker - Panel showing active and recent sessions.
+ * Vetted Decisionmaking Tracker - Panel showing active and recent sessions.
  *
  * Displays:
  * - Count of in-progress debates
@@ -54,7 +54,7 @@ export function DeliberationTracker({
   onDeliberationClick,
   onViewAll,
   className = '',
-  title = 'Robust Decisionmaking',
+  title = 'Vetted Decisionmaking',
 }: DeliberationTrackerProps) {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
@@ -200,7 +200,7 @@ export function DeliberationTracker({
         )}
       </div>
 
-      {/* Robust Decisionmaking list */}
+      {/* Vetted Decisionmaking list */}
       <div className="max-h-[500px] overflow-y-auto">
         {visibleDeliberations.length === 0 ? (
           <div className="p-6 text-center text-text-muted font-mono text-sm">

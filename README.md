@@ -1,17 +1,17 @@
-# Aragora: Control Plane for Multi-Agent Robust Decisionmaking
+# Aragora: Control Plane for Multi-Agent Vetted Decisionmaking
 
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/an0mium/aragora/branch/main/graph/badge.svg)](https://codecov.io/gh/an0mium/aragora)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Aragora is the control plane for multi-agent robust decisionmaking across organizational knowledge and channels.**
+**Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.**
 
 It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, Telegram, WhatsApp, voice).
 
 **Omnivorous by design**: Aragora ingests common document formats (PDF, Office, Markdown, HTML, JSON, CSV), code, images, audio, and video via a broad connector library. Results route automatically to the originating channel—ask questions wherever you are, get answers backed by multi-agent consensus.
 
-**Unlike chatbots**, Aragora builds institutional memory with full audit trails. Robust decisionmaking is the engine. The product is a defensible decision record.
+**Unlike chatbots**, Aragora builds institutional memory with full audit trails. Vetted decisionmaking is the engine. The product is a defensible decision record.
 
 **Domain**: [aragora.ai](https://aragora.ai) (available)
 

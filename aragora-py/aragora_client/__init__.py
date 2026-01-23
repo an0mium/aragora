@@ -1,7 +1,7 @@
 """
 Aragora Python SDK.
 
-A Python client for the Aragora control plane for multi-agent robust decisionmaking.
+A Python client for the Aragora control plane for multi-agent vetted decisionmaking.
 
 Example:
     >>> from aragora_client import AragoraClient

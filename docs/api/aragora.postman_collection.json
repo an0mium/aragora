@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "aragora-api-collection",
     "name": "Aragora API",
-    "description": "Control plane for multi-agent robust decisionmaking across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
+    "description": "Control plane for multi-agent vetted decisionmaking across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": "1.0.0"
   },

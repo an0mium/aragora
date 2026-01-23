@@ -430,8 +430,8 @@ CONTROL_PLANE_ENDPOINTS = {
     "/api/control-plane/deliberations": {
         "post": {
             "tags": ["Control Plane"],
-            "summary": "Run robust decisionmaking session",
-            "description": "Run or queue a robust decisionmaking session (async when async=true).",
+            "summary": "Run vetted decisionmaking session",
+            "description": "Run or queue a vetted decisionmaking session (async when async=true).",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
                 "required": True,
@@ -454,8 +454,8 @@ CONTROL_PLANE_ENDPOINTS = {
     "/api/control-plane/deliberations/{request_id}": {
         "get": {
             "tags": ["Control Plane"],
-            "summary": "Get robust decisionmaking result",
-            "description": "Fetch a stored robust decisionmaking record by request ID.",
+            "summary": "Get vetted decisionmaking result",
+            "description": "Fetch a stored vetted decisionmaking record by request ID.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
                 {
@@ -477,8 +477,8 @@ CONTROL_PLANE_ENDPOINTS = {
     "/api/control-plane/deliberations/{request_id}/status": {
         "get": {
             "tags": ["Control Plane"],
-            "summary": "Get robust decisionmaking status",
-            "description": "Check robust decisionmaking status for polling.",
+            "summary": "Get vetted decisionmaking status",
+            "description": "Check vetted decisionmaking status for polling.",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
                 {

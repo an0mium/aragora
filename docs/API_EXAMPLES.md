@@ -132,7 +132,7 @@ async def control_plane_example():
 asyncio.run(control_plane_example())
 ```
 
-### Control Plane Robust Decisionmaking
+### Control Plane Vetted Decisionmaking
 
 ```python
 async def control_plane_decisionmaking():

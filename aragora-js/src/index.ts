@@ -1,7 +1,7 @@
 /**
  * Aragora TypeScript SDK
  *
- * A TypeScript client for the Aragora control plane for multi-agent robust decisionmaking.
+ * A TypeScript client for the Aragora control plane for multi-agent vetted decisionmaking.
  *
  * @example
  * ```typescript

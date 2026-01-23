@@ -293,6 +293,8 @@ explicitly if you need consistent pooling across subsystems.
 | `ARAGORA_WS_MAX_MESSAGE_SIZE` | Optional | Max WebSocket message size | `65536` |
 | `ARAGORA_WS_HEARTBEAT` | Optional | WebSocket heartbeat interval (seconds) | `30` |
 | `ARAGORA_DEFAULT_HOST` | Optional | Fallback host for link generation | `localhost:8080` |
+| `ARAGORA_NOTIFICATION_WORKER` | Optional | Enable notification worker (`0` to disable) | `1` |
+| `ARAGORA_NOTIFICATION_CONCURRENCY` | Optional | Max concurrent notification deliveries | `20` |
 
 ## Debate Defaults
 

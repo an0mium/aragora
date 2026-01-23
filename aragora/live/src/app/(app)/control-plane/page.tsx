@@ -207,7 +207,7 @@ export default function ControlPlanePage() {
           setDeliberations(mapped);
         }
       } catch {
-        // Robust decisionmaking endpoint may not be available
+        // Vetted decisionmaking endpoint may not be available
       }
     };
     fetchDeliberations();
@@ -236,11 +236,11 @@ export default function ControlPlanePage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || 'Robust decisionmaking request failed');
+        throw new Error(data?.error || 'Vetted decisionmaking request failed');
       }
       setDeliberationResult(data);
     } catch (err) {
-      setDeliberationError(err instanceof Error ? err.message : 'Robust decisionmaking request failed');
+      setDeliberationError(err instanceof Error ? err.message : 'Vetted decisionmaking request failed');
     } finally {
       setDeliberationLoading(false);
     }
@@ -521,7 +521,7 @@ export default function ControlPlanePage() {
                       </div>
                     </div>
 
-                    {/* Robust Decisionmaking Tracker */}
+                    {/* Vetted Decisionmaking Tracker */}
                     {deliberations.length > 0 && (
                       <DeliberationTracker
                         deliberations={deliberations}
@@ -643,10 +643,10 @@ export default function ControlPlanePage() {
                       </div>
                     </div>
 
-                    {/* Robust Decisionmaking Console */}
+                    {/* Vetted Decisionmaking Console */}
                     <div className="card">
                       <div className="p-4 border-b border-border">
-                        <h2 className="font-mono text-sm text-acid-green">Robust Decisionmaking Console</h2>
+                        <h2 className="font-mono text-sm text-acid-green">Vetted Decisionmaking Console</h2>
                         <p className="text-text-muted text-xs font-mono mt-1">
                           Submit vetted decisionmaking sessions to the control plane and capture decision receipts.
                         </p>

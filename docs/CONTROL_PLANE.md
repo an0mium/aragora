@@ -217,7 +217,7 @@ aliases under `/api/control-plane` for backward compatibility.
 | `POST` | `/api/control-plane/tasks/{id}/cancel` | Cancel a task |
 | `POST` | `/api/control-plane/tasks/claim` | Claim the next task |
 
-### Deliberation Endpoints
+### Vetted Decisionmaking Endpoints (Deliberations)
 
 | Method | Path | Description |
 |--------|------|-------------|

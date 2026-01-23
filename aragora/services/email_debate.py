@@ -292,7 +292,7 @@ Consider:
         user_id: str = "default",
     ) -> EmailDebateResult:
         """
-        Run multi-agent robust decisionmaking to prioritize a single email.
+        Run multi-agent vetted decisionmaking to prioritize a single email.
 
         Args:
             email: Email to analyze
@@ -454,7 +454,7 @@ Consider:
         max_concurrent: int = 5,
     ) -> BatchEmailResult:
         """
-        Run multi-agent robust decisionmaking on a batch of emails.
+        Run multi-agent vetted decisionmaking on a batch of emails.
 
         Args:
             emails: List of emails to analyze

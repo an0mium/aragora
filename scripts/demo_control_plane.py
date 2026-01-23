@@ -2,7 +2,7 @@
 """
 Aragora Control Plane Demo - Enterprise Multi-Agent Orchestration.
 
-This demo showcases the Control Plane features for multi-agent robust decisionmaking:
+This demo showcases the Control Plane features for multi-agent vetted decisionmaking:
 - Agent fleet management and health monitoring
 - Task scheduling with priority queues
 - Deliberation-as-task integration

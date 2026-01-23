@@ -34,7 +34,7 @@ def generate_openapi_schema() -> dict[str, Any]:
         "openapi": "3.0.3",
         "info": {
             "title": "Aragora API",
-            "description": "Control plane for multi-agent robust decisionmaking across org knowledge and channels. "
+            "description": "Control plane for multi-agent vetted decisionmaking across org knowledge and channels. "
             "Orchestrate 15+ AI models to debate your organization's knowledge and deliver "
             "defensible decisions with full audit trails.",
             "version": API_VERSION,

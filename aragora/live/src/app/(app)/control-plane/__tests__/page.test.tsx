@@ -207,7 +207,7 @@ describe('ControlPlanePage', () => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
       });
 
-      expect(screen.getByText('Robust Decisionmaking Console')).toBeInTheDocument();
+      expect(screen.getByText('Vetted Decisionmaking Console')).toBeInTheDocument();
       expect(
         screen.getByPlaceholderText('Describe the decision for vetted decisionmaking...')
       ).toBeInTheDocument();

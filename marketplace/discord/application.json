@@ -1,14 +1,14 @@
 {
   "application": {
     "name": "Aragora",
-    "description": "Control plane for multi-agent robust decisionmaking. Get defensible decisions across your org knowledge.",
+    "description": "Control plane for multi-agent vetted decisionmaking. Get defensible decisions across your org knowledge.",
     "bot_public": true,
     "bot_require_code_grant": false,
     "tags": ["AI", "debate", "productivity", "research", "validation"]
   },
   "bot": {
     "username": "Aragora",
-    "description": "Multi-agent robust decisionmaking control plane bot"
+    "description": "Multi-agent vetted decisionmaking control plane bot"
   },
   "install_params": {
     "scopes": ["bot", "applications.commands"],

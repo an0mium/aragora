@@ -210,7 +210,7 @@ aliases under `/api/control-plane` for backward compatibility.
 | `POST` | `/api/control-plane/tasks/\{id\}/cancel` | Cancel a task |
 | `POST` | `/api/control-plane/tasks/claim` | Claim the next task |
 
-### Deliberation Endpoints
+### Vetted Decisionmaking Endpoints (Deliberations)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -421,7 +421,7 @@ await router.configure_channel(ChannelConfig(
 - `task.submitted` - New task queued
 - `task.completed` - Task finished successfully
 - `task.failed` - Task failed after retries
-- `deliberation.started` - Robust decisionmaking session began
+- `deliberation.started` - Vetted decisionmaking session began
 - `deliberation.consensus` - Consensus was reached
 
 ---
@@ -472,7 +472,7 @@ is_valid = await audit.verify_integrity()
 | `task.claimed` | Task claimed by agent |
 | `task.completed` | Task completed successfully |
 | `task.failed` | Task failed |
-| `deliberation.started` | Robust decisionmaking initiated |
+| `deliberation.started` | Vetted decisionmaking initiated |
 | `deliberation.consensus` | Consensus reached |
 | `notification.sent` | Notification delivered |
 | `policy.evaluated` | Policy check performed |

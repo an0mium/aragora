@@ -1,6 +1,6 @@
 # @aragora/sdk
 
-TypeScript/JavaScript SDK for the Aragora control plane for multi-agent robust decisionmaking across organizational knowledge and channels.
+TypeScript/JavaScript SDK for the Aragora control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.
 
 ## Installation
 

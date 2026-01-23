@@ -158,7 +158,7 @@ export function AuditTrailViewer({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-acid-green font-mono text-lg">[AUDIT]</span>
-            <h2 className="font-mono text-text font-bold">Robust Decisionmaking Trail</h2>
+            <h2 className="font-mono text-text font-bold">Vetted Decisionmaking Trail</h2>
           </div>
           <div className="flex items-center gap-2">
             {onVerify && (

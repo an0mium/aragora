@@ -80,7 +80,7 @@ class TestInvoiceGeneration:
             payment_terms="Net 30",
         )
 
-        assert invoice.id.startswith("arinv_")
+        assert invoice.id.startswith("ar_")
         assert invoice.customer_id == "cust_001"
         assert invoice.status == InvoiceStatus.DRAFT
         assert float(invoice.total_amount) == 2000.00
@@ -145,7 +145,7 @@ class TestInvoiceSending:
     @pytest.mark.asyncio
     async def test_send_nonexistent_invoice(self, ar_automation):
         """Test sending a non-existent invoice."""
-        success = await ar_automation.send_invoice("arinv_nonexistent")
+        success = await ar_automation.send_invoice("ar_nonexistent")
         assert success is False
 
 
@@ -295,7 +295,7 @@ class TestARAging:
         """Test aging report with overdue invoices."""
         # Create invoice with past due date
         invoice = ARInvoice(
-            id="arinv_old",
+            id="ar_old",
             customer_id="cust_001",
             customer_name="Slow Payer",
             invoice_date=datetime.now() - timedelta(days=60),
@@ -337,7 +337,7 @@ class TestCollectionSuggestions:
     async def test_suggest_reminder_for_overdue(self, ar_automation):
         """Test reminder suggestion for overdue invoice."""
         invoice = ARInvoice(
-            id="arinv_overdue",
+            id="ar_overdue",
             customer_id="cust_001",
             customer_name="Late Payer",
             invoice_date=datetime.now() - timedelta(days=45),
@@ -358,7 +358,7 @@ class TestCollectionSuggestions:
     async def test_suggest_escalation_for_very_overdue(self, ar_automation):
         """Test escalated actions for very overdue invoices."""
         invoice = ARInvoice(
-            id="arinv_very_overdue",
+            id="ar_very_overdue",
             customer_id="cust_001",
             customer_name="Non Payer",
             invoice_date=datetime.now() - timedelta(days=120),
@@ -436,7 +436,8 @@ class TestCustomerManagement:
         )
 
         balance = await ar_automation.get_customer_balance("cust_001")
-        assert balance == Decimal("1500.00")
+        # Invoice is $2000 + 8.25% tax = $2165, minus $500 payment = $1665
+        assert balance == Decimal("1665.00")
 
 
 # =============================================================================
@@ -484,6 +485,7 @@ class TestInvoiceListing:
         inv1 = await ar_automation.generate_invoice(
             customer_id="cust_001",
             customer_name="Customer A",
+            customer_email="a@example.com",  # Email required for send to work
             line_items=sample_line_items,
         )
         await ar_automation.send_invoice(inv1.id)
@@ -494,8 +496,8 @@ class TestInvoiceListing:
             line_items=sample_line_items,
         )
 
-        sent_invoices = await ar_automation.list_invoices(status="sent")
-        draft_invoices = await ar_automation.list_invoices(status="draft")
+        sent_invoices = await ar_automation.list_invoices(status=InvoiceStatus.SENT)
+        draft_invoices = await ar_automation.list_invoices(status=InvoiceStatus.DRAFT)
 
         assert len(sent_invoices) == 1
         assert len(draft_invoices) == 1
@@ -512,7 +514,7 @@ class TestARInvoice:
     def test_to_dict(self):
         """Test conversion to dictionary."""
         invoice = ARInvoice(
-            id="arinv_123",
+            id="ar_123",
             customer_id="cust_001",
             customer_name="Test Customer",
             invoice_number="INV-001",
@@ -523,15 +525,16 @@ class TestARInvoice:
 
         d = invoice.to_dict()
 
-        assert d["id"] == "arinv_123"
-        assert d["customer_name"] == "Test Customer"
-        assert d["total_amount"] == "1000.00"
+        assert d["id"] == "ar_123"
+        # Uses camelCase keys and float values
+        assert d["customerName"] == "Test Customer"
+        assert d["totalAmount"] == 1000.0
         assert d["status"] == "draft"
 
     def test_days_overdue_calculation(self):
         """Test days overdue calculation."""
         invoice = ARInvoice(
-            id="arinv_123",
+            id="ar_123",
             customer_id="cust_001",
             customer_name="Test",
             due_date=datetime.now() - timedelta(days=10),

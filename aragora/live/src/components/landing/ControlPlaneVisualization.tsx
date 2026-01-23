@@ -28,7 +28,7 @@ const CHANNELS = [
 /**
  * ControlPlaneVisualization - Visual diagram showing the control plane architecture.
  *
- * Displays the data flow: Sources → Control Plane → Robust Decisionmaking → Channels
+ * Displays the data flow: Sources → Control Plane → Vetted Decisionmaking → Channels
  * to reinforce the orchestration and governance positioning.
  */
 export function ControlPlaneVisualization() {
@@ -111,7 +111,7 @@ export function ControlPlaneVisualization() {
               <div className="text-acid-green font-mono text-xl animate-pulse">→</div>
             </div>
 
-            {/* Robust Decisionmaking Engine */}
+            {/* Vetted Decisionmaking Engine */}
             <div className="flex-1 max-w-[180px]">
               <div className="border border-acid-yellow/40 rounded-lg p-4 bg-surface/30 h-full">
                 <div className="text-acid-yellow font-mono text-xs font-bold mb-3 text-center">
@@ -187,7 +187,7 @@ export function ControlPlaneVisualization() {
 
             <div className="text-center text-acid-green font-mono">↓</div>
 
-            {/* Robust Decisionmaking */}
+            {/* Vetted Decisionmaking */}
             <div className="border border-acid-yellow/40 rounded-lg p-4 bg-surface/30">
               <div className="text-acid-yellow font-mono text-xs font-bold mb-2">[ROBUST DECISIONMAKING] 15+ models</div>
               <div className="flex flex-wrap gap-2">

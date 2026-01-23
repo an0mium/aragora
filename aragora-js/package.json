@@ -1,7 +1,7 @@
 {
   "name": "@aragora/client",
   "version": "2.0.0",
-  "description": "TypeScript client for the Aragora control plane for multi-agent robust decisionmaking",
+  "description": "TypeScript client for the Aragora control plane for multi-agent vetted decisionmaking",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

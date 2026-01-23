@@ -26,7 +26,7 @@ handlers/
 ├── voice/              # Voice endpoints
 ├── control_plane.py    # Control plane orchestration
 ├── decision.py         # Unified decision router
-├── deliberations.py    # Deliberation dashboard endpoints
+├── deliberations.py    # Vetted decisionmaking dashboard endpoints (deliberations API)
 ├── gauntlet.py         # Gauntlet stress-test API
 ├── workflows.py        # Workflow execution endpoints
 └── webhooks.py         # Outbound webhook management
@@ -108,7 +108,7 @@ GET  /api/v1/auth/sso/login - SSO login (OIDC)
 | `control_plane.py` | `/api/control-plane/*`, `/api/v1/control-plane/*` | Agent registry, queues, health, and task orchestration |
 | `decision.py` | `/api/v1/decisions/*` | Unified decision router across debate/workflow/gauntlet |
 | `decisions/explain.py` | `/api/v1/decisions/:id/explain` | Decision explainability payloads |
-| `deliberations.py` | `/api/v1/deliberations/*` | Deliberation dashboard and event stream |
+| `deliberations.py` | `/api/v1/deliberations/*` | Vetted decisionmaking dashboard and event stream |
 
 ### Key Endpoints
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aragora"
 version = "2.1.10"
-description = "Control plane for multi-agent robust decisionmaking across org knowledge and channels"
+description = "Control plane for multi-agent vetted decisionmaking across org knowledge and channels"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

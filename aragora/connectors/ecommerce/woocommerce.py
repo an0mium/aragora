@@ -30,7 +30,6 @@ from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult, SyncState
-from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -363,14 +362,14 @@ class WooCommerceConnector(EnterpriseConnector):
         Args:
             credentials: WooCommerce API credentials
         """
-        super().__init__(name="woocommerce", source_type=SourceType.ECOMMERCE)
-        self.credentials = credentials
-        self._client = None
+        super().__init__(connector_id="woocommerce", tenant_id="default")
+        self._woo_credentials = credentials
+        self._client: Any = None
 
     @property
     def base_url(self) -> str:
         """Get API base URL."""
-        return f"{self.credentials.store_url}/wp-json/{self.credentials.api_version}"
+        return f"{self._woo_credentials.store_url}/wp-json/{self._woo_credentials.api_version}"
 
     async def connect(self) -> bool:
         """Establish connection to WooCommerce API."""
@@ -379,8 +378,8 @@ class WooCommerceConnector(EnterpriseConnector):
             from aiohttp import BasicAuth
 
             auth = BasicAuth(
-                self.credentials.consumer_key,
-                self.credentials.consumer_secret,
+                self._woo_credentials.consumer_key,
+                self._woo_credentials.consumer_secret,
             )
             self._client = aiohttp.ClientSession(auth=auth)
 

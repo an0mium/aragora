@@ -91,6 +91,8 @@ documents are archived in [deprecated/README.md](../analysis/adr).
 - [PRODUCTION_READINESS.md](../operations/production-readiness)
 - [OBSERVABILITY.md](../deployment/observability)
 - [SCALING.md](../deployment/scaling)
+- [deployment/ASYNC_GATEWAY.md](../deployment/async-gateway)
+- [deployment/CONTAINER_VOLUMES.md](../deployment/container-volumes)
 
 ### Security & Compliance
 

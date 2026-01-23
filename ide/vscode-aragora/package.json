@@ -1,7 +1,7 @@
 {
   "name": "aragora",
   "displayName": "Aragora",
-  "description": "Control plane for multi-agent robust decisionmaking - VS Code integration with rich code analysis",
+  "description": "Control plane for multi-agent vetted decisionmaking - VS Code integration with rich code analysis",
   "version": "0.2.0",
   "publisher": "aragora",
   "engines": {
@@ -305,7 +305,7 @@
     "viewsWelcome": [
       {
         "view": "aragora.controlPlane",
-        "contents": "Connect to Aragora Control Plane to manage multi-agent robust decisionmaking.\n[Configure API](command:aragora.configure)\n[Open Control Plane](command:aragora.showControlPlane)"
+        "contents": "Connect to Aragora Control Plane to manage multi-agent vetted decisionmaking.\n[Configure API](command:aragora.configure)\n[Open Control Plane](command:aragora.showControlPlane)"
       },
       {
         "view": "aragora.activeDeliberations",

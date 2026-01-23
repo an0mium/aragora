@@ -26,7 +26,7 @@ const CHANNEL_CONFIG_FIELDS: Record<OutboundChannelType, ChannelConfigField[]> =
     { key: 'webhook_url', label: 'Webhook URL', type: 'url', required: true, placeholder: 'https://hooks.slack.com/...' },
     { key: 'default_channel', label: 'Default Channel', type: 'text', placeholder: '#general' },
     { key: 'bot_name', label: 'Bot Name', type: 'text', placeholder: 'Aragora Bot' },
-    { key: 'include_metadata', label: 'Include Robust Decisionmaking Metadata', type: 'toggle' },
+    { key: 'include_metadata', label: 'Include Vetted Decisionmaking Metadata', type: 'toggle' },
   ],
   teams: [
     { key: 'webhook_url', label: 'Incoming Webhook URL', type: 'url', required: true, placeholder: 'https://outlook.office.com/webhook/...' },
@@ -85,7 +85,7 @@ const CHANNEL_CONFIG_FIELDS: Record<OutboundChannelType, ChannelConfigField[]> =
     ]},
     { key: 'auth_header', label: 'Authorization Header', type: 'password', placeholder: 'Bearer token...' },
     { key: 'custom_headers', label: 'Custom Headers (JSON)', type: 'text', placeholder: '{"X-Custom": "value"}' },
-    { key: 'include_full_response', label: 'Include Full Robust Decisionmaking Response', type: 'toggle' },
+    { key: 'include_full_response', label: 'Include Full Vetted Decisionmaking Response', type: 'toggle' },
   ],
 };
 
