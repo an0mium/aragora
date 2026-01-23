@@ -63,3 +63,9 @@ print(suite.to_code())
   Gauntlet or deliberation templates.
 - The module is a library utility; it is not exposed as an HTTP endpoint by
   default.
+
+## Related Modules
+
+- `aragora/agents/feature_agent.py` orchestrates end-to-end feature delivery
+  using TDD, debate, and approval workflows.
+- `aragora/nomic/test_generator.py` provides TDD helpers for the nomic loop.

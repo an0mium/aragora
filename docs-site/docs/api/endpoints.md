@@ -69,6 +69,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Workflow Templates](#workflow-templates)
 - [Workflow](#workflow)
 - [Workspace](#workspace)
+- [Intelligence](#intelligence)
 - [Metrics](#metrics)
 - [Quick Scan](#quick-scan)
 - [Security](#security)
@@ -1914,6 +1915,40 @@ Generate compliance report
 ### `GET` `/api/audit/verify`
 
 Verify audit log integrity
+
+---
+
+## Intelligence
+
+HTTP API Handlers for Code Intelligence Analysis.
+
+### `POST` `/api/v1/codebase/\{repo\}/analyze`
+
+Analyze codebase structure
+
+### `GET` `/api/v1/codebase/\{repo\}/symbols`
+
+List symbols (classes, functions)
+
+### `GET` `/api/v1/codebase/\{repo\}/callgraph`
+
+Get call graph
+
+### `GET` `/api/v1/codebase/\{repo\}/deadcode`
+
+Find dead/unreachable code
+
+### `POST` `/api/v1/codebase/\{repo\}/impact`
+
+Analyze impact of changes
+
+### `POST` `/api/v1/codebase/\{repo\}/understand`
+
+Answer questions about code
+
+### `POST` `/api/v1/codebase/\{repo\}/audit`
+
+Run comprehensive audit
 
 ---
 

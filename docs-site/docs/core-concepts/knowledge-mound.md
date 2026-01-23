@@ -172,6 +172,42 @@ coalesce_result = await learner.coalesce_duplicates()
 
 ---
 
+## Chat Knowledge Bridge
+
+The Knowledge + Chat bridge connects chat platforms to the Knowledge Mound for
+context-aware search and knowledge injection.
+
+**Modules:**
+- `aragora/services/knowledge_chat_bridge.py`
+- `aragora/server/handlers/knowledge_chat.py`
+
+```python
+from aragora.services.knowledge_chat_bridge import get_knowledge_chat_bridge
+
+bridge = get_knowledge_chat_bridge()
+context = await bridge.search_knowledge(
+    query="What is the remote work policy?",
+    workspace_id="default",
+    channel_id="C123456",
+)
+print(context.result_count)
+```
+
+## Governance API
+
+Knowledge Mound governance endpoints live under `/api/v1/knowledge/mound/governance`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/knowledge/mound/governance/roles` | Create a role |
+| POST | `/api/v1/knowledge/mound/governance/roles/assign` | Assign role to user |
+| POST | `/api/v1/knowledge/mound/governance/roles/revoke` | Revoke role from user |
+| GET | `/api/v1/knowledge/mound/governance/permissions/\{user_id\}` | Get user permissions |
+| POST | `/api/v1/knowledge/mound/governance/permissions/check` | Check permissions |
+| GET | `/api/v1/knowledge/mound/governance/audit` | Query audit trail |
+| GET | `/api/v1/knowledge/mound/governance/audit/user/\{user_id\}` | User activity audit |
+| GET | `/api/v1/knowledge/mound/governance/stats` | Governance stats |
+
 ## Configuration
 
 ### MoundConfig Options

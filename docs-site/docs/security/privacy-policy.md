@@ -13,7 +13,7 @@ description: Privacy Policy
 
 ## Overview
 
-Aragora ("we", "us", "our") is committed to protecting your privacy. This Privacy Policy describes how we collect, use, disclose, and safeguard your information when you use our multi-agent AI debate platform and related services.
+Aragora ("we", "us", "our") is committed to protecting your privacy. This Privacy Policy describes how we collect, use, disclose, and safeguard your information when you use our multi-agent deliberation control plane and related services.
 
 **SOC 2 Control:** P1-01 - Privacy notice and consent management
 

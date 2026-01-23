@@ -91,6 +91,13 @@ NOMIC_AUTO_COMMIT=1 python scripts/nomic_loop.py --cycles 10 --auto
 | `NOMIC_AUTO_CONTINUE` | Auto-continue non-interactive runs | `1` |
 | `ARAGORA_ENABLE_FORKING` | Enable parallel forked debates in the nomic loop | `0` |
 
+### Approval Workflow
+
+The nomic loop can require approvals for sensitive changes via
+`aragora/nomic/approval.py`. The default policy classifies files into
+`info`, `review`, or `critical` based on path patterns and enforces votes or
+timeouts before changes proceed.
+
 ### Live Dashboard
 
 The streaming version provides real-time visibility:
@@ -159,6 +166,12 @@ claude-code --task "Implement the approved proposal" --context proposal.json
 ```
 
 Implemented by `ImplementPhase` class with backup/rollback support.
+
+### Test Generation
+
+The nomic loop can generate tests from specifications using the TDD helpers in
+`aragora/nomic/test_generator.py`, producing unit and edge-case tests alongside
+implementation steps.
 
 ### Phase 5: Verify
 
