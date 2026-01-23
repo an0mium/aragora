@@ -307,8 +307,8 @@ class ReconciliationService:
         )
 
         # Calculate totals
-        result.bank_total = sum(t.amount for t in bank_txns)
-        result.book_total = sum(Decimal(str(t.total_amount)) for t in book_txns)
+        result.bank_total = sum((t.amount for t in bank_txns), Decimal(0))
+        result.book_total = sum((Decimal(str(t.total_amount)) for t in book_txns), Decimal(0))
         result.difference = result.bank_total - result.book_total
 
         # Perform matching

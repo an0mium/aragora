@@ -435,7 +435,7 @@ class TikTokAdsConnector:
         budget_mode: str = "BUDGET_MODE_DAY",
     ) -> Campaign:
         """Create a new campaign."""
-        json_data = {
+        json_data: dict[str, Any] = {
             "advertiser_id": self.credentials.advertiser_id,
             "campaign_name": name,
             "objective_type": objective.value,
@@ -494,7 +494,7 @@ class TikTokAdsConnector:
         bid_price: float | None = None,
     ) -> AdGroup:
         """Create a new ad group."""
-        json_data = {
+        json_data: dict[str, Any] = {
             "advertiser_id": self.credentials.advertiser_id,
             "campaign_id": campaign_id,
             "adgroup_name": name,
@@ -545,7 +545,7 @@ class TikTokAdsConnector:
         adgroup_ids: list[str] | None = None,
     ) -> list[AdGroupMetrics]:
         """Get performance metrics for ad groups."""
-        json_data = {
+        json_data: dict[str, Any] = {
             "advertiser_id": self.credentials.advertiser_id,
             "report_type": "BASIC",
             "dimensions": ["adgroup_id"],

@@ -558,7 +558,7 @@ class APAutomation:
             if i.balance > 0 and i.due_date and i.due_date <= end_date
         ]
 
-        forecast.total_payables = sum(i.balance for i in payables_due)
+        forecast.total_payables = sum((i.balance for i in payables_due), Decimal(0))
 
         # Include expected receivables
         if include_receivables:

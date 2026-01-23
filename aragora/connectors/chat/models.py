@@ -322,6 +322,44 @@ class ChatEvidence:
             "metadata": self.metadata,
         }
 
+    @classmethod
+    def from_message(
+        cls,
+        message: ChatMessage,
+        query: str,
+        relevance_score: float = 1.0,
+    ) -> ChatEvidence:
+        """Create ChatEvidence from a ChatMessage.
+
+        Args:
+            message: The source chat message
+            query: The search query that found this message
+            relevance_score: Relevance score for this evidence (0-1)
+
+        Returns:
+            ChatEvidence instance with data from the message
+        """
+        import uuid
+
+        return cls(
+            id=f"evidence_{uuid.uuid4().hex[:12]}",
+            source_id=message.id,
+            platform=message.platform,
+            channel_id=message.channel.id,
+            channel_name=message.channel.name,
+            content=message.content,
+            title=message.content[:100] if message.content else "",
+            author_id=message.author.id,
+            author_name=message.author.display_name or message.author.username,
+            author_is_bot=message.author.is_bot,
+            timestamp=message.timestamp,
+            thread_id=message.thread_id,
+            is_thread_root=message.thread_id == message.id,
+            relevance_score=relevance_score,
+            source_message=message,
+            metadata={"query": query, **message.metadata},
+        )
+
 
 @dataclass
 class ChannelContext:

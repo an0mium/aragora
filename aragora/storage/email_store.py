@@ -808,8 +808,8 @@ class EmailStore(SQLiteStore):
             "actions",
             "inbox_id",
         }
-        set_clauses = []
-        params = []
+        set_clauses: List[str] = []
+        params: List[Any] = []
 
         for field, value in updates.items():
             if field not in allowed_fields:
@@ -943,7 +943,12 @@ class EmailStore(SQLiteStore):
             (user_id, workspace_id, f"-{days}"),
         )
 
-        stats = {"by_tier": {}, "by_priority": {}, "total_feedback": 0, "accuracy": 0.0}
+        stats: Dict[str, Any] = {
+            "by_tier": {},
+            "by_priority": {},
+            "total_feedback": 0,
+            "accuracy": 0.0,
+        }
         total_correct = 0
         total_feedback = 0
 

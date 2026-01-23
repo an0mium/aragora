@@ -1128,7 +1128,7 @@ class InvoiceProcessor:
 
         # Calculate subtotal from line items if provided
         if items:
-            invoice.subtotal = sum(li.amount for li in items)
+            invoice.subtotal = sum((li.amount for li in items), Decimal(0))
 
         # Determine approval level
         invoice.approval_level = self._determine_approval_level(invoice.total_amount)

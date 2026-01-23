@@ -333,7 +333,7 @@ class NotificationDispatcher:
         self._rate_limiters: Dict[NotificationChannel, List[float]] = {}
 
         # Metrics
-        self._metrics = {
+        self._metrics: Dict[str, Any] = {
             "total_dispatched": 0,
             "total_delivered": 0,
             "total_failed": 0,
