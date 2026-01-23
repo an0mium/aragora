@@ -24,7 +24,12 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
-from aragora.core.decision import DecisionRequest, DecisionResult, get_decision_router
+from aragora.core.decision import (
+    DecisionConfig,
+    DecisionRequest,
+    DecisionResult,
+    get_decision_router,
+)
 from aragora.core.decision_results import save_decision_result
 
 if TYPE_CHECKING:
@@ -481,11 +486,12 @@ class DeliberationManager:
             # Create decision request
             request = DecisionRequest(
                 request_id=task.request_id,
-                question=task.question,
-                context=task.context,
-                agents=task.agents if task.agents else None,
-                max_rounds=task.sla.max_rounds,
-                require_consensus=task.sla.consensus_required,
+                content=task.question,
+                config=DecisionConfig(
+                    agents=task.agents if task.agents else ["anthropic-api", "openai-api"],
+                    rounds=task.sla.max_rounds,
+                    consensus="unanimous" if task.sla.consensus_required else "majority",
+                ),
             )
 
             # Run the deliberation
