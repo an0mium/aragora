@@ -510,10 +510,26 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         from aragora.billing.auth import extract_user_from_request
         from aragora.rbac import AuthorizationContext, get_role_permissions
 
+        logger.info(f"[RBAC_DEBUG] Checking auth for {method} {path}")
+
+        # Get Authorization header for debugging
+        auth_header = self.headers.get("Authorization", "")
+        if auth_header:
+            header_type = auth_header.split(" ")[0] if " " in auth_header else auth_header
+            token_prefix = auth_header[7:27] + "..." if len(auth_header) > 27 else auth_header[7:]
+            logger.info(
+                f"[RBAC_DEBUG] Authorization header present: type={header_type}, token_prefix={token_prefix}"
+            )
+        else:
+            logger.info("[RBAC_DEBUG] No Authorization header")
+
         # Build authorization context from JWT
         auth_ctx = None
         try:
             user_ctx = extract_user_from_request(self, UnifiedHandler.user_store)
+            logger.info(
+                f"[RBAC_DEBUG] extract_user_from_request result: authenticated={user_ctx.authenticated}, user_id={user_ctx.user_id}, error_reason={user_ctx.error_reason}"
+            )
             if user_ctx.authenticated and user_ctx.user_id:
                 roles = {user_ctx.role} if user_ctx.role else {"member"}
                 permissions: set[str] = set()
@@ -527,8 +543,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
                     permissions=permissions,
                     ip_address=user_ctx.client_ip,
                 )
+                logger.info(f"[RBAC_DEBUG] Auth context created for user {user_ctx.user_id}")
+            else:
+                logger.info("[RBAC_DEBUG] User not authenticated, auth_ctx will be None")
         except Exception as e:
-            logger.debug(f"RBAC context extraction failed: {e}")
+            logger.warning(f"[RBAC_DEBUG] RBAC context extraction failed: {e}")
 
         # Check permission
         allowed, reason, permission_key = self.rbac.check_request(path, method, auth_ctx)

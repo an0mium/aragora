@@ -78,6 +78,7 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
     )
 
     if handler is None:
+        logger.info("[AUTH_DEBUG] extract_user_from_request: handler is None")
         return context
 
     # Get authorization header
@@ -86,25 +87,39 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
         auth_header = handler.headers.get("Authorization", "")
 
     if not auth_header:
+        logger.info("[AUTH_DEBUG] extract_user_from_request: No Authorization header")
         return context
 
     # Check for Bearer token (JWT)
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
+        logger.info(
+            f"[AUTH_DEBUG] extract_user_from_request: Bearer token found, length={len(token)}"
+        )
 
         # Check if it's an API key
         if token.startswith("ara_"):
+            logger.info("[AUTH_DEBUG] Token is API key")
             return _validate_api_key(token, context, user_store)
 
         # Validate as JWT
+        logger.info("[AUTH_DEBUG] Validating as JWT...")
         payload = validate_access_token(token)
         if payload:
+            logger.info(
+                f"[AUTH_DEBUG] JWT validated successfully: user_id={payload.user_id}, email={payload.email}"
+            )
             context.authenticated = True
             context.user_id = payload.user_id
             context.email = payload.email
             context.org_id = payload.org_id
             context.role = payload.role
             context.token_type = "access"
+        else:
+            logger.warning(
+                "[AUTH_DEBUG] JWT validation FAILED - validate_access_token returned None"
+            )
+            context.error_reason = "JWT validation failed"
 
     return context
 

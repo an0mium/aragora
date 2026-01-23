@@ -136,6 +136,7 @@ def get_secret() -> bytes:
             JWT_SECRET = base64.b64encode(os.urandom(32)).decode("utf-8")
             logger.debug("TEST MODE: Using ephemeral JWT secret")
         else:
+            logger.error("[JWT_DEBUG] get_secret: ARAGORA_JWT_SECRET is NOT SET!")
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason="ARAGORA_JWT_SECRET must be set. "
@@ -146,11 +147,22 @@ def get_secret() -> bytes:
         if running_under_pytest:
             logger.debug(f"TEST MODE: JWT secret is weak (< {MIN_SECRET_LENGTH} chars)")
         else:
+            logger.error(
+                f"[JWT_DEBUG] get_secret: Secret too weak! Length={len(JWT_SECRET)}, required={MIN_SECRET_LENGTH}"
+            )
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters. "
                 f"Current length: {len(JWT_SECRET)}",
             )
+
+    # Log secret fingerprint (first 4 chars of hash) for debugging without exposing secret
+    import hashlib
+
+    secret_fingerprint = hashlib.sha256(JWT_SECRET.encode()).hexdigest()[:8]
+    logger.info(
+        f"[JWT_DEBUG] get_secret: Using secret with fingerprint={secret_fingerprint}, length={len(JWT_SECRET)}"
+    )
 
     return JWT_SECRET.encode("utf-8")
 

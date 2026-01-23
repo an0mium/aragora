@@ -143,9 +143,13 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         JWTPayload if valid, None otherwise
     """
     try:
+        # Log token prefix for debugging (don't log full token for security)
+        token_prefix = token[:50] if len(token) > 50 else token
+        logger.info(f"[JWT_DEBUG] decode_jwt called, token_prefix={token_prefix}...")
+
         parts = token.split(".")
         if len(parts) != 3:
-            logger.debug("jwt_decode_failed: invalid format")
+            logger.warning("[JWT_DEBUG] jwt_decode_failed: invalid format (not 3 parts)")
             return None
 
         header_b64, payload_b64, signature_b64 = parts
@@ -154,20 +158,21 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         try:
             header_json = _base64url_decode(header_b64).decode("utf-8")
             header = json.loads(header_json)
+            logger.info(f"[JWT_DEBUG] Header decoded: {header}")
         except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
-            logger.debug("jwt_decode_failed: invalid header encoding: %s", e)
+            logger.warning(f"[JWT_DEBUG] jwt_decode_failed: invalid header encoding: {e}")
             return None
 
         token_alg = header.get("alg", "")
 
         # Reject 'none' algorithm attack and other disallowed algorithms
         if token_alg not in ALLOWED_ALGORITHMS:
-            logger.warning(f"jwt_decode_failed: disallowed algorithm '{token_alg}'")
+            logger.warning(f"[JWT_DEBUG] jwt_decode_failed: disallowed algorithm '{token_alg}'")
             return None
 
         if token_alg != JWT_ALGORITHM:
             logger.warning(
-                f"jwt_decode_failed: algorithm mismatch (expected {JWT_ALGORITHM}, got {token_alg})"
+                f"[JWT_DEBUG] jwt_decode_failed: algorithm mismatch (expected {JWT_ALGORITHM}, got {token_alg})"
             )
             return None
 
@@ -176,18 +181,25 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
         actual_signature = _base64url_decode(signature_b64)
 
         # Try current secret first
+        secret = get_secret()
+        logger.info(f"[JWT_DEBUG] Secret length: {len(secret)} bytes")
+
         expected_signature = hmac.new(
-            get_secret(),
+            secret,
             message.encode("utf-8"),
             hashlib.sha256,
         ).digest()
 
         signature_valid = hmac.compare_digest(expected_signature, actual_signature)
+        logger.info(f"[JWT_DEBUG] Signature check with current secret: {signature_valid}")
 
         # If current secret fails, try previous secret (for rotation)
         if not signature_valid:
             prev_secret = get_previous_secret()
             if prev_secret:
+                logger.info(
+                    f"[JWT_DEBUG] Trying previous secret (length: {len(prev_secret)} bytes)"
+                )
                 expected_signature_prev = hmac.new(
                     prev_secret,
                     message.encode("utf-8"),
@@ -195,36 +207,48 @@ def decode_jwt(token: str) -> Optional[JWTPayload]:
                 ).digest()
                 signature_valid = hmac.compare_digest(expected_signature_prev, actual_signature)
                 if signature_valid:
-                    logger.debug("jwt_decode: validated with previous secret (rotation)")
+                    logger.info("[JWT_DEBUG] jwt_decode: validated with previous secret (rotation)")
+            else:
+                logger.info("[JWT_DEBUG] No previous secret configured")
 
         if not signature_valid:
-            logger.debug("jwt_decode_failed: invalid signature")
+            logger.warning(
+                "[JWT_DEBUG] jwt_decode_failed: SIGNATURE MISMATCH - token was signed with different secret"
+            )
             return None
 
         # Decode payload
         try:
             payload_json = _base64url_decode(payload_b64).decode("utf-8")
             payload_data = json.loads(payload_json)
+            logger.info(
+                f"[JWT_DEBUG] Payload decoded: sub={payload_data.get('sub')}, email={payload_data.get('email')}, type={payload_data.get('type')}"
+            )
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
-            logger.warning(f"jwt_decode_failed: malformed payload - {type(e).__name__}")
+            logger.warning(f"[JWT_DEBUG] jwt_decode_failed: malformed payload - {type(e).__name__}")
             return None
 
         try:
             payload = JWTPayload.from_dict(payload_data)
         except (KeyError, TypeError, ValueError) as e:
-            logger.warning(f"jwt_decode_failed: invalid payload structure - {type(e).__name__}")
+            logger.warning(
+                f"[JWT_DEBUG] jwt_decode_failed: invalid payload structure - {type(e).__name__}"
+            )
             return None
 
         # Check expiration
         if payload.is_expired:
-            logger.info("jwt_decode_failed: token expired")
+            logger.warning(
+                f"[JWT_DEBUG] jwt_decode_failed: token expired (exp={payload.exp}, now={int(time.time())})"
+            )
             return None
 
+        logger.info(f"[JWT_DEBUG] Token validated successfully for user {payload.user_id}")
         return payload
 
     except Exception as e:
         # Catch-all for unexpected errors - log at warning level for visibility
-        logger.warning(f"jwt_decode_failed: unexpected error - {type(e).__name__}: {e}")
+        logger.warning(f"[JWT_DEBUG] jwt_decode_failed: unexpected error - {type(e).__name__}: {e}")
         return None
 
 
@@ -352,22 +376,27 @@ def validate_access_token(
         is_token_revoked_persistent,
     )
 
+    logger.info("[JWT_DEBUG] validate_access_token called")
+
     payload = decode_jwt(token)
     if payload is None:
+        logger.warning("[JWT_DEBUG] validate_access_token: decode_jwt returned None")
         return None
     if payload.type != "access":
-        logger.debug("jwt_validate_failed: not an access token")
+        logger.warning(
+            f"[JWT_DEBUG] validate_access_token: not an access token (type={payload.type})"
+        )
         return None
 
     # Check if token has been revoked (in-memory cache)
     blacklist = get_token_blacklist()
     if blacklist.is_revoked(token):
-        logger.debug("jwt_validate_failed: token revoked (memory)")
+        logger.warning("[JWT_DEBUG] validate_access_token: token revoked (memory blacklist)")
         return None
 
     # Also check persistent blacklist for multi-instance consistency
     if use_persistent_blacklist and is_token_revoked_persistent(token):
-        logger.debug("jwt_validate_failed: token revoked (persistent)")
+        logger.warning("[JWT_DEBUG] validate_access_token: token revoked (persistent blacklist)")
         # Add to in-memory cache for faster subsequent checks
         import hashlib
 
@@ -382,15 +411,16 @@ def validate_access_token(
             if user is not None:
                 user_token_version = getattr(user, "token_version", 1)
                 if payload.tv < user_token_version:
-                    logger.debug(
-                        f"jwt_validate_failed: token version mismatch "
+                    logger.warning(
+                        f"[JWT_DEBUG] validate_access_token: token version mismatch "
                         f"(token={payload.tv}, user={user_token_version})"
                     )
                     return None
         except Exception as e:
-            logger.warning(f"jwt_validate_failed: error checking token version - {e}")
+            logger.warning(f"[JWT_DEBUG] validate_access_token: error checking token version - {e}")
             # Continue validation - don't block on store errors
 
+    logger.info(f"[JWT_DEBUG] validate_access_token: SUCCESS for user {payload.user_id}")
     return payload
 
 
