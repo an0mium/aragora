@@ -2237,6 +2237,12 @@ reporting under `/accounting`.
 Plaid Link + transaction sync for bank feeds, with categorization and anomaly
 detection hooks for accounting workflows.
 
+### Gusto Payroll Connector
+**File:** `aragora/connectors/accounting/gusto.py`
+
+Payroll sync, employee roster import, and journal entry generation to support
+finance workflows.
+
 ---
 
 ## Phase 23: Coding & Review (2026-01-22)
