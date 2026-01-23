@@ -63,7 +63,9 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Codebase", "description": "Codebase security scans and metrics"},
             {"name": "GitHub", "description": "GitHub PR review automation"},
             {"name": "Inbox", "description": "Shared inbox and routing rules"},
+            {"name": "Email", "description": "Email ingestion and operations"},
             {"name": "Costs", "description": "Cost visibility and budgeting"},
+            {"name": "Accounting", "description": "Accounting and ERP integrations"},
             {"name": "Media", "description": "Audio/video and podcast"},
             {"name": "Social", "description": "Social media publishing"},
             {"name": "Control Plane", "description": "Agent orchestration and task routing"},
@@ -91,6 +93,7 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Cross-Pollination", "description": "Cross-debate knowledge sharing"},
             {"name": "Knowledge Mound", "description": "Knowledge extraction and retrieval"},
             {"name": "Checkpoints", "description": "Debate checkpoint management"},
+            {"name": "Threat Intel", "description": "Threat intelligence lookups"},
         ],
         "paths": ALL_ENDPOINTS,
         "components": {

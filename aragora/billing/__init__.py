@@ -77,6 +77,15 @@ from aragora.billing.enterprise_metering import (
     UsageForecast,
     get_enterprise_meter,
 )
+from aragora.billing.multi_org import (
+    MembershipRole,
+    MembershipStatus,
+    OrganizationMembership,
+    OrgContext,
+    MultiOrgManager,
+    ROLE_PERMISSIONS,
+    get_multi_org_manager,
+)
 
 __all__ = [
     # Models
@@ -143,4 +152,12 @@ __all__ = [
     "InvoiceStatus",
     "UsageForecast",
     "get_enterprise_meter",
+    # Multi-Org Support
+    "MembershipRole",
+    "MembershipStatus",
+    "OrganizationMembership",
+    "OrgContext",
+    "MultiOrgManager",
+    "ROLE_PERMISSIONS",
+    "get_multi_org_manager",
 ]

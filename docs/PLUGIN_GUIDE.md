@@ -1,6 +1,6 @@
 # Aragora Plugin Development Guide
 
-This guide explains how to create plugins for the Aragora debate platform.
+This guide explains how to create plugins for the Aragora control plane.
 
 ## Overview
 

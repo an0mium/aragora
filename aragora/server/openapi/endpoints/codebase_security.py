@@ -330,6 +330,20 @@ CODEBASE_SECURITY_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/codebase/clear-cache": {
+        "post": {
+            "tags": ["Codebase"],
+            "summary": "Clear dependency cache",
+            "description": "Clear cached dependency analysis results.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "responses": {
+                "200": _ok_response("Cache cleared", "StandardSuccessResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
     "/api/v1/codebase/{repo}/scan/secrets": {
         "post": {
             "tags": ["Codebase"],
@@ -421,6 +435,97 @@ CODEBASE_SECURITY_ENDPOINTS = {
             ],
             "responses": {
                 "200": _ok_response("Secrets scan list", "CodebaseSecretsScanListResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/scan/sast": {
+        "post": {
+            "tags": ["Codebase"],
+            "summary": "Trigger SAST scan",
+            "description": "Trigger a SAST scan for a repository.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "repo_path": {"type": "string"},
+                                "rule_sets": {"type": "array", "items": {"type": "string"}},
+                                "workspace_id": {"type": "string"},
+                            },
+                            "required": ["repo_path"],
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("SAST scan started", "StandardSuccessResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/scan/sast/{scan_id}": {
+        "get": {
+            "tags": ["Codebase"],
+            "summary": "Get SAST scan status",
+            "description": "Fetch SAST scan status by scan ID.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+                {"name": "scan_id", "in": "path", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response("SAST scan status", "StandardSuccessResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/sast/findings": {
+        "get": {
+            "tags": ["Codebase"],
+            "summary": "List SAST findings",
+            "description": "List SAST findings for the latest scan.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+                {"name": "severity", "in": "query", "schema": {"type": "string"}},
+                {"name": "owasp_category", "in": "query", "schema": {"type": "string"}},
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100}},
+                {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+            ],
+            "responses": {
+                "200": _ok_response("SAST findings", "StandardSuccessResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/codebase/{repo}/sast/owasp-summary": {
+        "get": {
+            "tags": ["Codebase"],
+            "summary": "OWASP summary",
+            "description": "Summarize SAST findings by OWASP category.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {"name": "repo", "in": "path", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response("OWASP summary", "StandardSuccessResponse"),
                 "401": STANDARD_ERRORS["401"],
                 "403": STANDARD_ERRORS["403"],
                 "500": STANDARD_ERRORS["500"],

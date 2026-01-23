@@ -207,7 +207,7 @@ Structured debate for strategic decisions with evidence-based recommendations.
 - Cloudflare Tunnel for secure ingress
 
 ### Hybrid
-- On-premises debate engine
+- On-premises control plane
 - Cloud-based agent APIs
 - Air-gapped deployment support
 

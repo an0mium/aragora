@@ -32,6 +32,9 @@ from aragora.analysis.codebase import (
     SecretsScanResult,
     SASTScanner,
     SASTScanResult,
+    SBOMGenerator,
+    SBOMFormat,
+    SBOMResult,
 )
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -1469,3 +1472,376 @@ async def _emit_sast_events(
 
     except Exception as e:
         logger.warning(f"Failed to emit SAST events: {e}")
+
+
+# =============================================================================
+# SBOM Generation Handlers
+# =============================================================================
+
+# SBOM storage
+_sbom_results: Dict[str, Dict[str, SBOMResult]] = {}  # repo_id -> {sbom_id -> result}
+_sbom_lock = threading.Lock()
+_running_sbom_generations: Dict[str, asyncio.Task] = {}
+
+
+def _get_or_create_sbom_results(repo_id: str) -> Dict[str, SBOMResult]:
+    """Get or create SBOM storage for a repository."""
+    with _sbom_lock:
+        if repo_id not in _sbom_results:
+            _sbom_results[repo_id] = {}
+        return _sbom_results[repo_id]
+
+
+def _get_sbom_generator() -> SBOMGenerator:
+    """Get or create SBOMGenerator from service registry."""
+    registry = ServiceRegistry.get()
+    if not registry.has(SBOMGenerator):
+        generator = SBOMGenerator()
+        registry.register(SBOMGenerator, generator)
+        logger.info("Registered SBOMGenerator with service registry")
+    return registry.resolve(SBOMGenerator)
+
+
+async def handle_generate_sbom(
+    repo_path: str,
+    repo_id: Optional[str] = None,
+    format: str = "cyclonedx-json",
+    project_name: Optional[str] = None,
+    project_version: Optional[str] = None,
+    include_dev: bool = True,
+    include_vulnerabilities: bool = True,
+    branch: Optional[str] = None,
+    commit_sha: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Generate SBOM for a repository.
+
+    POST /api/v1/codebase/{repo}/sbom
+    {
+        "repo_path": "/path/to/repo",
+        "format": "cyclonedx-json",  // cyclonedx-json, cyclonedx-xml, spdx-json, spdx-tv
+        "project_name": "MyProject",
+        "project_version": "1.0.0",
+        "include_dev": true,
+        "include_vulnerabilities": true
+    }
+
+    Returns:
+        SBOM generation result with content and metadata
+    """
+    try:
+        repo_id = repo_id or f"repo_{uuid.uuid4().hex[:12]}"
+        sbom_id = f"sbom_{uuid.uuid4().hex[:12]}"
+
+        # Check if generation already running
+        if repo_id in _running_sbom_generations:
+            task = _running_sbom_generations[repo_id]
+            if not task.done():
+                return {
+                    "success": False,
+                    "error": "SBOM generation already in progress",
+                    "sbom_id": None,
+                }
+
+        # Parse format
+        try:
+            sbom_format = SBOMFormat(format)
+        except ValueError:
+            return {
+                "success": False,
+                "error": f"Invalid format: {format}. Valid formats: "
+                "cyclonedx-json, cyclonedx-xml, spdx-json, spdx-tv",
+            }
+
+        # Run generation
+        generator = _get_sbom_generator()
+        generator.include_dev_dependencies = include_dev
+        generator.include_vulnerabilities = include_vulnerabilities
+
+        result = await generator.generate_from_repo(
+            repo_path=repo_path,
+            format=sbom_format,
+            project_name=project_name,
+            project_version=project_version,
+            branch=branch,
+            commit_sha=commit_sha,
+        )
+
+        # Store result
+        repo_results = _get_or_create_sbom_results(repo_id)
+        with _sbom_lock:
+            repo_results[sbom_id] = result
+
+        logger.info(
+            f"[SBOM] Generated {format} for {repo_id}: "
+            f"{result.component_count} components, {result.vulnerability_count} vulnerabilities"
+        )
+
+        return {
+            "success": True,
+            "sbom_id": sbom_id,
+            "repository": repo_id,
+            "format": result.format.value,
+            "filename": result.filename,
+            "component_count": result.component_count,
+            "vulnerability_count": result.vulnerability_count,
+            "license_count": result.license_count,
+            "generated_at": result.generated_at.isoformat(),
+            "content": result.content,
+            "errors": result.errors,
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to generate SBOM: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+async def handle_get_sbom(
+    repo_id: str,
+    sbom_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get SBOM content.
+
+    GET /api/v1/codebase/{repo}/sbom/latest
+    GET /api/v1/codebase/{repo}/sbom/{sbom_id}
+    """
+    try:
+        repo_results = _get_or_create_sbom_results(repo_id)
+
+        if sbom_id:
+            # Get specific SBOM
+            result = repo_results.get(sbom_id)
+            if not result:
+                return {
+                    "success": False,
+                    "error": f"SBOM not found: {sbom_id}",
+                }
+        else:
+            # Get latest SBOM
+            if not repo_results:
+                return {
+                    "success": False,
+                    "error": "No SBOMs generated for this repository",
+                }
+            result = max(repo_results.values(), key=lambda r: r.generated_at)
+
+        return {
+            "success": True,
+            "sbom_id": sbom_id or "sbom_latest",
+            "repository": repo_id,
+            "format": result.format.value,
+            "filename": result.filename,
+            "component_count": result.component_count,
+            "vulnerability_count": result.vulnerability_count,
+            "license_count": result.license_count,
+            "generated_at": result.generated_at.isoformat(),
+            "content": result.content,
+            "errors": result.errors,
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to get SBOM: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+async def handle_list_sboms(
+    repo_id: str,
+    limit: int = 10,
+) -> Dict[str, Any]:
+    """
+    List SBOMs for a repository.
+
+    GET /api/v1/codebase/{repo}/sbom/list
+    """
+    try:
+        repo_results = _get_or_create_sbom_results(repo_id)
+
+        # Sort by generated_at descending
+        sorted_results = sorted(
+            repo_results.items(),
+            key=lambda x: x[1].generated_at,
+            reverse=True,
+        )[:limit]
+
+        sboms = [
+            {
+                "sbom_id": sbom_id,
+                "format": result.format.value,
+                "filename": result.filename,
+                "component_count": result.component_count,
+                "vulnerability_count": result.vulnerability_count,
+                "license_count": result.license_count,
+                "generated_at": result.generated_at.isoformat(),
+            }
+            for sbom_id, result in sorted_results
+        ]
+
+        return {
+            "success": True,
+            "repository": repo_id,
+            "count": len(sboms),
+            "sboms": sboms,
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to list SBOMs: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+async def handle_download_sbom(
+    repo_id: str,
+    sbom_id: str,
+) -> Dict[str, Any]:
+    """
+    Download SBOM content (raw).
+
+    GET /api/v1/codebase/{repo}/sbom/{sbom_id}/download
+
+    Returns the raw SBOM content with appropriate content-type header info.
+    """
+    try:
+        repo_results = _get_or_create_sbom_results(repo_id)
+        result = repo_results.get(sbom_id)
+
+        if not result:
+            return {
+                "success": False,
+                "error": f"SBOM not found: {sbom_id}",
+            }
+
+        # Determine content type
+        content_types = {
+            SBOMFormat.CYCLONEDX_JSON: "application/json",
+            SBOMFormat.CYCLONEDX_XML: "application/xml",
+            SBOMFormat.SPDX_JSON: "application/json",
+            SBOMFormat.SPDX_TV: "text/plain",
+        }
+        content_type = content_types.get(result.format, "application/octet-stream")
+
+        return {
+            "success": True,
+            "content": result.content,
+            "filename": result.filename,
+            "content_type": content_type,
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to download SBOM: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+async def handle_compare_sboms(
+    repo_id: str,
+    sbom_id_a: str,
+    sbom_id_b: str,
+) -> Dict[str, Any]:
+    """
+    Compare two SBOMs to find differences.
+
+    POST /api/v1/codebase/{repo}/sbom/compare
+    {
+        "sbom_id_a": "sbom_abc123",
+        "sbom_id_b": "sbom_def456"
+    }
+    """
+    try:
+        repo_results = _get_or_create_sbom_results(repo_id)
+
+        result_a = repo_results.get(sbom_id_a)
+        result_b = repo_results.get(sbom_id_b)
+
+        if not result_a:
+            return {"success": False, "error": f"SBOM not found: {sbom_id_a}"}
+        if not result_b:
+            return {"success": False, "error": f"SBOM not found: {sbom_id_b}"}
+
+        # Parse components from both (simplified - works for JSON formats)
+        import json
+
+        def extract_components(content: str, format: SBOMFormat) -> Dict[str, str]:
+            """Extract component name -> version mapping."""
+            components = {}
+            try:
+                if format in (SBOMFormat.CYCLONEDX_JSON, SBOMFormat.SPDX_JSON):
+                    data = json.loads(content)
+                    if format == SBOMFormat.CYCLONEDX_JSON:
+                        for comp in data.get("components", []):
+                            name = comp.get("name", "")
+                            if comp.get("group"):
+                                name = f"{comp['group']}/{name}"
+                            components[name] = comp.get("version", "")
+                    else:  # SPDX
+                        for pkg in data.get("packages", []):
+                            components[pkg.get("name", "")] = pkg.get("versionInfo", "")
+            except Exception:
+                pass
+            return components
+
+        components_a = extract_components(result_a.content, result_a.format)
+        components_b = extract_components(result_b.content, result_b.format)
+
+        all_names = set(components_a.keys()) | set(components_b.keys())
+
+        added = []
+        removed = []
+        updated = []
+        unchanged = []
+
+        for name in sorted(all_names):
+            v_a = components_a.get(name)
+            v_b = components_b.get(name)
+
+            if v_a and not v_b:
+                removed.append({"name": name, "version": v_a})
+            elif v_b and not v_a:
+                added.append({"name": name, "version": v_b})
+            elif v_a != v_b:
+                updated.append({"name": name, "old_version": v_a, "new_version": v_b})
+            else:
+                unchanged.append({"name": name, "version": v_a})
+
+        return {
+            "success": True,
+            "sbom_a": {
+                "sbom_id": sbom_id_a,
+                "generated_at": result_a.generated_at.isoformat(),
+                "component_count": result_a.component_count,
+            },
+            "sbom_b": {
+                "sbom_id": sbom_id_b,
+                "generated_at": result_b.generated_at.isoformat(),
+                "component_count": result_b.component_count,
+            },
+            "diff": {
+                "added": added,
+                "removed": removed,
+                "updated": updated,
+                "unchanged_count": len(unchanged),
+            },
+            "summary": {
+                "total_added": len(added),
+                "total_removed": len(removed),
+                "total_updated": len(updated),
+                "total_unchanged": len(unchanged),
+            },
+        }
+
+    except Exception as e:
+        logger.exception(f"Failed to compare SBOMs: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+        }

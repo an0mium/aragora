@@ -8,7 +8,7 @@
 
 ## Overview
 
-This Service Level Agreement (SLA) defines the service commitments for Aragora's multi-agent debate platform. It establishes measurable targets for availability, performance, and support response times.
+This Service Level Agreement (SLA) defines the service commitments for Aragora's multi-agent deliberation control plane. It establishes measurable targets for availability, performance, and support response times.
 
 ---
 
@@ -20,7 +20,7 @@ This Service Level Agreement (SLA) defines the service commitments for Aragora's
 |--------|--------|
 | **Availability** | Best effort |
 | **Support** | Community forums |
-| **Rate Limits** | 100 debates/day |
+| **Rate Limits** | 100 deliberations/day |
 | **Data Retention** | 30 days |
 | **SLA Credits** | None |
 
@@ -30,7 +30,7 @@ This Service Level Agreement (SLA) defines the service commitments for Aragora's
 |--------|--------|
 | **Availability** | 99.5% monthly uptime |
 | **Support Response** | 24 hours (business days) |
-| **Rate Limits** | 1,000 debates/day |
+| **Rate Limits** | 1,000 deliberations/day |
 | **Data Retention** | 1 year |
 | **SLA Credits** | Pro-rated refund |
 

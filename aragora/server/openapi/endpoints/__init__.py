@@ -31,9 +31,22 @@ from aragora.server.openapi.endpoints.control_plane import CONTROL_PLANE_ENDPOIN
 from aragora.server.openapi.endpoints.decisions import DECISION_ENDPOINTS
 from aragora.server.openapi.endpoints.codebase_security import CODEBASE_SECURITY_ENDPOINTS
 from aragora.server.openapi.endpoints.codebase_metrics import CODEBASE_METRICS_ENDPOINTS
+from aragora.server.openapi.endpoints.codebase_intelligence import (
+    CODEBASE_INTELLIGENCE_ENDPOINTS,
+)
+from aragora.server.openapi.endpoints.codebase_quick_scan import (
+    CODEBASE_QUICK_SCAN_ENDPOINTS,
+)
 from aragora.server.openapi.endpoints.github import GITHUB_ENDPOINTS
 from aragora.server.openapi.endpoints.costs import COSTS_ENDPOINTS
 from aragora.server.openapi.endpoints.shared_inbox import INBOX_ENDPOINTS
+from aragora.server.openapi.endpoints.gmail import GMAIL_ENDPOINTS
+from aragora.server.openapi.endpoints.outlook import OUTLOOK_ENDPOINTS
+from aragora.server.openapi.endpoints.knowledge_chat import KNOWLEDGE_CHAT_ENDPOINTS
+from aragora.server.openapi.endpoints.knowledge_mound import KNOWLEDGE_MOUND_ENDPOINTS
+from aragora.server.openapi.endpoints.audit_sessions import AUDIT_SESSIONS_ENDPOINTS
+from aragora.server.openapi.endpoints.accounting import ACCOUNTING_ENDPOINTS
+from aragora.server.openapi.endpoints.threat_intel import THREAT_INTEL_ENDPOINTS
 
 # Combined endpoints dictionary
 ALL_ENDPOINTS = {
@@ -64,9 +77,18 @@ ALL_ENDPOINTS = {
     **DECISION_ENDPOINTS,
     **CODEBASE_SECURITY_ENDPOINTS,
     **CODEBASE_METRICS_ENDPOINTS,
+    **CODEBASE_INTELLIGENCE_ENDPOINTS,
+    **CODEBASE_QUICK_SCAN_ENDPOINTS,
     **GITHUB_ENDPOINTS,
     **COSTS_ENDPOINTS,
     **INBOX_ENDPOINTS,
+    **GMAIL_ENDPOINTS,
+    **OUTLOOK_ENDPOINTS,
+    **KNOWLEDGE_CHAT_ENDPOINTS,
+    **KNOWLEDGE_MOUND_ENDPOINTS,
+    **AUDIT_SESSIONS_ENDPOINTS,
+    **ACCOUNTING_ENDPOINTS,
+    **THREAT_INTEL_ENDPOINTS,
 }
 
 __all__ = [
@@ -97,8 +119,17 @@ __all__ = [
     "DECISION_ENDPOINTS",
     "CODEBASE_SECURITY_ENDPOINTS",
     "CODEBASE_METRICS_ENDPOINTS",
+    "CODEBASE_INTELLIGENCE_ENDPOINTS",
+    "CODEBASE_QUICK_SCAN_ENDPOINTS",
     "GITHUB_ENDPOINTS",
     "COSTS_ENDPOINTS",
     "INBOX_ENDPOINTS",
+    "GMAIL_ENDPOINTS",
+    "OUTLOOK_ENDPOINTS",
+    "KNOWLEDGE_CHAT_ENDPOINTS",
+    "KNOWLEDGE_MOUND_ENDPOINTS",
+    "AUDIT_SESSIONS_ENDPOINTS",
+    "ACCOUNTING_ENDPOINTS",
+    "THREAT_INTEL_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

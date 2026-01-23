@@ -8,7 +8,7 @@ This document serves as the public-facing security information portal for Aragor
 
 ## Security Overview
 
-Aragora is committed to maintaining the highest standards of security for our multi-agent debate platform. This portal provides transparency into our security practices, compliance status, and how we protect your data.
+Aragora is committed to maintaining the highest standards of security for our multi-agent deliberation control plane. This portal provides transparency into our security practices, compliance status, and how we protect your data.
 
 ### Our Security Principles
 

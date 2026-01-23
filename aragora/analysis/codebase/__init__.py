@@ -40,6 +40,16 @@ from .sast_scanner import (
     OWASPCategory,
     scan_for_vulnerabilities,
 )
+from .sbom_generator import (
+    SBOMGenerator,
+    SBOMFormat,
+    SBOMResult,
+    SBOMComponent,
+    SBOMMetadata,
+    ComponentType,
+    HashAlgorithm,
+    generate_sbom,
+)
 
 __all__ = [
     # Models
@@ -73,4 +83,13 @@ __all__ = [
     "SASTConfig",
     "OWASPCategory",
     "scan_for_vulnerabilities",
+    # SBOM Generator
+    "SBOMGenerator",
+    "SBOMFormat",
+    "SBOMResult",
+    "SBOMComponent",
+    "SBOMMetadata",
+    "ComponentType",
+    "HashAlgorithm",
+    "generate_sbom",
 ]
