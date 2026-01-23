@@ -355,8 +355,13 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
             "/api/health/detailed",
             "/api/health/deep",
             "/api/health/stores",
+            "/api/v1/health",
+            "/api/v1/health/detailed",
+            "/api/v1/health/deep",
+            "/api/v1/health/stores",
             # OAuth
             "/api/auth/oauth/providers",  # Login page needs to show available providers
+            "/api/v1/auth/oauth/providers",  # v1 route
             # API documentation (public)
             "/api/openapi",
             "/api/openapi.json",
@@ -366,24 +371,39 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
             "/api/docs/",
             "/api/redoc",
             "/api/redoc/",
+            "/api/v1/openapi",
+            "/api/v1/openapi.json",
+            "/api/v1/docs",
+            "/api/v1/docs/",
             # Read-only public endpoints
             "/api/insights/recent",
             "/api/flips/recent",
             "/api/evidence",
             "/api/evidence/statistics",
             "/api/verification/status",
+            "/api/v1/insights/recent",
+            "/api/v1/flips/recent",
+            "/api/v1/evidence",
+            "/api/v1/evidence/statistics",
+            "/api/v1/verification/status",
             # Agent/ranking public data
             "/api/leaderboard",
             "/api/leaderboard-view",
             "/api/agents",
+            "/api/v1/leaderboard",
+            "/api/v1/leaderboard-view",
+            "/api/v1/agents",
         ]
     )
 
     # Path prefixes exempt from authentication (OAuth callbacks, read-only data)
     AUTH_EXEMPT_PREFIXES = (
         "/api/auth/oauth/",  # OAuth flow (login, callback)
+        "/api/v1/auth/oauth/",  # OAuth flow v1 routes
         "/api/agent/",  # Agent profiles (read-only)
+        "/api/v1/agent/",  # Agent profiles v1 routes
         "/api/routing/",  # Domain detection and routing (read-only)
+        "/api/v1/routing/",  # Domain routing v1 routes
     )
 
     # Path prefixes exempt ONLY for GET requests (read-only access)
