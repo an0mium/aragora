@@ -20,9 +20,10 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, TypeVar
 
 from aiohttp import web
 
@@ -32,6 +33,7 @@ from aragora.services import (
     EmailPrioritizationConfig,
     SenderHistoryService,
 )
+from aragora.cache import HybridTTLCache, register_cache
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -39,9 +41,94 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# In-memory cache for prioritized emails (would be replaced with Redis/DB in production)
-_email_cache: Dict[str, Dict[str, Any]] = {}
-_priority_results: Dict[str, List[Dict[str, Any]]] = {}
+T = TypeVar("T", bound=Dict[str, Any])
+
+
+class IterableTTLCache(Generic[T]):
+    """
+    TTL cache wrapper that supports iteration for inbox operations.
+
+    Wraps HybridTTLCache to provide dict-like iteration while maintaining
+    Redis persistence for multi-instance deployments.
+    """
+
+    def __init__(self, name: str, maxsize: int, ttl_seconds: float) -> None:
+        self._cache: HybridTTLCache[T] = HybridTTLCache(
+            prefix=name,
+            maxsize=maxsize,
+            ttl_seconds=ttl_seconds,
+        )
+        self._keys: set[str] = set()  # Track keys for iteration
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> Optional[T]:
+        """Get value from cache."""
+        return self._cache.get(key)
+
+    def set(self, key: str, value: T) -> None:
+        """Store value in cache."""
+        self._cache.set(key, value)
+        with self._lock:
+            self._keys.add(key)
+
+    def __setitem__(self, key: str, value: T) -> None:
+        """Dict-style assignment."""
+        self.set(key, value)
+
+    def __getitem__(self, key: str) -> T:
+        """Dict-style access."""
+        value = self.get(key)
+        if value is None:
+            raise KeyError(key)
+        return value
+
+    def __contains__(self, key: str) -> bool:
+        """Check if key exists."""
+        return self.get(key) is not None
+
+    def items(self) -> list[tuple[str, T]]:
+        """Return list of (key, value) pairs."""
+        result: list[tuple[str, T]] = []
+        with self._lock:
+            for key in list(self._keys):
+                value = self.get(key)
+                if value is not None:
+                    result.append((key, value))
+                else:
+                    self._keys.discard(key)
+        return result
+
+    def values(self) -> list[T]:
+        """Return list of values."""
+        return [v for _, v in self.items()]
+
+    def invalidate(self, key: str) -> bool:
+        """Remove key from cache."""
+        with self._lock:
+            self._keys.discard(key)
+        return self._cache.invalidate(key)
+
+    @property
+    def stats(self) -> dict:
+        """Get cache statistics."""
+        return self._cache.stats
+
+
+# Production-ready cache for prioritized emails (Redis when available, fallback to in-memory)
+_email_cache: IterableTTLCache = IterableTTLCache(
+    name="inbox_email_cache",
+    maxsize=10000,
+    ttl_seconds=3600,  # 1 hour TTL
+)
+_priority_results: IterableTTLCache = IterableTTLCache(
+    name="inbox_priority_results",
+    maxsize=1000,
+    ttl_seconds=1800,  # 30 min TTL
+)
+
+# Register underlying caches for monitoring
+register_cache("inbox_email", _email_cache._cache)
+register_cache("inbox_priority", _priority_results._cache)
 
 
 @dataclass
@@ -956,8 +1043,9 @@ class InboxCommandHandler:
                             new_priority = result.priority.name.lower()
                             new_confidence = result.confidence
 
-                            # Update cache
-                            _email_cache[email_id].update(
+                            # Update cache (get, modify, set pattern for TTL cache)
+                            updated_email = dict(cached_email)
+                            updated_email.update(
                                 {
                                     "priority": new_priority,
                                     "confidence": new_confidence,
@@ -973,6 +1061,7 @@ class InboxCommandHandler:
                                     "auto_archive": result.auto_archive,
                                 }
                             )
+                            _email_cache.set(email_id, updated_email)
 
                             # Track if priority changed
                             if old_priority != new_priority:
