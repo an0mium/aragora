@@ -424,8 +424,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         # Update stats
         self.stats["rlm_compressions"] += 1
         ratio = result.compression_ratio
-        self.stats["compression_ratio_avg"] = (  # type: ignore[assignment]
-            self.stats["compression_ratio_avg"] * 0.9 + ratio * 0.1  # type: ignore[operator]
+        self.stats["compression_ratio_avg"] = (
+            self.stats["compression_ratio_avg"] * 0.9 + ratio * 0.1  # type: ignore[operator,assignment]
         )
 
         for level in result.abstraction_levels:

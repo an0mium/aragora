@@ -49,6 +49,7 @@ class UsageMeteringHandler(SecureHandler):
         "/api/v1/billing/limits",
         "/api/v1/billing/usage/summary",
         "/api/v1/billing/usage/export",
+        "/api/v1/quotas",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -87,6 +88,9 @@ class UsageMeteringHandler(SecureHandler):
 
         if path == "/api/v1/billing/usage/export" and method == "GET":
             return self._export_usage(handler, query_params)
+
+        if path == "/api/v1/quotas" and method == "GET":
+            return self._get_quota_status(handler, query_params)
 
         return error_response("Method not allowed", 405)
 
@@ -349,6 +353,92 @@ class UsageMeteringHandler(SecureHandler):
             loop.close()
 
         return json_response({"limits": limits.to_dict()})
+
+    @handle_errors("get quota status")
+    @require_permission("org:billing")
+    def _get_quota_status(
+        self,
+        handler,
+        query_params: dict,
+        user=None,
+    ) -> HandlerResult:
+        """
+        Get current quota status using the unified QuotaManager.
+
+        Returns:
+            JSON response with quota status for all resources:
+            {
+                "quotas": {
+                    "debates": {
+                        "limit": 100,
+                        "current": 45,
+                        "remaining": 55,
+                        "period": "day",
+                        "percentage_used": 45.0,
+                        "is_exceeded": false,
+                        "is_warning": false
+                    },
+                    "api_requests": {...},
+                    "tokens": {...}
+                }
+            }
+        """
+        import asyncio
+
+        from aragora.server.middleware.tier_enforcement import get_quota_manager
+
+        # Get user and organization
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user:
+            return error_response("User not found", 404)
+
+        org = None
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
+
+        if not org:
+            return error_response("No organization found", 404)
+
+        # Get quota status from QuotaManager
+        manager = get_quota_manager()
+
+        # Core resources to check
+        resources = ["debates", "api_requests", "tokens", "storage_bytes", "knowledge_bytes"]
+
+        loop = asyncio.new_event_loop()
+        try:
+            quotas = {}
+            for resource in resources:
+                try:
+                    status = loop.run_until_complete(
+                        manager.get_quota_status(resource, tenant_id=org.id)
+                    )
+                    if status:
+                        quotas[resource] = {
+                            "limit": status.limit,
+                            "current": status.current,
+                            "remaining": status.remaining,
+                            "period": status.period.value,
+                            "percentage_used": status.percentage_used,
+                            "is_exceeded": status.is_exceeded,
+                            "is_warning": status.is_warning,
+                            "resets_at": (
+                                status.period_resets_at.isoformat()
+                                if status.period_resets_at
+                                else None
+                            ),
+                        }
+                except Exception as e:
+                    logger.warning(f"Failed to get quota status for {resource}: {e}")
+                    continue
+        finally:
+            loop.close()
+
+        return json_response({"quotas": quotas})
 
     @handle_errors("export usage")
     @require_permission("org:billing")

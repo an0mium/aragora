@@ -331,6 +331,12 @@ class RedTeamMode:
             for a in all_attacks
             if any(d.attack_id == a.attack_id and d.success for d in all_defenses)
         ]
+        # Accepted risks: attacks where defense type is "accept"
+        accepted = [
+            a
+            for a in all_attacks
+            if any(d.attack_id == a.attack_id and d.defense_type == "accept" for d in all_defenses)
+        ]
 
         robustness = 1.0 - (len(successful) / len(all_attacks)) if all_attacks else 1.0
 
@@ -342,7 +348,7 @@ class RedTeamMode:
             successful_attacks=len(successful),
             critical_issues=critical,
             mitigated_issues=mitigated,
-            accepted_risks=[],
+            accepted_risks=accepted,
             robustness_score=robustness,
             coverage_score=(
                 len(set(a.attack_type for a in all_attacks)) / len(AttackType)
@@ -413,6 +419,65 @@ class RedTeamMode:
                 attacks.append(attack)
 
         return attacks
+
+    def _parse_defenses(
+        self,
+        response: str,
+        defender: str,
+        attacks: list[Attack],
+    ) -> list[Defense]:
+        """Parse defenses from agent response.
+
+        The response should address attacks with:
+        - REFUTE: Attack is invalid
+        - ACKNOWLEDGE + MITIGATE: Accept issue, explain fix
+        - ACCEPT RISK: Explain why risk is acceptable
+        """
+        defenses = []
+
+        # Parse response for defense indicators
+        response_lower = response.lower()
+
+        for attack in attacks:
+            # Determine defense type from response content
+            defense_type = "acknowledge"  # default
+            success = True
+            residual_risk = 0.2
+
+            if (
+                "refute" in response_lower
+                or "invalid" in response_lower
+                or "incorrect" in response_lower
+            ):
+                defense_type = "refute"
+                success = True
+                residual_risk = 0.0
+            elif (
+                "mitigate" in response_lower
+                or "fix" in response_lower
+                or "address" in response_lower
+            ):
+                defense_type = "mitigate"
+                success = True
+                residual_risk = 0.2
+            elif "accept" in response_lower and "risk" in response_lower:
+                defense_type = "accept"
+                success = False  # Accepted risks are not mitigated
+                residual_risk = attack.severity * 0.7  # Reduced but not eliminated
+
+            self._defense_counter += 1
+            defense = Defense(
+                defense_id=f"defense-{self._defense_counter:04d}",
+                attack_id=attack.attack_id,
+                defender=defender,
+                defense_type=defense_type,
+                explanation=response[:500],
+                success=success,
+                residual_risk=residual_risk,
+            )
+            defenses.append(defense)
+
+        return defenses
 
     def generate_report(self, result: RedTeamResult) -> str:
         """Generate a Markdown report of red-team findings."""

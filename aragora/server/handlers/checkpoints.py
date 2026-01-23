@@ -51,7 +51,7 @@ class CheckpointHandler(BaseHandler):
     ]
 
     def __init__(self, context: Optional[Dict[str, Any]] = None):
-        super().__init__(context)
+        super().__init__(context)  # type: ignore[arg-type]
         self._checkpoint_manager: Optional[CheckpointManager] = None
 
     def _get_checkpoint_manager(self) -> CheckpointManager:

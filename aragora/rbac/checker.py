@@ -26,6 +26,7 @@ from .models import (
 if TYPE_CHECKING:
     from .audit import AuthorizationAuditor
     from .cache import RBACDistributedCache
+    from .resource_permissions import ResourcePermissionStore
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class PermissionChecker:
         cache_ttl: int = 300,
         enable_cache: bool = True,
         cache_backend: Optional["RBACDistributedCache"] = None,
+        resource_permission_store: Optional["ResourcePermissionStore"] = None,
     ) -> None:
         """
         Initialize the permission checker.
@@ -60,17 +62,23 @@ class PermissionChecker:
             enable_cache: Whether to enable decision caching
             cache_backend: Optional distributed cache backend (Redis-backed).
                           If provided, uses distributed cache instead of local dict.
+            resource_permission_store: Optional store for resource-level permissions.
+                          If provided, checks resource-level permissions before role-based.
         """
         self._auditor = auditor
         self._cache_ttl = cache_ttl
         self._enable_cache = enable_cache
         self._cache_backend = cache_backend
+        self._resource_permission_store = resource_permission_store
 
         # Local cache (used when no distributed backend, or as L1)
         self._decision_cache: dict[str, tuple[AuthorizationDecision, datetime]] = {}
         self._role_assignments: dict[str, list[RoleAssignment]] = {}
         self._custom_roles: dict[str, dict[str, Any]] = {}
         self._resource_policies: dict[str, Callable[..., bool]] = {}
+
+        # Cache for resource permission checks
+        self._resource_permission_cache: dict[str, tuple[bool, datetime]] = {}
 
         # If distributed cache provided, register for invalidation callbacks
         if self._cache_backend:
@@ -173,6 +181,192 @@ class PermissionChecker:
 
         return decision
 
+    def check_resource_permission(
+        self,
+        user_id: str,
+        action: Action,
+        resource_type: ResourceType,
+        resource_id: str,
+        org_id: str | None = None,
+        context: AuthorizationContext | None = None,
+    ) -> AuthorizationDecision:
+        """
+        Check if a user has permission to perform an action on a specific resource.
+
+        This method first checks resource-level permissions (fine-grained),
+        then falls back to role-based permissions if no resource-level grant exists.
+
+        Args:
+            user_id: User to check
+            action: Action to perform
+            resource_type: Type of resource
+            resource_id: Specific resource ID
+            org_id: Organization context
+            context: Optional full authorization context for role-based fallback
+
+        Returns:
+            AuthorizationDecision with result and reason
+        """
+        permission_key = f"{resource_type.value}.{action.value}"
+
+        # Check cache first
+        if self._enable_cache:
+            cached = self._get_cached_resource_permission(
+                user_id, permission_key, resource_type, resource_id, org_id
+            )
+            if cached is not None:
+                return cached
+
+        # Step 1: Check resource-level permissions if store is configured
+        if self._resource_permission_store:
+            has_resource_perm = self._resource_permission_store.check_resource_permission(
+                user_id=user_id,
+                permission_id=permission_key,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                org_id=org_id,
+            )
+            if has_resource_perm:
+                decision = AuthorizationDecision(
+                    allowed=True,
+                    reason=f"Resource-level permission '{permission_key}' granted for {resource_type.value}/{resource_id}",
+                    permission_key=permission_key,
+                    resource_id=resource_id,
+                    context=context,
+                )
+                if self._enable_cache:
+                    self._cache_resource_permission(
+                        user_id, permission_key, resource_type, resource_id, org_id, decision
+                    )
+                if self._auditor:
+                    self._auditor.log_decision(decision)
+                return decision
+
+        # Step 2: Fall back to role-based permissions if context provided
+        if context:
+            decision = self.check_permission(context, permission_key, resource_id)
+            if self._enable_cache:
+                self._cache_resource_permission(
+                    user_id, permission_key, resource_type, resource_id, org_id, decision
+                )
+            return decision
+
+        # No resource permission and no context for role check
+        decision = AuthorizationDecision(
+            allowed=False,
+            reason=f"No resource-level permission '{permission_key}' for {resource_type.value}/{resource_id}",
+            permission_key=permission_key,
+            resource_id=resource_id,
+            context=None,
+        )
+
+        if self._enable_cache:
+            self._cache_resource_permission(
+                user_id, permission_key, resource_type, resource_id, org_id, decision
+            )
+
+        if self._auditor:
+            self._auditor.log_decision(decision)
+
+        return decision
+
+    def set_resource_permission_store(self, store: Optional["ResourcePermissionStore"]) -> None:
+        """
+        Set the resource permission store.
+
+        Args:
+            store: ResourcePermissionStore instance or None to disable
+        """
+        self._resource_permission_store = store
+        # Clear resource permission cache when store changes
+        self._resource_permission_cache.clear()
+
+    def get_resource_permission_store(self) -> Optional["ResourcePermissionStore"]:
+        """Get the current resource permission store."""
+        return self._resource_permission_store
+
+    def clear_resource_permission_cache(
+        self,
+        user_id: str | None = None,
+        resource_type: ResourceType | None = None,
+        resource_id: str | None = None,
+    ) -> None:
+        """
+        Clear the resource permission cache.
+
+        Args:
+            user_id: Optional filter by user ID
+            resource_type: Optional filter by resource type
+            resource_id: Optional filter by resource ID
+        """
+        if not user_id and not resource_type and not resource_id:
+            self._resource_permission_cache.clear()
+            return
+
+        keys_to_remove = []
+        for key in self._resource_permission_cache:
+            parts = key.split(":")
+            if len(parts) >= 4:
+                key_user_id, _, key_resource_type, key_resource_id = parts[:4]
+                if user_id and key_user_id != user_id:
+                    continue
+                if resource_type and key_resource_type != resource_type.value:
+                    continue
+                if resource_id and key_resource_id != resource_id:
+                    continue
+                keys_to_remove.append(key)
+
+        for key in keys_to_remove:
+            del self._resource_permission_cache[key]
+
+    def _get_cached_resource_permission(
+        self,
+        user_id: str,
+        permission_key: str,
+        resource_type: ResourceType,
+        resource_id: str,
+        org_id: str | None,
+    ) -> AuthorizationDecision | None:
+        """Get cached resource permission decision."""
+        cache_key = f"{user_id}:{permission_key}:{resource_type.value}:{resource_id}:{org_id or ''}"
+
+        if cache_key not in self._resource_permission_cache:
+            return None
+
+        result, cached_at = self._resource_permission_cache[cache_key]
+        age = (datetime.now(timezone.utc) - cached_at).total_seconds()
+
+        if age > self._cache_ttl:
+            del self._resource_permission_cache[cache_key]
+            return None
+
+        # Reconstruct decision from cached data
+        if isinstance(result, AuthorizationDecision):
+            return AuthorizationDecision(
+                allowed=result.allowed,
+                reason=result.reason,
+                permission_key=result.permission_key,
+                resource_id=result.resource_id,
+                context=result.context,
+                checked_at=result.checked_at,
+                cached=True,
+            )
+
+        return None
+
+    def _cache_resource_permission(
+        self,
+        user_id: str,
+        permission_key: str,
+        resource_type: ResourceType,
+        resource_id: str,
+        org_id: str | None,
+        decision: AuthorizationDecision,
+    ) -> None:
+        """Cache a resource permission decision."""
+        cache_key = f"{user_id}:{permission_key}:{resource_type.value}:{resource_id}:{org_id or ''}"
+        self._resource_permission_cache[cache_key] = (decision, datetime.now(timezone.utc))
+
     def has_role(self, context: AuthorizationContext, role_name: str) -> bool:
         """Check if context has a specific role."""
         return role_name in context.roles
@@ -244,8 +438,11 @@ class PermissionChecker:
             keys_to_remove = [k for k in self._decision_cache if k.startswith(f"{user_id}:")]
             for key in keys_to_remove:
                 del self._decision_cache[key]
+            # Also clear resource permission cache for this user
+            self.clear_resource_permission_cache(user_id=user_id)
         else:
             self._decision_cache.clear()
+            self._resource_permission_cache.clear()
 
     def _resolve_permissions(self, context: AuthorizationContext) -> AuthorizationContext:
         """Resolve all permissions from roles."""
@@ -469,8 +666,10 @@ class PermissionChecker:
         """Get cache statistics."""
         stats: dict[str, Any] = {
             "local_cache_size": len(self._decision_cache),
+            "resource_permission_cache_size": len(self._resource_permission_cache),
             "cache_enabled": self._enable_cache,
             "cache_ttl": self._cache_ttl,
+            "resource_permission_store_enabled": self._resource_permission_store is not None,
         }
 
         if self._cache_backend:
@@ -478,6 +677,9 @@ class PermissionChecker:
             stats["distributed_stats"] = self._cache_backend.get_stats()
         else:
             stats["distributed"] = False
+
+        if self._resource_permission_store:
+            stats["resource_permission_store_stats"] = self._resource_permission_store.get_stats()
 
         return stats
 

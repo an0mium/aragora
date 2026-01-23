@@ -11,6 +11,13 @@ Usage:
     def create_debate(self, handler):
         # Only called if org has available quota
         ...
+
+    # Async usage with QuotaManager
+    from aragora.server.middleware.tier_enforcement import get_quota_manager
+
+    manager = get_quota_manager()
+    if await manager.check_quota("debates", tenant_id=org_id):
+        await manager.consume("debates", tenant_id=org_id)
 """
 
 import logging
@@ -18,9 +25,93 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
-    pass
+    from aragora.tenancy.quotas import QuotaManager
 
 logger = logging.getLogger(__name__)
+
+# Global QuotaManager singleton for unified quota enforcement
+_quota_manager: Optional["QuotaManager"] = None
+
+
+def get_quota_manager() -> "QuotaManager":
+    """Get or create the global QuotaManager instance.
+
+    Returns:
+        QuotaManager instance for async quota operations.
+    """
+    global _quota_manager
+    if _quota_manager is None:
+        from aragora.tenancy.quotas import QuotaManager
+
+        _quota_manager = QuotaManager()
+    return _quota_manager
+
+
+async def check_org_quota_async(
+    org_id: str,
+    resource: str = "debates",
+) -> tuple[bool, Optional["QuotaExceededError"]]:
+    """
+    Async check if an organization has available quota.
+
+    Uses the unified QuotaManager for tenant-aware quota checking.
+
+    Args:
+        org_id: Organization/tenant ID to check
+        resource: Resource type (e.g., "debates", "api_requests")
+
+    Returns:
+        Tuple of (has_quota, error). If has_quota is False, error contains details.
+    """
+    if not org_id:
+        return True, None
+
+    try:
+        manager = get_quota_manager()
+        has_quota = await manager.check_quota(resource, tenant_id=org_id)
+        if not has_quota:
+            # Get current usage for error details
+            status = await manager.get_quota_status(resource, tenant_id=org_id)
+            if status:
+                return False, QuotaExceededError(
+                    resource=resource,
+                    limit=status.limit,
+                    used=status.current,
+                    tier="unknown",  # QuotaManager doesn't track tier names
+                    org_id=org_id,
+                )
+        return True, None
+    except Exception as e:
+        logger.error(f"Async quota check failed for org {org_id}: {e}")
+        return True, None  # Fail open
+
+
+async def increment_org_usage_async(
+    org_id: str,
+    resource: str = "debates",
+    count: int = 1,
+) -> bool:
+    """
+    Async increment usage counter using QuotaManager.
+
+    Args:
+        org_id: Organization/tenant ID
+        resource: Resource type
+        count: Amount to increment
+
+    Returns:
+        True if increment succeeded
+    """
+    if not org_id:
+        return True
+
+    try:
+        manager = get_quota_manager()
+        await manager.consume(resource, count, tenant_id=org_id)
+        return True
+    except Exception as e:
+        logger.error(f"Async usage increment failed for org {org_id}: {e}")
+        return False
 
 
 class QuotaExceededError(Exception):

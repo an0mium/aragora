@@ -346,7 +346,7 @@ class HybridSearcher:
         documents = [r.content for r in results]
 
         # Get rerank scores
-        scores = await reranker(query, documents)  # type: ignore[assignment]
+        scores = await reranker(query, documents)  # type: ignore[assignment,misc]
 
         # Update combined scores with rerank scores
         for result, score in zip(results, scores):

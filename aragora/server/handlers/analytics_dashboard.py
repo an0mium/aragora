@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -706,7 +706,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             period_end = datetime.now(timezone.utc)
             period_start = period_end - timedelta(days=days)
 
-            providers = {}
+            providers: dict[str, Any] = {}
             with tracker._connection() as conn:
                 rows = conn.execute(
                     """

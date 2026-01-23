@@ -463,7 +463,7 @@ class AnalyticsPhase:
             # Add claims from grounded verdict
             for claim in result.grounded_verdict.claims[:20]:
                 claim_id = getattr(claim, "claim_id", str(hash(claim.statement[:50])))
-                analyzer.add_claim(  # type: ignore[call-arg]
+                analyzer.add_claim(  # type: ignore[call-arg,attr-defined]
                     claim_id=claim_id,
                     statement=claim.statement,
                     prior=getattr(claim, "confidence", 0.5),

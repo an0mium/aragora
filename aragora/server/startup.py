@@ -252,6 +252,121 @@ async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[boo
         return False, f"Redis connection failed: {e}"
 
 
+async def init_redis_ha() -> dict[str, Any]:
+    """Initialize Redis High-Availability connection.
+
+    Configures the Redis HA client based on environment variables.
+    Supports three modes:
+    - Standalone: Single Redis instance (development)
+    - Sentinel: Redis Sentinel for automatic failover (production HA)
+    - Cluster: Redis Cluster for horizontal scaling (enterprise)
+
+    The mode is determined by ARAGORA_REDIS_MODE or auto-detected from
+    available configuration (ARAGORA_REDIS_SENTINEL_HOSTS or
+    ARAGORA_REDIS_CLUSTER_NODES).
+
+    Environment Variables:
+        ARAGORA_REDIS_MODE: Redis mode ("standalone", "sentinel", "cluster")
+        ARAGORA_REDIS_SENTINEL_HOSTS: Comma-separated sentinel hosts
+        ARAGORA_REDIS_SENTINEL_MASTER: Sentinel master name (default: mymaster)
+        ARAGORA_REDIS_CLUSTER_NODES: Comma-separated cluster nodes
+
+    Returns:
+        Dictionary with Redis HA initialization status:
+        {
+            "enabled": bool,
+            "mode": str,
+            "healthy": bool,
+            "description": str,
+            "error": Optional[str],
+        }
+    """
+    result: dict[str, Any] = {
+        "enabled": False,
+        "mode": "standalone",
+        "healthy": False,
+        "description": "Redis HA not configured",
+        "error": None,
+    }
+
+    try:
+        from aragora.config.redis import get_redis_ha_config
+        from aragora.storage.redis_ha import (
+            RedisHAConfig,
+            RedisMode,
+            check_redis_health,
+            get_redis_client,
+            reset_cached_clients,
+        )
+
+        # Get configuration from environment
+        config = get_redis_ha_config()
+        result["mode"] = config.mode.value
+        result["enabled"] = config.enabled
+
+        if not config.enabled and not config.is_configured:
+            logger.debug("Redis HA not configured (no Redis URL or HA hosts set)")
+            return result
+
+        # Build RedisHAConfig from our settings
+        ha_config = RedisHAConfig(
+            mode=RedisMode(config.mode.value),
+            host=config.host,
+            port=config.port,
+            password=config.password,
+            db=config.db,
+            url=config.url,
+            sentinel_hosts=config.sentinel_hosts,
+            sentinel_master=config.sentinel_master,
+            sentinel_password=config.sentinel_password,
+            cluster_nodes=config.cluster_nodes,
+            cluster_read_from_replicas=config.cluster_read_from_replicas,
+            cluster_skip_full_coverage_check=config.cluster_skip_full_coverage_check,
+            socket_timeout=config.socket_timeout,
+            socket_connect_timeout=config.socket_connect_timeout,
+            max_connections=config.max_connections,
+            retry_on_timeout=config.retry_on_timeout,
+            health_check_interval=config.health_check_interval,
+            decode_responses=config.decode_responses,
+            ssl=config.ssl,
+            ssl_cert_reqs=config.ssl_cert_reqs,
+            ssl_ca_certs=config.ssl_ca_certs,
+        )
+
+        # Reset any cached clients to pick up new configuration
+        reset_cached_clients()
+
+        # Test connection
+        health = check_redis_health(ha_config)
+        result["healthy"] = health.get("healthy", False)
+        result["description"] = config.get_mode_description()
+
+        if health.get("healthy"):
+            # Store the client for reuse
+            client = get_redis_client(ha_config)
+            if client:
+                result["enabled"] = True
+                logger.info(
+                    f"Redis HA initialized: {config.get_mode_description()} "
+                    f"(latency={health.get('latency_ms', 'unknown')}ms)"
+                )
+            else:
+                result["error"] = "Failed to create Redis client"
+                logger.warning("Redis HA client creation failed")
+        else:
+            result["error"] = health.get("error", "Unknown error")
+            logger.warning(f"Redis HA health check failed: {result['error']}")
+
+    except ImportError as e:
+        result["error"] = f"Redis package not installed: {e}"
+        logger.debug(f"Redis HA not available: {e}")
+    except Exception as e:
+        result["error"] = str(e)
+        logger.warning(f"Redis HA initialization failed: {e}")
+
+    return result
+
+
 async def validate_database_connectivity(timeout_seconds: float = 5.0) -> tuple[bool, str]:
     """Test PostgreSQL connectivity with a simple query.
 
@@ -1338,6 +1453,7 @@ def _get_degraded_status() -> dict[str, Any]:
         "key_rotation_scheduler": False,
         "rbac_distributed_cache": False,
         "notification_worker": False,
+        "graphql": False,
     }
 
 
@@ -1442,6 +1558,7 @@ async def run_startup_sequence(
 
     status: dict[str, Any] = {
         "backend_connectivity": connectivity,
+        "redis_ha": {"enabled": False, "mode": "standalone", "healthy": False},
         "error_monitoring": False,
         "opentelemetry": False,
         "otlp_exporter": False,
@@ -1466,7 +1583,11 @@ async def run_startup_sequence(
         "key_rotation_scheduler": False,
         "rbac_distributed_cache": False,
         "notification_worker": False,
+        "graphql": False,
     }
+
+    # Initialize Redis HA early (other components may depend on it)
+    status["redis_ha"] = await init_redis_ha()
 
     # Initialize in parallel where possible
     status["error_monitoring"] = await init_error_monitoring()
@@ -1518,7 +1639,95 @@ async def run_startup_sequence(
     # Recover pending approval requests from governance store
     status["approval_gate_recovery"] = await init_approval_gate_recovery()
 
+    # Initialize GraphQL API routes (if enabled)
+    status["graphql"] = init_graphql_routes(None)
+
     return status
+
+
+def init_graphql_routes(app: Any) -> bool:
+    """Initialize GraphQL routes and mount endpoints.
+
+    Mounts the GraphQL API endpoint at /graphql and the GraphiQL playground
+    at /graphiql (when enabled). The routes are only mounted if GraphQL is
+    enabled via ARAGORA_GRAPHQL_ENABLED environment variable.
+
+    Args:
+        app: The application or handler registry to mount routes on.
+              For UnifiedServer, this is typically the handler registry.
+
+    Environment Variables:
+        ARAGORA_GRAPHQL_ENABLED: Enable GraphQL API (default: true)
+        ARAGORA_GRAPHQL_INTROSPECTION: Allow schema introspection (default: true in dev, false in prod)
+        ARAGORA_GRAPHIQL_ENABLED: Enable GraphiQL playground (default: same as dev mode)
+
+    Returns:
+        True if GraphQL routes were mounted, False otherwise
+    """
+    import os
+
+    # Check if GraphQL is enabled
+    graphql_enabled = os.environ.get("ARAGORA_GRAPHQL_ENABLED", "true").lower() in (
+        "true",
+        "1",
+        "yes",
+        "on",
+    )
+
+    if not graphql_enabled:
+        logger.info("GraphQL API disabled (ARAGORA_GRAPHQL_ENABLED=false)")
+        return False
+
+    try:
+        from aragora.server.graphql import GraphQLHandler, GraphQLSchemaHandler  # noqa: F401
+
+        # Determine environment for defaults
+        env = os.environ.get("ARAGORA_ENV", "development")
+        is_production = env == "production"
+
+        # Check introspection and GraphiQL settings
+        introspection_default = "false" if is_production else "true"
+        introspection_enabled = os.environ.get(
+            "ARAGORA_GRAPHQL_INTROSPECTION", introspection_default
+        ).lower() in ("true", "1", "yes", "on")
+
+        graphiql_default = "false" if is_production else "true"
+        graphiql_enabled = os.environ.get("ARAGORA_GRAPHIQL_ENABLED", graphiql_default).lower() in (
+            "true",
+            "1",
+            "yes",
+            "on",
+        )
+
+        # Log configuration
+        logger.info(
+            f"GraphQL API enabled (introspection={introspection_enabled}, "
+            f"graphiql={graphiql_enabled})"
+        )
+
+        # The handlers are auto-registered via the handler registry pattern
+        # when they define ROUTES class attribute. We just need to ensure
+        # they can be imported and the module is loaded.
+
+        # Log mounted endpoints
+        logger.info("  POST /graphql - GraphQL query endpoint")
+        logger.info("  POST /api/graphql - GraphQL query endpoint (alternate)")
+        logger.info("  POST /api/v1/graphql - GraphQL query endpoint (versioned)")
+
+        if introspection_enabled:
+            logger.info("  GET /graphql/schema - Schema introspection endpoint")
+
+        if graphiql_enabled:
+            logger.info("  GET /graphql - GraphiQL playground")
+
+        return True
+
+    except ImportError as e:
+        logger.warning(f"GraphQL module not available: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to initialize GraphQL routes: {e}")
+        return False
 
 
 async def init_rbac_distributed_cache() -> bool:
@@ -1821,6 +2030,7 @@ __all__ = [
     "validate_redis_connectivity",
     "validate_database_connectivity",
     "validate_backend_connectivity",
+    "init_redis_ha",
     "init_error_monitoring",
     "init_opentelemetry",
     "init_otlp_exporter",
@@ -1847,5 +2057,6 @@ __all__ = [
     "init_rbac_distributed_cache",
     "init_approval_gate_recovery",
     "init_notification_worker",
+    "init_graphql_routes",
     "run_startup_sequence",
 ]

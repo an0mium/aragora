@@ -26,12 +26,67 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import logging
+import os
+import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Union
 from unittest.mock import AsyncMock, MagicMock
+
+# ============================================================================
+# CI-Friendly Logging
+# ============================================================================
+
+# Configure logging for CI environments
+_log_level = logging.DEBUG if os.environ.get("ARAGORA_CI") else logging.INFO
+_log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+# Create module logger
+logger = logging.getLogger("aragora.e2e")
+
+# Configure handler only if not already configured
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter(_log_format))
+    logger.addHandler(handler)
+    logger.setLevel(_log_level)
+
+
+def _is_ci_environment() -> bool:
+    """Check if running in CI environment."""
+    return any(
+        os.environ.get(var)
+        for var in ["CI", "GITHUB_ACTIONS", "ARAGORA_CI", "JENKINS_URL", "GITLAB_CI"]
+    )
+
+
+async def with_timeout(
+    coro,
+    timeout: float,
+    operation_name: str = "operation",
+) -> Any:
+    """Execute a coroutine with timeout and CI-friendly error handling.
+
+    Args:
+        coro: The coroutine to execute
+        timeout: Timeout in seconds
+        operation_name: Name for logging purposes
+
+    Returns:
+        The result of the coroutine
+
+    Raises:
+        asyncio.TimeoutError: If the operation times out
+    """
+    try:
+        return await asyncio.wait_for(coro, timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.error(f"Timeout after {timeout}s waiting for {operation_name}")
+        raise
+
 
 from aragora.control_plane import (
     ControlPlaneCoordinator,
@@ -63,17 +118,25 @@ class E2ETestConfig:
 
     # Infrastructure
     use_redis: bool = False  # Use in-memory by default
-    redis_url: str = "redis://localhost:6379"
+    redis_url: str = field(
+        default_factory=lambda: os.environ.get("REDIS_URL", "redis://localhost:6379")
+    )
     use_postgres: bool = False
-    postgres_url: str = "postgresql://localhost:5432/aragora_test"
+    postgres_url: str = field(
+        default_factory=lambda: os.environ.get(
+            "DATABASE_URL", "postgresql://localhost:5432/aragora_test"
+        )
+    )
 
     # Observability
     enable_metrics: bool = False
     enable_tracing: bool = False
 
-    # Timeouts
-    timeout_seconds: float = 30.0
-    task_timeout_seconds: float = 10.0
+    # Timeouts - extended for CI environments
+    timeout_seconds: float = field(default_factory=lambda: 60.0 if _is_ci_environment() else 30.0)
+    task_timeout_seconds: float = field(
+        default_factory=lambda: 30.0 if _is_ci_environment() else 10.0
+    )
     heartbeat_interval: float = 2.0
 
     # Debate configuration
@@ -83,6 +146,10 @@ class E2ETestConfig:
     # Test behavior
     fail_rate: float = 0.0  # Rate of simulated failures (0-1)
     latency_variance: float = 0.1  # Variance in response times
+
+    # CI-specific settings
+    ci_mode: bool = field(default_factory=_is_ci_environment)
+    verbose_logging: bool = field(default_factory=lambda: bool(os.environ.get("ARAGORA_CI")))
 
 
 @dataclass
@@ -286,11 +353,24 @@ class E2ETestHarness:
         self._running = False
         self._worker_tasks: List[asyncio.Task] = []
         self._events: List[Dict[str, Any]] = []
+        self._start_time: Optional[float] = None
+
+        # Log configuration in CI mode
+        if self.config.ci_mode:
+            logger.info("E2E Harness initializing in CI mode")
+            logger.info(f"  Timeout: {self.config.timeout_seconds}s")
+            logger.info(f"  Task timeout: {self.config.task_timeout_seconds}s")
+            logger.info(
+                f"  Redis URL: {self.config.redis_url if self.config.use_redis else 'in-memory'}"
+            )
 
     async def start(self) -> None:
         """Start the test environment."""
         if self._running:
             return
+
+        self._start_time = time.monotonic()
+        logger.info("Starting E2E test harness...")
 
         # Create control plane config
         cp_config = ControlPlaneConfig(
@@ -358,12 +438,16 @@ class E2ETestHarness:
         await self.health_monitor.start()
 
         self._running = True
+        elapsed = time.monotonic() - self._start_time
+        logger.info(f"E2E harness started in {elapsed:.2f}s with {len(self.agents)} agents")
 
     async def stop(self) -> None:
         """Stop the test environment and clean up resources."""
         if not self._running:
             return
 
+        logger.info("Stopping E2E test harness...")
+        stop_start = time.monotonic()
         self._running = False
 
         # Cancel any running worker tasks
@@ -397,6 +481,10 @@ class E2ETestHarness:
             await self.scheduler.close()
         if self.registry:
             await self.registry.close()
+
+        elapsed = time.monotonic() - stop_start
+        total_runtime = time.monotonic() - self._start_time if self._start_time else 0
+        logger.info(f"E2E harness stopped in {elapsed:.2f}s (total runtime: {total_runtime:.2f}s)")
 
     # =========================================================================
     # Agent Management

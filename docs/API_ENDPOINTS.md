@@ -81,6 +81,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Security](#security)
 - [Audit Bridge](#audit-bridge)
 - [Pr Review](#pr-review)
+- [GraphQL](#graphql)
 
 ---
 
@@ -2579,6 +2580,138 @@ Submit review
 ### `GET` `/api/v1/github/pr/{pr_number}/reviews`
 
 List reviews
+
+---
+
+## GraphQL
+
+GraphQL API for efficient data fetching with support for queries, mutations, and subscriptions.
+
+### `POST` `/graphql`
+
+Execute GraphQL queries and mutations
+
+**Request Body:**
+```json
+{
+    "query": "query { debates(limit: 5) { debates { id topic status } } }",
+    "variables": {},
+    "operationName": null
+}
+```
+
+**Response:**
+```json
+{
+    "data": {
+        "debates": {
+            "debates": [
+                { "id": "abc123", "topic": "AI Ethics", "status": "COMPLETED" }
+            ]
+        }
+    }
+}
+```
+
+### `GET` `/graphql`
+
+GraphiQL interactive playground (development mode only)
+
+Opens the GraphiQL IDE for exploring the API and testing queries interactively.
+
+**Note:** GraphiQL is disabled in production by default. Set `ARAGORA_GRAPHIQL_ENABLED=true` to enable.
+
+### `GET` `/graphql/schema`
+
+Get the GraphQL schema in SDL format
+
+**Query Parameters:**
+- `format`: Response format (`sdl` or `json`, default: `sdl`)
+
+**Response (SDL):**
+```graphql
+type Query {
+    debate(id: ID!): Debate
+    debates(status: DebateStatus, limit: Int, offset: Int): DebateConnection!
+    # ...
+}
+```
+
+### Example Queries
+
+**Get recent debates with participants:**
+```graphql
+query GetDebates {
+    debates(limit: 10) {
+        debates {
+            id
+            topic
+            status
+            consensusReached
+            participants {
+                name
+                elo
+            }
+        }
+        total
+        hasMore
+    }
+}
+```
+
+**Get agent leaderboard:**
+```graphql
+query GetLeaderboard {
+    leaderboard(limit: 10) {
+        name
+        elo
+        stats {
+            wins
+            losses
+            winRate
+        }
+    }
+}
+```
+
+**Start a new debate:**
+```graphql
+mutation StartDebate {
+    startDebate(input: {
+        question: "What is the best programming language for beginners?"
+        agents: "claude,gpt4,gemini"
+        rounds: 3
+    }) {
+        id
+        topic
+        status
+    }
+}
+```
+
+**Get system health:**
+```graphql
+query SystemHealth {
+    systemHealth {
+        status
+        uptimeSeconds
+        version
+        components {
+            name
+            status
+            latencyMs
+        }
+    }
+}
+```
+
+### Configuration
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `ARAGORA_GRAPHQL_ENABLED` | `true` | Enable GraphQL API |
+| `ARAGORA_GRAPHQL_INTROSPECTION` | `true` (dev) / `false` (prod) | Allow schema introspection |
+| `ARAGORA_GRAPHIQL_ENABLED` | `true` (dev) / `false` (prod) | Enable GraphiQL playground |
 
 ---
 

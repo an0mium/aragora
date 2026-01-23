@@ -414,7 +414,7 @@ class DependencyAnalysisHandler(BaseHandler):
         """Route dependency analysis endpoint requests."""
         return None
 
-    async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:
+    async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:  # type: ignore[override]
         """Handle POST requests."""
         if path == "/api/v1/codebase/analyze-dependencies":
             return await handle_analyze_dependencies(data)

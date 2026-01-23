@@ -129,6 +129,18 @@ from .cache import (
     reset_rbac_cache,
 )
 
+# Resource-level permissions (fine-grained RBAC)
+from .resource_permissions import (
+    ResourcePermission,
+    ResourcePermissionStore,
+    ResourcePermissionBackend,
+    get_resource_permission_store,
+    set_resource_permission_store,
+    grant_resource_permission,
+    revoke_resource_permission,
+    check_resource_permission as check_resource_permission_func,
+)
+
 
 __all__ = [
     # Legacy Types (backward compatible)
@@ -207,4 +219,13 @@ __all__ = [
     "get_rbac_cache",
     "set_rbac_cache",
     "reset_rbac_cache",
+    # Resource-Level Permissions (Fine-Grained RBAC)
+    "ResourcePermission",
+    "ResourcePermissionStore",
+    "ResourcePermissionBackend",
+    "get_resource_permission_store",
+    "set_resource_permission_store",
+    "grant_resource_permission",
+    "revoke_resource_permission",
+    "check_resource_permission_func",
 ]

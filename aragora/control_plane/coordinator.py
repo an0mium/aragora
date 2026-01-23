@@ -83,6 +83,17 @@ except ImportError:
     DeliberationOutcome = None  # type: ignore
     DELIBERATION_TASK_TYPE = "deliberation"
 
+# Optional Redis HA support
+try:
+    from aragora.config.redis import RedisHASettings, RedisMode, get_redis_ha_config
+
+    HAS_REDIS_HA = True
+except ImportError:
+    HAS_REDIS_HA = False
+    RedisHASettings = None  # type: ignore
+    RedisMode = None  # type: ignore
+    get_redis_ha_config = None  # type: ignore
+
 logger = get_logger(__name__)
 
 
@@ -108,11 +119,57 @@ class ControlPlaneConfig:
     enable_policy_sync: bool = True
     policy_sync_workspace: Optional[str] = None
 
+    # Redis HA configuration
+    redis_ha_enabled: bool = False
+    redis_ha_mode: str = "standalone"
+    redis_ha_settings: Optional["RedisHASettings"] = None
+
     @classmethod
     def from_env(cls) -> "ControlPlaneConfig":
-        """Create config from environment variables."""
+        """Create config from environment variables.
+
+        This method checks for Redis HA configuration and uses the HA client
+        if configured. The Redis HA module provides Sentinel and Cluster support
+        for high availability deployments.
+
+        Environment Variables:
+            REDIS_URL: Standard Redis URL (fallback)
+            ARAGORA_REDIS_MODE: Redis mode (standalone, sentinel, cluster)
+            ARAGORA_REDIS_SENTINEL_HOSTS: Comma-separated Sentinel hosts
+            ARAGORA_REDIS_CLUSTER_NODES: Comma-separated Cluster nodes
+
+        See docs/ENVIRONMENT.md for full Redis HA configuration reference.
+        """
+        # Check for Redis HA configuration
+        redis_ha_enabled = False
+        redis_ha_mode = "standalone"
+        redis_ha_settings = None
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
+
+        if HAS_REDIS_HA and get_redis_ha_config is not None:
+            try:
+                ha_config = get_redis_ha_config()
+                if ha_config.is_configured or ha_config.enabled:
+                    redis_ha_enabled = True
+                    redis_ha_mode = ha_config.mode.value
+                    redis_ha_settings = ha_config
+
+                    # Use the URL from HA config if available
+                    if ha_config.url:
+                        redis_url = ha_config.url
+                    elif ha_config.mode.value == "standalone":
+                        redis_url = f"redis://{ha_config.host}:{ha_config.port}/{ha_config.db}"
+
+                    logger.info(
+                        "redis_ha_config_loaded",
+                        mode=redis_ha_mode,
+                        enabled=redis_ha_enabled,
+                    )
+            except Exception as e:
+                logger.debug(f"Redis HA config not available: {e}")
+
         return cls(
-            redis_url=os.environ.get("REDIS_URL", "redis://localhost:6379"),
+            redis_url=redis_url,
             key_prefix=os.environ.get("CONTROL_PLANE_PREFIX", "aragora:cp:"),
             heartbeat_timeout=float(os.environ.get("HEARTBEAT_TIMEOUT", "30")),
             heartbeat_interval=float(os.environ.get("HEARTBEAT_INTERVAL", "10")),
@@ -130,6 +187,10 @@ class ControlPlaneConfig:
             ).lower()
             == "true",
             policy_sync_workspace=os.environ.get("CP_POLICY_SYNC_WORKSPACE") or None,
+            # Redis HA settings
+            redis_ha_enabled=redis_ha_enabled,
+            redis_ha_mode=redis_ha_mode,
+            redis_ha_settings=redis_ha_settings,
         )
 
 
@@ -281,7 +342,10 @@ class ControlPlaneCoordinator:
 
         with create_span(
             "control_plane.connect",
-            {"redis_url": self._config.redis_url},
+            {
+                "redis_url": self._config.redis_url,
+                "redis_ha_mode": self._config.redis_ha_mode,
+            },
         ) as span:
             start = time.monotonic()
 
@@ -292,12 +356,30 @@ class ControlPlaneCoordinator:
 
             self._connected = True
             latency_ms = (time.monotonic() - start) * 1000
-            add_span_attributes(span, {"latency_ms": latency_ms, "success": True})
-            logger.info(
-                "control_plane_connected",
-                latency_ms=latency_ms,
-                redis_url=self._config.redis_url,
+            add_span_attributes(
+                span,
+                {
+                    "latency_ms": latency_ms,
+                    "success": True,
+                    "redis_ha_enabled": self._config.redis_ha_enabled,
+                },
             )
+
+            # Log Redis HA status
+            if self._config.redis_ha_enabled:
+                ha_mode = self._config.redis_ha_mode
+                logger.info(
+                    "control_plane_connected",
+                    latency_ms=latency_ms,
+                    redis_mode=ha_mode,
+                    redis_ha_enabled=True,
+                )
+            else:
+                logger.info(
+                    "control_plane_connected",
+                    latency_ms=latency_ms,
+                    redis_url=self._config.redis_url,
+                )
 
     async def shutdown(self) -> None:
         """Shutdown the coordinator and all services."""

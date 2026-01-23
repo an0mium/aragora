@@ -266,7 +266,7 @@ class DatabaseSettings(BaseSettings):
     @field_validator("backend")
     @classmethod
     def validate_backend(cls, v: str) -> str:
-        valid = {"sqlite", "postgresql"}
+        valid = {"sqlite", "postgresql", "postgres", "supabase", "auto"}
         if v.lower() not in valid:
             raise ValueError(f"Database backend must be one of {valid}")
         return v.lower()
@@ -280,6 +280,41 @@ class DatabaseSettings(BaseSettings):
     def is_postgresql(self) -> bool:
         """Check if PostgreSQL backend is configured."""
         return self.backend == "postgresql" and self.url is not None
+
+
+class SupabaseSettings(BaseSettings):
+    """Supabase configuration for preferred persistent storage.
+
+    Supabase is the preferred backend for all persistent data storage.
+    When configured, it takes precedence over self-hosted PostgreSQL.
+
+    Environment Variables:
+        SUPABASE_URL: Supabase project URL (e.g., https://xxx.supabase.co)
+        SUPABASE_KEY: Supabase service role API key
+        SUPABASE_DB_PASSWORD: Database password for direct PostgreSQL access
+        SUPABASE_POSTGRES_DSN: Explicit PostgreSQL connection string (optional)
+    """
+
+    model_config = SettingsConfigDict(env_prefix="SUPABASE_")
+
+    url: Optional[str] = Field(default=None, alias="SUPABASE_URL")
+    key: Optional[str] = Field(default=None, alias="SUPABASE_KEY")
+    db_password: Optional[str] = Field(default=None, alias="SUPABASE_DB_PASSWORD")
+    postgres_dsn: Optional[str] = Field(default=None, alias="SUPABASE_POSTGRES_DSN")
+
+    # Pool settings for Supabase PostgreSQL connections
+    pool_size: int = Field(default=10, ge=1, le=50, alias="SUPABASE_POOL_SIZE")
+    pool_max_overflow: int = Field(default=5, ge=0, le=20, alias="SUPABASE_POOL_OVERFLOW")
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if Supabase is properly configured for database access."""
+        return bool(self.url and (self.db_password or self.postgres_dsn))
+
+    @property
+    def is_api_only(self) -> bool:
+        """Check if only API access is configured (no direct DB access)."""
+        return bool(self.url and self.key and not self.db_password and not self.postgres_dsn)
 
 
 class WebSocketSettings(BaseSettings):

@@ -42,7 +42,8 @@ CI workflows and what they cover:
 |----------|---------|
 | `.github/workflows/test.yml` | Pytest matrix + smoke tests + frontend build |
 | `.github/workflows/lint.yml` | Black, Ruff, mypy, ESLint, Bandit |
-| `.github/workflows/e2e.yml` | Full Playwright E2E against a local backend |
+| `.github/workflows/e2e.yml` | Full Playwright E2E + Python E2E harness tests |
+| `.github/workflows/integration.yml` | E2E harness, integration, and control plane tests |
 | `.github/workflows/load-tests.yml` | Scheduled load tests and memory checks |
 
 ## Test Organization
@@ -52,6 +53,10 @@ tests/
 ├── conftest.py                    # Shared fixtures and setup
 ├── test_*.py                      # Main test files (400+)
 ├── benchmarks/                    # Performance benchmarks
+├── e2e/                           # End-to-end tests with test harness
+│   ├── conftest.py               # E2E-specific fixtures
+│   ├── harness.py                # E2E test harness implementation
+│   └── test_full_flow.py         # Full system flow tests
 ├── integration/                   # Integration tests
 │   ├── conftest.py               # Integration-specific fixtures
 │   ├── test_api_workflow.py      # API workflow tests
@@ -299,6 +304,191 @@ pytest tests/ --cov=aragora/debate --cov=aragora/server
 | `aragora/agents/` | 60% | Medium |
 | `aragora/memory/` | 70% | High |
 | `aragora/billing/` | 80% | Critical |
+
+## E2E Test Harness
+
+The E2E test harness provides a complete integration testing environment for testing full system workflows including the control plane, task scheduling, and debate orchestration.
+
+### Harness Overview
+
+The harness (`tests/e2e/harness.py`) spins up:
+- ControlPlaneCoordinator
+- TaskScheduler
+- Mock agents with configurable behaviors
+- Optional Redis/PostgreSQL connections
+- Metrics and tracing support
+
+### Running E2E Tests Locally
+
+```bash
+# Run all E2E tests
+pytest tests/e2e/ -v
+
+# Run with Redis (requires Redis running locally)
+REDIS_URL=redis://localhost:6379 pytest tests/e2e/ -v
+
+# Run with verbose CI-style logging
+ARAGORA_CI=true pytest tests/e2e/ -v
+
+# Run specific test class
+pytest tests/e2e/test_full_flow.py::TestDebateIntegration -v
+```
+
+### Using the Harness in Tests
+
+Basic usage with context manager:
+
+```python
+import pytest
+from tests.e2e.harness import e2e_environment, E2ETestConfig
+
+@pytest.mark.asyncio
+async def test_task_workflow():
+    async with e2e_environment() as harness:
+        # Submit a task
+        task_id = await harness.submit_task(
+            task_type="analysis",
+            payload={"input": "test data"},
+            required_capabilities=["analysis"],
+        )
+
+        # Wait for completion (harness auto-processes with mock agents)
+        result = await harness.wait_for_task(task_id)
+
+        assert result is not None
+        assert result.status.value == "completed"
+```
+
+Using fixtures from conftest.py:
+
+```python
+@pytest.mark.asyncio
+async def test_with_fixture(e2e_harness):
+    # Fixture provides pre-configured harness with 3 agents
+    task_id = await e2e_harness.submit_task("test", {"data": "value"})
+    result = await e2e_harness.wait_for_task(task_id)
+    assert result is not None
+```
+
+### Running Debates Through the Harness
+
+```python
+@pytest.mark.asyncio
+async def test_debate():
+    async with e2e_environment() as harness:
+        # Run a debate directly
+        result = await harness.run_debate(
+            topic="Should we use microservices?",
+            rounds=3,
+        )
+
+        assert result is not None
+
+        # Or run via control plane (full task lifecycle)
+        result = await harness.run_debate_via_control_plane(
+            topic="API design best practices",
+            rounds=2,
+        )
+
+        assert result["consensus_reached"] is True
+```
+
+### Custom Agent Configuration
+
+```python
+from tests.e2e.harness import E2ETestConfig, MockAgentConfig, e2e_environment
+
+@pytest.mark.asyncio
+async def test_custom_agents():
+    config = E2ETestConfig(
+        num_agents=5,
+        agent_capabilities=["code", "review"],
+        fail_rate=0.1,  # 10% simulated failures
+    )
+
+    async with e2e_environment(config) as harness:
+        # Create additional specialized agent
+        agent = await harness.create_agent(
+            agent_id="specialist",
+            capabilities=["security", "audit"],
+        )
+
+        # Test with specialized capability
+        task_id = await harness.submit_task(
+            task_type="audit",
+            payload={},
+            required_capabilities=["security"],
+        )
+
+        result = await harness.wait_for_task(task_id)
+```
+
+### Available E2E Fixtures
+
+| Fixture | Description |
+|---------|-------------|
+| `e2e_harness` | Basic harness with 3 agents, in-memory storage |
+| `e2e_harness_with_redis` | Harness with Redis backend |
+| `debate_harness` | Debate-focused harness with 4 agents |
+| `load_test_harness` | Load testing harness with 10 agents |
+| `harness_config` | Customizable configuration object |
+| `mock_agent_factory` | Factory for creating mock agents |
+
+### CI Integration
+
+E2E tests run in CI via `.github/workflows/integration.yml`:
+
+```bash
+# What CI runs
+pytest tests/e2e/ -v --tb=short --timeout=180
+
+# With environment
+REDIS_URL=redis://localhost:6379
+ARAGORA_CI=true
+```
+
+The harness automatically adjusts timeouts when running in CI:
+- Default timeout: 30s (local) / 60s (CI)
+- Task timeout: 10s (local) / 30s (CI)
+
+### Specialized Harnesses
+
+**DebateTestHarness** - For debate-focused testing:
+
+```python
+from tests.e2e.harness import DebateTestHarness
+
+harness = DebateTestHarness()
+await harness.start()
+
+# Run tracked debates
+await harness.run_debate_with_tracking("Topic 1", rounds=2)
+await harness.run_debate_with_tracking("Topic 2", rounds=2)
+
+# Get metrics
+rate = harness.get_consensus_rate()
+results = harness.get_debate_results()
+
+await harness.stop()
+```
+
+**LoadTestHarness** - For load/performance testing:
+
+```python
+from tests.e2e.harness import LoadTestHarness
+
+harness = LoadTestHarness()
+await harness.start()
+
+# Submit many tasks concurrently
+task_ids = await harness.submit_concurrent_tasks(count=100)
+
+# Measure throughput
+metrics = await harness.measure_throughput(task_count=50)
+print(f"Tasks/second: {metrics['tasks_per_second']}")
+
+await harness.stop()
+```
 
 ## CI/CD Integration
 

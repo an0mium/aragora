@@ -7,7 +7,16 @@ Provides a unified interface for multi-account email management:
 - Multi-agent triage for complex messages
 - Inbox health metrics and analytics
 
+OAuth Flow:
+1. GET  /api/v1/inbox/oauth/gmail     - Get Gmail OAuth authorization URL
+2. GET  /api/v1/inbox/oauth/outlook   - Get Outlook OAuth authorization URL
+3. User is redirected to provider authorization page
+4. Provider redirects back with auth_code
+5. POST /api/v1/inbox/connect         - Exchange auth_code for tokens
+
 Endpoints:
+- GET  /api/v1/inbox/oauth/gmail      - Get Gmail OAuth URL (redirect_uri required)
+- GET  /api/v1/inbox/oauth/outlook    - Get Outlook OAuth URL (redirect_uri required)
 - POST /api/v1/inbox/connect          - Connect Gmail or Outlook account
 - GET  /api/v1/inbox/accounts         - List connected accounts
 - DELETE /api/v1/inbox/accounts/{id}  - Disconnect an account
@@ -291,6 +300,8 @@ class UnifiedInboxHandler(BaseHandler):
     """Handler for unified inbox API endpoints."""
 
     ROUTES = [
+        "/api/v1/inbox/oauth/gmail",
+        "/api/v1/inbox/oauth/outlook",
         "/api/v1/inbox/connect",
         "/api/v1/inbox/accounts",
         "/api/v1/inbox/accounts/{account_id}",
@@ -318,7 +329,14 @@ class UnifiedInboxHandler(BaseHandler):
             tenant_id = self._get_tenant_id(request)
 
             # Route based on path and method
-            if path == "/api/v1/inbox/connect" and method == "POST":
+            # OAuth URL generation endpoints
+            if path == "/api/v1/inbox/oauth/gmail" and method == "GET":
+                return await self._handle_gmail_oauth_url(request, tenant_id)
+
+            elif path == "/api/v1/inbox/oauth/outlook" and method == "GET":
+                return await self._handle_outlook_oauth_url(request, tenant_id)
+
+            elif path == "/api/v1/inbox/connect" and method == "POST":
                 return await self._handle_connect(request, tenant_id)
 
             elif path == "/api/v1/inbox/accounts" and method == "GET":
@@ -357,6 +375,118 @@ class UnifiedInboxHandler(BaseHandler):
         """Extract tenant ID from request context."""
         # In production, extract from JWT or session
         return getattr(request, "tenant_id", "default")
+
+    # =========================================================================
+    # OAuth URL Generation
+    # =========================================================================
+
+    async def _handle_gmail_oauth_url(self, request: Any, tenant_id: str) -> HandlerResult:
+        """Generate Gmail OAuth authorization URL.
+
+        Query params:
+        - redirect_uri: URL to redirect after authorization (required)
+        - state: Optional CSRF state parameter
+
+        Returns:
+        {
+            "auth_url": "https://accounts.google.com/o/oauth2/v2/auth?...",
+            "provider": "gmail",
+            "state": "..."
+        }
+        """
+        try:
+            params = self._get_query_params(request)
+            redirect_uri = params.get("redirect_uri")
+
+            if not redirect_uri:
+                return error_response("Missing redirect_uri parameter", 400)
+
+            # Generate state for CSRF protection
+            state = params.get("state") or str(uuid4())
+
+            try:
+                from aragora.connectors.enterprise.communication.gmail import GmailConnector
+
+                connector = GmailConnector()
+
+                if not connector.is_configured():
+                    return error_response(
+                        "Gmail OAuth not configured. Set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET.",
+                        503,
+                    )
+
+                auth_url = connector.get_oauth_url(redirect_uri=redirect_uri, state=state)
+
+                logger.info(f"[UnifiedInbox] Generated Gmail OAuth URL for tenant {tenant_id}")
+
+                return success_response(
+                    {
+                        "auth_url": auth_url,
+                        "provider": "gmail",
+                        "state": state,
+                    }
+                )
+
+            except ImportError:
+                return error_response("Gmail connector not available", 503)
+
+        except Exception as e:
+            logger.exception(f"Error generating Gmail OAuth URL: {e}")
+            return error_response(f"Failed to generate OAuth URL: {str(e)}", 500)
+
+    async def _handle_outlook_oauth_url(self, request: Any, tenant_id: str) -> HandlerResult:
+        """Generate Outlook/Microsoft 365 OAuth authorization URL.
+
+        Query params:
+        - redirect_uri: URL to redirect after authorization (required)
+        - state: Optional CSRF state parameter
+
+        Returns:
+        {
+            "auth_url": "https://login.microsoftonline.com/.../oauth2/v2.0/authorize?...",
+            "provider": "outlook",
+            "state": "..."
+        }
+        """
+        try:
+            params = self._get_query_params(request)
+            redirect_uri = params.get("redirect_uri")
+
+            if not redirect_uri:
+                return error_response("Missing redirect_uri parameter", 400)
+
+            # Generate state for CSRF protection
+            state = params.get("state") or str(uuid4())
+
+            try:
+                from aragora.connectors.enterprise.communication.outlook import OutlookConnector
+
+                connector = OutlookConnector()
+
+                if not connector.is_configured():
+                    return error_response(
+                        "Outlook OAuth not configured. Set OUTLOOK_CLIENT_ID and OUTLOOK_CLIENT_SECRET.",
+                        503,
+                    )
+
+                auth_url = connector.get_oauth_url(redirect_uri=redirect_uri, state=state)
+
+                logger.info(f"[UnifiedInbox] Generated Outlook OAuth URL for tenant {tenant_id}")
+
+                return success_response(
+                    {
+                        "auth_url": auth_url,
+                        "provider": "outlook",
+                        "state": state,
+                    }
+                )
+
+            except ImportError:
+                return error_response("Outlook connector not available", 503)
+
+        except Exception as e:
+            logger.exception(f"Error generating Outlook OAuth URL: {e}")
+            return error_response(f"Failed to generate OAuth URL: {str(e)}", 500)
 
     # =========================================================================
     # Connect Account

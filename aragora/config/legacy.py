@@ -135,6 +135,10 @@ __all__ = [
     "SSL_ENABLED",
     "SSL_CERT_PATH",
     "SSL_KEY_PATH",
+    # GraphQL
+    "GRAPHQL_ENABLED",
+    "GRAPHQL_INTROSPECTION",
+    "GRAPHIQL_ENABLED",
 ]
 
 
@@ -601,6 +605,17 @@ BELIEF_CONVERGENCE_THRESHOLD = _env_float("ARAGORA_BELIEF_CONVERGENCE_THRESHOLD"
 SSL_ENABLED = _env_bool("ARAGORA_SSL_ENABLED", False)
 SSL_CERT_PATH = _env_str("ARAGORA_SSL_CERT", "")
 SSL_KEY_PATH = _env_str("ARAGORA_SSL_KEY", "")
+
+# === GraphQL ===
+# Enable GraphQL API endpoint at /graphql
+GRAPHQL_ENABLED = _env_bool("ARAGORA_GRAPHQL_ENABLED", True)
+# Enable schema introspection (default: true in dev, false in prod)
+# Note: Actual default is computed at runtime based on ARAGORA_ENV
+_graphql_introspection_default = _env_str("ARAGORA_ENV", "development") != "production"
+GRAPHQL_INTROSPECTION = _env_bool("ARAGORA_GRAPHQL_INTROSPECTION", _graphql_introspection_default)
+# Enable GraphiQL playground (default: same as dev mode)
+_graphiql_default = _env_str("ARAGORA_ENV", "development") != "production"
+GRAPHIQL_ENABLED = _env_bool("ARAGORA_GRAPHIQL_ENABLED", _graphiql_default)
 
 
 # ============================================================================

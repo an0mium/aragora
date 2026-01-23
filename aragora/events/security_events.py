@@ -489,7 +489,7 @@ async def trigger_security_debate(
         # Create environment
         env = Environment(
             task=question,
-            context={
+            context={  # type: ignore[arg-type]
                 "security_event_id": event.id,
                 "repository": event.repository,
                 "scan_id": event.scan_id,

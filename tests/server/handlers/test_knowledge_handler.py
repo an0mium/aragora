@@ -942,9 +942,9 @@ class TestKnowledgeMoundExport:
         assert result is not None
         assert result.status_code == 200
         assert result.content_type == "application/xml"
-        assert '<?xml version="1.0"' in result.body
-        assert "<graphml" in result.body
-        assert '<node id="node-1">' in result.body
+        assert b'<?xml version="1.0"' in result.body
+        assert b"<graphml" in result.body
+        assert b'<node id="node-1">' in result.body
 
     def test_export_graphml_with_params(self, mound_handler, mock_http_handler):
         """Test GraphML export with custom parameters."""

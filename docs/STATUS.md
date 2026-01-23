@@ -4,6 +4,95 @@
 
 ## Current Release
 
+### v2.1.14 - Infrastructure Improvements Release (January 2026)
+
+**Production Ready** - Aragora 2.1.14 delivers major infrastructure improvements including circuit breaker configuration, Redis high availability, webhook reliability, and enhanced developer experience with GraphQL.
+
+#### Key Highlights
+- **Infrastructure improvements** - Circuit breaker configuration, Redis HA, OTLP export
+- **Webhook reliability** - Persistent retry queue with exponential backoff
+- **Security enhancements** - ML spam classifier, threat intel enrichment
+- **Developer experience** - GraphQL API layer, E2E test harness
+- **365+ new tests** across 9 infrastructure features
+- **Lines of Code**: 690,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.1.14
+
+**Circuit Breaker Configuration** (FEATURE)
+- **CircuitBreakerConfig** (`aragora/resilience_config.py`)
+  - Per-provider threshold configuration (failure_threshold, recovery_timeout)
+  - Supports: anthropic, openai, gemini, mistral, grok, deepseek, openrouter
+  - `CircuitBreakerMode`: global (one breaker) vs entity (per-provider breakers)
+  - Dynamic config loading from environment
+  - 91 new tests
+
+**Redis Sentinel/Cluster Support** (FEATURE)
+- **RedisHAClient** (`aragora/storage/redis_ha.py`)
+  - Sentinel mode with automatic master discovery
+  - Cluster mode with sharding support
+  - Failover handling with connection pooling
+  - Health monitoring and metrics
+  - 35 new tests
+
+**Webhook Retry Queue** (FEATURE)
+- **WebhookRetryQueue** (`aragora/webhooks/retry_queue.py`)
+  - Persistent delivery with configurable retry attempts
+  - Exponential backoff with jitter
+  - Dead letter queue for failed deliveries
+  - Delivery statistics and monitoring
+  - 48 new tests
+
+**ML Spam Classifier Integration** (FEATURE)
+- **SpamClassificationPipeline** (`aragora/moderation/spam_integration.py`)
+  - Multi-provider spam detection pipeline
+  - Akismet, SpamAssassin, CleanTalk integration
+  - Voting threshold for consensus
+  - Real-time classification with caching
+  - 48 new tests
+
+**Threat Intel Enrichment** (FEATURE)
+- **ThreatIntelEnricher** (`aragora/security/threat_intel_enrichment.py`)
+  - CVE database lookup for security topics
+  - Threat intel feed integration
+  - Context enrichment for debates
+  - Caching with TTL
+  - 43 new tests
+
+**OpenTelemetry OTLP Export** (FEATURE)
+- **OTLPExporter** (`aragora/observability/otlp_export.py`)
+  - Jaeger, Zipkin, Datadog exporters
+  - OTLP gRPC and HTTP protocols
+  - Configurable sampling rate
+  - Service name and environment tags
+  - 21 new tests
+
+**GraphQL API Layer** (FEATURE)
+- **GraphQL Schema** (`aragora/server/graphql/`)
+  - Schema for debates, agents, memory
+  - Resolvers with authentication
+  - GraphiQL playground integration
+  - 32 new tests
+
+**E2E Integration Test Harness** (FEATURE)
+- **E2ETestHarness** (`tests/e2e/harness.py`)
+  - Full integration test framework
+  - Mock agent implementations
+  - Lifecycle testing
+  - 37 new tests
+
+**Testing** (QUALITY)
+- 91 new circuit breaker configuration tests
+- 35 new Redis HA tests (Sentinel, Cluster, failover)
+- 48 new webhook retry queue tests (backoff, dead letter, stats)
+- 48 new ML spam classifier tests (multi-provider, voting, caching)
+- 43 new threat intel enrichment tests (CVE lookup, feeds, caching)
+- 21 new OTLP export tests (Jaeger, Zipkin, Datadog)
+- 32 new GraphQL API tests (schema, resolvers, auth)
+- 37 new E2E test harness tests (lifecycle, mocks)
+
+---
+
 ### v2.1.13 - Control Plane Governance Hardening (January 2026)
 
 **Production Ready** - Aragora 2.1.13 completes the control plane for vetted decision-making with governance hardening, omnichannel delivery wiring, and decision receipt persistence.

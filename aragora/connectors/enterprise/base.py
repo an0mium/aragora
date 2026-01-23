@@ -575,7 +575,7 @@ class EnterpriseConnector(BaseConnector):
 
             mound = KnowledgeMound(workspace_id=self.tenant_id)
             await mound.initialize()
-            result = await mound.store(request)  # type: ignore[arg-type]
+            result = await mound.store(request)  # type: ignore[arg-type,misc]
 
             if result.deduplicated:
                 return "skipped"

@@ -269,6 +269,8 @@ class TestUnifiedInboxHandler:
         handler = UnifiedInboxHandler()
 
         expected_routes = [
+            "/api/v1/inbox/oauth/gmail",
+            "/api/v1/inbox/oauth/outlook",
             "/api/v1/inbox/connect",
             "/api/v1/inbox/accounts",
             "/api/v1/inbox/messages",
@@ -357,6 +359,122 @@ class TestUnifiedInboxHandler:
 
         # Should return error for invalid action
         assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_gmail_oauth_url_missing_redirect_uri(self):
+        """Test Gmail OAuth URL generation without redirect_uri."""
+        handler = UnifiedInboxHandler()
+
+        request = MagicMock()
+        request.tenant_id = "test_tenant"
+        request.query = {}
+        request.args = {}
+
+        result = await handler.handle(request, "/api/v1/inbox/oauth/gmail", "GET")
+
+        # Should return 400 error for missing redirect_uri
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_gmail_oauth_url_success(self):
+        """Test Gmail OAuth URL generation with valid params."""
+        import os
+
+        handler = UnifiedInboxHandler()
+
+        request = MagicMock()
+        request.tenant_id = "test_tenant"
+        request.query = {"redirect_uri": "https://app.example.com/oauth/callback"}
+        request.args = {}
+
+        # Set environment variables to configure the connector
+        with patch.dict(
+            os.environ,
+            {"GMAIL_CLIENT_ID": "test_client_id", "GMAIL_CLIENT_SECRET": "test_secret"},
+        ):
+            result = await handler.handle(request, "/api/v1/inbox/oauth/gmail", "GET")
+
+            # Should succeed when configured
+            assert result.status_code == 200
+            # Verify the response contains expected fields
+            import json
+
+            body = json.loads(result.body.decode()) if result.body else {}
+            # Response wrapped in {data: ..., success: true} structure
+            data = body.get("data", body)
+            assert "auth_url" in data
+            assert data.get("provider") == "gmail"
+            assert "state" in data
+
+    @pytest.mark.asyncio
+    async def test_outlook_oauth_url_missing_redirect_uri(self):
+        """Test Outlook OAuth URL generation without redirect_uri."""
+        handler = UnifiedInboxHandler()
+
+        request = MagicMock()
+        request.tenant_id = "test_tenant"
+        request.query = {}
+        request.args = {}
+
+        result = await handler.handle(request, "/api/v1/inbox/oauth/outlook", "GET")
+
+        # Should return 400 error for missing redirect_uri
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_outlook_oauth_url_success(self):
+        """Test Outlook OAuth URL generation with valid params."""
+        import os
+
+        handler = UnifiedInboxHandler()
+
+        request = MagicMock()
+        request.tenant_id = "test_tenant"
+        request.query = {"redirect_uri": "https://app.example.com/oauth/callback"}
+        request.args = {}
+
+        # Set environment variables to configure the connector
+        with patch.dict(
+            os.environ,
+            {"OUTLOOK_CLIENT_ID": "test_client_id", "OUTLOOK_CLIENT_SECRET": "test_secret"},
+        ):
+            result = await handler.handle(request, "/api/v1/inbox/oauth/outlook", "GET")
+
+            # Should succeed when configured
+            assert result.status_code == 200
+            # Verify the response contains expected fields
+            import json
+
+            body = json.loads(result.body.decode()) if result.body else {}
+            # Response wrapped in {data: ..., success: true} structure
+            data = body.get("data", body)
+            assert "auth_url" in data
+            assert data.get("provider") == "outlook"
+            assert "state" in data
+
+    @pytest.mark.asyncio
+    async def test_gmail_oauth_url_not_configured(self):
+        """Test Gmail OAuth URL when not configured."""
+        import os
+
+        handler = UnifiedInboxHandler()
+
+        request = MagicMock()
+        request.tenant_id = "test_tenant"
+        request.query = {"redirect_uri": "https://app.example.com/oauth/callback"}
+        request.args = {}
+
+        # Clear any Gmail environment variables to simulate unconfigured state
+        env_without_gmail = {
+            k: v
+            for k, v in os.environ.items()
+            if not k.startswith("GMAIL_") and not k.startswith("GOOGLE_")
+        }
+        with patch.dict(os.environ, env_without_gmail, clear=True):
+            result = await handler.handle(request, "/api/v1/inbox/oauth/gmail", "GET")
+
+            # Should return 503 error when not configured
+            assert result.status_code == 503
 
 
 class TestHandleUnifiedInbox:

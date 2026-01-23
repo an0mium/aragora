@@ -487,35 +487,121 @@ Configure Slack slash commands and outbound notifications.
 | `ARAGORA_RATE_LIMIT_FAIL_OPEN` | Optional | Allow requests if Redis is down (`true`/`false`) | `false` |
 | `ARAGORA_REDIS_FAILURE_THRESHOLD` | Optional | Failures before Redis limiter disables (count) | `3` |
 
-## Redis Cluster Configuration
+## Redis High-Availability (HA) Configuration
 
-For high-availability deployments, Aragora supports Redis Cluster mode with automatic failover and read replica support.
+Aragora supports three Redis deployment modes for different availability and scaling requirements:
+
+- **Standalone**: Single Redis instance (development/testing)
+- **Sentinel**: Redis Sentinel for automatic failover (production HA)
+- **Cluster**: Redis Cluster for horizontal scaling (enterprise)
+
+### Core Redis HA Settings
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_REDIS_CLUSTER_NODES` | Optional | Comma-separated cluster nodes (e.g., `redis1:6379,redis2:6379,redis3:6379`) | - |
-| `ARAGORA_REDIS_CLUSTER_MODE` | Optional | Mode: `auto`, `cluster`, or `standalone` | `auto` |
-| `ARAGORA_REDIS_CLUSTER_MAX_CONNECTIONS` | Optional | Max connections per node | `32` |
-| `ARAGORA_REDIS_CLUSTER_SKIP_FULL_COVERAGE` | Optional | Skip slot coverage check (`true`/`false`) | `false` |
-| `ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS` | Optional | Enable read from replicas (`true`/`false`) | `true` |
-| `ARAGORA_REDIS_CLUSTER_PASSWORD` | Optional | Cluster authentication password | - |
-| `ARAGORA_REDIS_HEALTH_CHECK_INTERVAL` | Optional | Health check interval (seconds) | `30.0` |
+| `ARAGORA_REDIS_MODE` | Optional | Redis mode: `standalone`, `sentinel`, `cluster` | Auto-detect |
+| `ARAGORA_REDIS_URL` | Optional | Redis URL for standalone mode | `redis://localhost:6379/0` |
+| `REDIS_URL` | Optional | Legacy Redis URL (fallback) | `redis://localhost:6379` |
+| `ARAGORA_REDIS_HOST` | Optional | Redis host for standalone mode | `localhost` |
+| `ARAGORA_REDIS_PORT` | Optional | Redis port for standalone mode | `6379` |
+| `ARAGORA_REDIS_PASSWORD` | Optional | Redis authentication password | - |
+| `ARAGORA_REDIS_DB` | Optional | Redis database number | `0` |
+
+### Redis Sentinel Configuration
+
+Redis Sentinel provides automatic failover for high availability.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_REDIS_SENTINEL_HOSTS` | For Sentinel | Comma-separated sentinel hosts (e.g., `sentinel1:26379,sentinel2:26379,sentinel3:26379`) | - |
+| `ARAGORA_REDIS_SENTINEL_MASTER` | Optional | Sentinel master name | `mymaster` |
+| `ARAGORA_REDIS_SENTINEL_PASSWORD` | Optional | Sentinel authentication password | - |
+
+**Example Sentinel Configuration:**
+```bash
+# 3-node Redis Sentinel setup
+ARAGORA_REDIS_MODE=sentinel
+ARAGORA_REDIS_SENTINEL_HOSTS=sentinel1:26379,sentinel2:26379,sentinel3:26379
+ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+ARAGORA_REDIS_PASSWORD=your-redis-password
+ARAGORA_REDIS_SENTINEL_PASSWORD=your-sentinel-password
+```
+
+### Redis Cluster Configuration
+
+Redis Cluster provides horizontal scaling with automatic sharding.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_REDIS_CLUSTER_NODES` | For Cluster | Comma-separated cluster nodes (e.g., `redis1:6379,redis2:6379,redis3:6379`) | - |
+| `ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS` | Optional | Enable read from replicas | `true` |
+| `ARAGORA_REDIS_CLUSTER_SKIP_FULL_COVERAGE` | Optional | Skip slot coverage check | `false` |
 
 **Example Cluster Configuration:**
 ```bash
 # 3-node Redis Cluster
+ARAGORA_REDIS_MODE=cluster
 ARAGORA_REDIS_CLUSTER_NODES=redis-node1:6379,redis-node2:6379,redis-node3:6379
-ARAGORA_REDIS_CLUSTER_MODE=auto
 ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS=true
-ARAGORA_REDIS_CLUSTER_PASSWORD=your-cluster-password
+ARAGORA_REDIS_PASSWORD=your-cluster-password
 ```
 
-**Features:**
-- **Auto-detection**: Automatically detects cluster vs standalone mode
+### Common Connection Settings
+
+These settings apply to all Redis modes.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_REDIS_SOCKET_TIMEOUT` | Optional | Socket timeout (seconds) | `5.0` |
+| `ARAGORA_REDIS_SOCKET_CONNECT_TIMEOUT` | Optional | Connection timeout (seconds) | `5.0` |
+| `ARAGORA_REDIS_MAX_CONNECTIONS` | Optional | Max connections in pool | `50` |
+| `ARAGORA_REDIS_RETRY_ON_TIMEOUT` | Optional | Retry on timeout | `true` |
+| `ARAGORA_REDIS_HEALTH_CHECK_INTERVAL` | Optional | Health check interval (seconds) | `30` |
+| `ARAGORA_REDIS_DECODE_RESPONSES` | Optional | Decode responses to strings | `true` |
+
+### Redis SSL/TLS Configuration
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_REDIS_SSL` | Optional | Enable SSL/TLS | `false` |
+| `ARAGORA_REDIS_SSL_CERT_REQS` | Optional | SSL certificate requirements | - |
+| `ARAGORA_REDIS_SSL_CA_CERTS` | Optional | Path to CA certificates | - |
+
+### Auto-Detection Behavior
+
+When `ARAGORA_REDIS_MODE` is not set:
+- If `ARAGORA_REDIS_SENTINEL_HOSTS` is set -> Sentinel mode
+- If `ARAGORA_REDIS_CLUSTER_NODES` is set -> Cluster mode
+- Otherwise -> Standalone mode
+
+### Features
+
+- **Auto-detection**: Automatically detects deployment mode from configuration
 - **Connection pooling**: Manages connections with health monitoring
-- **Graceful failover**: Automatic reconnection on node failures
-- **Read scaling**: Distributes reads across replicas when enabled
+- **Graceful failover**: Automatic reconnection on node failures (Sentinel/Cluster)
+- **Read scaling**: Distributes reads across replicas when enabled (Cluster)
 - **Hash tag support**: Use `{tag}` in keys for slot affinity (e.g., `{user:123}:session`)
+- **SSL/TLS**: Secure connections for production deployments
+
+### Production Recommendations
+
+**For Sentinel (recommended for most production deployments):**
+```bash
+# Minimum 3 sentinel nodes for quorum
+ARAGORA_REDIS_SENTINEL_HOSTS=sentinel1:26379,sentinel2:26379,sentinel3:26379
+ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+ARAGORA_REDIS_PASSWORD=your-strong-password
+ARAGORA_REDIS_SSL=true
+```
+
+**For Cluster (recommended for high-throughput/large datasets):**
+```bash
+# Minimum 3 master nodes with replicas
+ARAGORA_REDIS_CLUSTER_NODES=redis1:6379,redis2:6379,redis3:6379
+ARAGORA_REDIS_CLUSTER_READ_FROM_REPLICAS=true
+ARAGORA_REDIS_PASSWORD=your-strong-password
+ARAGORA_REDIS_SSL=true
+```
 
 ## Request Timeout Middleware
 
