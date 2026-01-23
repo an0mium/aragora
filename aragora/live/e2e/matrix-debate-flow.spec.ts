@@ -9,7 +9,7 @@ import { test, expect } from './fixtures';
 
 // Skip mode selection tests on live.aragora.ai - shows dashboard not landing page
 test.describe('Matrix Debate Mode Selection', () => {
-  test.beforeEach(async ({ _page }) => {
+  test.beforeEach(async () => {
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || '';
     test.skip(baseUrl.includes('live.aragora.ai'), 'Mode selection only available on landing page');
   });
@@ -90,7 +90,7 @@ test.describe('Matrix Debate Mode Selection', () => {
 });
 
 test.describe('Matrix Debate Creation', () => {
-  test.beforeEach(async ({ _page }) => {
+  test.beforeEach(async () => {
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || '';
     test.skip(baseUrl.includes('live.aragora.ai'), 'Debate creation only available on landing page');
   });

@@ -134,7 +134,6 @@ test.describe('Production Smoke Tests', () => {
 
   test.describe('Console Errors', () => {
     test('aragora.ai should have no console errors on load', async ({
-      _page,
       productionPage,
     }) => {
       await productionPage.goto(PRODUCTION_DOMAINS.landing);
@@ -155,7 +154,6 @@ test.describe('Production Smoke Tests', () => {
     });
 
     test('live.aragora.ai should have no console errors on load', async ({
-      _page,
       productionPage,
     }) => {
       await productionPage.goto(PRODUCTION_DOMAINS.dashboard);
@@ -177,7 +175,7 @@ test.describe('Production Smoke Tests', () => {
   });
 
   test.describe('SSL/TLS', () => {
-    test('all domains should use HTTPS', async ({ _page }) => {
+    test('all domains should use HTTPS', async () => {
       const domains = [
         PRODUCTION_DOMAINS.landing,
         PRODUCTION_DOMAINS.dashboard,

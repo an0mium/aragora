@@ -219,7 +219,7 @@ test.describe('Debate Creation', () => {
 });
 
 test.describe('Debate Creation - Keyboard Navigation', () => {
-  test.beforeEach(async ({ _page }) => {
+  test.beforeEach(async () => {
     // Skip on live.aragora.ai - shows dashboard not landing page
     test.skip(isLiveProduction(), 'Debate creation form only on landing page');
   });

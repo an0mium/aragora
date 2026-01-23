@@ -168,7 +168,7 @@ test.describe('Configuration Validation', () => {
       expect(Array.isArray(logs)).toBe(true);
     });
 
-    test('should not use localhost in production config', async ({ page, _aragoraPage }) => {
+    test('should not use localhost in production config', async ({ page }) => {
       // Get the configured API URL from the page
       const config = await page.evaluate(() => {
         // Try to read from window config if exposed

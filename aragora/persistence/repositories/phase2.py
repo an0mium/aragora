@@ -56,6 +56,11 @@ class InboxRepository(BaseRepository[Dict[str, Any]]):
     def __init__(self, db_path: str | Path = "inbox.db") -> None:
         super().__init__(db_path)
 
+    @property
+    def _table_name(self) -> str:
+        """Get the main table name for this repository."""
+        return "email_priorities"
+
     def _get_schema(self) -> str:
         """Return the SQL schema for inbox tables."""
         return """
@@ -278,6 +283,11 @@ class SecurityScanRepository(BaseRepository[Dict[str, Any]]):
 
     def __init__(self, db_path: str | Path = "security_scans.db") -> None:
         super().__init__(db_path)
+
+    @property
+    def _table_name(self) -> str:
+        """Get the main table name for this repository."""
+        return "security_scans"
 
     def _get_schema(self) -> str:
         """Return the SQL schema for security scan tables."""
@@ -573,6 +583,11 @@ class PRReviewRepository(BaseRepository[Dict[str, Any]]):
 
     def __init__(self, db_path: str | Path = "pr_reviews.db") -> None:
         super().__init__(db_path)
+
+    @property
+    def _table_name(self) -> str:
+        """Get the main table name for this repository."""
+        return "pr_reviews"
 
     def _get_schema(self) -> str:
         """Return the SQL schema for PR review tables."""
