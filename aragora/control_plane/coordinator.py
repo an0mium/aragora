@@ -201,8 +201,23 @@ class ControlPlaneCoordinator:
                 violation_callback=self._handle_policy_violation
             )
 
-        # Auto-sync policies from compliance store
+        # Auto-sync policies from stores on startup
         if self._policy_manager and self._config.enable_policy_sync:
+            # First, sync from control plane policy store (persistent policies)
+            try:
+                cp_synced = self._policy_manager.sync_from_store(
+                    workspace=self._config.policy_sync_workspace,
+                )
+                if cp_synced > 0:
+                    logger.info(
+                        "control_plane_policy_store_sync",
+                        synced_policies=cp_synced,
+                        workspace=self._config.policy_sync_workspace,
+                    )
+            except Exception as e:
+                logger.debug(f"Control plane policy store sync skipped: {e}")
+
+            # Then, sync from compliance store (derived policies)
             try:
                 synced = self._policy_manager.sync_from_compliance_store(
                     workspace_id=self._config.policy_sync_workspace,
@@ -210,12 +225,12 @@ class ControlPlaneCoordinator:
                 )
                 if synced > 0:
                     logger.info(
-                        "control_plane_policy_sync",
+                        "compliance_policy_sync",
                         synced_policies=synced,
                         workspace=self._config.policy_sync_workspace,
                     )
             except Exception as e:
-                logger.debug(f"Policy sync skipped: {e}")
+                logger.debug(f"Compliance policy sync skipped: {e}")
 
         self._registry = registry or AgentRegistry(
             redis_url=self._config.redis_url,

@@ -915,6 +915,109 @@ class ControlPlanePolicyManager:
         self._violations = []
         return count
 
+    def sync_from_store(self, workspace: Optional[str] = None) -> int:
+        """
+        Sync policies from the persistent ControlPlanePolicyStore.
+
+        This loads control plane policies from the database, enabling
+        central policy management and persistence across restarts.
+
+        Args:
+            workspace: Optional workspace filter
+
+        Returns:
+            Number of policies loaded
+        """
+        try:
+            from aragora.control_plane.policy_store import get_control_plane_policy_store
+
+            store = get_control_plane_policy_store()
+            policies = store.list_policies(enabled_only=True, workspace=workspace)
+
+            loaded = 0
+            for policy in policies:
+                if policy.id not in self._policies:
+                    self._policies[policy.id] = policy
+                    loaded += 1
+
+            logger.info(
+                "policies_synced_from_store",
+                loaded=loaded,
+                total_in_store=len(policies),
+                total_in_manager=len(self._policies),
+            )
+            return loaded
+
+        except ImportError:
+            logger.debug("Control plane policy store not available")
+            return 0
+        except Exception as e:
+            logger.warning(f"Policy store sync failed: {e}")
+            return 0
+
+    def sync_to_store(self) -> int:
+        """
+        Sync current policies to the persistent store.
+
+        Saves all in-memory policies to the database for persistence.
+
+        Returns:
+            Number of policies saved
+        """
+        try:
+            from aragora.control_plane.policy_store import get_control_plane_policy_store
+
+            store = get_control_plane_policy_store()
+            saved = 0
+
+            for policy in self._policies.values():
+                existing = store.get_policy(policy.id)
+                if existing:
+                    store.update_policy(policy.id, policy.to_dict())
+                else:
+                    store.create_policy(policy)
+                saved += 1
+
+            logger.info("policies_synced_to_store", saved=saved)
+            return saved
+
+        except ImportError:
+            logger.debug("Control plane policy store not available")
+            return 0
+        except Exception as e:
+            logger.warning(f"Policy store sync failed: {e}")
+            return 0
+
+    def sync_violations_to_store(self) -> int:
+        """
+        Sync in-memory violations to the persistent store.
+
+        Returns:
+            Number of violations saved
+        """
+        try:
+            from aragora.control_plane.policy_store import get_control_plane_policy_store
+
+            store = get_control_plane_policy_store()
+            saved = 0
+
+            for violation in self._violations:
+                try:
+                    store.create_violation(violation)
+                    saved += 1
+                except Exception:
+                    pass  # Violation may already exist
+
+            logger.info("violations_synced_to_store", saved=saved)
+            return saved
+
+        except ImportError:
+            logger.debug("Control plane policy store not available")
+            return 0
+        except Exception as e:
+            logger.warning(f"Violation store sync failed: {e}")
+            return 0
+
 
 # Pre-built policies for common scenarios
 def create_production_policy(
