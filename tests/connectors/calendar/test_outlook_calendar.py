@@ -316,4 +316,8 @@ class TestCalendarScopes:
     def test_scopes_are_microsoft_graph_urls(self):
         """Test scopes are Microsoft Graph format."""
         for scope in CALENDAR_SCOPES:
-            assert "graph.microsoft.com" in scope or scope.startswith("Calendars.") or scope.startswith("User.")
+            assert (
+                "graph.microsoft.com" in scope
+                or scope.startswith("Calendars.")
+                or scope.startswith("User.")
+            )

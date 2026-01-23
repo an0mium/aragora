@@ -40,16 +40,13 @@ def invoice_processor():
 
 @pytest.fixture
 def sample_invoice_data():
-    """Sample invoice data for creating invoices."""
+    """Sample invoice data for creating invoices (matches create_manual_invoice API)."""
     return {
         "vendor_name": "Acme Supplies Inc",
         "invoice_number": "INV-2024-001",
         "invoice_date": datetime.now(),
         "due_date": datetime.now() + timedelta(days=30),
-        "subtotal": 1000.00,
-        "tax_amount": 80.00,
         "total_amount": 1080.00,
-        "payment_terms": "Net 30",
         "line_items": [
             {"description": "Widget A", "quantity": 10, "unit_price": 50.00, "amount": 500.00},
             {"description": "Widget B", "quantity": 20, "unit_price": 25.00, "amount": 500.00},
@@ -113,17 +110,17 @@ class TestInvoiceCRUD:
     @pytest.mark.asyncio
     async def test_create_invoice(self, invoice_processor, sample_invoice_data):
         """Test creating an invoice."""
-        invoice = await invoice_processor.create_invoice(**sample_invoice_data)
+        invoice = await invoice_processor.create_manual_invoice(**sample_invoice_data)
 
         assert invoice.id.startswith("inv_")
         assert invoice.vendor_name == sample_invoice_data["vendor_name"]
         assert invoice.invoice_number == sample_invoice_data["invoice_number"]
-        assert invoice.status == InvoiceStatus.PENDING_APPROVAL
+        assert invoice.status == InvoiceStatus.EXTRACTED  # Manual invoices start as EXTRACTED
 
     @pytest.mark.asyncio
     async def test_get_invoice(self, invoice_processor, sample_invoice_data):
         """Test retrieving an invoice by ID."""
-        invoice = await invoice_processor.create_invoice(**sample_invoice_data)
+        invoice = await invoice_processor.create_manual_invoice(**sample_invoice_data)
         retrieved = await invoice_processor.get_invoice(invoice.id)
 
         assert retrieved is not None
@@ -138,8 +135,8 @@ class TestInvoiceCRUD:
     @pytest.mark.asyncio
     async def test_list_invoices(self, invoice_processor, sample_invoice_data):
         """Test listing invoices."""
-        await invoice_processor.create_invoice(**sample_invoice_data)
-        await invoice_processor.create_invoice(
+        await invoice_processor.create_manual_invoice(**sample_invoice_data)
+        await invoice_processor.create_manual_invoice(
             vendor_name="Other Vendor",
             invoice_number="INV-002",
             total_amount=500.00,
@@ -151,10 +148,10 @@ class TestInvoiceCRUD:
     @pytest.mark.asyncio
     async def test_list_invoices_by_status(self, invoice_processor, sample_invoice_data):
         """Test filtering invoices by status."""
-        inv1 = await invoice_processor.create_invoice(**sample_invoice_data)
+        inv1 = await invoice_processor.create_manual_invoice(**sample_invoice_data)
         await invoice_processor.approve_invoice(inv1.id, approver_id="mgr_001")
 
-        await invoice_processor.create_invoice(
+        await invoice_processor.create_manual_invoice(
             vendor_name="Other Vendor",
             invoice_number="INV-002",
             total_amount=500.00,
@@ -177,7 +174,7 @@ class TestDocumentExtraction:
         """Test extracting invoice from PDF."""
         pdf_data = b"%PDF-1.4\n% test pdf content"
 
-        invoice = await invoice_processor.extract_invoice(pdf_data)
+        invoice = await invoice_processor.extract_invoice_data(pdf_data)
 
         assert invoice.id.startswith("inv_")
 
@@ -232,7 +229,7 @@ class TestPOMatching:
         po = await invoice_processor.add_purchase_order(**sample_po_data)
 
         # Create invoice with matching PO number
-        invoice = await invoice_processor.create_invoice(
+        invoice = await invoice_processor.create_manual_invoice(
             **sample_invoice_data,
             po_number="PO-2024-001",
         )
@@ -251,7 +248,7 @@ class TestPOMatching:
         po = await invoice_processor.add_purchase_order(**sample_po_data)
 
         # Create invoice without explicit PO number
-        invoice = await invoice_processor.create_invoice(**sample_invoice_data)
+        invoice = await invoice_processor.create_manual_invoice(**sample_invoice_data)
 
         match = await invoice_processor.match_to_po(invoice)
 
@@ -263,7 +260,7 @@ class TestPOMatching:
         """Test no match for different vendor."""
         await invoice_processor.add_purchase_order(**sample_po_data)
 
-        invoice = await invoice_processor.create_invoice(
+        invoice = await invoice_processor.create_manual_invoice(
             vendor_name="Different Vendor",
             invoice_number="INV-999",
             total_amount=1080.00,
@@ -279,7 +276,7 @@ class TestPOMatching:
         await invoice_processor.add_purchase_order(**sample_po_data)
 
         # Invoice with slightly different amount
-        invoice = await invoice_processor.create_invoice(
+        invoice = await invoice_processor.create_manual_invoice(
             vendor_name="Acme Supplies Inc",
             invoice_number="INV-001",
             total_amount=1100.00,  # $20 more than PO
@@ -302,8 +299,8 @@ class TestAnomalyDetection:
     @pytest.mark.asyncio
     async def test_detect_duplicate_invoice(self, invoice_processor, sample_invoice_data):
         """Test detection of duplicate invoices."""
-        await invoice_processor.create_invoice(**sample_invoice_data)
-        invoice2 = await invoice_processor.create_invoice(**sample_invoice_data)
+        await invoice_processor.create_manual_invoice(**sample_invoice_data)
+        invoice2 = await invoice_processor.create_manual_invoice(**sample_invoice_data)
 
         anomalies = await invoice_processor.detect_anomalies(invoice2)
 
@@ -314,14 +311,14 @@ class TestAnomalyDetection:
         """Test detection of unusually high amounts."""
         # Create several normal invoices
         for i in range(5):
-            await invoice_processor.create_invoice(
+            await invoice_processor.create_manual_invoice(
                 vendor_name="Regular Vendor",
                 invoice_number=f"INV-{i}",
                 total_amount=1000.00,
             )
 
         # Create invoice with unusually high amount
-        invoice = await invoice_processor.create_invoice(
+        invoice = await invoice_processor.create_manual_invoice(
             vendor_name="Regular Vendor",
             invoice_number="INV-HIGH",
             total_amount=50000.00,
@@ -334,7 +331,7 @@ class TestAnomalyDetection:
     @pytest.mark.asyncio
     async def test_detect_round_amount(self, invoice_processor):
         """Test detection of suspiciously round amounts."""
-        invoice = await invoice_processor.create_invoice(
+        invoice = await invoice_processor.create_manual_invoice(
             vendor_name="Vendor",
             invoice_number="INV-ROUND",
             total_amount=10000.00,  # Exactly $10,000
@@ -347,7 +344,7 @@ class TestAnomalyDetection:
     @pytest.mark.asyncio
     async def test_detect_new_vendor(self, invoice_processor):
         """Test detection of new vendors."""
-        invoice = await invoice_processor.create_invoice(
+        invoice = await invoice_processor.create_manual_invoice(
             vendor_name="Brand New Vendor LLC",
             invoice_number="INV-NEW",
             total_amount=5000.00,
@@ -389,7 +386,7 @@ class TestApprovalRouting:
     @pytest.mark.asyncio
     async def test_approve_invoice(self, invoice_processor, sample_invoice_data):
         """Test approving an invoice."""
-        invoice = await invoice_processor.create_invoice(**sample_invoice_data)
+        invoice = await invoice_processor.create_manual_invoice(**sample_invoice_data)
         approved = await invoice_processor.approve_invoice(invoice.id, approver_id="mgr_001")
 
         assert approved is not None
@@ -398,7 +395,7 @@ class TestApprovalRouting:
     @pytest.mark.asyncio
     async def test_reject_invoice(self, invoice_processor, sample_invoice_data):
         """Test rejecting an invoice."""
-        invoice = await invoice_processor.create_invoice(**sample_invoice_data)
+        invoice = await invoice_processor.create_manual_invoice(**sample_invoice_data)
         rejected = await invoice_processor.reject_invoice(invoice.id, reason="Invalid invoice")
 
         assert rejected is not None
@@ -416,7 +413,7 @@ class TestPaymentScheduling:
     @pytest.mark.asyncio
     async def test_schedule_payment(self, invoice_processor, sample_invoice_data):
         """Test scheduling a payment."""
-        invoice = await invoice_processor.create_invoice(**sample_invoice_data)
+        invoice = await invoice_processor.create_manual_invoice(**sample_invoice_data)
         await invoice_processor.approve_invoice(invoice.id, approver_id="mgr_001")
 
         pay_date = datetime.now() + timedelta(days=15)
@@ -429,7 +426,7 @@ class TestPaymentScheduling:
     async def test_get_overdue_invoices(self, invoice_processor):
         """Test getting overdue invoices."""
         # Create an overdue invoice
-        await invoice_processor.create_invoice(
+        await invoice_processor.create_manual_invoice(
             vendor_name="Late Payer",
             invoice_number="INV-LATE",
             total_amount=500.00,
