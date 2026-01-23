@@ -38,6 +38,26 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# Service Registry Integration
+# =============================================================================
+
+
+def _get_metrics_analyzer(
+    complexity_warning: int = 10,
+    complexity_error: int = 20,
+    duplication_threshold: int = 6,
+) -> CodeMetricsAnalyzer:
+    """Get or create CodeMetricsAnalyzer from service registry."""
+    # For analyzers with configurable thresholds, we create new instances
+    # but could cache by configuration signature if needed
+    return CodeMetricsAnalyzer(
+        complexity_warning=complexity_warning,
+        complexity_error=complexity_error,
+        duplication_threshold=duplication_threshold,
+    )
+
+
+# =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
 
@@ -102,7 +122,7 @@ async def handle_analyze_metrics(
         # Start async analysis
         async def run_analysis():
             try:
-                analyzer = CodeMetricsAnalyzer(
+                analyzer = _get_metrics_analyzer(
                     complexity_warning=complexity_warning,
                     complexity_error=complexity_error,
                     duplication_threshold=duplication_threshold,

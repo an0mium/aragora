@@ -24,7 +24,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -32,6 +32,10 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.services import ServiceRegistry
+
+if TYPE_CHECKING:
+    from aragora.connectors.github import GitHubConnector
 
 logger = logging.getLogger(__name__)
 
@@ -162,20 +166,51 @@ _running_reviews: Dict[str, asyncio.Task] = {}
 
 
 # =============================================================================
-# GitHub API Client (simplified)
+# GitHub API Client (with ServiceRegistry integration)
 # =============================================================================
 
 
 class GitHubClient:
-    """Simplified GitHub API client."""
+    """
+    GitHub API client with ServiceRegistry integration.
+
+    Uses GitHubConnector from service registry when available,
+    falls back to direct API calls or demo data.
+    """
 
     def __init__(self, token: Optional[str] = None):
         self.token = token or os.environ.get("GITHUB_TOKEN")
         self.base_url = "https://api.github.com"
+        self._connector: Optional["GitHubConnector"] = None
+        self._init_connector()
+
+    def _init_connector(self) -> None:
+        """Initialize GitHubConnector from service registry if available."""
+        try:
+            from aragora.connectors.github import GitHubConnector
+
+            registry = ServiceRegistry.get()
+            if registry.has(GitHubConnector):
+                self._connector = registry.resolve(GitHubConnector)
+                logger.debug("Using GitHubConnector from service registry")
+            elif self.token:
+                # Create and register a new connector
+                self._connector = GitHubConnector(token=self.token)
+                registry.register(GitHubConnector, self._connector)
+                logger.info("Created and registered GitHubConnector")
+        except Exception as e:
+            logger.debug(f"GitHubConnector not available, using direct API: {e}")
 
     async def get_pr(self, owner: str, repo: str, pr_number: int) -> Optional[PRDetails]:
         """Get PR details from GitHub API."""
         import aiohttp
+
+        # Try using the connector first
+        if self._connector:
+            try:
+                return await self._get_pr_via_connector(owner, repo, pr_number)
+            except Exception as e:
+                logger.warning(f"Connector failed, falling back to direct API: {e}")
 
         if not self.token:
             # Return demo data
@@ -226,6 +261,41 @@ class GitHubClient:
         except Exception as e:
             logger.exception(f"Failed to fetch PR: {e}")
             return self._demo_pr(pr_number)
+
+    async def _get_pr_via_connector(
+        self, owner: str, repo: str, pr_number: int
+    ) -> Optional[PRDetails]:
+        """Get PR details using GitHubConnector."""
+        if not self._connector:
+            return None
+
+        # Use connector's search to get PR
+        results = await self._connector.search(
+            query=f"repo:{owner}/{repo} is:pr {pr_number}",
+            limit=1,
+            search_type="prs",
+        )
+
+        if not results:
+            return None
+
+        # Get the first result and fetch full details
+        pr_evidence = results[0]
+        pr_data = pr_evidence.raw_data if hasattr(pr_evidence, "raw_data") else {}
+
+        return PRDetails(
+            number=pr_number,
+            title=pr_data.get("title", f"PR #{pr_number}"),
+            body=pr_data.get("body", ""),
+            state=pr_data.get("state", "open"),
+            author=pr_data.get("user", {}).get("login", "unknown"),
+            base_branch=pr_data.get("base", {}).get("ref", "main"),
+            head_branch=pr_data.get("head", {}).get("ref", f"feature-{pr_number}"),
+            changed_files=pr_data.get("files", []),
+            labels=pr_data.get("labels", []),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
 
     async def submit_review(
         self,
@@ -427,13 +497,32 @@ async def handle_trigger_pr_review(
 async def _perform_review(
     pr_details: PRDetails,
     review_type: str,
+    use_debate: bool = True,
 ) -> tuple[List[ReviewComment], ReviewVerdict, str]:
     """
     Perform the actual review analysis.
 
-    In a real implementation, this would trigger multi-agent debate
-    using the PR_REVIEW_TEMPLATE workflow.
+    When use_debate=True and Arena is available, uses multi-agent debate
+    for comprehensive code review. Falls back to heuristic analysis.
+
+    Args:
+        pr_details: The pull request details to review
+        review_type: Type of review ("comprehensive", "quick", "security")
+        use_debate: Whether to use multi-agent debate (default True)
+
+    Returns:
+        Tuple of (comments, verdict, summary)
     """
+    # Try multi-agent debate if enabled
+    if use_debate and review_type in ("comprehensive", "security"):
+        try:
+            debate_result = await _perform_debate_review(pr_details, review_type)
+            if debate_result:
+                return debate_result
+        except Exception as e:
+            logger.warning(f"Debate review failed, falling back to heuristic: {e}")
+
+    # Fallback to heuristic analysis
     comments = []
     issues_found = []
 
@@ -515,6 +604,149 @@ async def _perform_review(
     else:
         verdict = ReviewVerdict.APPROVE
         summary = "Looks good to me! No issues detected."
+
+    return comments, verdict, summary
+
+
+async def _perform_debate_review(
+    pr_details: PRDetails,
+    review_type: str,
+) -> Optional[tuple[List[ReviewComment], ReviewVerdict, str]]:
+    """
+    Perform code review using multi-agent debate.
+
+    Creates an Arena with code review agents that analyze the PR
+    from different perspectives (quality, security, architecture).
+
+    Returns:
+        Tuple of (comments, verdict, summary) or None if debate unavailable
+    """
+    try:
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+        from aragora.core import Environment
+
+        # Build the review context
+        diff_context = "\n".join(
+            f"File: {f['filename']}\n{f.get('patch', '')[:2000]}"
+            for f in pr_details.changed_files[:10]  # Limit files for context
+        )
+
+        task = f"""Review this pull request:
+
+Title: {pr_details.title}
+Author: {pr_details.author}
+Base: {pr_details.base_branch} <- {pr_details.head_branch}
+
+Description:
+{pr_details.body[:2000] if pr_details.body else 'No description provided.'}
+
+Changes ({len(pr_details.changed_files)} files):
+{diff_context}
+
+Provide a thorough code review covering:
+1. Code quality and best practices
+2. Potential bugs or issues
+3. Security concerns
+4. Test coverage
+5. Architecture and design
+
+Format your response as:
+- VERDICT: APPROVE | REQUEST_CHANGES | COMMENT
+- SUMMARY: Brief summary of the review
+- COMMENTS: List of specific file:line comments"""
+
+        # Create environment for the debate
+        env = Environment(task=task)
+
+        # Configure protocol based on review type
+        if review_type == "security":
+            protocol = DebateProtocol(
+                rounds=2,
+                consensus="majority",
+                require_evidence=True,
+            )
+        else:
+            protocol = DebateProtocol(
+                rounds=2,
+                consensus="majority",
+            )
+
+        # Create and run the arena
+        # Note: Arena will use agents from the agent registry
+        async with Arena(
+            env=env,
+            protocol=protocol,
+        ) as arena:
+            result = await arena.run()
+
+        # Parse the debate result
+        if result and result.consensus_answer:
+            return _parse_debate_result(result.consensus_answer, pr_details)
+
+        return None
+
+    except ImportError:
+        logger.debug("Arena not available for debate review")
+        return None
+    except Exception as e:
+        logger.warning(f"Debate review error: {e}")
+        return None
+
+
+def _parse_debate_result(
+    answer: str,
+    pr_details: PRDetails,
+) -> tuple[List[ReviewComment], ReviewVerdict, str]:
+    """Parse debate result into structured review."""
+    import re
+
+    comments = []
+    verdict = ReviewVerdict.COMMENT
+    summary = "Review completed via multi-agent analysis."
+
+    # Extract verdict
+    verdict_match = re.search(r"VERDICT:\s*(APPROVE|REQUEST_CHANGES|COMMENT)", answer, re.I)
+    if verdict_match:
+        verdict_str = verdict_match.group(1).upper()
+        try:
+            verdict = ReviewVerdict(verdict_str)
+        except ValueError:
+            pass
+
+    # Extract summary
+    summary_match = re.search(r"SUMMARY:\s*(.+?)(?=\n\n|COMMENTS:|$)", answer, re.DOTALL)
+    if summary_match:
+        summary = summary_match.group(1).strip()[:500]
+
+    # Extract comments (look for file:line patterns)
+    comment_pattern = re.compile(
+        r"(?:[-*]\s*)?([^\s:]+\.(?:py|ts|js|tsx|jsx|go|rs|java|rb)):(\d+)?\s*[-:]\s*(.+?)(?=\n[-*]|\n\n|$)",
+        re.MULTILINE | re.DOTALL,
+    )
+
+    for match in comment_pattern.finditer(answer):
+        file_path = match.group(1)
+        line = int(match.group(2)) if match.group(2) else 1
+        body = match.group(3).strip()
+
+        # Determine severity based on content
+        severity = "info"
+        if any(word in body.lower() for word in ("security", "vulnerability", "injection", "xss")):
+            severity = "error"
+        elif any(word in body.lower() for word in ("should", "consider", "recommend")):
+            severity = "warning"
+
+        comments.append(
+            ReviewComment(
+                id=f"debate_{uuid.uuid4().hex[:8]}",
+                file_path=file_path,
+                line=line,
+                body=body[:500],
+                severity=severity,
+                category="debate_review",
+            )
+        )
 
     return comments, verdict, summary
 

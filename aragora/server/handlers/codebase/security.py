@@ -37,8 +37,51 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.events.security_events import (
+    SecurityEvent,
+    SecurityEventType,
+    SecuritySeverity,
+    SecurityFinding,
+    get_security_emitter,
+)
+from aragora.services import ServiceRegistry
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Service Registry Integration
+# =============================================================================
+
+
+def _get_scanner() -> DependencyScanner:
+    """Get or create DependencyScanner from service registry."""
+    registry = ServiceRegistry.get()
+    if not registry.has(DependencyScanner):
+        scanner = DependencyScanner()
+        registry.register(DependencyScanner, scanner)
+        logger.info("Registered DependencyScanner with service registry")
+    return registry.resolve(DependencyScanner)
+
+
+def _get_cve_client() -> CVEClient:
+    """Get or create CVEClient from service registry."""
+    registry = ServiceRegistry.get()
+    if not registry.has(CVEClient):
+        client = CVEClient()
+        registry.register(CVEClient, client)
+        logger.info("Registered CVEClient with service registry")
+    return registry.resolve(CVEClient)
+
+
+def _get_secrets_scanner() -> SecretsScanner:
+    """Get or create SecretsScanner from service registry."""
+    registry = ServiceRegistry.get()
+    if not registry.has(SecretsScanner):
+        scanner = SecretsScanner()
+        registry.register(SecretsScanner, scanner)
+        logger.info("Registered SecretsScanner with service registry")
+    return registry.resolve(SecretsScanner)
 
 
 # =============================================================================
@@ -115,7 +158,7 @@ async def handle_scan_repository(
         # Start async scan
         async def run_scan():
             try:
-                scanner = DependencyScanner()
+                scanner = _get_scanner()
                 result = await scanner.scan_repository(
                     repo_path=repo_path,
                     branch=branch,
@@ -132,8 +175,8 @@ async def handle_scan_repository(
                     f"{result.summary.vulnerable_dependencies} vulnerable deps found"
                 )
 
-                # TODO: Emit security events for findings
-                # await _emit_scan_events(result, repo_id, scan_id, workspace_id)
+                # Emit security events for findings (triggers debate for critical findings)
+                await _emit_scan_events(result, repo_id, scan_id, workspace_id)
 
             except Exception as e:
                 logger.exception(f"Scan {scan_id} failed: {e}")
@@ -406,6 +449,190 @@ async def handle_list_scans(
 
 
 # =============================================================================
+# Security Event Emission
+# =============================================================================
+
+
+async def _emit_scan_events(
+    result: ScanResult,
+    repo_id: str,
+    scan_id: str,
+    workspace_id: Optional[str] = None,
+) -> None:
+    """
+    Emit security events for scan findings.
+
+    Automatically triggers multi-agent debates for critical vulnerabilities.
+    """
+    try:
+        emitter = get_security_emitter()
+
+        # Build findings from scan result
+        findings = []
+        for dep in result.dependencies:
+            for vuln in dep.vulnerabilities:
+                severity_map = {
+                    "critical": SecuritySeverity.CRITICAL,
+                    "high": SecuritySeverity.HIGH,
+                    "medium": SecuritySeverity.MEDIUM,
+                    "low": SecuritySeverity.LOW,
+                }
+                vuln_severity_str = (
+                    vuln.severity.value.lower()
+                    if hasattr(vuln.severity, "value")
+                    else str(vuln.severity).lower()
+                )
+                severity = severity_map.get(vuln_severity_str, SecuritySeverity.MEDIUM)
+
+                findings.append(
+                    SecurityFinding(
+                        id=vuln.id,
+                        finding_type="vulnerability",
+                        severity=severity,
+                        title=vuln.title or vuln.cve_id or "Unknown",
+                        description=vuln.description or "",
+                        cve_id=vuln.cve_id,
+                        package_name=dep.name,
+                        package_version=dep.version,
+                        recommendation=vuln.recommendation,
+                        metadata={
+                            "ecosystem": dep.ecosystem,
+                            "cvss_score": getattr(vuln, "cvss_score", None),
+                            "sources": getattr(vuln, "sources", []),
+                        },
+                    )
+                )
+
+        if not findings:
+            logger.debug(f"[Security] No findings to emit for scan {scan_id}")
+            return
+
+        # Determine overall severity
+        critical_count = sum(1 for f in findings if f.severity == SecuritySeverity.CRITICAL)
+        high_count = sum(1 for f in findings if f.severity == SecuritySeverity.HIGH)
+
+        if critical_count > 0:
+            overall_severity = SecuritySeverity.CRITICAL
+            event_type = SecurityEventType.CRITICAL_VULNERABILITY
+        elif high_count > 0:
+            overall_severity = SecuritySeverity.HIGH
+            event_type = SecurityEventType.VULNERABILITY_DETECTED
+        else:
+            overall_severity = SecuritySeverity.MEDIUM
+            event_type = SecurityEventType.SCAN_COMPLETED
+
+        # Emit scan completed event with findings
+        # The emitter will auto-trigger debate for critical findings
+        event = SecurityEvent(
+            event_type=event_type,
+            severity=overall_severity,
+            repository=repo_id,
+            scan_id=scan_id,
+            workspace_id=workspace_id,
+            findings=findings[:20],  # Limit to top 20 findings
+        )
+
+        await emitter.emit(event)
+
+        logger.info(
+            f"[Security] Emitted {event_type.value} event for scan {scan_id}: "
+            f"{critical_count} critical, {high_count} high severity findings"
+        )
+
+    except Exception as e:
+        logger.warning(f"[Security] Failed to emit scan events: {e}")
+
+
+async def _emit_secrets_events(
+    result: SecretsScanResult,
+    repo_id: str,
+    scan_id: str,
+    workspace_id: Optional[str] = None,
+) -> None:
+    """
+    Emit security events for secrets scan findings.
+
+    Automatically triggers multi-agent debates for critical secrets.
+    """
+    try:
+        emitter = get_security_emitter()
+
+        # Build findings from scan result
+        findings = []
+        for secret in result.secrets:
+            severity_map = {
+                "critical": SecuritySeverity.CRITICAL,
+                "high": SecuritySeverity.HIGH,
+                "medium": SecuritySeverity.MEDIUM,
+                "low": SecuritySeverity.LOW,
+            }
+            secret_severity_str = (
+                secret.severity.value.lower()
+                if hasattr(secret.severity, "value")
+                else str(secret.severity).lower()
+            )
+            severity = severity_map.get(secret_severity_str, SecuritySeverity.HIGH)
+
+            findings.append(
+                SecurityFinding(
+                    id=secret.id,
+                    finding_type="secret",
+                    severity=severity,
+                    title=f"Exposed {secret.secret_type.value if hasattr(secret.secret_type, 'value') else secret.secret_type}",
+                    description=f"Hardcoded credential detected in {secret.file_path}",
+                    file_path=secret.file_path,
+                    line_number=secret.line_number,
+                    recommendation="Rotate the credential immediately and remove from codebase",
+                    metadata={
+                        "secret_type": secret.secret_type.value
+                        if hasattr(secret.secret_type, "value")
+                        else str(secret.secret_type),
+                        "confidence": secret.confidence,
+                        "is_in_history": getattr(secret, "is_in_history", False),
+                    },
+                )
+            )
+
+        if not findings:
+            logger.debug(f"[Security] No secrets findings to emit for scan {scan_id}")
+            return
+
+        # Determine overall severity
+        critical_count = sum(1 for f in findings if f.severity == SecuritySeverity.CRITICAL)
+        high_count = sum(1 for f in findings if f.severity == SecuritySeverity.HIGH)
+
+        if critical_count > 0:
+            overall_severity = SecuritySeverity.CRITICAL
+            event_type = SecurityEventType.CRITICAL_SECRET
+        elif high_count > 0:
+            overall_severity = SecuritySeverity.HIGH
+            event_type = SecurityEventType.SECRET_DETECTED
+        else:
+            overall_severity = SecuritySeverity.MEDIUM
+            event_type = SecurityEventType.SCAN_COMPLETED
+
+        # Emit secrets event with findings
+        event = SecurityEvent(
+            event_type=event_type,
+            severity=overall_severity,
+            repository=repo_id,
+            scan_id=scan_id,
+            workspace_id=workspace_id,
+            findings=findings[:20],  # Limit to top 20 findings
+        )
+
+        await emitter.emit(event)
+
+        logger.info(
+            f"[Security] Emitted {event_type.value} event for secrets scan {scan_id}: "
+            f"{critical_count} critical, {high_count} high severity findings"
+        )
+
+    except Exception as e:
+        logger.warning(f"[Security] Failed to emit secrets scan events: {e}")
+
+
+# =============================================================================
 # Secrets Scan Helpers
 # =============================================================================
 
@@ -499,6 +726,9 @@ async def handle_scan_secrets(
                     f"[Security] Completed secrets scan {scan_id} for {repo_id}: "
                     f"{len(result.secrets)} secrets found"
                 )
+
+                # Emit security events for findings (triggers debate for critical secrets)
+                await _emit_secrets_events(result, repo_id, scan_id, workspace_id)
 
             except Exception as e:
                 logger.exception(f"Secrets scan {scan_id} failed: {e}")
