@@ -108,7 +108,9 @@ class TestGraphNode:
             kind=SymbolKind.METHOD,
             name="method",
             qualified_name="module.MyClass.method",
-            location=SourceLocation(file_path="/test.py", line=10, column=4),
+            location=SourceLocation(
+                file_path="/test.py", start_line=10, start_column=4, end_line=10, end_column=20
+            ),
         )
         assert node.id == "module.MyClass.method"
         assert node.kind == SymbolKind.METHOD
@@ -153,7 +155,9 @@ class TestGraphEdge:
             source="module.func_a",
             target="module.func_b",
             edge_type=EdgeType.CALLS,
-            location=SourceLocation(file_path="/test.py", line=15, column=4),
+            location=SourceLocation(
+                file_path="/test.py", start_line=15, start_column=4, end_line=15, end_column=20
+            ),
         )
         assert edge.source == "module.func_a"
         assert edge.target == "module.func_b"
@@ -168,7 +172,9 @@ class TestCallSite:
         site = CallSite(
             caller="module.main",
             callee="helper.process",
-            location=SourceLocation(file_path="/test.py", line=20, column=8),
+            location=SourceLocation(
+                file_path="/test.py", start_line=20, start_column=8, end_line=20, end_column=30
+            ),
             is_method_call=True,
             receiver="self",
         )

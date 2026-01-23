@@ -16,6 +16,7 @@ integration map and points to the detailed setup docs.
 | Channel routing | Inbound + outbound routing across channels | `docs/CHANNELS.md` |
 | Automation platforms | n8n/Zapier style workflows | `docs/AUTOMATION_INTEGRATIONS.md` |
 | Webhooks | Event notifications and receipts | This doc (see below) |
+| Developer workflows | PR review + code feedback | `docs/GITHUB_PR_REVIEW.md` |
 
 ## Available Integrations (Modules)
 
@@ -33,6 +34,7 @@ integration map and points to the detailed setup docs.
 | Zapier | `aragora/integrations/zapier.py` | Workflow automation |
 | n8n | `aragora/integrations/n8n.py` | Workflow automation |
 | Twilio Voice | `aragora/integrations/twilio_voice.py` | Voice calls |
+| GitHub PR review API | `aragora/server/handlers/github/pr_review.py` | Automated pull request review |
 
 ## Webhook Notifications (Slack + Discord)
 

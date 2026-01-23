@@ -132,6 +132,9 @@ async def handle_scan_repository(
                     f"{result.summary.vulnerable_dependencies} vulnerable deps found"
                 )
 
+                # TODO: Emit security events for findings
+                # await _emit_scan_events(result, repo_id, scan_id, workspace_id)
+
             except Exception as e:
                 logger.exception(f"Scan {scan_id} failed: {e}")
                 with _scan_lock:

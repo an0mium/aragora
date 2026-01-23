@@ -4525,6 +4525,232 @@
       ]
     },
     {
+      "name": "GitHub",
+      "description": "GitHub PR review automation",
+      "item": [
+        {
+          "name": "Trigger PR review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/pr/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "pr",
+                "review"
+              ]
+            },
+            "description": "Trigger an automated PR review run.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get PR details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/pr/:pr_number",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "pr",
+                ":pr_number"
+              ],
+              "variable": [
+                {
+                  "key": "pr_number",
+                  "value": "",
+                  "description": "Path parameter: pr_number"
+                }
+              ],
+              "query": [
+                {
+                  "key": "repository",
+                  "value": "",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Fetch PR metadata and file diffs."
+          },
+          "response": []
+        },
+        {
+          "name": "Get review status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/pr/review/:review_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "pr",
+                "review",
+                ":review_id"
+              ],
+              "variable": [
+                {
+                  "key": "review_id",
+                  "value": "",
+                  "description": "Path parameter: review_id"
+                }
+              ]
+            },
+            "description": "Fetch review status and results."
+          },
+          "response": []
+        },
+        {
+          "name": "List PR reviews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/pr/:pr_number/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "pr",
+                ":pr_number",
+                "reviews"
+              ],
+              "variable": [
+                {
+                  "key": "pr_number",
+                  "value": "",
+                  "description": "Path parameter: pr_number"
+                }
+              ],
+              "query": [
+                {
+                  "key": "repository",
+                  "value": "",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "List review runs for a PR."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit PR review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/github/pr/:pr_number/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "github",
+                "pr",
+                ":pr_number",
+                "review"
+              ],
+              "variable": [
+                {
+                  "key": "pr_number",
+                  "value": "",
+                  "description": "Path parameter: pr_number"
+                }
+              ]
+            },
+            "description": "Submit a review verdict back to GitHub.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Media",
       "description": "Audio/video and podcast",
       "item": [

@@ -65,6 +65,8 @@ Codebase security and metrics endpoints live under `/api/v1/codebase` and
 
 GitHub pull request review endpoints live under `/api/v1/github/pr`. For full
 details, see `docs/GITHUB_PR_REVIEW.md`.
+Register `PRReviewHandler` in the server handler registry to expose these
+routes in the unified server.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|

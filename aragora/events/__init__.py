@@ -72,6 +72,27 @@ from .async_dispatcher import (
     dispatch_webhook_async_with_retry,
     shutdown_async_dispatcher,
 )
+from .security_events import (  # noqa: F401
+    # Event types
+    SecurityEventType,
+    SecuritySeverity,
+    SecurityFinding,
+    SecurityEvent,
+    # Emitter
+    SecurityEventEmitter,
+    SecurityEventHandler,
+    get_security_emitter,
+    set_security_emitter,
+    # Debate integration
+    trigger_security_debate,
+    build_security_debate_question,
+    get_security_debate_result,
+    list_security_debates,
+    # Convenience functions
+    create_vulnerability_event,
+    create_secret_event,
+    create_scan_completed_event,
+)
 
 __all__ = [
     # Event types (shared layer)
@@ -115,4 +136,20 @@ __all__ = [
     "dispatch_webhook_async",
     "dispatch_webhook_async_with_retry",
     "shutdown_async_dispatcher",
+    # Security events
+    "SecurityEventType",
+    "SecuritySeverity",
+    "SecurityFinding",
+    "SecurityEvent",
+    "SecurityEventEmitter",
+    "SecurityEventHandler",
+    "get_security_emitter",
+    "set_security_emitter",
+    "trigger_security_debate",
+    "build_security_debate_question",
+    "get_security_debate_result",
+    "list_security_debates",
+    "create_vulnerability_event",
+    "create_secret_event",
+    "create_scan_completed_event",
 ]

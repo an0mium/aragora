@@ -61,6 +61,7 @@ const DOC_MAP = {
   'GAUNTLET.md': 'guides/gauntlet.md',
   'AUTOMATION_INTEGRATIONS.md': 'guides/automation.md',
   'EMAIL_PRIORITIZATION.md': 'guides/email-prioritization.md',
+  'CODING_ASSISTANCE.md': 'guides/coding-assistance.md',
   'BROADCAST.md': 'guides/broadcast.md',
   'PULSE.md': 'guides/pulse.md',
   'WEBSOCKET_EVENTS.md': 'guides/websocket-events.md',
@@ -76,6 +77,7 @@ const DOC_MAP = {
   'API_STABILITY.md': 'api/stability.md',
   'API_DISCOVERY.md': 'api/discovery.md',
   'CLI_REFERENCE.md': 'api/cli.md',
+  'GITHUB_PR_REVIEW.md': 'api/github-pr-review.md',
 
   // =========================================================================
   // Deployment

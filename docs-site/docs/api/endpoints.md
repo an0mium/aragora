@@ -25,9 +25,11 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Cross Pollination](#cross-pollination)
 - [Decision](#decision)
 - [Deliberations](#deliberations)
+- [Dependency Analysis](#dependency-analysis)
 - [Docs](#docs)
 - [Email](#email)
 - [EmailDebate](#emaildebate)
+- [Email Services](#email-services)
 - [Evaluation](#evaluation)
 - [Explainability](#explainability)
 - [External Integrations](#external-integrations)
@@ -65,7 +67,9 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Workflow](#workflow)
 - [Workspace](#workspace)
 - [Metrics](#metrics)
+- [Quick Scan](#quick-scan)
 - [Security](#security)
+- [Pr Review](#pr-review)
 
 ---
 
@@ -489,6 +493,28 @@ GET /api/v1/deliberations/\{deliberation_id\}
 
 ---
 
+## Dependency Analysis
+
+HTTP API Handlers for Dependency Analysis.
+
+### `POST` `/api/v1/codebase/analyze-dependencies`
+
+Analyze project dependencies
+
+### `GET` `/api/v1/codebase/sbom`
+
+Generate SBOM
+
+### `POST` `/api/v1/codebase/scan-vulnerabilities`
+
+Scan for CVEs
+
+### `POST` `/api/v1/codebase/check-licenses`
+
+Check license compatibility
+
+---
+
 ## Docs
 
 API documentation endpoint handlers.
@@ -576,6 +602,52 @@ Prioritize multiple emails
 ### `GET` `/api/v1/email/triage`
 
 Full inbox triage with categorization and sorting
+
+---
+
+## Email Services
+
+HTTP API Handlers for Email Services.
+
+### `POST` `/api/v1/email/followups/mark`
+
+Mark email as awaiting reply
+
+### `GET` `/api/v1/email/followups/pending`
+
+List pending follow-ups
+
+### `POST` `/api/v1/email/followups/\{id\}/resolve`
+
+Resolve a follow-up
+
+### `POST` `/api/v1/email/followups/check-replies`
+
+Check for replies
+
+### `GET` `/api/v1/email/\{id\}/snooze-suggestions`
+
+Get snooze recommendations
+
+### `POST` `/api/v1/email/\{id\}/snooze`
+
+Apply snooze to email
+
+### `DELETE` `/api/v1/email/\{id\}/snooze`
+
+Cancel snooze
+
+### `GET` `/api/v1/email/snoozed`
+
+List snoozed emails
+
+### `GET` `/api/v1/email/categories`
+
+List available categories
+
+### `POST` `/api/v1/email/categories/learn`
+
+Submit category feedback
 
 ---
 
@@ -1793,6 +1865,20 @@ Get code duplicates
 
 ---
 
+## Quick Scan
+
+Quick Security Scan API Handler.
+
+### `POST` `/api/codebase/quick-scan`
+
+Run quick security scan
+
+### `GET` `/api/codebase/quick-scan/\{scan_id\}`
+
+Get scan result
+
+---
+
 ## Security
 
 HTTP API Handlers for Codebase Security Analysis.
@@ -1816,6 +1902,28 @@ List all vulnerabilities
 ### `GET` `/api/v1/cve/\{cve_id\}`
 
 Get CVE details
+
+---
+
+## Pr Review
+
+HTTP API Handlers for GitHub Pull Request Review.
+
+### `POST` `/api/v1/github/pr/review`
+
+Trigger PR review
+
+### `GET` `/api/v1/github/pr/\{pr_number\}`
+
+Get PR details
+
+### `POST` `/api/v1/github/pr/\{pr_number\}/review`
+
+Submit review
+
+### `GET` `/api/v1/github/pr/\{pr_number\}/reviews`
+
+List reviews
 
 ---
 

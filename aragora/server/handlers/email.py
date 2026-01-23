@@ -168,6 +168,7 @@ def get_context_service():
 async def handle_prioritize_email(
     email_data: Dict[str, Any],
     user_id: str = "default",
+    workspace_id: str = "default",
     force_tier: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -246,6 +247,7 @@ async def handle_prioritize_email(
 async def handle_rank_inbox(
     emails: List[Dict[str, Any]],
     user_id: str = "default",
+    workspace_id: str = "default",
     limit: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
@@ -311,6 +313,7 @@ async def handle_email_feedback(
     email_id: str,
     action: str,
     user_id: str = "default",
+    workspace_id: str = "default",
     email_data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
@@ -376,6 +379,7 @@ async def handle_email_feedback(
 async def handle_get_context(
     email_address: str,
     user_id: str = "default",
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Get cross-channel context for an email address.
@@ -404,6 +408,7 @@ async def handle_get_context(
 async def handle_get_email_context_boost(
     email_data: Dict[str, Any],
     user_id: str = "default",
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Get context-based priority boosts for an email.
@@ -494,6 +499,7 @@ def get_categorizer():
 async def handle_categorize_email(
     email_data: Dict[str, Any],
     user_id: str = "default",
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Categorize a single email into a smart folder.
@@ -556,6 +562,7 @@ async def handle_categorize_email(
 async def handle_categorize_batch(
     emails: List[Dict[str, Any]],
     user_id: str = "default",
+    workspace_id: str = "default",
     concurrency: int = 10,
 ) -> Dict[str, Any]:
     """
@@ -625,6 +632,7 @@ async def handle_categorize_batch(
 async def handle_feedback_batch(
     feedback_items: List[Dict[str, Any]],
     user_id: str = "default",
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Record batch user actions for learning.
@@ -683,6 +691,7 @@ async def handle_apply_category_label(
     email_id: str,
     category: str,
     user_id: str = "default",
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Apply Gmail label based on category.
@@ -774,6 +783,7 @@ async def handle_gmail_oauth_callback(
     code: str,
     redirect_uri: str,
     user_id: str = "default",
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Handle Gmail OAuth callback and store tokens.
@@ -808,6 +818,7 @@ async def handle_gmail_oauth_callback(
 
 async def handle_gmail_status(
     user_id: str = "default",
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Check Gmail connection status.
@@ -858,6 +869,7 @@ async def handle_gmail_status(
 
 async def handle_fetch_and_rank_inbox(
     user_id: str = "default",
+    workspace_id: str = "default",
     labels: Optional[List[str]] = None,
     limit: int = 50,
     include_read: bool = False,
@@ -870,6 +882,7 @@ async def handle_fetch_and_rank_inbox(
         labels: Comma-separated labels (default: INBOX)
         limit: Max emails to fetch (default: 50)
         include_read: Include read emails (default: false)
+        workspace_id: Tenant workspace ID for multi-tenant isolation
 
     This is the main endpoint for the inbox view - fetches emails
     and returns them pre-ranked by priority.

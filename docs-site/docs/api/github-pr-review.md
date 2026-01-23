@@ -1,3 +1,8 @@
+---
+title: GitHub PR Review API
+description: GitHub PR Review API
+---
+
 # GitHub PR Review API
 
 Aragora provides a GitHub pull request review handler for automated, multi-agent
@@ -21,10 +26,10 @@ fetches and review submission.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/v1/github/pr/review` | Trigger a PR review |
-| GET | `/api/v1/github/pr/{pr_number}` | Get PR details (requires `repository` query param) |
-| GET | `/api/v1/github/pr/review/{review_id}` | Get review status/result |
-| GET | `/api/v1/github/pr/{pr_number}/reviews` | List reviews for a PR |
-| POST | `/api/v1/github/pr/{pr_number}/review` | Submit review to GitHub |
+| GET | `/api/v1/github/pr/\{pr_number\}` | Get PR details (requires `repository` query param) |
+| GET | `/api/v1/github/pr/review/\{review_id\}` | Get review status/result |
+| GET | `/api/v1/github/pr/\{pr_number\}/reviews` | List reviews for a PR |
+| POST | `/api/v1/github/pr/\{pr_number\}/review` | Submit review to GitHub |
 
 ## Trigger a Review
 
@@ -96,7 +101,7 @@ Content-Type: application/json
 
 ## Notes
 
-- Review runs are asynchronous; poll `/api/v1/github/pr/review/{review_id}` for
+- Review runs are asynchronous; poll `/api/v1/github/pr/review/\{review_id\}` for
   completion.
 - The current implementation performs a lightweight heuristic review. Wire this
   into multi-agent deliberation for deeper analysis.

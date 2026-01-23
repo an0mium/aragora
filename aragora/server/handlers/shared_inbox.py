@@ -481,6 +481,20 @@ async def handle_get_shared_inbox(
     GET /api/v1/inbox/shared/:id
     """
     try:
+        # Try persistent store first
+        store = _get_store()
+        if store:
+            try:
+                inbox_data = store.get_shared_inbox(inbox_id)
+                if inbox_data:
+                    return {
+                        "success": True,
+                        "inbox": inbox_data,
+                    }
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to load from store: {e}")
+
+        # Fallback to in-memory
         with _storage_lock:
             inbox = _shared_inboxes.get(inbox_id)
             if not inbox:
@@ -519,6 +533,32 @@ async def handle_get_inbox_messages(
     Query params: status, assigned_to, tag, limit, offset
     """
     try:
+        # Try persistent store first
+        store = _get_store()
+        if store:
+            try:
+                messages_data = store.get_inbox_messages(
+                    inbox_id=inbox_id,
+                    status=status,
+                    assigned_to=assigned_to,
+                    limit=limit,
+                    offset=offset,
+                )
+                if messages_data is not None:
+                    # Apply tag filter (not in store query)
+                    if tag:
+                        messages_data = [m for m in messages_data if tag in m.get("tags", [])]
+                    return {
+                        "success": True,
+                        "messages": messages_data,
+                        "total": len(messages_data),  # TODO: get actual total from store
+                        "limit": limit,
+                        "offset": offset,
+                    }
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to load messages from store: {e}")
+
+        # Fallback to in-memory
         with _storage_lock:
             if inbox_id not in _inbox_messages:
                 return {"success": False, "error": "Inbox not found"}
@@ -572,6 +612,7 @@ async def handle_assign_message(
     """
     try:
         now = datetime.now(timezone.utc)
+        new_status = None
 
         with _storage_lock:
             messages = _inbox_messages.get(inbox_id, {})
@@ -584,6 +625,21 @@ async def handle_assign_message(
             message.assigned_at = now
             if message.status == MessageStatus.OPEN:
                 message.status = MessageStatus.ASSIGNED
+                new_status = MessageStatus.ASSIGNED.value
+
+        # Persist to store if available
+        store = _get_store()
+        if store:
+            try:
+                updates = {
+                    "assigned_to": assigned_to,
+                    "assigned_at": now.isoformat(),
+                }
+                if new_status:
+                    updates["status"] = new_status
+                store.update_message(message_id, updates)
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to persist assignment to store: {e}")
 
         logger.info(f"[SharedInbox] Assigned message {message_id} to {assigned_to}")
 
@@ -616,6 +672,7 @@ async def handle_update_message_status(
     """
     try:
         now = datetime.now(timezone.utc)
+        is_resolved = False
 
         with _storage_lock:
             messages = _inbox_messages.get(inbox_id, {})
@@ -629,6 +686,19 @@ async def handle_update_message_status(
             if message.status == MessageStatus.RESOLVED:
                 message.resolved_at = now
                 message.resolved_by = updated_by
+                is_resolved = True
+
+        # Persist to store if available
+        store = _get_store()
+        if store:
+            try:
+                updates = {"status": status}
+                if is_resolved:
+                    updates["resolved_at"] = now.isoformat()
+                    updates["resolved_by"] = updated_by
+                store.update_message(message_id, updates)
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to persist status to store: {e}")
 
         logger.info(f"[SharedInbox] Updated message {message_id} status to {status}")
 
@@ -694,6 +764,7 @@ async def handle_add_message_to_inbox(
     received_at: Optional[datetime] = None,
     thread_id: Optional[str] = None,
     priority: Optional[str] = None,
+    workspace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Add a message to a shared inbox (used by sync/routing).
@@ -702,6 +773,7 @@ async def handle_add_message_to_inbox(
     """
     try:
         message_id = f"msg_{uuid.uuid4().hex[:12]}"
+        actual_received_at = received_at or datetime.now(timezone.utc)
 
         message = SharedInboxMessage(
             id=message_id,
@@ -711,14 +783,42 @@ async def handle_add_message_to_inbox(
             from_address=from_address,
             to_addresses=to_addresses,
             snippet=snippet,
-            received_at=received_at or datetime.now(timezone.utc),
+            received_at=actual_received_at,
             thread_id=thread_id,
             priority=priority,
         )
 
+        # Persist to store if available
+        store = _get_store()
+        if store:
+            try:
+                # Get workspace_id from inbox if not provided
+                if not workspace_id:
+                    inbox_data = store.get_shared_inbox(inbox_id)
+                    workspace_id = (
+                        inbox_data.get("workspace_id", "default") if inbox_data else "default"
+                    )
+
+                store.save_message(
+                    message_id=message_id,
+                    inbox_id=inbox_id,
+                    workspace_id=workspace_id,
+                    email_id=email_id,
+                    subject=subject,
+                    from_address=from_address,
+                    to_addresses=to_addresses,
+                    snippet=snippet,
+                    received_at=actual_received_at,
+                    thread_id=thread_id,
+                    priority=priority,
+                )
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to persist message to store: {e}")
+
+        # Keep in-memory cache
         with _storage_lock:
             if inbox_id not in _inbox_messages:
-                return {"success": False, "error": "Inbox not found"}
+                _inbox_messages[inbox_id] = {}
 
             _inbox_messages[inbox_id][message_id] = message
 
@@ -792,10 +892,25 @@ async def handle_create_routing_rule(
         # Use persistent storage if enabled
         store = _get_store()
         if store:
-            store.create_rule(rule.to_dict())
-        else:
-            with _storage_lock:
-                _routing_rules[rule_id] = rule
+            try:
+                store.create_routing_rule(
+                    rule_id=rule_id,
+                    workspace_id=workspace_id,
+                    name=name,
+                    conditions=conditions,
+                    condition_logic=condition_logic,
+                    actions=actions,
+                    priority=priority,
+                    enabled=enabled,
+                    description=description,
+                    created_by=created_by,
+                )
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to persist rule to store: {e}")
+
+        # Always keep in-memory cache
+        with _storage_lock:
+            _routing_rules[rule_id] = rule
 
         logger.info(f"[SharedInbox] Created routing rule {rule_id}: {name}")
 
@@ -824,26 +939,38 @@ async def handle_list_routing_rules(
     GET /api/v1/inbox/routing/rules?workspace_id=ws_123
     """
     try:
+        # Try persistent store first
         store = _get_store()
         if store:
-            rules = store.list_rules(
-                workspace_id=workspace_id,
-                enabled_only=enabled_only,
-                limit=limit,
-                offset=offset,
-            )
-            total = store.count_rules(workspace_id=workspace_id, enabled_only=enabled_only)
-        else:
-            with _storage_lock:
-                all_rules = [
-                    rule.to_dict()
-                    for rule in sorted(_routing_rules.values(), key=lambda r: r.priority)
-                    if rule.workspace_id == workspace_id
-                ]
-                if enabled_only:
-                    all_rules = [r for r in all_rules if r.get("enabled", True)]
-                total = len(all_rules)
-                rules = all_rules[offset : offset + limit]
+            try:
+                rules = store.list_routing_rules(
+                    workspace_id=workspace_id,
+                    enabled_only=enabled_only,
+                    limit=limit,
+                    offset=offset,
+                )
+                if rules is not None:
+                    return {
+                        "success": True,
+                        "rules": rules,
+                        "total": len(rules),  # TODO: get actual total from store
+                        "limit": limit,
+                        "offset": offset,
+                    }
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to load rules from store: {e}")
+
+        # Fallback to in-memory
+        with _storage_lock:
+            all_rules = [
+                rule.to_dict()
+                for rule in sorted(_routing_rules.values(), key=lambda r: r.priority)
+                if rule.workspace_id == workspace_id
+            ]
+            if enabled_only:
+                all_rules = [r for r in all_rules if r.get("enabled", True)]
+            total = len(all_rules)
+            rules = all_rules[offset : offset + limit]
 
         return {
             "success": True,
@@ -875,25 +1002,10 @@ async def handle_update_routing_rule(
     }
     """
     try:
-        store = _get_store()
-        if store:
-            # Use persistent storage
-            updated_rule = store.update_rule(rule_id, updates)
-            if not updated_rule:
-                return {"success": False, "error": "Rule not found"}
-
-            logger.info(f"[SharedInbox] Updated routing rule {rule_id}")
-            return {
-                "success": True,
-                "rule": updated_rule,
-            }
-        else:
-            # Use in-memory storage
-            with _storage_lock:
-                rule = _routing_rules.get(rule_id)
-                if not rule:
-                    return {"success": False, "error": "Rule not found"}
-
+        # Update in-memory first
+        with _storage_lock:
+            rule = _routing_rules.get(rule_id)
+            if rule:
                 # Update fields
                 if "name" in updates:
                     rule.name = updates["name"]
@@ -912,12 +1024,29 @@ async def handle_update_routing_rule(
 
                 rule.updated_at = datetime.now(timezone.utc)
 
-            logger.info(f"[SharedInbox] Updated routing rule {rule_id}")
+        # Persist to store if available
+        store = _get_store()
+        if store:
+            try:
+                updated_rule = store.update_routing_rule(rule_id, updates)
+                if updated_rule:
+                    logger.info(f"[SharedInbox] Updated routing rule {rule_id}")
+                    return {
+                        "success": True,
+                        "rule": updated_rule,
+                    }
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to persist rule update: {e}")
 
+        # Return from cache if store failed or not available
+        if rule:
+            logger.info(f"[SharedInbox] Updated routing rule {rule_id}")
             return {
                 "success": True,
                 "rule": rule.to_dict(),
             }
+
+        return {"success": False, "error": "Rule not found"}
 
     except Exception as e:
         logger.exception(f"Failed to update routing rule: {e}")
@@ -936,15 +1065,18 @@ async def handle_delete_routing_rule(
     DELETE /api/v1/inbox/routing/rules/:id
     """
     try:
+        # Delete from in-memory cache
+        with _storage_lock:
+            if rule_id in _routing_rules:
+                del _routing_rules[rule_id]
+
+        # Delete from persistent store
         store = _get_store()
         if store:
-            if not store.delete_rule(rule_id):
-                return {"success": False, "error": "Rule not found"}
-        else:
-            with _storage_lock:
-                if rule_id not in _routing_rules:
-                    return {"success": False, "error": "Rule not found"}
-                del _routing_rules[rule_id]
+            try:
+                store.delete_routing_rule(rule_id)
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to delete rule from store: {e}")
 
         logger.info(f"[SharedInbox] Deleted routing rule {rule_id}")
 
@@ -974,15 +1106,20 @@ async def handle_test_routing_rule(
     }
     """
     try:
-        store = _get_store()
+        rule = None
 
-        # Get the rule
+        # Try persistent store first
+        store = _get_store()
         if store:
-            rule_data = store.get_rule(rule_id)
-            if not rule_data:
-                return {"success": False, "error": "Rule not found"}
-            rule = RoutingRule.from_dict(rule_data)
-        else:
+            try:
+                rule_data = store.get_routing_rule(rule_id)
+                if rule_data:
+                    rule = RoutingRule.from_dict(rule_data)
+            except Exception as e:
+                logger.warning(f"[SharedInbox] Failed to load rule from store: {e}")
+
+        # Fallback to in-memory
+        if not rule:
             with _storage_lock:
                 rule = _routing_rules.get(rule_id)
                 if not rule:

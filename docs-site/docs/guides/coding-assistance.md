@@ -1,3 +1,8 @@
+---
+title: Coding Assistance
+description: Coding Assistance
+---
+
 # Coding Assistance
 
 Aragora includes a coding assistance module for automated test generation and
