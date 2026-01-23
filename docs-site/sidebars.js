@@ -44,6 +44,17 @@ const sidebars = {
     },
     {
       type: 'category',
+      label: 'Channels & Inbox',
+      items: [
+        'guides/channels',
+        'guides/bot-integrations',
+        'guides/email-prioritization',
+        'guides/inbox-guide',
+        'guides/shared-inbox',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Deployment',
       items: [
         'deployment/docker',

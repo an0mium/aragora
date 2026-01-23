@@ -123,6 +123,7 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/aragora
 **Distributed Store Enforcement:**
 - In production, `ARAGORA_REQUIRE_DISTRIBUTED=true` will fail closed if a store falls back to SQLite or local files.
 - Set `ARAGORA_STORAGE_MODE` to pin a backend across stores when validating production readiness.
+- `ARAGORA_REQUIRE_DISTRIBUTED_STATE` is a legacy alias honored when `ARAGORA_REQUIRE_DISTRIBUTED` is unset.
 
 ### Connection Pooling (PostgreSQL)
 

@@ -18,6 +18,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 | Deploy to production | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Troubleshoot issues | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | Prioritize inbox | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
+| Unified inbox guide | [INBOX_GUIDE.md](INBOX_GUIDE.md) |
 | Manage shared inbox | [SHARED_INBOX.md](SHARED_INBOX.md) |
 | Understand document ingestion | [DOCUMENTS.md](DOCUMENTS.md) |
 | Analyze codebase health | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
@@ -56,6 +57,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 - [CHANNELS.md](CHANNELS.md)
 - [BOT_INTEGRATIONS.md](BOT_INTEGRATIONS.md)
 - [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md)
+- [INBOX_GUIDE.md](INBOX_GUIDE.md)
 - [SHARED_INBOX.md](SHARED_INBOX.md)
 
 ### Costs & Billing

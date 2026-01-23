@@ -19,6 +19,7 @@ Use this index for fast navigation. For a fuller map, see
 | Production deployment | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | Email prioritization | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
+| Unified inbox guide | [INBOX_GUIDE.md](INBOX_GUIDE.md) |
 | Shared inbox | [SHARED_INBOX.md](SHARED_INBOX.md) |
 | Document ingestion | [DOCUMENTS.md](DOCUMENTS.md) |
 | Codebase analysis | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
@@ -54,6 +55,7 @@ Use this index for fast navigation. For a fuller map, see
 - Channels overview: [CHANNELS.md](CHANNELS.md)
 - Bot integrations: [BOT_INTEGRATIONS.md](BOT_INTEGRATIONS.md)
 - Email prioritization: [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md)
+- Unified inbox guide: [INBOX_GUIDE.md](INBOX_GUIDE.md)
 - Shared inbox: [SHARED_INBOX.md](SHARED_INBOX.md)
 
 ## Analysis & Code Health

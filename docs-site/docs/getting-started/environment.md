@@ -264,6 +264,8 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 - Set `ARAGORA_DB_BACKEND` explicitly to override auto-detection
 - Store-specific backends (policy/audit) inherit `ARAGORA_DB_BACKEND` unless overridden
 - `ARAGORA_REQUIRE_DISTRIBUTED=true` enforces distributed stores in production
+- `ARAGORA_REQUIRE_DISTRIBUTED_STATE` is a legacy alias honored when
+  `ARAGORA_REQUIRE_DISTRIBUTED` is unset
 
 **Production Setup:**
 ```bash

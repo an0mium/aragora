@@ -1,6 +1,6 @@
 # Smart Inbox Guide
 
-Aragora's Smart Inbox uses multi-agent AI debate to intelligently prioritize, thread, and manage your email. This guide covers setup, configuration, and best practices.
+Aragora's Smart Inbox uses multi-agent vetted decisionmaking to intelligently prioritize, thread, and manage your email. This guide covers setup, configuration, and best practices.
 
 ## Overview
 
@@ -13,7 +13,7 @@ The Smart Inbox provides:
 | **Cross-Channel Context** | Integrates Slack, Calendar, Drive signals |
 | **VIP Management** | Special handling for important contacts |
 | **Action Learning** | Improves over time based on your behavior |
-| **Multi-Account** | Manage multiple Gmail accounts |
+| **Multi-Account** | Manage multiple Gmail and Outlook accounts |
 
 ## Quick Start
 
@@ -47,6 +47,27 @@ ranked = await prioritizer.rank_inbox(emails, limit=50)
 for r in ranked:
     print(f"[{r.priority.name}] {r.email_id}: {r.rationale}")
 ```
+
+## Unified Inbox API (v1)
+
+Use the unified inbox endpoints to connect accounts, sync messages, and triage
+across providers.
+
+```
+POST /api/v1/inbox/connect          - Connect Gmail or Outlook account
+GET  /api/v1/inbox/accounts         - List connected accounts
+DELETE /api/v1/inbox/accounts/{id}  - Disconnect an account
+GET  /api/v1/inbox/messages         - Prioritized messages across accounts
+POST /api/v1/inbox/triage           - Multi-agent triage for a message
+GET  /api/v1/inbox/stats            - Inbox health metrics
+```
+
+Notes:
+- Gmail OAuth tokens are persisted in `GmailTokenStore`; Outlook tokens are stored
+  via the integration store under the `outlook_email` integration type.
+- Unified inbox messages are cached in-memory by default; configure Redis/Postgres
+  sync backends for production-grade durability.
+- OAuth credentials are read from environment variables (see `OAUTH_SETUP.md`).
 
 ## Priority Levels
 
@@ -93,12 +114,12 @@ config = EmailPrioritizationConfig(
 )
 ```
 
-### Tier 3: Multi-Agent Debate (< 30s)
+### Tier 3: Multi-Agent Vetted Decisionmaking (< 30s)
 
-Full debate for complex decisions when Tier 2 is still uncertain:
+Full vetted decisionmaking for complex decisions when Tier 2 is still uncertain:
 - Multiple specialized agents collaborate
-- Cross-references knowledge mound
-- Provides detailed reasoning
+- Cross-references Knowledge Mound
+- Produces vetted decisionmaking rationale
 
 ```python
 # Tier 3 kicks in when Tier 2 confidence < 0.6
@@ -352,7 +373,7 @@ ws.onmessage = (event) => {
 ### Performance
 
 1. **Use Tier 1 for bulk** - Process large inboxes with Tier 1 only first
-2. **Selective Tier 3** - Only debate truly ambiguous emails
+2. **Selective Tier 3** - Only run vetted decisionmaking on truly ambiguous emails
 3. **Cache sender profiles** - Reuse sender reputation data
 4. **Batch processing** - Use `rank_inbox()` for multiple emails
 

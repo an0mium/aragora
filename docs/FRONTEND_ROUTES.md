@@ -93,7 +93,7 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [SDK_GUIDE](./SDK_GUIDE.md), [SDK_TYPESCRIPT](./SDK_TYPESCRIPT.md)
 - `/settings` - User preferences, integrations, and API configuration.
   - Related docs: [ENVIRONMENT](./ENVIRONMENT.md), [INTEGRATIONS](./INTEGRATIONS.md)
-- `/inbox` - AI smart inbox with prioritization and Gmail sync.
+- `/inbox` - AI smart inbox with prioritization and Gmail/Outlook sync.
   - Related docs: [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md)
 - `/command-center` - Unified inbox command center for quick actions.
   - Related docs: [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md)

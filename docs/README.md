@@ -52,6 +52,15 @@ organizational knowledge and channels**.
 | [MEMORY_STRATEGY](./MEMORY_STRATEGY.md) | Memory tier architecture |
 | [MEMORY_ANALYTICS](./MEMORY_ANALYTICS.md) | Memory system analytics |
 
+### Inbox & Channels
+
+| Document | Description |
+|----------|-------------|
+| [INBOX_GUIDE](./INBOX_GUIDE.md) | Unified inbox setup and triage workflows |
+| [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md) | Priority scoring and tiers |
+| [SHARED_INBOX](./SHARED_INBOX.md) | Shared inbox routing and team workflows |
+| [CHANNELS](./CHANNELS.md) | Supported channels and delivery |
+
 ### Integrations
 
 | Document | Description |

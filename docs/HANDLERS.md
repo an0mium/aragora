@@ -155,18 +155,31 @@ auto-generated list.
 |--------|--------|-------------|
 | `features/audio.py` | `/audio/*`, `/api/v1/podcast/*` | Audio file serving + podcast feed |
 | `features/broadcast.py` | `/api/v1/debates/*/broadcast*` | Live debate broadcasting |
+| `features/connectors.py` | `/api/v1/connectors/*` | Connector registry + sync jobs |
 | `features/documents.py` | `/api/v1/documents/*` | Document upload + metadata |
 | `features/document_query.py` | `/api/v1/documents/*` | Document Q&A, summarize, compare, extract |
 | `features/evidence.py` | `/api/v1/evidence/*` | Evidence collection & search |
 | `features/features.py` | `/api/v1/features/*` | Feature flags & toggles |
 | `features/gmail_ingest.py` | `/api/v1/gmail/*` | Gmail ingestion, sync, search |
+| `features/gmail_query.py` | `/api/v1/gmail/query` | Gmail query API |
+| `features/integrations.py` | `/api/v1/integrations/*` | Integration configuration + status |
 | `features/unified_inbox.py` | `/api/v1/inbox/*` | Unified inbox accounts + triage |
 | `features/email_webhooks.py` | `/api/v1/webhooks/*` | Gmail/Outlook webhook subscriptions |
+| `features/routing_rules.py` | `/api/v1/routing-rules/*` | Routing rules management |
+| `features/smart_upload.py` | `/api/v1/upload/*` | Smart upload + file classification |
+| `features/cloud_storage.py` | `/api/v1/cloud/*` | Cloud storage provider integrations |
+| `features/codebase_audit.py` | `/api/v1/codebase/*` | Codebase scans + findings |
+| `features/reconciliation.py` | `/api/v1/reconciliation/*` | Reconciliation runs + reports |
+| `features/marketplace.py` | `/api/v1/marketplace/*` | Template marketplace API |
+| `features/rlm.py` | `/api/v1/rlm/*` | RLM query/compress endpoints |
 | `features/advertising.py` | `/api/v1/advertising/*` | Advertising platform APIs |
 | `features/analytics_platforms.py` | `/api/v1/analytics/*` | Analytics/BI platform APIs |
+| `features/cross_platform_analytics.py` | `/api/v1/analytics/cross-platform/*` | Cross-platform analytics aggregation |
 | `features/crm.py` | `/api/v1/crm/*` | CRM platform APIs |
 | `features/ecommerce.py` | `/api/v1/ecommerce/*` | Ecommerce platform APIs |
 | `features/support.py` | `/api/v1/support/*` | Support/helpdesk platform APIs |
+| `features/legal.py` | `/api/v1/legal/*` | Legal platform integrations |
+| `features/devops.py` | `/api/v1/devops/*` | DevOps integrations |
 | `features/plugins.py` | `/api/v1/plugins/*` | Plugin management |
 | `features/pulse.py` | `/api/v1/pulse/*` | Trending topics |
 
@@ -188,6 +201,7 @@ POST /api/v1/debates/*/broadcast - Start live broadcast
 |--------|--------|-------------|
 | `email.py` | `/api/v1/email/*` | Inbox prioritization, categorization, feedback |
 | `features/gmail_ingest.py` | `/api/v1/gmail/*` | Gmail OAuth, sync, search |
+| `features/gmail_query.py` | `/api/v1/gmail/query` | Gmail query API |
 | `features/unified_inbox.py` | `/api/v1/inbox/*` | Unified inbox accounts + triage |
 | `shared_inbox.py` | `/api/v1/inbox/shared*` | Shared inbox routing + rules |
 | `inbox/*` | `/api/v1/inbox/*` | Action items + team inbox workflows |
@@ -209,6 +223,7 @@ POST /api/v1/debates/*/broadcast - Start live broadcast
 | Module | Routes | Description |
 |--------|--------|-------------|
 | `gauntlet.py` | `/api/v1/gauntlet/*` | Adversarial stress tests + receipts |
+| `features/audit_sessions.py` | `/api/v1/audit/sessions*` | Audit session lifecycle + reports |
 | `audit_trail.py` | `/api/v1/audit-trails*`, `/api/v1/receipts*` | Audit trails + decision receipts |
 | `audit_export.py` | `/api/v1/audit/*` | Export audit logs + verify integrity |
 

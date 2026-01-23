@@ -77,7 +77,7 @@ Single-agent analysis for ambiguous cases:
 - Sender reputation integration
 
 ### Tier 3: Multi-Agent Debate (< 5s)
-Full debate-based prioritization for complex decisions:
+Full vetted decisionmaking-based prioritization for complex decisions:
 - Multiple specialized agents
 - Sender reputation
 - Content urgency
