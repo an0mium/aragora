@@ -616,9 +616,14 @@ class OAuthHandler(SecureHandler):
         if not state:
             return self._redirect_with_error("Missing state parameter")
 
+        logger.info(f"OAuth callback: validating state (len={len(state)}, prefix={state[:20]}...)")
         state_data = _validate_state(state)
         if state_data is None:
+            logger.warning(f"OAuth callback: state validation failed for {state[:20]}...")
             return self._redirect_with_error("Invalid or expired state")
+        logger.info(
+            f"OAuth callback: state valid, redirect_url={state_data.get('redirect_url', 'NOT_SET')}"
+        )
 
         # Get authorization code
         code = _get_param(query_params, "code")
@@ -627,9 +632,11 @@ class OAuthHandler(SecureHandler):
 
         # Exchange code for tokens
         try:
+            logger.info("OAuth callback: exchanging code for tokens...")
             token_data = self._exchange_code_for_tokens(code)
+            logger.info("OAuth callback: token exchange successful")
         except Exception as e:
-            logger.error(f"Token exchange failed: {e}")
+            logger.error(f"Token exchange failed: {e}", exc_info=True)
             return self._redirect_with_error("Failed to exchange authorization code")
 
         access_token = token_data.get("access_token")
@@ -638,14 +645,17 @@ class OAuthHandler(SecureHandler):
 
         # Get user info from Google
         try:
+            logger.info("OAuth callback: fetching user info from Google...")
             user_info = self._get_google_user_info(access_token)
+            logger.info(f"OAuth callback: got user info for {user_info.email}")
         except Exception as e:
-            logger.error(f"Failed to get user info: {e}")
+            logger.error(f"Failed to get user info: {e}", exc_info=True)
             return self._redirect_with_error("Failed to get user info from Google")
 
         # Handle user creation/login
         user_store = self._get_user_store()
         if not user_store:
+            logger.error("OAuth callback: user_store is None!")
             return self._redirect_with_error("User service unavailable")
 
         # Check if this is account linking
@@ -654,38 +664,72 @@ class OAuthHandler(SecureHandler):
             return self._handle_account_linking(user_store, linking_user_id, user_info, state_data)
 
         # Check if user exists by OAuth provider ID
-        user = self._find_user_by_oauth(user_store, user_info)
+        try:
+            logger.info("OAuth callback: looking up user by OAuth ID...")
+            user = self._find_user_by_oauth(user_store, user_info)
+            logger.info(f"OAuth callback: find_user_by_oauth returned {'user' if user else 'None'}")
+        except Exception as e:
+            logger.error(f"OAuth callback: _find_user_by_oauth failed: {e}", exc_info=True)
+            raise
 
         if not user:
             # Check if email already registered (without OAuth)
-            user = user_store.get_user_by_email(user_info.email)
+            try:
+                logger.info(f"OAuth callback: looking up user by email {user_info.email}...")
+                user = user_store.get_user_by_email(user_info.email)
+                logger.info(
+                    f"OAuth callback: get_user_by_email returned {'user' if user else 'None'}"
+                )
+            except Exception as e:
+                logger.error(f"OAuth callback: get_user_by_email failed: {e}", exc_info=True)
+                raise
+
             if user:
                 # Link OAuth to existing account
+                logger.info(f"OAuth callback: linking OAuth to existing user {user.id}")
                 self._link_oauth_to_user(user_store, user.id, user_info)
             else:
                 # Create new user with OAuth
-                user = self._create_oauth_user(user_store, user_info)
+                try:
+                    logger.info(f"OAuth callback: creating new OAuth user for {user_info.email}...")
+                    user = self._create_oauth_user(user_store, user_info)
+                    logger.info(f"OAuth callback: created user {user.id if user else 'FAILED'}")
+                except Exception as e:
+                    logger.error(f"OAuth callback: _create_oauth_user failed: {e}", exc_info=True)
+                    raise
 
         if not user:
             return self._redirect_with_error("Failed to create user account")
 
         # Update last login
-        user_store.update_user(user.id, last_login_at=time.time())
+        try:
+            logger.info(f"OAuth callback: updating last login for user {user.id}...")
+            user_store.update_user(user.id, last_login_at=time.time())
+        except Exception as e:
+            logger.error(f"OAuth callback: update_user failed: {e}", exc_info=True)
+            # Non-fatal, continue
 
         # Create tokens
-        from aragora.billing.jwt_auth import create_token_pair
+        try:
+            logger.info(f"OAuth callback: creating token pair for user {user.id}...")
+            from aragora.billing.jwt_auth import create_token_pair
 
-        tokens = create_token_pair(
-            user_id=user.id,
-            email=user.email,
-            org_id=user.org_id,
-            role=user.role,
-        )
+            tokens = create_token_pair(
+                user_id=user.id,
+                email=user.email,
+                org_id=user.org_id,
+                role=user.role,
+            )
+            logger.info("OAuth callback: token pair created successfully")
+        except Exception as e:
+            logger.error(f"OAuth callback: create_token_pair failed: {e}", exc_info=True)
+            raise
 
-        logger.info(f"OAuth login: {user.email} via Google")
+        logger.info(f"OAuth login successful: {user.email} via Google")
 
         # Redirect to frontend with tokens
         redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
+        logger.info(f"OAuth callback: redirecting to {redirect_url}")
         return self._redirect_with_tokens(redirect_url, tokens)
 
     def _exchange_code_for_tokens(self, code: str) -> dict:
