@@ -697,12 +697,95 @@ class ExpenseTracker:
         """
         Use LLM to categorize expense.
 
-        In production, this would call an LLM API with the expense details
-        and ask it to select the most appropriate category.
+        Uses Anthropic Claude API (with OpenAI fallback) to intelligently
+        categorize expenses based on vendor name, amount, and description.
         """
-        # Placeholder - would integrate with LLM service
-        logger.debug(f"LLM categorization requested for {expense.vendor_name}")
-        return None
+        import os
+
+        # Try Anthropic first, then OpenAI
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        provider = "anthropic"
+
+        if not api_key:
+            api_key = os.environ.get("OPENAI_API_KEY")
+            provider = "openai"
+
+        if not api_key:
+            logger.debug("No LLM API key configured, skipping LLM categorization")
+            return None
+
+        categories = [cat.value for cat in ExpenseCategory]
+        prompt = f"""Categorize this expense into exactly one of these categories: {', '.join(categories)}
+
+Expense details:
+- Vendor: {expense.vendor_name}
+- Amount: ${expense.amount}
+- Description: {expense.description or 'N/A'}
+- Date: {expense.date.strftime('%Y-%m-%d')}
+
+Respond with ONLY the category name (lowercase, with underscores). No explanation."""
+
+        try:
+            import aiohttp
+
+            if provider == "anthropic":
+                async with aiohttp.ClientSession() as session:
+                    async with (
+                        session.post(
+                            "https://api.anthropic.com/v1/messages",
+                            headers={
+                                "x-api-key": api_key,
+                                "anthropic-version": "2023-06-01",
+                                "content-type": "application/json",
+                            },
+                            json={
+                                "model": "claude-3-haiku-20240307",  # Fast, cheap model for categorization
+                                "max_tokens": 50,
+                                "messages": [{"role": "user", "content": prompt}],
+                            },
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp
+                    ):
+                        if resp.status == 200:
+                            data = await resp.json()
+                            category_text = data["content"][0]["text"].strip().lower()
+                            try:
+                                return ExpenseCategory(category_text)
+                            except ValueError:
+                                logger.debug(f"LLM returned invalid category: {category_text}")
+                                return None
+                        else:
+                            logger.warning(f"Anthropic API error: {resp.status}")
+                            return None
+            else:  # OpenAI
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": "gpt-4o-mini",  # Fast, cheap model
+                            "max_tokens": 50,
+                            "messages": [{"role": "user", "content": prompt}],
+                        },
+                        timeout=aiohttp.ClientTimeout(total=10),
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            category_text = data["choices"][0]["message"]["content"].strip().lower()
+                            try:
+                                return ExpenseCategory(category_text)
+                            except ValueError:
+                                logger.debug(f"LLM returned invalid category: {category_text}")
+                                return None
+                        else:
+                            logger.warning(f"OpenAI API error: {resp.status}")
+                            return None
+        except Exception as e:
+            logger.warning(f"LLM categorization failed: {e}")
+            return None
 
     async def detect_duplicates(
         self,
