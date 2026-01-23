@@ -10,11 +10,10 @@ Provides a single entry point for:
 import asyncio
 import os
 import re
-from html import escape as html_escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.grounded import MomentDetector, PositionLedger
@@ -180,36 +179,30 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     _rate_limit_result: Optional["RateLimitResult"] = None
 
     def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
-        """Override send_error to include CORS headers.
+        """Override send_error to return JSON instead of HTML.
 
-        The default BaseHTTPRequestHandler.send_error() doesn't include CORS headers,
-        which causes browsers to block error responses for cross-origin requests.
+        This ensures API clients always receive JSON error responses that can be
+        properly parsed, rather than HTML error pages that cause JSON parse errors.
         """
-        # Send response headers first
-        self.send_response(code, message)  # type: ignore[call-arg]
-        self.send_header("Content-Type", self.error_content_type)
-        # Add CORS headers so browser can read error responses
-        self._add_cors_headers()
-        self._add_security_headers()
-        self.end_headers()
-
-        # Format error body (same as BaseHTTPRequestHandler)
+        # Get default message if not provided
         if code in self.responses:
-            short, long_msg = self.responses[code]
+            short, _ = self.responses[code]
         else:
-            short, long_msg = "Unknown", "Unknown error"
+            short = "Unknown"
 
         if message is None:
             message = short
-        if explain is None:
-            explain = long_msg
 
-        body = self.error_message_format % {
+        # Build JSON error response
+        error_body: dict[str, Any] = {
+            "error": message,
             "code": code,
-            "message": html_escape(message, quote=False),
-            "explain": html_escape(explain, quote=False),
         }
-        self.wfile.write(body.encode("utf-8", "replace"))
+        if explain:
+            error_body["explain"] = explain
+
+        # Use _send_json which handles CORS headers
+        self._send_json(error_body, status=code)
 
     def _log_request(
         self, method: str, path: str, status: int, duration_ms: float, extra: Optional[dict] = None
