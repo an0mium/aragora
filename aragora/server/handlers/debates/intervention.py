@@ -208,7 +208,7 @@ async def handle_update_weights(
     agent: str,
     weight: float,
     user_id: Optional[str] = None,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Update an agent's influence weight.
 
     Weight affects how much the agent's vote counts in consensus:
@@ -261,7 +261,7 @@ async def handle_update_threshold(
     debate_id: str,
     threshold: float,
     user_id: Optional[str] = None,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Update the consensus threshold.
 
     Threshold is the minimum agreement level required for consensus:
@@ -309,7 +309,7 @@ async def handle_update_threshold(
 
 async def handle_get_intervention_state(
     debate_id: str,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Get the current intervention state for a debate.
 
     Returns pause status, weights, threshold, and pending injections.
@@ -336,7 +336,7 @@ async def handle_get_intervention_state(
 async def handle_get_intervention_log(
     debate_id: str,
     limit: int = 50,
-) -> tuple[str, int, dict[str, str]]:
+) -> HandlerResult:
     """Get the intervention log for a debate.
 
     Returns all interventions with timestamps for audit purposes.
