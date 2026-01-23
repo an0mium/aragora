@@ -158,6 +158,10 @@ class AdvertisingHandler(SecureHandler):
         "/api/v1/advertising/budget-recommendations",
     ]
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can handle the given path."""
+        return path.startswith("/api/v1/advertising/")
+
     def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
         """Check if user has the required permission."""
         user = self.get_current_user(request)
