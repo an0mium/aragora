@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
 
 
-# Mock aiohttp.web for testing
 class MockRequest:
     """Mock aiohttp request."""
 
@@ -43,35 +42,36 @@ def mock_json_response(data, status=200):
     return MockResponse(data, status)
 
 
-# Patch aiohttp.web before importing handler
-with patch.dict("sys.modules", {"aiohttp": MagicMock(), "aiohttp.web": MagicMock()}):
-    # Set up mock web module
-    import sys
+@pytest.fixture
+def mock_web():
+    """Set up mock for aiohttp.web."""
+    with patch("aragora.server.handlers.inbox_command.web") as web_mock:
+        web_mock.json_response = mock_json_response
+        web_mock.Request = MockRequest
+        web_mock.Response = MockResponse
+        yield web_mock
 
-    web_mock = sys.modules["aiohttp.web"]
-    web_mock.json_response = mock_json_response
-    web_mock.Request = MockRequest
-    web_mock.Response = MockResponse
 
+@pytest.fixture
+def handler(mock_web):
+    """Create handler instance for testing."""
     from aragora.server.handlers.inbox_command import InboxCommandHandler
+
+    return InboxCommandHandler()
+
+
+@pytest.fixture
+def mock_request():
+    """Create a mock request factory."""
+
+    def _create(query=None, body=None):
+        return MockRequest(query=query, body=body)
+
+    return _create
 
 
 class TestInboxCommandHandler:
     """Tests for InboxCommandHandler."""
-
-    @pytest.fixture
-    def handler(self):
-        """Create handler instance for testing."""
-        return InboxCommandHandler()
-
-    @pytest.fixture
-    def mock_request(self):
-        """Create a mock request factory."""
-
-        def _create(query=None, body=None):
-            return MockRequest(query=query, body=body)
-
-        return _create
 
     @pytest.mark.asyncio
     async def test_handle_get_inbox_returns_demo_data(self, handler, mock_request):
@@ -229,7 +229,9 @@ class TestInboxActionsDemo:
     """Test individual action handlers in demo mode."""
 
     @pytest.fixture
-    def handler(self):
+    def handler(self, mock_web):
+        from aragora.server.handlers.inbox_command import InboxCommandHandler
+
         return InboxCommandHandler()
 
     @pytest.mark.asyncio
@@ -275,7 +277,9 @@ class TestInboxDemoData:
     """Test demo data generation."""
 
     @pytest.fixture
-    def handler(self):
+    def handler(self, mock_web):
+        from aragora.server.handlers.inbox_command import InboxCommandHandler
+
         return InboxCommandHandler()
 
     def test_demo_emails_have_required_fields(self, handler):

@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.models import EmailMessage
     from aragora.knowledge.mound import KnowledgeMound
     from aragora.services.sender_history import SenderHistoryService
+    from aragora.services.threat_intelligence import ThreatIntelligenceService
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,7 @@ class EmailPrioritizer:
         config: Optional[EmailPrioritizationConfig] = None,
         sender_history_service: Optional["SenderHistoryService"] = None,
         user_id: Optional[str] = None,
+        threat_intel_service: Optional["ThreatIntelligenceService"] = None,
     ):
         """
         Initialize email prioritizer.
@@ -256,12 +258,14 @@ class EmailPrioritizer:
             config: Prioritization configuration
             sender_history_service: Sender history service for blocklist checks
             user_id: User identifier for sender history lookups
+            threat_intel_service: Threat intelligence service for URL/IP scanning
         """
         self.gmail = gmail_connector
         self.mound = knowledge_mound
         self.config = config or EmailPrioritizationConfig()
         self.sender_history = sender_history_service
         self.user_id = user_id
+        self.threat_intel = threat_intel_service
 
         # Sender profile cache
         self._sender_profiles: Dict[str, SenderProfile] = {}
@@ -422,6 +426,38 @@ class EmailPrioritizer:
 
         return None
 
+    async def _check_email_threats(self, email: "EmailMessage") -> Optional[Dict[str, Any]]:
+        """
+        Check email content for threats using threat intelligence.
+
+        Args:
+            email: Email message to check
+
+        Returns:
+            Threat check results or None if service unavailable
+        """
+        if not self.threat_intel:
+            return None
+
+        try:
+            # Build email content for checking
+            email_body = email.body_text or email.body_html or ""
+            headers = {}
+
+            # Extract received header if available
+            if hasattr(email, "headers") and email.headers:
+                headers = email.headers
+
+            result = await self.threat_intel.check_email_content(
+                email_body=email_body,
+                email_headers=headers,
+            )
+            return result
+
+        except Exception as e:
+            logger.warning(f"Threat check failed for email {email.id}: {e}")
+            return None
+
     async def _tier_1_score(
         self,
         email: "EmailMessage",
@@ -449,6 +485,25 @@ class EmailPrioritizer:
                 auto_archive=True,
                 suggested_labels=["Blocked"],
             )
+
+        # Threat intelligence check (if service available)
+        threat_result = await self._check_email_threats(email)
+        if threat_result and threat_result.get("is_suspicious"):
+            # Mark as potentially dangerous - critical if malicious URLs found
+            malicious_count = len(
+                [u for u in threat_result.get("urls", []) if u.get("is_malicious")]
+            )
+            if malicious_count > 0:
+                return EmailPriorityResult(
+                    email_id=email.id,
+                    priority=EmailPriority.CRITICAL,
+                    confidence=0.95,
+                    tier_used=ScoringTier.TIER_1_RULES,
+                    rationale=f"THREAT: {malicious_count} malicious URL(s) detected",
+                    sender_score=0.0,
+                    auto_archive=False,  # Keep visible for review
+                    suggested_labels=["Threat", "Phishing"],
+                )
 
         scores = {
             "sender": sender.reputation_score,
