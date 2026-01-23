@@ -402,6 +402,52 @@ class GmailConnector(EnterpriseConnector):
 
         return labels
 
+    async def create_label(self, label_name: str) -> GmailLabel:
+        """
+        Create a new Gmail label.
+
+        Args:
+            label_name: Name for the new label
+
+        Returns:
+            Created GmailLabel object
+        """
+        access_token = await self._get_access_token()
+
+        async with self._get_client() as client:
+            response = await client.post(
+                f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/labels",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={
+                    "name": label_name,
+                    "labelListVisibility": "labelShow",
+                    "messageListVisibility": "show",
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        return GmailLabel(
+            id=data["id"],
+            name=data["name"],
+            type=data.get("type", "user"),
+            message_list_visibility=data.get("messageListVisibility", "show"),
+            label_list_visibility=data.get("labelListVisibility", "labelShow"),
+        )
+
+    async def add_label(self, message_id: str, label_id: str) -> Dict[str, Any]:
+        """
+        Add a label to a message.
+
+        Args:
+            message_id: Gmail message ID
+            label_id: Label ID to add
+
+        Returns:
+            Dict with message_id and updated labels
+        """
+        return await self.modify_message(message_id, add_labels=[label_id])
+
     async def list_messages(
         self,
         query: str = "",

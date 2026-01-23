@@ -512,14 +512,14 @@ class EmailCategorizer:
             label_id = None
 
             for label in labels:
-                if label.get("name") == label_name:
-                    label_id = label.get("id")
+                if label.name == label_name:
+                    label_id = label.id
                     break
 
             if not label_id:
                 # Create label
                 new_label = await self.gmail.create_label(label_name)
-                label_id = new_label.get("id")
+                label_id = new_label.id
 
             if label_id:
                 await self.gmail.add_label(email_id, label_id)
@@ -543,7 +543,7 @@ class EmailCategorizer:
         Returns:
             Stats dictionary with counts and distributions
         """
-        stats = {
+        stats: Dict[str, Any] = {
             "total": len(results),
             "categories": {},
             "confidence_avg": 0.0,

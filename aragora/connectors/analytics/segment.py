@@ -483,7 +483,7 @@ class SegmentConnector:
         events: list[TrackEvent | IdentifyCall | PageEvent | GroupCall],
     ) -> bool:
         """Send a batch of events."""
-        batch_data = {"batch": []}
+        batch_data: dict[str, list[dict[str, Any]]] = {"batch": []}
 
         for event in events:
             event_data = event.to_api()

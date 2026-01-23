@@ -87,6 +87,7 @@ class PaymentMethod(str, Enum):
     CHECK = "check"
     WIRE = "wire"
     ACH = "ach"
+    BANK_TRANSFER = "bank_transfer"
     PAYPAL = "paypal"
     VENMO = "venmo"
     OTHER = "other"
@@ -601,7 +602,7 @@ class ExpenseTracker:
         """Parse extracted text to find receipt fields."""
         import re
 
-        result = {
+        result: Dict[str, Any] = {
             "vendor": "",
             "amount": 0.00,
             "date": datetime.now(),
@@ -1036,14 +1037,14 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             vendor = await self.qbo.get_vendor_by_name(expense.vendor_name)
             if not vendor:
                 vendor = await self.qbo.create_vendor(
-                    name=expense.vendor_name,
+                    display_name=expense.vendor_name,
                     email=None,
                 )
-            vendor_id = vendor.get("Id", "")
+            vendor_id = vendor.get("Id", "") if isinstance(vendor, dict) else ""
 
             # Get a default expense account (would typically be configured)
             accounts = await self.qbo.list_accounts(account_type="Expense")
-            expense_account_id = accounts[0]["Id"] if accounts else None
+            expense_account_id = accounts[0].id if accounts else None
 
             if not expense_account_id:
                 logger.warning("No expense account found in QBO")

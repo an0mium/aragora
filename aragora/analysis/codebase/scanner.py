@@ -401,10 +401,10 @@ class DependencyScanner:
 
     def _parse_yarn_lock(self, content: str, file_path: str) -> List[DependencyInfo]:
         """Parse yarn.lock."""
-        deps = []
+        deps: List[DependencyInfo] = []
 
         # Parse yarn.lock format
-        current_packages = []
+        current_packages: List[str] = []
         current_version = ""
 
         for line in content.split("\n"):
