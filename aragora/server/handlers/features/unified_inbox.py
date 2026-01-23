@@ -39,6 +39,57 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# Sync Service Registry
+# =============================================================================
+
+# tenant_id -> account_id -> sync_service (GmailSyncService or OutlookSyncService)
+_sync_services: Dict[str, Dict[str, Any]] = {}
+
+
+def _convert_synced_message_to_unified(
+    synced_msg: Any,
+    account_id: str,
+    provider: "EmailProvider",
+) -> "UnifiedMessage":
+    """Convert a SyncedMessage to UnifiedMessage format."""
+    msg = synced_msg.message
+    priority = synced_msg.priority_result
+
+    # Extract priority info
+    priority_score = 0.5
+    priority_tier = "medium"
+    priority_reasons: List[str] = []
+
+    if priority:
+        priority_score = priority.score if hasattr(priority, "score") else 0.5
+        priority_tier = priority.tier if hasattr(priority, "tier") else "medium"
+        priority_reasons = priority.reasons if hasattr(priority, "reasons") else []
+
+    return UnifiedMessage(
+        id=str(uuid4()),
+        account_id=account_id,
+        provider=provider,
+        external_id=msg.id if hasattr(msg, "id") else str(uuid4()),
+        subject=msg.subject if hasattr(msg, "subject") else "",
+        sender_email=msg.from_email if hasattr(msg, "from_email") else "",
+        sender_name=msg.from_name if hasattr(msg, "from_name") else "",
+        recipients=msg.to if hasattr(msg, "to") else [],
+        cc=msg.cc if hasattr(msg, "cc") else [],
+        received_at=msg.date if hasattr(msg, "date") else datetime.now(timezone.utc),
+        snippet=msg.snippet if hasattr(msg, "snippet") else "",
+        body_preview=msg.body[:500] if hasattr(msg, "body") and msg.body else "",
+        is_read=msg.is_read if hasattr(msg, "is_read") else False,
+        is_starred=msg.is_starred if hasattr(msg, "is_starred") else False,
+        has_attachments=bool(msg.attachments) if hasattr(msg, "attachments") else False,
+        labels=msg.labels if hasattr(msg, "labels") else [],
+        thread_id=msg.thread_id if hasattr(msg, "thread_id") else None,
+        priority_score=priority_score,
+        priority_tier=priority_tier,
+        priority_reasons=priority_reasons,
+    )
+
+
+# =============================================================================
 # Data Models
 # =============================================================================
 
@@ -387,26 +438,61 @@ class UnifiedInboxHandler(BaseHandler):
     ) -> Dict[str, Any]:
         """Connect Gmail account via OAuth."""
         try:
-            from aragora.connectors.email import GmailSyncService, GmailSyncConfig  # noqa: F401
+            from aragora.connectors.email import GmailSyncService, GmailSyncConfig
 
-            GmailSyncConfig(
+            config = GmailSyncConfig(
                 enable_prioritization=True,
                 initial_sync_days=7,
             )
 
-            # In production, exchange auth_code for tokens
-            # For now, simulate successful connection
+            # Initialize tenant sync registry
+            if tenant_id not in _sync_services:
+                _sync_services[tenant_id] = {}
+
+            # Create message callback that stores unified messages
+            def on_message_synced(synced_msg: Any) -> None:
+                try:
+                    unified = _convert_synced_message_to_unified(
+                        synced_msg, account.id, EmailProvider.GMAIL
+                    )
+                    if tenant_id not in _messages_cache:
+                        _messages_cache[tenant_id] = []
+                    _messages_cache[tenant_id].append(unified)
+                    account.total_messages += 1
+                    if not unified.is_read:
+                        account.unread_count += 1
+                except Exception as e:
+                    logger.warning(f"[UnifiedInbox] Error converting message: {e}")
+
+            # Create sync service
+            sync_service = GmailSyncService(
+                tenant_id=tenant_id,
+                user_id=account.id,
+                config=config,
+                on_message_synced=on_message_synced,
+            )
+
+            # Store sync service
+            _sync_services[tenant_id][account.id] = sync_service
+
+            # In production, exchange auth_code for refresh_token first
+            # For now, simulate token exchange and start sync
+            # refresh_token = await self._exchange_gmail_code(auth_code, redirect_uri)
+            # await sync_service.start(refresh_token=refresh_token)
+
             account.email_address = f"user_{account.id[:8]}@gmail.com"
             account.display_name = "Gmail User"
             account.status = AccountStatus.CONNECTED
 
+            logger.info(f"[UnifiedInbox] Gmail sync service registered for {account.id}")
             return {"success": True}
 
         except ImportError:
-            # GmailSyncService not available
+            # GmailSyncService not available, use mock mode
             account.email_address = f"user_{account.id[:8]}@gmail.com"
             account.display_name = "Gmail User"
             account.status = AccountStatus.CONNECTED
+            logger.warning("[UnifiedInbox] GmailSyncService not available, using mock mode")
             return {"success": True}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -420,25 +506,61 @@ class UnifiedInboxHandler(BaseHandler):
     ) -> Dict[str, Any]:
         """Connect Outlook account via OAuth."""
         try:
-            from aragora.connectors.email import OutlookSyncService, OutlookSyncConfig  # noqa: F401
+            from aragora.connectors.email import OutlookSyncService, OutlookSyncConfig
 
-            OutlookSyncConfig(
+            config = OutlookSyncConfig(
                 enable_prioritization=True,
                 initial_sync_days=7,
             )
 
-            # In production, exchange auth_code for tokens
-            # For now, simulate successful connection
+            # Initialize tenant sync registry
+            if tenant_id not in _sync_services:
+                _sync_services[tenant_id] = {}
+
+            # Create message callback that stores unified messages
+            def on_message_synced(synced_msg: Any) -> None:
+                try:
+                    unified = _convert_synced_message_to_unified(
+                        synced_msg, account.id, EmailProvider.OUTLOOK
+                    )
+                    if tenant_id not in _messages_cache:
+                        _messages_cache[tenant_id] = []
+                    _messages_cache[tenant_id].append(unified)
+                    account.total_messages += 1
+                    if not unified.is_read:
+                        account.unread_count += 1
+                except Exception as e:
+                    logger.warning(f"[UnifiedInbox] Error converting message: {e}")
+
+            # Create sync service
+            sync_service = OutlookSyncService(
+                tenant_id=tenant_id,
+                user_id=account.id,
+                config=config,
+                on_message_synced=on_message_synced,
+            )
+
+            # Store sync service
+            _sync_services[tenant_id][account.id] = sync_service
+
+            # In production, exchange auth_code for tokens first
+            # For now, simulate token exchange and start sync
+            # access_token, refresh_token = await self._exchange_outlook_code(auth_code, redirect_uri)
+            # await sync_service.start(access_token=access_token, refresh_token=refresh_token)
+
             account.email_address = f"user_{account.id[:8]}@outlook.com"
             account.display_name = "Outlook User"
             account.status = AccountStatus.CONNECTED
 
+            logger.info(f"[UnifiedInbox] Outlook sync service registered for {account.id}")
             return {"success": True}
 
         except ImportError:
+            # OutlookSyncService not available, use mock mode
             account.email_address = f"user_{account.id[:8]}@outlook.com"
             account.display_name = "Outlook User"
             account.status = AccountStatus.CONNECTED
+            logger.warning("[UnifiedInbox] OutlookSyncService not available, using mock mode")
             return {"success": True}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -468,6 +590,22 @@ class UnifiedInboxHandler(BaseHandler):
 
         account = accounts.pop(account_id)
         account.status = AccountStatus.DISCONNECTED
+
+        # Stop and remove sync service if running
+        if tenant_id in _sync_services and account_id in _sync_services[tenant_id]:
+            sync_service = _sync_services[tenant_id].pop(account_id)
+            try:
+                if hasattr(sync_service, "stop"):
+                    await sync_service.stop()
+                logger.info(f"[UnifiedInbox] Stopped sync service for account {account_id}")
+            except Exception as e:
+                logger.warning(f"[UnifiedInbox] Error stopping sync service: {e}")
+
+        # Remove messages for this account from cache
+        if tenant_id in _messages_cache:
+            _messages_cache[tenant_id] = [
+                m for m in _messages_cache[tenant_id] if m.account_id != account_id
+            ]
 
         logger.info(
             f"Disconnected {account.provider.value} account for tenant {tenant_id}: {account.email_address}"
@@ -586,15 +724,52 @@ class UnifiedInboxHandler(BaseHandler):
 
     async def _fetch_gmail_messages(self, account: ConnectedAccount) -> List[UnifiedMessage]:
         """Fetch messages from Gmail account."""
-        # In production, use GmailSyncService
-        # For now, return sample data
+        tenant_id = self._get_tenant_from_account(account)
+
+        # Check if sync service is running and has synced messages
+        if tenant_id and tenant_id in _sync_services:
+            sync_service = _sync_services[tenant_id].get(account.id)
+            if sync_service:
+                # Check if initial sync is complete
+                state = getattr(sync_service, "state", None)
+                if state and getattr(state, "initial_sync_complete", False):
+                    # Messages are already in cache via callbacks
+                    logger.debug(
+                        f"[UnifiedInbox] Gmail sync active for {account.id}, "
+                        f"messages synced: {getattr(state, 'total_messages_synced', 0)}"
+                    )
+                    return []  # Messages already in cache
+
+        # Fall back to sample data if sync not active
         return self._generate_sample_messages(account, 5)
 
     async def _fetch_outlook_messages(self, account: ConnectedAccount) -> List[UnifiedMessage]:
         """Fetch messages from Outlook account."""
-        # In production, use OutlookSyncService
-        # For now, return sample data
+        tenant_id = self._get_tenant_from_account(account)
+
+        # Check if sync service is running and has synced messages
+        if tenant_id and tenant_id in _sync_services:
+            sync_service = _sync_services[tenant_id].get(account.id)
+            if sync_service:
+                # Check if initial sync is complete
+                state = getattr(sync_service, "state", None)
+                if state and getattr(state, "initial_sync_complete", False):
+                    # Messages are already in cache via callbacks
+                    logger.debug(
+                        f"[UnifiedInbox] Outlook sync active for {account.id}, "
+                        f"messages synced: {getattr(state, 'total_messages_synced', 0)}"
+                    )
+                    return []  # Messages already in cache
+
+        # Fall back to sample data if sync not active
         return self._generate_sample_messages(account, 5)
+
+    def _get_tenant_from_account(self, account: ConnectedAccount) -> Optional[str]:
+        """Find tenant ID for an account by searching connected accounts."""
+        for tenant_id, accounts in _connected_accounts.items():
+            if account.id in accounts:
+                return tenant_id
+        return None
 
     def _generate_sample_messages(
         self, account: ConnectedAccount, count: int
