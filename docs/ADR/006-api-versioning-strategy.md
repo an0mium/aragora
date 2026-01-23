@@ -69,6 +69,5 @@ Every response includes:
 - Version extraction happens once per request (minimal overhead)
 
 ## Related
-- `aragora/server/middleware/versioning.py` - Versioning middleware
-- `aragora/server/versioning.py` - Version utilities
+- `aragora/server/middleware/versioning.py` - Versioning middleware and helpers
 - `docs/API_VERSIONING.md` - Client documentation

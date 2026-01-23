@@ -74,6 +74,9 @@ curl -X POST http://localhost:8080/api/auth/login \
   -d '{"email": "user@example.com", "password": "secure_password"}'
 ```
 
+Self-service signup flows use the versioned auth endpoints (`/api/v1/auth/*`).
+See the [Self-Service Signup](#self-service-signup--invitations) section below.
+
 ### Option 2: Google OAuth
 
 ```bash
@@ -99,6 +102,45 @@ ARAGORA_SSO_CALLBACK_URL=https://your-app.example.com/auth/sso/callback
 ```
 
 ---
+
+## Self-Service Signup & Invitations
+
+The versioned auth handlers provide self-service signup, email verification,
+organization setup, and team invitations. The default implementation stores
+pending signups/invites in memory; wire a persistent store for production.
+
+### Signup Flow (v1)
+
+```bash
+# Register
+curl -X POST http://localhost:8080/api/v1/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"StrongPass1","name":"User Name"}'
+
+# Verify email
+curl -X POST http://localhost:8080/api/v1/auth/verify-email \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<verification-token>"}'
+
+# Create org
+curl -X POST http://localhost:8080/api/v1/auth/setup-organization \
+  -H "Content-Type: application/json" \
+  -d '{"org_name":"Example Inc"}'
+```
+
+### Invitations
+
+```bash
+# Invite teammate
+curl -X POST http://localhost:8080/api/v1/auth/invite \
+  -H "Content-Type: application/json" \
+  -d '{"email":"teammate@example.com","role":"member"}'
+
+# Accept invite
+curl -X POST http://localhost:8080/api/v1/auth/accept-invite \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<invite-token>"}'
+```
 
 ## JWT Authentication
 
@@ -135,6 +177,18 @@ Refresh Token:
 | `/api/auth/logout` | POST | Invalidate current session |
 | `/api/auth/refresh` | POST | Get new access token |
 | `/api/auth/me` | GET | Get current user profile |
+
+Versioned signup endpoints:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/auth/signup` | POST | Register new user |
+| `/api/v1/auth/verify-email` | POST | Verify email address |
+| `/api/v1/auth/resend-verification` | POST | Resend verification email |
+| `/api/v1/auth/setup-organization` | POST | Create organization |
+| `/api/v1/auth/invite` | POST | Invite team member |
+| `/api/v1/auth/accept-invite` | POST | Accept invitation |
+| `/api/v1/auth/check-invite` | GET | Check invite validity |
 
 ### Configuration
 
@@ -339,6 +393,19 @@ ARAGORA_SSO_SP_CERTIFICATE=/path/to/sp-cert.pem
 ```
 
 ### SSO Endpoints
+
+Versioned OIDC endpoints:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/auth/sso/login` | GET | Start SSO flow |
+| `/api/v1/auth/sso/callback` | GET | Handle OAuth/OIDC callback |
+| `/api/v1/auth/sso/refresh` | POST | Refresh tokens |
+| `/api/v1/auth/sso/logout` | POST | Logout |
+| `/api/v1/auth/sso/providers` | GET | List available providers |
+| `/api/v1/auth/sso/config` | GET | Provider config |
+
+Legacy SAML/OIDC endpoints:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|

@@ -22,6 +22,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 | Understand document ingestion | [DOCUMENTS.md](DOCUMENTS.md) |
 | Analyze codebase health | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
 | Track costs | [COST_VISIBILITY.md](COST_VISIBILITY.md) |
+| Automate accounting workflows | [ACCOUNTING.md](ACCOUNTING.md) |
 | Automate PR reviews | [GITHUB_PR_REVIEW.md](GITHUB_PR_REVIEW.md) |
 | Generate tests | [CODING_ASSISTANCE.md](CODING_ASSISTANCE.md) |
 
@@ -60,6 +61,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 
 - [BILLING.md](BILLING.md)
 - [COST_VISIBILITY.md](COST_VISIBILITY.md)
+- [ACCOUNTING.md](ACCOUNTING.md)
 
 ### Analysis & Code Health
 

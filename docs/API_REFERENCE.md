@@ -1,6 +1,6 @@
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-22 (control plane deliberations + decision endpoints)
+> **Last Updated:** 2026-01-22 (control plane, decision, platform, code review APIs)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
 for multi-agent robust decisionmaking across organizational knowledge and channels.
@@ -37,6 +37,122 @@ python scripts/export_openapi.py --output-dir docs/api
 The canonical spec is produced by `aragora/server/openapi` and
 `aragora/server/openapi_impl.py`. If you add or change endpoints, update the
 OpenAPI endpoint definitions and re-export the docs.
+
+## Auth Signup & SSO API
+
+Self-service signup and SSO/OIDC endpoints live under `/api/v1/auth`.
+Signup flows are in-memory by default; use a database-backed store for production.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/auth/signup` | Register new user |
+| POST | `/api/v1/auth/verify-email` | Verify email address |
+| POST | `/api/v1/auth/resend-verification` | Resend verification email |
+| POST | `/api/v1/auth/setup-organization` | Create org after signup |
+| POST | `/api/v1/auth/invite` | Invite team member |
+| POST | `/api/v1/auth/accept-invite` | Accept invitation |
+| GET | `/api/v1/auth/check-invite` | Check invitation validity |
+| GET | `/api/v1/auth/sso/login` | Get SSO authorization URL |
+| GET | `/api/v1/auth/sso/callback` | Handle OAuth/OIDC callback |
+| POST | `/api/v1/auth/sso/refresh` | Refresh access token |
+| POST | `/api/v1/auth/sso/logout` | Logout from SSO |
+| GET | `/api/v1/auth/sso/providers` | List available providers |
+| GET | `/api/v1/auth/sso/config` | Get provider configuration |
+
+## Dashboard API
+
+Dashboard endpoints return overview stats, activity, and quick actions.
+Responses are cached in-memory for 30 seconds by default.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/dashboard` | Get dashboard overview |
+| GET | `/api/v1/dashboard/stats` | Get detailed stats |
+| GET | `/api/v1/dashboard/activity` | Get recent activity |
+| GET | `/api/v1/dashboard/inbox-summary` | Get inbox summary |
+| GET | `/api/v1/dashboard/quick-actions` | Get available quick actions |
+| POST | `/api/v1/dashboard/quick-actions/{action}` | Execute quick action |
+
+## Code Review API
+
+Code review endpoints run multi-agent reviews for snippets, diffs, and PRs.
+Results are stored in-memory by default.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/code-review/review` | Review code snippet |
+| POST | `/api/v1/code-review/diff` | Review diff/patch |
+| POST | `/api/v1/code-review/pr` | Review GitHub PR |
+| GET | `/api/v1/code-review/results/{id}` | Get review result |
+| GET | `/api/v1/code-review/history` | Review history |
+| POST | `/api/v1/code-review/security-scan` | Quick security scan |
+
+## Platform APIs (Advertising, Analytics, CRM, Ecommerce, Support)
+
+These endpoints unify operational data across platforms. They are backed by
+`SecureHandler` and respect RBAC permissions.
+
+### Advertising
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/advertising/platforms` | List connected platforms |
+| POST | `/api/v1/advertising/connect` | Connect a platform |
+| DELETE | `/api/v1/advertising/{platform}` | Disconnect platform |
+| GET | `/api/v1/advertising/campaigns` | Cross-platform campaigns |
+| POST | `/api/v1/advertising/{platform}/campaigns` | Create campaign |
+| GET | `/api/v1/advertising/performance` | Cross-platform performance |
+| POST | `/api/v1/advertising/analyze` | Performance analysis |
+
+### Analytics
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/analytics/platforms` | List connected platforms |
+| POST | `/api/v1/analytics/connect` | Connect a platform |
+| GET | `/api/v1/analytics/dashboards` | Cross-platform dashboards |
+| POST | `/api/v1/analytics/query` | Execute unified query |
+| GET | `/api/v1/analytics/reports` | Available reports |
+| POST | `/api/v1/analytics/reports/generate` | Generate report |
+| GET | `/api/v1/analytics/metrics` | Metrics overview |
+| GET | `/api/v1/analytics/realtime` | Real-time metrics |
+
+### CRM
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/crm/platforms` | List connected platforms |
+| POST | `/api/v1/crm/connect` | Connect a platform |
+| GET | `/api/v1/crm/contacts` | Cross-platform contacts |
+| POST | `/api/v1/crm/{platform}/contacts` | Create contact |
+| GET | `/api/v1/crm/companies` | Companies |
+| GET | `/api/v1/crm/deals` | Deals/opportunities |
+| GET | `/api/v1/crm/pipeline` | Sales pipeline |
+| POST | `/api/v1/crm/sync-lead` | Sync lead |
+| POST | `/api/v1/crm/enrich` | Enrich contact data |
+
+### Ecommerce
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/ecommerce/platforms` | List connected platforms |
+| POST | `/api/v1/ecommerce/connect` | Connect a platform |
+| GET | `/api/v1/ecommerce/orders` | Cross-platform orders |
+| GET | `/api/v1/ecommerce/products` | Products |
+| GET | `/api/v1/ecommerce/inventory` | Inventory levels |
+| POST | `/api/v1/ecommerce/sync-inventory` | Sync inventory |
+| GET | `/api/v1/ecommerce/fulfillment` | Fulfillment status |
+| POST | `/api/v1/ecommerce/ship` | Create shipment |
+
+### Support
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/support/platforms` | List connected platforms |
+| POST | `/api/v1/support/connect` | Connect a platform |
+| GET | `/api/v1/support/tickets` | Cross-platform tickets |
+| POST | `/api/v1/support/triage` | Ticket triage |
+| POST | `/api/v1/support/auto-respond` | Response suggestions |
 
 ## Codebase Analysis API
 

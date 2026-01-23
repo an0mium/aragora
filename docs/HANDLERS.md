@@ -4,7 +4,7 @@ This document indexes all HTTP handlers in `aragora/server/handlers/`.
 
 ## Overview
 
-The server uses a modular handler architecture with **119 handler modules** organized by domain. Each handler extends `BaseHandler` and registers routes it can handle. See the [Experimental Handlers](#experimental-handlers-20-total) section for features in development.
+The server uses a modular handler architecture organized by domain. Each handler extends `BaseHandler` and registers routes it can handle. Counts vary by deployment; run `python scripts/generate_api_docs.py --format json` to enumerate. See the [Experimental Handlers](#experimental-handlers) section for features in development.
 
 ## Handler Structure
 
@@ -73,7 +73,9 @@ POST /api/probes/run                - Run capability probes
 |--------|--------|-------------|
 | `auth/handler.py` | `/api/auth/*` | Login, logout, session management |
 | `oauth.py` | `/api/oauth/*` | OAuth2 provider integration |
-| `sso.py` | `/api/sso/*` | SAML/SSO enterprise auth |
+| `auth/signup_handlers.py` | `/api/v1/auth/*` | Self-service signup, org setup, invitations |
+| `auth/sso_handlers.py` | `/api/v1/auth/sso/*` | OIDC-based SSO endpoints |
+| `sso.py` | `/auth/sso/*` | SAML/legacy SSO endpoints |
 
 ### Key Endpoints
 
@@ -83,6 +85,8 @@ POST /api/auth/logout     - User logout
 GET  /api/auth/me         - Current user info
 GET  /api/oauth/:provider - OAuth initiation
 POST /api/oauth/callback  - OAuth callback
+POST /api/v1/auth/signup  - Self-service signup
+GET  /api/v1/auth/sso/login - SSO login (OIDC)
 ```
 
 ---
@@ -120,6 +124,11 @@ POST /api/matrix-debates        - Create matrix debate
 | `features/documents.py` | `/api/documents/*` | Document processing |
 | `features/evidence.py` | `/api/evidence/*` | Evidence collection & search |
 | `features/features.py` | `/api/features/*` | Feature flags & toggles |
+| `features/advertising.py` | `/api/v1/advertising/*` | Advertising platform APIs |
+| `features/analytics_platforms.py` | `/api/v1/analytics/*` | Analytics/BI platform APIs |
+| `features/crm.py` | `/api/v1/crm/*` | CRM platform APIs |
+| `features/ecommerce.py` | `/api/v1/ecommerce/*` | Ecommerce platform APIs |
+| `features/support.py` | `/api/v1/support/*` | Support/helpdesk platform APIs |
 | `features/plugins.py` | `/api/plugins/*` | Plugin management |
 | `features/pulse.py` | `/api/pulse/*` | Trending topics |
 
@@ -199,6 +208,9 @@ POST /api/formal/prove          - Generate formal proof
 | Module | Routes | Description |
 |--------|--------|-------------|
 | `analytics.py` | `/api/analytics/*` | Usage analytics |
+| `accounting.py` | `/api/accounting/*` | QuickBooks + Gusto accounting |
+| `ap_automation.py` | `/api/v1/accounting/ap/*` | Accounts payable automation |
+| `ar_automation.py` | `/api/v1/accounting/ar/*` | Accounts receivable automation |
 | `audit_export.py` | `/api/audit/*` | Audit log export |
 | `auditing.py` | `/api/auditing/*` | Security analysis |
 | `belief.py` | `/api/belief/*` | Belief network analysis |
@@ -206,6 +218,8 @@ POST /api/formal/prove          - Generate formal proof
 | `checkpoints.py` | `/api/checkpoints/*` | Debate checkpoints |
 | `consensus.py` | `/api/consensus/*` | Consensus memory |
 | `critique.py` | `/api/critique/*` | Critique patterns |
+| `code_review.py` | `/api/v1/code-review/*` | Multi-agent code review |
+| `dashboard.py` | `/api/v1/dashboard/*` | Main dashboard API |
 | `docs.py` | `/api/docs/*` | API documentation |
 | `gallery.py` | `/api/gallery/*` | Debate gallery |
 | `gauntlet.py` | `/api/gauntlet/*` | Adversarial testing |
@@ -240,7 +254,7 @@ POST /api/formal/prove          - Generate formal proof
 
 ---
 
-## Experimental Handlers (20 total)
+## Experimental Handlers
 
 These handlers are functional but APIs may change. Check `aragora/server/handlers/__init__.py` for current stability levels.
 

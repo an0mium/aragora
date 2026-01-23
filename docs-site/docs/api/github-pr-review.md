@@ -21,6 +21,9 @@ and add any RBAC rules required for your deployment.
 If `GITHUB_TOKEN` is not configured, the handler returns demo data for PR
 fetches and review submission.
 
+For ad-hoc reviews (snippets, diffs, or PR URLs without GitHub writeback),
+use the `/api/v1/code-review/*` endpoints.
+
 ## Endpoints
 
 | Method | Endpoint | Description |

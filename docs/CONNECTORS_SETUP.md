@@ -1,6 +1,7 @@
 # Enterprise Connectors Setup Guide
 
 This guide covers the setup and configuration of Aragora's enterprise connectors for integrating external data sources with the Knowledge Mound.
+For operational platform connectors (advertising, analytics, CRM, ecommerce, support, marketing, calendar, payments), see `docs/CONNECTORS.md`.
 
 ## Overview
 

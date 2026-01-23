@@ -13,7 +13,7 @@ This guide covers deploying aragora.ai to production with Supabase as the databa
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/yourusername/aragora.git
+git clone https://github.com/an0mium/aragora.git
 cd aragora
 pip install -e ".[postgres]"
 
@@ -315,5 +315,5 @@ Supabase provides automatic daily backups. For point-in-time recovery:
 ## Support
 
 - Documentation: [INDEX.md](INDEX.md)
-- Issues: [GitHub Issues](https://github.com/yourusername/aragora/issues)
+- Issues: [GitHub Issues](https://github.com/an0mium/aragora/issues)
 - Community: [Discord](https://discord.gg/aragora)

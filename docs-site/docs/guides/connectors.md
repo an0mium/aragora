@@ -11,7 +11,7 @@ Aragora is the **control plane for multi-agent robust decisionmaking across orga
 
 > **Full documentation**: See [Evidence System Guide](./evidence) for detailed usage examples.
 
-## Quick Reference
+## Quick Reference (Evidence Connectors)
 
 | Connector | Source | API Key | Rate Limit | Best For |
 |-----------|--------|---------|------------|----------|
@@ -27,6 +27,25 @@ Aragora is the **control plane for multi-agent robust decisionmaking across orga
 | `SECConnector` | SEC EDGAR | No | 10/sec | Financial filings |
 | `SQLConnector` | SQL databases | No | N/A | Structured data |
 
+## Operational Platform Connectors
+
+These connectors power workflow automation and platform APIs (advertising,
+analytics, CRM, ecommerce, support, marketing, calendar, payments). They are
+distinct from evidence connectors and are used by feature handlers and
+workflow templates.
+
+| Category | Subpackage | Platforms (current / planned) | Notes |
+|----------|------------|-------------------------------|-------|
+| Advertising | `aragora.connectors.advertising` | Google Ads, Meta Ads, LinkedIn Ads, Microsoft Ads, TikTok Ads, X Ads | Campaigns, performance, budgeting |
+| Analytics | `aragora.connectors.analytics` | Metabase, Google Analytics 4, Mixpanel, Segment | Dashboards, reports, funnels |
+| CRM | `aragora.connectors.crm` | HubSpot / Salesforce, Pipedrive (planned) | Contacts, deals, pipeline |
+| Ecommerce | `aragora.connectors.ecommerce` | Shopify, Amazon Seller, WooCommerce, ShipStation / eBay, Magento, TikTok Shop (planned) | Orders, inventory, fulfillment |
+| Support | `aragora.connectors.support` | Zendesk, Freshdesk, Intercom, Help Scout | Tickets, triage, responses |
+| Marketing | `aragora.connectors.marketing` | Mailchimp, Klaviyo | Campaigns, flows, audiences |
+| Calendar | `aragora.connectors.calendar` | Google Calendar, Outlook Calendar | Events, availability |
+| Email Sync | `aragora.connectors.email` | Gmail Sync, Outlook Sync | Background sync + webhooks |
+| Payments | `aragora.connectors.payments` | Stripe / PayPal, Square, Adyen (planned) | Subscriptions, invoices |
+
 ## Environment Variables
 
 ```bash
@@ -37,6 +56,10 @@ TWITTER_BEARER_TOKEN=your_bearer_token
 REDDIT_CLIENT_ID=your_client_id
 REDDIT_CLIENT_SECRET=your_client_secret
 ```
+
+Operational platform connectors typically use OAuth credentials passed to the
+connector constructor or managed via the enterprise credential provider stack.
+See the connector subpackage for required fields.
 
 ## Quick Start
 

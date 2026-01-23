@@ -176,22 +176,54 @@ workflow = conditional(
 
 ## Templates
 
-Pre-built templates in `templates/`:
+Aragora ships two template sources:
+
+1. **YAML templates** loaded via `aragora.workflow.template_loader.TemplateLoader`
+   from `aragora/workflow/templates/**.yaml`.
+2. **Python templates** registered in `aragora.workflow.templates.WORKFLOW_TEMPLATES`
+   from `aragora/workflow/templates/*.py` (includes marketing, support, ecommerce,
+   and cross-platform workflows).
+
+Selected YAML templates:
 
 | Template | Description |
 |----------|-------------|
-| `debate_analysis.yaml` | Full debate analysis pipeline |
-| `evidence_collection.yaml` | Evidence gathering workflow |
-| `report_generation.yaml` | Generate debate reports |
-| `quality_check.yaml` | Quality assurance workflow |
-| `compliance_audit.yaml` | Compliance checking |
+| `legal/contract_review.yaml` | Contract review workflow |
+| `legal/due_diligence.yaml` | Due diligence workflow |
+| `healthcare/clinical_review.yaml` | Clinical review workflow |
+| `healthcare/hipaa_compliance.yaml` | HIPAA compliance workflow |
+| `software/security_audit.yaml` | Software security audit |
+| `software/code_review.yaml` | Code review workflow |
+| `accounting/financial_audit.yaml` | Financial audit workflow |
+| `regulatory/compliance_assessment.yaml` | Regulatory compliance |
+| `academic/citation_verification.yaml` | Citation verification |
+| `finance/investment_analysis.yaml` | Investment analysis |
+| `general/research.yaml` | Research workflow |
+| `maintenance/knowledge_maintenance.yaml` | Knowledge maintenance |
+
+Selected Python templates (registry IDs):
+
+| Template ID | Description |
+|-------------|-------------|
+| `marketing/ad-performance-review` | Multi-agent ad performance analysis |
+| `marketing/lead-to-crm-sync` | Lead enrichment + CRM sync |
+| `marketing/cross-platform-analytics` | Unified analytics reporting |
+| `support/ticket-triage` | Support triage + response suggestions |
+| `ecommerce/order-sync` | Cross-platform order sync |
 
 ### Using Templates
 
 ```python
-from aragora.workflow.template_loader import load_template
+from aragora.workflow.template_loader import get_template_loader
+from aragora.workflow.templates import get_template
 
-workflow = load_template("debate_analysis")
+# YAML template (WorkflowDefinition)
+loader = get_template_loader()
+yaml_template = loader.get_template("template_legal_contract_review")
+
+# Python template (dict-based registry)
+workflow = get_template("marketing/ad-performance-review")
+
 result = await engine.execute(workflow, inputs)
 ```
 

@@ -30,6 +30,7 @@ Use this index for fast navigation. For a fuller map, see
 | GitHub PR review API | [GITHUB_PR_REVIEW.md](../api/github-pr-review) |
 | Coding assistance | [CODING_ASSISTANCE.md](../guides/coding-assistance) |
 | Cost visibility | [COST_VISIBILITY.md](../guides/cost-visibility) |
+| Accounting automation | [ACCOUNTING.md](../guides/accounting) |
 
 ## Core Concepts
 
@@ -84,6 +85,7 @@ Use this index for fast navigation. For a fuller map, see
 
 - Billing overview: [BILLING.md](../enterprise/billing)
 - Cost visibility: [COST_VISIBILITY.md](../guides/cost-visibility)
+- Accounting automation: [ACCOUNTING.md](../guides/accounting)
 
 ## Development
 

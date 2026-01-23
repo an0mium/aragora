@@ -1,3 +1,8 @@
+---
+title: Accounting & Financial Automation
+description: Accounting & Financial Automation
+---
+
 # Accounting & Financial Automation
 
 Aragora provides comprehensive accounting automation for SMEs with QuickBooks Online integration.
@@ -124,11 +129,11 @@ forecast = await ap.forecast_cash_needs(days_ahead=30)
 | POST | `/api/v1/accounting/expenses/upload` | Upload and process receipt |
 | POST | `/api/v1/accounting/expenses` | Create expense manually |
 | GET | `/api/v1/accounting/expenses` | List expenses with filters |
-| GET | `/api/v1/accounting/expenses/{id}` | Get expense by ID |
-| PUT | `/api/v1/accounting/expenses/{id}` | Update expense |
-| DELETE | `/api/v1/accounting/expenses/{id}` | Delete expense |
-| POST | `/api/v1/accounting/expenses/{id}/approve` | Approve expense |
-| POST | `/api/v1/accounting/expenses/{id}/reject` | Reject expense |
+| GET | `/api/v1/accounting/expenses/\{id\}` | Get expense by ID |
+| PUT | `/api/v1/accounting/expenses/\{id\}` | Update expense |
+| DELETE | `/api/v1/accounting/expenses/\{id\}` | Delete expense |
+| POST | `/api/v1/accounting/expenses/\{id\}/approve` | Approve expense |
+| POST | `/api/v1/accounting/expenses/\{id\}/reject` | Reject expense |
 | POST | `/api/v1/accounting/expenses/categorize` | Auto-categorize |
 | POST | `/api/v1/accounting/expenses/sync` | Sync to QBO |
 | GET | `/api/v1/accounting/expenses/stats` | Get statistics |
@@ -140,11 +145,11 @@ forecast = await ap.forecast_cash_needs(days_ahead=30)
 | POST | `/api/v1/accounting/invoices/upload` | Upload and extract invoice |
 | POST | `/api/v1/accounting/invoices` | Create invoice manually |
 | GET | `/api/v1/accounting/invoices` | List invoices |
-| GET | `/api/v1/accounting/invoices/{id}` | Get invoice by ID |
-| POST | `/api/v1/accounting/invoices/{id}/approve` | Approve invoice |
-| POST | `/api/v1/accounting/invoices/{id}/reject` | Reject invoice |
-| POST | `/api/v1/accounting/invoices/{id}/match-po` | Match to PO |
-| POST | `/api/v1/accounting/invoices/{id}/schedule` | Schedule payment |
+| GET | `/api/v1/accounting/invoices/\{id\}` | Get invoice by ID |
+| POST | `/api/v1/accounting/invoices/\{id\}/approve` | Approve invoice |
+| POST | `/api/v1/accounting/invoices/\{id\}/reject` | Reject invoice |
+| POST | `/api/v1/accounting/invoices/\{id\}/match-po` | Match to PO |
+| POST | `/api/v1/accounting/invoices/\{id\}/schedule` | Schedule payment |
 
 ### AR Automation
 
@@ -152,14 +157,14 @@ forecast = await ap.forecast_cash_needs(days_ahead=30)
 |--------|----------|-------------|
 | POST | `/api/v1/accounting/ar/invoices` | Create AR invoice |
 | GET | `/api/v1/accounting/ar/invoices` | List AR invoices |
-| GET | `/api/v1/accounting/ar/invoices/{id}` | Get invoice |
-| POST | `/api/v1/accounting/ar/invoices/{id}/send` | Send to customer |
-| POST | `/api/v1/accounting/ar/invoices/{id}/reminder` | Send reminder |
-| POST | `/api/v1/accounting/ar/invoices/{id}/payment` | Record payment |
+| GET | `/api/v1/accounting/ar/invoices/\{id\}` | Get invoice |
+| POST | `/api/v1/accounting/ar/invoices/\{id\}/send` | Send to customer |
+| POST | `/api/v1/accounting/ar/invoices/\{id\}/reminder` | Send reminder |
+| POST | `/api/v1/accounting/ar/invoices/\{id\}/payment` | Record payment |
 | GET | `/api/v1/accounting/ar/aging` | Get aging report |
 | GET | `/api/v1/accounting/ar/collections` | Get collection suggestions |
 | POST | `/api/v1/accounting/ar/customers` | Add customer |
-| GET | `/api/v1/accounting/ar/customers/{id}/balance` | Get customer balance |
+| GET | `/api/v1/accounting/ar/customers/\{id\}/balance` | Get customer balance |
 
 ### AP Automation
 
@@ -167,8 +172,8 @@ forecast = await ap.forecast_cash_needs(days_ahead=30)
 |--------|----------|-------------|
 | POST | `/api/v1/accounting/ap/invoices` | Add payable invoice |
 | GET | `/api/v1/accounting/ap/invoices` | List payables |
-| GET | `/api/v1/accounting/ap/invoices/{id}` | Get invoice |
-| POST | `/api/v1/accounting/ap/invoices/{id}/payment` | Record payment |
+| GET | `/api/v1/accounting/ap/invoices/\{id\}` | Get invoice |
+| POST | `/api/v1/accounting/ap/invoices/\{id\}/payment` | Record payment |
 | POST | `/api/v1/accounting/ap/optimize` | Optimize payment timing |
 | POST | `/api/v1/accounting/ap/batch` | Create batch payment |
 | GET | `/api/v1/accounting/ap/forecast` | Get cash flow forecast |
@@ -264,8 +269,8 @@ auth_url = gusto.get_auth_url()
 | GET | `/api/accounting/gusto/status` | Connection status |
 | GET | `/api/accounting/gusto/employees` | List employees |
 | GET | `/api/accounting/gusto/payrolls` | List payroll runs |
-| GET | `/api/accounting/gusto/payrolls/{payroll_id}` | Payroll run details |
-| POST | `/api/accounting/gusto/payrolls/{payroll_id}/journal-entry` | Generate journal entry |
+| GET | `/api/accounting/gusto/payrolls/\{payroll_id\}` | Payroll run details |
+| POST | `/api/accounting/gusto/payrolls/\{payroll_id\}/journal-entry` | Generate journal entry |
 
 ## OCR & Document Processing
 

@@ -120,6 +120,43 @@ All endpoints are served under `/api/v1/email` unless otherwise noted.
 | GET | `/api/v1/email/categories` | List categories |
 | POST | `/api/v1/email/categories/learn` | Category feedback |
 
+## Background Sync Services
+
+Aragora includes background sync connectors for real-time inbox updates:
+
+- `GmailSyncService` uses Google Pub/Sub + History API
+- `OutlookSyncService` uses Microsoft Graph change notifications + delta queries
+
+Both integrate with `EmailPrioritizer` and support `state_backend` settings
+(`memory`, `redis`, `postgres`) for tenant-isolated sync state.
+
+```python
+from aragora.connectors.email import (
+    GmailSyncService,
+    GmailSyncConfig,
+    OutlookSyncService,
+    OutlookSyncConfig,
+)
+
+gmail = GmailSyncService(
+    tenant_id="tenant_123",
+    user_id="user_456",
+    config=GmailSyncConfig(
+        project_id="my-project",
+        topic_name="gmail-notifications",
+        subscription_name="gmail-sync-sub",
+    ),
+)
+
+outlook = OutlookSyncService(
+    tenant_id="tenant_123",
+    user_id="user_456",
+    config=OutlookSyncConfig(
+        notification_url="https://api.example.com/webhooks/outlook",
+    ),
+)
+```
+
 ### Inbox Command Center APIs
 
 The inbox command center exposes endpoints for quick actions and bulk

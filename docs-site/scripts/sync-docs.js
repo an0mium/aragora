@@ -59,6 +59,7 @@ const DOC_MAP = {
   'CONNECTORS.md': 'guides/connectors.md',
   'CONNECTORS_SETUP.md': 'guides/connectors-setup.md',
   'CONNECTOR_TROUBLESHOOTING.md': 'guides/connector-troubleshooting.md',
+  'ACCOUNTING.md': 'guides/accounting.md',
   'EVIDENCE.md': 'guides/evidence.md',
   'EVIDENCE_API_GUIDE.md': 'api/evidence.md',
   'GRAPH_DEBATES.md': 'guides/graph-debates.md',

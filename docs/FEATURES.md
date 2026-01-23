@@ -206,19 +206,18 @@ if results.passed:
     print(f"Agent scored {results.score}")
 ```
 
-### DeliberationTemplates
-**File:** `aragora/deliberation/templates/`
+### WorkflowTemplates
+**File:** `aragora/workflow/templates/`
 
-Structured deliberation templates for common workflows.
+Workflow templates are delivered in two forms:
+- YAML templates loaded by `aragora.workflow.template_loader.TemplateLoader`
+- Python template registry in `aragora.workflow.templates.WORKFLOW_TEMPLATES`
 
 ```python
-from aragora.deliberation.templates import get_template
+from aragora.workflow.templates import get_template
 
-template = get_template("code_review")
-request = template.merge_with_request({
-    "question": "Review this API change",
-    "knowledge_sources": ["github:owner/repo/pr/123"],
-})
+workflow = get_template("marketing/ad-performance-review")
+result = await engine.execute(workflow, inputs)
 ```
 
 ### AgentCircuitBreaker
@@ -2262,6 +2261,24 @@ async def trigger_pr_review():
             "repository": "owner/repo",
             "pr_number": 42,
             "review_type": "comprehensive",
+        })
+        print(response.json())
+```
+
+### Code Review API
+**File:** `aragora/server/handlers/code_review.py`
+
+Multi-agent code review endpoints for snippets, diffs, and PR URLs with
+optional security-only scans. Results are stored in-memory by default.
+
+```python
+import httpx
+
+async def review_diff():
+    async with httpx.AsyncClient(base_url="http://localhost:8080") as client:
+        response = await client.post("/api/v1/code-review/diff", json={
+            "diff": "diff --git a/app.py b/app.py\\n+print('hello')\\n",
+            "review_types": ["security", "maintainability"],
         })
         print(response.json())
 ```

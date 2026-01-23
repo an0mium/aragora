@@ -1,8 +1,79 @@
 # Aragora Project Status
 
-*Last updated: January 22, 2026*
+*Last updated: January 23, 2026*
 
 ## Current Release
+
+### v2.1.12 - Connectors & Email Sync Release (January 2026)
+
+**Production Ready** - Aragora 2.1.12 adds comprehensive advertising, marketing, and analytics platform connectors plus real-time email sync services.
+
+#### Key Highlights
+- **44,500+ tests** across 1,210+ test files
+- **6 new advertising/marketing connectors** - Twitter Ads, TikTok Ads, Mailchimp, Klaviyo, Segment
+- **2 real-time email sync services** - Gmail Pub/Sub, Outlook Graph notifications
+- **5 new unified handlers** - Advertising, Analytics, CRM, Support, Ecommerce
+- **Lines of Code**: 680,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.1.12
+
+**Advertising Connectors** (FEATURE)
+- **Twitter/X Ads** (`aragora/connectors/advertising/twitter_ads.py`)
+  - OAuth 1.0a authentication
+  - Campaign, ad group, ad management
+  - Performance metrics and targeting
+  - Tailored audiences and promoted accounts
+- **TikTok Ads** (`aragora/connectors/advertising/tiktok_ads.py`)
+  - OAuth 2.0 authentication
+  - Campaign, ad group, ad CRUD operations
+  - Pixel tracking and conversion events
+  - Custom audiences and smart targeting
+
+**Marketing Connectors** (FEATURE)
+- **Mailchimp** (`aragora/connectors/marketing/mailchimp.py`)
+  - Audiences, members, campaigns
+  - Templates, automations, reporting
+  - Campaign performance analytics
+- **Klaviyo** (`aragora/connectors/marketing/klaviyo.py`)
+  - Lists, segments, profiles
+  - Campaigns and flows
+  - Events, templates (email + SMS)
+  - JSON:API format (2024-10-15 revision)
+
+**Analytics Connector** (FEATURE)
+- **Segment CDP** (`aragora/connectors/analytics/segment.py`)
+  - Tracking API (track, identify, page, group, batch)
+  - Config API (sources, destinations)
+  - Profiles API (user lookup, traits)
+
+**Email Sync Services** (FEATURE)
+- **Gmail Sync** (`aragora/connectors/email/gmail_sync.py`)
+  - Google Cloud Pub/Sub for real-time notifications
+  - History API for incremental message retrieval
+  - EmailPrioritizer integration for scoring
+  - Tenant-isolated sync state (Redis/Postgres)
+- **Outlook Sync** (`aragora/connectors/email/outlook_sync.py`)
+  - Microsoft Graph change notifications (webhooks)
+  - Delta Query API for incremental sync
+  - Automatic subscription renewal
+  - EmailPrioritizer integration
+
+**Handler Registry Expansion** (INFRASTRUCTURE)
+- 5 new unified API handlers registered:
+  - `AdvertisingHandler` - Multi-platform ad management
+  - `AnalyticsPlatformsHandler` - CDP and analytics tools
+  - `CRMHandler` - Customer relationship platforms
+  - `SupportHandler` - Help desk integrations
+  - `EcommerceHandler` - Shopping platform connectors
+
+**Testing** (QUALITY)
+- 450+ new tests for advertising connectors
+- 250+ new tests for marketing connectors
+- 100+ new tests for analytics connector
+- 120+ new tests for email sync services
+
+---
 
 ### v2.1.11 - Type Safety & Quality Release (January 2026)
 

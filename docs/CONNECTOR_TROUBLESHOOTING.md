@@ -613,7 +613,7 @@ If issues persist:
 2. Verify API key permissions on provider's dashboard
 3. Test the API directly with curl
 4. Check provider status pages
-5. Report issues at https://github.com/anthropics/aragora/issues
+5. Report issues at https://github.com/an0mium/aragora/issues
 
 ## See Also
 
