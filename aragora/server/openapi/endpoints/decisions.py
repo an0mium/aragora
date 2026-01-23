@@ -1,0 +1,84 @@
+"""Decision endpoint definitions."""
+
+from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS, AUTH_REQUIREMENTS
+
+
+DECISION_ENDPOINTS = {
+    "/api/v1/decisions": {
+        "get": {
+            "tags": ["Decisions"],
+            "summary": "List decisions",
+            "description": "List recent decision records (most recent first).",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 20, "maximum": 200},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Decision list", "DecisionList"),
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "post": {
+            "tags": ["Decisions"],
+            "summary": "Create decision",
+            "description": "Submit a decision request for debate, workflow, or gauntlet routing.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {"schema": {"$ref": "#/components/schemas/DecisionRequest"}}
+                },
+            },
+            "responses": {
+                "200": _ok_response("Decision result", "DecisionResult"),
+                "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/decisions/{request_id}": {
+        "get": {
+            "tags": ["Decisions"],
+            "summary": "Get decision",
+            "description": "Get a decision result by request ID.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Decision result", "DecisionResult"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/decisions/{request_id}/status": {
+        "get": {
+            "tags": ["Decisions"],
+            "summary": "Get decision status",
+            "description": "Get decision status for polling.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Decision status", "DecisionStatus"),
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+}
