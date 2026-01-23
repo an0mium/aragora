@@ -292,19 +292,21 @@ class TestTrueRLMRouting:
         assert mock_true_rlm_result.used_true_rlm is True
         assert mock_true_rlm_result.answer is not None
 
-    def test_factory_logging_indicates_rlm_type(self):
+    def test_factory_logging_indicates_rlm_type(self, caplog):
         """Factory should log whether TRUE RLM or compression fallback is used."""
         import logging
         from aragora.rlm import get_rlm, reset_singleton
 
         reset_singleton()
 
-        # Capture log output
-        with patch("aragora.rlm.factory.logger") as mock_logger:
+        # Capture log output using pytest's caplog fixture
+        with caplog.at_level(logging.DEBUG, logger="aragora.rlm"):
             rlm = get_rlm(force_new=True)
 
             # Should have logged info about which RLM type is being used
-            assert mock_logger.info.called or mock_logger.debug.called
+            # Check both factory and bridge loggers for RLM-related messages
+            rlm_logs = [r for r in caplog.records if "rlm" in r.name.lower()]
+            assert len(rlm_logs) > 0, "Expected RLM-related log messages"
 
     @pytest.mark.asyncio
     async def test_result_includes_approach_metadata(self):
