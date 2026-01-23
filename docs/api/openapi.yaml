@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Aragora API",
-    "description": "Control plane for multi-agent robust decisionmaking across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
+    "description": "Control plane for multi-agent vetted decisionmaking across org knowledge and channels. Orchestrate 15+ AI models to debate your organization's knowledge and deliver defensible decisions with full audit trails.",
     "version": "1.0.0",
     "contact": {
       "name": "Aragora Team"
@@ -12436,8 +12436,8 @@
         "tags": [
           "Control Plane"
         ],
-        "summary": "Run robust decisionmaking session",
-        "description": "Run or queue a robust decisionmaking session (async when async=true).",
+        "summary": "Run vetted decisionmaking session",
+        "description": "Run or queue a vetted decisionmaking session (async when async=true).",
         "security": [
           {
             "bearerAuth": []
@@ -12599,8 +12599,8 @@
         "tags": [
           "Control Plane"
         ],
-        "summary": "Get robust decisionmaking result",
-        "description": "Fetch a stored robust decisionmaking record by request ID.",
+        "summary": "Get vetted decisionmaking result",
+        "description": "Fetch a stored vetted decisionmaking record by request ID.",
         "security": [
           {
             "bearerAuth": []
@@ -12736,8 +12736,8 @@
         "tags": [
           "Control Plane"
         ],
-        "summary": "Get robust decisionmaking status",
-        "description": "Check robust decisionmaking status for polling.",
+        "summary": "Get vetted decisionmaking status",
+        "description": "Check vetted decisionmaking status for polling.",
         "security": [
           {
             "bearerAuth": []
