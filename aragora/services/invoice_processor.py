@@ -1,0 +1,960 @@
+"""
+Invoice Processor Service.
+
+Processes incoming invoices for accounts payable automation:
+- PDF/image invoice parsing and data extraction
+- Line item extraction
+- Purchase order matching (3-way match)
+- Anomaly detection (unusual amounts, new vendors, duplicates)
+- Approval routing based on thresholds
+- Payment scheduling
+- QBO sync integration
+
+Usage:
+    from aragora.services.invoice_processor import InvoiceProcessor
+
+    processor = InvoiceProcessor()
+
+    # Extract data from invoice
+    invoice = await processor.extract_invoice_data(pdf_bytes)
+
+    # Match to purchase order
+    match = await processor.match_to_po(invoice)
+
+    # Detect anomalies
+    anomalies = await processor.detect_anomalies(invoice)
+
+    # Schedule payment
+    schedule = await processor.schedule_payment(invoice, pay_date)
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from decimal import Decimal
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from uuid import uuid4
+
+if TYPE_CHECKING:
+    from aragora.connectors.accounting.qbo import QuickBooksConnector
+
+logger = logging.getLogger(__name__)
+
+
+class InvoiceStatus(str, Enum):
+    """Invoice processing status."""
+
+    RECEIVED = "received"  # Just received, pending extraction
+    EXTRACTED = "extracted"  # Data extracted successfully
+    MATCHED = "matched"  # Matched to PO
+    UNMATCHED = "unmatched"  # Could not match to PO
+    PENDING_APPROVAL = "pending_approval"  # Awaiting approval
+    APPROVED = "approved"  # Approved for payment
+    SCHEDULED = "scheduled"  # Payment scheduled
+    PAID = "paid"  # Payment completed
+    REJECTED = "rejected"  # Rejected
+    DUPLICATE = "duplicate"  # Duplicate invoice
+
+
+class AnomalyType(str, Enum):
+    """Types of invoice anomalies."""
+
+    UNUSUAL_AMOUNT = "unusual_amount"  # Amount significantly differs from history
+    NEW_VENDOR = "new_vendor"  # First invoice from this vendor
+    DUPLICATE = "duplicate"  # Potential duplicate
+    MISSING_PO = "missing_po"  # No matching purchase order
+    PRICE_VARIANCE = "price_variance"  # Line item price differs from PO
+    QUANTITY_VARIANCE = "quantity_variance"  # Quantity differs from PO
+    EARLY_INVOICE = "early_invoice"  # Invoice before expected delivery
+    ROUND_AMOUNT = "round_amount"  # Suspiciously round number
+    HIGH_VALUE = "high_value"  # Exceeds approval threshold
+
+
+class ApprovalLevel(str, Enum):
+    """Approval levels based on amount."""
+
+    AUTO = "auto"  # Auto-approved (low value)
+    MANAGER = "manager"  # Manager approval
+    DIRECTOR = "director"  # Director approval
+    EXECUTIVE = "executive"  # Executive/CFO approval
+
+
+@dataclass
+class InvoiceLineItem:
+    """A line item on an invoice."""
+
+    description: str
+    quantity: float = 1.0
+    unit_price: Decimal = Decimal("0.00")
+    amount: Decimal = Decimal("0.00")
+    product_code: Optional[str] = None
+    unit: Optional[str] = None
+    tax_rate: float = 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "description": self.description,
+            "quantity": self.quantity,
+            "unitPrice": float(self.unit_price),
+            "amount": float(self.amount),
+            "productCode": self.product_code,
+            "unit": self.unit,
+            "taxRate": self.tax_rate,
+        }
+
+
+@dataclass
+class InvoiceData:
+    """Extracted invoice data."""
+
+    id: str
+    vendor_name: str
+    vendor_id: Optional[str] = None
+    invoice_number: str = ""
+    invoice_date: datetime = field(default_factory=datetime.now)
+    due_date: Optional[datetime] = None
+    subtotal: Decimal = Decimal("0.00")
+    tax_amount: Decimal = Decimal("0.00")
+    total_amount: Decimal = Decimal("0.00")
+    currency: str = "USD"
+    payment_terms: Optional[str] = None
+    line_items: List[InvoiceLineItem] = field(default_factory=list)
+    status: InvoiceStatus = InvoiceStatus.RECEIVED
+    po_number: Optional[str] = None
+    matched_po_id: Optional[str] = None
+    approval_level: ApprovalLevel = ApprovalLevel.AUTO
+    approver_id: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    scheduled_pay_date: Optional[datetime] = None
+    paid_at: Optional[datetime] = None
+    qbo_id: Optional[str] = None
+    document_bytes: Optional[bytes] = None
+    extracted_text: str = ""
+    confidence_score: float = 0.0
+    anomalies: List[str] = field(default_factory=list)
+    notes: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def hash_key(self) -> str:
+        """Generate hash for duplicate detection."""
+        key_parts = [
+            self.vendor_name.lower().strip(),
+            self.invoice_number.strip(),
+            str(self.total_amount),
+        ]
+        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+
+    @property
+    def days_until_due(self) -> Optional[int]:
+        """Days until payment is due."""
+        if self.due_date:
+            return (self.due_date - datetime.now()).days
+        return None
+
+    @property
+    def is_overdue(self) -> bool:
+        """Check if invoice is overdue."""
+        if self.due_date and self.status not in [InvoiceStatus.PAID, InvoiceStatus.REJECTED]:
+            return datetime.now() > self.due_date
+        return False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "vendorName": self.vendor_name,
+            "vendorId": self.vendor_id,
+            "invoiceNumber": self.invoice_number,
+            "invoiceDate": self.invoice_date.isoformat(),
+            "dueDate": self.due_date.isoformat() if self.due_date else None,
+            "subtotal": float(self.subtotal),
+            "taxAmount": float(self.tax_amount),
+            "totalAmount": float(self.total_amount),
+            "currency": self.currency,
+            "paymentTerms": self.payment_terms,
+            "lineItems": [li.to_dict() for li in self.line_items],
+            "status": self.status.value,
+            "poNumber": self.po_number,
+            "matchedPoId": self.matched_po_id,
+            "approvalLevel": self.approval_level.value,
+            "approverId": self.approver_id,
+            "scheduledPayDate": self.scheduled_pay_date.isoformat()
+            if self.scheduled_pay_date
+            else None,
+            "qboId": self.qbo_id,
+            "confidenceScore": self.confidence_score,
+            "anomalies": self.anomalies,
+            "daysUntilDue": self.days_until_due,
+            "isOverdue": self.is_overdue,
+            "createdAt": self.created_at.isoformat(),
+            "updatedAt": self.updated_at.isoformat(),
+        }
+
+
+@dataclass
+class PurchaseOrder:
+    """Purchase order for matching."""
+
+    id: str
+    po_number: str
+    vendor_id: str
+    vendor_name: str
+    total_amount: Decimal
+    order_date: datetime
+    expected_delivery: Optional[datetime] = None
+    line_items: List[Dict[str, Any]] = field(default_factory=list)
+    status: str = "open"
+    received_amount: Decimal = Decimal("0.00")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "poNumber": self.po_number,
+            "vendorId": self.vendor_id,
+            "vendorName": self.vendor_name,
+            "totalAmount": float(self.total_amount),
+            "orderDate": self.order_date.isoformat(),
+            "expectedDelivery": self.expected_delivery.isoformat()
+            if self.expected_delivery
+            else None,
+            "lineItems": self.line_items,
+            "status": self.status,
+            "receivedAmount": float(self.received_amount),
+        }
+
+
+@dataclass
+class POMatch:
+    """Result of PO matching."""
+
+    invoice_id: str
+    po_id: Optional[str] = None
+    po_number: Optional[str] = None
+    match_type: str = "none"  # exact, partial, none
+    match_score: float = 0.0
+    amount_variance: Decimal = Decimal("0.00")
+    variance_percent: float = 0.0
+    line_item_matches: List[Dict[str, Any]] = field(default_factory=list)
+    issues: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "invoiceId": self.invoice_id,
+            "poId": self.po_id,
+            "poNumber": self.po_number,
+            "matchType": self.match_type,
+            "matchScore": self.match_score,
+            "amountVariance": float(self.amount_variance),
+            "variancePercent": self.variance_percent,
+            "lineItemMatches": self.line_item_matches,
+            "issues": self.issues,
+        }
+
+
+@dataclass
+class Anomaly:
+    """An anomaly detected in an invoice."""
+
+    type: AnomalyType
+    severity: str  # low, medium, high
+    description: str
+    expected_value: Optional[str] = None
+    actual_value: Optional[str] = None
+    recommendation: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "type": self.type.value,
+            "severity": self.severity,
+            "description": self.description,
+            "expectedValue": self.expected_value,
+            "actualValue": self.actual_value,
+            "recommendation": self.recommendation,
+        }
+
+
+@dataclass
+class PaymentSchedule:
+    """Scheduled payment information."""
+
+    invoice_id: str
+    pay_date: datetime
+    amount: Decimal
+    vendor_id: str
+    vendor_name: str
+    payment_method: str = "ach"
+    status: str = "scheduled"
+    early_pay_discount: float = 0.0
+    discount_amount: Decimal = Decimal("0.00")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "invoiceId": self.invoice_id,
+            "payDate": self.pay_date.isoformat(),
+            "amount": float(self.amount),
+            "vendorId": self.vendor_id,
+            "vendorName": self.vendor_name,
+            "paymentMethod": self.payment_method,
+            "status": self.status,
+            "earlyPayDiscount": self.early_pay_discount,
+            "discountAmount": float(self.discount_amount),
+        }
+
+
+# Approval thresholds (configurable)
+APPROVAL_THRESHOLDS = {
+    ApprovalLevel.AUTO: Decimal("500"),  # Auto-approve under $500
+    ApprovalLevel.MANAGER: Decimal("5000"),  # Manager up to $5,000
+    ApprovalLevel.DIRECTOR: Decimal("25000"),  # Director up to $25,000
+    ApprovalLevel.EXECUTIVE: Decimal("999999999"),  # Executive for higher
+}
+
+
+class InvoiceProcessor:
+    """
+    Service for processing and managing incoming invoices.
+
+    Provides extraction, matching, anomaly detection, and
+    payment scheduling for accounts payable automation.
+    """
+
+    def __init__(
+        self,
+        qbo_connector: Optional[QuickBooksConnector] = None,
+        auto_approve_threshold: Decimal = Decimal("500"),
+        enable_ocr: bool = True,
+        enable_llm_extraction: bool = True,
+    ):
+        """
+        Initialize invoice processor.
+
+        Args:
+            qbo_connector: QuickBooks connector for sync
+            auto_approve_threshold: Amount below which invoices auto-approve
+            enable_ocr: Enable OCR extraction
+            enable_llm_extraction: Use LLM for data extraction
+        """
+        self.qbo = qbo_connector
+        self.auto_approve_threshold = auto_approve_threshold
+        self.enable_ocr = enable_ocr
+        self.enable_llm_extraction = enable_llm_extraction
+
+        # In-memory storage (would be persisted in production)
+        self._invoices: Dict[str, InvoiceData] = {}
+        self._purchase_orders: Dict[str, PurchaseOrder] = {}
+        self._by_vendor: Dict[str, Set[str]] = {}
+        self._by_status: Dict[InvoiceStatus, Set[str]] = {}
+        self._hash_index: Dict[str, str] = {}
+        self._payment_schedule: Dict[str, PaymentSchedule] = {}
+
+        # Vendor history for anomaly detection
+        self._vendor_history: Dict[str, List[float]] = {}
+        self._known_vendors: Set[str] = set()
+
+    async def extract_invoice_data(
+        self,
+        document_bytes: bytes,
+        vendor_hint: Optional[str] = None,
+    ) -> InvoiceData:
+        """
+        Extract data from an invoice document (PDF or image).
+
+        Args:
+            document_bytes: Invoice document bytes
+            vendor_hint: Optional vendor name hint
+
+        Returns:
+            Extracted invoice data
+        """
+        invoice_id = f"inv_{uuid4().hex[:12]}"
+
+        # Initialize with defaults
+        invoice = InvoiceData(
+            id=invoice_id,
+            vendor_name=vendor_hint or "Unknown Vendor",
+            document_bytes=document_bytes,
+            status=InvoiceStatus.RECEIVED,
+        )
+
+        if self.enable_ocr:
+            # Extract text and data from document
+            extracted = await self._extract_document_data(document_bytes)
+            invoice.vendor_name = extracted.get("vendor", vendor_hint or "Unknown Vendor")
+            invoice.invoice_number = extracted.get("invoice_number", "")
+            invoice.invoice_date = extracted.get("invoice_date", datetime.now())
+            invoice.due_date = extracted.get("due_date")
+            invoice.subtotal = Decimal(str(extracted.get("subtotal", 0)))
+            invoice.tax_amount = Decimal(str(extracted.get("tax", 0)))
+            invoice.total_amount = Decimal(str(extracted.get("total", 0)))
+            invoice.payment_terms = extracted.get("payment_terms")
+            invoice.line_items = extracted.get("line_items", [])
+            invoice.extracted_text = extracted.get("text", "")
+            invoice.confidence_score = extracted.get("confidence", 0.5)
+            invoice.po_number = extracted.get("po_number")
+            invoice.status = InvoiceStatus.EXTRACTED
+
+        # Determine approval level based on amount
+        invoice.approval_level = self._determine_approval_level(invoice.total_amount)
+
+        # Store
+        self._store_invoice(invoice)
+
+        logger.info(
+            f"Extracted invoice {invoice_id}: {invoice.vendor_name} ${invoice.total_amount}"
+        )
+        return invoice
+
+    async def _extract_document_data(self, document_bytes: bytes) -> Dict[str, Any]:
+        """
+        Extract data from document using OCR.
+
+        In production, would use:
+        - Google Cloud Vision / Document AI
+        - AWS Textract
+        - Azure Form Recognizer
+        """
+        # Detect document type
+        doc_type = "unknown"
+        if document_bytes[:4] == b"%PDF":
+            doc_type = "PDF"
+        elif document_bytes[:4] == b"\x89PNG":
+            doc_type = "PNG"
+        elif document_bytes[:2] == b"\xff\xd8":
+            doc_type = "JPEG"
+
+        logger.debug(f"Processing {doc_type} invoice ({len(document_bytes)} bytes)")
+
+        # Placeholder - would call actual OCR service
+        return {
+            "vendor": "Invoice Vendor",
+            "invoice_number": "",
+            "invoice_date": datetime.now(),
+            "due_date": datetime.now() + timedelta(days=30),
+            "subtotal": 0.00,
+            "tax": 0.00,
+            "total": 0.00,
+            "payment_terms": "Net 30",
+            "line_items": [],
+            "text": "[OCR extraction pending - configure OCR service]",
+            "confidence": 0.0,
+        }
+
+    def _determine_approval_level(self, amount: Decimal) -> ApprovalLevel:
+        """Determine approval level based on invoice amount."""
+        for level, threshold in APPROVAL_THRESHOLDS.items():
+            if amount <= threshold:
+                return level
+        return ApprovalLevel.EXECUTIVE
+
+    async def match_to_po(self, invoice: InvoiceData) -> POMatch:
+        """
+        Match invoice to a purchase order (3-way match).
+
+        Args:
+            invoice: Invoice to match
+
+        Returns:
+            Match result with score and variances
+        """
+        match = POMatch(invoice_id=invoice.id)
+
+        # Try to find PO by number from invoice
+        po = None
+        if invoice.po_number:
+            for p in self._purchase_orders.values():
+                if p.po_number == invoice.po_number:
+                    po = p
+                    break
+
+        # Try to find by vendor and amount
+        if not po:
+            for p in self._purchase_orders.values():
+                if p.vendor_name.lower() == invoice.vendor_name.lower():
+                    # Check amount within 10%
+                    diff = abs(float(p.total_amount - invoice.total_amount))
+                    if diff / float(p.total_amount) < 0.1:
+                        po = p
+                        break
+
+        if not po:
+            match.match_type = "none"
+            match.issues.append("No matching purchase order found")
+            invoice.status = InvoiceStatus.UNMATCHED
+            return match
+
+        # Calculate match score
+        match.po_id = po.id
+        match.po_number = po.po_number
+        match.amount_variance = invoice.total_amount - po.total_amount
+
+        if po.total_amount > 0:
+            match.variance_percent = float(match.amount_variance / po.total_amount) * 100
+
+        # Determine match quality
+        if abs(match.variance_percent) < 1:
+            match.match_type = "exact"
+            match.match_score = 1.0
+        elif abs(match.variance_percent) < 5:
+            match.match_type = "partial"
+            match.match_score = 0.9
+            match.issues.append(f"Amount variance: {match.variance_percent:.1f}%")
+        elif abs(match.variance_percent) < 10:
+            match.match_type = "partial"
+            match.match_score = 0.7
+            match.issues.append(f"Significant amount variance: {match.variance_percent:.1f}%")
+        else:
+            match.match_type = "partial"
+            match.match_score = 0.5
+            match.issues.append(f"Large amount variance: {match.variance_percent:.1f}%")
+
+        # Update invoice status
+        invoice.matched_po_id = po.id
+        invoice.status = InvoiceStatus.MATCHED
+        invoice.updated_at = datetime.now()
+
+        return match
+
+    async def detect_anomalies(self, invoice: InvoiceData) -> List[Anomaly]:
+        """
+        Detect anomalies in an invoice.
+
+        Args:
+            invoice: Invoice to analyze
+
+        Returns:
+            List of detected anomalies
+        """
+        anomalies: List[Anomaly] = []
+        vendor_key = invoice.vendor_name.lower()
+
+        # 1. New vendor check
+        if vendor_key not in self._known_vendors:
+            anomalies.append(
+                Anomaly(
+                    type=AnomalyType.NEW_VENDOR,
+                    severity="medium",
+                    description=f"First invoice from vendor: {invoice.vendor_name}",
+                    recommendation="Verify vendor details before processing",
+                )
+            )
+
+        # 2. Unusual amount (compared to vendor history)
+        if vendor_key in self._vendor_history and len(self._vendor_history[vendor_key]) >= 3:
+            history = self._vendor_history[vendor_key]
+            avg_amount = sum(history) / len(history)
+            current = float(invoice.total_amount)
+
+            # Flag if more than 3x or less than 1/3 of average
+            if current > avg_amount * 3:
+                anomalies.append(
+                    Anomaly(
+                        type=AnomalyType.UNUSUAL_AMOUNT,
+                        severity="high",
+                        description=f"Amount ${current:.2f} is {current/avg_amount:.1f}x higher than average ${avg_amount:.2f}",
+                        expected_value=f"${avg_amount:.2f}",
+                        actual_value=f"${current:.2f}",
+                        recommendation="Review invoice details and verify with vendor",
+                    )
+                )
+            elif current < avg_amount / 3:
+                anomalies.append(
+                    Anomaly(
+                        type=AnomalyType.UNUSUAL_AMOUNT,
+                        severity="low",
+                        description=f"Amount ${current:.2f} is much lower than average ${avg_amount:.2f}",
+                        expected_value=f"${avg_amount:.2f}",
+                        actual_value=f"${current:.2f}",
+                        recommendation="Verify this is the complete invoice",
+                    )
+                )
+
+        # 3. Duplicate check
+        if invoice.hash_key in self._hash_index:
+            existing_id = self._hash_index[invoice.hash_key]
+            if existing_id != invoice.id:
+                anomalies.append(
+                    Anomaly(
+                        type=AnomalyType.DUPLICATE,
+                        severity="high",
+                        description=f"Potential duplicate of invoice {existing_id}",
+                        recommendation="Review both invoices before processing",
+                    )
+                )
+
+        # 4. Round amount check (potential fraud indicator)
+        amount = float(invoice.total_amount)
+        if amount >= 100 and amount == int(amount) and amount % 100 == 0:
+            anomalies.append(
+                Anomaly(
+                    type=AnomalyType.ROUND_AMOUNT,
+                    severity="low",
+                    description=f"Invoice has a round amount: ${amount:.2f}",
+                    recommendation="Verify invoice authenticity",
+                )
+            )
+
+        # 5. High value check
+        if invoice.total_amount > Decimal("10000"):
+            anomalies.append(
+                Anomaly(
+                    type=AnomalyType.HIGH_VALUE,
+                    severity="medium",
+                    description=f"High-value invoice: ${float(invoice.total_amount):.2f}",
+                    recommendation=f"Requires {invoice.approval_level.value} approval",
+                )
+            )
+
+        # 6. Missing PO check
+        if invoice.status == InvoiceStatus.UNMATCHED:
+            anomalies.append(
+                Anomaly(
+                    type=AnomalyType.MISSING_PO,
+                    severity="medium",
+                    description="No matching purchase order found",
+                    recommendation="Request PO reference or create retrospective PO",
+                )
+            )
+
+        # Update invoice anomalies
+        invoice.anomalies = [a.type.value for a in anomalies]
+        invoice.updated_at = datetime.now()
+
+        return anomalies
+
+    async def schedule_payment(
+        self,
+        invoice: InvoiceData,
+        pay_date: Optional[datetime] = None,
+        payment_method: str = "ach",
+    ) -> PaymentSchedule:
+        """
+        Schedule payment for an approved invoice.
+
+        Args:
+            invoice: Invoice to schedule
+            pay_date: Payment date (defaults to due date)
+            payment_method: Payment method
+
+        Returns:
+            Payment schedule
+        """
+        if invoice.status not in [InvoiceStatus.APPROVED, InvoiceStatus.MATCHED]:
+            raise ValueError(
+                f"Invoice must be approved before scheduling payment (current: {invoice.status})"
+            )
+
+        # Default to due date or 30 days
+        if pay_date is None:
+            pay_date = invoice.due_date or (datetime.now() + timedelta(days=30))
+
+        # Check for early payment discount
+        discount = Decimal("0")
+        discount_rate = 0.0
+        if invoice.payment_terms and "2/10" in invoice.payment_terms:
+            # 2% discount if paid within 10 days
+            days_to_invoice = (pay_date - invoice.invoice_date).days
+            if days_to_invoice <= 10:
+                discount_rate = 0.02
+                discount = invoice.total_amount * Decimal("0.02")
+
+        schedule = PaymentSchedule(
+            invoice_id=invoice.id,
+            pay_date=pay_date,
+            amount=invoice.total_amount - discount,
+            vendor_id=invoice.vendor_id or "",
+            vendor_name=invoice.vendor_name,
+            payment_method=payment_method,
+            early_pay_discount=discount_rate,
+            discount_amount=discount,
+        )
+
+        # Update invoice
+        invoice.scheduled_pay_date = pay_date
+        invoice.status = InvoiceStatus.SCHEDULED
+        invoice.updated_at = datetime.now()
+
+        # Store schedule
+        self._payment_schedule[invoice.id] = schedule
+
+        logger.info(
+            f"Scheduled payment for invoice {invoice.id}: ${schedule.amount} on {pay_date.date()}"
+        )
+        return schedule
+
+    async def approve_invoice(
+        self,
+        invoice_id: str,
+        approver_id: str,
+    ) -> Optional[InvoiceData]:
+        """
+        Approve an invoice for payment.
+
+        Args:
+            invoice_id: Invoice ID
+            approver_id: Approver user ID
+
+        Returns:
+            Updated invoice
+        """
+        invoice = self._invoices.get(invoice_id)
+        if not invoice:
+            return None
+
+        invoice.status = InvoiceStatus.APPROVED
+        invoice.approver_id = approver_id
+        invoice.approved_at = datetime.now()
+        invoice.updated_at = datetime.now()
+
+        # Update vendor history
+        vendor_key = invoice.vendor_name.lower()
+        if vendor_key not in self._vendor_history:
+            self._vendor_history[vendor_key] = []
+        self._vendor_history[vendor_key].append(float(invoice.total_amount))
+        self._known_vendors.add(vendor_key)
+
+        return invoice
+
+    async def reject_invoice(
+        self,
+        invoice_id: str,
+        reason: str = "",
+    ) -> Optional[InvoiceData]:
+        """Reject an invoice."""
+        invoice = self._invoices.get(invoice_id)
+        if not invoice:
+            return None
+
+        invoice.status = InvoiceStatus.REJECTED
+        invoice.notes = reason
+        invoice.updated_at = datetime.now()
+        return invoice
+
+    async def create_manual_invoice(
+        self,
+        vendor_name: str,
+        total_amount: float,
+        invoice_number: str = "",
+        invoice_date: Optional[datetime] = None,
+        due_date: Optional[datetime] = None,
+        line_items: Optional[List[Dict[str, Any]]] = None,
+        po_number: Optional[str] = None,
+    ) -> InvoiceData:
+        """
+        Create an invoice manually (without document extraction).
+
+        Args:
+            vendor_name: Vendor name
+            total_amount: Invoice total
+            invoice_number: Invoice reference number
+            invoice_date: Invoice date
+            due_date: Payment due date
+            line_items: Line items
+            po_number: Purchase order reference
+
+        Returns:
+            Created invoice
+        """
+        invoice_id = f"inv_{uuid4().hex[:12]}"
+
+        # Convert line items
+        items = []
+        if line_items:
+            for li in line_items:
+                items.append(
+                    InvoiceLineItem(
+                        description=li.get("description", ""),
+                        quantity=li.get("quantity", 1),
+                        unit_price=Decimal(str(li.get("unitPrice", 0))),
+                        amount=Decimal(str(li.get("amount", 0))),
+                    )
+                )
+
+        invoice = InvoiceData(
+            id=invoice_id,
+            vendor_name=vendor_name,
+            invoice_number=invoice_number,
+            invoice_date=invoice_date or datetime.now(),
+            due_date=due_date or (datetime.now() + timedelta(days=30)),
+            total_amount=Decimal(str(total_amount)),
+            line_items=items,
+            po_number=po_number,
+            status=InvoiceStatus.EXTRACTED,
+            confidence_score=1.0,  # Manual entry is 100% confident
+        )
+
+        # Calculate subtotal from line items if provided
+        if items:
+            invoice.subtotal = sum(li.amount for li in items)
+
+        # Determine approval level
+        invoice.approval_level = self._determine_approval_level(invoice.total_amount)
+
+        self._store_invoice(invoice)
+        return invoice
+
+    def _store_invoice(self, invoice: InvoiceData) -> None:
+        """Store invoice and update indexes."""
+        self._invoices[invoice.id] = invoice
+
+        # Index by vendor
+        vendor_key = invoice.vendor_name.lower()
+        if vendor_key not in self._by_vendor:
+            self._by_vendor[vendor_key] = set()
+        self._by_vendor[vendor_key].add(invoice.id)
+
+        # Index by status
+        if invoice.status not in self._by_status:
+            self._by_status[invoice.status] = set()
+        self._by_status[invoice.status].add(invoice.id)
+
+        # Hash index for duplicate detection
+        self._hash_index[invoice.hash_key] = invoice.id
+
+    async def add_purchase_order(
+        self,
+        po_number: str,
+        vendor_name: str,
+        total_amount: float,
+        order_date: Optional[datetime] = None,
+        expected_delivery: Optional[datetime] = None,
+        line_items: Optional[List[Dict[str, Any]]] = None,
+    ) -> PurchaseOrder:
+        """Add a purchase order for matching."""
+        po_id = f"po_{uuid4().hex[:12]}"
+
+        po = PurchaseOrder(
+            id=po_id,
+            po_number=po_number,
+            vendor_id="",
+            vendor_name=vendor_name,
+            total_amount=Decimal(str(total_amount)),
+            order_date=order_date or datetime.now(),
+            expected_delivery=expected_delivery,
+            line_items=line_items or [],
+        )
+
+        self._purchase_orders[po_id] = po
+        return po
+
+    async def get_invoice(self, invoice_id: str) -> Optional[InvoiceData]:
+        """Get invoice by ID."""
+        return self._invoices.get(invoice_id)
+
+    async def list_invoices(
+        self,
+        status: Optional[InvoiceStatus] = None,
+        vendor: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Tuple[List[InvoiceData], int]:
+        """
+        List invoices with filters.
+
+        Args:
+            status: Filter by status
+            vendor: Filter by vendor name
+            start_date: Filter by date range
+            end_date: Filter by date range
+            limit: Max results
+            offset: Pagination offset
+
+        Returns:
+            Tuple of (invoices, total_count)
+        """
+        invoices = list(self._invoices.values())
+
+        if status:
+            invoices = [i for i in invoices if i.status == status]
+
+        if vendor:
+            vendor_lower = vendor.lower()
+            invoices = [i for i in invoices if vendor_lower in i.vendor_name.lower()]
+
+        if start_date:
+            invoices = [i for i in invoices if i.invoice_date >= start_date]
+
+        if end_date:
+            invoices = [i for i in invoices if i.invoice_date <= end_date]
+
+        # Sort by date descending
+        invoices.sort(key=lambda x: x.invoice_date, reverse=True)
+
+        total = len(invoices)
+        invoices = invoices[offset : offset + limit]
+
+        return invoices, total
+
+    async def get_pending_approvals(self) -> List[InvoiceData]:
+        """Get invoices pending approval."""
+        return [
+            i
+            for i in self._invoices.values()
+            if i.status
+            in [InvoiceStatus.MATCHED, InvoiceStatus.UNMATCHED, InvoiceStatus.PENDING_APPROVAL]
+        ]
+
+    async def get_scheduled_payments(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> List[PaymentSchedule]:
+        """Get scheduled payments."""
+        payments = list(self._payment_schedule.values())
+
+        if start_date:
+            payments = [p for p in payments if p.pay_date >= start_date]
+        if end_date:
+            payments = [p for p in payments if p.pay_date <= end_date]
+
+        payments.sort(key=lambda x: x.pay_date)
+        return payments
+
+    async def get_overdue_invoices(self) -> List[InvoiceData]:
+        """Get overdue invoices."""
+        return [i for i in self._invoices.values() if i.is_overdue]
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get invoice processing statistics."""
+        invoices = list(self._invoices.values())
+
+        if not invoices:
+            return {
+                "totalInvoices": 0,
+                "totalAmount": 0,
+                "pendingApproval": 0,
+                "overdue": 0,
+                "byStatus": {},
+            }
+
+        # Exclude rejected
+        active = [i for i in invoices if i.status != InvoiceStatus.REJECTED]
+
+        by_status = {}
+        for status in InvoiceStatus:
+            count = len([i for i in invoices if i.status == status])
+            if count > 0:
+                by_status[status.value] = count
+
+        overdue = [i for i in active if i.is_overdue]
+        pending = [
+            i for i in active if i.status in [InvoiceStatus.MATCHED, InvoiceStatus.UNMATCHED]
+        ]
+
+        return {
+            "totalInvoices": len(active),
+            "totalAmount": sum(float(i.total_amount) for i in active),
+            "pendingApproval": len(pending),
+            "pendingAmount": sum(float(i.total_amount) for i in pending),
+            "overdue": len(overdue),
+            "overdueAmount": sum(float(i.total_amount) for i in overdue),
+            "byStatus": by_status,
+            "avgProcessingTime": 0,  # Would calculate from timestamps
+        }

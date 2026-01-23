@@ -579,6 +579,287 @@ class QuickBooksConnector:
         response = await self._request("GET", f"companyinfo/{self._credentials.realm_id}")  # type: ignore
         return response.get("CompanyInfo", {})
 
+    # =========================================================================
+    # Vendor Operations
+    # =========================================================================
+
+    async def list_vendors(
+        self,
+        active_only: bool = True,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """List vendors."""
+        query = f"SELECT * FROM Vendor WHERE Active = {str(active_only).lower()} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        response = await self._request("GET", f"query?query={query}")
+        return response.get("QueryResponse", {}).get("Vendor", [])
+
+    async def get_vendor_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get vendor by display name.
+
+        Args:
+            name: Vendor display name to search
+
+        Returns:
+            Vendor data or None if not found
+        """
+        # Escape single quotes in name
+        safe_name = name.replace("'", "\\'")
+        query = f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}'"
+
+        response = await self._request("GET", f"query?query={query}")
+        vendors = response.get("QueryResponse", {}).get("Vendor", [])
+
+        return vendors[0] if vendors else None
+
+    async def create_vendor(
+        self,
+        display_name: str,
+        email: Optional[str] = None,
+        phone: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a new vendor.
+
+        Args:
+            display_name: Vendor display name
+            email: Vendor email
+            phone: Vendor phone
+
+        Returns:
+            Created vendor data
+        """
+        vendor_data: Dict[str, Any] = {
+            "DisplayName": display_name,
+        }
+
+        if email:
+            vendor_data["PrimaryEmailAddr"] = {"Address": email}
+        if phone:
+            vendor_data["PrimaryPhone"] = {"FreeFormNumber": phone}
+
+        response = await self._request("POST", "vendor", vendor_data)
+        return response.get("Vendor", {})
+
+    # =========================================================================
+    # Expense/Purchase Creation
+    # =========================================================================
+
+    async def create_expense(
+        self,
+        vendor_id: str,
+        account_id: str,
+        amount: float,
+        description: Optional[str] = None,
+        txn_date: Optional[datetime] = None,
+        payment_type: str = "Cash",
+    ) -> Dict[str, Any]:
+        """
+        Create an expense (Purchase) in QuickBooks.
+
+        Args:
+            vendor_id: QBO Vendor ID
+            account_id: Account to charge (e.g., bank account)
+            amount: Expense amount
+            description: Expense description/memo
+            txn_date: Transaction date
+            payment_type: 'Cash', 'Check', or 'CreditCard'
+
+        Returns:
+            Created purchase data
+        """
+        purchase_data: Dict[str, Any] = {
+            "PaymentType": payment_type,
+            "AccountRef": {"value": account_id},
+            "TotalAmt": amount,
+            "Line": [
+                {
+                    "Amount": amount,
+                    "DetailType": "AccountBasedExpenseLineDetail",
+                    "AccountBasedExpenseLineDetail": {
+                        "AccountRef": {"value": account_id},
+                    },
+                }
+            ],
+        }
+
+        if vendor_id:
+            purchase_data["EntityRef"] = {"value": vendor_id, "type": "Vendor"}
+
+        if description:
+            purchase_data["PrivateNote"] = description
+
+        if txn_date:
+            purchase_data["TxnDate"] = txn_date.strftime("%Y-%m-%d")
+
+        response = await self._request("POST", "purchase", purchase_data)
+        return response.get("Purchase", {})
+
+    async def create_bill(
+        self,
+        vendor_id: str,
+        account_id: str,
+        amount: float,
+        due_date: Optional[datetime] = None,
+        description: Optional[str] = None,
+        line_items: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a bill (accounts payable) in QuickBooks.
+
+        Args:
+            vendor_id: QBO Vendor ID
+            account_id: Expense account to charge
+            amount: Bill total amount
+            due_date: Payment due date
+            description: Bill description
+            line_items: Optional line items
+
+        Returns:
+            Created bill data
+        """
+        lines = line_items or [
+            {
+                "Amount": amount,
+                "DetailType": "AccountBasedExpenseLineDetail",
+                "AccountBasedExpenseLineDetail": {
+                    "AccountRef": {"value": account_id},
+                },
+            }
+        ]
+
+        bill_data: Dict[str, Any] = {
+            "VendorRef": {"value": vendor_id},
+            "Line": lines,
+        }
+
+        if due_date:
+            bill_data["DueDate"] = due_date.strftime("%Y-%m-%d")
+
+        if description:
+            bill_data["PrivateNote"] = description
+
+        response = await self._request("POST", "bill", bill_data)
+        return response.get("Bill", {})
+
+    # =========================================================================
+    # Invoice Creation
+    # =========================================================================
+
+    async def create_invoice(
+        self,
+        customer_id: str,
+        line_items: List[Dict[str, Any]],
+        due_date: Optional[datetime] = None,
+        memo: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create an invoice in QuickBooks.
+
+        Args:
+            customer_id: QBO Customer ID
+            line_items: Invoice line items
+            due_date: Payment due date
+            memo: Invoice memo
+
+        Returns:
+            Created invoice data
+        """
+        invoice_data: Dict[str, Any] = {
+            "CustomerRef": {"value": customer_id},
+            "Line": line_items,
+        }
+
+        if due_date:
+            invoice_data["DueDate"] = due_date.strftime("%Y-%m-%d")
+
+        if memo:
+            invoice_data["CustomerMemo"] = {"value": memo}
+
+        response = await self._request("POST", "invoice", invoice_data)
+        return response.get("Invoice", {})
+
+    # =========================================================================
+    # Payment Operations
+    # =========================================================================
+
+    async def create_payment(
+        self,
+        customer_id: str,
+        amount: float,
+        invoice_ids: Optional[List[str]] = None,
+        payment_method: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Record a payment received from a customer.
+
+        Args:
+            customer_id: QBO Customer ID
+            amount: Payment amount
+            invoice_ids: Optional list of invoice IDs this pays
+            payment_method: Payment method reference
+
+        Returns:
+            Created payment data
+        """
+        payment_data: Dict[str, Any] = {
+            "CustomerRef": {"value": customer_id},
+            "TotalAmt": amount,
+        }
+
+        if invoice_ids:
+            payment_data["Line"] = [
+                {
+                    "Amount": amount,
+                    "LinkedTxn": [
+                        {"TxnId": inv_id, "TxnType": "Invoice"} for inv_id in invoice_ids
+                    ],
+                }
+            ]
+
+        response = await self._request("POST", "payment", payment_data)
+        return response.get("Payment", {})
+
+    async def create_bill_payment(
+        self,
+        vendor_id: str,
+        amount: float,
+        bank_account_id: str,
+        bill_ids: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Record a payment to a vendor.
+
+        Args:
+            vendor_id: QBO Vendor ID
+            amount: Payment amount
+            bank_account_id: Bank account to pay from
+            bill_ids: Optional list of bill IDs this pays
+
+        Returns:
+            Created bill payment data
+        """
+        payment_data: Dict[str, Any] = {
+            "VendorRef": {"value": vendor_id},
+            "TotalAmt": amount,
+            "PayType": "Check",
+            "CheckPayment": {
+                "BankAccountRef": {"value": bank_account_id},
+            },
+        }
+
+        if bill_ids:
+            payment_data["Line"] = [
+                {
+                    "Amount": amount,
+                    "LinkedTxn": [{"TxnId": bill_id, "TxnType": "Bill"} for bill_id in bill_ids],
+                }
+            ]
+
+        response = await self._request("POST", "billpayment", payment_data)
+        return response.get("BillPayment", {})
+
 
 # =============================================================================
 # Mock Data for Demo
