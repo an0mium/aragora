@@ -39,6 +39,12 @@ from .sast_scanner import (
     SASTConfig,
     OWASPCategory,
     scan_for_vulnerabilities,
+    get_available_rulesets,
+    check_semgrep_installation,
+    ProgressCallback,
+    AVAILABLE_RULESETS,
+    CWE_TO_OWASP,
+    CWE_FIX_RECOMMENDATIONS,
 )
 from .sbom_generator import (
     SBOMGenerator,
@@ -83,6 +89,12 @@ __all__ = [
     "SASTConfig",
     "OWASPCategory",
     "scan_for_vulnerabilities",
+    "get_available_rulesets",
+    "check_semgrep_installation",
+    "ProgressCallback",
+    "AVAILABLE_RULESETS",
+    "CWE_TO_OWASP",
+    "CWE_FIX_RECOMMENDATIONS",
     # SBOM Generator
     "SBOMGenerator",
     "SBOMFormat",

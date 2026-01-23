@@ -7,10 +7,17 @@ model confidence is low.
 
 Features:
 - Feature extraction from email content, headers, and sender patterns
+- Domain reputation scoring (known spam domains, free email providers)
+- Subject line analysis (spam keywords, excessive punctuation, ALL CAPS ratio)
+- Content n-grams (unigrams, bigrams) for statistical classification
+- Header analysis (missing headers, suspicious routing, authentication)
+- URL analysis (shortened URLs, suspicious domains, redirect detection)
+- Attachment analysis (dangerous extensions, executable files)
 - Online learning from user actions (mark as spam, not spam)
 - Confidence scoring with fallback to heuristics
 - Persistent model storage
 - Batch classification support
+- Integration with EmailPrioritizer for inbox scoring
 
 Usage:
     from aragora.services.spam_classifier import SpamClassifier
@@ -24,6 +31,17 @@ Usage:
 
     # Train from user feedback
     await classifier.train_from_feedback(email_id, is_spam=True)
+
+    # Use with email dict
+    email_dict = {
+        "id": "msg_123",
+        "subject": "You won!",
+        "body": "Click here to claim...",
+        "sender": "prize@suspicious.tk",
+        "headers": {...},
+        "attachments": ["prize.exe"]
+    }
+    result = await classify_email(email_dict)
 """
 
 from __future__ import annotations
@@ -40,7 +58,11 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from aragora.services.sender_history import SenderHistoryService
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +92,17 @@ class SpamClassificationResult:
     sender_score: float = 0.0
     header_score: float = 0.0
     pattern_score: float = 0.0
+    url_score: float = 0.0
+    attachment_score: float = 0.0
+    subject_score: float = 0.0
 
     # Reasoning
     reasons: List[str] = field(default_factory=list)
     model_used: str = "rule_based"
+
+    # Detected threats
+    suspicious_urls: List[str] = field(default_factory=list)
+    dangerous_attachments: List[str] = field(default_factory=list)
 
     # Metadata
     classified_at: datetime = field(default_factory=datetime.now)
@@ -91,11 +120,36 @@ class SpamClassificationResult:
                 "sender": self.sender_score,
                 "header": self.header_score,
                 "pattern": self.pattern_score,
+                "url": self.url_score,
+                "attachment": self.attachment_score,
+                "subject": self.subject_score,
             },
             "reasons": self.reasons,
             "model_used": self.model_used,
+            "suspicious_urls": self.suspicious_urls,
+            "dangerous_attachments": self.dangerous_attachments,
             "classified_at": self.classified_at.isoformat(),
         }
+
+    def get_priority_penalty(self) -> float:
+        """
+        Get priority penalty for email prioritization integration.
+
+        Returns a value between 0 and 1 that can be used to reduce
+        email priority based on spam likelihood.
+
+        Returns:
+            Priority penalty (0 = no penalty, 1 = maximum penalty)
+        """
+        if self.is_spam:
+            return 1.0
+        if self.category == SpamCategory.PHISHING:
+            return 0.9  # High penalty but keep visible for review
+        if self.category == SpamCategory.SUSPICIOUS:
+            return 0.5
+        if self.category == SpamCategory.PROMOTIONAL:
+            return 0.3
+        return 0.0
 
 
 @dataclass
@@ -120,12 +174,22 @@ class EmailFeatures:
     question_count: int = 0
     all_caps_word_count: int = 0
 
+    # Subject line features
+    subject_all_caps: bool = False
+    subject_excessive_punctuation: bool = False
+    subject_spam_words: int = 0
+    subject_length: int = 0
+    subject_has_re_fw: bool = False
+
     # Sender features
     sender_domain_age_days: int = -1  # -1 = unknown
     sender_has_display_name: bool = False
     sender_domain_suspicious: bool = False
     sender_in_reply_chain: bool = False
     sender_previously_contacted: bool = False
+    sender_domain_is_free_email: bool = False
+    sender_domain_reputation: float = 0.5  # 0-1, 0.5 = neutral
+    sender_is_known_spam_domain: bool = False
 
     # Header features
     has_spf: bool = False
@@ -133,6 +197,22 @@ class EmailFeatures:
     has_dmarc: bool = False
     received_hop_count: int = 0
     has_suspicious_headers: bool = False
+    missing_required_headers: List[str] = field(default_factory=list)
+    has_suspicious_routing: bool = False
+    has_forged_headers: bool = False
+
+    # URL features
+    shortened_url_count: int = 0
+    suspicious_domain_urls: List[str] = field(default_factory=list)
+    mismatched_anchor_urls: int = 0  # <a href="X">Y</a> where X != Y
+    ip_address_urls: int = 0  # URLs with IP addresses instead of domains
+    data_uri_count: int = 0  # data: URIs (can hide content)
+
+    # Attachment features
+    dangerous_extension_count: int = 0
+    dangerous_attachments: List[str] = field(default_factory=list)
+    double_extension_count: int = 0  # e.g., "document.pdf.exe"
+    archive_with_executable: bool = False
 
     # Structure features
     html_text_ratio: float = 0.0
@@ -140,6 +220,12 @@ class EmailFeatures:
     image_only_email: bool = False
     has_unsubscribe: bool = False
     has_tracking_pixels: bool = False
+    has_hidden_text: bool = False  # White text on white background, etc.
+    has_form_elements: bool = False  # Forms in email (phishing indicator)
+
+    # N-gram features (populated during extraction)
+    top_unigrams: List[Tuple[str, int]] = field(default_factory=list)
+    top_bigrams: List[Tuple[str, int]] = field(default_factory=list)
 
     def to_vector(self) -> List[float]:
         """Convert to feature vector for ML model."""
@@ -158,19 +244,67 @@ class EmailFeatures:
             self.exclamation_count / 10,
             self.question_count / 10,
             self.all_caps_word_count / 10,
+            # Subject features
+            1.0 if self.subject_all_caps else 0.0,
+            1.0 if self.subject_excessive_punctuation else 0.0,
+            self.subject_spam_words / 5,
+            min(self.subject_length / 100, 1.0),
+            # Sender features
             1.0 if self.sender_domain_suspicious else 0.0,
             1.0 if self.sender_has_display_name else 0.0,
             1.0 if self.sender_previously_contacted else 0.0,
+            1.0 if self.sender_domain_is_free_email else 0.0,
+            self.sender_domain_reputation,
+            1.0 if self.sender_is_known_spam_domain else 0.0,
+            # Header features
             1.0 if self.has_spf else 0.0,
             1.0 if self.has_dkim else 0.0,
             1.0 if self.has_dmarc else 0.0,
             min(self.received_hop_count / 10, 1.0),
             1.0 if self.has_suspicious_headers else 0.0,
+            min(len(self.missing_required_headers) / 5, 1.0),
+            1.0 if self.has_suspicious_routing else 0.0,
+            1.0 if self.has_forged_headers else 0.0,
+            # URL features
+            min(self.shortened_url_count / 5, 1.0),
+            min(len(self.suspicious_domain_urls) / 5, 1.0),
+            min(self.mismatched_anchor_urls / 5, 1.0),
+            min(self.ip_address_urls / 3, 1.0),
+            min(self.data_uri_count / 3, 1.0),
+            # Attachment features
+            min(self.dangerous_extension_count / 3, 1.0),
+            min(self.double_extension_count / 2, 1.0),
+            1.0 if self.archive_with_executable else 0.0,
+            # Structure features
             self.html_text_ratio,
             1.0 if self.image_only_email else 0.0,
             1.0 if self.has_unsubscribe else 0.0,
             1.0 if self.has_tracking_pixels else 0.0,
+            1.0 if self.has_hidden_text else 0.0,
+            1.0 if self.has_form_elements else 0.0,
         ]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for storage/logging."""
+        return {
+            "word_count": self.word_count,
+            "char_count": self.char_count,
+            "uppercase_ratio": self.uppercase_ratio,
+            "link_count": self.link_count,
+            "suspicious_link_count": self.suspicious_link_count,
+            "spam_word_count": self.spam_word_count,
+            "subject_all_caps": self.subject_all_caps,
+            "subject_excessive_punctuation": self.subject_excessive_punctuation,
+            "sender_domain_suspicious": self.sender_domain_suspicious,
+            "sender_is_known_spam_domain": self.sender_is_known_spam_domain,
+            "has_spf": self.has_spf,
+            "has_dkim": self.has_dkim,
+            "shortened_url_count": self.shortened_url_count,
+            "dangerous_extension_count": self.dangerous_extension_count,
+            "dangerous_attachments": self.dangerous_attachments,
+            "top_unigrams": self.top_unigrams[:10],
+            "top_bigrams": self.top_bigrams[:10],
+        }
 
 
 @dataclass
@@ -297,6 +431,128 @@ SUSPICIOUS_TLDS = {
     ".review",
     ".stream",
     ".download",
+    ".win",
+    ".bid",
+    ".racing",
+    ".party",
+    ".science",
+    ".date",
+    ".faith",
+    ".accountant",
+    ".cricket",
+}
+
+# Known spam domains (frequently used for spam/phishing)
+KNOWN_SPAM_DOMAINS = {
+    # These are commonly spoofed or used for spam
+    "mailinator.com",
+    "guerrillamail.com",
+    "10minutemail.com",
+    "tempmail.com",
+    "throwaway.email",
+    "temp-mail.org",
+    "fakeinbox.com",
+    "sharklasers.com",
+    "spam4.me",
+    "spamgourmet.com",
+    "trashmail.com",
+}
+
+# Free email providers (not necessarily spam, but can be indicator)
+FREE_EMAIL_PROVIDERS = {
+    "gmail.com",
+    "yahoo.com",
+    "hotmail.com",
+    "outlook.com",
+    "aol.com",
+    "mail.com",
+    "protonmail.com",
+    "zoho.com",
+    "icloud.com",
+    "yandex.com",
+    "gmx.com",
+    "mail.ru",
+    "qq.com",
+    "163.com",
+    "126.com",
+}
+
+# URL shortener services
+URL_SHORTENERS = {
+    "bit.ly",
+    "tinyurl.com",
+    "goo.gl",
+    "t.co",
+    "ow.ly",
+    "is.gd",
+    "buff.ly",
+    "adf.ly",
+    "j.mp",
+    "tiny.cc",
+    "shorte.st",
+    "v.gd",
+    "rb.gy",
+    "cutt.ly",
+    "shorturl.at",
+    "t.ly",
+    "rebrand.ly",
+    "bl.ink",
+    "soo.gd",
+    "s.id",
+}
+
+# Dangerous file extensions
+DANGEROUS_EXTENSIONS = {
+    # Executables
+    ".exe",
+    ".com",
+    ".bat",
+    ".cmd",
+    ".msi",
+    ".scr",
+    ".pif",
+    ".application",
+    ".gadget",
+    ".msp",
+    ".msc",
+    # Scripts
+    ".js",
+    ".jse",
+    ".vbs",
+    ".vbe",
+    ".ws",
+    ".wsf",
+    ".wsc",
+    ".wsh",
+    ".ps1",
+    ".ps1xml",
+    ".ps2",
+    ".ps2xml",
+    ".psc1",
+    ".psc2",
+    # Macros and Office
+    ".docm",
+    ".xlsm",
+    ".pptm",
+    ".dotm",
+    ".xltm",
+    ".xlam",
+    ".ppam",
+    ".ppsm",
+    ".sldm",
+    # Archives (can contain malware)
+    ".jar",
+    ".hta",
+    ".cpl",
+    # Shortcuts
+    ".lnk",
+    ".inf",
+    ".reg",
+    # Other dangerous
+    ".dll",
+    ".ocx",
+    ".sys",
+    ".drv",
 }
 
 PROMOTIONAL_PATTERNS = [
@@ -310,6 +566,346 @@ PROMOTIONAL_PATTERNS = [
     r"©\s*\d{4}",  # Copyright notice
     r"all\s+rights\s+reserved",
 ]
+
+# Required email headers (absence may indicate forgery)
+REQUIRED_HEADERS = {
+    "from",
+    "to",
+    "date",
+    "message-id",
+}
+
+
+class SpamFeatures:
+    """
+    Feature extraction engine for spam classification.
+
+    Extracts comprehensive features from email content, headers,
+    sender information, URLs, and attachments.
+    """
+
+    def __init__(
+        self,
+        sender_history_service: Optional["SenderHistoryService"] = None,
+        user_id: Optional[str] = None,
+    ):
+        """
+        Initialize feature extractor.
+
+        Args:
+            sender_history_service: Optional service for sender reputation
+            user_id: User ID for sender history lookups
+        """
+        self.sender_history = sender_history_service
+        self.user_id = user_id
+
+        # Compile regex patterns
+        self._url_pattern = re.compile(r'https?://[^\s<>"{}|\\^`\[\]]+', re.IGNORECASE)
+        self._email_pattern = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+        self._ip_url_pattern = re.compile(r"https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
+        self._anchor_pattern = re.compile(
+            r'<a[^>]*href=["\']([^"\']+)["\'][^>]*>([^<]*)</a>', re.IGNORECASE
+        )
+        self._form_pattern = re.compile(r"<form[^>]*>", re.IGNORECASE)
+        self._hidden_text_pattern = re.compile(
+            r"(?:color:\s*(?:white|#fff|#ffffff|transparent)|" r"font-size:\s*0|display:\s*none)",
+            re.IGNORECASE,
+        )
+        self._data_uri_pattern = re.compile(r"data:[^;]+;base64,", re.IGNORECASE)
+
+    def extract(
+        self,
+        subject: str,
+        body: str,
+        sender: str,
+        headers: Optional[Dict[str, str]] = None,
+        attachments: Optional[List[str]] = None,
+    ) -> EmailFeatures:
+        """
+        Extract all features from an email.
+
+        Args:
+            subject: Email subject
+            body: Email body (plain text or HTML)
+            sender: Sender email address
+            headers: Optional email headers dict
+            attachments: Optional list of attachment filenames
+
+        Returns:
+            EmailFeatures with all extracted features
+        """
+        features = EmailFeatures()
+        headers = headers or {}
+        attachments = attachments or []
+
+        # Extract features from each component
+        self._extract_content_features(features, subject, body)
+        self._extract_subject_features(features, subject)
+        self._extract_sender_features(features, sender)
+        self._extract_header_features(features, headers)
+        self._extract_url_features(features, body)
+        self._extract_attachment_features(features, attachments)
+        self._extract_ngrams(features, f"{subject} {body}")
+
+        return features
+
+    def _extract_content_features(
+        self,
+        features: EmailFeatures,
+        subject: str,
+        body: str,
+    ) -> None:
+        """Extract content-based features."""
+        content = f"{subject}\n\n{body}"
+        features.char_count = len(content)
+
+        words = content.split()
+        features.word_count = len(words)
+
+        if features.char_count > 0:
+            features.uppercase_ratio = sum(1 for c in content if c.isupper()) / features.char_count
+            features.digit_ratio = sum(1 for c in content if c.isdigit()) / features.char_count
+            features.special_char_ratio = (
+                sum(1 for c in content if not c.isalnum() and not c.isspace()) / features.char_count
+            )
+
+        # Count various patterns
+        content_lower = content.lower()
+        features.spam_word_count = sum(1 for word in SPAM_WORDS if word in content_lower)
+        features.urgency_word_count = sum(1 for word in URGENCY_WORDS if word in content_lower)
+        features.money_word_count = sum(1 for word in MONEY_WORDS if word in content_lower)
+        features.exclamation_count = content.count("!")
+        features.question_count = content.count("?")
+        features.all_caps_word_count = sum(1 for word in words if word.isupper() and len(word) > 2)
+
+        # HTML analysis
+        html_count = content.count("<") + content.count(">")
+        text_content = re.sub(r"<[^>]+>", "", content)
+        if len(text_content) > 0:
+            features.html_text_ratio = min(html_count / len(text_content), 1.0)
+
+        features.has_images = "<img" in content.lower() or "image" in content.lower()
+        features.image_only_email = (
+            features.has_images and features.word_count < 50 and "<img" in content.lower()
+        )
+        features.has_unsubscribe = "unsubscribe" in content_lower
+        features.has_tracking_pixels = bool(
+            re.search(
+                r"<img[^>]*(?:1x1|pixel|track|beacon|width=[\"']?1|height=[\"']?1)[^>]*>",
+                content,
+                re.IGNORECASE,
+            )
+        )
+        features.has_hidden_text = bool(self._hidden_text_pattern.search(content))
+        features.has_form_elements = bool(self._form_pattern.search(content))
+
+    def _extract_subject_features(self, features: EmailFeatures, subject: str) -> None:
+        """Extract subject line specific features."""
+        features.subject_length = len(subject)
+
+        # Check if subject is all caps (excluding short subjects)
+        if len(subject) > 5:
+            alpha_chars = [c for c in subject if c.isalpha()]
+            if alpha_chars:
+                caps_ratio = sum(1 for c in alpha_chars if c.isupper()) / len(alpha_chars)
+                features.subject_all_caps = caps_ratio > 0.8
+
+        # Check for excessive punctuation
+        punct_count = sum(1 for c in subject if c in "!?$*#@")
+        if len(subject) > 0:
+            features.subject_excessive_punctuation = punct_count / len(subject) > 0.1
+
+        # Count spam words in subject
+        subject_lower = subject.lower()
+        features.subject_spam_words = sum(1 for word in SPAM_WORDS if word in subject_lower)
+
+        # Check for Re:/Fw: patterns (legitimate replies/forwards)
+        features.subject_has_re_fw = bool(re.match(r"^(re|fw|fwd):\s*", subject, re.IGNORECASE))
+
+    def _extract_sender_features(self, features: EmailFeatures, sender: str) -> None:
+        """Extract sender-related features."""
+        if not sender:
+            return
+
+        features.sender_has_display_name = "<" in sender
+
+        # Extract domain
+        match = self._email_pattern.search(sender)
+        if match:
+            email = match.group(0).lower()
+            domain = email.split("@")[-1]
+
+            # Check various domain characteristics
+            features.sender_domain_is_free_email = domain in FREE_EMAIL_PROVIDERS
+            features.sender_is_known_spam_domain = domain in KNOWN_SPAM_DOMAINS
+            features.sender_domain_suspicious = any(domain.endswith(tld) for tld in SUSPICIOUS_TLDS)
+
+            # Check for suspicious sender patterns
+            if re.search(r"noreply|no-reply|donotreply", email):
+                pass  # Not necessarily spam, but tracked
+            if re.search(r"\d{4,}", email):
+                features.sender_domain_suspicious = True
+
+    def _extract_header_features(
+        self,
+        features: EmailFeatures,
+        headers: Dict[str, str],
+    ) -> None:
+        """Extract header-based features."""
+        if not headers:
+            return
+
+        # Normalize header names to lowercase for comparison
+        headers_lower = {k.lower(): v for k, v in headers.items()}
+
+        # Check for missing required headers
+        features.missing_required_headers = [h for h in REQUIRED_HEADERS if h not in headers_lower]
+
+        # Authentication checks
+        auth_results = headers_lower.get("authentication-results", "").lower()
+        features.has_spf = "spf=pass" in auth_results
+        features.has_dkim = "dkim=pass" in auth_results
+        features.has_dmarc = "dmarc=pass" in auth_results
+
+        # Count received headers (hop count)
+        features.received_hop_count = sum(1 for h in headers.keys() if h.lower() == "received")
+
+        # Check for suspicious headers
+        features.has_suspicious_headers = (
+            "x-mailer" in headers_lower and "bulk" in headers_lower.get("precedence", "").lower()
+        )
+
+        # Check for suspicious routing
+        received_headers = [v for k, v in headers.items() if k.lower() == "received"]
+        if len(received_headers) > 8:
+            features.has_suspicious_routing = True
+
+        # Check for potentially forged headers
+        if "x-originating-ip" in headers_lower:
+            # Verify IP matches other routing information
+            pass  # Advanced forgery detection would go here
+
+    def _extract_url_features(self, features: EmailFeatures, body: str) -> None:
+        """Extract URL-based features."""
+        urls = self._url_pattern.findall(body)
+        features.link_count = len(urls)
+
+        for url in urls:
+            try:
+                parsed = urlparse(url)
+                domain = parsed.netloc.lower()
+
+                # Check for URL shorteners
+                if domain in URL_SHORTENERS or any(
+                    domain.endswith(f".{s}") for s in URL_SHORTENERS
+                ):
+                    features.shortened_url_count += 1
+
+                # Check for suspicious TLDs
+                if any(domain.endswith(tld) for tld in SUSPICIOUS_TLDS):
+                    features.suspicious_link_count += 1
+                    features.suspicious_domain_urls.append(url)
+
+                # Check for IP address URLs
+                if self._ip_url_pattern.match(url):
+                    features.ip_address_urls += 1
+                    features.suspicious_domain_urls.append(url)
+
+            except Exception:
+                pass
+
+        # Check for mismatched anchor URLs (phishing indicator)
+        anchors = self._anchor_pattern.findall(body)
+        for href, text in anchors:
+            # If anchor text looks like a URL but doesn't match href
+            if re.match(r"https?://", text.strip()):
+                text_domain = urlparse(text.strip()).netloc.lower()
+                href_domain = urlparse(href).netloc.lower()
+                if text_domain and href_domain and text_domain != href_domain:
+                    features.mismatched_anchor_urls += 1
+
+        # Count data URIs
+        features.data_uri_count = len(self._data_uri_pattern.findall(body))
+
+    def _extract_attachment_features(
+        self,
+        features: EmailFeatures,
+        attachments: List[str],
+    ) -> None:
+        """Extract attachment-based features."""
+        features.attachment_count = len(attachments)
+
+        for attachment in attachments:
+            attachment_lower = attachment.lower()
+
+            # Check for dangerous extensions
+            for ext in DANGEROUS_EXTENSIONS:
+                if attachment_lower.endswith(ext):
+                    features.dangerous_extension_count += 1
+                    features.dangerous_attachments.append(attachment)
+                    break
+
+            # Check for double extensions (e.g., "document.pdf.exe")
+            parts = attachment.split(".")
+            if len(parts) >= 3:
+                # Check if final extension is dangerous and preceded by benign extension
+                if any(attachment_lower.endswith(ext) for ext in DANGEROUS_EXTENSIONS):
+                    benign_extensions = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt", ".jpg"}
+                    second_to_last = f".{parts[-2].lower()}"
+                    if second_to_last in benign_extensions:
+                        features.double_extension_count += 1
+
+            # Check for archives that might contain executables
+            archive_extensions = {".zip", ".rar", ".7z", ".tar", ".gz"}
+            if any(attachment_lower.endswith(ext) for ext in archive_extensions):
+                # Flag as potential concern (would need to scan content for certainty)
+                pass
+
+    def _extract_ngrams(self, features: EmailFeatures, text: str, n_top: int = 20) -> None:
+        """Extract unigram and bigram features."""
+        # Tokenize
+        words = re.findall(r"\b[a-z]{2,15}\b", text.lower())
+
+        # Unigrams
+        unigram_counts = Counter(words)
+        features.top_unigrams = unigram_counts.most_common(n_top)
+
+        # Bigrams
+        bigrams = [f"{words[i]} {words[i+1]}" for i in range(len(words) - 1)]
+        bigram_counts = Counter(bigrams)
+        features.top_bigrams = bigram_counts.most_common(n_top)
+
+
+@dataclass
+class SpamFeedback:
+    """
+    User feedback on spam classification.
+
+    Used for online learning and model improvement.
+    """
+
+    email_id: str
+    user_id: str
+    is_spam: bool
+    original_classification: SpamCategory
+    original_confidence: float
+    feedback_type: str = "explicit"  # "explicit" (user marked) or "implicit" (user action)
+    content_hash: Optional[str] = None
+    features_json: Optional[str] = None
+    created_at: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "email_id": self.email_id,
+            "user_id": self.user_id,
+            "is_spam": self.is_spam,
+            "original_classification": self.original_classification.value,
+            "original_confidence": self.original_confidence,
+            "feedback_type": self.feedback_type,
+            "content_hash": self.content_hash,
+            "created_at": self.created_at.isoformat(),
+        }
 
 
 class NaiveBayesClassifier:
@@ -431,14 +1027,31 @@ class SpamClassifier:
 
     Uses a Naive Bayes model trained on user feedback,
     with fallback to rule-based classification.
+
+    Features:
+    - Domain reputation scoring
+    - Subject line analysis (ALL CAPS, excessive punctuation)
+    - Content n-grams (unigrams, bigrams)
+    - Header analysis (SPF, DKIM, DMARC, suspicious routing)
+    - URL analysis (shorteners, suspicious domains, IP addresses)
+    - Attachment analysis (dangerous extensions)
+    - Online learning from user feedback
+    - Fallback to rule-based when ML confidence < 0.7
     """
 
-    def __init__(self, config: Optional[SpamClassifierConfig] = None):
+    def __init__(
+        self,
+        config: Optional[SpamClassifierConfig] = None,
+        sender_history_service: Optional["SenderHistoryService"] = None,
+        user_id: Optional[str] = None,
+    ):
         """
         Initialize spam classifier.
 
         Args:
             config: Classifier configuration
+            sender_history_service: Optional service for sender reputation
+            user_id: User ID for sender history lookups
         """
         self.config = config or SpamClassifierConfig()
         self.model = NaiveBayesClassifier()
@@ -446,6 +1059,16 @@ class SpamClassifier:
         self._compiled_promotional = [re.compile(p, re.IGNORECASE) for p in PROMOTIONAL_PATTERNS]
         self._initialized = False
         self._last_retrain: Optional[datetime] = None
+
+        # Feature extractor
+        self._feature_extractor = SpamFeatures(
+            sender_history_service=sender_history_service,
+            user_id=user_id,
+        )
+
+        # Domain reputation cache
+        self._domain_reputation_cache: Dict[str, Tuple[datetime, float]] = {}
+        self._domain_cache_ttl = 3600  # 1 hour
 
     async def initialize(self) -> None:
         """Initialize classifier (load model, setup database)."""
@@ -534,11 +1157,17 @@ class SpamClassifier:
         if not self._initialized:
             await self.initialize()
 
-        # Extract features
-        content = f"{subject}\n\n{body}"
-        features = self._extract_features(content, sender, headers, attachments)
+        # Extract features using enhanced feature extractor
+        features = self._feature_extractor.extract(
+            subject=subject,
+            body=body,
+            sender=sender,
+            headers=headers,
+            attachments=attachments,
+        )
 
         # Check cache
+        content = f"{subject}\n\n{body}"
         content_hash = self._hash_content(content)
         cached = await self._get_cached_result(content_hash)
         if cached:
@@ -557,18 +1186,24 @@ class SpamClassifier:
             if ml_confidence >= self.config.min_confidence_for_ml:
                 model_used = "naive_bayes"
 
-        # Calculate rule-based scores
+        # Calculate comprehensive rule-based scores
         content_score = self._score_content(content, features)
         sender_score = self._score_sender(sender, features)
         header_score = self._score_headers(headers or {}, features)
         pattern_score = self._score_patterns(content)
+        url_score = self._score_urls(features)
+        attachment_score = self._score_attachments(features)
+        subject_score = self._score_subject(features)
 
-        # Combine scores
+        # Combine scores with weights
         weights = {
-            "content": 0.35,
-            "sender": 0.25,
-            "header": 0.15,
-            "pattern": 0.25,
+            "content": 0.25,
+            "sender": 0.15,
+            "header": 0.10,
+            "pattern": 0.15,
+            "url": 0.15,
+            "attachment": 0.10,
+            "subject": 0.10,
         }
 
         spam_score = (
@@ -576,6 +1211,9 @@ class SpamClassifier:
             + sender_score * weights["sender"]
             + header_score * weights["header"]
             + pattern_score * weights["pattern"]
+            + url_score * weights["url"]
+            + attachment_score * weights["attachment"]
+            + subject_score * weights["subject"]
         )
 
         # If ML model is confident, blend with rule-based
@@ -584,8 +1222,30 @@ class SpamClassifier:
             spam_score = spam_score * 0.4 + ml_score * 0.6
             reasons.append(f"ML model: {'spam' if ml_is_spam else 'ham'} ({ml_confidence:.0%})")
 
+        # Add detailed reasons based on high-scoring components
+        if content_score > 0.5:
+            reasons.append(f"Suspicious content (score: {content_score:.2f})")
+        if sender_score > 0.5:
+            reasons.append(f"Suspicious sender (score: {sender_score:.2f})")
+        if url_score > 0.5:
+            reasons.append(
+                f"Suspicious URLs ({features.shortened_url_count} shortened, "
+                f"{len(features.suspicious_domain_urls)} suspicious)"
+            )
+        if attachment_score > 0.5:
+            reasons.append(
+                f"Dangerous attachments: {', '.join(features.dangerous_attachments[:3])}"
+            )
+        if subject_score > 0.5:
+            reasons.append(f"Suspicious subject line (score: {subject_score:.2f})")
+
         # Determine category
         category, confidence = self._determine_category(spam_score, content, features, reasons)
+
+        # Fallback to rule-based when confidence is low
+        if confidence < self.config.min_confidence_for_ml and model_used == "naive_bayes":
+            model_used = "rule_based_fallback"
+            reasons.append("Fallback to rules (low ML confidence)")
 
         is_spam = category in (SpamCategory.SPAM, SpamCategory.PHISHING)
 
@@ -599,8 +1259,13 @@ class SpamClassifier:
             sender_score=sender_score,
             header_score=header_score,
             pattern_score=pattern_score,
+            url_score=url_score,
+            attachment_score=attachment_score,
+            subject_score=subject_score,
             reasons=reasons,
             model_used=model_used,
+            suspicious_urls=features.suspicious_domain_urls[:10],
+            dangerous_attachments=features.dangerous_attachments,
         )
 
         # Cache result
@@ -796,6 +1461,82 @@ class SpamClassifier:
 
         return min(score, 1.0)
 
+    def _score_urls(self, features: EmailFeatures) -> float:
+        """Score URL-based spam indicators (0-1)."""
+        score = 0.0
+
+        # Shortened URLs are suspicious
+        if features.shortened_url_count > 0:
+            score += min(features.shortened_url_count * 0.15, 0.3)
+
+        # Suspicious domain URLs
+        if len(features.suspicious_domain_urls) > 0:
+            score += min(len(features.suspicious_domain_urls) * 0.2, 0.4)
+
+        # IP address URLs (very suspicious)
+        if features.ip_address_urls > 0:
+            score += min(features.ip_address_urls * 0.25, 0.4)
+
+        # Mismatched anchor URLs (phishing indicator)
+        if features.mismatched_anchor_urls > 0:
+            score += min(features.mismatched_anchor_urls * 0.3, 0.5)
+
+        # Data URIs can hide content
+        if features.data_uri_count > 0:
+            score += min(features.data_uri_count * 0.1, 0.2)
+
+        # Too many links relative to content
+        if features.word_count > 0 and features.link_count > 0:
+            link_density = features.link_count / (features.word_count / 100)
+            if link_density > 5:  # More than 5 links per 100 words
+                score += 0.15
+
+        return min(score, 1.0)
+
+    def _score_attachments(self, features: EmailFeatures) -> float:
+        """Score attachment-based spam/malware indicators (0-1)."""
+        score = 0.0
+
+        # Dangerous extensions
+        if features.dangerous_extension_count > 0:
+            score += min(features.dangerous_extension_count * 0.4, 0.8)
+
+        # Double extensions (high risk)
+        if features.double_extension_count > 0:
+            score += min(features.double_extension_count * 0.5, 0.8)
+
+        # Archive with executable (high risk)
+        if features.archive_with_executable:
+            score += 0.6
+
+        return min(score, 1.0)
+
+    def _score_subject(self, features: EmailFeatures) -> float:
+        """Score subject line spam indicators (0-1)."""
+        score = 0.0
+
+        # ALL CAPS subject
+        if features.subject_all_caps:
+            score += 0.3
+
+        # Excessive punctuation
+        if features.subject_excessive_punctuation:
+            score += 0.2
+
+        # Spam words in subject
+        if features.subject_spam_words > 0:
+            score += min(features.subject_spam_words * 0.15, 0.4)
+
+        # Very short subject (often spam)
+        if features.subject_length < 5 and features.subject_length > 0:
+            score += 0.1
+
+        # Legitimate reply/forward patterns reduce score
+        if features.subject_has_re_fw:
+            score = max(0, score - 0.2)
+
+        return min(score, 1.0)
+
     def _determine_category(
         self,
         spam_score: float,
@@ -838,9 +1579,25 @@ class SpamClassifier:
         if features.suspicious_link_count > 0:
             score += 0.3
 
+        # Mismatched anchor URLs (strong phishing indicator)
+        if features.mismatched_anchor_urls > 0:
+            score += 0.4
+
+        # IP address URLs (very suspicious)
+        if features.ip_address_urls > 0:
+            score += 0.3
+
         # Urgency + action required
         if features.urgency_word_count >= 2:
             score += 0.2
+
+        # Form elements in email (credential harvesting)
+        if features.has_form_elements:
+            score += 0.4
+
+        # Known spam domain sender
+        if features.sender_is_known_spam_domain:
+            score += 0.3
 
         # Common phishing phrases
         phishing_phrases = [
@@ -853,10 +1610,15 @@ class SpamClassifier:
             r"password\s+expir",
             r"click\s+.*\s+verify",
             r"within\s+24\s+hours",
+            r"your\s+account\s+will\s+be",
+            r"immediately\s+verify",
+            r"confirm\s+your\s+bank",
+            r"ssn|social\s+security",
+            r"credit\s+card\s+number",
         ]
 
         matches = sum(1 for phrase in phishing_phrases if re.search(phrase, content, re.IGNORECASE))
-        score += min(matches * 0.2, 0.5)
+        score += min(matches * 0.15, 0.5)
 
         return min(score, 1.0)
 
@@ -1094,6 +1856,8 @@ async def classify_email_spam(
     subject: str,
     body: str,
     sender: str,
+    headers: Optional[Dict[str, str]] = None,
+    attachments: Optional[List[str]] = None,
 ) -> SpamClassificationResult:
     """
     Quick convenience function for spam classification.
@@ -1103,6 +1867,8 @@ async def classify_email_spam(
         subject: Email subject
         body: Email body
         sender: Sender email
+        headers: Optional email headers
+        attachments: Optional list of attachment filenames
 
     Returns:
         SpamClassificationResult
@@ -1116,16 +1882,114 @@ async def classify_email_spam(
             subject=subject,
             body=body,
             sender=sender,
+            headers=headers,
+            attachments=attachments,
         )
     finally:
         await classifier.close()
 
 
+async def classify_email(email: Dict[str, Any]) -> SpamClassificationResult:
+    """
+    Classify an email from a dictionary representation.
+
+    This is the primary convenience function for spam classification,
+    designed to work with the email inbox feature.
+
+    Args:
+        email: Dictionary containing email data with keys:
+            - id (str): Email identifier
+            - subject (str): Email subject
+            - body (str): Email body (text or HTML)
+            - sender (str): Sender email address
+            - headers (dict, optional): Email headers
+            - attachments (list, optional): List of attachment filenames
+
+    Returns:
+        SpamClassificationResult with is_spam, confidence, category, and reasons
+
+    Example:
+        email = {
+            "id": "msg_123",
+            "subject": "You won a prize!",
+            "body": "Click here to claim...",
+            "sender": "prize@suspicious.tk",
+            "headers": {"Authentication-Results": "spf=fail"},
+            "attachments": ["prize.exe"]
+        }
+        result = await classify_email(email)
+        if result.is_spam:
+            print(f"Spam detected: {result.reasons}")
+    """
+    return await classify_email_spam(
+        email_id=email.get("id", ""),
+        subject=email.get("subject", ""),
+        body=email.get("body", "") or email.get("body_text", "") or email.get("body_html", ""),
+        sender=email.get("sender", "") or email.get("from_address", ""),
+        headers=email.get("headers"),
+        attachments=email.get("attachments"),
+    )
+
+
+async def classify_emails_batch(
+    emails: List[Dict[str, Any]],
+    max_concurrent: int = 10,
+) -> List[SpamClassificationResult]:
+    """
+    Classify multiple emails concurrently.
+
+    Args:
+        emails: List of email dictionaries
+        max_concurrent: Maximum concurrent classifications
+
+    Returns:
+        List of SpamClassificationResult in same order as input
+    """
+    import asyncio
+
+    semaphore = asyncio.Semaphore(max_concurrent)
+    classifier = SpamClassifier()
+    await classifier.initialize()
+
+    async def classify_one(email: Dict[str, Any]) -> SpamClassificationResult:
+        async with semaphore:
+            return await classifier.classify_email(
+                email_id=email.get("id", ""),
+                subject=email.get("subject", ""),
+                body=email.get("body", "") or email.get("body_text", "") or "",
+                sender=email.get("sender", "") or email.get("from_address", ""),
+                headers=email.get("headers"),
+                attachments=email.get("attachments"),
+            )
+
+    try:
+        tasks = [classify_one(email) for email in emails]
+        return await asyncio.gather(*tasks)
+    finally:
+        await classifier.close()
+
+
 __all__ = [
+    # Core classes
     "SpamClassifier",
     "SpamClassifierConfig",
     "SpamClassificationResult",
     "SpamCategory",
+    # Feature extraction
+    "SpamFeatures",
     "EmailFeatures",
+    # Feedback tracking
+    "SpamFeedback",
+    # Convenience functions
+    "classify_email",
     "classify_email_spam",
+    "classify_emails_batch",
+    # Pattern sets (for extension)
+    "SPAM_WORDS",
+    "URGENCY_WORDS",
+    "MONEY_WORDS",
+    "SUSPICIOUS_TLDS",
+    "KNOWN_SPAM_DOMAINS",
+    "URL_SHORTENERS",
+    "DANGEROUS_EXTENSIONS",
 ]

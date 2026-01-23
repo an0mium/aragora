@@ -32,6 +32,7 @@ from .agents import AgentConfigHandler
 from .agents import AgentsHandler
 from .analytics import AnalyticsHandler
 from .analytics_dashboard import AnalyticsDashboardHandler
+from .analytics_metrics import AnalyticsMetricsHandler
 from .auditing import AuditingHandler
 from .auth import AuthHandler
 from .base import BaseHandler, HandlerResult, error_response, json_response
@@ -223,6 +224,7 @@ ALL_HANDLERS = [
     PulseHandler,
     AnalyticsHandler,
     AnalyticsDashboardHandler,  # Enterprise analytics dashboard
+    AnalyticsMetricsHandler,  # Debate metrics and agent performance analytics
     MetricsHandler,
     CrossPollinationStatsHandler,  # Cross-subsystem event observability
     CrossPollinationSubscribersHandler,
@@ -370,6 +372,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "DocsHandler": Stability.STABLE,  # Extracted from SystemHandler
     "AnalyticsHandler": Stability.STABLE,
     "AnalyticsDashboardHandler": Stability.EXPERIMENTAL,  # Enterprise analytics dashboard
+    "AnalyticsMetricsHandler": Stability.EXPERIMENTAL,  # Debate metrics and agent performance analytics
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
     "MemoryHandler": Stability.STABLE,
@@ -554,6 +557,7 @@ __all__ = [
     "PulseHandler",
     "AnalyticsHandler",
     "AnalyticsDashboardHandler",
+    "AnalyticsMetricsHandler",
     "MetricsHandler",
     "ConsensusHandler",
     "BeliefHandler",

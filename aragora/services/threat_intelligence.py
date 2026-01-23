@@ -5,12 +5,16 @@ Provides unified access to external threat intelligence feeds for:
 - URL/attachment scanning (VirusTotal)
 - IP reputation checking (AbuseIPDB)
 - Phishing URL detection (PhishTank)
+- Malware URL detection (URLhaus)
 
 Features:
 - Async API clients with rate limiting
-- Local caching to reduce API calls
+- Tiered caching (1h for IPs, 24h for URLs) with Redis backend option
 - Confidence scoring and threat classification
-- Batch scanning capabilities
+- Batch scanning capabilities with Dict[str, ThreatResult] return
+- Aggregate scoring from multiple sources with weighted confidence
+- Event emission for high-risk findings
+- Integration with email prioritization
 - Fallback handling when APIs are unavailable
 
 Usage:
@@ -33,6 +37,15 @@ Usage:
     # Check a file hash
     hash_result = await service.check_file_hash("abc123...")
     print(f"Malware: {hash_result.is_malware}")
+
+    # Batch URL check
+    url_results = await service.check_urls_batch(["http://a.com", "http://b.com"])
+    for url, result in url_results.items():
+        print(f"{url}: malicious={result.is_malicious}")
+
+    # Aggregate threat assessment
+    assessment = await service.assess_threat("http://suspicious.com")
+    print(f"Overall risk: {assessment.overall_risk}")
 """
 
 from __future__ import annotations
@@ -49,7 +62,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+import threading
+from typing import Any, Dict, List, Optional, Protocol
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -88,6 +102,7 @@ class ThreatSource(Enum):
     VIRUSTOTAL = "virustotal"
     ABUSEIPDB = "abuseipdb"
     PHISHTANK = "phishtank"
+    URLHAUS = "urlhaus"
     LOCAL_RULES = "local_rules"
     CACHED = "cached"
 
@@ -154,6 +169,84 @@ class ThreatResult:
             },
             "abuseipdb_score": self.abuseipdb_score,
             "phishtank_verified": self.phishtank_verified,
+        }
+
+
+@dataclass
+class SourceResult:
+    """Result from a single threat intelligence source."""
+
+    source: ThreatSource
+    is_malicious: bool
+    confidence: float  # 0.0 to 1.0
+    threat_types: List[str] = field(default_factory=list)
+    raw_score: float = 0.0
+    details: Dict[str, Any] = field(default_factory=dict)
+    checked_at: datetime = field(default_factory=datetime.now)
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "source": self.source.value,
+            "is_malicious": self.is_malicious,
+            "confidence": self.confidence,
+            "threat_types": self.threat_types,
+            "raw_score": self.raw_score,
+            "details": self.details,
+            "checked_at": self.checked_at.isoformat(),
+            "error": self.error,
+        }
+
+
+@dataclass
+class ThreatAssessment:
+    """
+    Unified threat assessment aggregating results from multiple sources.
+
+    Provides weighted confidence scores and comprehensive threat analysis.
+    """
+
+    target: str
+    target_type: str  # "url", "ip", "hash"
+    overall_risk: float  # 0.0 to 1.0
+    is_malicious: bool
+    threat_types: List[str] = field(default_factory=list)
+    sources: Dict[str, SourceResult] = field(default_factory=dict)
+    weighted_confidence: float = 0.0
+    checked_at: datetime = field(default_factory=datetime.now)
+
+    # Risk breakdown
+    max_source_risk: float = 0.0
+    avg_source_risk: float = 0.0
+    source_agreement: float = 0.0  # How much sources agree (0-1)
+
+    # Metadata
+    sources_checked: int = 0
+    sources_responding: int = 0
+    cache_hits: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "target": self.target,
+            "target_type": self.target_type,
+            "overall_risk": self.overall_risk,
+            "is_malicious": self.is_malicious,
+            "threat_types": self.threat_types,
+            "sources": {k: v.to_dict() for k, v in self.sources.items()},
+            "weighted_confidence": self.weighted_confidence,
+            "checked_at": self.checked_at.isoformat(),
+            "risk_breakdown": {
+                "max_source_risk": self.max_source_risk,
+                "avg_source_risk": self.avg_source_risk,
+                "source_agreement": self.source_agreement,
+            },
+            "metadata": {
+                "sources_checked": self.sources_checked,
+                "sources_responding": self.sources_responding,
+                "cache_hits": self.cache_hits,
+            },
         }
 
 
@@ -235,19 +328,44 @@ class ThreatIntelConfig:
     virustotal_api_key: Optional[str] = None
     abuseipdb_api_key: Optional[str] = None
     phishtank_api_key: Optional[str] = None
+    urlhaus_api_key: Optional[str] = None  # URLhaus doesn't require API key but supports it
 
     # Rate limiting (requests per minute)
     virustotal_rate_limit: int = 4  # Free tier: 4/min
     abuseipdb_rate_limit: int = 60  # Free tier: 1000/day
     phishtank_rate_limit: int = 30
+    urlhaus_rate_limit: int = 60  # URLhaus has generous limits
 
-    # Cache settings
-    cache_ttl_hours: int = 24
+    # Cache settings - tiered TTL
+    cache_ttl_hours: int = 24  # Default TTL (for URLs)
+    cache_ip_ttl_hours: int = 1  # Shorter TTL for IPs (more volatile)
+    cache_url_ttl_hours: int = 24  # Longer TTL for URLs
+    cache_hash_ttl_hours: int = 168  # 7 days for file hashes (stable)
     cache_db_path: str = "threat_intel_cache.db"
+
+    # Redis cache backend (optional)
+    redis_url: Optional[str] = None  # e.g., "redis://localhost:6379/0"
+    use_redis_cache: bool = False  # Enable Redis backend
 
     # Thresholds
     virustotal_malicious_threshold: int = 3  # Positives to consider malicious
     abuseipdb_malicious_threshold: int = 50  # Abuse score to consider malicious
+    urlhaus_tags_threshold: int = 1  # Number of malware tags to consider malicious
+
+    # Source reliability weights for aggregate scoring (0-1)
+    source_weights: Dict[str, float] = field(
+        default_factory=lambda: {
+            "virustotal": 0.9,  # Highly reliable, multiple engines
+            "abuseipdb": 0.8,  # Community-driven, reliable for IPs
+            "phishtank": 0.85,  # Verified phishing, high confidence
+            "urlhaus": 0.85,  # Malware-focused, well-maintained
+            "local_rules": 0.5,  # Lower confidence for pattern matching
+        }
+    )
+
+    # Risk thresholds
+    high_risk_threshold: float = 0.7  # Emit events above this
+    malicious_threshold: float = 0.5  # Consider malicious above this
 
     # Timeouts
     request_timeout_seconds: float = 10.0
@@ -256,7 +374,9 @@ class ThreatIntelConfig:
     enable_virustotal: bool = True
     enable_abuseipdb: bool = True
     enable_phishtank: bool = True
+    enable_urlhaus: bool = True
     enable_caching: bool = True
+    enable_event_emission: bool = True  # Emit events for high-risk findings
 
 
 # Known malicious patterns for local detection
@@ -286,12 +406,28 @@ SUSPICIOUS_TLDS = {
 }
 
 
+class ThreatEventHandler(Protocol):
+    """Protocol for threat event handlers."""
+
+    def __call__(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Handle a threat event."""
+        ...
+
+
 class ThreatIntelligenceService:
     """
     Unified threat intelligence service.
 
     Integrates with multiple threat feeds to provide comprehensive
     threat assessment for URLs, IPs, and file hashes.
+
+    Features:
+    - Multi-source threat intelligence (VirusTotal, AbuseIPDB, PhishTank, URLhaus)
+    - Tiered caching with different TTLs per target type
+    - Batch lookups returning Dict[str, ThreatResult]
+    - Aggregate scoring with weighted confidence
+    - Event emission for high-risk findings
+    - Email prioritization integration
     """
 
     def __init__(
@@ -300,6 +436,8 @@ class ThreatIntelligenceService:
         virustotal_api_key: Optional[str] = None,
         abuseipdb_api_key: Optional[str] = None,
         phishtank_api_key: Optional[str] = None,
+        urlhaus_api_key: Optional[str] = None,
+        event_handler: Optional[ThreatEventHandler] = None,
     ):
         """
         Initialize threat intelligence service.
@@ -309,6 +447,8 @@ class ThreatIntelligenceService:
             virustotal_api_key: VirusTotal API key (overrides config)
             abuseipdb_api_key: AbuseIPDB API key (overrides config)
             phishtank_api_key: PhishTank API key (overrides config)
+            urlhaus_api_key: URLhaus API key (optional, overrides config)
+            event_handler: Optional callback for threat events
         """
         self.config = config or ThreatIntelConfig()
 
@@ -319,6 +459,8 @@ class ThreatIntelligenceService:
             self.config.abuseipdb_api_key = abuseipdb_api_key
         if phishtank_api_key:
             self.config.phishtank_api_key = phishtank_api_key
+        if urlhaus_api_key:
+            self.config.urlhaus_api_key = urlhaus_api_key
 
         # Load from environment if not set
         if not self.config.virustotal_api_key:
@@ -327,12 +469,23 @@ class ThreatIntelligenceService:
             self.config.abuseipdb_api_key = os.getenv("ABUSEIPDB_API_KEY")
         if not self.config.phishtank_api_key:
             self.config.phishtank_api_key = os.getenv("PHISHTANK_API_KEY")
+        if not self.config.urlhaus_api_key:
+            self.config.urlhaus_api_key = os.getenv("URLHAUS_API_KEY")
+        if not self.config.redis_url:
+            self.config.redis_url = os.getenv("ARAGORA_REDIS_URL") or os.getenv("REDIS_URL")
+
+        # Event handler for threat notifications
+        self._event_handler = event_handler
+        self._event_handlers: List[ThreatEventHandler] = []
+        if event_handler:
+            self._event_handlers.append(event_handler)
 
         # Rate limiting state
         self._rate_limits: Dict[str, List[float]] = {
             "virustotal": [],
             "abuseipdb": [],
             "phishtank": [],
+            "urlhaus": [],
         }
 
         # Circuit breakers for external APIs (auto-open after 3 failures, 60s cooldown)
@@ -354,13 +507,21 @@ class ThreatIntelligenceService:
                 failure_threshold=3,
                 cooldown_seconds=60.0,
             ),
+            "urlhaus": get_circuit_breaker(
+                "threat_intel_urlhaus",
+                failure_threshold=3,
+                cooldown_seconds=60.0,
+            ),
         }
 
         # Compile patterns
         self._malicious_patterns = [re.compile(p) for p in MALICIOUS_URL_PATTERNS]
 
-        # Cache connection
-        self._cache_conn: Optional[sqlite3.Connection] = None
+        # Cache backends
+        self._cache_conn: Optional[sqlite3.Connection] = None  # SQLite backend
+        self._redis_client: Any = None  # Redis backend (optional)
+        self._memory_cache: Dict[str, Dict[str, Any]] = {}  # In-memory cache
+        self._memory_cache_lock = threading.Lock()
 
         # HTTP session (lazy initialized)
         self._http_session = None
@@ -369,8 +530,31 @@ class ThreatIntelligenceService:
             f"ThreatIntelligenceService initialized "
             f"(VT: {bool(self.config.virustotal_api_key)}, "
             f"AIPDB: {bool(self.config.abuseipdb_api_key)}, "
-            f"PT: {bool(self.config.phishtank_api_key)})"
+            f"PT: {bool(self.config.phishtank_api_key)}, "
+            f"UH: {self.config.enable_urlhaus})"
         )
+
+    def add_event_handler(self, handler: ThreatEventHandler) -> None:
+        """Add an event handler for threat notifications."""
+        self._event_handlers.append(handler)
+
+    def remove_event_handler(self, handler: ThreatEventHandler) -> bool:
+        """Remove an event handler. Returns True if removed."""
+        if handler in self._event_handlers:
+            self._event_handlers.remove(handler)
+            return True
+        return False
+
+    def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Emit a threat event to all handlers."""
+        if not self.config.enable_event_emission:
+            return
+
+        for handler in self._event_handlers:
+            try:
+                handler(event_type, data)
+            except Exception as e:
+                logger.warning(f"Error in threat event handler: {e}")
 
     async def initialize(self) -> None:
         """Initialize the service (cache, etc.)."""
@@ -378,6 +562,39 @@ class ThreatIntelligenceService:
             await self._init_cache()
 
     async def _init_cache(self) -> None:
+        """Initialize cache backends (Redis preferred, SQLite fallback)."""
+        # Try Redis first if configured
+        if self.config.use_redis_cache and self.config.redis_url:
+            try:
+                await self._init_redis_cache()
+                logger.info("Threat intel using Redis cache")
+                return  # Redis initialized, no need for SQLite
+            except Exception as e:
+                logger.warning(f"Redis cache init failed, falling back to SQLite: {e}")
+
+        # Initialize SQLite cache
+        await self._init_sqlite_cache()
+
+    async def _init_redis_cache(self) -> None:
+        """Initialize Redis cache backend."""
+        try:
+            import redis
+
+            self._redis_client = redis.from_url(
+                self.config.redis_url,
+                decode_responses=True,
+            )
+            # Test connection
+            self._redis_client.ping()
+            logger.info("Redis cache connection established")
+        except ImportError:
+            logger.warning("redis package not installed")
+            raise
+        except Exception as e:
+            logger.warning(f"Redis connection failed: {e}")
+            raise
+
+    async def _init_sqlite_cache(self) -> None:
         """Initialize SQLite cache."""
         try:
             self._cache_conn = sqlite3.connect(
@@ -408,14 +625,118 @@ class ThreatIntelligenceService:
         except Exception as e:
             logger.warning(f"Failed to initialize threat cache: {e}")
 
+    def _get_ttl_for_type(self, target_type: str) -> int:
+        """Get TTL in seconds based on target type."""
+        if target_type == "ip":
+            return self.config.cache_ip_ttl_hours * 3600
+        elif target_type == "hash":
+            return self.config.cache_hash_ttl_hours * 3600
+        else:  # url and others
+            return self.config.cache_url_ttl_hours * 3600
+
     def _get_cache_key(self, target: str, target_type: str) -> str:
         """Generate cache key for a target."""
         key = f"{target_type}:{target.lower()}"
         return hashlib.sha256(key.encode()).hexdigest()
 
+    def _get_redis_cache_key(self, target: str, target_type: str) -> str:
+        """Generate Redis cache key for a target."""
+        cache_key = self._get_cache_key(target, target_type)
+        return f"threat_intel:{cache_key}"
+
     async def _get_cached(self, target: str, target_type: str) -> Optional[ThreatResult]:
         """Get cached result if available and not expired."""
-        if not self._cache_conn or not self.config.enable_caching:
+        if not self.config.enable_caching:
+            return None
+
+        # Try in-memory cache first (fastest)
+        memory_result = self._get_memory_cached(target, target_type)
+        if memory_result:
+            return memory_result
+
+        # Try Redis cache if available
+        if self._redis_client:
+            redis_result = await self._get_redis_cached(target, target_type)
+            if redis_result:
+                # Populate memory cache from Redis
+                self._set_memory_cached(target, target_type, redis_result)
+                return redis_result
+
+        # Try SQLite cache
+        if self._cache_conn:
+            sqlite_result = await self._get_sqlite_cached(target, target_type)
+            if sqlite_result:
+                # Populate memory cache from SQLite
+                self._set_memory_cached(target, target_type, sqlite_result)
+                return sqlite_result
+
+        return None
+
+    def _get_memory_cached(self, target: str, target_type: str) -> Optional[ThreatResult]:
+        """Get from in-memory cache."""
+        cache_key = self._get_cache_key(target, target_type)
+        with self._memory_cache_lock:
+            entry = self._memory_cache.get(cache_key)
+            if entry:
+                if datetime.fromisoformat(entry["expires_at"]) > datetime.now():
+                    return self._deserialize_threat_result(entry["data"])
+                else:
+                    # Expired, remove from cache
+                    del self._memory_cache[cache_key]
+        return None
+
+    def _set_memory_cached(self, target: str, target_type: str, result: ThreatResult) -> None:
+        """Store in in-memory cache."""
+        cache_key = self._get_cache_key(target, target_type)
+        ttl_seconds = self._get_ttl_for_type(target_type)
+        expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
+
+        with self._memory_cache_lock:
+            # Limit memory cache size
+            if len(self._memory_cache) > 10000:
+                # Evict oldest entries
+                sorted_keys = sorted(
+                    self._memory_cache.keys(),
+                    key=lambda k: self._memory_cache[k].get("expires_at", ""),
+                )
+                for k in sorted_keys[:1000]:
+                    del self._memory_cache[k]
+
+            self._memory_cache[cache_key] = {
+                "data": self._serialize_threat_result(result),
+                "expires_at": expires_at.isoformat(),
+            }
+
+    async def _get_redis_cached(self, target: str, target_type: str) -> Optional[ThreatResult]:
+        """Get from Redis cache."""
+        if not self._redis_client:
+            return None
+
+        try:
+            cache_key = self._get_redis_cache_key(target, target_type)
+            data = self._redis_client.get(cache_key)
+            if data:
+                return self._deserialize_threat_result(json.loads(data))
+        except Exception as e:
+            logger.debug(f"Redis cache get failed: {e}")
+        return None
+
+    async def _set_redis_cached(self, result: ThreatResult) -> None:
+        """Store in Redis cache with appropriate TTL."""
+        if not self._redis_client:
+            return
+
+        try:
+            cache_key = self._get_redis_cache_key(result.target, result.target_type)
+            ttl_seconds = self._get_ttl_for_type(result.target_type)
+            data = json.dumps(self._serialize_threat_result(result))
+            self._redis_client.setex(cache_key, ttl_seconds, data)
+        except Exception as e:
+            logger.debug(f"Redis cache set failed: {e}")
+
+    async def _get_sqlite_cached(self, target: str, target_type: str) -> Optional[ThreatResult]:
+        """Get from SQLite cache."""
+        if not self._cache_conn:
             return None
 
         try:
@@ -433,53 +754,77 @@ class ThreatIntelligenceService:
             row = cursor.fetchone()
             if row:
                 data = json.loads(row[0])
-                return ThreatResult(
-                    target=data["target"],
-                    target_type=data["target_type"],
-                    is_malicious=data["is_malicious"],
-                    threat_type=ThreatType(data["threat_type"]),
-                    severity=ThreatSeverity[data["severity"]],
-                    confidence=data["confidence"],
-                    sources=[ThreatSource.CACHED],
-                    details=data.get("details", {}),
-                    checked_at=datetime.fromisoformat(data["checked_at"]),
-                    cached=True,
-                    virustotal_positives=data.get("virustotal_positives", 0),
-                    virustotal_total=data.get("virustotal_total", 0),
-                    abuseipdb_score=data.get("abuseipdb_score", 0),
-                    phishtank_verified=data.get("phishtank_verified", False),
-                )
+                return self._deserialize_threat_result(data)
 
         except Exception as e:
-            logger.warning(f"Cache lookup failed: {e}")
+            logger.warning(f"SQLite cache lookup failed: {e}")
 
         return None
 
+    def _serialize_threat_result(self, result: ThreatResult) -> Dict[str, Any]:
+        """Serialize ThreatResult to dictionary for caching."""
+        return {
+            "target": result.target,
+            "target_type": result.target_type,
+            "is_malicious": result.is_malicious,
+            "threat_type": result.threat_type.value,
+            "severity": result.severity.name,
+            "confidence": result.confidence,
+            "details": result.details,
+            "checked_at": result.checked_at.isoformat(),
+            "virustotal_positives": result.virustotal_positives,
+            "virustotal_total": result.virustotal_total,
+            "abuseipdb_score": result.abuseipdb_score,
+            "phishtank_verified": result.phishtank_verified,
+            "sources": [s.value for s in result.sources],
+        }
+
+    def _deserialize_threat_result(self, data: Dict[str, Any]) -> ThreatResult:
+        """Deserialize ThreatResult from cached dictionary."""
+        return ThreatResult(
+            target=data["target"],
+            target_type=data["target_type"],
+            is_malicious=data["is_malicious"],
+            threat_type=ThreatType(data["threat_type"]),
+            severity=ThreatSeverity[data["severity"]],
+            confidence=data["confidence"],
+            sources=[ThreatSource.CACHED],
+            details=data.get("details", {}),
+            checked_at=datetime.fromisoformat(data["checked_at"]),
+            cached=True,
+            virustotal_positives=data.get("virustotal_positives", 0),
+            virustotal_total=data.get("virustotal_total", 0),
+            abuseipdb_score=data.get("abuseipdb_score", 0),
+            phishtank_verified=data.get("phishtank_verified", False),
+        )
+
     async def _set_cached(self, result: ThreatResult) -> None:
-        """Cache a result."""
-        if not self._cache_conn or not self.config.enable_caching:
+        """Cache a result in all available backends with appropriate TTL."""
+        if not self.config.enable_caching:
+            return
+
+        # Store in memory cache (always)
+        self._set_memory_cached(result.target, result.target_type, result)
+
+        # Store in Redis cache if available
+        if self._redis_client:
+            await self._set_redis_cached(result)
+
+        # Store in SQLite cache if available
+        if self._cache_conn:
+            await self._set_sqlite_cached(result)
+
+    async def _set_sqlite_cached(self, result: ThreatResult) -> None:
+        """Store in SQLite cache with appropriate TTL."""
+        if not self._cache_conn:
             return
 
         try:
             cache_key = self._get_cache_key(result.target, result.target_type)
-            expires_at = datetime.now() + timedelta(hours=self.config.cache_ttl_hours)
+            ttl_seconds = self._get_ttl_for_type(result.target_type)
+            expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
 
-            result_json = json.dumps(
-                {
-                    "target": result.target,
-                    "target_type": result.target_type,
-                    "is_malicious": result.is_malicious,
-                    "threat_type": result.threat_type.value,
-                    "severity": result.severity.name,
-                    "confidence": result.confidence,
-                    "details": result.details,
-                    "checked_at": result.checked_at.isoformat(),
-                    "virustotal_positives": result.virustotal_positives,
-                    "virustotal_total": result.virustotal_total,
-                    "abuseipdb_score": result.abuseipdb_score,
-                    "phishtank_verified": result.phishtank_verified,
-                }
-            )
+            result_json = json.dumps(self._serialize_threat_result(result))
 
             cursor = self._cache_conn.cursor()
             cursor.execute(
@@ -499,7 +844,7 @@ class ThreatIntelligenceService:
             self._cache_conn.commit()
 
         except Exception as e:
-            logger.warning(f"Failed to cache result: {e}")
+            logger.warning(f"Failed to cache result in SQLite: {e}")
 
     async def _check_rate_limit(self, service: str) -> bool:
         """Check if we're within rate limits for a service."""
@@ -507,6 +852,7 @@ class ThreatIntelligenceService:
             "virustotal": self.config.virustotal_rate_limit,
             "abuseipdb": self.config.abuseipdb_rate_limit,
             "phishtank": self.config.phishtank_rate_limit,
+            "urlhaus": self.config.urlhaus_rate_limit,
         }
 
         limit = limits.get(service, 60)
@@ -578,7 +924,9 @@ class ThreatIntelligenceService:
                 "status": cb.get_status(),
                 "failures": cb.failures,
                 "threshold": cb.failure_threshold,
-                "cooldown_remaining": max(0, cb.cooldown_seconds - (time.time() - cb._last_failure_time))
+                "cooldown_remaining": max(
+                    0, cb.cooldown_seconds - (time.time() - cb._last_failure_time)
+                )
                 if hasattr(cb, "_last_failure_time") and cb.get_status() == "open"
                 else 0,
             }
@@ -594,6 +942,7 @@ class ThreatIntelligenceService:
         url: str,
         check_virustotal: bool = True,
         check_phishtank: bool = True,
+        check_urlhaus: bool = True,
     ) -> ThreatResult:
         """
         Check a URL against threat intelligence sources.
@@ -602,6 +951,7 @@ class ThreatIntelligenceService:
             url: URL to check
             check_virustotal: Query VirusTotal
             check_phishtank: Query PhishTank
+            check_urlhaus: Query URLhaus
 
         Returns:
             ThreatResult with findings
@@ -620,6 +970,7 @@ class ThreatIntelligenceService:
         vt_positives = 0
         vt_total = 0
         pt_verified = False
+        uh_malware = False
 
         # Local pattern check first (fast)
         local_result = self._check_url_patterns(url)
@@ -660,6 +1011,30 @@ class ThreatIntelligenceService:
                     severity = ThreatSeverity.HIGH
                     confidence = max(confidence, 0.95)
 
+        # URLhaus check
+        if check_urlhaus and self.config.enable_urlhaus:
+            uh_result = await self._check_url_urlhaus(url)
+            if uh_result:
+                sources.append(ThreatSource.URLHAUS)
+                uh_malware = uh_result.get("is_malware", False)
+                details["urlhaus"] = uh_result
+
+                if uh_malware:
+                    is_malicious = True
+                    # Determine threat type from tags
+                    uh_tags = uh_result.get("tags", [])
+                    uh_threat = uh_result.get("threat", "")
+                    if "ransomware" in uh_tags or "ransomware" in uh_threat.lower():
+                        threat_type = ThreatType.RANSOMWARE
+                    elif "trojan" in uh_tags or "trojan" in uh_threat.lower():
+                        threat_type = ThreatType.TROJAN
+                    elif "botnet" in uh_tags or "c2" in uh_tags:
+                        threat_type = ThreatType.COMMAND_AND_CONTROL
+                    else:
+                        threat_type = ThreatType.MALWARE
+                    severity = ThreatSeverity.CRITICAL
+                    confidence = max(confidence, 0.90)
+
         # Build result
         result = ThreatResult(
             target=url,
@@ -677,6 +1052,20 @@ class ThreatIntelligenceService:
 
         # Cache result
         await self._set_cached(result)
+
+        # Emit event for high-risk findings
+        if result.is_malicious and result.confidence >= self.config.high_risk_threshold:
+            self._emit_event(
+                "high_risk_url",
+                {
+                    "target": url,
+                    "threat_type": result.threat_type.value,
+                    "severity": result.severity.name,
+                    "confidence": result.confidence,
+                    "sources": [s.value for s in result.sources],
+                    "details": details,
+                },
+            )
 
         return result
 
@@ -835,6 +1224,61 @@ class ThreatIntelligenceService:
         except Exception as e:
             self._record_api_failure("phishtank")
             logger.warning(f"PhishTank check failed: {e}")
+
+        return None
+
+    async def _check_url_urlhaus(self, url: str) -> Optional[Dict[str, Any]]:
+        """Check URL with URLhaus API."""
+        # Check circuit breaker first
+        if self._is_circuit_open("urlhaus"):
+            logger.debug("URLhaus circuit breaker open, skipping")
+            return None
+
+        if not await self._check_rate_limit("urlhaus"):
+            logger.warning("URLhaus rate limit reached")
+            return None
+
+        session = await self._get_http_session()
+        if not session:
+            return None
+
+        try:
+            # URLhaus uses POST with form data
+            async with session.post(
+                "https://urlhaus-api.abuse.ch/v1/url/",
+                data={"url": url},
+            ) as response:
+                if response.status == 200:
+                    self._record_api_success("urlhaus")
+                    result = await response.json()
+
+                    query_status = result.get("query_status", "")
+                    if query_status == "ok":
+                        # URL found in database
+                        tags = result.get("tags", [])
+                        return {
+                            "is_malware": True,
+                            "url_status": result.get("url_status", ""),
+                            "threat": result.get("threat", ""),
+                            "tags": tags if isinstance(tags, list) else [],
+                            "host": result.get("host", ""),
+                            "date_added": result.get("date_added", ""),
+                            "reporter": result.get("reporter", ""),
+                            "payloads": result.get("payloads", [])[:5],
+                        }
+                    elif query_status == "no_results":
+                        # URL not in database (clean)
+                        return {
+                            "is_malware": False,
+                            "query_status": "not_found",
+                        }
+                else:
+                    self._record_api_failure("urlhaus")
+                    logger.warning(f"URLhaus returned status {response.status}")
+
+        except Exception as e:
+            self._record_api_failure("urlhaus")
+            logger.warning(f"URLhaus check failed: {e}")
 
         return None
 
@@ -1157,7 +1601,7 @@ class ThreatIntelligenceService:
         self,
         urls: List[str],
         max_concurrent: int = 5,
-    ) -> List[ThreatResult]:
+    ) -> Dict[str, ThreatResult]:
         """
         Check multiple URLs concurrently.
 
@@ -1166,16 +1610,360 @@ class ThreatIntelligenceService:
             max_concurrent: Maximum concurrent checks
 
         Returns:
-            List of ThreatResults
+            Dict mapping URL to ThreatResult
         """
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def check_with_semaphore(url: str) -> ThreatResult:
+        async def check_with_semaphore(url: str) -> tuple:
             async with semaphore:
-                return await self.check_url(url)
+                result = await self.check_url(url)
+                return (url, result)
 
         tasks = [check_with_semaphore(url) for url in urls]
-        return await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
+        return dict(results)
+
+    async def check_ips_batch(
+        self,
+        ips: List[str],
+        max_concurrent: int = 5,
+    ) -> Dict[str, ThreatResult]:
+        """
+        Check multiple IPs concurrently.
+
+        Args:
+            ips: List of IP addresses to check
+            max_concurrent: Maximum concurrent checks
+
+        Returns:
+            Dict mapping IP to ThreatResult
+        """
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def check_with_semaphore(ip: str) -> tuple:
+            async with semaphore:
+                ip_result = await self.check_ip(ip)
+                # Convert IPReputationResult to ThreatResult
+                threat_result = ThreatResult(
+                    target=ip,
+                    target_type="ip",
+                    is_malicious=ip_result.is_malicious,
+                    threat_type=ThreatType.MALICIOUS_IP
+                    if ip_result.is_malicious
+                    else ThreatType.NONE,
+                    severity=ThreatSeverity.HIGH if ip_result.is_malicious else ThreatSeverity.NONE,
+                    confidence=ip_result.abuse_score / 100,
+                    sources=[ThreatSource.ABUSEIPDB],
+                    abuseipdb_score=ip_result.abuse_score,
+                    details=ip_result.to_dict(),
+                )
+                return (ip, threat_result)
+
+        tasks = [check_with_semaphore(ip) for ip in ips]
+        results = await asyncio.gather(*tasks)
+        return dict(results)
+
+    # =========================================================================
+    # Aggregate Threat Assessment
+    # =========================================================================
+
+    async def assess_threat(
+        self,
+        target: str,
+        target_type: str = "auto",
+    ) -> ThreatAssessment:
+        """
+        Perform comprehensive threat assessment with weighted confidence scoring.
+
+        Queries all available threat intelligence sources and combines results
+        with weighted confidence based on source reliability.
+
+        Args:
+            target: URL, IP, or hash to assess
+            target_type: "url", "ip", "hash", or "auto" to detect
+
+        Returns:
+            ThreatAssessment with aggregate scoring from all sources
+        """
+        # Auto-detect target type
+        if target_type == "auto":
+            if target.startswith(("http://", "https://")):
+                target_type = "url"
+            elif self._is_valid_ip(target):
+                target_type = "ip"
+            elif self._detect_hash_type(target):
+                target_type = "hash"
+            else:
+                target_type = "url"  # Default
+
+        source_results: Dict[str, SourceResult] = {}
+        threat_types_found: List[str] = []
+        cache_hits = 0
+
+        if target_type == "url":
+            # Check all URL sources in parallel
+            tasks = []
+
+            # VirusTotal
+            if self.config.enable_virustotal and self.config.virustotal_api_key:
+                tasks.append(("virustotal", self._check_url_virustotal(target)))
+
+            # PhishTank
+            if self.config.enable_phishtank:
+                tasks.append(("phishtank", self._check_url_phishtank(target)))
+
+            # URLhaus
+            if self.config.enable_urlhaus:
+                tasks.append(("urlhaus", self._check_url_urlhaus(target)))
+
+            # Local rules (sync, no need for await)
+            local_result = self._check_url_patterns(target)
+            if local_result:
+                source_results["local_rules"] = SourceResult(
+                    source=ThreatSource.LOCAL_RULES,
+                    is_malicious=True,
+                    confidence=0.6,
+                    threat_types=[local_result["threat_type"].value],
+                    details={"pattern": local_result["pattern"]},
+                )
+                threat_types_found.append(local_result["threat_type"].value)
+
+            # Execute API calls in parallel
+            if tasks:
+                api_results = await asyncio.gather(
+                    *[task for _, task in tasks], return_exceptions=True
+                )
+
+                for i, (source_name, _) in enumerate(tasks):
+                    result = api_results[i]
+                    if isinstance(result, Exception):
+                        source_results[source_name] = SourceResult(
+                            source=ThreatSource(source_name),
+                            is_malicious=False,
+                            confidence=0.0,
+                            error=str(result),
+                        )
+                        continue
+
+                    if result is None:
+                        continue
+
+                    source_results[source_name] = self._parse_source_result(
+                        source_name, result, threat_types_found
+                    )
+
+        elif target_type == "ip":
+            # Check IP with AbuseIPDB
+            if self.config.enable_abuseipdb and self.config.abuseipdb_api_key:
+                ip_result = await self._check_ip_abuseipdb(target)
+                is_malicious = ip_result.is_malicious
+                confidence = ip_result.abuse_score / 100
+
+                source_results["abuseipdb"] = SourceResult(
+                    source=ThreatSource.ABUSEIPDB,
+                    is_malicious=is_malicious,
+                    confidence=confidence,
+                    threat_types=[ThreatType.MALICIOUS_IP.value] if is_malicious else [],
+                    raw_score=ip_result.abuse_score,
+                    details=ip_result.to_dict(),
+                )
+                if is_malicious:
+                    threat_types_found.append(ThreatType.MALICIOUS_IP.value)
+
+        elif target_type == "hash":
+            # Check hash with VirusTotal
+            if self.config.enable_virustotal and self.config.virustotal_api_key:
+                hash_result = await self.check_file_hash(target)
+                is_malicious = hash_result.is_malware
+
+                # Parse detection ratio for confidence
+                try:
+                    positives, total = hash_result.detection_ratio.split("/")
+                    confidence = int(positives) / max(int(total), 1) if total else 0.0
+                except (ValueError, AttributeError):
+                    confidence = 0.9 if is_malicious else 0.0
+
+                source_results["virustotal"] = SourceResult(
+                    source=ThreatSource.VIRUSTOTAL,
+                    is_malicious=is_malicious,
+                    confidence=confidence,
+                    threat_types=[ThreatType.MALWARE.value] if is_malicious else [],
+                    details=hash_result.to_dict(),
+                )
+                if is_malicious:
+                    threat_types_found.append(ThreatType.MALWARE.value)
+
+        # Calculate aggregate scores
+        overall_risk, weighted_confidence, is_malicious = self._calculate_aggregate_risk(
+            source_results
+        )
+
+        # Calculate risk breakdown
+        risks = [sr.confidence for sr in source_results.values() if sr.confidence > 0]
+        max_risk = max(risks) if risks else 0.0
+        avg_risk = sum(risks) / len(risks) if risks else 0.0
+
+        # Calculate source agreement (how many sources agree on malicious status)
+        malicious_votes = sum(1 for sr in source_results.values() if sr.is_malicious)
+        total_sources = len(source_results)
+        agreement = malicious_votes / total_sources if total_sources > 0 else 0.0
+
+        assessment = ThreatAssessment(
+            target=target,
+            target_type=target_type,
+            overall_risk=overall_risk,
+            is_malicious=is_malicious,
+            threat_types=list(set(threat_types_found)),
+            sources=source_results,
+            weighted_confidence=weighted_confidence,
+            max_source_risk=max_risk,
+            avg_source_risk=avg_risk,
+            source_agreement=agreement,
+            sources_checked=total_sources,
+            sources_responding=len([sr for sr in source_results.values() if sr.error is None]),
+            cache_hits=cache_hits,
+        )
+
+        # Emit event for high-risk findings
+        if is_malicious and overall_risk >= self.config.high_risk_threshold:
+            self._emit_event(
+                "high_risk_assessment",
+                {
+                    "target": target,
+                    "target_type": target_type,
+                    "overall_risk": overall_risk,
+                    "threat_types": threat_types_found,
+                    "sources": list(source_results.keys()),
+                    "weighted_confidence": weighted_confidence,
+                },
+            )
+
+        return assessment
+
+    def _parse_source_result(
+        self,
+        source_name: str,
+        result: Dict[str, Any],
+        threat_types_found: List[str],
+    ) -> SourceResult:
+        """Parse API result into SourceResult."""
+        if source_name == "virustotal":
+            positives = result.get("positives", 0)
+            total = result.get("total", 0)
+            is_malicious = positives >= self.config.virustotal_malicious_threshold
+            confidence = positives / max(total, 1)
+
+            threat_type = ThreatType.NONE
+            if is_malicious:
+                threat_type = self._classify_vt_threat(result)
+                threat_types_found.append(threat_type.value)
+
+            return SourceResult(
+                source=ThreatSource.VIRUSTOTAL,
+                is_malicious=is_malicious,
+                confidence=confidence,
+                threat_types=[threat_type.value] if threat_type != ThreatType.NONE else [],
+                raw_score=positives,
+                details=result,
+            )
+
+        elif source_name == "phishtank":
+            verified = result.get("verified", False)
+            in_db = result.get("in_database", False)
+            is_malicious = verified
+            confidence = 0.95 if verified else (0.5 if in_db else 0.0)
+
+            if verified:
+                threat_types_found.append(ThreatType.PHISHING.value)
+
+            return SourceResult(
+                source=ThreatSource.PHISHTANK,
+                is_malicious=is_malicious,
+                confidence=confidence,
+                threat_types=[ThreatType.PHISHING.value] if verified else [],
+                details=result,
+            )
+
+        elif source_name == "urlhaus":
+            is_malware = result.get("is_malware", False)
+            tags = result.get("tags", [])
+            is_malicious = is_malware
+            confidence = 0.90 if is_malware else 0.0
+
+            detected_types = []
+            if is_malware:
+                threat = result.get("threat", "").lower()
+                if "ransomware" in tags or "ransomware" in threat:
+                    detected_types.append(ThreatType.RANSOMWARE.value)
+                elif "trojan" in tags or "trojan" in threat:
+                    detected_types.append(ThreatType.TROJAN.value)
+                elif "botnet" in tags or "c2" in tags:
+                    detected_types.append(ThreatType.COMMAND_AND_CONTROL.value)
+                else:
+                    detected_types.append(ThreatType.MALWARE.value)
+                threat_types_found.extend(detected_types)
+
+            return SourceResult(
+                source=ThreatSource.URLHAUS,
+                is_malicious=is_malicious,
+                confidence=confidence,
+                threat_types=detected_types,
+                details=result,
+            )
+
+        # Unknown source
+        return SourceResult(
+            source=ThreatSource.CACHED,
+            is_malicious=False,
+            confidence=0.0,
+            details=result,
+        )
+
+    def _calculate_aggregate_risk(
+        self,
+        source_results: Dict[str, SourceResult],
+    ) -> tuple:
+        """
+        Calculate aggregate risk score with weighted confidence.
+
+        Returns:
+            Tuple of (overall_risk, weighted_confidence, is_malicious)
+        """
+        if not source_results:
+            return (0.0, 0.0, False)
+
+        weights = self.config.source_weights
+        total_weight = 0.0
+        weighted_sum = 0.0
+        malicious_weighted_sum = 0.0
+
+        for source_name, result in source_results.items():
+            weight = weights.get(source_name, 0.5)
+
+            # Skip sources with errors
+            if result.error:
+                continue
+
+            total_weight += weight
+            weighted_sum += result.confidence * weight
+
+            if result.is_malicious:
+                malicious_weighted_sum += weight
+
+        if total_weight == 0:
+            return (0.0, 0.0, False)
+
+        # Weighted confidence (0-1)
+        weighted_confidence = weighted_sum / total_weight
+
+        # Overall risk considers both confidence and malicious agreement
+        malicious_ratio = malicious_weighted_sum / total_weight
+        overall_risk = min(1.0, weighted_confidence * 0.6 + malicious_ratio * 0.4)
+
+        # Consider malicious if risk exceeds threshold
+        is_malicious = overall_risk >= self.config.malicious_threshold
+
+        return (overall_risk, weighted_confidence, is_malicious)
 
     async def check_email_content(
         self,
@@ -1211,9 +1999,9 @@ class ThreatIntelligenceService:
 
         if urls:
             url_results = await self.check_urls_batch(urls[:10])  # Limit to 10
-            results["urls"] = [r.to_dict() for r in url_results]
+            results["urls"] = [r.to_dict() for r in url_results.values()]
 
-            malicious_urls = [r for r in url_results if r.is_malicious]
+            malicious_urls = [r for r in url_results.values() if r.is_malicious]
             if malicious_urls:
                 results["is_suspicious"] = True
                 results["threat_summary"].append(f"Found {len(malicious_urls)} malicious URLs")

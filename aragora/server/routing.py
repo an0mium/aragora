@@ -564,6 +564,22 @@ def create_default_routes() -> List[Route]:
         api_route("/api/metrics/cache", "MetricsHandler"),
         # Dashboard
         api_route("/api/dashboard/debates", "DashboardHandler"),
+        # Analytics Metrics
+        api_route("/api/v1/analytics/debates/overview", "AnalyticsMetricsHandler"),
+        api_route("/api/v1/analytics/debates/trends", "AnalyticsMetricsHandler"),
+        api_route("/api/v1/analytics/debates/topics", "AnalyticsMetricsHandler"),
+        api_route("/api/v1/analytics/debates/outcomes", "AnalyticsMetricsHandler"),
+        api_route("/api/v1/analytics/agents/leaderboard", "AnalyticsMetricsHandler"),
+        api_route(
+            "/api/v1/analytics/agents/{agent_id}/performance",
+            "AnalyticsMetricsHandler",
+            agent_id={"pattern": "name"},
+        ),
+        api_route("/api/v1/analytics/agents/comparison", "AnalyticsMetricsHandler"),
+        api_route("/api/v1/analytics/agents/trends", "AnalyticsMetricsHandler"),
+        api_route("/api/v1/analytics/usage/tokens", "AnalyticsMetricsHandler"),
+        api_route("/api/v1/analytics/usage/costs", "AnalyticsMetricsHandler"),
+        api_route("/api/v1/analytics/usage/active_users", "AnalyticsMetricsHandler"),
     ]
 
 

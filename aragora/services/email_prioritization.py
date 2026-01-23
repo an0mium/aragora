@@ -128,6 +128,11 @@ class EmailPriorityResult:
     context_relevance_score: float = 0.0
     time_sensitivity_score: float = 0.0
 
+    # Spam classification (from SpamClassifier)
+    spam_score: float = 0.0  # 0.0 (not spam) to 1.0 (definitely spam)
+    spam_category: Optional[str] = None  # "ham", "spam", "phishing", "promotional", "suspicious"
+    is_spam: bool = False
+
     # Cross-channel signals
     slack_activity_boost: float = 0.0
     calendar_relevance_boost: float = 0.0
@@ -156,6 +161,11 @@ class EmailPriorityResult:
                 "content_urgency": self.content_urgency_score,
                 "context_relevance": self.context_relevance_score,
                 "time_sensitivity": self.time_sensitivity_score,
+            },
+            "spam": {
+                "score": self.spam_score,
+                "category": self.spam_category,
+                "is_spam": self.is_spam,
             },
             "cross_channel_boosts": {
                 "slack": self.slack_activity_boost,

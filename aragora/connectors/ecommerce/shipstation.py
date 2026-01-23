@@ -396,7 +396,7 @@ class ShipStationConnector:
         endpoint: str,
         json: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> Any:
         url = f"{self.BASE_URL}{endpoint}"
         try:
             response = await self.client.request(method, url, json=json, params=params)

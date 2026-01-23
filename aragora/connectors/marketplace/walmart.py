@@ -190,7 +190,7 @@ class WalmartOrder:
         order_lines = [
             OrderLine.from_api(line) for line in data.get("orderLines", {}).get("orderLine", [])
         ]
-        total = sum(line.total_price for line in order_lines)
+        total = sum((line.total_price for line in order_lines), Decimal(0))
 
         return cls(
             purchase_order_id=data.get("purchaseOrderId", ""),
@@ -697,7 +697,7 @@ class WalmartConnector:
         compare_at_price: Decimal | None = None,
     ) -> bool:
         """Update item price."""
-        pricing = {
+        pricing: dict[str, Any] = {
             "sku": sku,
             "pricing": [
                 {
