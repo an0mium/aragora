@@ -1,7 +1,7 @@
 """
 Email Debate Service.
 
-Multi-agent deliberation on email prioritization, categorization, and triage.
+Multi-agent vetted decisionmaking on email prioritization, categorization, and triage.
 Uses Arena for structured debate between agents to determine:
 - Priority level (urgent, high, normal, low)
 - Category assignment
@@ -11,7 +11,7 @@ Uses Arena for structured debate between agents to determine:
 Integrates with:
 - PIIRedactor for sanitizing emails before analysis
 - SenderHistoryManager for reputation context
-- Deliberation templates for structured workflows
+- Vetted decisionmaking templates for structured workflows
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ class EmailCategory(str, Enum):
 
 @dataclass
 class EmailInput:
-    """Email data for deliberation."""
+    """Email data for vetted decisionmaking."""
 
     subject: str
     body: str
@@ -85,7 +85,7 @@ class EmailInput:
 
 @dataclass
 class EmailDebateResult:
-    """Result of multi-agent email deliberation."""
+    """Result of multi-agent vetted decisionmaking."""
 
     message_id: str
     priority: EmailPriority

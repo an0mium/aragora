@@ -39,7 +39,7 @@ import yaml
 
 # Try to use Pydantic v2, fall back to basic validation
 try:
-    from pydantic import BaseModel, Field, field_validator, model_validator
+    from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
     PYDANTIC_AVAILABLE = True
 except ImportError:
@@ -664,19 +664,17 @@ if PYDANTIC_AVAILABLE:
     class StepConfigSchema(BaseModel):
         """Schema for step configuration."""
 
-        class Config:
-            extra = "allow"
+        model_config = ConfigDict(extra="allow")
 
     class VisualNodeSchema(BaseModel):
         """Schema for visual node data."""
+
+        model_config = ConfigDict(extra="allow")
 
         position: Optional[Dict[str, float]] = None
         size: Optional[Dict[str, float]] = None
         category: Optional[str] = None
         color: Optional[str] = None
-
-        class Config:
-            extra = "allow"
 
     class StepSchema(BaseModel):
         """Schema for workflow step."""

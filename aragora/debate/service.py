@@ -34,7 +34,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.protocol import DebateProtocol
@@ -54,8 +54,12 @@ class DebateOptions:
 
     # Protocol options
     rounds: int = 3
-    consensus: str = "majority"  # "majority", "supermajority", "unanimous"
-    topology: str = "all-to-all"
+    consensus: Literal[
+        "majority", "unanimous", "judge", "none", "weighted", "supermajority", "any", "byzantine"
+    ] = "majority"
+    topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = (
+        "all-to-all"
+    )
     enable_graph: bool = False
 
     # Execution options
