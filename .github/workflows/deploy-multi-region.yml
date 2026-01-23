@@ -27,7 +27,24 @@ env:
   ECR_REPOSITORY: aragora
 
 jobs:
+  check-credentials:
+    runs-on: ubuntu-latest
+    outputs:
+      has_credentials: ${{ steps.check.outputs.has_credentials }}
+    steps:
+      - name: Check for AWS credentials
+        id: check
+        run: |
+          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "has_credentials=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_credentials=false" >> $GITHUB_OUTPUT
+            echo "::warning::AWS credentials not configured. Skipping multi-region deployment."
+          fi
+
   build:
+    needs: check-credentials
+    if: needs.check-credentials.outputs.has_credentials == 'true'
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.build.outputs.image_tag }}
@@ -57,9 +74,9 @@ jobs:
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   deploy-us-east-2:
-    needs: build
+    needs: [check-credentials, build]
     runs-on: ubuntu-latest
-    if: contains(github.event.inputs.regions, 'us-east-2') || github.event.inputs.regions == 'all' || github.event_name == 'push'
+    if: needs.check-credentials.outputs.has_credentials == 'true' && (contains(github.event.inputs.regions, 'us-east-2') || github.event.inputs.regions == 'all' || github.event_name == 'push')
     environment: production-us-east-2
 
     steps:
@@ -97,9 +114,9 @@ jobs:
           kubectl get pods -n aragora
 
   deploy-eu-west-1:
-    needs: [build, deploy-us-east-2]
+    needs: [check-credentials, build, deploy-us-east-2]
     runs-on: ubuntu-latest
-    if: contains(github.event.inputs.regions, 'eu-west-1') || github.event.inputs.regions == 'all' || github.event_name == 'push'
+    if: needs.check-credentials.outputs.has_credentials == 'true' && (contains(github.event.inputs.regions, 'eu-west-1') || github.event.inputs.regions == 'all' || github.event_name == 'push')
     environment: production-eu-west-1
 
     steps:
@@ -136,9 +153,9 @@ jobs:
           kubectl rollout status deployment/aragora-backend -n aragora --timeout=5m
 
   deploy-ap-south-1:
-    needs: [build, deploy-us-east-2]
+    needs: [check-credentials, build, deploy-us-east-2]
     runs-on: ubuntu-latest
-    if: contains(github.event.inputs.regions, 'ap-south-1') || github.event.inputs.regions == 'all' || github.event_name == 'push'
+    if: needs.check-credentials.outputs.has_credentials == 'true' && (contains(github.event.inputs.regions, 'ap-south-1') || github.event.inputs.regions == 'all' || github.event_name == 'push')
     environment: production-ap-south-1
 
     steps:

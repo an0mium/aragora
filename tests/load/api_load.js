@@ -51,7 +51,7 @@ export const options = {
 // Setup - runs once at the start
 export function setup() {
   // Verify API is reachable
-  const res = http.get(`${API_URL}/api/health`);
+  const res = http.get(`${API_URL}/api/v1/health`);
   check(res, {
     'setup: health check passed': (r) => r.status === 200,
   });
@@ -65,7 +65,7 @@ export function setup() {
 export default function(data) {
   group('Health Check', function() {
     const start = Date.now();
-    const res = http.get(`${API_URL}/api/health`);
+    const res = http.get(`${API_URL}/api/v1/health`);
     healthLatency.add(Date.now() - start);
     requestCount.add(1);
 
@@ -91,7 +91,7 @@ export default function(data) {
   sleep(0.1);
 
   group('Leaderboard', function() {
-    const res = http.get(`${API_URL}/api/leaderboard-view?limit=10`);
+    const res = http.get(`${API_URL}/api/v1/leaderboard-view?limit=10`);
     requestCount.add(1);
 
     const passed = check(res, {
@@ -108,7 +108,7 @@ export default function(data) {
   sleep(0.1);
 
   group('Agents List', function() {
-    const res = http.get(`${API_URL}/api/agents`);
+    const res = http.get(`${API_URL}/api/v1/agents`);
     requestCount.add(1);
 
     const passed = check(res, {
@@ -125,7 +125,7 @@ export default function(data) {
   sleep(0.1);
 
   group('Debates List', function() {
-    const res = http.get(`${API_URL}/api/debates?limit=10`);
+    const res = http.get(`${API_URL}/api/v1/debates?limit=10`);
     requestCount.add(1);
 
     const passed = check(res, {
@@ -158,7 +158,7 @@ export default function(data) {
         timeout: '30s',
       };
 
-      const res = http.post(`${API_URL}/api/debate`, payload, params);
+      const res = http.post(`${API_URL}/api/v1/debate`, payload, params);
       debateLatency.add(Date.now() - start);
       requestCount.add(1);
 
