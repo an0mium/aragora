@@ -19,6 +19,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from aragora.agents.base import BaseDebateAgent
+from aragora.core_types import Critique, Message
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,15 @@ class SecurityReviewer(BaseDebateAgent):
     """Agent specialized in security review."""
 
     def __init__(self, **kwargs):
-        system_prompt = """You are a Security Code Reviewer specializing in identifying vulnerabilities.
+        # Initialize Agent attributes directly to avoid ABC init issues
+        self.name = kwargs.get("name", "security_reviewer")
+        self.model = kwargs.get("model", "pattern-based")
+        self.role = kwargs.get("role", "proposer")
+        self.agent_type = "security_reviewer"
+        self.stance = "neutral"
+        self.persona = ""
+        self.focus = "security"
+        self.system_prompt = """You are a Security Code Reviewer specializing in identifying vulnerabilities.
 
 FOCUS AREAS:
 - Injection vulnerabilities (SQL, command, XSS)
@@ -227,13 +236,29 @@ LOCATION: [file:line]
 DESCRIPTION: [detailed explanation]
 SUGGESTION: [how to fix]
 CWE: [CWE-XXX if applicable]"""
-
-        super().__init__(
-            name="security_reviewer",
-            system_prompt=system_prompt,
-            **kwargs,
-        )
         self._finding_counter = 0
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate response - stub for pattern-based reviewer."""
+        return ""
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        """Critique - stub for pattern-based reviewer."""
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200],
+            issues=[],
+            suggestions=[],
+            severity=0.0,
+            reasoning="Pattern-based reviewer",
+        )
 
     async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
         """
@@ -276,7 +301,15 @@ class PerformanceReviewer(BaseDebateAgent):
     """Agent specialized in performance review."""
 
     def __init__(self, **kwargs):
-        system_prompt = """You are a Performance Code Reviewer specializing in optimization.
+        # Initialize Agent attributes directly to avoid ABC init issues
+        self.name = kwargs.get("name", "performance_reviewer")
+        self.model = kwargs.get("model", "pattern-based")
+        self.role = kwargs.get("role", "proposer")
+        self.agent_type = "performance_reviewer"
+        self.stance = "neutral"
+        self.persona = ""
+        self.focus = "performance"
+        self.system_prompt = """You are a Performance Code Reviewer specializing in optimization.
 
 FOCUS AREAS:
 - Algorithm complexity (Big O)
@@ -300,13 +333,29 @@ LOCATION: [file:line]
 DESCRIPTION: [detailed explanation]
 IMPACT: [performance impact estimate]
 SUGGESTION: [how to optimize]"""
-
-        super().__init__(
-            name="performance_reviewer",
-            system_prompt=system_prompt,
-            **kwargs,
-        )
         self._finding_counter = 0
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate response - stub for pattern-based reviewer."""
+        return ""
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        """Critique - stub for pattern-based reviewer."""
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200],
+            issues=[],
+            suggestions=[],
+            severity=0.0,
+            reasoning="Pattern-based reviewer",
+        )
 
     async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
         """
@@ -349,7 +398,15 @@ class MaintainabilityReviewer(BaseDebateAgent):
     """Agent specialized in code quality and maintainability review."""
 
     def __init__(self, **kwargs):
-        system_prompt = """You are a Code Quality Reviewer specializing in maintainability.
+        # Initialize Agent attributes directly to avoid ABC init issues
+        self.name = kwargs.get("name", "maintainability_reviewer")
+        self.model = kwargs.get("model", "pattern-based")
+        self.role = kwargs.get("role", "proposer")
+        self.agent_type = "maintainability_reviewer"
+        self.stance = "neutral"
+        self.persona = ""
+        self.focus = "maintainability"
+        self.system_prompt = """You are a Code Quality Reviewer specializing in maintainability.
 
 FOCUS AREAS:
 - Code readability and clarity
@@ -373,13 +430,29 @@ LOCATION: [file:line]
 DESCRIPTION: [detailed explanation]
 PRINCIPLE: [violated principle if applicable]
 SUGGESTION: [how to improve]"""
-
-        super().__init__(
-            name="maintainability_reviewer",
-            system_prompt=system_prompt,
-            **kwargs,
-        )
         self._finding_counter = 0
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate response - stub for pattern-based reviewer."""
+        return ""
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        """Critique - stub for pattern-based reviewer."""
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200],
+            issues=[],
+            suggestions=[],
+            severity=0.0,
+            reasoning="Pattern-based reviewer",
+        )
 
     async def review(self, code: str, language: str = "python") -> List[ReviewFinding]:
         """
@@ -422,7 +495,15 @@ class TestCoverageReviewer(BaseDebateAgent):
     """Agent specialized in test coverage review."""
 
     def __init__(self, **kwargs):
-        system_prompt = """You are a Test Coverage Reviewer specializing in testing quality.
+        # Initialize Agent attributes directly to avoid ABC init issues
+        self.name = kwargs.get("name", "test_coverage_reviewer")
+        self.model = kwargs.get("model", "pattern-based")
+        self.role = kwargs.get("role", "proposer")
+        self.agent_type = "test_coverage_reviewer"
+        self.stance = "neutral"
+        self.persona = ""
+        self.focus = "test_coverage"
+        self.system_prompt = """You are a Test Coverage Reviewer specializing in testing quality.
 
 FOCUS AREAS:
 - Missing test coverage
@@ -447,10 +528,26 @@ DESCRIPTION: [detailed explanation]
 SUGGESTED_TEST: [test case suggestion]
 PRIORITY: [1-5]"""
 
-        super().__init__(
-            name="test_coverage_reviewer",
-            system_prompt=system_prompt,
-            **kwargs,
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate response - stub for pattern-based reviewer."""
+        return ""
+
+    async def critique(
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
+    ) -> Critique:
+        """Critique - stub for pattern-based reviewer."""
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200],
+            issues=[],
+            suggestions=[],
+            severity=0.0,
+            reasoning="Pattern-based reviewer",
         )
 
 
@@ -635,7 +732,9 @@ class CodeReviewOrchestrator:
         # Fetch PR diff
         diff = await github.fetch_pr_diff(pr_url)
         if not diff:
-            result.summary = f"Could not fetch diff from {pr_url} (ensure 'gh' CLI is authenticated)"
+            result.summary = (
+                f"Could not fetch diff from {pr_url} (ensure 'gh' CLI is authenticated)"
+            )
             result.approval_status = "pending"
             return result
 
@@ -660,7 +759,9 @@ class CodeReviewOrchestrator:
             if comments:
                 # Format review body
                 review_body = self._format_pr_review_body(result)
-                event = "REQUEST_CHANGES" if result.approval_status == "changes_required" else "COMMENT"
+                event = (
+                    "REQUEST_CHANGES" if result.approval_status == "changes_required" else "COMMENT"
+                )
 
                 # Post the review
                 success = await github.post_pr_review(
