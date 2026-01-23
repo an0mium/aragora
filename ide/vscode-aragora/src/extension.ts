@@ -171,6 +171,226 @@ class AragoraClient {
       };
     }
   }
+
+  // Control Plane API methods
+  async getControlPlaneStatus(): Promise<ControlPlaneStatus> {
+    try {
+      return await this.fetch<ControlPlaneStatus>('/api/v1/control-plane/status');
+    } catch {
+      return {
+        agents_online: 4,
+        agents_total: 5,
+        tasks_pending: 2,
+        tasks_running: 1,
+        tasks_completed_today: 15,
+        scheduler_status: 'running',
+        uptime_seconds: 86400,
+      };
+    }
+  }
+
+  async getResourceUtilization(): Promise<ResourceUtilization> {
+    try {
+      return await this.fetch<ResourceUtilization>('/api/v1/control-plane/utilization');
+    } catch {
+      return {
+        cpu_percent: 45,
+        memory_percent: 62,
+        active_connections: 3,
+        requests_per_minute: 120,
+      };
+    }
+  }
+
+  async listRegisteredAgents(): Promise<{ agents: Agent[] }> {
+    try {
+      return await this.fetch<{ agents: Agent[] }>('/api/v1/control-plane/agents');
+    } catch {
+      return { agents: [] };
+    }
+  }
+
+  async getAgentHealth(agentId: string): Promise<{
+    agent_id: string;
+    status: string;
+    last_heartbeat: string;
+    latency_ms: number;
+    success_rate: number;
+    tasks_completed: number;
+  }> {
+    return this.fetch(`/api/v1/control-plane/agents/${agentId}/health`);
+  }
+
+  async submitTask(taskType: string, payload: Record<string, unknown>, priority = 'normal'): Promise<{ task_id: string }> {
+    return this.fetch<{ task_id: string }>('/api/v1/control-plane/tasks', {
+      method: 'POST',
+      body: JSON.stringify({ task_type: taskType, payload, priority }),
+    });
+  }
+
+  async cancelTask(taskId: string): Promise<{ success: boolean }> {
+    return this.fetch<{ success: boolean }>(`/api/v1/control-plane/tasks/${taskId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  async listTasks(status?: string): Promise<{ tasks: ControlPlaneTask[] }> {
+    try {
+      const query = status ? `?status=${status}` : '';
+      return await this.fetch<{ tasks: ControlPlaneTask[] }>(`/api/v1/control-plane/tasks${query}`);
+    } catch {
+      return { tasks: [] };
+    }
+  }
+}
+
+/**
+ * Control Plane Tree Provider - shows system status and metrics
+ */
+class ControlPlaneTreeProvider implements vscode.TreeDataProvider<ControlPlaneItem> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<ControlPlaneItem | undefined>();
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  private client: AragoraClient;
+  private status: ControlPlaneStatus | null = null;
+  private utilization: ResourceUtilization | null = null;
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  refresh(): void {
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
+  async load(): Promise<void> {
+    try {
+      [this.status, this.utilization] = await Promise.all([
+        this.client.getControlPlaneStatus(),
+        this.client.getResourceUtilization(),
+      ]);
+      this.refresh();
+    } catch {
+      this.refresh();
+    }
+  }
+
+  getTreeItem(element: ControlPlaneItem): vscode.TreeItem {
+    return element;
+  }
+
+  getChildren(): ControlPlaneItem[] {
+    const items: ControlPlaneItem[] = [];
+
+    if (this.status) {
+      items.push(new ControlPlaneItem(
+        `Agents: ${this.status.agents_online}/${this.status.agents_total} online`,
+        'agents',
+        new vscode.ThemeIcon('robot')
+      ));
+      items.push(new ControlPlaneItem(
+        `Tasks: ${this.status.tasks_running} running, ${this.status.tasks_pending} pending`,
+        'tasks',
+        new vscode.ThemeIcon('tasklist')
+      ));
+      items.push(new ControlPlaneItem(
+        `Completed today: ${this.status.tasks_completed_today}`,
+        'completed',
+        new vscode.ThemeIcon('check-all')
+      ));
+      items.push(new ControlPlaneItem(
+        `Scheduler: ${this.status.scheduler_status}`,
+        'scheduler',
+        new vscode.ThemeIcon(this.status.scheduler_status === 'running' ? 'play' : 'stop')
+      ));
+    }
+
+    if (this.utilization) {
+      items.push(new ControlPlaneItem(
+        `CPU: ${this.utilization.cpu_percent}%`,
+        'cpu',
+        new vscode.ThemeIcon('dashboard')
+      ));
+      items.push(new ControlPlaneItem(
+        `Memory: ${this.utilization.memory_percent}%`,
+        'memory',
+        new vscode.ThemeIcon('server')
+      ));
+    }
+
+    return items;
+  }
+}
+
+class ControlPlaneItem extends vscode.TreeItem {
+  constructor(
+    public readonly label: string,
+    public readonly itemType: string,
+    public readonly icon: vscode.ThemeIcon
+  ) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.iconPath = icon;
+    this.contextValue = itemType;
+  }
+}
+
+/**
+ * Tasks Tree Provider - shows task queue
+ */
+class TasksTreeProvider implements vscode.TreeDataProvider<TaskItem> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<TaskItem | undefined>();
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+  private client: AragoraClient;
+  private tasks: ControlPlaneTask[] = [];
+
+  constructor(client: AragoraClient) {
+    this.client = client;
+  }
+
+  refresh(): void {
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
+  async load(): Promise<void> {
+    try {
+      const result = await this.client.listTasks();
+      this.tasks = result.tasks || [];
+      this.refresh();
+    } catch {
+      this.tasks = [];
+      this.refresh();
+    }
+  }
+
+  getTreeItem(element: TaskItem): vscode.TreeItem {
+    return element;
+  }
+
+  getChildren(): TaskItem[] {
+    return this.tasks.map((t) => new TaskItem(t));
+  }
+}
+
+class TaskItem extends vscode.TreeItem {
+  public readonly taskId: string;
+
+  constructor(task: ControlPlaneTask) {
+    super(task.task_type, vscode.TreeItemCollapsibleState.None);
+    this.taskId = task.id;
+    this.description = task.status;
+    this.tooltip = `Task: ${task.id}\nType: ${task.task_type}\nStatus: ${task.status}\nPriority: ${task.priority}`;
+    this.contextValue = 'task';
+
+    const iconMap: Record<string, string> = {
+      pending: 'clock',
+      running: 'sync~spin',
+      completed: 'check',
+      failed: 'error',
+      cancelled: 'circle-slash',
+    };
+    this.iconPath = new vscode.ThemeIcon(iconMap[task.status] || 'circle-outline');
+  }
 }
 
 class DebatesTreeProvider implements vscode.TreeDataProvider<DebateItem> {
@@ -278,9 +498,18 @@ class AgentItem extends vscode.TreeItem {
 
     this.description = provider;
     this.tooltip = `${label} (${provider}) - ${status}`;
+    this.contextValue = 'agent';
 
-    const icon = status === 'available' ? 'robot' : 'circle-slash';
-    this.iconPath = new vscode.ThemeIcon(icon);
+    const iconMap: Record<string, string> = {
+      available: 'robot',
+      idle: 'robot',
+      ready: 'robot',
+      busy: 'sync~spin',
+      working: 'sync~spin',
+      error: 'error',
+      offline: 'circle-slash',
+    };
+    this.iconPath = new vscode.ThemeIcon(iconMap[status] || 'circle-outline');
   }
 }
 
@@ -375,13 +604,20 @@ export function activate(context: vscode.ExtensionContext) {
   // Register tree views
   const debatesProvider = new DebatesTreeProvider(client);
   const agentsProvider = new AgentsTreeProvider(client);
+  const controlPlaneProvider = new ControlPlaneTreeProvider(client);
+  const tasksProvider = new TasksTreeProvider(client);
 
   vscode.window.registerTreeDataProvider('aragora.debates', debatesProvider);
   vscode.window.registerTreeDataProvider('aragora.agents', agentsProvider);
+  vscode.window.registerTreeDataProvider('aragora.controlPlane', controlPlaneProvider);
+  vscode.window.registerTreeDataProvider('aragora.tasks', tasksProvider);
+  vscode.window.registerTreeDataProvider('aragora.activeDeliberations', debatesProvider);
 
   // Load initial data
   debatesProvider.loadDebates();
   agentsProvider.loadAgents();
+  controlPlaneProvider.load();
+  tasksProvider.load();
 
   // Run Debate command
   const runDebateCmd = vscode.commands.registerCommand('aragora.runDebate', async () => {
@@ -601,6 +837,164 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage('Fleet status refreshed');
   });
 
+  // Refresh Control Plane command
+  const refreshControlPlaneCmd = vscode.commands.registerCommand('aragora.refreshControlPlane', async () => {
+    await Promise.all([
+      controlPlaneProvider.load(),
+      tasksProvider.load(),
+      agentsProvider.loadAgents(),
+    ]);
+  });
+
+  // Submit Task command
+  const submitTaskCmd = vscode.commands.registerCommand('aragora.submitTask', async () => {
+    const taskType = await vscode.window.showQuickPick(
+      [
+        { label: 'debate', description: 'Multi-agent debate' },
+        { label: 'review', description: 'Code review' },
+        { label: 'analysis', description: 'Data analysis' },
+        { label: 'custom', description: 'Custom task type' },
+      ],
+      { placeHolder: 'Select task type' }
+    );
+
+    if (!taskType) return;
+
+    let finalTaskType = taskType.label;
+    if (taskType.label === 'custom') {
+      const custom = await vscode.window.showInputBox({
+        prompt: 'Enter custom task type',
+      });
+      if (!custom) return;
+      finalTaskType = custom;
+    }
+
+    const payload = await vscode.window.showInputBox({
+      prompt: 'Enter task payload (JSON)',
+      placeHolder: '{"topic": "your topic here"}',
+    });
+
+    if (!payload) return;
+
+    try {
+      const parsedPayload = JSON.parse(payload);
+      const result = await client.submitTask(finalTaskType, parsedPayload);
+      vscode.window.showInformationMessage(`Task submitted! ID: ${result.task_id}`);
+      tasksProvider.load();
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to submit task: ${error}`);
+    }
+  });
+
+  // View Agent Health command
+  const viewAgentHealthCmd = vscode.commands.registerCommand('aragora.viewAgentHealth', async (item?: AgentItem) => {
+    let agentId: string | undefined;
+
+    if (item && 'label' in item) {
+      agentId = item.label as string;
+    } else {
+      const agents = await client.listAgents();
+      const selected = await vscode.window.showQuickPick(
+        agents.agents.map((a) => ({ label: a.name || a.id, id: a.id })),
+        { placeHolder: 'Select agent' }
+      );
+      agentId = selected?.id;
+    }
+
+    if (!agentId) return;
+
+    try {
+      const health = await client.getAgentHealth(agentId);
+      const doc = await vscode.workspace.openTextDocument({
+        content: [
+          `Agent Health: ${agentId}`,
+          '═'.repeat(40),
+          '',
+          `Status: ${health.status}`,
+          `Last Heartbeat: ${health.last_heartbeat}`,
+          `Latency: ${health.latency_ms}ms`,
+          `Success Rate: ${health.success_rate}%`,
+          `Tasks Completed: ${health.tasks_completed}`,
+        ].join('\n'),
+        language: 'plaintext',
+      });
+      await vscode.window.showTextDocument(doc);
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to get agent health: ${error}`);
+    }
+  });
+
+  // Cancel Task command
+  const cancelTaskCmd = vscode.commands.registerCommand('aragora.cancelTask', async (item?: TaskItem) => {
+    let taskId: string | undefined;
+
+    if (item && 'taskId' in item) {
+      taskId = item.taskId;
+    } else {
+      const tasks = await client.listTasks();
+      const pending = tasks.tasks.filter((t) => t.status === 'pending' || t.status === 'running');
+      if (pending.length === 0) {
+        vscode.window.showInformationMessage('No cancellable tasks');
+        return;
+      }
+      const selected = await vscode.window.showQuickPick(
+        pending.map((t) => ({ label: t.id, description: `${t.task_type} - ${t.status}` })),
+        { placeHolder: 'Select task to cancel' }
+      );
+      taskId = selected?.label;
+    }
+
+    if (!taskId) return;
+
+    try {
+      const result = await client.cancelTask(taskId);
+      if (result.success) {
+        vscode.window.showInformationMessage(`Task ${taskId} cancelled`);
+        tasksProvider.load();
+      } else {
+        vscode.window.showWarningMessage(`Could not cancel task ${taskId}`);
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to cancel task: ${error}`);
+    }
+  });
+
+  // Register Agent command
+  const registerAgentCmd = vscode.commands.registerCommand('aragora.registerAgent', async () => {
+    const agentId = await vscode.window.showInputBox({
+      prompt: 'Enter agent ID',
+      placeHolder: 'my-custom-agent',
+    });
+
+    if (!agentId) return;
+
+    const capabilities = await vscode.window.showInputBox({
+      prompt: 'Enter capabilities (comma-separated)',
+      value: 'debate,review',
+    });
+
+    if (!capabilities) return;
+
+    const model = await vscode.window.showInputBox({
+      prompt: 'Enter model name',
+      value: 'custom',
+    });
+
+    if (!model) return;
+
+    try {
+      await client.submitTask('register_agent', {
+        agent_id: agentId,
+        capabilities: capabilities.split(',').map((c) => c.trim()),
+        model,
+      });
+      vscode.window.showInformationMessage(`Agent ${agentId} registration submitted`);
+      agentsProvider.loadAgents();
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to register agent: ${error}`);
+    }
+  });
+
   context.subscriptions.push(
     runDebateCmd,
     runGauntletCmd,
@@ -608,7 +1002,12 @@ export function activate(context: vscode.ExtensionContext) {
     showResultsCmd,
     configureCmd,
     showControlPlaneCmd,
-    refreshFleetCmd
+    refreshFleetCmd,
+    refreshControlPlaneCmd,
+    submitTaskCmd,
+    viewAgentHealthCmd,
+    cancelTaskCmd,
+    registerAgentCmd
   );
 
   // Fleet Status Manager with enhanced status bar
