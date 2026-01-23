@@ -339,15 +339,23 @@ class TestTableColumnInjection:
                 matches = re.findall(pattern, content, re.IGNORECASE)
                 assert len(matches) == 0, f"Dangerous pattern in {filename}: {matches}"
 
-    @pytest.mark.skip(reason="False positive - analytics_dashboard uses safe GROUP BY formatting")
     def test_column_name_hardcoded(self):
-        """Verify column names are never from user input."""
+        """Verify column names are never from user input.
+
+        Excludes known-safe patterns where GROUP BY/ORDER BY use hardcoded
+        date format strings derived from conditionals (not user input).
+        """
         import os
 
         handlers_dir = "aragora/server/handlers"
 
+        # Files with known-safe dynamic GROUP BY (date_format is hardcoded from conditional)
+        safe_files = {"analytics_dashboard.py"}
+
         for filename in os.listdir(handlers_dir):
             if not filename.endswith(".py"):
+                continue
+            if filename in safe_files:
                 continue
 
             filepath = os.path.join(handlers_dir, filename)
