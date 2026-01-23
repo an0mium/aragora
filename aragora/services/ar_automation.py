@@ -38,6 +38,7 @@ from uuid import uuid4
 
 if TYPE_CHECKING:
     from aragora.connectors.accounting.qbo import QuickBooksConnector
+    from aragora.integrations.email import EmailConfig, EmailIntegration
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +296,8 @@ class ARAutomation:
         qbo_connector: Optional[QuickBooksConnector] = None,
         company_name: str = "Your Company",
         default_payment_terms: str = "Net 30",
+        email_config: Optional[EmailConfig] = None,
+        email_integration: Optional[EmailIntegration] = None,
     ):
         """
         Initialize AR automation service.
@@ -303,10 +306,16 @@ class ARAutomation:
             qbo_connector: QuickBooks connector for sync
             company_name: Company name for templates
             default_payment_terms: Default payment terms
+            email_config: Email configuration for sending reminders
+            email_integration: Pre-configured email integration instance
         """
         self.qbo = qbo_connector
         self.company_name = company_name
         self.default_payment_terms = default_payment_terms
+
+        # Email integration for sending reminders
+        self._email: Optional[EmailIntegration] = email_integration
+        self._email_config = email_config
 
         # In-memory storage
         self._invoices: Dict[str, ARInvoice] = {}
@@ -314,6 +323,19 @@ class ARAutomation:
         self._by_status: Dict[InvoiceStatus, Set[str]] = {}
         self._customers: Dict[str, Dict[str, Any]] = {}  # Customer data
         self._reminder_history: List[Dict[str, Any]] = []
+
+    def _get_email_integration(self) -> Optional[EmailIntegration]:
+        """Get or create email integration lazily."""
+        if self._email is not None:
+            return self._email
+
+        if self._email_config is not None:
+            from aragora.integrations.email import EmailIntegration
+
+            self._email = EmailIntegration(self._email_config)
+            return self._email
+
+        return None
 
     async def generate_invoice(
         self,
@@ -409,12 +431,13 @@ class ARAutomation:
         logger.info(f"Generated invoice {invoice_number} for {customer_name}: ${total_amount}")
         return invoice
 
-    async def send_invoice(self, invoice_id: str) -> bool:
+    async def send_invoice(self, invoice_id: str, send_email: bool = True) -> bool:
         """
         Send invoice to customer.
 
         Args:
             invoice_id: Invoice ID
+            send_email: Whether to actually send the email (default True)
 
         Returns:
             Success status
@@ -427,20 +450,201 @@ class ARAutomation:
             logger.warning(f"No email for customer {invoice.customer_name}")
             return False
 
-        # In production, would send actual email
-        # For now, just update status
+        email_sent = False
+
+        # Send actual email if configured
+        if send_email:
+            email_sent = await self._send_invoice_email(invoice)
+
+        # Update status regardless of email success
         invoice.status = InvoiceStatus.SENT
         invoice.sent_at = datetime.now()
         invoice.updated_at = datetime.now()
 
-        logger.info(f"Sent invoice {invoice.invoice_number} to {invoice.customer_email}")
+        logger.info(
+            f"Sent invoice {invoice.invoice_number} to {invoice.customer_email} "
+            f"(email={'sent' if email_sent else 'not sent'})"
+        )
         return True
+
+    async def _send_invoice_email(self, invoice: ARInvoice) -> bool:
+        """
+        Send invoice email using the email integration.
+
+        Args:
+            invoice: The invoice to send
+
+        Returns:
+            True if email was sent successfully
+        """
+        email_integration = self._get_email_integration()
+        if email_integration is None:
+            logger.debug("No email integration configured, skipping invoice email")
+            return False
+
+        if not invoice.customer_email:
+            return False
+
+        subject = f"Invoice {invoice.invoice_number} from {self.company_name}"
+        html_body = self._build_invoice_html(invoice)
+        text_body = self._build_invoice_text(invoice)
+
+        # Create recipient
+        from aragora.integrations.email import EmailRecipient
+
+        recipient = EmailRecipient(
+            email=invoice.customer_email,
+            name=invoice.customer_name,
+        )
+
+        try:
+            success = await email_integration._send_email(
+                recipient=recipient,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body,
+            )
+            return success
+        except Exception as e:
+            logger.error(f"Error sending invoice email: {e}")
+            return False
+
+    def _build_invoice_html(self, invoice: ARInvoice) -> str:
+        """Build HTML email for invoice."""
+        # Build line items table
+        line_items_html = ""
+        for item in invoice.line_items:
+            description = item.get("description", "")
+            quantity = item.get("quantity", 1)
+            unit_price = item.get("unitPrice", 0)
+            amount = item.get("amount", 0)
+            line_items_html += f"""
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">{description}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">{quantity}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${float(unit_price):,.2f}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${float(amount):,.2f}</td>
+            </tr>
+            """
+
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: #2196F3; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .content {{ background: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0; }}
+                .footer {{ background: #333; color: #999; padding: 15px; text-align: center; font-size: 12px; border-radius: 0 0 8px 8px; }}
+                .invoice-header {{ display: flex; justify-content: space-between; margin-bottom: 20px; }}
+                .invoice-info {{ background: #fff; padding: 15px; border-radius: 4px; margin-bottom: 20px; }}
+                table {{ width: 100%; border-collapse: collapse; background: #fff; }}
+                th {{ background: #f5f5f5; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; }}
+                .totals {{ text-align: right; margin-top: 20px; }}
+                .total-row {{ padding: 8px 0; }}
+                .grand-total {{ font-size: 20px; font-weight: bold; color: #2196F3; }}
+                .button {{ display: inline-block; background: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin: 15px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Invoice</h1>
+                    <p>{invoice.invoice_number}</p>
+                </div>
+                <div class="content">
+                    <div class="invoice-info">
+                        <p><strong>Bill To:</strong> {invoice.customer_name}</p>
+                        <p><strong>Invoice Date:</strong> {invoice.invoice_date.strftime("%B %d, %Y")}</p>
+                        <p><strong>Due Date:</strong> {invoice.due_date.strftime("%B %d, %Y") if invoice.due_date else "N/A"}</p>
+                        <p><strong>Payment Terms:</strong> {invoice.payment_terms}</p>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th style="text-align: center;">Qty</th>
+                                <th style="text-align: right;">Unit Price</th>
+                                <th style="text-align: right;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {line_items_html}
+                        </tbody>
+                    </table>
+
+                    <div class="totals">
+                        <div class="total-row">Subtotal: ${float(invoice.subtotal):,.2f}</div>
+                        <div class="total-row">Tax: ${float(invoice.tax_amount):,.2f}</div>
+                        <div class="total-row grand-total">Total Due: ${float(invoice.total_amount):,.2f}</div>
+                    </div>
+
+                    {f'<p style="margin-top: 20px;"><strong>Memo:</strong> {invoice.memo}</p>' if invoice.memo else ''}
+
+                    <div style="text-align: center; margin-top: 20px;">
+                        <a href="mailto:payments@{self.company_name.lower().replace(' ', '')}.com?subject=Payment for {invoice.invoice_number}" class="button">
+                            Pay Now
+                        </a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>{self.company_name}</p>
+                    <p>Thank you for your business!</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+    def _build_invoice_text(self, invoice: ARInvoice) -> str:
+        """Build plain text email for invoice."""
+        lines = [
+            f"INVOICE {invoice.invoice_number}",
+            "=" * 50,
+            "",
+            f"Bill To: {invoice.customer_name}",
+            f"Invoice Date: {invoice.invoice_date.strftime('%B %d, %Y')}",
+            f"Due Date: {invoice.due_date.strftime('%B %d, %Y') if invoice.due_date else 'N/A'}",
+            f"Payment Terms: {invoice.payment_terms}",
+            "",
+            "-" * 50,
+            "Line Items:",
+            "-" * 50,
+        ]
+
+        for item in invoice.line_items:
+            description = item.get("description", "")
+            quantity = item.get("quantity", 1)
+            amount = item.get("amount", 0)
+            lines.append(f"  {description} (x{quantity}): ${float(amount):,.2f}")
+
+        lines.extend([
+            "-" * 50,
+            f"Subtotal: ${float(invoice.subtotal):,.2f}",
+            f"Tax: ${float(invoice.tax_amount):,.2f}",
+            f"TOTAL DUE: ${float(invoice.total_amount):,.2f}",
+            "",
+        ])
+
+        if invoice.memo:
+            lines.extend([f"Memo: {invoice.memo}", ""])
+
+        lines.extend([
+            "-" * 50,
+            self.company_name,
+            "Thank you for your business!",
+        ])
+
+        return "\n".join(lines)
 
     async def send_payment_reminder(
         self,
         invoice_id: str,
         escalation_level: Optional[int] = None,
         custom_message: Optional[str] = None,
+        send_email: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
         Send a payment reminder for an overdue invoice.
@@ -449,6 +653,7 @@ class ARAutomation:
             invoice_id: Invoice ID
             escalation_level: 1-4 (friendly to final), auto-determined if None
             custom_message: Custom reminder message
+            send_email: Whether to actually send the email (default True)
 
         Returns:
             Reminder details or None if failed
@@ -493,7 +698,7 @@ class ARAutomation:
             invoice_number=invoice.invoice_number,
         )
 
-        # In production, would send actual email here
+        # Build reminder record
         reminder = {
             "invoiceId": invoice_id,
             "customerId": invoice.customer_id,
@@ -502,7 +707,23 @@ class ARAutomation:
             "subject": subject,
             "message": message,
             "sentAt": datetime.now().isoformat(),
+            "emailSent": False,
         }
+
+        # Send actual email if configured and requested
+        if send_email:
+            email_sent = await self._send_reminder_email(
+                invoice=invoice,
+                subject=subject,
+                text_body=message,
+                level=level,
+            )
+            reminder["emailSent"] = email_sent
+
+            if not email_sent:
+                logger.warning(
+                    f"Failed to send email for reminder on invoice {invoice.invoice_number}"
+                )
 
         # Update invoice
         invoice.reminder_count += 1
@@ -513,8 +734,157 @@ class ARAutomation:
         # Store history
         self._reminder_history.append(reminder)
 
-        logger.info(f"Sent {level.value} reminder for invoice {invoice.invoice_number}")
+        logger.info(
+            f"Sent {level.value} reminder for invoice {invoice.invoice_number} "
+            f"(email={'sent' if reminder['emailSent'] else 'not sent'})"
+        )
         return reminder
+
+    async def _send_reminder_email(
+        self,
+        invoice: ARInvoice,
+        subject: str,
+        text_body: str,
+        level: ReminderLevel,
+    ) -> bool:
+        """
+        Send reminder email using the email integration.
+
+        Args:
+            invoice: The invoice to send reminder for
+            subject: Email subject
+            text_body: Plain text email body
+            level: Reminder escalation level
+
+        Returns:
+            True if email was sent successfully
+        """
+        email_integration = self._get_email_integration()
+        if email_integration is None:
+            logger.debug("No email integration configured, skipping email send")
+            return False
+
+        if not invoice.customer_email:
+            return False
+
+        # Build HTML body
+        html_body = self._build_reminder_html(
+            invoice=invoice,
+            text_body=text_body,
+            level=level,
+        )
+
+        # Create recipient
+        from aragora.integrations.email import EmailRecipient
+
+        recipient = EmailRecipient(
+            email=invoice.customer_email,
+            name=invoice.customer_name,
+        )
+
+        # Send email
+        try:
+            success = await email_integration._send_email(
+                recipient=recipient,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body,
+            )
+            return success
+        except Exception as e:
+            logger.error(f"Error sending reminder email: {e}")
+            return False
+
+    def _build_reminder_html(
+        self,
+        invoice: ARInvoice,
+        text_body: str,
+        level: ReminderLevel,
+    ) -> str:
+        """Build HTML email for payment reminder."""
+        # Color coding based on urgency level
+        level_colors = {
+            ReminderLevel.FRIENDLY: "#4CAF50",  # Green
+            ReminderLevel.FIRM: "#FF9800",  # Orange
+            ReminderLevel.URGENT: "#f44336",  # Red
+            ReminderLevel.FINAL: "#9C27B0",  # Purple
+        }
+        header_color = level_colors.get(level, "#4CAF50")
+
+        level_titles = {
+            ReminderLevel.FRIENDLY: "Payment Reminder",
+            ReminderLevel.FIRM: "Payment Past Due",
+            ReminderLevel.URGENT: "Urgent: Payment Required",
+            ReminderLevel.FINAL: "Final Notice",
+        }
+        header_title = level_titles.get(level, "Payment Reminder")
+
+        # Convert text body to HTML paragraphs
+        body_html = "<br>".join(text_body.split("\n"))
+
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: {header_color}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .content {{ background: #f9f9f9; padding: 20px; border: 1px solid #e0e0e0; }}
+                .footer {{ background: #333; color: #999; padding: 15px; text-align: center; font-size: 12px; border-radius: 0 0 8px 8px; }}
+                .invoice-details {{ background: #fff; border: 1px solid #e0e0e0; padding: 15px; margin: 15px 0; border-radius: 4px; }}
+                .detail-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }}
+                .detail-row:last-child {{ border-bottom: none; }}
+                .detail-label {{ color: #666; }}
+                .detail-value {{ font-weight: bold; }}
+                .amount {{ font-size: 24px; color: {header_color}; font-weight: bold; }}
+                .button {{ display: inline-block; background: {header_color}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin: 15px 0; }}
+                .message {{ white-space: pre-line; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>{header_title}</h1>
+                </div>
+                <div class="content">
+                    <div class="invoice-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Invoice Number</span>
+                            <span class="detail-value">{invoice.invoice_number}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Due Date</span>
+                            <span class="detail-value">{invoice.due_date.strftime("%B %d, %Y") if invoice.due_date else "N/A"}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Days Overdue</span>
+                            <span class="detail-value">{invoice.days_overdue} days</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Amount Due</span>
+                            <span class="amount">${float(invoice.balance):,.2f}</span>
+                        </div>
+                    </div>
+
+                    <div class="message">
+                        {body_html}
+                    </div>
+
+                    <div style="text-align: center;">
+                        <a href="mailto:payments@{self.company_name.lower().replace(' ', '')}.com?subject=Payment for {invoice.invoice_number}" class="button">
+                            Contact Us About Payment
+                        </a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>{self.company_name}</p>
+                    <p>This is an automated payment reminder.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
 
     async def track_aging(self) -> AgingReport:
         """
@@ -795,3 +1165,80 @@ class ARAutomation:
             "remindersSent": len(self._reminder_history),
             "customerCount": len(self._by_customer),
         }
+
+    async def send_bulk_reminders(
+        self,
+        min_days_overdue: int = 1,
+        max_reminders_per_invoice: int = 4,
+        min_days_between_reminders: int = 7,
+    ) -> Dict[str, Any]:
+        """
+        Send payment reminders for all overdue invoices.
+
+        Args:
+            min_days_overdue: Minimum days overdue to trigger reminder
+            max_reminders_per_invoice: Maximum reminders to send per invoice
+            min_days_between_reminders: Minimum days between reminders
+
+        Returns:
+            Summary of reminders sent
+        """
+        sent = 0
+        skipped = 0
+        failed = 0
+        results: List[Dict[str, Any]] = []
+
+        for invoice in self._invoices.values():
+            # Skip paid or non-overdue invoices
+            if invoice.status == InvoiceStatus.PAID or invoice.balance <= 0:
+                continue
+
+            if invoice.days_overdue < min_days_overdue:
+                continue
+
+            # Check reminder limit
+            if invoice.reminder_count >= max_reminders_per_invoice:
+                skipped += 1
+                continue
+
+            # Check time since last reminder
+            if invoice.last_reminder:
+                days_since = (datetime.now() - invoice.last_reminder).days
+                if days_since < min_days_between_reminders:
+                    skipped += 1
+                    continue
+
+            # Send reminder
+            reminder = await self.send_payment_reminder(invoice.id)
+            if reminder:
+                if reminder.get("emailSent"):
+                    sent += 1
+                else:
+                    failed += 1
+                results.append(reminder)
+            else:
+                failed += 1
+
+        logger.info(
+            f"Bulk reminders complete: {sent} sent, {skipped} skipped, {failed} failed"
+        )
+
+        return {
+            "sent": sent,
+            "skipped": skipped,
+            "failed": failed,
+            "reminders": results,
+        }
+
+    async def close(self) -> None:
+        """Close resources (email integration session)."""
+        if self._email is not None:
+            await self._email.close()
+
+    async def __aenter__(self) -> "ARAutomation":
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit."""
+        await self.close()
