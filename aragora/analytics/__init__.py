@@ -29,6 +29,17 @@ from .dashboard import (
     DashboardSummary,
     get_analytics_dashboard,
 )
+from .debate_analytics import (
+    DebateAnalytics,
+    DebateTimeGranularity,
+    DebateMetricType,
+    DebateStats,
+    AgentPerformance,
+    UsageTrendPoint,
+    CostBreakdown,
+    DebateDashboardSummary,
+    get_debate_analytics,
+)
 
 __all__ = [
     "AnalyticsDashboard",
@@ -42,4 +53,14 @@ __all__ = [
     "RiskHeatmapCell",
     "DashboardSummary",
     "get_analytics_dashboard",
+    # Debate Analytics
+    "DebateAnalytics",
+    "DebateTimeGranularity",
+    "DebateMetricType",
+    "DebateStats",
+    "AgentPerformance",
+    "UsageTrendPoint",
+    "CostBreakdown",
+    "DebateDashboardSummary",
+    "get_debate_analytics",
 ]
