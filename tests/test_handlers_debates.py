@@ -172,7 +172,7 @@ class TestListDebatesEndpoint:
 
     def test_list_returns_debates(self, debates_handler):
         """Should return list of debates."""
-        result = debates_handler.handle("/api/debates", {}, None)
+        result = debates_handler.handle("/api/v1/debates", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -183,14 +183,14 @@ class TestListDebatesEndpoint:
 
     def test_list_respects_limit(self, debates_handler, mock_storage):
         """Should respect limit parameter."""
-        result = debates_handler.handle("/api/debates", {"limit": "10"}, None)
+        result = debates_handler.handle("/api/v1/debates", {"limit": "10"}, None)
 
         assert result.status_code == 200
         mock_storage.list_recent.assert_called_with(limit=10, org_id=None)
 
     def test_list_caps_limit_at_100(self, debates_handler, mock_storage):
         """Should cap limit at 100."""
-        result = debates_handler.handle("/api/debates", {"limit": "500"}, None)
+        result = debates_handler.handle("/api/v1/debates", {"limit": "500"}, None)
 
         assert result.status_code == 200
         mock_storage.list_recent.assert_called_with(limit=100, org_id=None)
@@ -198,7 +198,7 @@ class TestListDebatesEndpoint:
     def test_list_unavailable_returns_503(self):
         """Should return 503 when storage not available."""
         handler = DebatesHandler({})
-        result = handler.handle("/api/debates", {}, None)
+        result = handler.handle("/api/v1/debates", {}, None)
 
         assert result.status_code == 503
         data = json.loads(result.body)
@@ -215,7 +215,7 @@ class TestGetDebateEndpoint:
 
     def test_get_debate_returns_data(self, debates_handler):
         """Should return debate data."""
-        result = debates_handler.handle("/api/debates/ai-safety-debate", {}, None)
+        result = debates_handler.handle("/api/v1/debates/ai-safety-debate", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -224,7 +224,7 @@ class TestGetDebateEndpoint:
 
     def test_get_debate_slug_pattern(self, debates_handler):
         """Should work with /api/debates/slug/{slug} pattern."""
-        result = debates_handler.handle("/api/debates/slug/ai-safety-debate", {}, None)
+        result = debates_handler.handle("/api/v1/debates/slug/ai-safety-debate", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -234,7 +234,7 @@ class TestGetDebateEndpoint:
         """Should return 404 for non-existent debate."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent", {}, None)
 
         assert result.status_code == 404
         data = json.loads(result.body)
@@ -243,7 +243,7 @@ class TestGetDebateEndpoint:
     def test_get_debate_unavailable_returns_503(self):
         """Should return 503 when storage not available."""
         handler = DebatesHandler({})
-        result = handler.handle("/api/debates/ai-safety-debate", {}, None)
+        result = handler.handle("/api/v1/debates/ai-safety-debate", {}, None)
 
         assert result.status_code == 503
 
@@ -258,7 +258,7 @@ class TestExportDebateEndpoint:
 
     def test_export_json_returns_debate(self, debates_handler):
         """Should export debate as JSON."""
-        result = debates_handler.handle("/api/debates/debate-001/export/json", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/export/json", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -266,7 +266,7 @@ class TestExportDebateEndpoint:
 
     def test_export_csv_returns_csv(self, debates_handler):
         """Should export debate as CSV."""
-        result = debates_handler.handle("/api/debates/debate-001/export/csv", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/export/csv", {}, None)
 
         assert result.status_code == 200
         assert b"," in result.body  # CSV content
@@ -275,7 +275,7 @@ class TestExportDebateEndpoint:
     def test_export_csv_messages_table(self, debates_handler):
         """Should export messages table as CSV."""
         result = debates_handler.handle(
-            "/api/debates/debate-001/export/csv", {"table": "messages"}, None
+            "/api/v1/debates/debate-001/export/csv", {"table": "messages"}, None
         )
 
         assert result.status_code == 200
@@ -286,7 +286,7 @@ class TestExportDebateEndpoint:
     def test_export_csv_critiques_table(self, debates_handler):
         """Should export critiques table as CSV."""
         result = debates_handler.handle(
-            "/api/debates/debate-001/export/csv", {"table": "critiques"}, None
+            "/api/v1/debates/debate-001/export/csv", {"table": "critiques"}, None
         )
 
         assert result.status_code == 200
@@ -296,7 +296,7 @@ class TestExportDebateEndpoint:
     def test_export_csv_votes_table(self, debates_handler):
         """Should export votes table as CSV."""
         result = debates_handler.handle(
-            "/api/debates/debate-001/export/csv", {"table": "votes"}, None
+            "/api/v1/debates/debate-001/export/csv", {"table": "votes"}, None
         )
 
         assert result.status_code == 200
@@ -305,7 +305,7 @@ class TestExportDebateEndpoint:
 
     def test_export_html_returns_html(self, debates_handler):
         """Should export debate as HTML."""
-        result = debates_handler.handle("/api/debates/debate-001/export/html", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/export/html", {}, None)
 
         assert result.status_code == 200
         content = result.body.decode("utf-8")
@@ -315,7 +315,7 @@ class TestExportDebateEndpoint:
 
     def test_export_invalid_format_returns_400(self, debates_handler):
         """Should return 400 for invalid export format."""
-        result = debates_handler.handle("/api/debates/debate-001/export/xml", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/export/xml", {}, None)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -325,13 +325,13 @@ class TestExportDebateEndpoint:
         """Should return 404 when debate not found."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent/export/json", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent/export/json", {}, None)
 
         assert result.status_code == 404
 
     def test_export_invalid_id_returns_400(self, debates_handler):
         """Should return 400 for invalid debate ID."""
-        result = debates_handler.handle("/api/debates/../../../etc/export/json", {}, None)
+        result = debates_handler.handle("/api/v1/debates/../../../etc/export/json", {}, None)
 
         assert result.status_code == 400
 
@@ -346,7 +346,7 @@ class TestImpasseEndpoint:
 
     def test_impasse_returns_structure(self, debates_handler):
         """Should return impasse analysis structure."""
-        result = debates_handler.handle("/api/debates/debate-001/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/impasse", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -356,7 +356,7 @@ class TestImpasseEndpoint:
 
     def test_impasse_detects_no_impasse(self, debates_handler):
         """Should detect no impasse for converged debate."""
-        result = debates_handler.handle("/api/debates/debate-001/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/impasse", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -375,7 +375,7 @@ class TestImpasseEndpoint:
             ],
         }
 
-        result = debates_handler.handle("/api/debates/stuck-debate/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/stuck-debate/impasse", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -385,14 +385,14 @@ class TestImpasseEndpoint:
         """Should return 404 when debate not found."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent/impasse", {}, None)
 
         assert result.status_code == 404
 
     def test_impasse_unavailable_returns_503(self):
         """Should return 503 when storage not available."""
         handler = DebatesHandler({})
-        result = handler.handle("/api/debates/debate-001/impasse", {}, None)
+        result = handler.handle("/api/v1/debates/debate-001/impasse", {}, None)
 
         assert result.status_code == 503
 
@@ -407,7 +407,7 @@ class TestConvergenceEndpoint:
 
     def test_convergence_returns_structure(self, debates_handler):
         """Should return convergence status structure."""
-        result = debates_handler.handle("/api/debates/debate-001/convergence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/convergence", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -419,7 +419,7 @@ class TestConvergenceEndpoint:
 
     def test_convergence_shows_converged_status(self, debates_handler):
         """Should show converged status for converged debate."""
-        result = debates_handler.handle("/api/debates/debate-001/convergence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/convergence", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -431,14 +431,14 @@ class TestConvergenceEndpoint:
         """Should return 404 when debate not found."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent/convergence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent/convergence", {}, None)
 
         assert result.status_code == 404
 
     def test_convergence_unavailable_returns_503(self):
         """Should return 503 when storage not available."""
         handler = DebatesHandler({})
-        result = handler.handle("/api/debates/debate-001/convergence", {}, None)
+        result = handler.handle("/api/v1/debates/debate-001/convergence", {}, None)
 
         assert result.status_code == 503
 
@@ -453,7 +453,7 @@ class TestCitationsEndpoint:
 
     def test_citations_no_citations(self, debates_handler):
         """Should return no citations when not available."""
-        result = debates_handler.handle("/api/debates/debate-001/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/citations", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -473,7 +473,7 @@ class TestCitationsEndpoint:
             },
         }
 
-        result = debates_handler.handle("/api/debates/grounded-debate/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/grounded-debate/citations", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -497,7 +497,7 @@ class TestCitationsEndpoint:
             ),
         }
 
-        result = debates_handler.handle("/api/debates/json-grounded-debate/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/json-grounded-debate/citations", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -508,14 +508,14 @@ class TestCitationsEndpoint:
         """Should return 404 when debate not found."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent/citations", {}, None)
 
         assert result.status_code == 404
 
     def test_citations_unavailable_returns_503(self):
         """Should return 503 when storage not available."""
         handler = DebatesHandler({})
-        result = handler.handle("/api/debates/debate-001/citations", {}, None)
+        result = handler.handle("/api/v1/debates/debate-001/citations", {}, None)
 
         assert result.status_code == 503
 
@@ -530,22 +530,22 @@ class TestDebatesSecurity:
 
     def test_path_traversal_blocked_in_export(self, debates_handler):
         """Should block path traversal in export."""
-        result = debates_handler.handle("/api/debates/../../../etc/export/json", {}, None)
+        result = debates_handler.handle("/api/v1/debates/../../../etc/export/json", {}, None)
         assert result.status_code == 400
 
     def test_path_traversal_blocked_in_impasse(self, debates_handler):
         """Should block path traversal in impasse."""
-        result = debates_handler.handle("/api/debates/../../../etc/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/../../../etc/impasse", {}, None)
         assert result.status_code == 400
 
     def test_path_traversal_blocked_in_convergence(self, debates_handler):
         """Should block path traversal in convergence."""
-        result = debates_handler.handle("/api/debates/../../../etc/convergence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/../../../etc/convergence", {}, None)
         assert result.status_code == 400
 
     def test_path_traversal_blocked_in_citations(self, debates_handler):
         """Should block path traversal in citations."""
-        result = debates_handler.handle("/api/debates/../../../etc/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/../../../etc/citations", {}, None)
         assert result.status_code == 400
 
     def test_sql_injection_blocked(self, debates_handler):
@@ -556,7 +556,7 @@ class TestDebatesSecurity:
         ]
 
         for dangerous_id in dangerous_ids:
-            result = debates_handler.handle(f"/api/debates/{dangerous_id}/impasse", {}, None)
+            result = debates_handler.handle(f"/api/v1/debates/{dangerous_id}/impasse", {}, None)
             assert result.status_code == 400, f"Should block: {dangerous_id}"
 
     def test_valid_slugs_accepted(self, debates_handler):
@@ -569,7 +569,7 @@ class TestDebatesSecurity:
         ]
 
         for slug in valid_slugs:
-            result = debates_handler.handle(f"/api/debates/{slug}", {}, None)
+            result = debates_handler.handle(f"/api/v1/debates/{slug}", {}, None)
             # Should not return 400 for valid slugs
             assert result.status_code != 400, f"Should accept: {slug}"
 
@@ -586,7 +586,7 @@ class TestDebatesErrorHandling:
         """Should return 500 on storage exceptions."""
         mock_storage.list_recent.side_effect = Exception("DB error")
 
-        result = debates_handler.handle("/api/debates", {}, None)
+        result = debates_handler.handle("/api/v1/debates", {}, None)
 
         assert result.status_code == 500
         data = json.loads(result.body)
@@ -598,7 +598,7 @@ class TestDebatesErrorHandling:
 
         mock_storage.get_debate.side_effect = StorageError("Export failed")
 
-        result = debates_handler.handle("/api/debates/debate-001/export/json", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/export/json", {}, None)
 
         assert result.status_code == 500
 
@@ -606,7 +606,7 @@ class TestDebatesErrorHandling:
         """Should return 500 on impasse detection exceptions."""
         mock_storage.get_debate.side_effect = Exception("Detection failed")
 
-        result = debates_handler.handle("/api/debates/debate-001/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/impasse", {}, None)
 
         assert result.status_code == 500
 
@@ -623,7 +623,7 @@ class TestDebatesEdgeCases:
         """Should handle empty debates list."""
         mock_storage.list_recent.return_value = []
 
-        result = debates_handler.handle("/api/debates", {}, None)
+        result = debates_handler.handle("/api/v1/debates", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -641,7 +641,7 @@ class TestDebatesEdgeCases:
             "consensus_reached": False,
         }
 
-        result = debates_handler.handle("/api/debates/empty-debate/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/empty-debate/impasse", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -662,7 +662,7 @@ class TestDebatesEdgeCases:
             "final_answer": "",
         }
 
-        result = debates_handler.handle("/api/debates/xss-test/export/html", {}, None)
+        result = debates_handler.handle("/api/v1/debates/xss-test/export/html", {}, None)
 
         assert result.status_code == 200
         content = result.body.decode("utf-8")
@@ -696,7 +696,7 @@ class TestCSVExportDetails:
         }
 
         result = debates_handler.handle(
-            "/api/debates/summary-test/export/csv", {"table": "summary"}, None
+            "/api/v1/debates/summary-test/export/csv", {"table": "summary"}, None
         )
 
         assert result.status_code == 200
@@ -723,7 +723,7 @@ class TestCSVExportDetails:
         }
 
         result = debates_handler.handle(
-            "/api/debates/msg-test/export/csv", {"table": "messages"}, None
+            "/api/v1/debates/msg-test/export/csv", {"table": "messages"}, None
         )
 
         assert result.status_code == 200
@@ -750,7 +750,7 @@ class TestCSVExportDetails:
         }
 
         result = debates_handler.handle(
-            "/api/debates/long-test/export/csv", {"table": "messages"}, None
+            "/api/v1/debates/long-test/export/csv", {"table": "messages"}, None
         )
 
         assert result.status_code == 200
@@ -769,7 +769,7 @@ class TestCSVExportDetails:
         }
 
         result = debates_handler.handle(
-            "/api/debates/fallback-test/export/csv", {"table": "invalid_table"}, None
+            "/api/v1/debates/fallback-test/export/csv", {"table": "invalid_table"}, None
         )
 
         assert result.status_code == 400
@@ -803,7 +803,7 @@ class TestCSVExportDetails:
         }
 
         result = debates_handler.handle(
-            "/api/debates/votes-test/export/csv", {"table": "votes"}, None
+            "/api/v1/debates/votes-test/export/csv", {"table": "votes"}, None
         )
 
         assert result.status_code == 200
@@ -833,7 +833,7 @@ class TestHTMLExportDetails:
             "final_answer": "Final answer here",
         }
 
-        result = debates_handler.handle("/api/debates/stats-test/export/html", {}, None)
+        result = debates_handler.handle("/api/v1/debates/stats-test/export/html", {}, None)
 
         assert result.status_code == 200
         content = result.body.decode("utf-8")
@@ -853,7 +853,7 @@ class TestHTMLExportDetails:
             "final_answer": "",
         }
 
-        result = debates_handler.handle("/api/debates/no-consensus-test/export/html", {}, None)
+        result = debates_handler.handle("/api/v1/debates/no-consensus-test/export/html", {}, None)
 
         assert result.status_code == 200
         content = result.body.decode("utf-8")
@@ -871,7 +871,7 @@ class TestHTMLExportDetails:
             "rounds_used": 1,
         }
 
-        result = debates_handler.handle("/api/debates/download-test/export/html", {}, None)
+        result = debates_handler.handle("/api/v1/debates/download-test/export/html", {}, None)
 
         assert result.status_code == 200
         assert "attachment" in result.headers["Content-Disposition"]
@@ -893,7 +893,7 @@ class TestConvergenceAdditional:
             "topic": "Unknown Status",
         }
 
-        result = debates_handler.handle("/api/debates/unknown-status/convergence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/unknown-status/convergence", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -909,7 +909,7 @@ class TestConvergenceAdditional:
             # Missing convergence_status and rounds_used
         }
 
-        result = debates_handler.handle("/api/debates/partial-data/convergence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/partial-data/convergence", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -936,7 +936,7 @@ class TestImpasseAdditional:
             ],
         }
 
-        result = debates_handler.handle("/api/debates/mixed-indicators/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/mixed-indicators/impasse", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -955,7 +955,7 @@ class TestImpasseAdditional:
             ],
         }
 
-        result = debates_handler.handle("/api/debates/low-severity/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/low-severity/impasse", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -977,7 +977,7 @@ class TestCitationsAdditional:
             "grounded_verdict": "not valid json {",
         }
 
-        result = debates_handler.handle("/api/debates/invalid-json/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/invalid-json/citations", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -990,7 +990,7 @@ class TestCitationsAdditional:
             "grounded_verdict": {},
         }
 
-        result = debates_handler.handle("/api/debates/empty-verdict/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/empty-verdict/citations", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -1008,7 +1008,7 @@ class TestEvidenceEndpoint:
 
     def test_evidence_no_evidence(self, debates_handler):
         """Should return no evidence when not available."""
-        result = debates_handler.handle("/api/debates/debate-001/evidence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/evidence", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -1032,7 +1032,7 @@ class TestEvidenceEndpoint:
             },
         }
 
-        result = debates_handler.handle("/api/debates/evidence-debate/evidence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/evidence-debate/evidence", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -1060,7 +1060,7 @@ class TestEvidenceEndpoint:
             ),
         }
 
-        result = debates_handler.handle("/api/debates/json-evidence/evidence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/json-evidence/evidence", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -1072,7 +1072,7 @@ class TestEvidenceEndpoint:
         """Should return 404 for nonexistent debate."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent/evidence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent/evidence", {}, None)
 
         assert result.status_code == 404
 
@@ -1084,7 +1084,7 @@ class TestEvidenceEndpoint:
             "grounded_verdict": "not valid json {",
         }
 
-        result = debates_handler.handle("/api/debates/invalid-evidence/evidence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/invalid-evidence/evidence", {}, None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -1102,19 +1102,19 @@ class TestPathExtraction:
 
     def test_extract_debate_id_valid(self, debates_handler):
         """Should extract valid debate ID."""
-        debate_id, err = debates_handler._extract_debate_id("/api/debates/debate-123/impasse")
+        debate_id, err = debates_handler._extract_debate_id("/api/v1/debates/debate-123/impasse")
         assert debate_id == "debate-123"
         assert err is None
 
     def test_extract_debate_id_invalid_path(self, debates_handler):
         """Should return error for invalid path."""
-        debate_id, err = debates_handler._extract_debate_id("/api/debates")
+        debate_id, err = debates_handler._extract_debate_id("/api/v1/debates")
         assert debate_id is None
         assert err is not None
 
     def test_extract_debate_id_path_traversal(self, debates_handler):
         """Should reject path traversal in ID."""
-        debate_id, err = debates_handler._extract_debate_id("/api/debates/../etc/impasse")
+        debate_id, err = debates_handler._extract_debate_id("/api/v1/debates/../etc/impasse")
         assert debate_id is None
         assert err is not None
 
@@ -1131,7 +1131,7 @@ class TestRouteHandlerEdgeCases:
         """Should handle reserved words in slug position."""
         # The handler has special handling to not treat 'impasse' as a slug
         mock_storage.get_debate.return_value = None
-        result = debates_handler.handle("/api/debates/impasse", {}, None)
+        result = debates_handler.handle("/api/v1/debates/impasse", {}, None)
         # Should return None or 404 since impasse is not a valid slug lookup
         assert result is None or result.status_code == 404
 
@@ -1139,7 +1139,7 @@ class TestRouteHandlerEdgeCases:
         """Should handle exception in get_debate."""
         mock_storage.get_debate.side_effect = Exception("DB connection lost")
 
-        result = debates_handler.handle("/api/debates/test-debate", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-debate", {}, None)
 
         assert result.status_code == 500
 
@@ -1147,7 +1147,7 @@ class TestRouteHandlerEdgeCases:
         """Should handle exception in convergence check."""
         mock_storage.get_debate.side_effect = Exception("Convergence check failed")
 
-        result = debates_handler.handle("/api/debates/debate-001/convergence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/convergence", {}, None)
 
         assert result.status_code == 500
 
@@ -1157,7 +1157,7 @@ class TestRouteHandlerEdgeCases:
 
         mock_storage.get_debate.side_effect = StorageError("Citations lookup failed")
 
-        result = debates_handler.handle("/api/debates/debate-001/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/citations", {}, None)
 
         assert result.status_code == 500
 
@@ -1177,7 +1177,9 @@ class TestForkDebateEndpoint:
         mock_storage.get_debate.return_value = original
         mock_storage.save_debate.return_value = True
 
-        result = debates_handler.handle("/api/debates/original-001/fork", {"from_round": "1"}, None)
+        result = debates_handler.handle(
+            "/api/v1/debates/original-001/fork", {"from_round": "1"}, None
+        )
 
         # Fork endpoint may not be implemented yet - check for valid response
         assert result is not None
@@ -1195,7 +1197,9 @@ class TestForkDebateEndpoint:
         }
         mock_storage.get_debate.return_value = original
 
-        result = debates_handler.handle("/api/debates/original-002/fork", {"from_round": "2"}, None)
+        result = debates_handler.handle(
+            "/api/v1/debates/original-002/fork", {"from_round": "2"}, None
+        )
 
         assert result is not None
 
@@ -1203,7 +1207,7 @@ class TestForkDebateEndpoint:
         """Fork with invalid round should return error."""
         mock_storage.get_debate.return_value = {"id": "test", "rounds": []}
 
-        result = debates_handler.handle("/api/debates/test/fork", {"from_round": "999"}, None)
+        result = debates_handler.handle("/api/v1/debates/test/fork", {"from_round": "999"}, None)
 
         # Should handle gracefully
         assert result is not None
@@ -1212,7 +1216,7 @@ class TestForkDebateEndpoint:
         """Fork of nonexistent debate should return 404."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent/fork", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent/fork", {}, None)
 
         assert result is None or result.status_code == 404
 
@@ -1222,7 +1226,7 @@ class TestForkDebateEndpoint:
         mock_storage.get_debate.return_value = original
         mock_storage.save_debate.return_value = True
 
-        result = debates_handler.handle("/api/debates/original/fork", {}, None)
+        result = debates_handler.handle("/api/v1/debates/original/fork", {}, None)
 
         assert result is not None
 
@@ -1231,7 +1235,7 @@ class TestForkDebateEndpoint:
         original = {"id": "parent-001", "rounds": []}
         mock_storage.get_debate.return_value = original
 
-        result = debates_handler.handle("/api/debates/parent-001/fork", {}, None)
+        result = debates_handler.handle("/api/v1/debates/parent-001/fork", {}, None)
 
         assert result is not None
 
@@ -1249,7 +1253,7 @@ class TestMetaCritiqueEndpoint:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle("/api/debates/debate-001/meta-critique", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/meta-critique", {}, None)
 
         # Meta-critique may not be implemented - check valid response
         assert result is not None
@@ -1259,7 +1263,7 @@ class TestMetaCritiqueEndpoint:
         """Meta-critique of nonexistent debate should return 404 or 503."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent/meta-critique", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent/meta-critique", {}, None)
 
         assert result is None or result.status_code in (404, 503)
 
@@ -1268,7 +1272,7 @@ class TestMetaCritiqueEndpoint:
         debate = {"id": "empty", "rounds": []}
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle("/api/debates/empty/meta-critique", {}, None)
+        result = debates_handler.handle("/api/v1/debates/empty/meta-critique", {}, None)
 
         assert result is not None
 
@@ -1284,7 +1288,7 @@ class TestGraphStatsEndpoint:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle("/api/debates/debate-001/graph/stats", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/graph/stats", {}, None)
 
         # May not be implemented - check valid response
         assert result is not None
@@ -1294,7 +1298,7 @@ class TestGraphStatsEndpoint:
         """Graph stats of nonexistent debate should return 404 or 503."""
         mock_storage.get_debate.return_value = None
 
-        result = debates_handler.handle("/api/debates/nonexistent/graph/stats", {}, None)
+        result = debates_handler.handle("/api/v1/debates/nonexistent/graph/stats", {}, None)
 
         assert result is None or result.status_code in (404, 503)
 
@@ -1308,7 +1312,7 @@ class TestGraphStatsEndpoint:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle("/api/debates/debate-001/graph/stats", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/graph/stats", {}, None)
 
         assert result is not None
 
@@ -1320,7 +1324,7 @@ class TestGraphStatsEndpoint:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle("/api/debates/debate-001/graph/stats", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/graph/stats", {}, None)
 
         assert result is not None
 
@@ -1344,7 +1348,7 @@ class TestBuildGraphFromReplay:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle("/api/debates/debate-001/graph", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-001/graph", {}, None)
 
         # Graph endpoint may not be implemented
         assert result is not None
@@ -1366,7 +1370,7 @@ class TestBuildGraphFromReplay:
         }
         mock_storage.get_debate.return_value = debate
 
-        result = debates_handler.handle("/api/debates/debate-002/graph", {}, None)
+        result = debates_handler.handle("/api/v1/debates/debate-002/graph", {}, None)
 
         assert result is not None
 
@@ -1425,7 +1429,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
-        result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/export/json", {}, None)
 
         assert result.status_code == 404
         data = json.loads(result.body)
@@ -1437,7 +1441,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = StorageError("Storage failure")
 
-        result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/export/json", {}, None)
 
         assert result.status_code == 500
         data = json.loads(result.body)
@@ -1449,7 +1453,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = DatabaseError("Database error")
 
-        result = debates_handler.handle("/api/debates/test-id/export/json", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/export/json", {}, None)
 
         assert result.status_code == 500
         data = json.loads(result.body)
@@ -1461,7 +1465,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
-        result = debates_handler.handle("/api/debates/test-id/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/citations", {}, None)
 
         assert result.status_code == 404
         data = json.loads(result.body)
@@ -1473,7 +1477,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
-        result = debates_handler.handle("/api/debates/test-id/citations", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/citations", {}, None)
 
         assert result.status_code == 500
         data = json.loads(result.body)
@@ -1485,7 +1489,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
-        result = debates_handler.handle("/api/debates/test-id/evidence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/evidence", {}, None)
 
         assert result.status_code == 404
         data = json.loads(result.body)
@@ -1497,7 +1501,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
-        result = debates_handler.handle("/api/debates/test-id/evidence", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/evidence", {}, None)
 
         assert result.status_code == 500
         data = json.loads(result.body)
@@ -1509,7 +1513,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
-        result = debates_handler.handle("/api/debates/test-id/messages", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/messages", {}, None)
 
         assert result.status_code == 404
         data = json.loads(result.body)
@@ -1521,7 +1525,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
-        result = debates_handler.handle("/api/debates/test-id/messages", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/messages", {}, None)
 
         assert result.status_code == 500
         data = json.loads(result.body)
@@ -1533,7 +1537,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
-        result = debates_handler.handle("/api/debates/test-id/meta-critique", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/meta-critique", {}, None)
 
         # May return 404 or 503 if nomic dir not configured
         if result is not None:
@@ -1545,7 +1549,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
-        result = debates_handler.handle("/api/debates/test-id/meta-critique", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/meta-critique", {}, None)
 
         if result is not None:
             # 503 is valid if nomic dir not configured (checked first)
@@ -1557,7 +1561,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
-        result = debates_handler.handle("/api/debates/test-id/graph/stats", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/graph/stats", {}, None)
 
         if result is not None:
             # 503 if nomic dir not configured
@@ -1569,7 +1573,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
-        result = debates_handler.handle("/api/debates/test-id/graph/stats", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/graph/stats", {}, None)
 
         if result is not None:
             # 503 is valid if nomic dir not configured
@@ -1581,7 +1585,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = RecordNotFoundError("debates", "test-id")
 
-        result = debates_handler.handle("/api/debates/test-id/graph", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/graph", {}, None)
 
         if result is not None:
             assert result.status_code == 404
@@ -1592,7 +1596,7 @@ class TestSpecificExceptionHandling:
 
         mock_storage.get_debate.side_effect = StorageError("Storage unavailable")
 
-        result = debates_handler.handle("/api/debates/test-id/graph", {}, None)
+        result = debates_handler.handle("/api/v1/debates/test-id/graph", {}, None)
 
         if result is not None:
             assert result.status_code == 500
