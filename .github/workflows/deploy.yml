@@ -388,6 +388,7 @@ jobs:
             echo 'Environment="OAUTH_ERROR_URL=https://aragora.ai/auth/error"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="OAUTH_DEBUG=1"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo "Environment=\"ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}\"" | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo "Environment=\"OAUTH_JWT_SECRET=${{ secrets.OAUTH_JWT_SECRET }}\"" | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             sudo systemctl daemon-reload
 
             # Configure nginx for WebSocket routing if nginx is installed (non-fatal)
@@ -650,6 +651,7 @@ jobs:
             echo 'Environment="OAUTH_ERROR_URL=https://aragora.ai/auth/error"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="OAUTH_DEBUG=1"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo "Environment=\"ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}\"" | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo "Environment=\"OAUTH_JWT_SECRET=${{ secrets.OAUTH_JWT_SECRET }}\"" | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             sudo systemctl daemon-reload
 
             sudo systemctl stop aragora 2>/dev/null || true
