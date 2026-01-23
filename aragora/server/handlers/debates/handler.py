@@ -349,15 +349,17 @@ class DebatesHandler(
             return result
 
         # Export route (special handling for format/table validation)
+        # URL: /api/v1/debates/{id}/export/{format}
+        # Parts: ['', 'api', 'v1', 'debates', '{id}', 'export', '{format}']
         if "/export/" in path:
             parts = path.split("/")
-            if len(parts) >= 6:
-                debate_id = parts[3]
+            if len(parts) >= 7:
+                debate_id = parts[4]  # Index 4 for v1 routes
                 # Validate debate ID for export
                 is_valid, err = validate_debate_id(debate_id)
                 if not is_valid:
                     return error_response(err, 400)
-                export_format = parts[5]
+                export_format = parts[6]  # Index 6 for v1 routes
                 # Validate export format
                 if export_format not in self.ALLOWED_EXPORT_FORMATS:
                     return error_response(

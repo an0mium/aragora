@@ -66,6 +66,18 @@ from aragora.core.decision_cache import (
     reset_decision_cache,
 )
 
+# Import routing rules
+from aragora.core.routing_rules import (
+    Action,
+    ActionType,
+    Condition,
+    ConditionOperator,
+    RoutingRule,
+    RoutingRulesEngine,
+    RuleEvaluationResult,
+    RULE_TEMPLATES,
+)
+
 __all__ = [
     # Core types
     "AgentRole",
@@ -102,6 +114,15 @@ __all__ = [
     "DecisionCache",
     "get_decision_cache",
     "reset_decision_cache",
+    # Routing rules
+    "Action",
+    "ActionType",
+    "Condition",
+    "ConditionOperator",
+    "RoutingRule",
+    "RoutingRulesEngine",
+    "RuleEvaluationResult",
+    "RULE_TEMPLATES",
 ]
 
 

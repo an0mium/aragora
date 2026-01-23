@@ -196,3 +196,43 @@ export {
   type DeliveryLogEntry,
   type DeliveryStatus,
 } from './OutboundChannelsPanel';
+
+// Knowledge Flow Widget
+export {
+  KnowledgeFlowWidget,
+  IngestionStatusCard,
+  KnowledgeAgeHistogram,
+  type KnowledgeFlowWidgetProps,
+  type KnowledgeFlowStats,
+  type RefreshSchedule,
+  type IngestionStatusCardProps,
+  type ConnectorIngestionStatus,
+  type IngestionStatus,
+  type KnowledgeAgeHistogramProps,
+  type AgeDistribution,
+} from './KnowledgeFlowWidget';
+
+// Routing Rules Builder
+export {
+  RoutingRulesBuilder,
+  ConditionBuilder,
+  ConditionListBuilder,
+  ActionBuilder,
+  ActionListBuilder,
+  CONDITION_FIELDS,
+  OPERATORS_BY_TYPE,
+  ACTION_CONFIGS,
+  type RoutingRulesBuilderProps,
+  type RulesTab,
+  type ConditionBuilderProps,
+  type ConditionListBuilderProps,
+  type ActionBuilderProps,
+  type ActionListBuilderProps,
+  type RoutingRule,
+  type Condition as RoutingCondition,
+  type ConditionOperator,
+  type Action as RoutingAction,
+  type ActionType as RoutingActionType,
+  type RuleEvaluationResult,
+  type EvaluateResponse,
+} from './RoutingRulesBuilder';

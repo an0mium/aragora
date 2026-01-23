@@ -73,6 +73,7 @@ from .cloud_storage import (
 )
 from .gmail_ingest import GmailIngestHandler
 from .gmail_query import GmailQueryHandler
+from .routing_rules import RoutingRulesHandler, routing_rules_handler
 
 __all__ = [
     "AudioHandler",
@@ -141,4 +142,6 @@ __all__ = [
     "cloud_download_file",
     "GmailIngestHandler",
     "GmailQueryHandler",
+    "RoutingRulesHandler",
+    "routing_rules_handler",
 ]

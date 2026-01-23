@@ -36,6 +36,39 @@ interface Agent {
   provider: string;
   capabilities?: string[];
   status: string;
+  model?: string;
+  current_task_id?: string;
+  last_heartbeat?: string;
+}
+
+interface ControlPlaneTask {
+  id: string;
+  task_type: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  priority: string;
+  assigned_agent_id?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  result?: unknown;
+  error?: string;
+}
+
+interface ControlPlaneStatus {
+  agents_online: number;
+  agents_total: number;
+  tasks_pending: number;
+  tasks_running: number;
+  tasks_completed_today: number;
+  scheduler_status: string;
+  uptime_seconds: number;
+}
+
+interface ResourceUtilization {
+  cpu_percent: number;
+  memory_percent: number;
+  active_connections: number;
+  requests_per_minute: number;
 }
 
 class AragoraClient {

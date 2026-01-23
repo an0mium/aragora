@@ -152,7 +152,8 @@ class TestDeliberationTemplates:
         template = TEMPLATES["code_review"]
         assert template.name == "code_review"
         assert "anthropic-api" in template.default_agents
-        assert template.output_format == OutputFormat.GITHUB_REVIEW
+        # Compare by value since templates may use enums from different modules
+        assert template.output_format.value == "github_review"
         assert "security" in template.personas
 
     def test_template_to_dict(self):

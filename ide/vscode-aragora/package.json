@@ -47,6 +47,45 @@
         "command": "aragora.configure",
         "title": "Aragora: Configure API",
         "category": "Aragora"
+      },
+      {
+        "command": "aragora.submitTask",
+        "title": "Aragora: Submit Task to Control Plane",
+        "category": "Aragora",
+        "icon": "$(play)"
+      },
+      {
+        "command": "aragora.viewAgentHealth",
+        "title": "Aragora: View Agent Health",
+        "category": "Aragora",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "aragora.showControlPlane",
+        "title": "Aragora: Open Control Plane",
+        "category": "Aragora",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "aragora.refreshFleet",
+        "title": "Aragora: Refresh Fleet Status",
+        "category": "Aragora",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aragora.refreshControlPlane",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aragora.registerAgent",
+        "title": "Aragora: Register Agent",
+        "category": "Aragora"
+      },
+      {
+        "command": "aragora.cancelTask",
+        "title": "Aragora: Cancel Task",
+        "category": "Aragora"
       }
     ],
     "configuration": {
@@ -86,21 +125,72 @@
     "views": {
       "aragora": [
         {
+          "id": "aragora.controlPlane",
+          "name": "Control Plane"
+        },
+        {
+          "id": "aragora.activeDeliberations",
+          "name": "Active Deliberations"
+        },
+        {
           "id": "aragora.debates",
           "name": "Recent Debates"
         },
         {
           "id": "aragora.agents",
           "name": "Agents"
+        },
+        {
+          "id": "aragora.tasks",
+          "name": "Task Queue"
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "aragora.controlPlane",
+        "contents": "Connect to Aragora Control Plane to manage multi-agent deliberation.\n[Configure API](command:aragora.configure)\n[Open Control Plane](command:aragora.showControlPlane)"
+      },
+      {
+        "view": "aragora.activeDeliberations",
+        "contents": "No active deliberations.\n[Start New Debate](command:aragora.runDebate)"
+      }
+    ],
     "menus": {
       "editor/context": [
         {
           "command": "aragora.runGauntlet",
           "when": "editorHasSelection",
           "group": "aragora"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "aragora.refreshControlPlane",
+          "when": "view == aragora.controlPlane",
+          "group": "navigation"
+        },
+        {
+          "command": "aragora.submitTask",
+          "when": "view == aragora.tasks",
+          "group": "navigation"
+        },
+        {
+          "command": "aragora.runDebate",
+          "when": "view == aragora.debates || view == aragora.activeDeliberations",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "aragora.viewAgentHealth",
+          "when": "viewItem == agent",
+          "group": "inline"
+        },
+        {
+          "command": "aragora.cancelTask",
+          "when": "viewItem == task",
+          "group": "inline"
         }
       ]
     }

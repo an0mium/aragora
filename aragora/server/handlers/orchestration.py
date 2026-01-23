@@ -248,88 +248,75 @@ class OrchestrationResult:
 
 
 # =============================================================================
-# Deliberation Templates
+# Deliberation Templates - Import from templates module
 # =============================================================================
 
+# Import from the dedicated templates module for extensibility
+try:
+    from aragora.deliberation.templates import (
+        DeliberationTemplate,
+        BUILTIN_TEMPLATES,
+        list_templates as _list_templates,
+        get_template as _get_template,
+    )
 
-@dataclass
-class DeliberationTemplate:
-    """Pre-built deliberation pattern."""
+    # Use the expanded template set from the templates module
+    TEMPLATES = BUILTIN_TEMPLATES
+except ImportError:
+    # Fallback if templates module not available
+    @dataclass
+    class DeliberationTemplate:
+        """Pre-built deliberation pattern (fallback)."""
 
-    name: str
-    description: str
-    default_agents: List[str] = field(default_factory=list)
-    default_knowledge_sources: List[str] = field(default_factory=list)
-    output_format: OutputFormat = OutputFormat.STANDARD
-    consensus_threshold: float = 0.7
-    max_rounds: int = 5
-    personas: List[str] = field(default_factory=list)
+        name: str
+        description: str
+        default_agents: List[str] = field(default_factory=list)
+        default_knowledge_sources: List[str] = field(default_factory=list)
+        output_format: OutputFormat = OutputFormat.STANDARD
+        consensus_threshold: float = 0.7
+        max_rounds: int = 5
+        personas: List[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "default_agents": self.default_agents,
-            "default_knowledge_sources": self.default_knowledge_sources,
-            "output_format": self.output_format.value,
-            "consensus_threshold": self.consensus_threshold,
-            "max_rounds": self.max_rounds,
-            "personas": self.personas,
-        }
+        def to_dict(self) -> Dict[str, Any]:
+            """Convert to dictionary."""
+            return {
+                "name": self.name,
+                "description": self.description,
+                "default_agents": self.default_agents,
+                "default_knowledge_sources": self.default_knowledge_sources,
+                "output_format": self.output_format.value,
+                "consensus_threshold": self.consensus_threshold,
+                "max_rounds": self.max_rounds,
+                "personas": self.personas,
+            }
 
+    # Fallback templates
+    TEMPLATES: Dict[str, DeliberationTemplate] = {
+        "code_review": DeliberationTemplate(
+            name="code_review",
+            description="Multi-agent code review with security focus",
+            default_agents=["anthropic-api", "openai-api", "codestral"],
+            default_knowledge_sources=["github:pr"],
+            output_format=OutputFormat.GITHUB_REVIEW,
+            consensus_threshold=0.7,
+            max_rounds=3,
+            personas=["security", "performance", "maintainability"],
+        ),
+        "quick_decision": DeliberationTemplate(
+            name="quick_decision",
+            description="Fast decision with minimal agents",
+            default_agents=["anthropic-api", "openai-api"],
+            output_format=OutputFormat.SUMMARY,
+            consensus_threshold=0.5,
+            max_rounds=2,
+        ),
+    }
 
-# Built-in templates
-TEMPLATES: Dict[str, DeliberationTemplate] = {
-    "code_review": DeliberationTemplate(
-        name="code_review",
-        description="Multi-agent code review with security focus",
-        default_agents=["anthropic-api", "openai-api", "codestral"],
-        default_knowledge_sources=["github:pr"],
-        output_format=OutputFormat.GITHUB_REVIEW,
-        consensus_threshold=0.7,
-        max_rounds=3,
-        personas=["security", "performance", "maintainability"],
-    ),
-    "contract_review": DeliberationTemplate(
-        name="contract_review",
-        description="Legal contract analysis with risk assessment",
-        default_agents=["anthropic-api", "openai-api", "gemini"],
-        default_knowledge_sources=["confluence", "sharepoint"],
-        output_format=OutputFormat.DECISION_RECEIPT,
-        consensus_threshold=0.8,
-        max_rounds=5,
-        personas=["legal", "compliance", "risk"],
-    ),
-    "architecture_decision": DeliberationTemplate(
-        name="architecture_decision",
-        description="Technical architecture decision with trade-off analysis",
-        default_agents=["anthropic-api", "openai-api", "gemini", "mistral", "deepseek"],
-        default_knowledge_sources=["confluence", "jira", "github"],
-        output_format=OutputFormat.DECISION_RECEIPT,
-        consensus_threshold=0.6,
-        max_rounds=5,
-        personas=["architect", "security", "scalability", "cost"],
-    ),
-    "compliance_check": DeliberationTemplate(
-        name="compliance_check",
-        description="Regulatory compliance assessment",
-        default_agents=["anthropic-api", "openai-api"],
-        default_knowledge_sources=["policy_docs"],
-        output_format=OutputFormat.DECISION_RECEIPT,
-        consensus_threshold=0.9,
-        max_rounds=3,
-        personas=["sox", "gdpr", "hipaa"],
-    ),
-    "quick_decision": DeliberationTemplate(
-        name="quick_decision",
-        description="Fast decision with minimal agents",
-        default_agents=["anthropic-api", "openai-api"],
-        output_format=OutputFormat.SUMMARY,
-        consensus_threshold=0.5,
-        max_rounds=2,
-    ),
-}
+    def _list_templates(**kwargs):
+        return list(TEMPLATES.values())
+
+    def _get_template(name):
+        return TEMPLATES.get(name)
 
 
 # =============================================================================

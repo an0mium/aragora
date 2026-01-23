@@ -208,6 +208,26 @@ class ControlPlaneHandler(BaseHandler):
         if path == "/api/control-plane/metrics":
             return self._handle_get_metrics()
 
+        # /api/control-plane/notifications
+        if path == "/api/control-plane/notifications":
+            return self._handle_get_notifications(query_params)
+
+        # /api/control-plane/notifications/stats
+        if path == "/api/control-plane/notifications/stats":
+            return self._handle_get_notification_stats()
+
+        # /api/control-plane/audit
+        if path == "/api/control-plane/audit":
+            return self._handle_get_audit_logs(query_params, handler)
+
+        # /api/control-plane/audit/stats
+        if path == "/api/control-plane/audit/stats":
+            return self._handle_get_audit_stats()
+
+        # /api/control-plane/audit/verify
+        if path == "/api/control-plane/audit/verify":
+            return self._handle_verify_audit_integrity(query_params, handler)
+
         return None
 
     def _handle_list_agents(self, query_params: Dict[str, Any]) -> HandlerResult:
@@ -1168,3 +1188,208 @@ class ControlPlaneHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error unregistering agent: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
+
+    # =========================================================================
+    # Notification Handlers
+    # =========================================================================
+
+    def _handle_get_notifications(self, query_params: Dict[str, Any]) -> HandlerResult:
+        """Get recent notification history."""
+        try:
+            # Import check for availability
+            from aragora.control_plane.channels import NotificationManager  # noqa: F401
+
+            manager = self.ctx.get("notification_manager")
+            if not manager:
+                # Return empty if not configured
+                return json_response(
+                    {
+                        "notifications": [],
+                        "total": 0,
+                        "message": "Notification manager not configured",
+                    }
+                )
+
+            stats = manager.get_stats()
+            return json_response(
+                {
+                    "notifications": [],  # History is internal; could expose if needed
+                    "stats": stats,
+                }
+            )
+        except ImportError:
+            return json_response(
+                {
+                    "notifications": [],
+                    "total": 0,
+                    "message": "Notification module not available",
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error getting notifications: {e}")
+            return error_response(safe_error_message(e, "notifications"), 500)
+
+    def _handle_get_notification_stats(self) -> HandlerResult:
+        """Get notification statistics."""
+        try:
+            manager = self.ctx.get("notification_manager")
+            if not manager:
+                return json_response(
+                    {
+                        "total_sent": 0,
+                        "successful": 0,
+                        "failed": 0,
+                        "success_rate": 0,
+                        "by_channel": {},
+                        "channels_configured": 0,
+                    }
+                )
+
+            return json_response(manager.get_stats())
+        except Exception as e:
+            logger.error(f"Error getting notification stats: {e}")
+            return error_response(safe_error_message(e, "notifications"), 500)
+
+    # =========================================================================
+    # Audit Log Handlers
+    # =========================================================================
+
+    def _handle_get_audit_logs(self, query_params: Dict[str, Any], handler: Any) -> HandlerResult:
+        """Query audit logs with filtering."""
+        # Require authentication for audit access
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        # Check permission for audit access
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:audit"):
+            return error_response("Permission denied: controlplane:audit required", 403)
+
+        try:
+            from aragora.control_plane.audit import AuditQuery, AuditAction, ActorType
+            from datetime import datetime
+
+            audit_log = self.ctx.get("audit_log")
+            if not audit_log:
+                return json_response(
+                    {
+                        "entries": [],
+                        "total": 0,
+                        "message": "Audit log not configured",
+                    }
+                )
+
+            # Parse query parameters
+            start_time = None
+            end_time = None
+            if query_params.get("start_time"):
+                start_time = datetime.fromisoformat(query_params["start_time"])
+            if query_params.get("end_time"):
+                end_time = datetime.fromisoformat(query_params["end_time"])
+
+            actions = None
+            if query_params.get("actions"):
+                action_strs = query_params["actions"].split(",")
+                actions = [AuditAction(a.strip()) for a in action_strs if a.strip()]
+
+            actor_types = None
+            if query_params.get("actor_types"):
+                type_strs = query_params["actor_types"].split(",")
+                actor_types = [ActorType(t.strip()) for t in type_strs if t.strip()]
+
+            query = AuditQuery(
+                start_time=start_time,
+                end_time=end_time,
+                actions=actions,
+                actor_types=actor_types,
+                actor_ids=query_params.get("actor_ids", "").split(",")
+                if query_params.get("actor_ids")
+                else None,
+                resource_types=query_params.get("resource_types", "").split(",")
+                if query_params.get("resource_types")
+                else None,
+                workspace_ids=query_params.get("workspace_ids", "").split(",")
+                if query_params.get("workspace_ids")
+                else None,
+                limit=int(query_params.get("limit", 100)),
+                offset=int(query_params.get("offset", 0)),
+            )
+
+            entries = _run_async(audit_log.query(query))
+
+            return json_response(
+                {
+                    "entries": [e.to_dict() for e in entries],
+                    "total": len(entries),
+                    "query": {
+                        "limit": query.limit,
+                        "offset": query.offset,
+                    },
+                }
+            )
+        except ImportError:
+            return json_response(
+                {
+                    "entries": [],
+                    "total": 0,
+                    "message": "Audit module not available",
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error querying audit logs: {e}")
+            return error_response(safe_error_message(e, "audit"), 500)
+
+    def _handle_get_audit_stats(self) -> HandlerResult:
+        """Get audit log statistics."""
+        try:
+            audit_log = self.ctx.get("audit_log")
+            if not audit_log:
+                return json_response(
+                    {
+                        "total_entries": 0,
+                        "storage_backend": "none",
+                        "message": "Audit log not configured",
+                    }
+                )
+
+            return json_response(audit_log.get_stats())
+        except Exception as e:
+            logger.error(f"Error getting audit stats: {e}")
+            return error_response(safe_error_message(e, "audit"), 500)
+
+    def _handle_verify_audit_integrity(
+        self, query_params: Dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Verify audit log integrity."""
+        # Require authentication for integrity verification
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+
+        # Check permission for audit access
+        if not has_permission(user.role if hasattr(user, "role") else None, "controlplane:audit"):
+            return error_response("Permission denied: controlplane:audit required", 403)
+
+        try:
+            audit_log = self.ctx.get("audit_log")
+            if not audit_log:
+                return error_response("Audit log not configured", 503)
+
+            start_seq = int(query_params.get("start_seq", 0))
+            end_seq = int(query_params.get("end_seq")) if query_params.get("end_seq") else None
+
+            is_valid = _run_async(audit_log.verify_integrity(start_seq, end_seq))
+
+            return json_response(
+                {
+                    "valid": is_valid,
+                    "start_seq": start_seq,
+                    "end_seq": end_seq,
+                    "message": "Integrity verified"
+                    if is_valid
+                    else "Integrity check failed - possible tampering detected",
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error verifying audit integrity: {e}")
+            return error_response(safe_error_message(e, "audit"), 500)

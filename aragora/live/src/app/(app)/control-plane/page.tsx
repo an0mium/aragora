@@ -31,6 +31,13 @@ import {
   PolicyDashboard,
   WorkspaceManager,
   ConnectorDashboard,
+  FleetStatusWidget,
+  ActivityFeed,
+  DeliberationTracker,
+  SystemHealthDashboard,
+  type FleetAgent,
+  type ActivityEvent,
+  type Deliberation,
 } from '@/components/control-plane';
 
 // Verticals Components
@@ -133,6 +140,80 @@ export default function ControlPlanePage() {
       found_by: (e.data.agent_id as string) || 'unknown',
       timestamp: new Date(e.timestamp * 1000).toISOString(),
     }));
+
+  // Convert agents to FleetAgent format for FleetStatusWidget
+  const fleetAgents: FleetAgent[] = displayAgents.map(a => ({
+    id: a.id,
+    name: a.name,
+    model: a.model,
+    status: a.status === 'working' ? 'busy' : a.status === 'idle' ? 'idle' : a.status === 'error' ? 'error' : 'offline',
+    current_task_id: a.current_task,
+    last_heartbeat: a.last_active,
+  }));
+
+  // Convert WebSocket events to ActivityEvent format
+  const activityEvents: ActivityEvent[] = recentEvents.slice(0, 50).map(e => ({
+    id: `${e.type}-${e.timestamp}`,
+    type: e.type === 'agent_registered' ? 'agent_registered' :
+          e.type === 'agent_unregistered' ? 'agent_offline' :
+          e.type === 'task_completed' ? 'task_completed' :
+          e.type === 'task_failed' ? 'task_failed' :
+          e.type === 'task_submitted' ? 'deliberation_started' :
+          'task_completed',
+    timestamp: new Date(e.timestamp * 1000).toISOString(),
+    title: e.type === 'agent_registered' ? `Agent ${e.data.agent_id} registered` :
+           e.type === 'agent_unregistered' ? `Agent ${e.data.agent_id} went offline` :
+           e.type === 'task_completed' ? `Task completed by ${e.data.agent_id}` :
+           e.type === 'task_failed' ? `Task failed: ${e.data.error || 'Unknown error'}` :
+           e.type === 'task_submitted' ? `New task submitted: ${e.data.task_type}` :
+           `Event: ${e.type}`,
+    severity: e.type === 'task_failed' ? 'error' : e.type === 'agent_unregistered' ? 'warning' : 'info',
+    actor: e.data.agent_id ? {
+      type: 'agent' as const,
+      id: e.data.agent_id as string,
+      name: e.data.agent_id as string,
+    } : undefined,
+  }));
+
+  // Mock deliberations data (would come from API in production)
+  const [deliberations, setDeliberations] = useState<Deliberation[]>([]);
+
+  // Fetch deliberations
+  useEffect(() => {
+    const fetchDeliberations = async () => {
+      try {
+        const res = await fetch(`${backendConfig.api}/api/v1/deliberations`);
+        if (res.ok) {
+          const data = await res.json();
+          const mapped = (data.deliberations || []).map((d: Record<string, unknown>) => {
+            const agentsArray = Array.isArray(d.agents) ? d.agents : [];
+            return {
+              id: d.id || d.request_id,
+              question: d.question || d.content || 'Unknown question',
+              status: d.status === 'completed' ? (d.consensus_reached ? 'consensus_reached' : 'no_consensus') :
+                      d.status === 'failed' ? 'failed' :
+                      d.status === 'in_progress' ? 'in_progress' : 'pending',
+              started_at: d.started_at || d.created_at,
+              completed_at: d.completed_at,
+              current_round: d.current_round || 0,
+              max_rounds: d.max_rounds || 5,
+              agents: agentsArray.map((a: string | Record<string, unknown>) =>
+                typeof a === 'string' ? { id: a, name: a } : { id: (a as Record<string, unknown>).id, name: (a as Record<string, unknown>).name || (a as Record<string, unknown>).id }
+              ),
+              consensus_confidence: d.confidence,
+              final_answer: d.final_answer || d.answer,
+            };
+          });
+          setDeliberations(mapped);
+        }
+      } catch {
+        // Deliberations endpoint may not be available
+      }
+    };
+    fetchDeliberations();
+    const interval = setInterval(fetchDeliberations, 10000);
+    return () => clearInterval(interval);
+  }, [backendConfig.api]);
 
   const submitDeliberation = useCallback(async () => {
     if (!deliberationInput.trim()) return;
@@ -416,6 +497,42 @@ export default function ControlPlanePage() {
                 {/* Overview Tab */}
                 {activeTab === 'overview' && displayMetrics && (
                   <div className="space-y-6">
+                    {/* Top Row: Fleet Status + Activity Feed */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Fleet Status Widget */}
+                      <div className="lg:col-span-1">
+                        <FleetStatusWidget
+                          agents={fleetAgents}
+                          runningTasks={displayMetrics.active_jobs}
+                          queuedTasks={displayMetrics.queued_jobs}
+                          onViewAgents={() => setActiveTab('agents')}
+                        />
+                      </div>
+
+                      {/* Activity Feed */}
+                      <div className="lg:col-span-2">
+                        <ActivityFeed
+                          events={activityEvents}
+                          maxVisible={8}
+                          compact={true}
+                          showFilters={false}
+                          title="Recent Activity"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Deliberation Tracker */}
+                    {deliberations.length > 0 && (
+                      <DeliberationTracker
+                        deliberations={deliberations}
+                        maxVisible={5}
+                        onDeliberationClick={(d) => {
+                          // Could open a modal or navigate to deliberation detail
+                          console.log('Selected deliberation:', d.id);
+                        }}
+                      />
+                    )}
+
                     {/* Metrics Grid */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="card p-4">
@@ -809,6 +926,11 @@ export default function ControlPlanePage() {
                       // Workspace update handler
                     }}
                   />
+                )}
+
+                {/* Health Tab */}
+                {activeTab === 'health' && (
+                  <SystemHealthDashboard apiUrl={backendConfig.api} />
                 )}
 
                 {/* Settings Tab */}

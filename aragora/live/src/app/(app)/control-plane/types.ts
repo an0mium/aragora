@@ -40,7 +40,7 @@ export interface SystemMetrics {
   tokens_used_today: number;
 }
 
-export type TabId = 'overview' | 'agents' | 'workflows' | 'knowledge' | 'connectors' | 'executions' | 'queue' | 'verticals' | 'policy' | 'workspace' | 'settings';
+export type TabId = 'overview' | 'agents' | 'workflows' | 'knowledge' | 'connectors' | 'executions' | 'queue' | 'verticals' | 'policy' | 'workspace' | 'health' | 'settings';
 
 // =============================================================================
 // Helper Functions
@@ -88,5 +88,6 @@ export const TABS = [
   { id: 'verticals' as TabId, label: 'VERTICALS' },
   { id: 'policy' as TabId, label: 'POLICY' },
   { id: 'workspace' as TabId, label: 'WORKSPACE' },
+  { id: 'health' as TabId, label: 'HEALTH' },
   { id: 'settings' as TabId, label: 'SETTINGS' },
 ];

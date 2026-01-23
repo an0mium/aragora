@@ -196,18 +196,18 @@ interface SyncActivityItemProps {
 }
 
 function SyncActivityItem({ sync, onClick }: SyncActivityItemProps) {
-  const statusIcon = {
-    completed: '?',
-    running: '?',
-    failed: '?',
-    pending: '?',
+  const statusIcon: Record<SyncHistoryItem['status'], string> = {
+    completed: '\u2713',
+    running: '\u25B6',
+    failed: '\u2717',
+    cancelled: '\u2715',
   };
 
-  const statusColor = {
+  const statusColor: Record<SyncHistoryItem['status'], string> = {
     completed: 'text-green-400',
     running: 'text-blue-400',
     failed: 'text-red-400',
-    pending: 'text-yellow-400',
+    cancelled: 'text-yellow-400',
   };
 
   const timeFormatted = formatTimeAgo(new Date(sync.started_at));
