@@ -874,11 +874,12 @@ class DebatesHandler(
         """Route POST requests to appropriate methods."""
         # Create debate endpoint - both legacy and RESTful
         # POST /api/debates (canonical) or POST /api/debate (legacy, deprecated)
-        if path in ("/api/v1/debate", "/api/v1/debates"):
+        # Note: path is normalized (version stripped), so check both versioned and unversioned
+        if path in ("/api/v1/debate", "/api/v1/debates", "/api/debate", "/api/debates"):
             result = self._create_debate(handler)
 
             # Add deprecation headers for legacy endpoint
-            if path == "/api/v1/debate" and result:
+            if path in ("/api/v1/debate", "/api/debate") and result:
                 # RFC 8594 Sunset header - 6 months from now
                 result.headers = result.headers or {}
                 result.headers["Deprecation"] = "true"
@@ -888,7 +889,12 @@ class DebatesHandler(
             return result
 
         # Batch submission endpoint
-        if path in ("/api/v1/debates/batch", "/api/v1/debates/batch/"):
+        if path in (
+            "/api/v1/debates/batch",
+            "/api/v1/debates/batch/",
+            "/api/debates/batch",
+            "/api/debates/batch/",
+        ):
             return self._submit_batch(handler)
 
         if path.endswith("/fork"):
