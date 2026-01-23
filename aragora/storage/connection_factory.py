@@ -19,8 +19,9 @@ Environment Variables:
     DATABASE_URL: Alternative PostgreSQL DSN (common in PaaS)
 
     # Global settings
-    ARAGORA_DB_BACKEND: Force specific backend ("supabase", "postgres", "sqlite")
+    ARAGORA_DB_BACKEND: Force specific backend ("supabase", "postgres", "sqlite", "auto")
     ARAGORA_<STORE>_BACKEND: Per-store override
+    ARAGORA_<STORE>_STORE_BACKEND: Per-store override (legacy naming)
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ import os
 import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -62,6 +63,34 @@ class DatabaseConfig:
 _supabase_pool: Optional["Pool"] = None
 _postgres_pool: Optional["Pool"] = None
 _pool_lock = threading.Lock()
+
+
+def _normalize_backend(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    if not normalized or normalized == "auto":
+        return None
+    return normalized
+
+
+def _get_backend_override(
+    store_name: str,
+    extra_envs: Optional[Sequence[str]] = None,
+    include_global: bool = True,
+) -> Optional[str]:
+    candidates: list[str] = []
+    if extra_envs:
+        candidates.extend(extra_envs)
+    candidates.append(f"ARAGORA_{store_name.upper()}_STORE_BACKEND")
+    candidates.append(f"ARAGORA_{store_name.upper()}_BACKEND")
+    if include_global:
+        candidates.append("ARAGORA_DB_BACKEND")
+    for key in candidates:
+        normalized = _normalize_backend(os.environ.get(key))
+        if normalized:
+            return normalized
+    return None
 
 
 def get_supabase_postgres_dsn() -> Optional[str]:
@@ -140,12 +169,9 @@ def resolve_database_config(
         RuntimeError: If no suitable backend is available
     """
     # Check for explicit backend override (per-store or global)
-    store_backend_var = f"ARAGORA_{store_name.upper()}_BACKEND"
-    explicit_backend = os.environ.get(store_backend_var) or os.environ.get("ARAGORA_DB_BACKEND")
+    explicit_backend = _get_backend_override(store_name)
 
     if explicit_backend:
-        explicit_backend = explicit_backend.lower()
-
         if explicit_backend == "sqlite":
             if not allow_sqlite:
                 raise RuntimeError(
@@ -159,7 +185,7 @@ def resolve_database_config(
                 is_supabase=False,
             )
 
-        elif explicit_backend in ("postgres", "postgresql"):
+        if explicit_backend in ("postgres", "postgresql"):
             # Explicit postgres - use self-hosted, not Supabase
             dsn = get_selfhosted_postgres_dsn()
             if dsn:
@@ -169,9 +195,16 @@ def resolve_database_config(
                     dsn=dsn,
                     is_supabase=False,
                 )
-            # Fall through to auto-detect
+            message = (
+                f"Explicit PostgreSQL backend requested for {store_name}, "
+                "but ARAGORA_POSTGRES_DSN/DATABASE_URL is not configured."
+            )
+            if allow_sqlite:
+                logger.warning(f"{message} Falling back to auto-detect.")
+            else:
+                raise RuntimeError(message)
 
-        elif explicit_backend == "supabase":
+        if explicit_backend == "supabase":
             dsn = get_supabase_postgres_dsn()
             if dsn:
                 logger.info(f"[{store_name}] Using Supabase PostgreSQL (explicit)")
@@ -180,7 +213,26 @@ def resolve_database_config(
                     dsn=dsn,
                     is_supabase=True,
                 )
-            # Fall through to auto-detect
+            message = (
+                f"Explicit Supabase backend requested for {store_name}, "
+                "but SUPABASE_URL + SUPABASE_DB_PASSWORD (or SUPABASE_POSTGRES_DSN) "
+                "is not configured."
+            )
+            if allow_sqlite:
+                logger.warning(f"{message} Falling back to auto-detect.")
+            else:
+                raise RuntimeError(message)
+
+        if explicit_backend in ("redis", "memory"):
+            logger.warning(
+                f"[{store_name}] Backend '{explicit_backend}' is not a persistent database "
+                "backend. Falling back to auto-detect."
+            )
+        elif explicit_backend not in ("postgres", "postgresql", "supabase", "sqlite"):
+            logger.warning(
+                f"[{store_name}] Unknown backend override '{explicit_backend}'. "
+                "Falling back to auto-detect."
+            )
 
     # Auto-detect with preference order
 
@@ -370,43 +422,43 @@ def create_persistent_store(
     from pathlib import Path
 
     # Check for memory backend override (testing only)
-    backend_override = os.environ.get(f"ARAGORA_{store_name.upper()}_BACKEND", "")
-    if backend_override.lower() == "memory" and memory_class:
+    backend_override = _get_backend_override(store_name, include_global=False)
+    if backend_override == "memory" and memory_class:
         logger.info(f"[{store_name}] Using in-memory store (testing)")
         return memory_class()
 
     # Determine if SQLite is allowed (not in production unless explicitly allowed)
     allow_sqlite = not is_production_environment()
+    require_value = os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED")
+    legacy_value = os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED_STATE")
+    if require_value is None and legacy_value is not None:
+        require_value = legacy_value
+    if require_value is not None and is_production_environment():
+        require_distributed = require_value.lower() in ("1", "true", "yes")
+        if not require_distributed:
+            allow_sqlite = True
     if os.environ.get("ARAGORA_ALLOW_SQLITE_FALLBACK", "").lower() in ("true", "1"):
         allow_sqlite = True
 
     # Get database configuration
-    config = resolve_database_config(store_name, allow_sqlite=True)  # Allow to get config
+    config = resolve_database_config(store_name, allow_sqlite=allow_sqlite)
 
     # Try PostgreSQL backends (Supabase or self-hosted)
     if config.backend_type in (StorageBackendType.SUPABASE, StorageBackendType.POSTGRES):
         try:
-            pool, _ = get_database_pool_sync(store_name, allow_sqlite=True)
+            pool, _ = get_database_pool_sync(store_name, allow_sqlite=allow_sqlite)
             if pool:
                 store = postgres_class(pool)
                 # Initialize if the store has an async initialize method
                 if hasattr(store, "initialize"):
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                    loop.run_until_complete(store.initialize())
+                    from aragora.utils.async_utils import run_async
+
+                    run_async(store.initialize())
                 backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
                 logger.info(f"[{store_name}] Initialized with {backend_name}")
                 return store
             elif config.dsn:
-                # Pool wasn't created (async context), try direct initialization
-                try:
-                    loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
+                from aragora.utils.async_utils import run_async
 
                 async def init_postgres():
                     from aragora.storage.postgres_store import get_postgres_pool
@@ -417,7 +469,7 @@ def create_persistent_store(
                         await store.initialize()
                     return store
 
-                store = loop.run_until_complete(init_postgres())
+                store = run_async(init_postgres())
                 backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
                 logger.info(f"[{store_name}] Initialized with {backend_name}")
                 return store
