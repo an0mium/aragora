@@ -14,11 +14,10 @@ from aragora.agents.codebase_agent import (
     CodeUnderstanding,
     CodeAuditResult,
     CodebaseUnderstandingAgent,
+    CodeAnalystAgent,
+    SecurityReviewerAgent,
+    BugHunterAgent,
 )
-
-# Note: CodeAnalystAgent, SecurityReviewerAgent, BugHunterAgent don't implement
-# abstract methods (generate, critique) from the base Agent class, so we can't
-# instantiate them directly. Tests for these are skipped.
 
 
 # Sample code for testing
@@ -235,39 +234,37 @@ class TestCodeAuditResult:
 
 
 class TestSpecialistAgents:
-    """Tests for specialist agent classes.
+    """Tests for specialist agent classes."""
 
-    Note: These agents don't implement abstract methods from the base Agent class,
-    so they cannot be instantiated directly. These tests are skipped.
-    """
-
-    @pytest.mark.skip(
-        reason="Specialist agents don't implement abstract methods (generate, critique)"
-    )
     def test_code_analyst_agent(self):
         """Test CodeAnalystAgent creation."""
-        pass
+        agent = CodeAnalystAgent()
+        assert agent.name == "code-analyst"
+        assert agent.role == "analyst"
+        assert agent.agent_type == "code_analyst"
+        assert "architect" in agent.persona.lower()
 
-    @pytest.mark.skip(
-        reason="Specialist agents don't implement abstract methods (generate, critique)"
-    )
     def test_code_analyst_custom_name(self):
         """Test CodeAnalystAgent with custom name."""
-        pass
+        agent = CodeAnalystAgent(name="custom-analyst")
+        assert agent.name == "custom-analyst"
+        assert agent.role == "analyst"
 
-    @pytest.mark.skip(
-        reason="Specialist agents don't implement abstract methods (generate, critique)"
-    )
     def test_security_reviewer_agent(self):
         """Test SecurityReviewerAgent creation."""
-        pass
+        agent = SecurityReviewerAgent()
+        assert agent.name == "security-reviewer"
+        assert agent.role == "critic"
+        assert agent.agent_type == "security_reviewer"
+        assert "security" in agent.persona.lower()
 
-    @pytest.mark.skip(
-        reason="Specialist agents don't implement abstract methods (generate, critique)"
-    )
     def test_bug_hunter_agent(self):
         """Test BugHunterAgent creation."""
-        pass
+        agent = BugHunterAgent()
+        assert agent.name == "bug-hunter"
+        assert agent.role == "critic"
+        assert agent.agent_type == "bug_hunter"
+        assert "bug" in agent.focus.lower()
 
 
 class TestCodebaseUnderstandingAgent:

@@ -129,11 +129,32 @@ class CodeAnalystAgent(BaseDebateAgent):
     focus = "code structure, design patterns, and architectural decisions"
 
     def __init__(self, name: str = "code-analyst"):
-        super().__init__(
-            name=name,
-            role="analyst",
-            persona=self.persona,
-            focus=self.focus,
+        # Initialize Agent attributes directly to avoid ABC init issues
+        self.name = name
+        self.model = "pattern-based"
+        self.role = "analyst"
+        self.agent_type = "code_analyst"
+        self.stance = "neutral"
+        self.persona = self.__class__.persona
+        self.focus = self.__class__.focus
+        self.system_prompt = f"You are a {self.persona}. Focus on: {self.focus}"
+
+    async def generate(self, prompt: str, context=None) -> str:
+        """Generate response - stub for analysis agent."""
+        return f"[Code Analyst] Analysis: {prompt[:100]}..."
+
+    async def critique(self, proposal: str, task: str, context=None, target_agent=None):
+        """Critique - stub for analysis agent."""
+        from aragora.core_types import Critique
+
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200],
+            issues=[],
+            suggestions=[],
+            severity=0.0,
+            reasoning="Code structure analysis",
         )
 
 
@@ -144,11 +165,32 @@ class SecurityReviewerAgent(BaseDebateAgent):
     focus = "security vulnerabilities, attack vectors, and defensive coding"
 
     def __init__(self, name: str = "security-reviewer"):
-        super().__init__(
-            name=name,
-            role="critic",
-            persona=self.persona,
-            focus=self.focus,
+        # Initialize Agent attributes directly to avoid ABC init issues
+        self.name = name
+        self.model = "pattern-based"
+        self.role = "critic"
+        self.agent_type = "security_reviewer"
+        self.stance = "neutral"
+        self.persona = self.__class__.persona
+        self.focus = self.__class__.focus
+        self.system_prompt = f"You are a {self.persona}. Focus on: {self.focus}"
+
+    async def generate(self, prompt: str, context=None) -> str:
+        """Generate response - stub for security agent."""
+        return f"[Security Reviewer] Analysis: {prompt[:100]}..."
+
+    async def critique(self, proposal: str, task: str, context=None, target_agent=None):
+        """Critique - stub for security agent."""
+        from aragora.core_types import Critique
+
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200],
+            issues=[],
+            suggestions=[],
+            severity=0.0,
+            reasoning="Security vulnerability analysis",
         )
 
 
@@ -159,11 +201,32 @@ class BugHunterAgent(BaseDebateAgent):
     focus = "bug patterns, error handling, and edge cases"
 
     def __init__(self, name: str = "bug-hunter"):
-        super().__init__(
-            name=name,
-            role="critic",
-            persona=self.persona,
-            focus=self.focus,
+        # Initialize Agent attributes directly to avoid ABC init issues
+        self.name = name
+        self.model = "pattern-based"
+        self.role = "critic"
+        self.agent_type = "bug_hunter"
+        self.stance = "neutral"
+        self.persona = self.__class__.persona
+        self.focus = self.__class__.focus
+        self.system_prompt = f"You are a {self.persona}. Focus on: {self.focus}"
+
+    async def generate(self, prompt: str, context=None) -> str:
+        """Generate response - stub for bug hunter agent."""
+        return f"[Bug Hunter] Analysis: {prompt[:100]}..."
+
+    async def critique(self, proposal: str, task: str, context=None, target_agent=None):
+        """Critique - stub for bug hunter agent."""
+        from aragora.core_types import Critique
+
+        return Critique(
+            agent=self.name,
+            target_agent=target_agent or "unknown",
+            target_content=proposal[:200],
+            issues=[],
+            suggestions=[],
+            severity=0.0,
+            reasoning="Bug pattern analysis",
         )
 
 
