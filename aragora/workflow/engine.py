@@ -123,6 +123,7 @@ class WorkflowEngine:
                 DebateStep,
                 DecisionStep,
                 TaskStep,
+                ConnectorStep,
             )
             from aragora.workflow.nodes.decision import SwitchStep
             from aragora.workflow.nodes.debate import QuickDebateStep
@@ -135,6 +136,7 @@ class WorkflowEngine:
             self._step_types["decision"] = DecisionStep
             self._step_types["switch"] = SwitchStep
             self._step_types["task"] = TaskStep
+            self._step_types["connector"] = ConnectorStep
         except ImportError as e:
             logger.debug(f"Some Phase 2 step types not available: {e}")
 
