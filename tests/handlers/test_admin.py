@@ -268,7 +268,7 @@ class TestAdminAuthentication:
             mock_ctx = MockAuthContext("", is_authenticated=False)
             mock_extract.return_value = mock_ctx
 
-            result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+            result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
 
             assert result.status_code == 401
             assert "authenticated" in parse_body(result)["error"].lower()
@@ -281,7 +281,7 @@ class TestAdminAuthentication:
             mock_ctx = MockAuthContext("user_0", is_authenticated=True)
             mock_extract.return_value = mock_ctx
 
-            result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+            result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
 
             assert result.status_code == 403
             assert "admin" in parse_body(result)["error"].lower()
@@ -306,7 +306,7 @@ class TestAdminAuthentication:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
                 mock_mfa.return_value = {"reason": "MFA not enabled", "action": "enable_mfa"}
 
-                result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+                result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 403
@@ -324,7 +324,7 @@ class TestAdminAuthentication:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
                 mock_mfa.return_value = None  # MFA check passed
 
-                result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+                result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
 
                 assert result.status_code == 200
 
@@ -346,7 +346,7 @@ class TestListOrganizations:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
-                result = admin_handler.handle("/api/admin/organizations", {}, mock_handler)
+                result = admin_handler.handle("/api/v1/admin/organizations", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -363,7 +363,7 @@ class TestListOrganizations:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle(
-                    "/api/admin/organizations",
+                    "/api/v1/admin/organizations",
                     {"limit": "2", "offset": "1"},
                     mock_handler,
                 )
@@ -382,7 +382,7 @@ class TestListOrganizations:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle(
-                    "/api/admin/organizations",
+                    "/api/v1/admin/organizations",
                     {"tier": "pro"},
                     mock_handler,
                 )
@@ -411,7 +411,7 @@ class TestListUsers:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
-                result = admin_handler.handle("/api/admin/users", {}, mock_handler)
+                result = admin_handler.handle("/api/v1/admin/users", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -426,7 +426,7 @@ class TestListUsers:
             with patch("aragora.server.handlers.admin.admin.enforce_admin_mfa_policy") as mock_mfa:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
-                result = admin_handler.handle("/api/admin/users", {}, mock_handler)
+                result = admin_handler.handle("/api/v1/admin/users", {}, mock_handler)
                 body = parse_body(result)
 
                 for user in body["users"]:
@@ -443,7 +443,7 @@ class TestListUsers:
                 self.setup_admin_auth(mock_extract, mock_mfa)
 
                 result = admin_handler.handle(
-                    "/api/admin/users",
+                    "/api/v1/admin/users",
                     {"role": "admin"},
                     mock_handler,
                 )
@@ -467,7 +467,7 @@ class TestGetStats:
                 mock_extract.return_value = mock_ctx
                 mock_mfa.return_value = None
 
-                result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+                result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -495,7 +495,7 @@ class TestUserManagement:
                     self.setup_admin_auth(mock_extract, mock_mfa)
 
                     result = admin_handler.handle(
-                        "/api/admin/users/user_0/deactivate",
+                        "/api/v1/admin/users/user_0/deactivate",
                         {},
                         mock_handler,
                         method="POST",
@@ -520,7 +520,7 @@ class TestUserManagement:
                     self.setup_admin_auth(mock_extract, mock_mfa)
 
                     result = admin_handler.handle(
-                        "/api/admin/users/admin_1/deactivate",
+                        "/api/v1/admin/users/admin_1/deactivate",
                         {},
                         mock_handler,
                         method="POST",
@@ -539,7 +539,7 @@ class TestUserManagement:
                     self.setup_admin_auth(mock_extract, mock_mfa)
 
                     result = admin_handler.handle(
-                        "/api/admin/users/nonexistent/deactivate",
+                        "/api/v1/admin/users/nonexistent/deactivate",
                         {},
                         mock_handler,
                         method="POST",
@@ -561,7 +561,7 @@ class TestUserManagement:
                     self.setup_admin_auth(mock_extract, mock_mfa)
 
                     result = admin_handler.handle(
-                        "/api/admin/users/user_0/activate",
+                        "/api/v1/admin/users/user_0/activate",
                         {},
                         mock_handler,
                         method="POST",
@@ -585,7 +585,7 @@ class TestUserManagement:
 
                 # Use path traversal characters that should fail validation
                 result = admin_handler.handle(
-                    "/api/admin/users/<script>alert(1)</script>/deactivate",
+                    "/api/v1/admin/users/<script>alert(1)</script>/deactivate",
                     {},
                     mock_handler,
                     method="POST",
@@ -613,7 +613,7 @@ class TestImpersonation:
                         mock_token.return_value = "impersonation_token_123"
 
                         result = admin_handler.handle(
-                            "/api/admin/impersonate/user_0",
+                            "/api/v1/admin/impersonate/user_0",
                             {},
                             mock_handler,
                             method="POST",
@@ -640,7 +640,7 @@ class TestImpersonation:
                         mock_token.return_value = "token"
 
                         result = admin_handler.handle(
-                            "/api/admin/impersonate/user_0",
+                            "/api/v1/admin/impersonate/user_0",
                             {},
                             mock_handler,
                             method="POST",
@@ -665,7 +665,7 @@ class TestImpersonation:
                     mock_mfa.return_value = None
 
                     result = admin_handler.handle(
-                        "/api/admin/impersonate/nonexistent",
+                        "/api/v1/admin/impersonate/nonexistent",
                         {},
                         mock_handler,
                         method="POST",
@@ -688,7 +688,7 @@ class TestMethodNotAllowed:
                 mock_mfa.return_value = None
 
                 result = admin_handler.handle(
-                    "/api/admin/unknown",
+                    "/api/v1/admin/unknown",
                     {},
                     mock_handler,
                     method="DELETE",
@@ -710,7 +710,7 @@ class TestSystemMetrics:
                 mock_extract.return_value = mock_ctx
                 mock_mfa.return_value = None
 
-                result = admin_handler.handle("/api/admin/system/metrics", {}, mock_handler)
+                result = admin_handler.handle("/api/v1/admin/system/metrics", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200

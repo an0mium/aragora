@@ -117,7 +117,7 @@ class TestMetricsHandler:
         """Test basic metrics retrieval."""
         mock_limiter.is_allowed.return_value = True
 
-        result = metrics_handler.handle("/api/metrics", {}, mock_handler)
+        result = metrics_handler.handle("/api/v1/metrics", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -135,7 +135,7 @@ class TestMetricsHandlerHealth:
         """Test health check endpoint."""
         mock_limiter.is_allowed.return_value = True
 
-        result = metrics_handler.handle("/api/metrics/health", {}, mock_handler)
+        result = metrics_handler.handle("/api/v1/metrics/health", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -152,7 +152,7 @@ class TestMetricsHandlerCache:
         """Test cache statistics retrieval."""
         mock_limiter.is_allowed.return_value = True
 
-        result = metrics_handler.handle("/api/metrics/cache", {}, mock_handler)
+        result = metrics_handler.handle("/api/v1/metrics/cache", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -169,7 +169,7 @@ class TestMetricsHandlerVerification:
         """Test verification statistics retrieval."""
         mock_limiter.is_allowed.return_value = True
 
-        result = metrics_handler.handle("/api/metrics/verification", {}, mock_handler)
+        result = metrics_handler.handle("/api/v1/metrics/verification", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -187,7 +187,7 @@ class TestMetricsHandlerSystem:
         """Test system information retrieval."""
         mock_limiter.is_allowed.return_value = True
 
-        result = metrics_handler.handle("/api/metrics/system", {}, mock_handler)
+        result = metrics_handler.handle("/api/v1/metrics/system", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -220,7 +220,7 @@ class TestMetricsHandlerRateLimiting:
         """Test rate limit exceeded response."""
         mock_limiter.is_allowed.return_value = False
 
-        result = metrics_handler.handle("/api/metrics", {}, mock_handler)
+        result = metrics_handler.handle("/api/v1/metrics", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -265,8 +265,8 @@ class TestRequestTracking:
         from aragora.server.handlers.metrics import track_request
 
         # Should not raise
-        track_request("/api/test", is_error=False)
-        track_request("/api/test", is_error=True)
+        track_request("/api/v1/test", is_error=False)
+        track_request("/api/v1/test", is_error=True)
 
     def test_track_request_limit(self):
         """Test that request tracking has a limit."""

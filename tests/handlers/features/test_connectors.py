@@ -116,7 +116,7 @@ class TestListConnectors:
     @pytest.mark.asyncio
     async def test_list_empty_connectors(self, connectors_handler):
         """Test listing when no connectors configured."""
-        request = MockRequest(method="GET", path="/api/connectors")
+        request = MockRequest(method="GET", path="/api/v1/connectors")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -136,7 +136,7 @@ class TestListConnectors:
             "config": {},
         }
 
-        request = MockRequest(method="GET", path="/api/connectors")
+        request = MockRequest(method="GET", path="/api/v1/connectors")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -164,7 +164,7 @@ class TestListConnectors:
 
         request = MockRequest(
             method="GET",
-            path="/api/connectors",
+            path="/api/v1/connectors",
             query={"status": "connected"},
         )
         result = await connectors_handler.handle_request(request)
@@ -191,7 +191,7 @@ class TestListConnectors:
 
         request = MockRequest(
             method="GET",
-            path="/api/connectors",
+            path="/api/v1/connectors",
             query={"category": "git"},
         )
         result = await connectors_handler.handle_request(request)
@@ -223,7 +223,7 @@ class TestGetConnector:
             "last_sync": "2024-01-01T00:00:00Z",
         }
 
-        request = MockRequest(method="GET", path="/api/connectors/test-1")
+        request = MockRequest(method="GET", path="/api/v1/connectors/test-1")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -235,7 +235,7 @@ class TestGetConnector:
     @pytest.mark.asyncio
     async def test_get_nonexistent_connector(self, connectors_handler):
         """Test 404 for nonexistent connector."""
-        request = MockRequest(method="GET", path="/api/connectors/nonexistent")
+        request = MockRequest(method="GET", path="/api/v1/connectors/nonexistent")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 404
@@ -254,7 +254,7 @@ class TestCreateConnector:
         """Test creating a new connector."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors",
+            path="/api/v1/connectors",
             _body={
                 "type": "github",
                 "name": "My GitHub",
@@ -275,7 +275,7 @@ class TestCreateConnector:
         """Test rejection when type is missing."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors",
+            path="/api/v1/connectors",
             _body={"name": "My Connector"},
         )
         result = await connectors_handler.handle_request(request)
@@ -288,7 +288,7 @@ class TestCreateConnector:
         """Test rejection for unknown connector type."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors",
+            path="/api/v1/connectors",
             _body={"type": "unknown_type"},
         )
         result = await connectors_handler.handle_request(request)
@@ -301,7 +301,7 @@ class TestCreateConnector:
         """Test rejection for coming soon connector type."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors",
+            path="/api/v1/connectors",
             _body={"type": "gdrive"},
         )
         result = await connectors_handler.handle_request(request)
@@ -331,7 +331,7 @@ class TestUpdateConnector:
 
         request = MockRequest(
             method="PUT",
-            path="/api/connectors/test-1",
+            path="/api/v1/connectors/test-1",
             _body={"name": "Updated Name"},
         )
         result = await connectors_handler.handle_request(request)
@@ -345,7 +345,7 @@ class TestUpdateConnector:
         """Test 404 for updating nonexistent connector."""
         request = MockRequest(
             method="PUT",
-            path="/api/connectors/nonexistent",
+            path="/api/v1/connectors/nonexistent",
             _body={"name": "New Name"},
         )
         result = await connectors_handler.handle_request(request)
@@ -365,7 +365,7 @@ class TestUpdateConnector:
 
         request = MockRequest(
             method="PUT",
-            path="/api/connectors/test-1",
+            path="/api/v1/connectors/test-1",
             _body={"config": {"repo": "new/repo"}},
         )
         result = await connectors_handler.handle_request(request)
@@ -393,7 +393,7 @@ class TestDeleteConnector:
             "config": {},
         }
 
-        request = MockRequest(method="DELETE", path="/api/connectors/test-1")
+        request = MockRequest(method="DELETE", path="/api/v1/connectors/test-1")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -402,7 +402,7 @@ class TestDeleteConnector:
     @pytest.mark.asyncio
     async def test_delete_nonexistent_connector(self, connectors_handler):
         """Test 404 for deleting nonexistent connector."""
-        request = MockRequest(method="DELETE", path="/api/connectors/nonexistent")
+        request = MockRequest(method="DELETE", path="/api/v1/connectors/nonexistent")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 404
@@ -423,7 +423,7 @@ class TestDeleteConnector:
             "status": "running",
         }
 
-        request = MockRequest(method="DELETE", path="/api/connectors/test-1")
+        request = MockRequest(method="DELETE", path="/api/v1/connectors/test-1")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -451,7 +451,7 @@ class TestSyncOperations:
 
         request = MockRequest(
             method="POST",
-            path="/api/connectors/test-1/sync",
+            path="/api/v1/connectors/test-1/sync",
         )
         result = await connectors_handler.handle_request(request)
 
@@ -464,7 +464,7 @@ class TestSyncOperations:
         """Test 404 for syncing nonexistent connector."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors/nonexistent/sync",
+            path="/api/v1/connectors/nonexistent/sync",
         )
         result = await connectors_handler.handle_request(request)
 
@@ -488,7 +488,7 @@ class TestSyncOperations:
 
         request = MockRequest(
             method="POST",
-            path="/api/connectors/test-1/sync",
+            path="/api/v1/connectors/test-1/sync",
         )
         result = await connectors_handler.handle_request(request)
 
@@ -513,7 +513,7 @@ class TestSyncOperations:
 
         request = MockRequest(
             method="POST",
-            path="/api/connectors/sync/sync-1/cancel",
+            path="/api/v1/connectors/sync/sync-1/cancel",
         )
         result = await connectors_handler.handle_request(request)
 
@@ -525,7 +525,7 @@ class TestSyncOperations:
         """Test 404 for cancelling nonexistent sync."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors/sync/nonexistent/cancel",
+            path="/api/v1/connectors/sync/nonexistent/cancel",
         )
         result = await connectors_handler.handle_request(request)
 
@@ -542,7 +542,7 @@ class TestSyncOperations:
 
         request = MockRequest(
             method="POST",
-            path="/api/connectors/sync/sync-1/cancel",
+            path="/api/v1/connectors/sync/sync-1/cancel",
         )
         result = await connectors_handler.handle_request(request)
 
@@ -562,7 +562,7 @@ class TestTestConnection:
         """Test successful connection test."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors/test",
+            path="/api/v1/connectors/test",
             _body={"config": {"token": "test_token"}},
         )
         result = await connectors_handler.handle_request(request)
@@ -575,7 +575,7 @@ class TestTestConnection:
         """Test failed connection test (empty config)."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors/test",
+            path="/api/v1/connectors/test",
             _body={"config": {}},
         )
         result = await connectors_handler.handle_request(request)
@@ -595,7 +595,7 @@ class TestSyncHistory:
     @pytest.mark.asyncio
     async def test_get_empty_history(self, connectors_handler):
         """Test getting empty sync history."""
-        request = MockRequest(method="GET", path="/api/connectors/sync-history")
+        request = MockRequest(method="GET", path="/api/v1/connectors/sync-history")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -615,7 +615,7 @@ class TestSyncHistory:
             }
         )
 
-        request = MockRequest(method="GET", path="/api/connectors/sync-history")
+        request = MockRequest(method="GET", path="/api/v1/connectors/sync-history")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -643,7 +643,7 @@ class TestSyncHistory:
 
         request = MockRequest(
             method="GET",
-            path="/api/connectors/sync-history",
+            path="/api/v1/connectors/sync-history",
             query={"connector_id": "test-1"},
         )
         result = await connectors_handler.handle_request(request)
@@ -663,7 +663,7 @@ class TestStats:
     @pytest.mark.asyncio
     async def test_get_empty_stats(self, connectors_handler):
         """Test getting stats with no connectors."""
-        request = MockRequest(method="GET", path="/api/connectors/stats")
+        request = MockRequest(method="GET", path="/api/v1/connectors/stats")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -691,7 +691,7 @@ class TestStats:
             "items_synced": 50,
         }
 
-        request = MockRequest(method="GET", path="/api/connectors/stats")
+        request = MockRequest(method="GET", path="/api/v1/connectors/stats")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -713,7 +713,7 @@ class TestListTypes:
     @pytest.mark.asyncio
     async def test_list_types(self, connectors_handler):
         """Test listing connector types."""
-        request = MockRequest(method="GET", path="/api/connectors/types")
+        request = MockRequest(method="GET", path="/api/v1/connectors/types")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 200
@@ -738,7 +738,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_unknown_endpoint(self, connectors_handler):
         """Test 404 for unknown endpoint."""
-        request = MockRequest(method="GET", path="/api/connectors/unknown/endpoint")
+        request = MockRequest(method="GET", path="/api/v1/connectors/unknown/endpoint")
         result = await connectors_handler.handle_request(request)
 
         assert result["status_code"] == 404
@@ -748,7 +748,7 @@ class TestErrorHandling:
         """Test handling of invalid JSON body."""
         request = MockRequest(
             method="POST",
-            path="/api/connectors",
+            path="/api/v1/connectors",
         )
         # Make json() raise an exception
         request.json = AsyncMock(side_effect=Exception("Invalid JSON"))
@@ -773,7 +773,7 @@ class TestIntegration:
         # Create connector
         create_request = MockRequest(
             method="POST",
-            path="/api/connectors",
+            path="/api/v1/connectors",
             _body={"type": "github", "name": "Test Repo"},
         )
         create_result = await connectors_handler.handle_request(create_request)
@@ -783,7 +783,7 @@ class TestIntegration:
         # Start sync
         sync_request = MockRequest(
             method="POST",
-            path=f"/api/connectors/{connector_id}/sync",
+            path=f"/api/v1/connectors/{connector_id}/sync",
         )
         sync_result = await connectors_handler.handle_request(sync_request)
         assert sync_result["status_code"] == 202
@@ -795,7 +795,7 @@ class TestIntegration:
         # Create
         create_request = MockRequest(
             method="POST",
-            path="/api/connectors",
+            path="/api/v1/connectors",
             _body={"type": "s3", "name": "Test Bucket"},
         )
         create_result = await connectors_handler.handle_request(create_request)
@@ -805,7 +805,7 @@ class TestIntegration:
         # Read
         read_request = MockRequest(
             method="GET",
-            path=f"/api/connectors/{connector_id}",
+            path=f"/api/v1/connectors/{connector_id}",
         )
         read_result = await connectors_handler.handle_request(read_request)
         assert read_result["status_code"] == 200
@@ -814,7 +814,7 @@ class TestIntegration:
         # Update
         update_request = MockRequest(
             method="PUT",
-            path=f"/api/connectors/{connector_id}",
+            path=f"/api/v1/connectors/{connector_id}",
             _body={"name": "Updated Bucket"},
         )
         update_result = await connectors_handler.handle_request(update_request)
@@ -824,7 +824,7 @@ class TestIntegration:
         # Delete
         delete_request = MockRequest(
             method="DELETE",
-            path=f"/api/connectors/{connector_id}",
+            path=f"/api/v1/connectors/{connector_id}",
         )
         delete_result = await connectors_handler.handle_request(delete_request)
         assert delete_result["status_code"] == 200
@@ -832,7 +832,7 @@ class TestIntegration:
         # Verify deleted
         verify_request = MockRequest(
             method="GET",
-            path=f"/api/connectors/{connector_id}",
+            path=f"/api/v1/connectors/{connector_id}",
         )
         verify_result = await connectors_handler.handle_request(verify_request)
         assert verify_result["status_code"] == 404

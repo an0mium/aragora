@@ -237,7 +237,7 @@ class TestConsensusHandlerSimilar:
         mock_memory_cls.return_value = mock_memory
 
         result = consensus_handler.handle(
-            "/api/consensus/similar",
+            "/api/v1/consensus/similar",
             {"topic": "cache optimization"},
             mock_handler,
         )
@@ -255,7 +255,7 @@ class TestConsensusHandlerSimilar:
         mock_limiter.is_allowed.return_value = True
 
         result = consensus_handler.handle(
-            "/api/consensus/similar",
+            "/api/v1/consensus/similar",
             {},
             mock_handler,
         )
@@ -271,7 +271,7 @@ class TestConsensusHandlerSimilar:
         mock_limiter.is_allowed.return_value = True
 
         result = consensus_handler.handle(
-            "/api/consensus/similar",
+            "/api/v1/consensus/similar",
             {"topic": "x" * 501},
             mock_handler,
         )
@@ -311,7 +311,7 @@ class TestConsensusHandlerSettled:
         mock_db_conn.return_value = mock_conn
 
         result = consensus_handler.handle(
-            "/api/consensus/settled",
+            "/api/v1/consensus/settled",
             {"min_confidence": "0.8", "limit": "10"},
             mock_handler,
         )
@@ -349,7 +349,7 @@ class TestConsensusHandlerStats:
         mock_db_conn.return_value = mock_conn
 
         result = consensus_handler.handle(
-            "/api/consensus/stats",
+            "/api/v1/consensus/stats",
             {},
             mock_handler,
         )
@@ -387,7 +387,7 @@ class TestConsensusHandlerDissents:
         mock_db_conn.return_value = mock_conn
 
         result = consensus_handler.handle(
-            "/api/consensus/dissents",
+            "/api/v1/consensus/dissents",
             {"limit": "5"},
             mock_handler,
         )
@@ -426,7 +426,7 @@ class TestConsensusHandlerContrarianViews:
         mock_retriever_cls.return_value = mock_retriever
 
         result = consensus_handler.handle(
-            "/api/consensus/contrarian-views",
+            "/api/v1/consensus/contrarian-views",
             {"topic": "database choice", "limit": "10"},
             mock_handler,
         )
@@ -468,7 +468,7 @@ class TestConsensusHandlerRiskWarnings:
         mock_retriever_cls.return_value = mock_retriever
 
         result = consensus_handler.handle(
-            "/api/consensus/risk-warnings",
+            "/api/v1/consensus/risk-warnings",
             {"topic": "user input handling"},
             mock_handler,
         )
@@ -499,7 +499,7 @@ class TestConsensusHandlerDomain:
         mock_memory_cls.return_value = mock_memory
 
         result = consensus_handler.handle(
-            "/api/consensus/domain/security",
+            "/api/v1/consensus/domain/security",
             {"limit": "10"},
             mock_handler,
         )
@@ -520,7 +520,7 @@ class TestConsensusHandlerRateLimiting:
         mock_limiter.is_allowed.return_value = False
 
         result = consensus_handler.handle(
-            "/api/consensus/stats",
+            "/api/v1/consensus/stats",
             {},
             mock_handler,
         )
@@ -541,7 +541,7 @@ class TestConsensusHandlerFeatureUnavailable:
         mock_limiter.is_allowed.return_value = True
 
         result = consensus_handler.handle(
-            "/api/consensus/stats",
+            "/api/v1/consensus/stats",
             {},
             mock_handler,
         )

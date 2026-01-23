@@ -586,7 +586,7 @@ class TestRateLimiting:
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = billing_handler.handle("/api/billing/plans", {}, mock_handler)
+            result = billing_handler.handle("/api/v1/billing/plans", {}, mock_handler)
 
             assert result.status_code == 200
 
@@ -597,7 +597,7 @@ class TestRateLimiting:
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
-            result = billing_handler.handle("/api/billing/plans", {}, mock_handler)
+            result = billing_handler.handle("/api/v1/billing/plans", {}, mock_handler)
 
             assert result.status_code == 429
             assert "Rate limit" in parse_body(result)["error"]
@@ -614,7 +614,7 @@ class TestRateLimiting:
                 mock_parse.return_value = MockWebhookEvent("evt_1", "unhandled.event")
 
                 result = billing_handler.handle(
-                    "/api/webhooks/stripe", {}, mock_handler, method="POST"
+                    "/api/v1/webhooks/stripe", {}, mock_handler, method="POST"
                 )
 
                 # Should still succeed (200) even with rate limit active
@@ -632,7 +632,7 @@ class TestGetPlans:
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = billing_handler.handle("/api/billing/plans", {}, mock_handler)
+            result = billing_handler.handle("/api/v1/billing/plans", {}, mock_handler)
             body = parse_body(result)
 
             assert result.status_code == 200
@@ -654,7 +654,7 @@ class TestGetPlans:
             mock_limiter.is_allowed.return_value = True
 
             # No auth mocking needed - endpoint should work without auth
-            result = billing_handler.handle("/api/billing/plans", {}, mock_handler)
+            result = billing_handler.handle("/api/v1/billing/plans", {}, mock_handler)
 
             assert result.status_code == 200
 
@@ -681,7 +681,7 @@ class TestGetUsage:
                 mock_limiter.is_allowed.return_value = True
                 mock_extract.return_value = self.make_auth_context(owner)
 
-                result = billing_handler.handle("/api/billing/usage", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -700,7 +700,7 @@ class TestGetUsage:
                 mock_limiter.is_allowed.return_value = True
                 mock_extract.return_value = self.make_auth_context(owner)
 
-                result = billing_handler.handle("/api/billing/usage", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -721,7 +721,7 @@ class TestGetUsage:
                 # Make the user an owner so they have billing permission
                 mock_extract.return_value = self.make_auth_context(no_org_user, role="owner")
 
-                result = billing_handler.handle("/api/billing/usage", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -740,7 +740,7 @@ class TestGetUsage:
                 # Member role doesn't have org:billing permission
                 mock_extract.return_value = self.make_auth_context(member)
 
-                result = billing_handler.handle("/api/billing/usage", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
 
                 # Should be rejected due to missing permission
                 assert result.status_code == 403
@@ -754,7 +754,7 @@ class TestGetUsage:
                 mock_limiter.is_allowed.return_value = True
                 mock_extract.return_value = MockAuthContext("", is_authenticated=False)
 
-                result = billing_handler.handle("/api/billing/usage", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
 
                 assert result.status_code == 401
 
@@ -781,7 +781,7 @@ class TestGetSubscription:
                 mock_limiter.is_allowed.return_value = True
                 mock_extract.return_value = self.make_auth_context(owner)
 
-                result = billing_handler.handle("/api/billing/subscription", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/subscription", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -804,7 +804,9 @@ class TestGetSubscription:
                     mock_extract.return_value = self.make_auth_context(enterprise_owner)
                     mock_get_stripe.return_value = stripe_client
 
-                    result = billing_handler.handle("/api/billing/subscription", {}, mock_handler)
+                    result = billing_handler.handle(
+                        "/api/v1/billing/subscription", {}, mock_handler
+                    )
                     body = parse_body(result)
 
                     assert result.status_code == 200
@@ -831,7 +833,9 @@ class TestGetSubscription:
                     mock_stripe.get_subscription.side_effect = StripeError("API Error")
                     mock_get_stripe.return_value = mock_stripe
 
-                    result = billing_handler.handle("/api/billing/subscription", {}, mock_handler)
+                    result = billing_handler.handle(
+                        "/api/v1/billing/subscription", {}, mock_handler
+                    )
                     body = parse_body(result)
 
                     # Should still succeed with partial data
@@ -878,7 +882,7 @@ class TestCreateCheckout:
                         mock_validate.return_value = MagicMock(is_valid=True)
 
                         result = billing_handler.handle(
-                            "/api/billing/checkout", {}, mock_handler, method="POST"
+                            "/api/v1/billing/checkout", {}, mock_handler, method="POST"
                         )
                         body = parse_body(result)
 
@@ -910,7 +914,7 @@ class TestCreateCheckout:
                     mock_validate.return_value = MagicMock(is_valid=True)
 
                     result = billing_handler.handle(
-                        "/api/billing/checkout", {}, mock_handler, method="POST"
+                        "/api/v1/billing/checkout", {}, mock_handler, method="POST"
                     )
 
                     assert result.status_code == 400
@@ -939,7 +943,7 @@ class TestCreateCheckout:
                     mock_validate.return_value = MagicMock(is_valid=True)
 
                     result = billing_handler.handle(
-                        "/api/billing/checkout", {}, mock_handler, method="POST"
+                        "/api/v1/billing/checkout", {}, mock_handler, method="POST"
                     )
 
                     assert result.status_code == 400
@@ -957,7 +961,7 @@ class TestCreateCheckout:
                 mock_extract.return_value = self.make_auth_context(owner)
 
                 result = billing_handler.handle(
-                    "/api/billing/checkout", {}, mock_handler, method="POST"
+                    "/api/v1/billing/checkout", {}, mock_handler, method="POST"
                 )
 
                 assert result.status_code == 400
@@ -991,7 +995,7 @@ class TestCreateCheckout:
                         mock_validate.return_value = MagicMock(is_valid=True)
 
                         result = billing_handler.handle(
-                            "/api/billing/checkout", {}, mock_handler, method="POST"
+                            "/api/v1/billing/checkout", {}, mock_handler, method="POST"
                         )
 
                         assert result.status_code == 503
@@ -1033,7 +1037,7 @@ class TestCreatePortal:
                     mock_get_stripe.return_value = stripe_client
 
                     result = billing_handler.handle(
-                        "/api/billing/portal", {}, mock_handler, method="POST"
+                        "/api/v1/billing/portal", {}, mock_handler, method="POST"
                     )
                     body = parse_body(result)
 
@@ -1052,7 +1056,7 @@ class TestCreatePortal:
                 mock_extract.return_value = self.make_auth_context(owner)
 
                 result = billing_handler.handle(
-                    "/api/billing/portal", {}, mock_handler, method="POST"
+                    "/api/v1/billing/portal", {}, mock_handler, method="POST"
                 )
 
                 assert result.status_code == 400
@@ -1076,7 +1080,7 @@ class TestCreatePortal:
                 mock_extract.return_value = self.make_auth_context(owner)
 
                 result = billing_handler.handle(
-                    "/api/billing/portal", {}, mock_handler, method="POST"
+                    "/api/v1/billing/portal", {}, mock_handler, method="POST"
                 )
 
                 assert result.status_code == 404
@@ -1114,7 +1118,7 @@ class TestCancelSubscription:
                     mock_get_stripe.return_value = stripe_client
 
                     result = billing_handler.handle(
-                        "/api/billing/cancel", {}, mock_handler, method="POST"
+                        "/api/v1/billing/cancel", {}, mock_handler, method="POST"
                     )
                     body = parse_body(result)
 
@@ -1136,7 +1140,7 @@ class TestCancelSubscription:
                 mock_extract.return_value = self.make_auth_context(owner)
 
                 result = billing_handler.handle(
-                    "/api/billing/cancel", {}, mock_handler, method="POST"
+                    "/api/v1/billing/cancel", {}, mock_handler, method="POST"
                 )
 
                 assert result.status_code == 404
@@ -1160,7 +1164,7 @@ class TestCancelSubscription:
                     mock_get_stripe.return_value = stripe_client
 
                     result = billing_handler.handle(
-                        "/api/billing/cancel", {}, mock_handler, method="POST"
+                        "/api/v1/billing/cancel", {}, mock_handler, method="POST"
                     )
 
                     assert result.status_code == 200
@@ -1200,7 +1204,7 @@ class TestResumeSubscription:
                     mock_get_stripe.return_value = stripe_client
 
                     result = billing_handler.handle(
-                        "/api/billing/resume", {}, mock_handler, method="POST"
+                        "/api/v1/billing/resume", {}, mock_handler, method="POST"
                     )
                     body = parse_body(result)
 
@@ -1221,7 +1225,7 @@ class TestResumeSubscription:
                 mock_extract.return_value = self.make_auth_context(owner)
 
                 result = billing_handler.handle(
-                    "/api/billing/resume", {}, mock_handler, method="POST"
+                    "/api/v1/billing/resume", {}, mock_handler, method="POST"
                 )
 
                 assert result.status_code == 404
@@ -1256,7 +1260,7 @@ class TestAuditLog:
                 mock_limiter.is_allowed.return_value = True
                 mock_extract.return_value = self.make_auth_context(enterprise_owner)
 
-                result = billing_handler.handle("/api/billing/audit-log", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/audit-log", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -1273,7 +1277,7 @@ class TestAuditLog:
                 mock_limiter.is_allowed.return_value = True
                 mock_extract.return_value = self.make_auth_context(owner)
 
-                result = billing_handler.handle("/api/billing/audit-log", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/audit-log", {}, mock_handler)
 
                 assert result.status_code == 403
                 assert "Enterprise" in parse_body(result)["error"]
@@ -1297,7 +1301,7 @@ class TestAuditLog:
                 mock_limiter.is_allowed.return_value = True
                 mock_extract.return_value = self.make_auth_context(enterprise_member)
 
-                result = billing_handler.handle("/api/billing/audit-log", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/audit-log", {}, mock_handler)
 
                 assert result.status_code == 403
                 assert "permission" in parse_body(result)["error"].lower()
@@ -1323,7 +1327,7 @@ class TestUsageExport:
                 )
                 mock_extract.return_value = mock_ctx
 
-                result = billing_handler.handle("/api/billing/usage/export", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage/export", {}, mock_handler)
 
                 assert result.status_code == 200
                 assert result.content_type == "text/csv"
@@ -1341,7 +1345,7 @@ class TestUsageExport:
                 mock_ctx = MockAuthContext("", is_authenticated=False)
                 mock_extract.return_value = mock_ctx
 
-                result = billing_handler.handle("/api/billing/usage/export", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage/export", {}, mock_handler)
 
                 assert result.status_code == 401
 
@@ -1365,7 +1369,7 @@ class TestUsageForecast:
                 )
                 mock_extract.return_value = mock_ctx
 
-                result = billing_handler.handle("/api/billing/usage/forecast", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage/forecast", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -1395,7 +1399,7 @@ class TestUsageForecast:
                 )
                 mock_extract.return_value = mock_ctx
 
-                result = billing_handler.handle("/api/billing/usage/forecast", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/usage/forecast", {}, mock_handler)
                 body = parse_body(result)
 
                 assert result.status_code == 200
@@ -1425,7 +1429,7 @@ class TestInvoices:
                     mock_extract.return_value = mock_ctx
                     mock_get_stripe.return_value = stripe_client
 
-                    result = billing_handler.handle("/api/billing/invoices", {}, mock_handler)
+                    result = billing_handler.handle("/api/v1/billing/invoices", {}, mock_handler)
                     body = parse_body(result)
 
                     assert result.status_code == 200
@@ -1453,7 +1457,7 @@ class TestInvoices:
                 )
                 mock_extract.return_value = mock_ctx
 
-                result = billing_handler.handle("/api/billing/invoices", {}, mock_handler)
+                result = billing_handler.handle("/api/v1/billing/invoices", {}, mock_handler)
 
                 assert result.status_code == 404
                 assert "billing account" in parse_body(result)["error"].lower()
@@ -1468,7 +1472,7 @@ class TestStripeWebhook:
         mock_handler.headers["Content-Length"] = "100"
         # No Stripe-Signature header
 
-        result = billing_handler.handle("/api/webhooks/stripe", {}, mock_handler, method="POST")
+        result = billing_handler.handle("/api/v1/webhooks/stripe", {}, mock_handler, method="POST")
 
         assert result.status_code == 400
         assert "signature" in parse_body(result)["error"].lower()
@@ -1482,7 +1486,9 @@ class TestStripeWebhook:
         with patch("aragora.billing.stripe_client.parse_webhook_event") as mock_parse:
             mock_parse.return_value = None  # Invalid signature
 
-            result = billing_handler.handle("/api/webhooks/stripe", {}, mock_handler, method="POST")
+            result = billing_handler.handle(
+                "/api/v1/webhooks/stripe", {}, mock_handler, method="POST"
+            )
 
             assert result.status_code == 400
             assert "signature" in parse_body(result)["error"].lower()
@@ -1499,7 +1505,7 @@ class TestStripeWebhook:
                 mock_dup.return_value = True  # Duplicate
 
                 result = billing_handler.handle(
-                    "/api/webhooks/stripe", {}, mock_handler, method="POST"
+                    "/api/v1/webhooks/stripe", {}, mock_handler, method="POST"
                 )
                 body = parse_body(result)
 
@@ -1534,7 +1540,7 @@ class TestStripeWebhook:
                     mock_dup.return_value = False
 
                     result = billing_handler.handle(
-                        "/api/webhooks/stripe", {}, mock_handler, method="POST"
+                        "/api/v1/webhooks/stripe", {}, mock_handler, method="POST"
                     )
 
                     assert result.status_code == 200
@@ -1569,7 +1575,7 @@ class TestStripeWebhook:
                     mock_dup.return_value = False
 
                     result = billing_handler.handle(
-                        "/api/webhooks/stripe", {}, mock_handler, method="POST"
+                        "/api/v1/webhooks/stripe", {}, mock_handler, method="POST"
                     )
 
                     assert result.status_code == 200
@@ -1617,7 +1623,7 @@ class TestStripeWebhook:
                         mock_recovery.return_value = mock_recovery_store
 
                         result = billing_handler.handle(
-                            "/api/webhooks/stripe", {}, mock_handler, method="POST"
+                            "/api/v1/webhooks/stripe", {}, mock_handler, method="POST"
                         )
 
                         assert result.status_code == 200
@@ -1681,7 +1687,7 @@ class TestStripeWebhook:
                             mock_notifier.return_value = mock_notifier_instance
 
                             result = billing_handler.handle(
-                                "/api/webhooks/stripe", {}, mock_handler, method="POST"
+                                "/api/v1/webhooks/stripe", {}, mock_handler, method="POST"
                             )
                             body = parse_body(result)
 
@@ -1705,7 +1711,7 @@ class TestStripeWebhook:
                 mock_dup.return_value = False
 
                 result = billing_handler.handle(
-                    "/api/webhooks/stripe", {}, mock_handler, method="POST"
+                    "/api/v1/webhooks/stripe", {}, mock_handler, method="POST"
                 )
                 body = parse_body(result)
 
@@ -1723,6 +1729,8 @@ class TestMethodNotAllowed:
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = billing_handler.handle("/api/billing/plans", {}, mock_handler, method="DELETE")
+            result = billing_handler.handle(
+                "/api/v1/billing/plans", {}, mock_handler, method="DELETE"
+            )
 
             assert result.status_code == 405

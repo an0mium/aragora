@@ -39,7 +39,7 @@ class TestControlPlaneHandlerRouting:
     def test_handle_list_agents_route_no_coordinator(self, handler):
         """Test that list agents route returns 503 when coordinator is None."""
         result = handler.handle(
-            path="/api/control-plane/agents",
+            path="/api/v1/control-plane/agents",
             query_params={},
             handler=MagicMock(),
         )
@@ -50,7 +50,7 @@ class TestControlPlaneHandlerRouting:
     def test_handle_get_agent_route_no_coordinator(self, handler):
         """Test that get agent route returns 503 when coordinator is None."""
         result = handler.handle(
-            path="/api/control-plane/agents/agent-123",
+            path="/api/v1/control-plane/agents/agent-123",
             query_params={},
             handler=MagicMock(),
         )
@@ -60,7 +60,7 @@ class TestControlPlaneHandlerRouting:
     def test_handle_unknown_route(self, handler):
         """Test that unknown routes return None."""
         result = handler.handle(
-            path="/api/unknown/route",
+            path="/api/v1/unknown/route",
             query_params={},
             handler=MagicMock(),
         )
@@ -97,7 +97,7 @@ class TestFeaturesControlPlaneHandler:
         """Test listing agents."""
         request = self.create_request(
             method="GET",
-            path="/api/control-plane/agents",
+            path="/api/v1/control-plane/agents",
         )
 
         result = await handler.handle_request(request)
@@ -112,7 +112,7 @@ class TestFeaturesControlPlaneHandler:
         """Test getting the queue."""
         request = self.create_request(
             method="GET",
-            path="/api/control-plane/queue",
+            path="/api/v1/control-plane/queue",
         )
 
         result = await handler.handle_request(request)
@@ -127,7 +127,7 @@ class TestFeaturesControlPlaneHandler:
         """Test getting metrics."""
         request = self.create_request(
             method="GET",
-            path="/api/control-plane/metrics",
+            path="/api/v1/control-plane/metrics",
         )
 
         result = await handler.handle_request(request)
@@ -143,7 +143,7 @@ class TestFeaturesControlPlaneHandler:
         """Test health check endpoint."""
         request = self.create_request(
             method="GET",
-            path="/api/control-plane/health",
+            path="/api/v1/control-plane/health",
         )
 
         result = await handler.handle_request(request)
@@ -159,14 +159,14 @@ class TestFeaturesControlPlaneHandler:
         # First get agents to populate default agents
         list_request = self.create_request(
             method="GET",
-            path="/api/control-plane/agents",
+            path="/api/v1/control-plane/agents",
         )
         await handler.handle_request(list_request)
 
         # Now pause one
         request = self.create_request(
             method="POST",
-            path="/api/control-plane/agents/agent-gemini-scanner/pause",
+            path="/api/v1/control-plane/agents/agent-gemini-scanner/pause",
         )
 
         result = await handler.handle_request(request)
@@ -182,7 +182,7 @@ class TestFeaturesControlPlaneHandler:
         await handler.handle_request(
             self.create_request(
                 method="GET",
-                path="/api/control-plane/agents",
+                path="/api/v1/control-plane/agents",
             )
         )
 
@@ -190,14 +190,14 @@ class TestFeaturesControlPlaneHandler:
         await handler.handle_request(
             self.create_request(
                 method="POST",
-                path="/api/control-plane/agents/agent-gemini-scanner/pause",
+                path="/api/v1/control-plane/agents/agent-gemini-scanner/pause",
             )
         )
 
         # Resume
         request = self.create_request(
             method="POST",
-            path="/api/control-plane/agents/agent-gemini-scanner/resume",
+            path="/api/v1/control-plane/agents/agent-gemini-scanner/resume",
         )
         result = await handler.handle_request(request)
 
@@ -210,7 +210,7 @@ class TestFeaturesControlPlaneHandler:
         """Test pausing a non-existent agent."""
         request = self.create_request(
             method="POST",
-            path="/api/control-plane/agents/nonexistent/pause",
+            path="/api/v1/control-plane/agents/nonexistent/pause",
         )
 
         result = await handler.handle_request(request)
@@ -224,14 +224,14 @@ class TestFeaturesControlPlaneHandler:
         await handler.handle_request(
             self.create_request(
                 method="GET",
-                path="/api/control-plane/agents",
+                path="/api/v1/control-plane/agents",
             )
         )
 
         # Try to resume active agent
         request = self.create_request(
             method="POST",
-            path="/api/control-plane/agents/agent-gemini-scanner/resume",
+            path="/api/v1/control-plane/agents/agent-gemini-scanner/resume",
         )
         result = await handler.handle_request(request)
 
@@ -242,7 +242,7 @@ class TestFeaturesControlPlaneHandler:
         """Test unknown endpoint."""
         request = self.create_request(
             method="GET",
-            path="/api/control-plane/unknown",
+            path="/api/v1/control-plane/unknown",
         )
 
         result = await handler.handle_request(request)
@@ -256,14 +256,14 @@ class TestFeaturesControlPlaneHandler:
         await handler.handle_request(
             self.create_request(
                 method="GET",
-                path="/api/control-plane/agents",
+                path="/api/v1/control-plane/agents",
             )
         )
 
         # Get specific agent
         request = self.create_request(
             method="GET",
-            path="/api/control-plane/agents/agent-gemini-scanner",
+            path="/api/v1/control-plane/agents/agent-gemini-scanner",
         )
         result = await handler.handle_request(request)
 
@@ -278,14 +278,14 @@ class TestFeaturesControlPlaneHandler:
         await handler.handle_request(
             self.create_request(
                 method="GET",
-                path="/api/control-plane/agents",
+                path="/api/v1/control-plane/agents",
             )
         )
 
         # Get metrics
         request = self.create_request(
             method="GET",
-            path="/api/control-plane/agents/agent-gemini-scanner/metrics",
+            path="/api/v1/control-plane/agents/agent-gemini-scanner/metrics",
         )
         result = await handler.handle_request(request)
 
@@ -301,7 +301,7 @@ class TestFeaturesControlPlaneHandler:
         await handler.handle_request(
             self.create_request(
                 method="GET",
-                path="/api/control-plane/agents",
+                path="/api/v1/control-plane/agents",
             )
         )
 
@@ -309,14 +309,14 @@ class TestFeaturesControlPlaneHandler:
         await handler.handle_request(
             self.create_request(
                 method="POST",
-                path="/api/control-plane/agents/agent-gemini-scanner/pause",
+                path="/api/v1/control-plane/agents/agent-gemini-scanner/pause",
             )
         )
 
         # Filter for paused
         request = self.create_request(
             method="GET",
-            path="/api/control-plane/agents",
+            path="/api/v1/control-plane/agents",
             query={"status": "paused"},
         )
         result = await handler.handle_request(request)
@@ -652,7 +652,7 @@ class TestQueuePrioritization:
         await handler.handle_request(
             self.create_request(
                 method="GET",
-                path="/api/control-plane/queue",
+                path="/api/v1/control-plane/queue",
             )
         )
 
@@ -665,7 +665,7 @@ class TestQueuePrioritization:
             # Change priority
             request = self.create_request(
                 method="POST",
-                path="/api/control-plane/queue/prioritize",
+                path="/api/v1/control-plane/queue/prioritize",
                 body={"task_id": task_id, "priority": "high"},
             )
             result = await handler.handle_request(request)
@@ -679,7 +679,7 @@ class TestQueuePrioritization:
         """Test prioritizing a non-existent task."""
         request = self.create_request(
             method="POST",
-            path="/api/control-plane/queue/prioritize",
+            path="/api/v1/control-plane/queue/prioritize",
             body={"task_id": "nonexistent", "priority": "high"},
         )
         result = await handler.handle_request(request)
@@ -691,7 +691,7 @@ class TestQueuePrioritization:
         """Test prioritizing without task_id."""
         request = self.create_request(
             method="POST",
-            path="/api/control-plane/queue/prioritize",
+            path="/api/v1/control-plane/queue/prioritize",
             body={"priority": "high"},
         )
         result = await handler.handle_request(request)

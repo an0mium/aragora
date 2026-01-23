@@ -129,7 +129,7 @@ class TestGalleryHandlerList:
         """Test successful debate listing."""
         mock_limiter.is_allowed.return_value = True
 
-        result = gallery_handler.handle("/api/gallery", {}, mock_handler)
+        result = gallery_handler.handle("/api/v1/gallery", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -145,7 +145,7 @@ class TestGalleryHandlerList:
         mock_limiter.is_allowed.return_value = True
 
         result = gallery_handler.handle(
-            "/api/gallery",
+            "/api/v1/gallery",
             {"limit": ["2"], "offset": ["1"]},
             mock_handler,
         )
@@ -162,7 +162,7 @@ class TestGalleryHandlerList:
         mock_limiter.is_allowed.return_value = True
 
         result = gallery_handler.handle(
-            "/api/gallery",
+            "/api/v1/gallery",
             {"limit": ["500"]},
             mock_handler,
         )
@@ -178,7 +178,7 @@ class TestGalleryHandlerList:
         mock_limiter.is_allowed.return_value = True
 
         result = gallery_handler.handle(
-            "/api/gallery",
+            "/api/v1/gallery",
             {"agent": ["claude"]},
             mock_handler,
         )
@@ -199,7 +199,7 @@ class TestGalleryHandlerGetDebate:
         mock_limiter.is_allowed.return_value = True
 
         result = gallery_handler.handle(
-            "/api/gallery/nonexistent123",
+            "/api/v1/gallery/nonexistent123",
             {},
             mock_handler,
         )
@@ -220,7 +220,7 @@ class TestGalleryHandlerGetDebate:
         stable_id = generate_stable_id("debate_0", "loop_001")
 
         result = gallery_handler.handle(
-            f"/api/gallery/{stable_id}",
+            f"/api/v1/gallery/{stable_id}",
             {},
             mock_handler,
         )
@@ -243,7 +243,7 @@ class TestGalleryHandlerEmbed:
         mock_limiter.is_allowed.return_value = True
 
         result = gallery_handler.handle(
-            "/api/gallery/nonexistent123/embed",
+            "/api/v1/gallery/nonexistent123/embed",
             {},
             mock_handler,
         )
@@ -261,7 +261,7 @@ class TestGalleryHandlerEmbed:
         stable_id = generate_stable_id("debate_0", "loop_001")
 
         result = gallery_handler.handle(
-            f"/api/gallery/{stable_id}/embed",
+            f"/api/v1/gallery/{stable_id}/embed",
             {},
             mock_handler,
         )
@@ -285,7 +285,7 @@ class TestGalleryHandlerRateLimiting:
         """Test rate limit exceeded response."""
         mock_limiter.is_allowed.return_value = False
 
-        result = gallery_handler.handle("/api/gallery", {}, mock_handler)
+        result = gallery_handler.handle("/api/v1/gallery", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -309,7 +309,7 @@ class TestGalleryHandlerNoReplays:
 
             handler = GalleryHandler({"nomic_dir": nomic_dir})
 
-            result = handler.handle("/api/gallery", {}, mock_handler)
+            result = handler.handle("/api/v1/gallery", {}, mock_handler)
 
             assert result is not None
             assert result.status_code == 200
@@ -326,7 +326,7 @@ class TestGalleryHandlerNoReplays:
 
         handler = GalleryHandler({"nomic_dir": None})
 
-        result = handler.handle("/api/gallery", {}, mock_handler)
+        result = handler.handle("/api/v1/gallery", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200

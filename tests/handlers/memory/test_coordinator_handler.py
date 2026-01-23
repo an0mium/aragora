@@ -30,7 +30,7 @@ class TestCoordinatorHandler:
 
     def test_metrics_without_coordinator(self, handler):
         """Test metrics returns default when no coordinator configured."""
-        result = handler.handle("/api/memory/coordinator/metrics", {})
+        result = handler.handle("/api/v1/memory/coordinator/metrics", {})
 
         assert result is not None
         assert result.status_code == 200
@@ -41,7 +41,7 @@ class TestCoordinatorHandler:
 
     def test_config_without_coordinator(self, handler):
         """Test config returns defaults when no coordinator configured."""
-        result = handler.handle("/api/memory/coordinator/config", {})
+        result = handler.handle("/api/v1/memory/coordinator/config", {})
 
         assert result is not None
         assert result.status_code == 200
@@ -67,7 +67,7 @@ class TestCoordinatorHandler:
         mock_coordinator._rollback_handlers = {"continuum": lambda x: x, "consensus": lambda x: x}
 
         handler = CoordinatorHandler(server_context={"memory_coordinator": mock_coordinator})
-        result = handler.handle("/api/memory/coordinator/metrics", {})
+        result = handler.handle("/api/v1/memory/coordinator/metrics", {})
 
         assert result is not None
         assert result.status_code == 200
@@ -99,7 +99,7 @@ class TestCoordinatorHandler:
         )
 
         handler = CoordinatorHandler(server_context={"memory_coordinator": mock_coordinator})
-        result = handler.handle("/api/memory/coordinator/config", {})
+        result = handler.handle("/api/v1/memory/coordinator/config", {})
 
         assert result is not None
         assert result.status_code == 200
@@ -128,7 +128,7 @@ class TestCoordinatorHandlerRateLimiting:
 
         # Exhaust rate limit
         with patch.object(_coordinator_limiter, "is_allowed", return_value=False):
-            result = handler.handle("/api/memory/coordinator/metrics", {})
+            result = handler.handle("/api/v1/memory/coordinator/metrics", {})
 
             assert result is not None
             assert result.status_code == 429

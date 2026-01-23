@@ -516,13 +516,13 @@ class TestBaseHandler:
 
     def test_extract_path_param_valid(self, handler):
         """Test path param extraction with valid input."""
-        value, err = handler.extract_path_param("/api/debates/abc123", 2, "debate_id")
+        value, err = handler.extract_path_param("/api/v1/debates/abc123", 2, "debate_id")
         assert value == "abc123"
         assert err is None
 
     def test_extract_path_param_missing(self, handler):
         """Test path param extraction with missing segment."""
-        value, err = handler.extract_path_param("/api/debates", 3, "debate_id")
+        value, err = handler.extract_path_param("/api/v1/debates", 3, "debate_id")
         assert value is None
         assert err is not None
         assert err.status_code == 400
@@ -531,7 +531,7 @@ class TestBaseHandler:
         """Test path param extraction with invalid pattern."""
         # Use a pattern that won't match
         value, err = handler.extract_path_param(
-            "/api/debates/../../etc", 2, "debate_id", SAFE_ID_PATTERN
+            "/api/v1/debates/../../etc", 2, "debate_id", SAFE_ID_PATTERN
         )
         assert value is None
         assert err is not None
@@ -539,7 +539,7 @@ class TestBaseHandler:
     def test_extract_path_params_multiple(self, handler):
         """Test extracting multiple path params."""
         params, err = handler.extract_path_params(
-            "/api/agents/compare/claude/gpt4",
+            "/api/v1/agents/compare/claude/gpt4",
             [
                 (3, "agent_a", SAFE_AGENT_PATTERN),
                 (4, "agent_b", SAFE_AGENT_PATTERN),

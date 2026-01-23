@@ -655,5 +655,5 @@ class TestCalibrationErrorHandling:
 
     def test_returns_none_for_non_agent_path(self, calibration_handler, mock_http_handler):
         """Returns None for non-agent paths."""
-        result = calibration_handler.handle("/api/other/endpoint", {}, mock_http_handler)
+        result = calibration_handler.handle("/api/v1/other/endpoint", {}, mock_http_handler)
         assert result is None

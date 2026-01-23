@@ -453,7 +453,7 @@ class TestGetAttackTypes:
         with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
             from aragora.modes.redteam import AttackType
 
-            result = auditing_handler.handle("/api/redteam/attack-types", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/redteam/attack-types", {}, mock_handler)
             body = parse_body(result)
 
             assert result.status_code == 200
@@ -466,7 +466,7 @@ class TestGetAttackTypes:
         mock_handler = MockHandler(command="GET")
 
         with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", False):
-            result = auditing_handler.handle("/api/redteam/attack-types", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/redteam/attack-types", {}, mock_handler)
 
             assert result.status_code == 503
 
@@ -491,7 +491,7 @@ class TestCapabilityProbe:
             # Member role lacks admin:audit permission
             mock_extract.return_value = self.make_auth_context("user_1", "member")
 
-            result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
 
             assert result.status_code == 403
 
@@ -503,7 +503,9 @@ class TestCapabilityProbe:
             with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", False):
                 mock_extract.return_value = self.make_auth_context()
 
-                result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
+                result = auditing_handler.handle(
+                    "/api/v1/debates/capability-probe", {}, mock_handler
+                )
 
                 assert result.status_code == 503
                 assert "not available" in parse_body(result)["error"]
@@ -517,7 +519,9 @@ class TestCapabilityProbe:
             with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
                 mock_extract.return_value = self.make_auth_context()
 
-                result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
+                result = auditing_handler.handle(
+                    "/api/v1/debates/capability-probe", {}, mock_handler
+                )
 
                 assert result.status_code == 400
 
@@ -544,7 +548,7 @@ class TestCapabilityProbe:
                         mock_run.return_value = MockProbeReport()
 
                         result = auditing_handler.handle(
-                            "/api/debates/capability-probe", {}, mock_handler
+                            "/api/v1/debates/capability-probe", {}, mock_handler
                         )
                         body = parse_body(result)
 
@@ -574,7 +578,7 @@ class TestDeepAudit:
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = self.make_auth_context("user_1", "member")
 
-            result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
 
             assert result.status_code == 403
 
@@ -587,7 +591,7 @@ class TestDeepAudit:
                 mock_extract.return_value = self.make_auth_context()
 
                 # This will trigger ImportError
-                result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
+                result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
 
                 assert result.status_code == 503
 
@@ -607,7 +611,7 @@ class TestDeepAudit:
 
                 mock_run.return_value = error_response("Missing required field: task", 400)
 
-                result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
+                result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
 
                 assert result.status_code == 400
 
@@ -632,7 +636,7 @@ class TestRedTeamAnalysis:
             mock_extract.return_value = self.make_auth_context("user_1", "member")
 
             result = auditing_handler.handle(
-                "/api/debates/test-debate-1/red-team", {}, mock_handler
+                "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
             )
 
             assert result.status_code == 403
@@ -646,7 +650,7 @@ class TestRedTeamAnalysis:
                 mock_extract.return_value = self.make_auth_context()
 
                 result = auditing_handler.handle(
-                    "/api/debates/test-debate-1/red-team", {}, mock_handler
+                    "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
                 )
 
                 assert result.status_code == 503
@@ -660,7 +664,7 @@ class TestRedTeamAnalysis:
                 mock_extract.return_value = self.make_auth_context()
 
                 result = auditing_handler.handle(
-                    "/api/debates/nonexistent-debate/red-team", {}, mock_handler
+                    "/api/v1/debates/nonexistent-debate/red-team", {}, mock_handler
                 )
 
                 assert result.status_code == 404
@@ -676,7 +680,7 @@ class TestRedTeamAnalysis:
                 mock_extract.return_value = self.make_auth_context()
 
                 result = handler_no_storage.handle(
-                    "/api/debates/test-debate-1/red-team", {}, mock_handler
+                    "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
                 )
 
                 assert result.status_code == 500
@@ -696,7 +700,7 @@ class TestRedTeamAnalysis:
                 mock_extract.return_value = self.make_auth_context()
 
                 result = auditing_handler.handle(
-                    "/api/debates/test-debate-1/red-team", {}, mock_handler
+                    "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
                 )
                 body = parse_body(result)
 
@@ -720,7 +724,7 @@ class TestRedTeamAnalysis:
                 mock_extract.return_value = self.make_auth_context()
 
                 result = auditing_handler.handle(
-                    "/api/debates/test-debate-1/red-team", {}, mock_handler
+                    "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
                 )
                 body = parse_body(result)
 
@@ -736,7 +740,7 @@ class TestRedTeamAnalysis:
                 mock_extract.return_value = self.make_auth_context()
 
                 result = auditing_handler.handle(
-                    "/api/debates/test-debate-1/red-team", {}, mock_handler
+                    "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
                 )
                 body = parse_body(result)
 
@@ -767,7 +771,7 @@ class TestInvalidDebateId:
 
                 # Use invalid characters in debate ID
                 result = auditing_handler.handle(
-                    "/api/debates/<script>alert(1)</script>/red-team",
+                    "/api/v1/debates/<script>alert(1)</script>/red-team",
                     {},
                     mock_handler,
                 )
@@ -786,7 +790,9 @@ class TestUnauthorized:
             mock_extract.return_value = MockAuthContext("", is_authenticated=False)
 
             with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
-                result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
+                result = auditing_handler.handle(
+                    "/api/v1/debates/capability-probe", {}, mock_handler
+                )
 
                 assert result.status_code == 401
 
@@ -797,7 +803,7 @@ class TestUnauthorized:
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_extract.return_value = MockAuthContext("", is_authenticated=False)
 
-            result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
 
             assert result.status_code == 401
 
@@ -810,7 +816,7 @@ class TestUnauthorized:
 
             with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
                 result = auditing_handler.handle(
-                    "/api/debates/test-debate-1/red-team", {}, mock_handler
+                    "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
                 )
 
                 assert result.status_code == 401

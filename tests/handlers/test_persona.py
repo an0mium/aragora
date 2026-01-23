@@ -232,7 +232,7 @@ class TestPersonaHandlerListAll:
         """Test successful personas listing."""
         mock_limiter.is_allowed.return_value = True
 
-        result = persona_handler.handle("/api/personas", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/personas", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -252,7 +252,7 @@ class TestPersonaHandlerListAll:
 
         handler = PersonaHandler({"persona_manager": None})
 
-        result = handler.handle("/api/personas", {}, mock_handler)
+        result = handler.handle("/api/v1/personas", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -269,7 +269,7 @@ class TestPersonaHandlerGetPersona:
         """Test successful persona retrieval."""
         mock_limiter.is_allowed.return_value = True
 
-        result = persona_handler.handle("/api/agent/claude/persona", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/claude/persona", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -283,7 +283,7 @@ class TestPersonaHandlerGetPersona:
         """Test persona retrieval for unknown agent."""
         mock_limiter.is_allowed.return_value = True
 
-        result = persona_handler.handle("/api/agent/unknown-agent/persona", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/unknown-agent/persona", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -300,7 +300,7 @@ class TestPersonaHandlerPerformance:
         """Test successful performance retrieval."""
         mock_limiter.is_allowed.return_value = True
 
-        result = persona_handler.handle("/api/agent/claude/performance", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/claude/performance", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -318,7 +318,7 @@ class TestPersonaHandlerPerformance:
 
         handler = PersonaHandler({"persona_manager": None})
 
-        result = handler.handle("/api/agent/claude/performance", {}, mock_handler)
+        result = handler.handle("/api/v1/agent/claude/performance", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -332,7 +332,9 @@ class TestPersonaHandlerDomains:
         """Test successful domains retrieval."""
         mock_limiter.is_allowed.return_value = True
 
-        result = persona_handler.handle("/api/agent/claude/domains", {"limit": "5"}, mock_handler)
+        result = persona_handler.handle(
+            "/api/v1/agent/claude/domains", {"limit": "5"}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -352,7 +354,7 @@ class TestPersonaHandlerDomains:
 
         handler = PersonaHandler({"elo_system": None})
 
-        result = handler.handle("/api/agent/claude/domains", {}, mock_handler)
+        result = handler.handle("/api/v1/agent/claude/domains", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -367,7 +369,7 @@ class TestPersonaHandlerGroundedPersona:
         """Test grounded persona when module unavailable."""
         mock_limiter.is_allowed.return_value = True
 
-        result = persona_handler.handle("/api/agent/claude/grounded-persona", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/claude/grounded-persona", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -397,7 +399,7 @@ class TestPersonaHandlerGroundedPersona:
         mock_synthesizer.get_grounded_persona.return_value = mock_persona
         mock_synthesizer_cls.return_value = mock_synthesizer
 
-        result = persona_handler.handle("/api/agent/claude/grounded-persona", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/claude/grounded-persona", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -416,7 +418,7 @@ class TestPersonaHandlerIdentityPrompt:
         """Test identity prompt when module unavailable."""
         mock_limiter.is_allowed.return_value = True
 
-        result = persona_handler.handle("/api/agent/claude/identity-prompt", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/claude/identity-prompt", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -436,7 +438,7 @@ class TestPersonaHandlerIdentityPrompt:
         )
         mock_synthesizer_cls.return_value = mock_synthesizer
 
-        result = persona_handler.handle("/api/agent/claude/identity-prompt", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/claude/identity-prompt", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -458,7 +460,7 @@ class TestPersonaHandlerIdentityPrompt:
         mock_synthesizer_cls.return_value = mock_synthesizer
 
         result = persona_handler.handle(
-            "/api/agent/claude/identity-prompt",
+            "/api/v1/agent/claude/identity-prompt",
             {"sections": "traits,expertise"},
             mock_handler,
         )
@@ -478,7 +480,7 @@ class TestPersonaHandlerAccuracy:
         """Test accuracy when PositionTracker unavailable."""
         mock_limiter.is_allowed.return_value = True
 
-        result = persona_handler.handle("/api/agent/claude/accuracy", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/claude/accuracy", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -492,7 +494,7 @@ class TestPersonaHandlerRateLimiting:
         """Test rate limit exceeded response."""
         mock_limiter.is_allowed.return_value = False
 
-        result = persona_handler.handle("/api/personas", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/personas", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -509,7 +511,7 @@ class TestPersonaHandlerAgentNameValidation:
         mock_limiter.is_allowed.return_value = True
 
         # Agent names with special characters should be rejected
-        result = persona_handler.handle("/api/agent/../etc/passwd/persona", {}, mock_handler)
+        result = persona_handler.handle("/api/v1/agent/../etc/passwd/persona", {}, mock_handler)
 
         # Should return error for path traversal attempt
         assert result is not None
