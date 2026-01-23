@@ -244,18 +244,8 @@ class GauntletHandler(BaseHandler):
     # API version for this handler
     API_VERSION = "v1"
 
-    # Both versioned and legacy routes for backward compatibility
+    # Gauntlet API routes
     ROUTES = [
-        # Versioned routes (preferred)
-        "/api/v1/gauntlet/run",
-        "/api/v1/gauntlet/personas",
-        "/api/v1/gauntlet/results",
-        "/api/v1/gauntlet/*/receipt",
-        "/api/v1/gauntlet/*/heatmap",
-        "/api/v1/gauntlet/*/export",
-        "/api/v1/gauntlet/*/compare/*",
-        "/api/v1/gauntlet/*",
-        # Legacy routes (deprecated, will be removed in v2)
         "/api/v1/gauntlet/run",
         "/api/v1/gauntlet/personas",
         "/api/v1/gauntlet/results",
@@ -268,8 +258,6 @@ class GauntletHandler(BaseHandler):
 
     # All gauntlet endpoints require authentication
     AUTH_REQUIRED_ENDPOINTS = [
-        "/api/v1/gauntlet/run",
-        "/api/v1/gauntlet/",
         "/api/v1/gauntlet/run",
         "/api/v1/gauntlet/",
     ]

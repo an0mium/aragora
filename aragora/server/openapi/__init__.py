@@ -34,7 +34,7 @@ from aragora.server.openapi.schemas import (
 # we get a circular import since this __init__.py loads when openapi.schemas is accessed
 
 if TYPE_CHECKING:
-    from aragora.server.openapi_impl import (
+    from aragora.server.openapi_impl import (  # type: ignore[attr-defined]
         API_VERSION,
         ALL_ENDPOINTS,
         generate_openapi_schema,
@@ -48,7 +48,7 @@ if TYPE_CHECKING:
         save_postman_collection,
         handle_postman_request,
     )
-    from aragora.server.postman_generator import _openapi_to_postman_request
+    from aragora.server.postman_generator import _openapi_to_postman_request  # type: ignore[attr-defined]
 
 __all__ = [
     # Version

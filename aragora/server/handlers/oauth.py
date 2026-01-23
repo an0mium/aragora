@@ -1218,12 +1218,12 @@ class OAuthHandler(SecureHandler):
     def _handle_apple_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle Apple OAuth callback (POST with form data)."""
         # Apple uses form_post, so we need to read POST body
-        body_data = {}
+        body_data: dict[str, str] = {}
         if hasattr(handler, "request") and handler.request.body:
             from urllib.parse import parse_qs
 
-            body_data = parse_qs(handler.request.body.decode())
-            body_data = {k: v[0] if v else "" for k, v in body_data.items()}
+            parsed = parse_qs(handler.request.body.decode())
+            body_data = {k: v[0] if v else "" for k, v in parsed.items()}
 
         # Merge with query params (for GET fallback)
         all_params = {**query_params, **body_data}

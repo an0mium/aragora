@@ -439,11 +439,30 @@ class UnifiedInboxHandler(BaseHandler):
         """Connect Gmail account via OAuth."""
         try:
             from aragora.connectors.email import GmailSyncService, GmailSyncConfig
+            from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
             config = GmailSyncConfig(
                 enable_prioritization=True,
                 initial_sync_days=7,
             )
+
+            # Exchange auth code for tokens via Gmail connector
+            connector = GmailConnector()
+            auth_ok = await connector.authenticate(code=auth_code, redirect_uri=redirect_uri)
+            if not auth_ok:
+                return {"success": False, "error": "Gmail authentication failed"}
+
+            refresh_token = connector.refresh_token or ""
+            if not refresh_token:
+                return {"success": False, "error": "Gmail refresh token not returned"}
+
+            # Load profile for display details
+            profile = await connector.get_user_info()
+            account.email_address = profile.get("emailAddress", "") or account.email_address
+            if account.email_address:
+                account.display_name = account.email_address.split("@")[0]
+            else:
+                account.display_name = "Gmail User"
 
             # Initialize tenant sync registry
             if tenant_id not in _sync_services:
@@ -469,19 +488,34 @@ class UnifiedInboxHandler(BaseHandler):
                 tenant_id=tenant_id,
                 user_id=account.id,
                 config=config,
+                gmail_connector=connector,
                 on_message_synced=on_message_synced,
             )
 
             # Store sync service
             _sync_services[tenant_id][account.id] = sync_service
 
-            # In production, exchange auth_code for refresh_token first
-            # For now, simulate token exchange and start sync
-            # refresh_token = await self._exchange_gmail_code(auth_code, redirect_uri)
-            # await sync_service.start(refresh_token=refresh_token)
+            # Persist OAuth state for restart safety
+            try:
+                from aragora.storage.gmail_token_store import GmailUserState, get_gmail_token_store
 
-            account.email_address = f"user_{account.id[:8]}@gmail.com"
-            account.display_name = "Gmail User"
+                state = GmailUserState(
+                    user_id=account.id,
+                    org_id=tenant_id,
+                    email_address=account.email_address,
+                    access_token=connector.access_token or "",
+                    refresh_token=refresh_token,
+                    token_expiry=connector.token_expiry,
+                    connected_at=datetime.now(timezone.utc),
+                )
+                store = get_gmail_token_store()
+                await store.save(state)
+            except Exception as e:
+                logger.warning(f"[UnifiedInbox] Failed to persist Gmail tokens: {e}")
+
+            # Start sync using the authenticated connector
+            await sync_service.start()
+
             account.status = AccountStatus.CONNECTED
 
             logger.info(f"[UnifiedInbox] Gmail sync service registered for {account.id}")
@@ -507,11 +541,29 @@ class UnifiedInboxHandler(BaseHandler):
         """Connect Outlook account via OAuth."""
         try:
             from aragora.connectors.email import OutlookSyncService, OutlookSyncConfig
+            from aragora.connectors.enterprise.communication.outlook import OutlookConnector
 
             config = OutlookSyncConfig(
                 enable_prioritization=True,
                 initial_sync_days=7,
             )
+
+            connector = OutlookConnector()
+            auth_ok = await connector.authenticate(code=auth_code, redirect_uri=redirect_uri)
+            if not auth_ok:
+                return {"success": False, "error": "Outlook authentication failed"}
+
+            refresh_token = connector.refresh_token or ""
+            if not refresh_token:
+                return {"success": False, "error": "Outlook refresh token not returned"}
+
+            # Load profile for display details
+            profile = await connector.get_user_info()
+            account.email_address = profile.get("mail") or profile.get("userPrincipalName", "")
+            if account.email_address:
+                account.display_name = account.email_address.split("@")[0]
+            else:
+                account.display_name = "Outlook User"
 
             # Initialize tenant sync registry
             if tenant_id not in _sync_services:
@@ -537,19 +589,44 @@ class UnifiedInboxHandler(BaseHandler):
                 tenant_id=tenant_id,
                 user_id=account.id,
                 config=config,
+                outlook_connector=connector,
                 on_message_synced=on_message_synced,
             )
 
             # Store sync service
             _sync_services[tenant_id][account.id] = sync_service
 
-            # In production, exchange auth_code for tokens first
-            # For now, simulate token exchange and start sync
-            # access_token, refresh_token = await self._exchange_outlook_code(auth_code, redirect_uri)
-            # await sync_service.start(access_token=access_token, refresh_token=refresh_token)
+            # Persist OAuth state for restart safety
+            try:
+                from aragora.storage.integration_store import (
+                    IntegrationConfig,
+                    get_integration_store,
+                )
 
-            account.email_address = f"user_{account.id[:8]}@outlook.com"
-            account.display_name = "Outlook User"
+                integration = IntegrationConfig(
+                    type="outlook_email",
+                    enabled=True,
+                    settings={
+                        "refresh_token": refresh_token,
+                        "access_token": connector.access_token or "",
+                        "token_expiry": connector.token_expiry.isoformat()
+                        if connector.token_expiry
+                        else None,
+                        "account_id": account.id,
+                        "tenant_id": tenant_id,
+                        "email_address": account.email_address,
+                    },
+                    user_id=account.id,
+                    workspace_id=tenant_id,
+                )
+                store = get_integration_store()
+                await store.save(integration)
+            except Exception as e:
+                logger.warning(f"[UnifiedInbox] Failed to persist Outlook tokens: {e}")
+
+            # Start sync using the authenticated connector
+            await sync_service.start()
+
             account.status = AccountStatus.CONNECTED
 
             logger.info(f"[UnifiedInbox] Outlook sync service registered for {account.id}")

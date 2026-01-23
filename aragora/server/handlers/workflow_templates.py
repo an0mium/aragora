@@ -40,15 +40,11 @@ class WorkflowTemplatesHandler(BaseHandler):
     ROUTES: list[str] = [
         "/api/v1/workflow/templates",
         "/api/v1/workflow/templates/*",
-        "/api/v1/workflow/templates",
-        "/api/v1/workflow/templates/*",
     ]
 
-    def can_handle(self, path: str) -> bool:
+    def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/v1/workflow/templates") or path.startswith(
-            "/api/v1/workflow/templates"
-        )
+        return path.startswith("/api/v1/workflow/templates")
 
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route workflow template requests."""

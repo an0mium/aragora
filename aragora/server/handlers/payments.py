@@ -125,7 +125,7 @@ async def get_stripe_connector(request: web.Request) -> Optional[Any]:
         try:
             from aragora.connectors.payments.stripe import StripeConnector
 
-            _stripe_connector = StripeConnector()
+            _stripe_connector = StripeConnector()  # type: ignore[call-arg]
             logger.info("Stripe connector initialized")
         except ImportError:
             logger.warning("Stripe connector not available")
@@ -945,10 +945,8 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
                     {"error": "Authorize.net connector not available"}, status=503
                 )
 
-            from aragora.connectors.payments.authorize_net import IntervalUnit
-
-            # Map interval to Authorize.net interval unit
-            interval_unit = IntervalUnit.MONTHS if interval == "month" else IntervalUnit.DAYS
+            # Map interval to Authorize.net interval unit (string: "days" or "months")
+            interval_unit = "months" if interval == "month" else "days"
 
             async with connector:
                 subscription = await connector.create_subscription(

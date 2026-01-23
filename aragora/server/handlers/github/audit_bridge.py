@@ -704,7 +704,7 @@ async def handle_bulk_create_issues(
     completed = await asyncio.gather(*tasks, return_exceptions=True)
 
     for item in completed:
-        if isinstance(item, Exception):
+        if isinstance(item, BaseException):
             errors.append(str(item))
             continue
 
@@ -795,7 +795,7 @@ async def handle_create_fix_pr(
             return branch_result
 
         # Generate PR body
-        severity_counts = {}
+        severity_counts: Dict[str, int] = {}
         for finding in findings:
             sev = finding.get("severity", "unknown")
             severity_counts[sev] = severity_counts.get(sev, 0) + 1

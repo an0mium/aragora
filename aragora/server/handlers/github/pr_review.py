@@ -535,8 +535,8 @@ async def _run_bug_detector_analysis(
     import ast as ast_module
     import re
 
-    comments = []
-    critical_issues = []
+    comments: List[ReviewComment] = []
+    critical_issues: List[str] = []
 
     if not _import_bug_detector():
         return comments, critical_issues
@@ -557,8 +557,8 @@ async def _run_bug_detector_analysis(
                 continue
 
             # Extract added lines from the patch with line mapping
-            added_lines = []
-            line_mapping = {}  # Maps pseudo-line to actual PR line
+            added_lines: List[str] = []
+            line_mapping: Dict[int, int] = {}  # Maps pseudo-line to actual PR line
             current_line = 0
             for line in patch.split("\n"):
                 if line.startswith("@@"):

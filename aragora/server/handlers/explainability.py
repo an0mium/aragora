@@ -148,11 +148,9 @@ BATCH_JOB_TTL = 3600  # 1 hour retention
 MAX_BATCH_SIZE = 100
 
 
-def _save_batch_job(job: BatchJob) -> None:
-    """Save batch job to storage (sync wrapper for async store)."""
-    store = get_batch_job_store()
-    # Convert local BatchJob to store BatchJob
-    store_job = StoreBatchJob(
+def _convert_to_store_job(job: BatchJob) -> StoreBatchJob:
+    """Convert local BatchJob to store BatchJob."""
+    return StoreBatchJob(
         batch_id=job.batch_id,
         debate_ids=job.debate_ids,
         status=job.status.value,
@@ -164,8 +162,26 @@ def _save_batch_job(job: BatchJob) -> None:
         options=job.options,
         error=None,
     )
+
+
+async def _save_batch_job_async(job: BatchJob) -> None:
+    """Save batch job to storage (async version for use in async contexts)."""
+    store = get_batch_job_store()
+    store_job = _convert_to_store_job(job)
+    await store.save_job(store_job)
+
+
+def _save_batch_job(job: BatchJob) -> None:
+    """Save batch job to storage (sync wrapper for async store)."""
+    store = get_batch_job_store()
+    store_job = _convert_to_store_job(job)
     try:
         loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is already running, create a future and don't wait
+            # This is a fallback - prefer using _save_batch_job_async in async contexts
+            asyncio.ensure_future(store.save_job(store_job))
+            return
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -741,7 +757,7 @@ h3 {{ color: #666; }}
         """Process all debates in the batch."""
         job.status = BatchStatus.PROCESSING
         job.started_at = time.time()
-        _save_batch_job(job)  # Persist initial processing state
+        await _save_batch_job_async(job)  # Persist initial processing state
 
         options = job.options
         include_evidence = options.get("include_evidence", True)
@@ -797,7 +813,7 @@ h3 {{ color: #666; }}
             job.processed_count += 1
             # Persist progress periodically (every 5 items or when done)
             if job.processed_count % 5 == 0 or job.processed_count == len(job.debate_ids):
-                _save_batch_job(job)
+                await _save_batch_job_async(job)
 
         # Set final status
         job.completed_at = time.time()
@@ -811,7 +827,7 @@ h3 {{ color: #666; }}
             job.status = BatchStatus.PARTIAL
 
         # Persist final state
-        _save_batch_job(job)
+        await _save_batch_job_async(job)
 
         # Emit WebSocket event
         try:

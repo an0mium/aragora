@@ -148,17 +148,15 @@ class IntrospectionHandler(BaseHandler):
 
             agent_list = []
             for agent in agents:
-                agent_info = {"name": agent}
+                agent_info: dict[str, Any] = {"name": agent}
 
                 # Add reputation if available
                 if memory and hasattr(memory, "get_agent_reputation"):
                     try:
                         reputation = memory.get_agent_reputation(agent)  # type: ignore[union-attr]
                         if reputation:
-                            agent_info["reputation_score"] = getattr(  # type: ignore[arg-type,assignment]
-                                reputation, "score", 0.5
-                            )
-                            agent_info["total_critiques"] = getattr(  # type: ignore[arg-type,assignment]
+                            agent_info["reputation_score"] = getattr(reputation, "score", 0.5)
+                            agent_info["total_critiques"] = getattr(
                                 reputation, "total_critiques", 0
                             )
                     except Exception as e:

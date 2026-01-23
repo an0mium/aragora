@@ -869,7 +869,7 @@ class AnalyticsMetricsHandler(BaseHandler):
         elo_history = elo_system.get_elo_history(agent_id, limit=50)
 
         # Calculate ELO change
-        elo_change = 0
+        elo_change = 0.0
         if len(elo_history) >= 2:
             elo_change = agent.elo - elo_history[-1][1]
 
@@ -1106,7 +1106,7 @@ class AnalyticsMetricsHandler(BaseHandler):
                 # Group by period (take latest ELO for each period)
                 period_data: Dict[str, Dict[str, Any]] = {}
                 for dp in data_points:
-                    period = dp["period"]
+                    period = str(dp["period"])
                     if (
                         period not in period_data
                         or dp["timestamp"] > period_data[period]["timestamp"]

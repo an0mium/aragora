@@ -21,7 +21,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ..base import (
     BaseHandler,
@@ -588,6 +588,7 @@ class GmailThreadsHandler(BaseHandler):
         token = state.access_token
 
         # Build MIME message
+        message: Union[MIMEMultipart, MIMEText]
         if html_body:
             message = MIMEMultipart("alternative")
             message.attach(MIMEText(body_text, "plain"))
@@ -655,6 +656,7 @@ class GmailThreadsHandler(BaseHandler):
         token = state.access_token
 
         # Build MIME message
+        message: Union[MIMEMultipart, MIMEText]
         if html_body:
             message = MIMEMultipart("alternative")
             message.attach(MIMEText(body_text, "plain"))

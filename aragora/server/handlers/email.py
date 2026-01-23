@@ -584,7 +584,7 @@ async def handle_categorize_batch(
 
     try:
         # Convert dicts to EmailMessages
-        email_objects = []
+        email_objects: List[EmailMessage] = []
         for email_data in emails:
             email = EmailMessage(
                 id=email_data.get("id", f"unknown_{len(email_objects)}"),
@@ -1397,7 +1397,12 @@ class EmailHandler(BaseHandler):
         limit = int(params.get("limit", 50))
         include_read = params.get("include_read", "").lower() == "true"
 
-        result = await handle_fetch_and_rank_inbox(user_id, labels, limit, include_read)
+        result = await handle_fetch_and_rank_inbox(
+            user_id=user_id,
+            labels=labels,
+            limit=limit,
+            include_read=include_read,
+        )
 
         if result.get("success"):
             return success_response(result)

@@ -95,14 +95,31 @@ from .cross_pollination import (
 from .admin import DashboardHandler  # Moved to admin/
 from .debates import DebatesHandler
 from .docs import DocsHandler
+from .features import AuditSessionsHandler  # Audit sessions API
+from .features import CloudStorageHandler  # Cloud storage integration API
+from .features import CodebaseAuditHandler  # Codebase audit API
+from .features import ConnectorsHandler  # Unified connectors registry API
+from .features import CrossPlatformAnalyticsHandler  # Cross-platform analytics API
+from .features import DevOpsHandler  # DevOps integrations API
 from .features import DocumentHandler  # Moved to features/
 from .features import DocumentBatchHandler  # Batch document upload
 from .features import DocumentQueryHandler  # NL document querying
+from .features import EmailWebhooksHandler  # Email webhook endpoints
 from .features import EvidenceHandler  # Moved to features/
 from .features import EvidenceEnrichmentHandler  # Evidence enrichment for findings
-from .features import FolderUploadHandler  # Folder upload support
 from .features import FindingWorkflowHandler  # Finding workflow management
+from .features import FolderUploadHandler  # Folder upload support
+from .features import GmailIngestHandler  # Gmail inbox ingestion API
+from .features import GmailQueryHandler  # Gmail querying API
+from .features import IntegrationsHandler  # Integration config API
+from .features import LegalHandler  # Legal integrations API
+from .features import MarketplaceHandler  # Template marketplace API
+from .features import ReconciliationHandler  # Financial reconciliation API
+from .features import RoutingRulesHandler  # Routing rules API
+from .features import RLMHandler  # RLM operations API
 from .features import SchedulerHandler  # Audit scheduling
+from .features import SmartUploadHandler  # Smart upload and classification API
+from .features import UnifiedInboxHandler  # Unified inbox API
 from .evaluation import EvaluationHandler
 from .evolution import EvolutionABTestingHandler  # Moved to evolution/
 from .evolution import EvolutionHandler  # Moved to evolution/
@@ -226,6 +243,7 @@ ALL_HANDLERS = [
     AnalyticsHandler,
     AnalyticsDashboardHandler,  # Enterprise analytics dashboard
     AnalyticsMetricsHandler,  # Debate metrics and agent performance analytics
+    CrossPlatformAnalyticsHandler,  # Cross-platform analytics aggregation
     MetricsHandler,
     CrossPollinationStatsHandler,  # Cross-subsystem event observability
     CrossPollinationSubscribersHandler,
@@ -255,9 +273,12 @@ ALL_HANDLERS = [
     DocumentHandler,
     DocumentBatchHandler,  # Batch document upload
     FolderUploadHandler,  # Folder upload support
+    SmartUploadHandler,  # Smart upload with file classification
+    CloudStorageHandler,  # Cloud storage integration API
     FindingWorkflowHandler,  # Finding workflow management
     EvidenceEnrichmentHandler,  # Evidence enrichment for findings
     SchedulerHandler,  # Audit scheduling
+    AuditSessionsHandler,  # Audit session tracking API
     VerificationHandler,
     AuditingHandler,
     DashboardHandler,
@@ -266,8 +287,10 @@ ALL_HANDLERS = [
     CalibrationHandler,
     CheckpointHandler,
     RoutingHandler,
+    RoutingRulesHandler,  # Routing rules management API
     MLHandler,  # ML capabilities API (routing, scoring, consensus)
     RLMContextHandler,  # RLM context compression and query API
+    RLMHandler,  # RLM operations API
     SelectionHandler,  # Selection plugin API
     EvaluationHandler,  # LLM-as-Judge evaluation endpoints
     EvolutionABTestingHandler,  # More specific: /api/evolution/ab-tests
@@ -292,6 +315,12 @@ ALL_HANDLERS = [
     OrganizationsHandler,
     OAuthHandler,
     FeaturesHandler,
+    ConnectorsHandler,  # Unified connectors registry
+    IntegrationsHandler,  # Integration config API
+    GmailIngestHandler,  # Gmail OAuth + sync ingestion API
+    GmailQueryHandler,  # Gmail search/query API
+    UnifiedInboxHandler,  # Unified inbox API
+    EmailWebhooksHandler,  # Unified inbox email webhooks
     MemoryAnalyticsHandler,
     # Gauntlet v1 API (versioned endpoints - more specific paths)
     GauntletSchemaHandler,
@@ -307,6 +336,7 @@ ALL_HANDLERS = [
     SlackHandler,
     EvidenceHandler,
     WebhookHandler,
+    CodebaseAuditHandler,  # Codebase audit API
     AdminHandler,
     PolicyHandler,  # Policy and compliance management API
     PrivacyHandler,
@@ -321,6 +351,7 @@ ALL_HANDLERS = [
     WorkflowPatternsHandler,  # Workflow patterns listing
     WorkflowPatternTemplatesHandler,  # Pattern-based workflow templates
     TemplateMarketplaceHandler,  # Community template marketplace
+    MarketplaceHandler,  # Marketplace API
     TrainingHandler,  # RLM training data collection API
     EmailHandler,  # Email prioritization API
     EmailServicesHandler,  # Email services (follow-up, snooze, categories)
@@ -348,8 +379,11 @@ ALL_HANDLERS = [
     InvoiceHandler,  # Invoice processing and PO matching
     ARAutomationHandler,  # Accounts receivable automation
     APAutomationHandler,  # Accounts payable automation
+    ReconciliationHandler,  # Accounting reconciliation API
     # Code review handler (Phase 5 - SME Vertical)
     CodeReviewHandler,  # Multi-agent code review
+    LegalHandler,  # Legal integrations API
+    DevOpsHandler,  # DevOps integrations API
     # Connector platform handlers (unified APIs)
     AdvertisingHandler,  # Google Ads, Meta, LinkedIn, Microsoft, Twitter, TikTok
     AnalyticsPlatformsHandler,  # Metabase, GA4, Mixpanel, Segment
@@ -375,6 +409,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AnalyticsHandler": Stability.STABLE,
     "AnalyticsDashboardHandler": Stability.EXPERIMENTAL,  # Enterprise analytics dashboard
     "AnalyticsMetricsHandler": Stability.EXPERIMENTAL,  # Debate metrics and agent performance analytics
+    "CrossPlatformAnalyticsHandler": Stability.EXPERIMENTAL,  # Cross-platform analytics aggregation
     "ConsensusHandler": Stability.STABLE,
     "MetricsHandler": Stability.STABLE,
     "MemoryHandler": Stability.STABLE,
@@ -382,6 +417,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "LeaderboardViewHandler": Stability.STABLE,
     "ReplaysHandler": Stability.STABLE,
     "FeaturesHandler": Stability.STABLE,
+    "ConnectorsHandler": Stability.EXPERIMENTAL,  # Unified connectors registry
+    "IntegrationsHandler": Stability.EXPERIMENTAL,  # Integration config API
     "AuthHandler": Stability.STABLE,
     # Extended - Stable
     "TournamentHandler": Stability.STABLE,
@@ -391,9 +428,11 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "RelationshipHandler": Stability.STABLE,
     "DashboardHandler": Stability.STABLE,
     "RoutingHandler": Stability.STABLE,
+    "RoutingRulesHandler": Stability.EXPERIMENTAL,  # Routing rules management
     "CompositeHandler": Stability.EXPERIMENTAL,  # Composite API endpoints - new
     "MLHandler": Stability.EXPERIMENTAL,  # ML capabilities API - new
     "RLMContextHandler": Stability.STABLE,  # RLM context compression and query API - 86 tests
+    "RLMHandler": Stability.EXPERIMENTAL,  # RLM operations API
     "SelectionHandler": Stability.STABLE,  # Selection plugin API
     # Promoted to Stable (Jan 2026) - tested in production
     "BillingHandler": Stability.STABLE,  # Transaction tests, Stripe webhooks
@@ -444,9 +483,12 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "DocumentBatchHandler": Stability.STABLE,  # Batch document upload/processing
     "DocumentQueryHandler": Stability.EXPERIMENTAL,  # NL document querying - new
     "FolderUploadHandler": Stability.EXPERIMENTAL,  # Folder upload support - new
+    "SmartUploadHandler": Stability.EXPERIMENTAL,  # Smart upload classification - new
+    "CloudStorageHandler": Stability.EXPERIMENTAL,  # Cloud storage integration - new
     "FindingWorkflowHandler": Stability.EXPERIMENTAL,  # Finding workflow - new
     "EvidenceEnrichmentHandler": Stability.EXPERIMENTAL,  # Evidence enrichment - new
     "SchedulerHandler": Stability.EXPERIMENTAL,  # Audit scheduling - new
+    "AuditSessionsHandler": Stability.EXPERIMENTAL,  # Audit session tracking - new
     "BreakpointsHandler": Stability.STABLE,  # 34 tests, debate breakpoints
     "SlackHandler": Stability.EXPERIMENTAL,  # Slack integration - new
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
@@ -461,6 +503,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "WorkflowPatternsHandler": Stability.STABLE,  # Workflow patterns listing - new
     "WorkflowPatternTemplatesHandler": Stability.STABLE,  # Pattern-based workflow templates - new
     "TemplateMarketplaceHandler": Stability.EXPERIMENTAL,  # Community template marketplace - new
+    "MarketplaceHandler": Stability.EXPERIMENTAL,  # Marketplace API - new
     "QueueHandler": Stability.EXPERIMENTAL,  # Job queue management API - Phase A1
     "RepositoryHandler": Stability.STABLE,  # Repository indexing API - Graduated from Phase A3
     "UncertaintyHandler": Stability.STABLE,  # Uncertainty estimation API - Graduated from Phase A1
@@ -484,14 +527,22 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AutonomousLearningHandler": Stability.EXPERIMENTAL,  # Continuous learning - Phase 5.2
     "EmailHandler": Stability.EXPERIMENTAL,  # Email prioritization API - new
     "EmailServicesHandler": Stability.EXPERIMENTAL,  # Email services (follow-up, snooze) - new
+    "GmailIngestHandler": Stability.EXPERIMENTAL,  # Gmail OAuth + sync ingestion
+    "GmailQueryHandler": Stability.EXPERIMENTAL,  # Gmail search/query API
+    "UnifiedInboxHandler": Stability.PREVIEW,  # Unified inbox API - in-memory by default
+    "EmailWebhooksHandler": Stability.EXPERIMENTAL,  # Unified inbox email webhooks
     "DependencyAnalysisHandler": Stability.EXPERIMENTAL,  # Dependency analysis API - new
+    "CodebaseAuditHandler": Stability.EXPERIMENTAL,  # Codebase audit API - new
     # Accounting handlers (Phase 4 - SME Vertical)
     "ExpenseHandler": Stability.EXPERIMENTAL,  # Expense tracking and receipt processing - new
     "InvoiceHandler": Stability.EXPERIMENTAL,  # Invoice processing and PO matching - new
     "ARAutomationHandler": Stability.EXPERIMENTAL,  # Accounts receivable automation - new
     "APAutomationHandler": Stability.EXPERIMENTAL,  # Accounts payable automation - new
+    "ReconciliationHandler": Stability.EXPERIMENTAL,  # Accounting reconciliation - new
     # Code review handler (Phase 5 - SME Vertical)
     "CodeReviewHandler": Stability.EXPERIMENTAL,  # Multi-agent code review - new
+    "LegalHandler": Stability.EXPERIMENTAL,  # Legal integrations API - new
+    "DevOpsHandler": Stability.EXPERIMENTAL,  # DevOps integrations API - new
     # Connector platform handlers (unified APIs)
     "AdvertisingHandler": Stability.EXPERIMENTAL,  # Unified advertising platforms API - new
     "AnalyticsPlatformsHandler": Stability.EXPERIMENTAL,  # Unified analytics platforms API - new
@@ -560,6 +611,7 @@ __all__ = [
     "AnalyticsHandler",
     "AnalyticsDashboardHandler",
     "AnalyticsMetricsHandler",
+    "CrossPlatformAnalyticsHandler",
     "MetricsHandler",
     "ConsensusHandler",
     "BeliefHandler",
@@ -580,9 +632,12 @@ __all__ = [
     "DocumentBatchHandler",
     "DocumentQueryHandler",
     "FolderUploadHandler",
+    "SmartUploadHandler",
+    "CloudStorageHandler",
     "FindingWorkflowHandler",
     "EvidenceEnrichmentHandler",
     "SchedulerHandler",
+    "AuditSessionsHandler",
     "VerificationHandler",
     "AuditingHandler",
     "DashboardHandler",
@@ -591,8 +646,10 @@ __all__ = [
     "CalibrationHandler",
     "CompositeHandler",
     "RoutingHandler",
+    "RoutingRulesHandler",
     "MLHandler",
     "RLMContextHandler",
+    "RLMHandler",
     "EvolutionHandler",
     "EvolutionABTestingHandler",
     "PluginsHandler",
@@ -615,6 +672,8 @@ __all__ = [
     "GraphDebatesHandler",
     "MatrixDebatesHandler",
     "FeaturesHandler",
+    "ConnectorsHandler",
+    "IntegrationsHandler",
     "MemoryAnalyticsHandler",
     "GauntletHandler",
     # Gauntlet v1 API
@@ -645,10 +704,16 @@ __all__ = [
     "WorkflowPatternsHandler",
     "WorkflowPatternTemplatesHandler",
     "TemplateMarketplaceHandler",
+    "MarketplaceHandler",
     "TrainingHandler",
     "EmailHandler",
     "EmailServicesHandler",
+    "GmailIngestHandler",
+    "GmailQueryHandler",
+    "UnifiedInboxHandler",
+    "EmailWebhooksHandler",
     "DependencyAnalysisHandler",
+    "CodebaseAuditHandler",
     "IntelligenceHandler",
     # Collaboration handlers
     "CollaborationHandlers",
@@ -675,8 +740,11 @@ __all__ = [
     "InvoiceHandler",
     "ARAutomationHandler",
     "APAutomationHandler",
+    "ReconciliationHandler",
     # Code review handler (Phase 5 - SME Vertical)
     "CodeReviewHandler",
+    "LegalHandler",
+    "DevOpsHandler",
     # Connector platform handlers
     "AdvertisingHandler",
     "AnalyticsPlatformsHandler",
