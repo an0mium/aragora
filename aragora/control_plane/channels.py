@@ -98,6 +98,18 @@ class NotificationMessage:
     link_url: Optional[str] = None
     link_text: Optional[str] = None
 
+    # Correlation and tracking
+    correlation_id: Optional[str] = None  # For request tracing across services
+    parent_correlation_id: Optional[str] = None  # For hierarchical tracing
+    idempotency_key: Optional[str] = None  # Prevent duplicate deliveries
+
+    def __post_init__(self) -> None:
+        """Generate correlation_id if not provided."""
+        import uuid
+
+        if self.correlation_id is None:
+            self.correlation_id = str(uuid.uuid4())
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -110,6 +122,9 @@ class NotificationMessage:
             "workspace_id": self.workspace_id,
             "link_url": self.link_url,
             "link_text": self.link_text,
+            "correlation_id": self.correlation_id,
+            "parent_correlation_id": self.parent_correlation_id,
+            "idempotency_key": self.idempotency_key,
         }
 
 

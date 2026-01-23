@@ -2140,10 +2140,6 @@ class Arena:
                 AnthropicAPIAgent(
                     name="security-auditor",
                     model="claude-sonnet-4-20250514",
-                    system_prompt=(
-                        "You are a security auditor specializing in vulnerability assessment "
-                        "and remediation. Provide detailed, actionable security recommendations."
-                    ),
                 )
             )
         except (ImportError, Exception) as e:
@@ -2156,10 +2152,6 @@ class Arena:
                 OpenAIAPIAgent(
                     name="compliance-auditor",
                     model="gpt-4o",
-                    system_prompt=(
-                        "You are a compliance and security expert. Focus on regulatory "
-                        "requirements, industry best practices, and risk assessment."
-                    ),
                 )
             )
         except (ImportError, Exception) as e:

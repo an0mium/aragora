@@ -97,7 +97,7 @@ class ADRResult:
     context: str
     decision: str
     consequences: list[str]
-    alternatives_considered: list[dict[str, str]]
+    alternatives_considered: list[dict[str, Any]]
     references: list[str] = field(default_factory=list)
 
 
@@ -162,7 +162,7 @@ Guidelines:
         super().__init__(
             name="doc_generator",
             model=kwargs.get("model", "claude-3.5-sonnet"),
-            system_prompt=system_prompt,
+            persona=system_prompt,
             **kwargs,
         )
         self.style = style

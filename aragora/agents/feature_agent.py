@@ -316,7 +316,7 @@ class FeatureDevelopmentAgent:
         implementation: FeatureImplementation,
     ) -> Dict[str, Any]:
         """Gather codebase context for the feature."""
-        context = {
+        context: Dict[str, Any] = {
             "relevant_files": [],
             "existing_patterns": [],
             "dependencies": [],
@@ -418,13 +418,14 @@ class FeatureDevelopmentAgent:
 
         # Suggest new file locations based on existing patterns
         if context.get("existing_patterns"):
+            files_to_create: List[str] = design["files_to_create"]
             for pattern in context["existing_patterns"]:
                 if pattern.get("files"):
                     # Use same directory as existing similar files
                     existing_dir = Path(pattern["files"][0]).parent
                     suggested_file = existing_dir / f"{spec.name.lower().replace(' ', '_')}.py"
-                    if str(suggested_file) not in design["files_to_create"]:
-                        design["files_to_create"].append(str(suggested_file))
+                    if str(suggested_file) not in files_to_create:
+                        files_to_create.append(str(suggested_file))
 
         self._log(
             f"Design complete: {len(design['files_to_create'])} files to create, "

@@ -242,7 +242,12 @@ See `docs/ENVIRONMENT.md` for full reference.
 - Observability - Prometheus metrics, Grafana dashboards, OpenTelemetry tracing
 - RBAC v2 - Fine-grained permissions (50+), role hierarchy, decorators, middleware
 - Backup/DR - Incremental backups, retention policies, disaster recovery drills
-- Control Plane - Agent registry, task scheduler, health monitoring (142 tests)
+- Control Plane - Agent registry, task scheduler, health monitoring, policy governance (170+ tests)
+  - PolicyConflictDetector - Detects contradictory policies before they cause issues
+  - RedisPolicyCache - Distributed cache for fast policy evaluation
+  - PolicySyncScheduler - Continuous background policy synchronization
+  - Omnichannel notifications - Debate → Slack/Teams/Email/Webhook delivery
+  - ReceiptAdapter - Decision receipts auto-persist to Knowledge Mound
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 950+ tests passing)

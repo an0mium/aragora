@@ -55,8 +55,8 @@ class ReceiptFormatter(ABC):
         Returns:
             Short text summary
         """
-        decision = receipt.decision or "No decision"
-        confidence = receipt.confidence_score or 0
+        decision = receipt.verdict or "No decision"
+        confidence = receipt.confidence or 0
 
         summary = f"[{confidence:.0%} confidence] {decision}"
         if len(summary) > max_length:

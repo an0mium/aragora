@@ -479,7 +479,15 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
                 return await resp.json() if resp.content else {}
 
-        return await self._circuit_breaker.call(_make_request)
+        if not self._circuit_breaker.can_proceed():
+            raise ValueError("Circuit breaker is open - API temporarily unavailable")
+        try:
+            result = await _make_request()
+            self._circuit_breaker.record_success()
+            return result
+        except Exception:
+            self._circuit_breaker.record_failure()
+            raise
 
     async def get_calendars(self) -> List[OutlookCalendarInfo]:
         """Get list of user's calendars."""

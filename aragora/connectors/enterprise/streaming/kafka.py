@@ -191,8 +191,8 @@ class KafkaConnector(EnterpriseConnector):
                 *self.config.topics,
                 **consumer_config,
             )
-
-            await self._consumer.start()
+            consumer = self._consumer
+            await consumer.start()
             logger.info(
                 f"[Kafka] Connected to {self.config.bootstrap_servers}, "
                 f"topics={self.config.topics}, group={self.config.group_id}"
@@ -239,10 +239,12 @@ class KafkaConnector(EnterpriseConnector):
         if not self._consumer:
             await self.start()
 
+        consumer = self._consumer
+        assert consumer is not None, "Consumer should be initialized after start()"
         messages_consumed = 0
 
         try:
-            async for msg in self._consumer:
+            async for msg in consumer:
                 try:
                     # Deserialize message
                     kafka_msg = self._deserialize_message(msg)
