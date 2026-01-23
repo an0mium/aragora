@@ -358,15 +358,15 @@ async def handle_get_intervention_log(
 def register_intervention_routes(router: Any) -> None:
     """Register intervention routes with the server router."""
 
-    async def pause_debate(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def pause_debate(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         return await handle_pause_debate(debate_id)
 
-    async def resume_debate(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def resume_debate(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         return await handle_resume_debate(debate_id)
 
-    async def inject_argument(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def inject_argument(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         body = await request.body()
         data = json.loads(body) if body else {}
@@ -378,7 +378,7 @@ def register_intervention_routes(router: Any) -> None:
             user_id=data.get("user_id"),
         )
 
-    async def update_weights(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def update_weights(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         body = await request.body()
         data = json.loads(body) if body else {}
@@ -389,7 +389,7 @@ def register_intervention_routes(router: Any) -> None:
             user_id=data.get("user_id"),
         )
 
-    async def update_threshold(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def update_threshold(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         body = await request.body()
         data = json.loads(body) if body else {}
@@ -399,11 +399,11 @@ def register_intervention_routes(router: Any) -> None:
             user_id=data.get("user_id"),
         )
 
-    async def get_state(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def get_state(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         return await handle_get_intervention_state(debate_id)
 
-    async def get_log(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def get_log(request: Any) -> HandlerResult:
         debate_id = request.path_params.get("debate_id", "")
         limit = int(request.query_params.get("limit", 50))
         return await handle_get_intervention_log(debate_id, limit)

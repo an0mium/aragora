@@ -21,7 +21,7 @@ import time
 from typing import Any, Optional
 from urllib.parse import parse_qs
 
-from aragora.server.handlers.base import json_response
+from aragora.server.handlers.base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +294,7 @@ def build_consensus_message_blocks(
     return blocks
 
 
-async def handle_slack_events(request: Any) -> tuple[str, int, dict[str, str]]:
+async def handle_slack_events(request: Any) -> HandlerResult:
     """Handle Slack Events API webhook."""
     try:
         body = await request.body()
@@ -335,7 +335,7 @@ async def handle_slack_events(request: Any) -> tuple[str, int, dict[str, str]]:
         return json_response({"error": str(e)}, status=500)
 
 
-async def handle_slack_interactions(request: Any) -> tuple[str, int, dict[str, str]]:
+async def handle_slack_interactions(request: Any) -> HandlerResult:
     """Handle Slack interactive components (button clicks, votes)."""
     try:
         body = await request.body()
@@ -425,7 +425,7 @@ async def handle_slack_interactions(request: Any) -> tuple[str, int, dict[str, s
         return json_response({"error": str(e)}, status=500)
 
 
-async def handle_slack_commands(request: Any) -> tuple[str, int, dict[str, str]]:
+async def handle_slack_commands(request: Any) -> HandlerResult:
     """Handle Slack slash commands (/aragora)."""
     try:
         body = await request.body()
