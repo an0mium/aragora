@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * Industry vertical configuration for specialized debate agents.
@@ -187,6 +188,7 @@ export function VerticalSelector({
   questionText = '',
   compact = false,
 }: VerticalSelectorProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [suggestedVertical, setSuggestedVertical] = useState<string | null>(null);
   const [_loadingBackend, setLoadingBackend] = useState(false);
@@ -225,14 +227,22 @@ export function VerticalSelector({
     setSuggestedVertical(bestScore >= 2 ? bestMatch : null);
   }, [questionText]);
 
-  // Fetch backend verticals (if available)
+  // Fetch backend verticals (if available and authenticated)
   useEffect(() => {
+    // Skip if auth is still loading or not authenticated
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+
     const fetchBackendVerticals = async () => {
       try {
         setLoadingBackend(true);
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (tokens?.access_token) {
+          headers['Authorization'] = `Bearer ${tokens.access_token}`;
+        }
         const response = await fetch(`${apiBase}/api/v1/verticals`, {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
         });
 
         if (response.ok) {
@@ -247,7 +257,7 @@ export function VerticalSelector({
     };
 
     fetchBackendVerticals();
-  }, [apiBase]);
+  }, [apiBase, authLoading, isAuthenticated, tokens?.access_token]);
 
   // Apply suggested agents when vertical changes
   const handleVerticalSelect = useCallback((verticalId: string) => {

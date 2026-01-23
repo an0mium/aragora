@@ -93,9 +93,15 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
   const handleOAuthClick = (provider: Provider) => {
     // Build callback URL for the current origin
     const callbackUrl = `${window.location.origin}/auth/callback`;
+    const oauthUrl = `${API_BASE_URL}${provider.auth_url}?redirect_url=${encodeURIComponent(callbackUrl)}`;
 
-    // Redirect to OAuth provider via our API (uses explicit API URL from config)
-    window.location.href = `${API_BASE_URL}${provider.auth_url}?redirect_url=${encodeURIComponent(callbackUrl)}`;
+    // Debug: Log the redirect URL
+    console.log('[OAuth] Redirecting to:', oauthUrl);
+    console.log('[OAuth] API_BASE_URL:', API_BASE_URL);
+    console.log('[OAuth] provider.auth_url:', provider.auth_url);
+
+    // Redirect to OAuth provider via our API
+    window.location.href = oauthUrl;
   };
 
   // Don't render anything while loading or if no providers
@@ -124,6 +130,7 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
         {providers.map((provider) => (
           <button
             key={provider.id}
+            type="button"
             onClick={() => handleOAuthClick(provider)}
             className="w-full py-3 px-4 border border-acid-green/30 bg-bg text-text font-mono text-sm hover:border-acid-green hover:bg-acid-green/5 transition-colors flex items-center justify-center gap-3"
           >

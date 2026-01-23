@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * Feature information from the backend feature registry
@@ -51,6 +52,7 @@ interface UseFeaturesState {
 export function useFeatures(
   apiBase: string = API_BASE_URL
 ) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [state, setState] = useState<UseFeaturesState>({
     features: null,
     loading: true,
@@ -61,14 +63,24 @@ export function useFeatures(
   const fetchedRef = useRef(false);
 
   useEffect(() => {
+    // Skip if auth is still loading or not authenticated
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setState({ features: null, loading: false, error: null });
+      return;
+    }
     if (fetchedRef.current) return;
     fetchedRef.current = true;
 
     const fetchFeatures = async () => {
       try {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (tokens?.access_token) {
+          headers['Authorization'] = `Bearer ${tokens.access_token}`;
+        }
         const response = await fetch(`${apiBase}/api/features`, {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
         });
 
         if (!response.ok) {
@@ -85,7 +97,7 @@ export function useFeatures(
     };
 
     fetchFeatures();
-  }, [apiBase]);
+  }, [apiBase, authLoading, isAuthenticated, tokens?.access_token]);
 
   /**
    * Check if a feature is available
@@ -132,13 +144,18 @@ export function useFeatures(
    * Force refetch of features
    */
   const refetch = useCallback(async () => {
+    if (!isAuthenticated) return;
     fetchedRef.current = false;
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
       const response = await fetch(`${apiBase}/api/features`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
 
       if (!response.ok) {

@@ -19,17 +19,17 @@ const DEBATE_MODES: Record<DebateMode, { label: string; description: string; end
   standard: {
     label: 'Standard',
     description: 'Linear debate with critique rounds',
-    endpoint: '/api/debates',
+    endpoint: '/api/v1/debates',
   },
   graph: {
     label: 'Graph',
     description: 'Branching debate exploring multiple paths',
-    endpoint: '/api/debates/graph',
+    endpoint: '/api/v1/debates/graph',
   },
   matrix: {
     label: 'Matrix',
     description: 'Parallel scenarios for comparison',
-    endpoint: '/api/debates/matrix',
+    endpoint: '/api/v1/debates/matrix',
   },
 };
 

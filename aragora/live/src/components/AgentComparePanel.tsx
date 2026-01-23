@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '../config';
+import { useAuth } from '@/context/AuthContext';
 
 interface AgentProfile {
   name: string;
@@ -31,6 +32,7 @@ interface AgentComparePanelProps {
 }
 
 export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: AgentComparePanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [agent1, setAgent1] = useState(initialAgents[0] || '');
   const [agent2, setAgent2] = useState(initialAgents[1] || '');
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
@@ -41,30 +43,45 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
   // Use centralized config
   const apiBase = API_BASE_URL;
 
-  // Fetch available agents if not provided
+  // Fetch available agents if not provided (only when authenticated)
   useEffect(() => {
-    if (availableAgents.length === 0) {
-      fetch(`${apiBase}/api/rankings`)
-        .then(res => res.json())
-        .then(data => {
-          const agentNames = (data.rankings || []).map((r: { name: string }) => r.name);
-          setAgents(agentNames);
-          if (!agent1 && agentNames.length > 0) setAgent1(agentNames[0]);
-          if (!agent2 && agentNames.length > 1) setAgent2(agentNames[1]);
-        })
-        .catch(() => {});
+    // Skip if auth is loading or user is not authenticated
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+    if (availableAgents.length > 0) return;
+
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
     }
-  }, [apiBase, availableAgents, agent1, agent2]);
+
+    fetch(`${apiBase}/api/rankings`, { headers })
+      .then(res => res.json())
+      .then(data => {
+        const agentNames = (data.rankings || []).map((r: { name: string }) => r.name);
+        setAgents(agentNames);
+        if (!agent1 && agentNames.length > 0) setAgent1(agentNames[0]);
+        if (!agent2 && agentNames.length > 1) setAgent2(agentNames[1]);
+      })
+      .catch(() => {});
+  }, [apiBase, availableAgents, agent1, agent2, authLoading, isAuthenticated, tokens?.access_token]);
 
   const fetchComparison = useCallback(async () => {
     if (!agent1 || !agent2 || agent1 === agent2) return;
+    if (!isAuthenticated) return;
 
     try {
       setLoading(true);
       setError(null);
 
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+
       const response = await fetch(
-        `${apiBase}/api/agent/compare?agents=${encodeURIComponent(agent1)}&agents=${encodeURIComponent(agent2)}`
+        `${apiBase}/api/agent/compare?agents=${encodeURIComponent(agent1)}&agents=${encodeURIComponent(agent2)}`,
+        { headers }
       );
 
       if (!response.ok) {
@@ -78,7 +95,7 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
     } finally {
       setLoading(false);
     }
-  }, [apiBase, agent1, agent2]);
+  }, [apiBase, agent1, agent2, isAuthenticated, tokens?.access_token]);
 
   useEffect(() => {
     if (agent1 && agent2 && agent1 !== agent2) {
