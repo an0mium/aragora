@@ -452,6 +452,25 @@ class UserRepository:
             except (IndexError, KeyError):
                 return default
 
+        def parse_datetime(value) -> Optional[datetime]:
+            """Parse datetime from ISO string or Unix timestamp."""
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, (int, float)):
+                return datetime.fromtimestamp(value, tz=timezone.utc)
+            try:
+                # Try ISO format first
+                return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except ValueError:
+                # Try parsing as float (Unix timestamp stored as string)
+                try:
+                    return datetime.fromtimestamp(float(value), tz=timezone.utc)
+                except (ValueError, OSError):
+                    logger.warning(f"Could not parse datetime: {value}")
+                    return datetime.now(timezone.utc)
+
         return User(
             id=row["id"],
             email=row["email"],
@@ -464,21 +483,13 @@ class UserRepository:
             email_verified=bool(row["email_verified"]),
             api_key_hash=safe_get("api_key_hash"),
             api_key_prefix=safe_get("api_key_prefix"),
-            api_key_created_at=(
-                datetime.fromisoformat(row["api_key_created_at"])
-                if row["api_key_created_at"]
-                else None
-            ),
-            api_key_expires_at=(
-                datetime.fromisoformat(safe_get("api_key_expires_at"))
-                if safe_get("api_key_expires_at")
-                else None
-            ),
-            created_at=datetime.fromisoformat(row["created_at"]),
-            updated_at=datetime.fromisoformat(row["updated_at"]),
-            last_login_at=(
-                datetime.fromisoformat(row["last_login_at"]) if row["last_login_at"] else None
-            ),
+            api_key_created_at=parse_datetime(row["api_key_created_at"])
+            if row["api_key_created_at"]
+            else None,
+            api_key_expires_at=parse_datetime(safe_get("api_key_expires_at")),
+            created_at=parse_datetime(row["created_at"]) or datetime.now(timezone.utc),
+            updated_at=parse_datetime(row["updated_at"]) or datetime.now(timezone.utc),
+            last_login_at=parse_datetime(row["last_login_at"]),
             mfa_secret=_decrypt_mfa_field(safe_get("mfa_secret") or "", row["id"]),
             mfa_enabled=bool(safe_get("mfa_enabled", 0)),
             mfa_backup_codes=_decrypt_mfa_field(safe_get("mfa_backup_codes") or "", row["id"]),
