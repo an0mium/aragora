@@ -19,6 +19,8 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 | Troubleshoot issues | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | Prioritize inbox | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
 | Analyze codebase health | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
+| Automate PR reviews | [GITHUB_PR_REVIEW.md](GITHUB_PR_REVIEW.md) |
+| Generate tests | [CODING_ASSISTANCE.md](CODING_ASSISTANCE.md) |
 
 ## Canonical Areas
 
@@ -91,6 +93,11 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 - [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)
 - [TESTING.md](TESTING.md)
 - [DEPRECATION_POLICY.md](DEPRECATION_POLICY.md)
+
+### Coding & Review
+
+- [CODING_ASSISTANCE.md](CODING_ASSISTANCE.md)
+- [GITHUB_PR_REVIEW.md](GITHUB_PR_REVIEW.md)
 
 ### Advanced / Research
 

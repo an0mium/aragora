@@ -19,6 +19,7 @@ This document provides detailed documentation for all 65+ features implemented i
 - [Phase 20: Demo Fixtures & Search](#phase-20-demo-fixtures--search-2026-01)
 - [Phase 21: Feature Integration](#phase-21-feature-integration-2026-01-09)
 - [Phase 22: Inbox Ops & Codebase Analysis](#phase-22-inbox-ops--codebase-analysis-2026-01-22)
+- [Phase 23: Coding & Review](#phase-23-coding--review-2026-01-22)
 
 ---
 
@@ -2127,6 +2128,46 @@ optional calendar context.
 from aragora.services.snooze_recommender import SnoozeRecommender
 
 recommender = SnoozeRecommender()
+```
+
+---
+
+## Phase 23: Coding & Review (2026-01-22)
+
+### GitHub PR Review API
+**File:** `aragora/server/handlers/github/pr_review.py`
+
+Automated pull request review workflows over the API. Supports triggering
+review runs, fetching PR details, and submitting review verdicts.
+
+```python
+import httpx
+
+async def trigger_pr_review():
+    async with httpx.AsyncClient(base_url="http://localhost:8080") as client:
+        response = await client.post("/api/v1/github/pr/review", json={
+            "repository": "owner/repo",
+            "pr_number": 42,
+            "review_type": "comprehensive",
+        })
+        print(response.json())
+```
+
+### Test Generator
+**File:** `aragora/coding/test_generator.py`
+
+AST-based test generation utility for extracting functions and producing test
+cases across multiple frameworks.
+
+```python
+from aragora.coding import TestFramework, generate_tests_for_function
+
+cases, test_code = generate_tests_for_function(
+    "def add(a, b): return a + b",
+    function_name="add",
+    framework=TestFramework.PYTEST,
+)
+print(test_code)
 ```
 
 ---

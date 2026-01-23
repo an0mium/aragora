@@ -1196,6 +1196,157 @@ COMMON_SCHEMAS: dict[str, Any] = {
         },
         "required": ["request_id", "status"],
     },
+    "GitHubReviewComment": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "file_path": {"type": "string"},
+            "line": {"type": "integer"},
+            "body": {"type": "string"},
+            "side": {"type": "string"},
+            "suggestion": {"type": "string", "nullable": True},
+            "severity": {"type": "string"},
+            "category": {"type": "string"},
+        },
+        "required": ["id", "file_path", "line", "body"],
+    },
+    "GitHubPRReviewResult": {
+        "type": "object",
+        "properties": {
+            "review_id": {"type": "string"},
+            "pr_number": {"type": "integer"},
+            "repository": {"type": "string"},
+            "status": {"type": "string"},
+            "verdict": {"type": "string", "nullable": True},
+            "summary": {"type": "string", "nullable": True},
+            "comments": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/GitHubReviewComment"},
+            },
+            "started_at": {"type": "string", "format": "date-time"},
+            "completed_at": {"type": "string", "format": "date-time", "nullable": True},
+            "error": {"type": "string", "nullable": True},
+            "metrics": {"type": "object"},
+        },
+        "required": ["review_id", "pr_number", "repository", "status", "comments", "started_at"],
+    },
+    "GitHubPRDetails": {
+        "type": "object",
+        "properties": {
+            "number": {"type": "integer"},
+            "title": {"type": "string"},
+            "body": {"type": "string"},
+            "state": {"type": "string"},
+            "author": {"type": "string"},
+            "base_branch": {"type": "string"},
+            "head_branch": {"type": "string"},
+            "changed_files": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {"type": "string"},
+                        "status": {"type": "string"},
+                        "additions": {"type": "integer"},
+                        "deletions": {"type": "integer"},
+                        "patch": {"type": "string"},
+                    },
+                },
+            },
+            "commits": {"type": "array", "items": {"type": "object"}},
+            "labels": {"type": "array", "items": {"type": "string"}},
+            "created_at": {"type": "string", "format": "date-time", "nullable": True},
+            "updated_at": {"type": "string", "format": "date-time", "nullable": True},
+        },
+        "required": ["number", "title", "state", "author", "base_branch", "head_branch"],
+    },
+    "GitHubPRReviewTriggerRequest": {
+        "type": "object",
+        "properties": {
+            "repository": {"type": "string", "description": "owner/repo"},
+            "pr_number": {"type": "integer"},
+            "review_type": {"type": "string", "enum": ["comprehensive", "quick", "security"]},
+            "workspace_id": {"type": "string"},
+        },
+        "required": ["repository", "pr_number"],
+    },
+    "GitHubPRReviewTriggerResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "review_id": {"type": "string"},
+            "status": {"type": "string"},
+            "pr_number": {"type": "integer"},
+            "repository": {"type": "string"},
+            "error": {"type": "string", "nullable": True},
+        },
+        "required": ["success"],
+    },
+    "GitHubPRDetailsResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "pr": {"$ref": "#/components/schemas/GitHubPRDetails"},
+            "error": {"type": "string", "nullable": True},
+        },
+        "required": ["success"],
+    },
+    "GitHubPRReviewStatusResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "review": {"$ref": "#/components/schemas/GitHubPRReviewResult"},
+            "error": {"type": "string", "nullable": True},
+        },
+        "required": ["success"],
+    },
+    "GitHubPRReviewListResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "reviews": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/GitHubPRReviewResult"},
+            },
+            "total": {"type": "integer"},
+            "error": {"type": "string", "nullable": True},
+        },
+        "required": ["success", "reviews", "total"],
+    },
+    "GitHubPRSubmitReviewRequest": {
+        "type": "object",
+        "properties": {
+            "repository": {"type": "string", "description": "owner/repo"},
+            "event": {
+                "type": "string",
+                "enum": ["APPROVE", "REQUEST_CHANGES", "COMMENT"],
+            },
+            "body": {"type": "string"},
+            "comments": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"},
+                        "position": {"type": "integer"},
+                        "body": {"type": "string"},
+                    },
+                    "required": ["path", "position", "body"],
+                },
+            },
+        },
+        "required": ["repository", "event"],
+    },
+    "GitHubPRSubmitReviewResponse": {
+        "type": "object",
+        "properties": {
+            "success": {"type": "boolean"},
+            "demo": {"type": "boolean"},
+            "data": {"type": "object"},
+            "error": {"type": "string", "nullable": True},
+        },
+        "required": ["success"],
+    },
 }
 
 

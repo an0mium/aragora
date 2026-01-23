@@ -12,7 +12,6 @@ Endpoints:
 - GET /api/v1/github/pr/{pr_number} - Get PR details
 - POST /api/v1/github/pr/{pr_number}/review - Submit review
 - GET /api/v1/github/pr/{pr_number}/reviews - List reviews
-- POST /api/v1/github/pr/{pr_number}/comment - Add comment
 """
 
 from __future__ import annotations

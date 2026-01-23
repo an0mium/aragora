@@ -17,6 +17,34 @@ interface SecurityStatus {
   algorithm: string;
 }
 
+interface SecretFinding {
+  id: string;
+  secret_type: string;
+  file_path: string;
+  line_number: number;
+  matched_text: string;
+  context_line: string;
+  severity: string;
+  confidence: number;
+  is_in_history: boolean;
+}
+
+interface SecretsScanResult {
+  scan_id: string;
+  repository: string;
+  status: string;
+  files_scanned: number;
+  scanned_history: boolean;
+  secrets: SecretFinding[];
+  summary: {
+    total_secrets: number;
+    critical_count: number;
+    high_count: number;
+    medium_count: number;
+    low_count: number;
+  };
+}
+
 interface SecurityHealth {
   status: 'healthy' | 'degraded' | 'unhealthy';
   encryption_service: {
@@ -89,6 +117,12 @@ export default function SecurityAdminPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rotationConfirm, setRotationConfirm] = useState(false);
 
+  // Secrets scanning state
+  const [secretsScan, setSecretsScan] = useState<SecretsScanResult | null>(null);
+  const [secretsLoading, setSecretsLoading] = useState(false);
+  const [repoPath, setRepoPath] = useState('');
+  const [includeHistory, setIncludeHistory] = useState(false);
+
   const fetchData = useCallback(async () => {
     try {
       setError(null);
@@ -127,6 +161,76 @@ export default function SecurityAdminPage() {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  const handleSecretsScan = async () => {
+    if (!repoPath.trim()) {
+      setError('Please enter a repository path');
+      return;
+    }
+
+    setSecretsLoading(true);
+    setError(null);
+
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      // Start the scan
+      const res = await fetch(`${backendConfig.api}/api/v1/codebase/scan/secrets`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          repo_path: repoPath,
+          include_history: includeHistory,
+          history_depth: 100,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to start secrets scan');
+      }
+
+      const scanData = await res.json();
+
+      // Poll for results
+      if (scanData.scan_id) {
+        let attempts = 0;
+        const maxAttempts = 60; // 5 minutes max
+
+        const pollResults = async () => {
+          const resultRes = await fetch(
+            `${backendConfig.api}/api/v1/codebase/scan/secrets/${scanData.scan_id}`,
+            { headers }
+          );
+
+          if (resultRes.ok) {
+            const result = await resultRes.json();
+            if (result.scan_result?.status === 'completed') {
+              setSecretsScan(result.scan_result);
+              setSecretsLoading(false);
+              return;
+            } else if (result.scan_result?.status === 'failed') {
+              throw new Error(result.scan_result.error || 'Scan failed');
+            }
+          }
+
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(pollResults, 5000);
+          } else {
+            throw new Error('Scan timed out');
+          }
+        };
+
+        setTimeout(pollResults, 2000);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to scan for secrets');
+      setSecretsLoading(false);
+    }
+  };
 
   const handleRotateKey = async () => {
     if (!rotationConfirm) {
@@ -391,6 +495,130 @@ export default function SecurityAdminPage() {
             </div>
           </div>
         )}
+
+        {/* Secrets Scanning */}
+        <div className="card p-4">
+          <h2 className="text-lg font-mono text-text mb-4">Secrets Scanner</h2>
+          <p className="text-sm text-text-muted font-mono mb-4">
+            Scan repositories for hardcoded credentials, API keys, and sensitive data.
+          </p>
+
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <input
+              type="text"
+              value={repoPath}
+              onChange={(e) => setRepoPath(e.target.value)}
+              placeholder="/path/to/repository"
+              className="flex-1 px-3 py-2 bg-surface border border-border rounded font-mono text-sm text-text placeholder:text-text-muted"
+            />
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeHistory}
+                onChange={(e) => setIncludeHistory(e.target.checked)}
+                className="w-4 h-4 accent-acid-green"
+              />
+              <span className="font-mono text-sm text-text-muted whitespace-nowrap">Scan Git History</span>
+            </label>
+            <button
+              onClick={handleSecretsScan}
+              disabled={secretsLoading || !repoPath.trim()}
+              className="px-4 py-2 font-mono text-sm rounded border border-acid-cyan/40 bg-acid-cyan/10 text-acid-cyan hover:bg-acid-cyan/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {secretsLoading ? 'Scanning...' : 'Scan for Secrets'}
+            </button>
+          </div>
+
+          {/* Scan Results */}
+          {secretsScan && (
+            <div className="border-t border-border pt-4 mt-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={secretsScan.summary.total_secrets > 0 ? 'degraded' : 'healthy'} />
+                  <span className="font-mono text-sm text-text">
+                    {secretsScan.summary.total_secrets} secrets found
+                  </span>
+                </div>
+                <span className="font-mono text-xs text-text-muted">
+                  {secretsScan.files_scanned} files scanned
+                  {secretsScan.scanned_history && ' (including history)'}
+                </span>
+              </div>
+
+              {/* Severity Summary */}
+              {secretsScan.summary.total_secrets > 0 && (
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  <div className="p-2 bg-acid-red/10 border border-acid-red/40 rounded text-center">
+                    <div className="text-lg font-mono text-acid-red">{secretsScan.summary.critical_count}</div>
+                    <div className="text-xs font-mono text-text-muted">Critical</div>
+                  </div>
+                  <div className="p-2 bg-acid-yellow/10 border border-acid-yellow/40 rounded text-center">
+                    <div className="text-lg font-mono text-acid-yellow">{secretsScan.summary.high_count}</div>
+                    <div className="text-xs font-mono text-text-muted">High</div>
+                  </div>
+                  <div className="p-2 bg-acid-cyan/10 border border-acid-cyan/40 rounded text-center">
+                    <div className="text-lg font-mono text-acid-cyan">{secretsScan.summary.medium_count}</div>
+                    <div className="text-xs font-mono text-text-muted">Medium</div>
+                  </div>
+                  <div className="p-2 bg-text-muted/10 border border-text-muted/40 rounded text-center">
+                    <div className="text-lg font-mono text-text-muted">{secretsScan.summary.low_count}</div>
+                    <div className="text-xs font-mono text-text-muted">Low</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Findings Table */}
+              {secretsScan.secrets.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm font-mono">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 text-text-muted font-normal">Type</th>
+                        <th className="text-left py-2 text-text-muted font-normal">Severity</th>
+                        <th className="text-left py-2 text-text-muted font-normal">File</th>
+                        <th className="text-left py-2 text-text-muted font-normal">Line</th>
+                        <th className="text-left py-2 text-text-muted font-normal">Match</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {secretsScan.secrets.slice(0, 20).map((secret) => (
+                        <tr key={secret.id} className="border-b border-border/50 hover:bg-surface/50">
+                          <td className="py-2 text-text">
+                            {secret.secret_type.replace(/_/g, ' ')}
+                            {secret.is_in_history && (
+                              <span className="ml-1 text-xs text-text-muted">(history)</span>
+                            )}
+                          </td>
+                          <td className="py-2">
+                            <StatusBadge status={secret.severity === 'critical' ? 'unhealthy' : secret.severity === 'high' ? 'degraded' : 'healthy'} />
+                          </td>
+                          <td className="py-2 text-text-muted truncate max-w-[200px]" title={secret.file_path}>
+                            {secret.file_path}
+                          </td>
+                          <td className="py-2 text-text-muted">{secret.line_number}</td>
+                          <td className="py-2 text-acid-cyan truncate max-w-[150px]" title={secret.matched_text}>
+                            {secret.matched_text}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {secretsScan.secrets.length > 20 && (
+                    <div className="text-center py-2 text-text-muted text-sm font-mono">
+                      Showing first 20 of {secretsScan.secrets.length} findings
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {secretsScan.secrets.length === 0 && (
+                <div className="text-center py-4 text-acid-green font-mono text-sm">
+                  No secrets detected in repository
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

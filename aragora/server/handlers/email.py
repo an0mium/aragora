@@ -36,6 +36,57 @@ from aragora.server.handlers.base import (
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# Persistent Storage
+# =============================================================================
+
+_email_store = None
+_email_store_lock = threading.Lock()
+
+
+def get_email_store():
+    """Get or create the email store (lazy init, thread-safe)."""
+    global _email_store
+    if _email_store is not None:
+        return _email_store
+
+    with _email_store_lock:
+        if _email_store is None:
+            try:
+                from aragora.storage.email_store import get_email_store as _get_store
+
+                _email_store = _get_store()
+                logger.info("[EmailHandler] Initialized persistent email store")
+            except Exception as e:
+                logger.warning(f"[EmailHandler] Failed to init email store: {e}")
+        return _email_store
+
+
+def _load_config_from_store(user_id: str, workspace_id: str = "default") -> Dict[str, Any]:
+    """Load config from persistent store into memory cache."""
+    store = get_email_store()
+    if store:
+        try:
+            config = store.get_user_config(user_id, workspace_id)
+            if config:
+                return config
+        except Exception as e:
+            logger.warning(f"[EmailHandler] Failed to load config from store: {e}")
+    return {}
+
+
+def _save_config_to_store(
+    user_id: str, config: Dict[str, Any], workspace_id: str = "default"
+) -> None:
+    """Save config to persistent store."""
+    store = get_email_store()
+    if store:
+        try:
+            store.save_user_config(user_id, workspace_id, config)
+        except Exception as e:
+            logger.warning(f"[EmailHandler] Failed to save config to store: {e}")
+
+
 # Global instances (initialized lazily) with thread-safe access
 _gmail_connector: Optional[Any] = None
 _gmail_connector_lock = threading.Lock()
@@ -907,15 +958,26 @@ async def handle_fetch_and_rank_inbox(
 
 async def handle_get_config(
     user_id: str = "default",
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Get email prioritization configuration.
 
     GET /api/email/config
+
+    Now loads from persistent store with in-memory cache fallback.
     """
     # Thread-safe read with snapshot
     with _user_configs_lock:
         config = _user_configs.get(user_id, {}).copy()
+
+    # If not in memory, try loading from persistent store
+    if not config:
+        config = _load_config_from_store(user_id, workspace_id)
+        if config:
+            # Cache in memory
+            with _user_configs_lock:
+                _user_configs[user_id] = config.copy()
 
     return {
         "success": True,
@@ -936,6 +998,7 @@ async def handle_get_config(
 async def handle_update_config(
     user_id: str = "default",
     config_updates: Dict[str, Any] = None,
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Update email prioritization configuration.
@@ -947,6 +1010,8 @@ async def handle_update_config(
         "internal_domains": ["mycompany.com"],
         "auto_archive_senders": ["newsletter@example.com"]
     }
+
+    Now persists to SQLite for durability across restarts.
     """
     global _prioritizer
 
@@ -956,9 +1021,9 @@ async def handle_update_config(
 
         # Thread-safe config update
         with _user_configs_lock:
-            # Get or create user config
+            # Get or create user config (load from store if not in memory)
             if user_id not in _user_configs:
-                _user_configs[user_id] = {}
+                _user_configs[user_id] = _load_config_from_store(user_id, workspace_id)
 
             # Update config
             user_config = _user_configs[user_id]
@@ -986,13 +1051,16 @@ async def handle_update_config(
             if "enable_drive_signals" in config_updates:
                 user_config["enable_drive_signals"] = config_updates["enable_drive_signals"]
 
+            # Persist to store
+            _save_config_to_store(user_id, user_config, workspace_id)
+
         # Reset prioritizer to pick up new config (thread-safe)
         with _prioritizer_lock:
             _prioritizer = None
 
         return {
             "success": True,
-            "config": await handle_get_config(user_id),
+            "config": (await handle_get_config(user_id, workspace_id))["config"],
         }
 
     except Exception as e:
@@ -1012,6 +1080,7 @@ async def handle_add_vip(
     user_id: str = "default",
     email: Optional[str] = None,
     domain: Optional[str] = None,
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Add a VIP email or domain.
@@ -1024,6 +1093,8 @@ async def handle_add_vip(
     {
         "domain": "importantcompany.com"
     }
+
+    Now persists to SQLite for durability.
     """
     global _prioritizer
 
@@ -1031,7 +1102,7 @@ async def handle_add_vip(
         # Thread-safe config update
         with _user_configs_lock:
             if user_id not in _user_configs:
-                _user_configs[user_id] = {}
+                _user_configs[user_id] = _load_config_from_store(user_id, workspace_id)
 
             config = _user_configs[user_id]
 
@@ -1040,12 +1111,22 @@ async def handle_add_vip(
                     config["vip_addresses"] = []
                 if email not in config["vip_addresses"]:
                     config["vip_addresses"].append(email)
+                # Also add to dedicated VIP table for fast lookups
+                store = get_email_store()
+                if store:
+                    try:
+                        store.add_vip_sender(user_id, workspace_id, email)
+                    except Exception:
+                        pass
 
             if domain:
                 if "vip_domains" not in config:
                     config["vip_domains"] = []
                 if domain not in config["vip_domains"]:
                     config["vip_domains"].append(domain)
+
+            # Persist to store
+            _save_config_to_store(user_id, config, workspace_id)
 
             result_addresses = list(config.get("vip_addresses", []))
             result_domains = list(config.get("vip_domains", []))
@@ -1073,6 +1154,7 @@ async def handle_remove_vip(
     user_id: str = "default",
     email: Optional[str] = None,
     domain: Optional[str] = None,
+    workspace_id: str = "default",
 ) -> Dict[str, Any]:
     """
     Remove a VIP email or domain.
@@ -1081,6 +1163,8 @@ async def handle_remove_vip(
     {
         "email": "notimportant@example.com"
     }
+
+    Now persists removal to SQLite.
     """
     global _prioritizer
 
@@ -1088,10 +1172,8 @@ async def handle_remove_vip(
         # Thread-safe config update
         with _user_configs_lock:
             if user_id not in _user_configs:
-                return {
-                    "success": True,
-                    "removed": None,
-                }
+                # Load from store first
+                _user_configs[user_id] = _load_config_from_store(user_id, workspace_id)
 
             config = _user_configs[user_id]
             removed = {"email": None, "domain": None}
@@ -1100,11 +1182,21 @@ async def handle_remove_vip(
                 if email in config["vip_addresses"]:
                     config["vip_addresses"].remove(email)
                     removed["email"] = email  # type: ignore[assignment]
+                    # Also remove from dedicated VIP table
+                    store = get_email_store()
+                    if store:
+                        try:
+                            store.remove_vip_sender(user_id, workspace_id, email)
+                        except Exception:
+                            pass
 
             if domain and "vip_domains" in config:
                 if domain in config["vip_domains"]:
                     config["vip_domains"].remove(domain)
                     removed["domain"] = domain  # type: ignore[assignment]
+
+            # Persist to store
+            _save_config_to_store(user_id, config, workspace_id)
 
             result_addresses = list(config.get("vip_addresses", []))
             result_domains = list(config.get("vip_domains", []))

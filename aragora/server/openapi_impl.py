@@ -61,6 +61,7 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Auditing", "description": "Capability probes and red teaming"},
             {"name": "Documents", "description": "Document upload and export"},
             {"name": "Codebase", "description": "Codebase security scans and metrics"},
+            {"name": "GitHub", "description": "GitHub PR review automation"},
             {"name": "Media", "description": "Audio/video and podcast"},
             {"name": "Social", "description": "Social media publishing"},
             {"name": "Control Plane", "description": "Agent orchestration and task routing"},

@@ -220,6 +220,26 @@ async def codebase_metrics():
 asyncio.run(codebase_metrics())
 ```
 
+### GitHub PR Review
+
+```python
+async def github_pr_review():
+    """Trigger and poll an automated PR review."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        review = await client.post("/api/v1/github/pr/review", json={
+            "repository": "owner/repo",
+            "pr_number": 42,
+            "review_type": "comprehensive",
+        })
+        review_data = review.json()
+        review_id = review_data["review_id"]
+
+        status = await client.get(f"/api/v1/github/pr/review/{review_id}")
+        print(status.json())
+
+asyncio.run(github_pr_review())
+```
+
 ### Gauntlet Compliance Audit
 
 ```python

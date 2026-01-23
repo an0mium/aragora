@@ -61,6 +61,19 @@ Codebase security and metrics endpoints live under `/api/v1/codebase` and
 | GET | `/api/v1/codebase/{repo}/duplicates` | Code duplication summary |
 | GET | `/api/v1/codebase/{repo}/metrics/file/{file_path}` | File-level metrics |
 
+## GitHub PR Review API
+
+GitHub pull request review endpoints live under `/api/v1/github/pr`. For full
+details, see `docs/GITHUB_PR_REVIEW.md`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/github/pr/review` | Trigger a PR review |
+| GET | `/api/v1/github/pr/{pr_number}` | Get PR details |
+| GET | `/api/v1/github/pr/review/{review_id}` | Get review status/result |
+| GET | `/api/v1/github/pr/{pr_number}/reviews` | List reviews for a PR |
+| POST | `/api/v1/github/pr/{pr_number}/review` | Submit review to GitHub |
+
 ### New Endpoints (2026-01-22)
 
 | Endpoint | Description | Status |
@@ -71,6 +84,11 @@ Codebase security and metrics endpoints live under `/api/v1/codebase` and
 | `POST /api/v1/decisions` | Create a decision request | NEW |
 | `GET /api/v1/decisions/:id` | Get decision result | NEW |
 | `GET /api/v1/decisions/:id/status` | Get decision status | NEW |
+| `POST /api/v1/github/pr/review` | Trigger a PR review | NEW |
+| `GET /api/v1/github/pr/:pr_number` | Get PR details | NEW |
+| `GET /api/v1/github/pr/review/:review_id` | Get review status | NEW |
+| `GET /api/v1/github/pr/:pr_number/reviews` | List PR reviews | NEW |
+| `POST /api/v1/github/pr/:pr_number/review` | Submit review to GitHub | NEW |
 
 ### New Endpoints (2026-01-09)
 

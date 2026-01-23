@@ -185,6 +185,19 @@ POST /api/v1/email/gmail/oauth/callback
 }
 ```
 
+## Inbox UI Surfaces
+
+The control plane UI includes inbox components for daily summary, bulk actions,
+and sender-level insights:
+
+- `DailyDigestWidget` (`aragora/live/src/components/inbox/DailyDigestWidget.tsx`)
+  renders a daily digest panel and calls `/api/email/daily-digest` with a local
+  mock fallback.
+- `QuickActionsBar` (`aragora/live/src/components/inbox/QuickActionsBar.tsx`)
+  provides single-email and bulk actions (archive, snooze, reprioritize).
+- `SenderInsightsPanel` (`aragora/live/src/components/inbox/SenderInsightsPanel.tsx`)
+  surfaces sender profile statistics, AI analysis, and quick actions.
+
 ## Sender History Service
 
 Tracks sender reputation and interaction patterns:
