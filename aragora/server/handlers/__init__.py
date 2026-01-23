@@ -173,6 +173,15 @@ from .template_marketplace import TemplateMarketplaceHandler
 from .email import EmailHandler  # Email prioritization API
 from .email_services import EmailServicesHandler  # Email services (follow-up, snooze, categories)
 from .dependency_analysis import DependencyAnalysisHandler  # Dependency analysis API
+
+# Accounting handlers
+from .expenses import ExpenseHandler  # Expense tracking API
+from .invoices import InvoiceHandler  # Invoice processing API
+from .ar_automation import ARAutomationHandler  # AR automation API
+from .ap_automation import APAutomationHandler  # AP automation API
+
+# Code review handler
+from .code_review import CodeReviewHandler  # Multi-agent code review API
 from .codebase import IntelligenceHandler  # Code intelligence (AST, call graphs, dead code)
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
 from .bots import (
@@ -325,6 +334,13 @@ ALL_HANDLERS = [
     TriggerHandler,  # Scheduled debate triggers
     MonitoringHandler,  # Trend and anomaly monitoring
     AutonomousLearningHandler,  # Continuous learning (ELO, patterns, calibration)
+    # Accounting handlers (Phase 4 - SME Vertical)
+    ExpenseHandler,  # Expense tracking and receipt processing
+    InvoiceHandler,  # Invoice processing and PO matching
+    ARAutomationHandler,  # Accounts receivable automation
+    APAutomationHandler,  # Accounts payable automation
+    # Code review handler (Phase 5 - SME Vertical)
+    CodeReviewHandler,  # Multi-agent code review
 ]
 
 # Handler stability classifications
@@ -453,6 +469,13 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "EmailHandler": Stability.EXPERIMENTAL,  # Email prioritization API - new
     "EmailServicesHandler": Stability.EXPERIMENTAL,  # Email services (follow-up, snooze) - new
     "DependencyAnalysisHandler": Stability.EXPERIMENTAL,  # Dependency analysis API - new
+    # Accounting handlers (Phase 4 - SME Vertical)
+    "ExpenseHandler": Stability.EXPERIMENTAL,  # Expense tracking and receipt processing - new
+    "InvoiceHandler": Stability.EXPERIMENTAL,  # Invoice processing and PO matching - new
+    "ARAutomationHandler": Stability.EXPERIMENTAL,  # Accounts receivable automation - new
+    "APAutomationHandler": Stability.EXPERIMENTAL,  # Accounts payable automation - new
+    # Code review handler (Phase 5 - SME Vertical)
+    "CodeReviewHandler": Stability.EXPERIMENTAL,  # Multi-agent code review - new
 }
 
 
@@ -624,6 +647,13 @@ __all__ = [
     "TriggerHandler",
     "MonitoringHandler",
     "AutonomousLearningHandler",
+    # Accounting handlers (Phase 4 - SME Vertical)
+    "ExpenseHandler",
+    "InvoiceHandler",
+    "ARAutomationHandler",
+    "APAutomationHandler",
+    # Code review handler (Phase 5 - SME Vertical)
+    "CodeReviewHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

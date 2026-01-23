@@ -426,39 +426,182 @@ class ExpenseTracker:
 
     async def _extract_receipt_data(self, image_data: bytes) -> Dict[str, Any]:
         """
-        Extract data from receipt image using OCR.
+        Extract data from receipt image/PDF using OCR.
 
-        In production, this would use:
-        - Google Cloud Vision API
-        - AWS Textract
-        - Azure Form Recognizer
-        - Or similar OCR service
-
-        For now, returns simulated extraction.
+        Uses pdfplumber for PDFs and optional pytesseract for images.
+        Falls back to pattern matching if OCR libraries unavailable.
         """
-        # Detect image type for logging
-        image_type = "unknown"
-        if image_data[:4] == b"\x89PNG":
-            image_type = "PNG"
-        elif image_data[:2] == b"\xff\xd8":
-            image_type = "JPEG"
-        elif image_data[:4] == b"%PDF":
-            image_type = "PDF"
+        import io
 
-        logger.debug(f"Processing {image_type} receipt ({len(image_data)} bytes)")
+        # Detect document type
+        is_pdf = image_data[:4] == b"%PDF"
+        is_png = image_data[:4] == b"\x89PNG"
+        is_jpeg = image_data[:2] == b"\xff\xd8"
 
-        # In production, call actual OCR service here
-        # For now, return placeholder that indicates OCR is needed
-        return {
-            "vendor": "Receipt Vendor",
+        doc_type = "PDF" if is_pdf else "PNG" if is_png else "JPEG" if is_jpeg else "unknown"
+        logger.debug(f"Processing {doc_type} receipt ({len(image_data)} bytes)")
+
+        extracted_text = ""
+        confidence = 0.5
+
+        # Try PDF extraction with pdfplumber
+        if is_pdf:
+            try:
+                import pdfplumber
+
+                with pdfplumber.open(io.BytesIO(image_data)) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text() or ""
+                        extracted_text += page_text + "\n"
+                        # Also try to extract tables
+                        tables = page.extract_tables()
+                        for table in tables:
+                            for row in table:
+                                if row:
+                                    extracted_text += " | ".join(str(c) for c in row if c) + "\n"
+                confidence = 0.85 if extracted_text.strip() else 0.3
+            except ImportError:
+                logger.warning("pdfplumber not available, using basic PDF extraction")
+                try:
+                    import pypdf
+
+                    reader = pypdf.PdfReader(io.BytesIO(image_data))
+                    for page in reader.pages:
+                        extracted_text += page.extract_text() or ""
+                    confidence = 0.7 if extracted_text.strip() else 0.2
+                except Exception as e:
+                    logger.warning(f"PDF extraction failed: {e}")
+            except Exception as e:
+                logger.warning(f"pdfplumber extraction failed: {e}")
+
+        # Try image OCR with pytesseract if available
+        elif is_png or is_jpeg:
+            try:
+                import pytesseract
+                from PIL import Image
+
+                img = Image.open(io.BytesIO(image_data))
+                extracted_text = pytesseract.image_to_string(img)
+                confidence = 0.75 if extracted_text.strip() else 0.2
+            except ImportError:
+                logger.info("pytesseract not available - install for image OCR support")
+                extracted_text = (
+                    "[Image OCR requires pytesseract - install with: pip install pytesseract]"
+                )
+                confidence = 0.0
+            except Exception as e:
+                logger.warning(f"Image OCR failed: {e}")
+
+        # Parse extracted text for receipt data
+        result = self._parse_receipt_text(extracted_text)
+        result["text"] = extracted_text[:2000] if extracted_text else ""
+        result["confidence"] = confidence
+
+        return result
+
+    def _parse_receipt_text(self, text: str) -> Dict[str, Any]:
+        """Parse extracted text to find receipt fields."""
+        import re
+
+        result = {
+            "vendor": "",
             "amount": 0.00,
             "date": datetime.now(),
-            "text": "[OCR extraction pending - configure OCR service]",
             "tax": 0.00,
             "tip": 0.00,
             "line_items": [],
-            "confidence": 0.0,
         }
+
+        if not text:
+            return result
+
+        lines = text.strip().split("\n")
+
+        # First non-empty line is often vendor name
+        for line in lines[:5]:
+            line = line.strip()
+            if line and len(line) > 2:
+                result["vendor"] = line
+                break
+
+        # Find total amount (look for patterns like "Total: $XX.XX" or "TOTAL $XX.XX")
+        total_patterns = [
+            r"(?:total|amount|grand\s*total|balance\s*due)[:\s]*\$?\s*(\d+[.,]\d{2})",
+            r"\$\s*(\d+[.,]\d{2})\s*(?:total|due)?",
+            r"(\d+[.,]\d{2})\s*(?:total|due)",
+        ]
+        for pattern in total_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                amount_str = match.group(1).replace(",", "")
+                try:
+                    result["amount"] = float(amount_str)
+                    break
+                except ValueError:
+                    pass
+
+        # Find tax
+        tax_patterns = [
+            r"(?:tax|vat|gst|hst)[:\s]*\$?\s*(\d+[.,]\d{2})",
+            r"\$?\s*(\d+[.,]\d{2})\s*(?:tax|vat)",
+        ]
+        for pattern in tax_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                try:
+                    result["tax"] = float(match.group(1).replace(",", ""))
+                    break
+                except ValueError:
+                    pass
+
+        # Find tip
+        tip_patterns = [
+            r"(?:tip|gratuity)[:\s]*\$?\s*(\d+[.,]\d{2})",
+        ]
+        for pattern in tip_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                try:
+                    result["tip"] = float(match.group(1).replace(",", ""))
+                    break
+                except ValueError:
+                    pass
+
+        # Find date
+        date_patterns = [
+            r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
+            r"(\d{4}[/-]\d{1,2}[/-]\d{1,2})",
+            r"((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s*\d{2,4})",
+        ]
+        for pattern in date_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                date_str = match.group(1)
+                # Try common date formats
+                for fmt in ["%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d", "%m/%d/%y", "%d/%m/%Y"]:
+                    try:
+                        result["date"] = datetime.strptime(date_str, fmt)
+                        break
+                    except ValueError:
+                        pass
+                break
+
+        # Extract line items (lines with price pattern)
+        item_pattern = r"(.+?)\s+\$?\s*(\d+[.,]\d{2})\s*$"
+        for line in lines:
+            match = re.match(item_pattern, line.strip())
+            if match:
+                desc = match.group(1).strip()
+                if len(desc) > 2 and not any(
+                    kw in desc.lower() for kw in ["total", "subtotal", "tax", "tip"]
+                ):
+                    try:
+                        price = float(match.group(2).replace(",", ""))
+                        result["line_items"].append({"description": desc, "amount": price})
+                    except ValueError:
+                        pass
+
+        return result
 
     async def create_expense(
         self,

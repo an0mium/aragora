@@ -412,27 +412,87 @@ class InvoiceProcessor:
 
     async def _extract_document_data(self, document_bytes: bytes) -> Dict[str, Any]:
         """
-        Extract data from document using OCR.
+        Extract data from invoice document using OCR.
 
-        In production, would use:
-        - Google Cloud Vision / Document AI
-        - AWS Textract
-        - Azure Form Recognizer
+        Uses pdfplumber for PDFs and optional pytesseract for images.
+        Parses extracted text for invoice-specific fields.
         """
-        # Detect document type
-        doc_type = "unknown"
-        if document_bytes[:4] == b"%PDF":
-            doc_type = "PDF"
-        elif document_bytes[:4] == b"\x89PNG":
-            doc_type = "PNG"
-        elif document_bytes[:2] == b"\xff\xd8":
-            doc_type = "JPEG"
+        import io
 
+        # Detect document type
+        is_pdf = document_bytes[:4] == b"%PDF"
+        is_png = document_bytes[:4] == b"\x89PNG"
+        is_jpeg = document_bytes[:2] == b"\xff\xd8"
+
+        doc_type = "PDF" if is_pdf else "PNG" if is_png else "JPEG" if is_jpeg else "unknown"
         logger.debug(f"Processing {doc_type} invoice ({len(document_bytes)} bytes)")
 
-        # Placeholder - would call actual OCR service
-        return {
-            "vendor": "Invoice Vendor",
+        extracted_text = ""
+        tables_data = []
+        confidence = 0.5
+
+        # Try PDF extraction with pdfplumber
+        if is_pdf:
+            try:
+                import pdfplumber
+
+                with pdfplumber.open(io.BytesIO(document_bytes)) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text() or ""
+                        extracted_text += page_text + "\n"
+                        # Extract tables (useful for line items)
+                        tables = page.extract_tables()
+                        for table in tables:
+                            tables_data.append(table)
+                            for row in table:
+                                if row:
+                                    extracted_text += " | ".join(str(c) for c in row if c) + "\n"
+                confidence = 0.85 if extracted_text.strip() else 0.3
+            except ImportError:
+                logger.warning("pdfplumber not available, using pypdf")
+                try:
+                    import pypdf
+
+                    reader = pypdf.PdfReader(io.BytesIO(document_bytes))
+                    for page in reader.pages:
+                        extracted_text += page.extract_text() or ""
+                    confidence = 0.7 if extracted_text.strip() else 0.2
+                except Exception as e:
+                    logger.warning(f"PDF extraction failed: {e}")
+            except Exception as e:
+                logger.warning(f"pdfplumber extraction failed: {e}")
+
+        # Try image OCR with pytesseract
+        elif is_png or is_jpeg:
+            try:
+                import pytesseract
+                from PIL import Image
+
+                img = Image.open(io.BytesIO(document_bytes))
+                extracted_text = pytesseract.image_to_string(img)
+                confidence = 0.75 if extracted_text.strip() else 0.2
+            except ImportError:
+                logger.info("pytesseract not available - install for image OCR")
+                extracted_text = "[Image OCR requires pytesseract]"
+                confidence = 0.0
+            except Exception as e:
+                logger.warning(f"Image OCR failed: {e}")
+
+        # Parse extracted text for invoice data
+        result = self._parse_invoice_text(extracted_text, tables_data)
+        result["text"] = extracted_text[:3000] if extracted_text else ""
+        result["confidence"] = confidence
+
+        return result
+
+    def _parse_invoice_text(
+        self, text: str, tables: List[List[List[str]]] = None
+    ) -> Dict[str, Any]:
+        """Parse extracted text to find invoice fields."""
+        import re
+
+        result = {
+            "vendor": "",
             "invoice_number": "",
             "invoice_date": datetime.now(),
             "due_date": datetime.now() + timedelta(days=30),
@@ -441,9 +501,202 @@ class InvoiceProcessor:
             "total": 0.00,
             "payment_terms": "Net 30",
             "line_items": [],
-            "text": "[OCR extraction pending - configure OCR service]",
-            "confidence": 0.0,
+            "po_number": "",
         }
+
+        if not text:
+            return result
+
+        lines = text.strip().split("\n")
+
+        # Find vendor (usually in header, first few lines)
+        for line in lines[:10]:
+            line = line.strip()
+            # Skip lines that look like addresses or phone numbers
+            if line and len(line) > 3:
+                if not re.match(r"^[\d\s\-\(\)\+]+$", line):  # Not just phone
+                    if not re.match(r"^\d+\s+\w+", line):  # Not address
+                        result["vendor"] = line
+                        break
+
+        # Find invoice number
+        inv_patterns = [
+            r"(?:invoice|inv|bill)[#:\s]*([A-Z0-9\-]+)",
+            r"(?:invoice|inv)\s*(?:no|number|#)?[:\s]*([A-Z0-9\-]+)",
+            r"#\s*([A-Z0-9\-]{4,})",
+        ]
+        for pattern in inv_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                result["invoice_number"] = match.group(1).strip()
+                break
+
+        # Find PO number
+        po_patterns = [
+            r"(?:po|purchase\s*order)[#:\s]*([A-Z0-9\-]+)",
+            r"(?:po|purchase\s*order)\s*(?:no|number|#)?[:\s]*([A-Z0-9\-]+)",
+        ]
+        for pattern in po_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                result["po_number"] = match.group(1).strip()
+                break
+
+        # Find dates
+        date_patterns = [
+            (r"(?:invoice\s*date|date)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", "invoice_date"),
+            (r"(?:due\s*date|payment\s*due)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", "due_date"),
+        ]
+        for pattern, date_field in date_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                date_str = match.group(1)
+                for fmt in ["%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d", "%m/%d/%y", "%d/%m/%Y"]:
+                    try:
+                        result[date_field] = datetime.strptime(date_str, fmt)
+                        break
+                    except ValueError:
+                        pass
+
+        # Find amounts
+        amount_patterns = [
+            (r"(?:subtotal|sub\s*total)[:\s]*\$?\s*([\d,]+[.,]\d{2})", "subtotal"),
+            (r"(?:tax|vat|gst)[:\s]*\$?\s*([\d,]+[.,]\d{2})", "tax"),
+            (
+                r"(?:total|amount\s*due|balance\s*due|grand\s*total)[:\s]*\$?\s*([\d,]+[.,]\d{2})",
+                "total",
+            ),
+        ]
+        for pattern, amount_field in amount_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                try:
+                    result[amount_field] = float(match.group(1).replace(",", ""))
+                except ValueError:
+                    pass
+
+        # Find payment terms
+        terms_patterns = [
+            r"(?:terms|payment\s*terms)[:\s]*(net\s*\d+)",
+            r"(net\s*\d+)\s*(?:days)?",
+            r"(?:due\s*in|payable\s*within)\s*(\d+)\s*days",
+        ]
+        for pattern in terms_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                term = match.group(1)
+                if term.isdigit():
+                    result["payment_terms"] = f"Net {term}"
+                else:
+                    result["payment_terms"] = term.title()
+                break
+
+        # Extract line items from tables or text
+        if tables:
+            result["line_items"] = self._extract_line_items_from_tables(tables)
+        if not result["line_items"]:
+            result["line_items"] = self._extract_line_items_from_text(lines)
+
+        return result
+
+    def _extract_line_items_from_tables(
+        self, tables: List[List[List[str]]]
+    ) -> List[Dict[str, Any]]:
+        """Extract line items from table data."""
+        import re
+
+        items = []
+        for table in tables:
+            if not table or len(table) < 2:
+                continue
+
+            # Try to identify header row and skip it
+            for i, row in enumerate(table[:3]):
+                if row and any(
+                    h
+                    and any(
+                        kw in str(h).lower() for kw in ["desc", "item", "qty", "price", "amount"]
+                    )
+                    for h in row
+                ):
+                    # Skip header row
+                    table = table[i + 1 :]
+                    break
+
+            for row in table:
+                if not row:
+                    continue
+                # Find description and amount columns
+                desc = ""
+                amount = 0.0
+                qty = 1
+                unit_price = 0.0
+
+                for _, cell in enumerate(row):
+                    if not cell:
+                        continue
+                    cell_str = str(cell).strip()
+
+                    # Check if it's a monetary amount
+                    amount_match = re.match(r"\$?\s*([\d,]+[.,]\d{2})", cell_str)
+                    if amount_match:
+                        val = float(amount_match.group(1).replace(",", ""))
+                        if amount == 0.0:
+                            amount = val
+                        elif unit_price == 0.0:
+                            unit_price = val
+                    # Check if it's a quantity
+                    elif re.match(r"^\d+$", cell_str):
+                        qty = int(cell_str)
+                    # Otherwise might be description
+                    elif len(cell_str) > 3 and not cell_str.replace(".", "").isdigit():
+                        if not desc:
+                            desc = cell_str
+
+                if desc and amount > 0:
+                    items.append(
+                        {
+                            "description": desc,
+                            "quantity": qty,
+                            "unit_price": unit_price if unit_price else amount,
+                            "amount": amount,
+                        }
+                    )
+
+        return items
+
+    def _extract_line_items_from_text(self, lines: List[str]) -> List[Dict[str, Any]]:
+        """Extract line items from text lines."""
+        import re
+
+        items = []
+        item_pattern = (
+            r"(.+?)\s+(\d+)\s*[xX@]?\s*\$?\s*([\d,]+[.,]\d{2})?\s*\$?\s*([\d,]+[.,]\d{2})"
+        )
+
+        for line in lines:
+            line = line.strip()
+            # Skip header-like lines
+            if any(kw in line.lower() for kw in ["total", "subtotal", "tax", "invoice", "bill to"]):
+                continue
+
+            match = re.match(item_pattern, line)
+            if match:
+                try:
+                    items.append(
+                        {
+                            "description": match.group(1).strip(),
+                            "quantity": int(match.group(2)),
+                            "unit_price": float(match.group(3).replace(",", ""))
+                            if match.group(3)
+                            else 0,
+                            "amount": float(match.group(4).replace(",", "")),
+                        }
+                    )
+                except (ValueError, AttributeError):
+                    pass
+
+        return items
 
     def _determine_approval_level(self, amount: Decimal) -> ApprovalLevel:
         """Determine approval level based on invoice amount."""
