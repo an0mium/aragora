@@ -64,6 +64,12 @@ def discover_handler_modules() -> list[str]:
             if py_file.stem.startswith("_") or py_file.stem == "__init__":
                 continue
             modules.append(f"aragora.server.handlers.codebase.{py_file.stem}")
+    github_dir = handlers_dir / "github"
+    if github_dir.exists():
+        for py_file in sorted(github_dir.glob("*.py")):
+            if py_file.stem.startswith("_") or py_file.stem == "__init__":
+                continue
+            modules.append(f"aragora.server.handlers.github.{py_file.stem}")
     return modules
 
 
