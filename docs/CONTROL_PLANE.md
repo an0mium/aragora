@@ -208,6 +208,21 @@ aliases under `/api/control-plane` for backward compatibility.
 | `GET` | `/api/control-plane/stats` | Scheduler and registry stats |
 | `GET` | `/api/control-plane/metrics` | Dashboard metrics |
 
+### Notification Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/control-plane/notifications` | List recent notifications |
+| `GET` | `/api/control-plane/notifications/stats` | Notification delivery statistics |
+
+### Audit Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/control-plane/audit` | Query audit log entries |
+| `GET` | `/api/control-plane/audit/stats` | Audit log statistics |
+| `GET` | `/api/control-plane/audit/verify` | Verify audit log integrity |
+
 ---
 
 ## Integration with Knowledge Mound
@@ -247,13 +262,45 @@ The control plane exports Prometheus metrics:
 
 ### Dashboard
 
-Access the control plane dashboard at `/admin/control-plane`.
+Access the control plane dashboard at `/control-plane`.
 
 Features:
 - Real-time agent status
 - Task queue visualization
 - Performance metrics
 - Audit log viewer
+
+### UI Components
+
+The control plane dashboard includes specialized widgets:
+
+| Component | Purpose |
+|-----------|---------|
+| `FleetStatusWidget` | Real-time agent fleet overview with health indicators |
+| `FleetHealthGauge` | Visual gauge showing fleet health percentage |
+| `ActivityFeed` | Real-time event timeline for system activity |
+| `DeliberationTracker` | In-flight deliberation progress with round tracking |
+| `SystemHealthDashboard` | Comprehensive system health monitoring |
+| `ConnectorDashboard` | Data connector status and sync timeline |
+| `KnowledgeExplorer` | Knowledge Mound browser with graph visualization |
+
+### Demo Script
+
+Run the control plane demo to see all features in action:
+
+```bash
+# Full demo
+python scripts/demo_control_plane.py
+
+# Quick 2-minute demo
+python scripts/demo_control_plane.py --quick
+
+# Custom agent count
+python scripts/demo_control_plane.py --agents 10
+
+# Include load simulation
+python scripts/demo_control_plane.py --simulate-load
+```
 
 ---
 
@@ -310,6 +357,100 @@ Control plane operations require specific permissions:
 | Cancel task | `control_plane:tasks:delete` |
 
 See [GOVERNANCE.md](./GOVERNANCE.md) for full RBAC documentation.
+
+---
+
+## Channel Notifications
+
+The control plane includes multi-channel notification delivery:
+
+### Supported Channels
+
+| Channel | Description |
+|---------|-------------|
+| Slack | Workspace integration via webhooks or app |
+| Microsoft Teams | Teams channel notifications |
+| Email | SMTP-based email delivery |
+| Webhook | Generic HTTP webhooks for custom integrations |
+
+### Configuration
+
+```python
+from aragora.control_plane.channels import ChannelRouter, ChannelConfig
+
+router = ChannelRouter()
+
+# Configure Slack channel
+await router.configure_channel(ChannelConfig(
+    channel_type="slack",
+    name="#ai-alerts",
+    webhook_url=os.environ["SLACK_WEBHOOK_URL"],
+    events=["deliberation.consensus", "task.failed", "agent.offline"]
+))
+```
+
+### Event Types
+
+- `agent.registered` - New agent joined the fleet
+- `agent.offline` - Agent became unresponsive
+- `task.submitted` - New task queued
+- `task.completed` - Task finished successfully
+- `task.failed` - Task failed after retries
+- `deliberation.started` - New deliberation began
+- `deliberation.consensus` - Consensus was reached
+
+---
+
+## Audit Logging
+
+Enterprise-grade immutable audit logging with cryptographic hash chain verification.
+
+### Features
+
+- **Append-only log** - Entries cannot be modified or deleted
+- **Hash chain verification** - Cryptographic integrity verification
+- **Tamper detection** - Automatic detection of log tampering
+- **Queryable** - Filter by action, actor, resource, or time range
+
+### Usage
+
+```python
+from aragora.control_plane.audit import AuditLog, AuditAction
+
+audit = AuditLog()
+
+# Log an action
+await audit.log(
+    action=AuditAction.TASK_SUBMITTED,
+    actor="user:admin@company.com",
+    resource="task-abc123",
+    details={"priority": "high", "type": "deliberation"}
+)
+
+# Query recent entries
+entries = await audit.query(
+    actions=[AuditAction.TASK_COMPLETED, AuditAction.TASK_FAILED],
+    since=datetime.utcnow() - timedelta(hours=24)
+)
+
+# Verify integrity
+is_valid = await audit.verify_integrity()
+```
+
+### Audit Actions
+
+| Action | Description |
+|--------|-------------|
+| `agent.registered` | Agent registered with registry |
+| `agent.deregistered` | Agent removed from registry |
+| `task.submitted` | Task added to queue |
+| `task.claimed` | Task claimed by agent |
+| `task.completed` | Task completed successfully |
+| `task.failed` | Task failed |
+| `deliberation.started` | Deliberation initiated |
+| `deliberation.consensus` | Consensus reached |
+| `notification.sent` | Notification delivered |
+| `policy.evaluated` | Policy check performed |
 
 ---
 
