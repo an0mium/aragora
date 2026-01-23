@@ -165,7 +165,7 @@ class TestGenerateSBOM:
             mock_tree.project_version = "1.0.0"
             mock_tree.dependencies = {}
             mock_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
-            mock_analyzer.generate_sbom = MagicMock(return_value='{"bomFormat": "CycloneDX"}')
+            mock_analyzer.generate_sbom = AsyncMock(return_value='{"bomFormat": "CycloneDX"}')
             mock_get.return_value = mock_analyzer
 
             result = parse_result(
