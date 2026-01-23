@@ -30,6 +30,7 @@ class TestAuditBackend:
     def test_all_backends_exist(self):
         """All expected backends are defined."""
         assert AuditBackend.LOCAL.value == "local"
+        assert AuditBackend.POSTGRESQL.value == "postgresql"
         assert AuditBackend.S3_OBJECT_LOCK.value == "s3_object_lock"
         assert AuditBackend.QLDB.value == "qldb"
 

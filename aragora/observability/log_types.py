@@ -18,6 +18,7 @@ class AuditBackend(str, Enum):
     """Supported audit log backends."""
 
     LOCAL = "local"  # Local append-only file (good for dev/testing)
+    POSTGRESQL = "postgresql"  # PostgreSQL with indexed queries
     S3_OBJECT_LOCK = "s3_object_lock"  # S3 with Object Lock (WORM compliance)
     QLDB = "qldb"  # AWS QLDB (cryptographic verification, queryable)
 

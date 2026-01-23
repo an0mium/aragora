@@ -145,6 +145,45 @@ CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
 CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
 
+-- Immutable audit log entries (hash chain)
+CREATE TABLE IF NOT EXISTS immutable_audit_entries (
+    id TEXT PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL,
+    sequence_number BIGINT NOT NULL UNIQUE,
+    previous_hash TEXT NOT NULL,
+    entry_hash TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    actor_type TEXT NOT NULL DEFAULT 'user',
+    resource_type TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    details JSONB DEFAULT '{}',
+    correlation_id TEXT,
+    workspace_id TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    signature TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_immutable_audit_timestamp ON immutable_audit_entries(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_immutable_audit_event_type ON immutable_audit_entries(event_type);
+CREATE INDEX IF NOT EXISTS idx_immutable_audit_actor ON immutable_audit_entries(actor);
+CREATE INDEX IF NOT EXISTS idx_immutable_audit_resource ON immutable_audit_entries(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_immutable_audit_workspace ON immutable_audit_entries(workspace_id) WHERE workspace_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_immutable_audit_sequence ON immutable_audit_entries(sequence_number);
+
+-- Daily anchors for immutable audit verification
+CREATE TABLE IF NOT EXISTS immutable_daily_anchors (
+    date TEXT PRIMARY KEY,
+    first_sequence BIGINT NOT NULL,
+    last_sequence BIGINT NOT NULL,
+    entry_count INTEGER NOT NULL,
+    merkle_root TEXT NOT NULL,
+    chain_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+
 -- ============================================================================
 -- GOVERNANCE AND APPROVALS
 -- ============================================================================

@@ -3,6 +3,7 @@ Audit Log Storage Backends.
 
 Provides abstract base class and implementations for:
 - LocalFileBackend: Append-only file (dev/testing)
+- PostgreSQLAuditBackend: PostgreSQL with indexed queries (production)
 - S3ObjectLockBackend: S3 with Object Lock (WORM compliance)
 """
 
@@ -643,3 +644,537 @@ class S3ObjectLockBackend(AuditLogBackend):
         except Exception as e:
             logger.error(f"Failed to get anchor from S3: {e}")
             return None
+
+
+class PostgreSQLAuditBackend(AuditLogBackend):
+    """
+    PostgreSQL backend for immutable audit logs.
+
+    Uses a dedicated table with JSONB columns for efficient querying.
+    Supports hash chain verification and sequence-based lookups.
+    """
+
+    def __init__(
+        self,
+        database_url: Optional[str] = None,
+        table_prefix: str = "immutable_",
+    ):
+        """
+        Initialize PostgreSQL audit backend.
+
+        Args:
+            database_url: PostgreSQL connection URL. If not provided,
+                         uses DATABASE_URL or ARAGORA_DATABASE_URL env var.
+            table_prefix: Prefix for table names (default: "immutable_")
+        """
+        import os
+
+        self.database_url = (
+            database_url or os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_DATABASE_URL")
+        )
+        if not self.database_url:
+            raise ValueError("PostgreSQL backend requires DATABASE_URL or ARAGORA_DATABASE_URL")
+
+        self.table_prefix = table_prefix
+        self.entries_table = f"{table_prefix}audit_entries"
+        self.anchors_table = f"{table_prefix}daily_anchors"
+
+        self._pool: Any = None
+        self._init_db()
+
+    def _get_pool(self) -> Any:
+        """Get or create connection pool."""
+        if self._pool is None:
+            try:
+                from psycopg2 import pool as pg_pool
+
+                self._pool = pg_pool.ThreadedConnectionPool(
+                    minconn=1,
+                    maxconn=10,
+                    dsn=self.database_url,
+                )
+            except ImportError:
+                raise ImportError(
+                    "psycopg2 required for PostgreSQL backend: pip install psycopg2-binary"
+                )
+        return self._pool
+
+    def _init_db(self) -> None:
+        """Initialize database schema."""
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                # Create entries table
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {self.entries_table} (
+                        id TEXT PRIMARY KEY,
+                        timestamp TIMESTAMPTZ NOT NULL,
+                        sequence_number BIGINT NOT NULL UNIQUE,
+                        previous_hash TEXT NOT NULL,
+                        entry_hash TEXT NOT NULL,
+                        event_type TEXT NOT NULL,
+                        actor TEXT NOT NULL,
+                        actor_type TEXT NOT NULL DEFAULT 'user',
+                        resource_type TEXT NOT NULL,
+                        resource_id TEXT NOT NULL,
+                        action TEXT NOT NULL,
+                        details JSONB DEFAULT '{{}}',
+                        correlation_id TEXT,
+                        workspace_id TEXT,
+                        ip_address TEXT,
+                        user_agent TEXT,
+                        signature TEXT
+                    )
+                """)
+
+                # Create indexes for common queries
+                cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{self.table_prefix}audit_timestamp
+                    ON {self.entries_table}(timestamp DESC)
+                """)
+                cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{self.table_prefix}audit_event_type
+                    ON {self.entries_table}(event_type)
+                """)
+                cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{self.table_prefix}audit_actor
+                    ON {self.entries_table}(actor)
+                """)
+                cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{self.table_prefix}audit_resource
+                    ON {self.entries_table}(resource_type, resource_id)
+                """)
+                cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{self.table_prefix}audit_workspace
+                    ON {self.entries_table}(workspace_id) WHERE workspace_id IS NOT NULL
+                """)
+                cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{self.table_prefix}audit_sequence
+                    ON {self.entries_table}(sequence_number)
+                """)
+
+                # Create anchors table
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {self.anchors_table} (
+                        date TEXT PRIMARY KEY,
+                        first_sequence BIGINT NOT NULL,
+                        last_sequence BIGINT NOT NULL,
+                        entry_count INTEGER NOT NULL,
+                        merkle_root TEXT NOT NULL,
+                        chain_hash TEXT NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL
+                    )
+                """)
+
+                conn.commit()
+                logger.info(f"PostgreSQL audit tables initialized: {self.entries_table}")
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Failed to initialize PostgreSQL audit tables: {e}")
+            raise
+        finally:
+            pool.putconn(conn)
+
+    async def append(self, entry: AuditEntry) -> None:
+        """Append entry to PostgreSQL."""
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    INSERT INTO {self.entries_table}
+                    (id, timestamp, sequence_number, previous_hash, entry_hash,
+                     event_type, actor, actor_type, resource_type, resource_id,
+                     action, details, correlation_id, workspace_id, ip_address,
+                     user_agent, signature)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        entry.id,
+                        entry.timestamp,
+                        entry.sequence_number,
+                        entry.previous_hash,
+                        entry.entry_hash,
+                        entry.event_type,
+                        entry.actor,
+                        entry.actor_type,
+                        entry.resource_type,
+                        entry.resource_id,
+                        entry.action,
+                        json.dumps(entry.details),
+                        entry.correlation_id,
+                        entry.workspace_id,
+                        entry.ip_address,
+                        entry.user_agent,
+                        entry.signature,
+                    ),
+                )
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Failed to append audit entry to PostgreSQL: {e}")
+            raise
+        finally:
+            pool.putconn(conn)
+
+    def _row_to_entry(self, row: tuple) -> AuditEntry:
+        """Convert database row to AuditEntry."""
+        return AuditEntry(
+            id=row[0],
+            timestamp=row[1],
+            sequence_number=row[2],
+            previous_hash=row[3],
+            entry_hash=row[4],
+            event_type=row[5],
+            actor=row[6],
+            actor_type=row[7],
+            resource_type=row[8],
+            resource_id=row[9],
+            action=row[10],
+            details=row[11] if isinstance(row[11], dict) else json.loads(row[11] or "{}"),
+            correlation_id=row[12],
+            workspace_id=row[13],
+            ip_address=row[14],
+            user_agent=row[15],
+            signature=row[16],
+        )
+
+    async def get_entry(self, entry_id: str) -> Optional[AuditEntry]:
+        """Get entry by ID."""
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, timestamp, sequence_number, previous_hash, entry_hash,
+                           event_type, actor, actor_type, resource_type, resource_id,
+                           action, details, correlation_id, workspace_id, ip_address,
+                           user_agent, signature
+                    FROM {self.entries_table}
+                    WHERE id = %s
+                    """,
+                    (entry_id,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return self._row_to_entry(row)
+                return None
+        finally:
+            pool.putconn(conn)
+
+    async def get_by_sequence(self, sequence_number: int) -> Optional[AuditEntry]:
+        """Get entry by sequence number."""
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, timestamp, sequence_number, previous_hash, entry_hash,
+                           event_type, actor, actor_type, resource_type, resource_id,
+                           action, details, correlation_id, workspace_id, ip_address,
+                           user_agent, signature
+                    FROM {self.entries_table}
+                    WHERE sequence_number = %s
+                    """,
+                    (sequence_number,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return self._row_to_entry(row)
+                return None
+        finally:
+            pool.putconn(conn)
+
+    async def get_last_entry(self) -> Optional[AuditEntry]:
+        """Get most recent entry."""
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, timestamp, sequence_number, previous_hash, entry_hash,
+                           event_type, actor, actor_type, resource_type, resource_id,
+                           action, details, correlation_id, workspace_id, ip_address,
+                           user_agent, signature
+                    FROM {self.entries_table}
+                    ORDER BY sequence_number DESC
+                    LIMIT 1
+                    """
+                )
+                row = cur.fetchone()
+                if row:
+                    return self._row_to_entry(row)
+                return None
+        finally:
+            pool.putconn(conn)
+
+    async def get_entries_range(
+        self,
+        start_sequence: int,
+        end_sequence: int,
+    ) -> list[AuditEntry]:
+        """Get entries in sequence range."""
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, timestamp, sequence_number, previous_hash, entry_hash,
+                           event_type, actor, actor_type, resource_type, resource_id,
+                           action, details, correlation_id, workspace_id, ip_address,
+                           user_agent, signature
+                    FROM {self.entries_table}
+                    WHERE sequence_number BETWEEN %s AND %s
+                    ORDER BY sequence_number
+                    """,
+                    (start_sequence, end_sequence),
+                )
+                return [self._row_to_entry(row) for row in cur.fetchall()]
+        finally:
+            pool.putconn(conn)
+
+    async def query(
+        self,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        event_types: Optional[list[str]] = None,
+        actors: Optional[list[str]] = None,
+        resource_types: Optional[list[str]] = None,
+        resource_ids: Optional[list[str]] = None,
+        workspace_id: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditEntry]:
+        """Query entries with filters."""
+        conditions = ["TRUE"]
+        params: list[Any] = []
+
+        if start_time:
+            conditions.append("timestamp >= %s")
+            params.append(start_time)
+        if end_time:
+            conditions.append("timestamp <= %s")
+            params.append(end_time)
+        if event_types:
+            conditions.append("event_type = ANY(%s)")
+            params.append(event_types)
+        if actors:
+            conditions.append("actor = ANY(%s)")
+            params.append(actors)
+        if resource_types:
+            conditions.append("resource_type = ANY(%s)")
+            params.append(resource_types)
+        if resource_ids:
+            conditions.append("resource_id = ANY(%s)")
+            params.append(resource_ids)
+        if workspace_id:
+            conditions.append("workspace_id = %s")
+            params.append(workspace_id)
+
+        where_clause = " AND ".join(conditions)
+        params.extend([limit, offset])
+
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, timestamp, sequence_number, previous_hash, entry_hash,
+                           event_type, actor, actor_type, resource_type, resource_id,
+                           action, details, correlation_id, workspace_id, ip_address,
+                           user_agent, signature
+                    FROM {self.entries_table}
+                    WHERE {where_clause}
+                    ORDER BY timestamp DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    tuple(params),
+                )
+                return [self._row_to_entry(row) for row in cur.fetchall()]
+        finally:
+            pool.putconn(conn)
+
+    async def count(
+        self,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        event_types: Optional[list[str]] = None,
+    ) -> int:
+        """Count entries matching filters."""
+        conditions = ["TRUE"]
+        params: list[Any] = []
+
+        if start_time:
+            conditions.append("timestamp >= %s")
+            params.append(start_time)
+        if end_time:
+            conditions.append("timestamp <= %s")
+            params.append(end_time)
+        if event_types:
+            conditions.append("event_type = ANY(%s)")
+            params.append(event_types)
+
+        where_clause = " AND ".join(conditions)
+
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT COUNT(*) FROM {self.entries_table} WHERE {where_clause}",
+                    tuple(params),
+                )
+                result = cur.fetchone()
+                return result[0] if result else 0
+        finally:
+            pool.putconn(conn)
+
+    async def save_anchor(self, anchor: DailyAnchor) -> None:
+        """Save daily anchor."""
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    INSERT INTO {self.anchors_table}
+                    (date, first_sequence, last_sequence, entry_count,
+                     merkle_root, chain_hash, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (date) DO UPDATE SET
+                        first_sequence = EXCLUDED.first_sequence,
+                        last_sequence = EXCLUDED.last_sequence,
+                        entry_count = EXCLUDED.entry_count,
+                        merkle_root = EXCLUDED.merkle_root,
+                        chain_hash = EXCLUDED.chain_hash,
+                        created_at = EXCLUDED.created_at
+                    """,
+                    (
+                        anchor.date,
+                        anchor.first_sequence,
+                        anchor.last_sequence,
+                        anchor.entry_count,
+                        anchor.merkle_root,
+                        anchor.chain_hash,
+                        anchor.created_at,
+                    ),
+                )
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Failed to save anchor to PostgreSQL: {e}")
+            raise
+        finally:
+            pool.putconn(conn)
+
+    async def get_anchor(self, date: str) -> Optional[DailyAnchor]:
+        """Get anchor for date."""
+        pool = self._get_pool()
+        conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT date, first_sequence, last_sequence, entry_count,
+                           merkle_root, chain_hash, created_at
+                    FROM {self.anchors_table}
+                    WHERE date = %s
+                    """,
+                    (date,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return DailyAnchor(
+                        date=row[0],
+                        first_sequence=row[1],
+                        last_sequence=row[2],
+                        entry_count=row[3],
+                        merkle_root=row[4],
+                        chain_hash=row[5],
+                        created_at=row[6],
+                    )
+                return None
+        finally:
+            pool.putconn(conn)
+
+    def close(self) -> None:
+        """Close connection pool."""
+        if self._pool is not None:
+            self._pool.closeall()
+            self._pool = None
+
+
+def create_audit_backend(
+    backend_type: str = "local",
+    **kwargs: Any,
+) -> AuditLogBackend:
+    """
+    Factory function to create audit log backends.
+
+    Args:
+        backend_type: Type of backend ("local", "postgresql", "s3_object_lock")
+        **kwargs: Backend-specific configuration
+
+    Returns:
+        Configured AuditLogBackend instance
+
+    Examples:
+        # Local file backend (default)
+        backend = create_audit_backend("local", log_dir="/var/log/aragora/audit")
+
+        # PostgreSQL backend
+        backend = create_audit_backend(
+            "postgresql",
+            database_url="postgresql://user:pass@host/db"
+        )
+
+        # S3 Object Lock backend
+        backend = create_audit_backend(
+            "s3_object_lock",
+            bucket="my-audit-bucket",
+            region="us-east-1"
+        )
+    """
+    import os
+
+    backend_type = backend_type.lower()
+
+    if backend_type == "local":
+        log_dir = kwargs.get("log_dir", os.environ.get("ARAGORA_AUDIT_LOG_DIR", "./audit_logs"))
+        return LocalFileBackend(log_dir)
+
+    elif backend_type == "postgresql":
+        database_url = kwargs.get("database_url")
+        table_prefix = kwargs.get("table_prefix", "immutable_")
+        return PostgreSQLAuditBackend(
+            database_url=database_url,
+            table_prefix=table_prefix,
+        )
+
+    elif backend_type == "s3_object_lock":
+        bucket = kwargs.get("bucket")
+        if not bucket:
+            bucket = os.environ.get("ARAGORA_AUDIT_S3_BUCKET")
+        if not bucket:
+            raise ValueError(
+                "S3 backend requires 'bucket' parameter or ARAGORA_AUDIT_S3_BUCKET env var"
+            )
+        return S3ObjectLockBackend(
+            bucket=bucket,
+            prefix=kwargs.get("prefix", "audit-logs/"),
+            region=kwargs.get("region", os.environ.get("AWS_REGION", "us-east-1")),
+            retention_days=kwargs.get("retention_days", 2555),
+        )
+
+    else:
+        raise ValueError(
+            f"Unknown backend type: {backend_type}. "
+            f"Supported: local, postgresql, s3_object_lock"
+        )
