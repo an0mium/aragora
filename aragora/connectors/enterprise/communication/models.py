@@ -204,3 +204,62 @@ class GmailSyncState:
             email_address=data.get("email_address", ""),
             labels_synced=data.get("labels_synced", []),
         )
+
+
+@dataclass
+class OutlookFolder:
+    """An Outlook mail folder."""
+
+    id: str
+    display_name: str
+    parent_folder_id: Optional[str] = None
+    child_folder_count: int = 0
+    unread_item_count: int = 0
+    total_item_count: int = 0
+    is_hidden: bool = False
+
+
+@dataclass
+class OutlookSyncState:
+    """
+    Outlook-specific sync state.
+
+    Tracks delta link for incremental sync via Delta Query API.
+    """
+
+    user_id: str
+    delta_link: str = ""  # Delta query URL for incremental sync
+    last_sync: Optional[datetime] = None
+    total_messages: int = 0
+    indexed_messages: int = 0
+    email_address: str = ""
+    folders_synced: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "user_id": self.user_id,
+            "delta_link": self.delta_link,
+            "last_sync": self.last_sync.isoformat() if self.last_sync else None,
+            "total_messages": self.total_messages,
+            "indexed_messages": self.indexed_messages,
+            "email_address": self.email_address,
+            "folders_synced": self.folders_synced,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "OutlookSyncState":
+        """Deserialize from dictionary."""
+        last_sync = data.get("last_sync")
+        if isinstance(last_sync, str):
+            last_sync = datetime.fromisoformat(last_sync)
+
+        return cls(
+            user_id=data["user_id"],
+            delta_link=data.get("delta_link", ""),
+            last_sync=last_sync,
+            total_messages=data.get("total_messages", 0),
+            indexed_messages=data.get("indexed_messages", 0),
+            email_address=data.get("email_address", ""),
+            folders_synced=data.get("folders_synced", []),
+        )
