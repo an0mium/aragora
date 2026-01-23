@@ -207,15 +207,21 @@ class TestScanVulnerabilities:
             mock_tree.dependencies = {}
             mock_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
 
+            # Create mock vulnerability with correct attributes
             mock_vuln = MagicMock()
-            mock_vuln.cve_id = "CVE-2023-1234"
-            mock_vuln.package = "requests"
+            mock_vuln.id = "CVE-2023-1234"
+            mock_vuln.title = "Security vulnerability in requests"
+            mock_vuln.description = "Test vulnerability"
+            mock_vuln.affected_package = "requests"
+            mock_vuln.affected_versions = "<2.32.0"
+            mock_vuln.fixed_version = "2.32.0"
+            mock_vuln.cvss_score = 7.5
+            mock_vuln.cwe_id = "CWE-79"
+            mock_vuln.references = ["https://cve.mitre.org"]
             # severity is an enum with .value attribute
             mock_severity = MagicMock()
-            mock_severity.value = "HIGH"
+            mock_severity.value = "high"  # lowercase to match grouping
             mock_vuln.severity = mock_severity
-            mock_vuln.description = "Test vulnerability"
-            mock_vuln.fix_version = "2.32.0"
             mock_analyzer.check_vulnerabilities = AsyncMock(return_value=[mock_vuln])
             mock_get.return_value = mock_analyzer
 
@@ -229,7 +235,11 @@ class TestScanVulnerabilities:
 
             assert result["success"] is True
             assert result["data"]["total_vulnerabilities"] == 1
-            assert result["data"]["vulnerabilities"][0]["cve_id"] == "CVE-2023-1234"
+            # Vulnerabilities are grouped by severity
+            assert result["data"]["high_count"] == 1
+            high_vulns = result["data"]["vulnerabilities_by_severity"]["high"]
+            assert len(high_vulns) == 1
+            assert high_vulns[0]["id"] == "CVE-2023-1234"
 
 
 class TestCheckLicenses:
