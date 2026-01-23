@@ -378,6 +378,7 @@ jobs:
             sudo mkdir -p /etc/systemd/system/aragora.service.d/
             echo '[Service]' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="ARAGORA_ENV=production"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="ARAGORA_DB_BACKEND=postgres"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="ARAGORA_USE_SECRETS_MANAGER=true"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="ARAGORA_SECRET_NAME=aragora/production"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="AWS_REGION=us-east-2"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
@@ -641,6 +642,7 @@ jobs:
             sudo mkdir -p /etc/systemd/system/aragora.service.d/
             echo '[Service]' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="ARAGORA_ENV=production"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="ARAGORA_DB_BACKEND=postgres"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="ARAGORA_USE_SECRETS_MANAGER=true"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="ARAGORA_SECRET_NAME=aragora/production"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             echo 'Environment="AWS_REGION=us-east-2"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
