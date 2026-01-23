@@ -246,19 +246,24 @@ class AdvertisingHandler(SecureHandler):
         platforms = []
         for platform_id, meta in SUPPORTED_PLATFORMS.items():
             connected = platform_id in _platform_credentials
-            platforms.append({
-                "id": platform_id,
-                "name": meta["name"],
-                "description": meta["description"],
-                "features": meta["features"],
-                "connected": connected,
-                "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
-            })
+            platforms.append(
+                {
+                    "id": platform_id,
+                    "name": meta["name"],
+                    "description": meta["description"],
+                    "features": meta["features"],
+                    "connected": connected,
+                    "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
+                }
+            )
 
-        return self._json_response(200, {
-            "platforms": platforms,
-            "connected_count": sum(1 for p in platforms if p["connected"]),
-        })
+        return self._json_response(
+            200,
+            {
+                "platforms": platforms,
+                "connected_count": sum(1 for p in platforms if p["connected"]),
+            },
+        )
 
     async def _connect_platform(self, request: Any) -> dict[str, Any]:
         """Connect an advertising platform with credentials."""
@@ -300,11 +305,14 @@ class AdvertisingHandler(SecureHandler):
 
         logger.info(f"Connected advertising platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-            "connected_at": _platform_credentials[platform]["connected_at"],
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+                "connected_at": _platform_credentials[platform]["connected_at"],
+            },
+        )
 
     async def _disconnect_platform(self, request: Any, platform: str) -> dict[str, Any]:
         """Disconnect an advertising platform."""
@@ -322,10 +330,13 @@ class AdvertisingHandler(SecureHandler):
 
         logger.info(f"Disconnected advertising platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+            },
+        )
 
     async def _list_all_campaigns(self, request: Any) -> dict[str, Any]:
         """List campaigns from all connected platforms."""
@@ -351,11 +362,14 @@ class AdvertisingHandler(SecureHandler):
         all_campaigns.sort(key=lambda c: c.get("name", ""))
         all_campaigns = all_campaigns[:limit]
 
-        return self._json_response(200, {
-            "campaigns": all_campaigns,
-            "total": len(all_campaigns),
-            "platforms_queried": list(_platform_credentials.keys()),
-        })
+        return self._json_response(
+            200,
+            {
+                "campaigns": all_campaigns,
+                "total": len(all_campaigns),
+                "platforms_queried": list(_platform_credentials.keys()),
+            },
+        )
 
     async def _fetch_platform_campaigns(
         self,
@@ -397,11 +411,14 @@ class AdvertisingHandler(SecureHandler):
         status_filter = request.query.get("status")
         campaigns = await self._fetch_platform_campaigns(platform, status_filter)
 
-        return self._json_response(200, {
-            "campaigns": campaigns,
-            "total": len(campaigns),
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "campaigns": campaigns,
+                "total": len(campaigns),
+                "platform": platform,
+            },
+        )
 
     async def _get_campaign(self, request: Any, platform: str, campaign_id: str) -> dict[str, Any]:
         """Get a specific campaign by ID."""
@@ -459,11 +476,14 @@ class AdvertisingHandler(SecureHandler):
                     budget_micros=int(body.get("daily_budget", 10) * 1_000_000),
                     campaign_type=body.get("campaign_type", "SEARCH"),
                 )
-                return self._json_response(201, {
-                    "campaign_id": campaign_id,
-                    "platform": platform,
-                    "name": name,
-                })
+                return self._json_response(
+                    201,
+                    {
+                        "campaign_id": campaign_id,
+                        "platform": platform,
+                        "name": name,
+                    },
+                )
 
             elif platform == "meta_ads":
                 campaign = await connector.create_campaign(
@@ -493,11 +513,14 @@ class AdvertisingHandler(SecureHandler):
                     campaign_type=body.get("campaign_type", "Search"),
                     daily_budget=body.get("daily_budget", 50),
                 )
-                return self._json_response(201, {
-                    "campaign_id": campaign_id,
-                    "platform": platform,
-                    "name": name,
-                })
+                return self._json_response(
+                    201,
+                    {
+                        "campaign_id": campaign_id,
+                        "platform": platform,
+                        "name": name,
+                    },
+                )
 
         except Exception as e:
             return self._error_response(500, f"Failed to create campaign: {e}")
@@ -544,11 +567,14 @@ class AdvertisingHandler(SecureHandler):
                 elif platform == "microsoft_ads":
                     await connector.update_campaign_budget(campaign_id, budget)
 
-            return self._json_response(200, {
-                "message": "Campaign updated",
-                "campaign_id": campaign_id,
-                "platform": platform,
-            })
+            return self._json_response(
+                200,
+                {
+                    "message": "Campaign updated",
+                    "campaign_id": campaign_id,
+                    "platform": platform,
+                },
+            )
 
         except Exception as e:
             return self._error_response(500, f"Failed to update campaign: {e}")
@@ -589,19 +615,28 @@ class AdvertisingHandler(SecureHandler):
             totals["conversion_value"] += result.get("conversion_value", 0)
 
         # Calculate totals
-        totals["ctr"] = (totals["clicks"] / totals["impressions"] * 100) if totals["impressions"] > 0 else 0
+        totals["ctr"] = (
+            (totals["clicks"] / totals["impressions"] * 100) if totals["impressions"] > 0 else 0
+        )
         totals["cpc"] = (totals["cost"] / totals["clicks"]) if totals["clicks"] > 0 else 0
-        totals["cpm"] = (totals["cost"] / totals["impressions"] * 1000) if totals["impressions"] > 0 else 0
+        totals["cpm"] = (
+            (totals["cost"] / totals["impressions"] * 1000) if totals["impressions"] > 0 else 0
+        )
         totals["roas"] = (totals["conversion_value"] / totals["cost"]) if totals["cost"] > 0 else 0
 
-        return self._json_response(200, {
-            "date_range": {
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat(),
+        return self._json_response(
+            200,
+            {
+                "date_range": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+                "platforms": platform_metrics,
+                "totals": {
+                    k: round(v, 2) if isinstance(v, float) else v for k, v in totals.items()
+                },
             },
-            "platforms": platform_metrics,
-            "totals": {k: round(v, 2) if isinstance(v, float) else v for k, v in totals.items()},
-        })
+        )
 
     async def _fetch_platform_performance(
         self,
@@ -718,22 +753,38 @@ class AdvertisingHandler(SecureHandler):
             performance_data, total_budget, objective
         )
 
-        return self._json_response(200, {
-            "total_budget": total_budget,
-            "objective": objective,
-            "recommendations": recommendations,
-            "rationale": self._generate_budget_rationale(performance_data, objective),
-        })
+        return self._json_response(
+            200,
+            {
+                "total_budget": total_budget,
+                "objective": objective,
+                "recommendations": recommendations,
+                "rationale": self._generate_budget_rationale(performance_data, objective),
+            },
+        )
 
     # Helper methods
 
     def _get_required_credentials(self, platform: str) -> list[str]:
         """Get required credential fields for a platform."""
         requirements = {
-            "google_ads": ["developer_token", "client_id", "client_secret", "refresh_token", "customer_id"],
+            "google_ads": [
+                "developer_token",
+                "client_id",
+                "client_secret",
+                "refresh_token",
+                "customer_id",
+            ],
             "meta_ads": ["access_token", "ad_account_id"],
             "linkedin_ads": ["access_token", "ad_account_id"],
-            "microsoft_ads": ["developer_token", "client_id", "client_secret", "refresh_token", "account_id", "customer_id"],
+            "microsoft_ads": [
+                "developer_token",
+                "client_id",
+                "client_secret",
+                "refresh_token",
+                "account_id",
+                "customer_id",
+            ],
         }
         return requirements.get(platform, [])
 
@@ -753,6 +804,7 @@ class AdvertisingHandler(SecureHandler):
                     GoogleAdsConnector,
                     GoogleAdsCredentials,
                 )
+
                 connector = GoogleAdsConnector(GoogleAdsCredentials(**creds))
 
             elif platform == "meta_ads":
@@ -760,6 +812,7 @@ class AdvertisingHandler(SecureHandler):
                     MetaAdsConnector,
                     MetaAdsCredentials,
                 )
+
                 connector = MetaAdsConnector(MetaAdsCredentials(**creds))
 
             elif platform == "linkedin_ads":
@@ -767,6 +820,7 @@ class AdvertisingHandler(SecureHandler):
                     LinkedInAdsConnector,
                     LinkedInAdsCredentials,
                 )
+
                 connector = LinkedInAdsConnector(LinkedInAdsCredentials(**creds))
 
             elif platform == "microsoft_ads":
@@ -774,6 +828,7 @@ class AdvertisingHandler(SecureHandler):
                     MicrosoftAdsConnector,
                     MicrosoftAdsCredentials,
                 )
+
                 connector = MicrosoftAdsConnector(MicrosoftAdsCredentials(**creds))
 
             else:
@@ -792,13 +847,19 @@ class AdvertisingHandler(SecureHandler):
             "id": campaign.id,
             "platform": "google_ads",
             "name": campaign.name,
-            "status": campaign.status.value if hasattr(campaign.status, "value") else campaign.status,
-            "objective": campaign.campaign_type.value if hasattr(campaign.campaign_type, "value") else campaign.campaign_type,
+            "status": campaign.status.value
+            if hasattr(campaign.status, "value")
+            else campaign.status,
+            "objective": campaign.campaign_type.value
+            if hasattr(campaign.campaign_type, "value")
+            else campaign.campaign_type,
             "daily_budget": campaign.budget_micros / 1_000_000 if campaign.budget_micros else None,
             "total_budget": None,
             "start_date": campaign.start_date.isoformat() if campaign.start_date else None,
             "end_date": campaign.end_date.isoformat() if campaign.end_date else None,
-            "bidding_strategy": campaign.bidding_strategy.value if hasattr(campaign.bidding_strategy, "value") else campaign.bidding_strategy,
+            "bidding_strategy": campaign.bidding_strategy.value
+            if hasattr(campaign.bidding_strategy, "value")
+            else campaign.bidding_strategy,
         }
 
     def _normalize_meta_campaign(self, campaign: Any) -> dict[str, Any]:
@@ -807,8 +868,12 @@ class AdvertisingHandler(SecureHandler):
             "id": campaign.id,
             "platform": "meta_ads",
             "name": campaign.name,
-            "status": campaign.status.value if hasattr(campaign.status, "value") else campaign.status,
-            "objective": campaign.objective.value if hasattr(campaign.objective, "value") else campaign.objective,
+            "status": campaign.status.value
+            if hasattr(campaign.status, "value")
+            else campaign.status,
+            "objective": campaign.objective.value
+            if hasattr(campaign.objective, "value")
+            else campaign.objective,
             "daily_budget": campaign.daily_budget,
             "total_budget": campaign.lifetime_budget,
             "start_date": campaign.start_time.date().isoformat() if campaign.start_time else None,
@@ -822,13 +887,23 @@ class AdvertisingHandler(SecureHandler):
             "id": campaign.id,
             "platform": "linkedin_ads",
             "name": campaign.name,
-            "status": campaign.status.value if hasattr(campaign.status, "value") else campaign.status,
-            "objective": campaign.objective_type.value if hasattr(campaign.objective_type, "value") else str(campaign.objective_type),
+            "status": campaign.status.value
+            if hasattr(campaign.status, "value")
+            else campaign.status,
+            "objective": campaign.objective_type.value
+            if hasattr(campaign.objective_type, "value")
+            else str(campaign.objective_type),
             "daily_budget": campaign.daily_budget,
             "total_budget": campaign.total_budget,
-            "start_date": campaign.run_schedule_start.date().isoformat() if campaign.run_schedule_start else None,
-            "end_date": campaign.run_schedule_end.date().isoformat() if campaign.run_schedule_end else None,
-            "campaign_type": campaign.campaign_type.value if hasattr(campaign.campaign_type, "value") else campaign.campaign_type,
+            "start_date": campaign.run_schedule_start.date().isoformat()
+            if campaign.run_schedule_start
+            else None,
+            "end_date": campaign.run_schedule_end.date().isoformat()
+            if campaign.run_schedule_end
+            else None,
+            "campaign_type": campaign.campaign_type.value
+            if hasattr(campaign.campaign_type, "value")
+            else campaign.campaign_type,
         }
 
     def _normalize_microsoft_campaign(self, campaign: Any) -> dict[str, Any]:
@@ -837,13 +912,19 @@ class AdvertisingHandler(SecureHandler):
             "id": campaign.id,
             "platform": "microsoft_ads",
             "name": campaign.name,
-            "status": campaign.status.value if hasattr(campaign.status, "value") else campaign.status,
-            "objective": campaign.campaign_type.value if hasattr(campaign.campaign_type, "value") else campaign.campaign_type,
+            "status": campaign.status.value
+            if hasattr(campaign.status, "value")
+            else campaign.status,
+            "objective": campaign.campaign_type.value
+            if hasattr(campaign.campaign_type, "value")
+            else campaign.campaign_type,
             "daily_budget": campaign.daily_budget,
             "total_budget": None,
             "start_date": campaign.start_date.isoformat() if campaign.start_date else None,
             "end_date": campaign.end_date.isoformat() if campaign.end_date else None,
-            "bidding_scheme": campaign.bidding_scheme.value if hasattr(campaign.bidding_scheme, "value") else campaign.bidding_scheme,
+            "bidding_scheme": campaign.bidding_scheme.value
+            if hasattr(campaign.bidding_scheme, "value")
+            else campaign.bidding_scheme,
         }
 
     def _aggregate_google_metrics(
@@ -862,9 +943,13 @@ class AdvertisingHandler(SecureHandler):
             "conversion_value": sum(m.conversion_value for m in metrics),
         }
 
-        totals["ctr"] = (totals["clicks"] / totals["impressions"] * 100) if totals["impressions"] > 0 else 0
+        totals["ctr"] = (
+            (totals["clicks"] / totals["impressions"] * 100) if totals["impressions"] > 0 else 0
+        )
         totals["cpc"] = (totals["cost"] / totals["clicks"]) if totals["clicks"] > 0 else 0
-        totals["cpm"] = (totals["cost"] / totals["impressions"] * 1000) if totals["impressions"] > 0 else 0
+        totals["cpm"] = (
+            (totals["cost"] / totals["impressions"] * 1000) if totals["impressions"] > 0 else 0
+        )
         totals["roas"] = (totals["conversion_value"] / totals["cost"]) if totals["cost"] > 0 else 0
 
         return {
@@ -889,9 +974,13 @@ class AdvertisingHandler(SecureHandler):
             "conversion_value": sum(i.conversion_value for i in insights),
         }
 
-        totals["ctr"] = (totals["clicks"] / totals["impressions"] * 100) if totals["impressions"] > 0 else 0
+        totals["ctr"] = (
+            (totals["clicks"] / totals["impressions"] * 100) if totals["impressions"] > 0 else 0
+        )
         totals["cpc"] = (totals["cost"] / totals["clicks"]) if totals["clicks"] > 0 else 0
-        totals["cpm"] = (totals["cost"] / totals["impressions"] * 1000) if totals["impressions"] > 0 else 0
+        totals["cpm"] = (
+            (totals["cost"] / totals["impressions"] * 1000) if totals["impressions"] > 0 else 0
+        )
         totals["roas"] = (totals["conversion_value"] / totals["cost"]) if totals["cost"] > 0 else 0
 
         return {
@@ -927,9 +1016,7 @@ class AdvertisingHandler(SecureHandler):
         total_conversions = sum(p.get("conversions", 0) for p in performance_data.values())
 
         best_roas_platform = max(
-            performance_data.items(),
-            key=lambda x: x[1].get("roas", 0),
-            default=(None, {})
+            performance_data.items(), key=lambda x: x[1].get("roas", 0), default=(None, {})
         )
 
         return {
@@ -948,27 +1035,33 @@ class AdvertisingHandler(SecureHandler):
             cpc = data.get("cpc", 0)
 
             if roas > 3:
-                recommendations.append({
-                    "platform": platform,
-                    "type": "increase_budget",
-                    "priority": "high",
-                    "message": f"Strong ROAS of {roas:.2f}x. Consider increasing budget allocation.",
-                })
+                recommendations.append(
+                    {
+                        "platform": platform,
+                        "type": "increase_budget",
+                        "priority": "high",
+                        "message": f"Strong ROAS of {roas:.2f}x. Consider increasing budget allocation.",
+                    }
+                )
             elif roas < 1:
-                recommendations.append({
-                    "platform": platform,
-                    "type": "optimize",
-                    "priority": "high",
-                    "message": f"ROAS below 1x ({roas:.2f}x). Review targeting and creative performance.",
-                })
+                recommendations.append(
+                    {
+                        "platform": platform,
+                        "type": "optimize",
+                        "priority": "high",
+                        "message": f"ROAS below 1x ({roas:.2f}x). Review targeting and creative performance.",
+                    }
+                )
 
             if cpc > 5:
-                recommendations.append({
-                    "platform": platform,
-                    "type": "reduce_cpc",
-                    "priority": "medium",
-                    "message": f"High CPC of ${cpc:.2f}. Consider bid adjustments or audience refinement.",
-                })
+                recommendations.append(
+                    {
+                        "platform": platform,
+                        "type": "reduce_cpc",
+                        "priority": "medium",
+                        "message": f"High CPC of ${cpc:.2f}. Consider bid adjustments or audience refinement.",
+                    }
+                )
 
         return recommendations
 
@@ -1008,12 +1101,14 @@ class AdvertisingHandler(SecureHandler):
                 # Balanced
                 share = roas / total_roas if total_roas > 0 else 1 / len(performance_data)
 
-            recommendations.append({
-                "platform": platform,
-                "recommended_budget": round(total_budget * share, 2),
-                "share_percentage": round(share * 100, 1),
-                "expected_roas": roas,
-            })
+            recommendations.append(
+                {
+                    "platform": platform,
+                    "recommended_budget": round(total_budget * share, 2),
+                    "share_percentage": round(share * 100, 1),
+                    "expected_roas": roas,
+                }
+            )
 
         return recommendations
 

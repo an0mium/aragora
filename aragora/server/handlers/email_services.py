@@ -28,10 +28,10 @@ from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
-    HandlerResult,
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ def get_email_categorizer():
 async def handle_mark_followup(
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Mark an email as awaiting reply.
 
@@ -168,7 +168,7 @@ async def handle_get_pending_followups(
     user_id: str = "default",
     include_resolved: bool = False,
     sort_by: str = "urgency",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Get list of pending follow-ups.
 
@@ -218,7 +218,7 @@ async def handle_resolve_followup(
     followup_id: str,
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Resolve a follow-up.
 
@@ -259,7 +259,7 @@ async def handle_resolve_followup(
 
 async def handle_check_replies(
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Check for replies to pending follow-ups.
 
@@ -302,7 +302,7 @@ async def handle_check_replies(
 async def handle_auto_detect_followups(
     user_id: str = "default",
     days_back: int = 7,
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Auto-detect sent emails that might need follow-up tracking.
 
@@ -348,7 +348,7 @@ async def handle_get_snooze_suggestions(
     email_id: str,
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Get snooze time recommendations for an email.
 
@@ -422,7 +422,7 @@ async def handle_apply_snooze(
     email_id: str,
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Apply snooze to an email.
 
@@ -482,7 +482,7 @@ async def handle_apply_snooze(
 async def handle_cancel_snooze(
     email_id: str,
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Cancel snooze on an email.
 
@@ -520,7 +520,7 @@ async def handle_cancel_snooze(
 
 async def handle_get_snoozed_emails(
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Get list of snoozed emails.
 
@@ -560,7 +560,7 @@ async def handle_get_snoozed_emails(
 
 async def handle_process_due_snoozes(
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Process snoozed emails that are now due (bring back to inbox).
 
@@ -612,7 +612,7 @@ async def handle_process_due_snoozes(
 
 async def handle_get_categories(
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Get available email categories.
 
@@ -640,7 +640,7 @@ async def handle_get_categories(
 async def handle_category_feedback(
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Submit feedback on email categorization to improve learning.
 

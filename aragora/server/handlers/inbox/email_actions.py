@@ -33,12 +33,13 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +68,9 @@ def get_email_actions_service_instance():
 
 
 async def handle_send_email(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Send a new email.
 
@@ -127,10 +128,10 @@ async def handle_send_email(
 
 
 async def handle_reply_email(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Reply to an email.
 
@@ -181,10 +182,10 @@ async def handle_reply_email(
 
 
 async def handle_archive_message(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Archive a message.
 
@@ -227,10 +228,10 @@ async def handle_archive_message(
 
 
 async def handle_trash_message(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Move a message to trash.
 
@@ -273,10 +274,10 @@ async def handle_trash_message(
 
 
 async def handle_restore_message(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Restore a message from trash.
 
@@ -318,10 +319,10 @@ async def handle_restore_message(
 
 
 async def handle_snooze_message(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Snooze a message until a specific time.
 
@@ -399,10 +400,10 @@ async def handle_snooze_message(
 
 
 async def handle_mark_read(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Mark a message as read.
 
@@ -444,10 +445,10 @@ async def handle_mark_read(
 
 
 async def handle_mark_unread(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Mark a message as unread.
 
@@ -484,10 +485,10 @@ async def handle_mark_unread(
 
 
 async def handle_star_message(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Star a message.
 
@@ -529,10 +530,10 @@ async def handle_star_message(
 
 
 async def handle_unstar_message(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Unstar a message.
 
@@ -574,10 +575,10 @@ async def handle_unstar_message(
 
 
 async def handle_move_to_folder(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Move a message to a folder.
 
@@ -627,10 +628,10 @@ async def handle_move_to_folder(
 
 
 async def handle_add_label(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Add a label to a message.
 
@@ -673,10 +674,10 @@ async def handle_add_label(
 
 
 async def handle_remove_label(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Remove a label from a message.
 
@@ -724,9 +725,9 @@ async def handle_remove_label(
 
 
 async def handle_batch_archive(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Archive multiple messages.
 
@@ -771,9 +772,9 @@ async def handle_batch_archive(
 
 
 async def handle_batch_trash(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Trash multiple messages.
 
@@ -813,9 +814,9 @@ async def handle_batch_trash(
 
 
 async def handle_batch_modify(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Modify labels on multiple messages.
 
@@ -877,9 +878,9 @@ async def handle_batch_modify(
 
 
 async def handle_get_action_logs(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get action logs for audit/compliance.
 
@@ -944,9 +945,9 @@ async def handle_get_action_logs(
 
 
 async def handle_export_action_logs(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Export action logs for compliance reporting.
 
@@ -1005,7 +1006,7 @@ async def handle_export_action_logs(
 # =============================================================================
 
 
-def get_email_actions_handlers() -> Dict[str, Any]:
+def get_email_actions_handlers() -> dict[str, Any]:
     """Get all email actions handlers for registration."""
     return {
         # Send / Reply

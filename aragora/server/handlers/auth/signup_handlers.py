@@ -26,11 +26,11 @@ import re
 import secrets
 import threading
 import time
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from aragora.server.handlers.base import (
+    HandlerResult,
     error_response,
     success_response,
 )
@@ -119,7 +119,7 @@ def _cleanup_expired_tokens():
 async def handle_signup(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Register a new user.
 
@@ -207,12 +207,14 @@ async def handle_signup(
         # In production: send verification email
         logger.info(f"Signup initiated for {email}, verification token: {verification_token}")
 
-        return success_response({
-            "message": "Verification email sent",
-            "email": email,
-            "verification_token": verification_token,  # Remove in production
-            "expires_in": VERIFICATION_TTL,
-        })
+        return success_response(
+            {
+                "message": "Verification email sent",
+                "email": email,
+                "verification_token": verification_token,  # Remove in production
+                "expires_in": VERIFICATION_TTL,
+            }
+        )
 
     except Exception as e:
         logger.exception("Signup failed")
@@ -222,7 +224,7 @@ async def handle_signup(
 async def handle_verify_email(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Verify email address.
 
@@ -261,13 +263,7 @@ async def handle_verify_email(
         # Create JWT token
         from aragora.billing.jwt_auth import create_access_token
 
-        token_data = {
-            "sub": user_id,
-            "email": email,
-            "name": name,
-            "email_verified": True,
-        }
-        access_token = create_access_token(token_data)
+        access_token = create_access_token(user_id=user_id, email=email)
 
         # Remove from pending signups
         with _pending_signups_lock:
@@ -278,16 +274,18 @@ async def handle_verify_email(
             with _pending_invites_lock:
                 _pending_invites.pop(signup_data["invite_token"], None)
 
-        return success_response({
-            "message": "Email verified successfully",
-            "user_id": user_id,
-            "email": email,
-            "name": name,
-            "access_token": access_token,
-            "token_type": "bearer",
-            "needs_org_setup": not signup_data.get("invite_data"),
-            "organization_id": signup_data.get("invite_data", {}).get("organization_id"),
-        })
+        return success_response(
+            {
+                "message": "Email verified successfully",
+                "user_id": user_id,
+                "email": email,
+                "name": name,
+                "access_token": access_token,
+                "token_type": "bearer",
+                "needs_org_setup": not signup_data.get("invite_data"),
+                "organization_id": signup_data.get("invite_data", {}).get("organization_id"),
+            }
+        )
 
     except Exception as e:
         logger.exception("Email verification failed")
@@ -297,7 +295,7 @@ async def handle_verify_email(
 async def handle_resend_verification(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Resend verification email.
 
@@ -322,17 +320,21 @@ async def handle_resend_verification(
 
         if not found_token:
             # Don't reveal if email exists
-            return success_response({
-                "message": "If email is pending verification, a new email will be sent",
-            })
+            return success_response(
+                {
+                    "message": "If email is pending verification, a new email will be sent",
+                }
+            )
 
         # In production: resend verification email
         logger.info(f"Resending verification for {email}")
 
-        return success_response({
-            "message": "Verification email resent",
-            "email": email,
-        })
+        return success_response(
+            {
+                "message": "Verification email resent",
+                "email": email,
+            }
+        )
 
     except Exception as e:
         logger.exception("Resend verification failed")
@@ -347,7 +349,7 @@ async def handle_resend_verification(
 async def handle_setup_organization(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Create organization after signup.
 
@@ -396,10 +398,12 @@ async def handle_setup_organization(
 
         logger.info(f"Organization created: {org_id} ({name}) by {user_id}")
 
-        return success_response({
-            "organization": organization,
-            "message": "Organization created successfully",
-        })
+        return success_response(
+            {
+                "organization": organization,
+                "message": "Organization created successfully",
+            }
+        )
 
     except Exception as e:
         logger.exception("Organization setup failed")
@@ -414,7 +418,7 @@ async def handle_setup_organization(
 async def handle_invite(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Invite team member to organization.
 
@@ -474,13 +478,15 @@ async def handle_invite(
         invite_url = f"/invite/{invite_token}"
         logger.info(f"Invitation sent to {email} for org {organization_id}")
 
-        return success_response({
-            "message": "Invitation sent",
-            "email": email,
-            "invite_token": invite_token,  # Remove in production
-            "invite_url": invite_url,
-            "expires_in": INVITE_TTL,
-        })
+        return success_response(
+            {
+                "message": "Invitation sent",
+                "email": email,
+                "invite_token": invite_token,  # Remove in production
+                "invite_url": invite_url,
+                "expires_in": INVITE_TTL,
+            }
+        )
 
     except Exception as e:
         logger.exception("Invite failed")
@@ -490,7 +496,7 @@ async def handle_invite(
 async def handle_check_invite(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Check invitation validity.
 
@@ -513,13 +519,15 @@ async def handle_check_invite(
         if time.time() - invite.get("created_at", 0) > INVITE_TTL:
             return error_response("Invitation has expired", status=400)
 
-        return success_response({
-            "valid": True,
-            "email": invite.get("email"),
-            "organization_id": invite.get("organization_id"),
-            "role": invite.get("role"),
-            "expires_at": invite.get("created_at", 0) + INVITE_TTL,
-        })
+        return success_response(
+            {
+                "valid": True,
+                "email": invite.get("email"),
+                "organization_id": invite.get("organization_id"),
+                "role": invite.get("role"),
+                "expires_at": invite.get("created_at", 0) + INVITE_TTL,
+            }
+        )
 
     except Exception as e:
         logger.exception("Check invite failed")
@@ -529,7 +537,7 @@ async def handle_check_invite(
 async def handle_accept_invite(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Accept team invitation (for existing users).
 
@@ -563,11 +571,13 @@ async def handle_accept_invite(
 
         logger.info(f"User {user_id} joined org {organization_id} as {role}")
 
-        return success_response({
-            "message": "Successfully joined organization",
-            "organization_id": organization_id,
-            "role": role,
-        })
+        return success_response(
+            {
+                "message": "Successfully joined organization",
+                "organization_id": organization_id,
+                "role": role,
+            }
+        )
 
     except Exception as e:
         logger.exception("Accept invite failed")

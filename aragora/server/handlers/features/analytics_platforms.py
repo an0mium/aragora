@@ -231,19 +231,24 @@ class AnalyticsPlatformsHandler(SecureHandler):
         platforms = []
         for platform_id, meta in SUPPORTED_PLATFORMS.items():
             connected = platform_id in _platform_credentials
-            platforms.append({
-                "id": platform_id,
-                "name": meta["name"],
-                "description": meta["description"],
-                "features": meta["features"],
-                "connected": connected,
-                "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
-            })
+            platforms.append(
+                {
+                    "id": platform_id,
+                    "name": meta["name"],
+                    "description": meta["description"],
+                    "features": meta["features"],
+                    "connected": connected,
+                    "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
+                }
+            )
 
-        return self._json_response(200, {
-            "platforms": platforms,
-            "connected_count": sum(1 for p in platforms if p["connected"]),
-        })
+        return self._json_response(
+            200,
+            {
+                "platforms": platforms,
+                "connected_count": sum(1 for p in platforms if p["connected"]),
+            },
+        )
 
     async def _connect_platform(self, request: Any) -> dict[str, Any]:
         """Connect an analytics platform with credentials."""
@@ -285,11 +290,14 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
         logger.info(f"Connected analytics platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-            "connected_at": _platform_credentials[platform]["connected_at"],
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+                "connected_at": _platform_credentials[platform]["connected_at"],
+            },
+        )
 
     async def _disconnect_platform(self, request: Any, platform: str) -> dict[str, Any]:
         """Disconnect an analytics platform."""
@@ -307,10 +315,13 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
         logger.info(f"Disconnected analytics platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+            },
+        )
 
     async def _list_all_dashboards(self, request: Any) -> dict[str, Any]:
         """List dashboards from all connected platforms."""
@@ -329,11 +340,14 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 continue
             all_dashboards.extend(result)
 
-        return self._json_response(200, {
-            "dashboards": all_dashboards,
-            "total": len(all_dashboards),
-            "platforms_queried": list(_platform_credentials.keys()),
-        })
+        return self._json_response(
+            200,
+            {
+                "dashboards": all_dashboards,
+                "total": len(all_dashboards),
+                "platforms_queried": list(_platform_credentials.keys()),
+            },
+        )
 
     async def _fetch_platform_dashboards(self, platform: str) -> list[dict[str, Any]]:
         """Fetch dashboards from a specific platform."""
@@ -367,11 +381,14 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
         dashboards = await self._fetch_platform_dashboards(platform)
 
-        return self._json_response(200, {
-            "dashboards": dashboards,
-            "total": len(dashboards),
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "dashboards": dashboards,
+                "total": len(dashboards),
+                "platform": platform,
+            },
+        )
 
     async def _get_dashboard(
         self,
@@ -391,10 +408,13 @@ class AnalyticsPlatformsHandler(SecureHandler):
             if platform == "metabase":
                 dashboard = await connector.get_dashboard(int(dashboard_id))
                 cards = await connector.get_dashboard_cards(int(dashboard_id))
-                return self._json_response(200, {
-                    **self._normalize_metabase_dashboard(dashboard),
-                    "cards": [self._normalize_metabase_card(c) for c in cards],
-                })
+                return self._json_response(
+                    200,
+                    {
+                        **self._normalize_metabase_dashboard(dashboard),
+                        "cards": [self._normalize_metabase_card(c) for c in cards],
+                    },
+                )
 
         except Exception as e:
             return self._error_response(404, f"Dashboard not found: {e}")
@@ -425,13 +445,16 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 # Native SQL query
                 database_id = body.get("database_id", 1)
                 result = await connector.execute_query(database_id, query)
-                return self._json_response(200, {
-                    "platform": platform,
-                    "query": query,
-                    "columns": result.columns,
-                    "rows": result.rows[:1000],  # Limit rows
-                    "row_count": result.row_count,
-                })
+                return self._json_response(
+                    200,
+                    {
+                        "platform": platform,
+                        "query": query,
+                        "columns": result.columns,
+                        "rows": result.rows[:1000],  # Limit rows
+                        "row_count": result.row_count,
+                    },
+                )
 
             elif platform == "google_analytics":
                 # GA4 report request
@@ -444,10 +467,13 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     dimensions=[{"name": d} for d in dimensions],
                     date_ranges=[date_range],
                 )
-                return self._json_response(200, {
-                    "platform": platform,
-                    "report": self._normalize_ga_report(report),
-                })
+                return self._json_response(
+                    200,
+                    {
+                        "platform": platform,
+                        "report": self._normalize_ga_report(report),
+                    },
+                )
 
             elif platform == "mixpanel":
                 # Mixpanel JQL or insights query
@@ -461,10 +487,13 @@ class AnalyticsPlatformsHandler(SecureHandler):
                         from_date=from_date,
                         to_date=to_date,
                     )
-                    return self._json_response(200, {
-                        "platform": platform,
-                        "result": self._normalize_mixpanel_insight(result),
-                    })
+                    return self._json_response(
+                        200,
+                        {
+                            "platform": platform,
+                            "result": self._normalize_mixpanel_insight(result),
+                        },
+                    )
 
         except Exception as e:
             return self._error_response(500, f"Query execution failed: {e}")
@@ -521,10 +550,13 @@ class AnalyticsPlatformsHandler(SecureHandler):
         else:
             reports = standard_reports
 
-        return self._json_response(200, {
-            "reports": reports,
-            "total": len(reports),
-        })
+        return self._json_response(
+            200,
+            {
+                "reports": reports,
+                "total": len(reports),
+            },
+        )
 
     async def _generate_report(self, request: Any) -> dict[str, Any]:
         """Generate a custom analytics report."""
@@ -587,10 +619,12 @@ class AnalyticsPlatformsHandler(SecureHandler):
                         {"name": "bounceRate"},
                     ],
                     dimensions=[{"name": "date"}],
-                    date_ranges=[{
-                        "startDate": start_date.isoformat(),
-                        "endDate": end_date.isoformat(),
-                    }],
+                    date_ranges=[
+                        {
+                            "startDate": start_date.isoformat(),
+                            "endDate": end_date.isoformat(),
+                        }
+                    ],
                 )
                 return self._normalize_ga_report(report)
 
@@ -637,10 +671,12 @@ class AnalyticsPlatformsHandler(SecureHandler):
                             {"name": "sessions"},
                             {"name": "eventCount"},
                         ],
-                        date_ranges=[{
-                            "startDate": start_date.isoformat(),
-                            "endDate": end_date.isoformat(),
-                        }],
+                        date_ranges=[
+                            {
+                                "startDate": start_date.isoformat(),
+                                "endDate": end_date.isoformat(),
+                            }
+                        ],
                     )
                     ga_metrics = self._extract_ga_totals(report)
                     metrics["platforms"]["google_analytics"] = ga_metrics
@@ -692,11 +728,14 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 ],
             )
 
-            return self._json_response(200, {
-                "platform": "google_analytics",
-                "realtime": self._normalize_ga_realtime(realtime),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            return self._json_response(
+                200,
+                {
+                    "platform": "google_analytics",
+                    "realtime": self._normalize_ga_realtime(realtime),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
 
         except Exception as e:
             return self._error_response(500, f"Failed to fetch realtime data: {e}")
@@ -720,24 +759,32 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     from_date=(date.today() - timedelta(days=days)).isoformat(),
                     to_date=date.today().isoformat(),
                 )
-                return self._json_response(200, {
-                    "platform": platform,
-                    "events": [self._normalize_mixpanel_event(e) for e in events],
-                })
+                return self._json_response(
+                    200,
+                    {
+                        "platform": platform,
+                        "events": [self._normalize_mixpanel_event(e) for e in events],
+                    },
+                )
 
             elif platform == "google_analytics":
                 report = await connector.get_report(
                     metrics=[{"name": "eventCount"}],
                     dimensions=[{"name": "eventName"}],
-                    date_ranges=[{
-                        "startDate": f"{days}daysAgo",
-                        "endDate": "today",
-                    }],
+                    date_ranges=[
+                        {
+                            "startDate": f"{days}daysAgo",
+                            "endDate": "today",
+                        }
+                    ],
                 )
-                return self._json_response(200, {
-                    "platform": platform,
-                    "events": self._normalize_ga_report(report),
-                })
+                return self._json_response(
+                    200,
+                    {
+                        "platform": platform,
+                        "events": self._normalize_ga_report(report),
+                    },
+                )
 
         except Exception as e:
             return self._error_response(500, f"Failed to fetch events: {e}")
@@ -766,10 +813,13 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 from_date=(date.today() - timedelta(days=30)).isoformat(),
                 to_date=date.today().isoformat(),
             )
-            return self._json_response(200, {
-                "platform": platform,
-                "funnel": self._normalize_mixpanel_funnel(funnel),
-            })
+            return self._json_response(
+                200,
+                {
+                    "platform": platform,
+                    "funnel": self._normalize_mixpanel_funnel(funnel),
+                },
+            )
 
         except Exception as e:
             return self._error_response(500, f"Failed to fetch funnel: {e}")
@@ -791,10 +841,13 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 from_date=(date.today() - timedelta(days=30)).isoformat(),
                 to_date=date.today().isoformat(),
             )
-            return self._json_response(200, {
-                "platform": platform,
-                "retention": self._normalize_mixpanel_retention(retention),
-            })
+            return self._json_response(
+                200,
+                {
+                    "platform": platform,
+                    "retention": self._normalize_mixpanel_retention(retention),
+                },
+            )
 
         except Exception as e:
             return self._error_response(500, f"Failed to fetch retention: {e}")
@@ -826,6 +879,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     MetabaseConnector,
                     MetabaseCredentials,
                 )
+
                 connector = MetabaseConnector(MetabaseCredentials(**creds))
 
             elif platform == "google_analytics":
@@ -833,6 +887,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     GoogleAnalyticsConnector,
                     GoogleAnalyticsCredentials,
                 )
+
                 connector = GoogleAnalyticsConnector(GoogleAnalyticsCredentials(**creds))
 
             elif platform == "mixpanel":
@@ -840,6 +895,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     MixpanelConnector,
                     MixpanelCredentials,
                 )
+
                 connector = MixpanelConnector(MixpanelCredentials(**creds))
 
             else:
@@ -877,16 +933,28 @@ class AnalyticsPlatformsHandler(SecureHandler):
     def _normalize_ga_report(self, report: Any) -> dict[str, Any]:
         """Normalize GA4 report to unified format."""
         return {
-            "dimensions": [h.name for h in report.dimension_headers] if hasattr(report, "dimension_headers") else [],
-            "metrics": [h.name for h in report.metric_headers] if hasattr(report, "metric_headers") else [],
+            "dimensions": [h.name for h in report.dimension_headers]
+            if hasattr(report, "dimension_headers")
+            else [],
+            "metrics": [h.name for h in report.metric_headers]
+            if hasattr(report, "metric_headers")
+            else [],
             "rows": [
                 {
-                    "dimensions": [d.value for d in row.dimension_values] if hasattr(row, "dimension_values") else [],
-                    "metrics": [m.value for m in row.metric_values] if hasattr(row, "metric_values") else [],
+                    "dimensions": [d.value for d in row.dimension_values]
+                    if hasattr(row, "dimension_values")
+                    else [],
+                    "metrics": [m.value for m in row.metric_values]
+                    if hasattr(row, "metric_values")
+                    else [],
                 }
                 for row in (report.rows if hasattr(report, "rows") else [])
             ],
-            "row_count": report.row_count if hasattr(report, "row_count") else len(report.rows) if hasattr(report, "rows") else 0,
+            "row_count": report.row_count
+            if hasattr(report, "row_count")
+            else len(report.rows)
+            if hasattr(report, "rows")
+            else 0,
         }
 
     def _extract_ga_totals(self, report: Any) -> dict[str, Any]:
@@ -913,8 +981,12 @@ class AnalyticsPlatformsHandler(SecureHandler):
             "active_users": realtime.active_users if hasattr(realtime, "active_users") else 0,
             "rows": [
                 {
-                    "dimensions": [d.value for d in row.dimension_values] if hasattr(row, "dimension_values") else [],
-                    "metrics": [m.value for m in row.metric_values] if hasattr(row, "metric_values") else [],
+                    "dimensions": [d.value for d in row.dimension_values]
+                    if hasattr(row, "dimension_values")
+                    else [],
+                    "metrics": [m.value for m in row.metric_values]
+                    if hasattr(row, "metric_values")
+                    else [],
                 }
                 for row in (realtime.rows if hasattr(realtime, "rows") else [])
             ],
@@ -941,7 +1013,9 @@ class AnalyticsPlatformsHandler(SecureHandler):
         """Normalize Mixpanel funnel to unified format."""
         return {
             "steps": funnel.steps if hasattr(funnel, "steps") else [],
-            "conversion_rate": funnel.overall_conversion if hasattr(funnel, "overall_conversion") else 0,
+            "conversion_rate": funnel.overall_conversion
+            if hasattr(funnel, "overall_conversion")
+            else 0,
             "date_range": {
                 "start": funnel.from_date if hasattr(funnel, "from_date") else None,
                 "end": funnel.to_date if hasattr(funnel, "to_date") else None,

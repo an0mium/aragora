@@ -25,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from aragora.server.handlers.base import (
+    HandlerResult,
     error_response,
     success_response,
 )
@@ -78,7 +79,7 @@ def get_meeting_detector():
 async def handle_extract_action_items(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Extract action items from an email.
 
@@ -139,7 +140,7 @@ async def handle_extract_action_items(
 async def handle_list_pending_actions(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     List pending action items.
 
@@ -235,7 +236,7 @@ async def handle_complete_action(
     data: Dict[str, Any],
     action_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Mark an action item as completed.
 
@@ -281,7 +282,7 @@ async def handle_update_action_status(
     data: Dict[str, Any],
     action_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Update action item status.
 
@@ -349,7 +350,7 @@ async def handle_update_action_status(
 async def handle_get_due_soon(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get action items due soon.
 
@@ -421,7 +422,7 @@ async def handle_get_due_soon(
 async def handle_batch_extract(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Batch extract action items from multiple emails.
 
@@ -516,7 +517,7 @@ async def handle_batch_extract(
 async def handle_detect_meeting(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Detect meeting information from an email.
 
@@ -566,7 +567,7 @@ async def handle_detect_meeting(
 async def handle_auto_snooze_meeting(
     data: Dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Auto-snooze meeting emails until before meeting time.
 

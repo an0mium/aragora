@@ -988,6 +988,7 @@ class SecurityHandler(BaseHandler):
                     or "/vulnerabilities" in path
                     or "/cve/" in path
                     or "/secrets" in path
+                    or "/sbom" in path
                 ):
                     return True
         return False
@@ -1208,6 +1209,90 @@ class SecurityHandler(BaseHandler):
     async def handle_get_owasp_summary(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
         """GET /api/v1/codebase/{repo}/sast/owasp-summary"""
         result = await handle_get_owasp_summary(repo_id=repo_id)
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+    # =========================================================================
+    # SBOM Handler Methods
+    # =========================================================================
+
+    async def handle_post_sbom(self, data: Dict[str, Any], repo_id: str) -> HandlerResult:
+        """POST /api/v1/codebase/{repo}/sbom - Generate SBOM"""
+        repo_path = data.get("repo_path")
+        if not repo_path:
+            return error_response("repo_path required", 400)
+
+        result = await handle_generate_sbom(
+            repo_path=repo_path,
+            repo_id=repo_id,
+            format=data.get("format", "cyclonedx-json"),
+            workspace_id=data.get("workspace_id"),
+        )
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+    async def handle_get_sbom_latest(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/sbom/latest"""
+        result = await handle_get_sbom(repo_id=repo_id)
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 404)
+
+    async def handle_get_sbom_by_id(
+        self, params: Dict[str, Any], repo_id: str, sbom_id: str
+    ) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/sbom/{sbom_id}"""
+        result = await handle_get_sbom(repo_id=repo_id, sbom_id=sbom_id)
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 404)
+
+    async def handle_list_sbom(self, params: Dict[str, Any], repo_id: str) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/sbom/list"""
+        result = await handle_list_sboms(repo_id=repo_id)
+
+        if result.get("success"):
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 400)
+
+    async def handle_download_sbom_content(
+        self, params: Dict[str, Any], repo_id: str, sbom_id: str
+    ) -> HandlerResult:
+        """GET /api/v1/codebase/{repo}/sbom/{sbom_id}/download"""
+        result = await handle_download_sbom(repo_id=repo_id, sbom_id=sbom_id)
+
+        if result.get("success"):
+            # Return raw content with content type info
+            return success_response(result)
+        else:
+            return error_response(result.get("error", "Unknown error"), 404)
+
+    async def handle_compare_sbom(
+        self, data: Dict[str, Any], repo_id: str
+    ) -> HandlerResult:
+        """POST /api/v1/codebase/{repo}/sbom/compare"""
+        sbom_id_a = data.get("sbom_id_a")
+        sbom_id_b = data.get("sbom_id_b")
+
+        if not sbom_id_a or not sbom_id_b:
+            return error_response("sbom_id_a and sbom_id_b required", 400)
+
+        result = await handle_compare_sboms(
+            repo_id=repo_id,
+            sbom_id_a=sbom_id_a,
+            sbom_id_b=sbom_id_b,
+        )
 
         if result.get("success"):
             return success_response(result)

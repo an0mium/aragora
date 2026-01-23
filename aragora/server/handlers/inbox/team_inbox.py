@@ -28,12 +28,13 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +63,10 @@ def get_team_inbox_emitter_instance():
 
 
 async def handle_get_team_members(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get team members for a shared inbox.
 
@@ -94,10 +95,10 @@ async def handle_get_team_members(
 
 
 async def handle_add_team_member(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Add a team member to a shared inbox.
 
@@ -167,11 +168,11 @@ async def handle_add_team_member(
 
 
 async def handle_remove_team_member(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     member_user_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Remove a team member from a shared inbox.
 
@@ -220,11 +221,11 @@ async def handle_remove_team_member(
 
 
 async def handle_start_viewing(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Signal that a user started viewing a message.
 
@@ -267,11 +268,11 @@ async def handle_start_viewing(
 
 
 async def handle_stop_viewing(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Signal that a user stopped viewing a message.
 
@@ -308,11 +309,11 @@ async def handle_stop_viewing(
 
 
 async def handle_start_typing(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Signal that a user started typing a response.
 
@@ -352,11 +353,11 @@ async def handle_start_typing(
 
 
 async def handle_stop_typing(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Signal that a user stopped typing.
 
@@ -398,11 +399,11 @@ async def handle_stop_typing(
 
 
 async def handle_get_notes(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get internal notes for a message.
 
@@ -433,11 +434,11 @@ async def handle_get_notes(
 
 
 async def handle_add_note(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     message_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Add an internal note to a message.
 
@@ -506,9 +507,9 @@ async def handle_add_note(
 
 
 async def handle_get_mentions(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get @mentions for the current user.
 
@@ -541,10 +542,10 @@ async def handle_get_mentions(
 
 
 async def handle_acknowledge_mention(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     mention_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Acknowledge a mention.
 
@@ -581,10 +582,10 @@ async def handle_acknowledge_mention(
 
 
 async def handle_get_activity_feed(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     inbox_id: str = "",
     user_id: str = "default",
-) -> Dict[str, Any]:
+) -> HandlerResult:
     """
     Get activity feed for a shared inbox.
 
@@ -625,7 +626,7 @@ async def handle_get_activity_feed(
 # =============================================================================
 
 
-def get_team_inbox_handlers() -> Dict[str, Any]:
+def get_team_inbox_handlers() -> dict[str, Any]:
     """Get all team inbox handlers for registration."""
     return {
         # Team members

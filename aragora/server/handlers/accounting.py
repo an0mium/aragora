@@ -974,9 +974,7 @@ async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
             )
 
         payroll_data = payroll.to_dict()
-        payroll_data["payroll_items"] = [
-            item.to_dict() for item in payroll.payroll_items
-        ]
+        payroll_data["payroll_items"] = [item.to_dict() for item in payroll.payroll_items]
 
         return web.json_response(
             {
@@ -1049,9 +1047,7 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
         )
 
         payroll_data = payroll.to_dict()
-        payroll_data["payroll_items"] = [
-            item.to_dict() for item in payroll.payroll_items
-        ]
+        payroll_data["payroll_items"] = [item.to_dict() for item in payroll.payroll_items]
 
         return web.json_response(
             {
@@ -1085,9 +1081,7 @@ def register_accounting_routes(app: web.Application) -> None:
     app.router.add_post("/api/accounting/gusto/disconnect", handle_gusto_disconnect)
     app.router.add_get("/api/accounting/gusto/employees", handle_gusto_employees)
     app.router.add_get("/api/accounting/gusto/payrolls", handle_gusto_payrolls)
-    app.router.add_get(
-        "/api/accounting/gusto/payrolls/{payroll_id}", handle_gusto_payroll_detail
-    )
+    app.router.add_get("/api/accounting/gusto/payrolls/{payroll_id}", handle_gusto_payroll_detail)
     app.router.add_post(
         "/api/accounting/gusto/payrolls/{payroll_id}/journal-entry",
         handle_gusto_journal_entry,

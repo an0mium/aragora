@@ -23,8 +23,7 @@ import os
 import secrets
 import threading
 import time
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from aragora.server.handlers.base import (
     error_response,
@@ -182,12 +181,14 @@ async def handle_sso_login(
         # Get authorization URL
         auth_url = await provider.get_authorization_url(state=state)
 
-        return success_response({
-            "authorization_url": auth_url,
-            "state": state,
-            "provider": provider_type,
-            "expires_in": AUTH_SESSION_TTL,
-        })
+        return success_response(
+            {
+                "authorization_url": auth_url,
+                "state": state,
+                "provider": provider_type,
+                "expires_in": AUTH_SESSION_TTL,
+            }
+        )
 
     except Exception as e:
         logger.exception("SSO login initiation failed")
@@ -257,14 +258,16 @@ async def handle_sso_callback(
         }
         access_token = create_access_token(token_data)
 
-        return success_response({
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": sso_user.to_dict(),
-            "redirect_url": redirect_url,
-            "sso_access_token": sso_user.access_token,  # For API calls to IdP
-            "expires_at": sso_user.token_expires_at,
-        })
+        return success_response(
+            {
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user": sso_user.to_dict(),
+                "redirect_url": redirect_url,
+                "sso_access_token": sso_user.access_token,  # For API calls to IdP
+                "expires_at": sso_user.token_expires_at,
+            }
+        )
 
     except Exception as e:
         logger.exception("SSO callback failed")
@@ -309,11 +312,13 @@ async def handle_sso_refresh(
         if not refreshed_user:
             return error_response("Token refresh failed", status=401)
 
-        return success_response({
-            "access_token": refreshed_user.access_token,
-            "refresh_token": refreshed_user.refresh_token,
-            "expires_at": refreshed_user.token_expires_at,
-        })
+        return success_response(
+            {
+                "access_token": refreshed_user.access_token,
+                "refresh_token": refreshed_user.refresh_token,
+                "expires_at": refreshed_user.token_expires_at,
+            }
+        )
 
     except Exception as e:
         logger.exception("SSO refresh failed")
@@ -350,10 +355,12 @@ async def handle_sso_logout(
             )
             logout_url = await provider.logout(temp_user)
 
-        return success_response({
-            "logged_out": True,
-            "logout_url": logout_url,  # If provided, redirect user here for IdP logout
-        })
+        return success_response(
+            {
+                "logged_out": True,
+                "logout_url": logout_url,  # If provided, redirect user here for IdP logout
+            }
+        )
 
     except Exception as e:
         logger.exception("SSO logout failed")
@@ -402,19 +409,21 @@ async def handle_list_providers(
         ]
 
         for config in provider_configs:
-            is_configured = all(
-                os.environ.get(var) for var in config["env_vars"]
+            is_configured = all(os.environ.get(var) for var in config["env_vars"])
+            providers.append(
+                {
+                    "type": config["type"],
+                    "name": config["name"],
+                    "enabled": is_configured,
+                }
             )
-            providers.append({
-                "type": config["type"],
-                "name": config["name"],
-                "enabled": is_configured,
-            })
 
-        return success_response({
-            "providers": providers,
-            "sso_enabled": any(p["enabled"] for p in providers),
-        })
+        return success_response(
+            {
+                "providers": providers,
+                "sso_enabled": any(p["enabled"] for p in providers),
+            }
+        )
 
     except Exception as e:
         logger.exception("Failed to list providers")
@@ -446,29 +455,35 @@ async def handle_get_sso_config(
             issuer_url = os.environ.get("OIDC_ISSUER_URL")
 
             if client_id and issuer_url:
-                config.update({
-                    "enabled": True,
-                    "issuer_url": issuer_url,
-                    "scopes": os.environ.get("OIDC_SCOPES", "openid,email,profile").split(","),
-                })
+                config.update(
+                    {
+                        "enabled": True,
+                        "issuer_url": issuer_url,
+                        "scopes": os.environ.get("OIDC_SCOPES", "openid,email,profile").split(","),
+                    }
+                )
 
         elif provider_type == "google":
             client_id = os.environ.get("GOOGLE_CLIENT_ID")
             if client_id:
-                config.update({
-                    "enabled": True,
-                    "issuer_url": "https://accounts.google.com",
-                    "scopes": ["openid", "email", "profile"],
-                })
+                config.update(
+                    {
+                        "enabled": True,
+                        "issuer_url": "https://accounts.google.com",
+                        "scopes": ["openid", "email", "profile"],
+                    }
+                )
 
         elif provider_type == "github":
             client_id = os.environ.get("GITHUB_CLIENT_ID")
             if client_id:
-                config.update({
-                    "enabled": True,
-                    "authorization_endpoint": "https://github.com/login/oauth/authorize",
-                    "scopes": ["user:email", "read:user"],
-                })
+                config.update(
+                    {
+                        "enabled": True,
+                        "authorization_endpoint": "https://github.com/login/oauth/authorize",
+                        "scopes": ["user:email", "read:user"],
+                    }
+                )
 
         return success_response(config)
 

@@ -29,9 +29,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
-from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.decorators import has_permission
@@ -326,20 +325,25 @@ class CRMHandler(SecureHandler):
         platforms = []
         for platform_id, meta in SUPPORTED_PLATFORMS.items():
             connected = platform_id in _platform_credentials
-            platforms.append({
-                "id": platform_id,
-                "name": meta["name"],
-                "description": meta["description"],
-                "features": meta["features"],
-                "connected": connected,
-                "coming_soon": meta.get("coming_soon", False),
-                "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
-            })
+            platforms.append(
+                {
+                    "id": platform_id,
+                    "name": meta["name"],
+                    "description": meta["description"],
+                    "features": meta["features"],
+                    "connected": connected,
+                    "coming_soon": meta.get("coming_soon", False),
+                    "connected_at": _platform_credentials.get(platform_id, {}).get("connected_at"),
+                }
+            )
 
-        return self._json_response(200, {
-            "platforms": platforms,
-            "connected_count": sum(1 for p in platforms if p["connected"]),
-        })
+        return self._json_response(
+            200,
+            {
+                "platforms": platforms,
+                "connected_count": sum(1 for p in platforms if p["connected"]),
+            },
+        )
 
     async def _connect_platform(self, request: Any) -> dict[str, Any]:
         """Connect a CRM platform with credentials."""
@@ -384,11 +388,14 @@ class CRMHandler(SecureHandler):
 
         logger.info(f"Connected CRM platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-            "connected_at": _platform_credentials[platform]["connected_at"],
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Successfully connected to {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+                "connected_at": _platform_credentials[platform]["connected_at"],
+            },
+        )
 
     async def _disconnect_platform(self, request: Any, platform: str) -> dict[str, Any]:
         """Disconnect a CRM platform."""
@@ -405,10 +412,13 @@ class CRMHandler(SecureHandler):
 
         logger.info(f"Disconnected CRM platform: {platform}")
 
-        return self._json_response(200, {
-            "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "message": f"Disconnected from {SUPPORTED_PLATFORMS[platform]['name']}",
+                "platform": platform,
+            },
+        )
 
     # Contact operations
 
@@ -432,11 +442,14 @@ class CRMHandler(SecureHandler):
                 continue
             all_contacts.extend(result)
 
-        return self._json_response(200, {
-            "contacts": all_contacts[:limit],
-            "total": len(all_contacts),
-            "platforms_queried": list(_platform_credentials.keys()),
-        })
+        return self._json_response(
+            200,
+            {
+                "contacts": all_contacts[:limit],
+                "total": len(all_contacts),
+                "platforms_queried": list(_platform_credentials.keys()),
+            },
+        )
 
     async def _fetch_platform_contacts(
         self,
@@ -475,11 +488,14 @@ class CRMHandler(SecureHandler):
 
         contacts = await self._fetch_platform_contacts(platform, limit, email)
 
-        return self._json_response(200, {
-            "contacts": contacts,
-            "total": len(contacts),
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "contacts": contacts,
+                "total": len(contacts),
+                "platform": platform,
+            },
+        )
 
     async def _get_contact(self, request: Any, platform: str, contact_id: str) -> dict[str, Any]:
         """Get a specific contact."""
@@ -600,10 +616,13 @@ class CRMHandler(SecureHandler):
                 continue
             all_companies.extend(result)
 
-        return self._json_response(200, {
-            "companies": all_companies[:limit],
-            "total": len(all_companies),
-        })
+        return self._json_response(
+            200,
+            {
+                "companies": all_companies[:limit],
+                "total": len(all_companies),
+            },
+        )
 
     async def _fetch_platform_companies(
         self,
@@ -633,11 +652,14 @@ class CRMHandler(SecureHandler):
         limit = int(request.query.get("limit", 100))
         companies = await self._fetch_platform_companies(platform, limit)
 
-        return self._json_response(200, {
-            "companies": companies,
-            "total": len(companies),
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "companies": companies,
+                "total": len(companies),
+                "platform": platform,
+            },
+        )
 
     async def _get_company(self, request: Any, platform: str, company_id: str) -> dict[str, Any]:
         """Get a specific company."""
@@ -713,10 +735,13 @@ class CRMHandler(SecureHandler):
                 continue
             all_deals.extend(result)
 
-        return self._json_response(200, {
-            "deals": all_deals[:limit],
-            "total": len(all_deals),
-        })
+        return self._json_response(
+            200,
+            {
+                "deals": all_deals[:limit],
+                "total": len(all_deals),
+            },
+        )
 
     async def _fetch_platform_deals(
         self,
@@ -751,11 +776,14 @@ class CRMHandler(SecureHandler):
         stage = request.query.get("stage")
         deals = await self._fetch_platform_deals(platform, limit, stage)
 
-        return self._json_response(200, {
-            "deals": deals,
-            "total": len(deals),
-            "platform": platform,
-        })
+        return self._json_response(
+            200,
+            {
+                "deals": deals,
+                "total": len(deals),
+                "platform": platform,
+            },
+        )
 
     async def _get_deal(self, request: Any, platform: str, deal_id: str) -> dict[str, Any]:
         """Get a specific deal."""
@@ -834,20 +862,24 @@ class CRMHandler(SecureHandler):
                 if p == "hubspot":
                     pipeline_data = await connector.get_pipelines()
                     for pipe in pipeline_data:
-                        pipelines.append({
-                            "id": pipe.id,
-                            "platform": p,
-                            "name": pipe.label,
-                            "stages": [
-                                {
-                                    "id": s.id,
-                                    "name": s.label,
-                                    "display_order": s.display_order,
-                                    "probability": s.metadata.get("probability") if hasattr(s, "metadata") else None,
-                                }
-                                for s in (pipe.stages if hasattr(pipe, "stages") else [])
-                            ],
-                        })
+                        pipelines.append(
+                            {
+                                "id": pipe.id,
+                                "platform": p,
+                                "name": pipe.label,
+                                "stages": [
+                                    {
+                                        "id": s.id,
+                                        "name": s.label,
+                                        "display_order": s.display_order,
+                                        "probability": s.metadata.get("probability")
+                                        if hasattr(s, "metadata")
+                                        else None,
+                                    }
+                                    for s in (pipe.stages if hasattr(pipe, "stages") else [])
+                                ],
+                            }
+                        )
 
             except Exception as e:
                 logger.error(f"Error fetching {p} pipelines: {e}")
@@ -864,12 +896,15 @@ class CRMHandler(SecureHandler):
             stage_summary[stage]["count"] += 1
             stage_summary[stage]["total_value"] += deal.get("amount") or 0
 
-        return self._json_response(200, {
-            "pipelines": pipelines,
-            "stage_summary": stage_summary,
-            "total_deals": len(deals),
-            "total_pipeline_value": sum(s["total_value"] for s in stage_summary.values()),
-        })
+        return self._json_response(
+            200,
+            {
+                "pipelines": pipelines,
+                "stage_summary": stage_summary,
+                "total_deals": len(deals),
+                "total_pipeline_value": sum(s["total_value"] for s in stage_summary.values()),
+            },
+        )
 
     # Lead sync
 
@@ -913,11 +948,14 @@ class CRMHandler(SecureHandler):
                 contact = await connector.create_contact(properties)
                 action = "created"
 
-            return self._json_response(200, {
-                "action": action,
-                "contact": self._normalize_hubspot_contact(contact),
-                "source": source,
-            })
+            return self._json_response(
+                200,
+                {
+                    "action": action,
+                    "contact": self._normalize_hubspot_contact(contact),
+                    "source": source,
+                },
+            )
 
         except Exception as e:
             return self._error_response(500, f"Failed to sync lead: {e}")
@@ -973,30 +1011,33 @@ class CRMHandler(SecureHandler):
                 if platform == "hubspot":
                     if "contacts" in object_types:
                         contacts = await connector.search_contacts(query, limit=limit)
-                        results.setdefault("contacts", []).extend([
-                            self._normalize_hubspot_contact(c) for c in contacts
-                        ])
+                        results.setdefault("contacts", []).extend(
+                            [self._normalize_hubspot_contact(c) for c in contacts]
+                        )
 
                     if "companies" in object_types:
                         companies = await connector.search_companies(query, limit=limit)
-                        results.setdefault("companies", []).extend([
-                            self._normalize_hubspot_company(c) for c in companies
-                        ])
+                        results.setdefault("companies", []).extend(
+                            [self._normalize_hubspot_company(c) for c in companies]
+                        )
 
                     if "deals" in object_types:
                         deals = await connector.search_deals(query, limit=limit)
-                        results.setdefault("deals", []).extend([
-                            self._normalize_hubspot_deal(d) for d in deals
-                        ])
+                        results.setdefault("deals", []).extend(
+                            [self._normalize_hubspot_deal(d) for d in deals]
+                        )
 
             except Exception as e:
                 logger.error(f"Error searching {platform}: {e}")
 
-        return self._json_response(200, {
-            "query": query,
-            "results": results,
-            "total": sum(len(v) for v in results.values()),
-        })
+        return self._json_response(
+            200,
+            {
+                "query": query,
+                "results": results,
+                "total": sum(len(v) for v in results.values()),
+            },
+        )
 
     # Helper methods
 
@@ -1025,6 +1066,7 @@ class CRMHandler(SecureHandler):
                     HubSpotConnector,
                     HubSpotCredentials,
                 )
+
                 connector = HubSpotConnector(HubSpotCredentials(**creds))
                 _platform_connectors[platform] = connector
                 return connector
@@ -1044,15 +1086,20 @@ class CRMHandler(SecureHandler):
             "email": props.get("email"),
             "first_name": props.get("firstname"),
             "last_name": props.get("lastname"),
-            "full_name": f"{props.get('firstname', '')} {props.get('lastname', '')}".strip() or None,
+            "full_name": f"{props.get('firstname', '')} {props.get('lastname', '')}".strip()
+            or None,
             "phone": props.get("phone"),
             "company": props.get("company"),
             "job_title": props.get("jobtitle"),
             "lifecycle_stage": props.get("lifecyclestage"),
             "lead_status": props.get("hs_lead_status"),
             "owner_id": props.get("hubspot_owner_id"),
-            "created_at": contact.created_at.isoformat() if hasattr(contact, "created_at") and contact.created_at else None,
-            "updated_at": contact.updated_at.isoformat() if hasattr(contact, "updated_at") and contact.updated_at else None,
+            "created_at": contact.created_at.isoformat()
+            if hasattr(contact, "created_at") and contact.created_at
+            else None,
+            "updated_at": contact.updated_at.isoformat()
+            if hasattr(contact, "updated_at") and contact.updated_at
+            else None,
         }
 
     def _normalize_hubspot_company(self, company: Any) -> dict[str, Any]:
@@ -1064,10 +1111,16 @@ class CRMHandler(SecureHandler):
             "name": props.get("name"),
             "domain": props.get("domain"),
             "industry": props.get("industry"),
-            "employee_count": int(props.get("numberofemployees")) if props.get("numberofemployees") else None,
-            "annual_revenue": float(props.get("annualrevenue")) if props.get("annualrevenue") else None,
+            "employee_count": int(props.get("numberofemployees"))
+            if props.get("numberofemployees")
+            else None,
+            "annual_revenue": float(props.get("annualrevenue"))
+            if props.get("annualrevenue")
+            else None,
             "owner_id": props.get("hubspot_owner_id"),
-            "created_at": company.created_at.isoformat() if hasattr(company, "created_at") and company.created_at else None,
+            "created_at": company.created_at.isoformat()
+            if hasattr(company, "created_at") and company.created_at
+            else None,
         }
 
     def _normalize_hubspot_deal(self, deal: Any) -> dict[str, Any]:
@@ -1082,7 +1135,9 @@ class CRMHandler(SecureHandler):
             "pipeline": props.get("pipeline"),
             "close_date": props.get("closedate"),
             "owner_id": props.get("hubspot_owner_id"),
-            "created_at": deal.created_at.isoformat() if hasattr(deal, "created_at") and deal.created_at else None,
+            "created_at": deal.created_at.isoformat()
+            if hasattr(deal, "created_at") and deal.created_at
+            else None,
         }
 
     def _map_lead_to_hubspot(self, lead: dict[str, Any], source: str) -> dict[str, Any]:
