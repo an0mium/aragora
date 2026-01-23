@@ -125,6 +125,16 @@ from .cross_platform_analytics import (
     AlertRule,
     Alert as AnalyticsAlert,
 )
+from .marketplace import (
+    MarketplaceHandler,
+    handle_marketplace,
+    get_marketplace_handler,
+    TemplateCategory,
+    DeploymentStatus,
+    TemplateMetadata,
+    TemplateDeployment,
+    TemplateRating,
+)
 
 __all__ = [
     "AudioHandler",
@@ -242,4 +252,13 @@ __all__ = [
     "Anomaly",
     "AlertRule",
     "AnalyticsAlert",
+    # Marketplace
+    "MarketplaceHandler",
+    "handle_marketplace",
+    "get_marketplace_handler",
+    "TemplateCategory",
+    "DeploymentStatus",
+    "TemplateMetadata",
+    "TemplateDeployment",
+    "TemplateRating",
 ]
