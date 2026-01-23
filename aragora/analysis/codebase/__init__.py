@@ -4,6 +4,7 @@ Codebase Analysis Module.
 Provides tools for analyzing codebases:
 - CVE/vulnerability database integration
 - Dependency vulnerability scanning
+- Secrets detection and credential scanning
 - Code quality metrics
 - Security analysis
 """
@@ -16,9 +17,13 @@ from .models import (
     CodeMetric,
     HotspotFinding,
     MetricType,
+    SecretType,
+    SecretFinding,
+    SecretsScanResult,
 )
 from .cve_client import CVEClient
 from .scanner import DependencyScanner
+from .secrets_scanner import SecretsScanner, scan_repository_for_secrets
 from .metrics import (
     CodeMetricsAnalyzer,
     MetricsReport,
@@ -36,10 +41,15 @@ __all__ = [
     "CodeMetric",
     "HotspotFinding",
     "MetricType",
+    "SecretType",
+    "SecretFinding",
+    "SecretsScanResult",
     # CVE Client
     "CVEClient",
-    # Scanner
+    # Scanners
     "DependencyScanner",
+    "SecretsScanner",
+    "scan_repository_for_secrets",
     # Metrics
     "CodeMetricsAnalyzer",
     "MetricsReport",
