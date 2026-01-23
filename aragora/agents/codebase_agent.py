@@ -313,13 +313,15 @@ class CodebaseUnderstandingAgent:
             return index
 
         # Use CodeIntelligence for comprehensive indexing
-        analyses = self.code_intel.analyze_directory(
+        analyses_dict = self.code_intel.analyze_directory(
             str(self.root_path), exclude_patterns=self.exclude_patterns
         )
 
-        for analysis in analyses:
+        for analysis in analyses_dict.values():
             index.total_files += 1
-            index.total_lines += analysis.total_lines
+            index.total_lines += (
+                analysis.lines_of_code + analysis.comment_lines + analysis.blank_lines
+            )
 
             # Track language distribution
             lang = analysis.language.value if analysis.language else "unknown"
@@ -493,7 +495,7 @@ class CodebaseUnderstandingAgent:
                     {
                         "name": n.qualified_name,
                         "kind": n.kind.value,
-                        "location": f"{n.location.file_path}:{n.location.line}"
+                        "location": f"{n.location.file_path}:{n.location.start_line}"
                         if n.location
                         else None,
                     }
@@ -593,8 +595,8 @@ class CodebaseUnderstandingAgent:
                     citations.append(
                         {
                             "file": rel_path,
-                            "line": usage.line,
-                            "snippet": usage.context[:200] if usage.context else "",
+                            "line": usage.start_line,
+                            "snippet": f"Line {usage.start_line}",  # SourceLocation doesn't have context
                             "relevance": 0.7,
                         }
                     )
