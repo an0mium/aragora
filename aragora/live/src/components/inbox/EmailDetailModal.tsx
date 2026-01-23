@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { sanitizeHtml } from '@/utils/sanitize';
+import { MultiAgentAnalysis } from './MultiAgentAnalysis';
 
 type EmailPriority = 'critical' | 'high' | 'medium' | 'low' | 'defer';
 
@@ -310,6 +311,23 @@ export function EmailDetailModal({
             </span>
           )}
         </div>
+
+        {/* Multi-Agent Deep Analysis (Tier 3 upgrade) */}
+        {email.tier_used < 3 && (
+          <MultiAgentAnalysis
+            apiBase={apiBase}
+            userId={userId}
+            authToken={authToken}
+            email={{
+              id: email.id,
+              subject: email.subject,
+              body: email.body_text,
+              from_address: email.from_address,
+              snippet: email.snippet,
+              date: email.date,
+            }}
+          />
+        )}
       </div>
 
       {/* Email Body */}
