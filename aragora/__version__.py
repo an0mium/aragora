@@ -10,7 +10,7 @@ from __future__ import annotations
 # Version components
 VERSION_MAJOR = 2
 VERSION_MINOR = 1
-VERSION_PATCH = 9
+VERSION_PATCH = 10
 VERSION_SUFFIX = ""  # e.g., "a1", "b2", "rc1", or "" for final
 
 # Construct version string
