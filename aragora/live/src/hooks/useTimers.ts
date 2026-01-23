@@ -200,7 +200,7 @@ export function useThrottle<T extends (...args: unknown[]) => unknown>(
     };
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Refs don't need deps; delay is the only true dependency
+
   return useCallback(
     ((...args) => {
       const now = Date.now();

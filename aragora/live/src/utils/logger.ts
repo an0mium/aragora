@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+
 /**
  * Development-only logging utility.
  *

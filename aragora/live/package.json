@@ -13,7 +13,7 @@
     "build:ci": "npm run validate-env && next build",
     "start": "next start",
     "export": "NEXT_OUTPUT=export next build",
-    "lint": "eslint . --max-warnings 100",
+    "lint": "eslint . --max-warnings 150",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",

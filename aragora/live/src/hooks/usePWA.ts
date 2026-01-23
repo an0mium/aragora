@@ -38,7 +38,7 @@ export function usePWA(): UsePWAReturn {
       navigator.serviceWorker
         .register('/sw.js')
         .then((registration) => {
-          // eslint-disable-next-line no-console
+
           console.log('[PWA] Service worker registered:', registration.scope);
 
           // Check for updates periodically

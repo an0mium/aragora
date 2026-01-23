@@ -122,7 +122,7 @@ describe('useSWRFetch', () => {
     });
 
     it('invalidateCache calls mutate with correct URL', () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+
       const { mutate } = require('swr');
 
       invalidateCache('/api/test');
@@ -131,7 +131,7 @@ describe('useSWRFetch', () => {
     });
 
     it('updateCache calls mutate with updater', () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+
       const { mutate } = require('swr');
       const updater = (current: unknown[]) => [...(current || []), { new: true }];
 
@@ -142,7 +142,7 @@ describe('useSWRFetch', () => {
   });
 
   describe('pre-configured hooks', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+
     const { useDebates, useLeaderboard, useAgents } = require('@/hooks/useSWRFetch');
 
     it('useDebates uses correct endpoint', () => {

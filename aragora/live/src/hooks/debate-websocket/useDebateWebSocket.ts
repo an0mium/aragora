@@ -522,7 +522,7 @@ export function useDebateWebSocket({
         ws.close(1000, 'Component unmounted');
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [enabled, wsUrl, debateId, reconnectTrigger, clearDebateStartTimeout]);
 
   return {

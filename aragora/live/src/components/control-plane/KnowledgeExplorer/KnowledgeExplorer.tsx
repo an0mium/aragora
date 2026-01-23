@@ -369,12 +369,12 @@ export function KnowledgeExplorer({
         onAddRegion={() => {
           // Open add region dialog - handled by parent component
           // The admin page has RegionDialog for this
-          // eslint-disable-next-line no-console
+
           console.log('Add region clicked - use RegionDialog in admin page');
         }}
         onEditRegion={(regionId) => {
           // Open edit region dialog - handled by parent component
-          // eslint-disable-next-line no-console
+
           console.log('Edit region:', regionId);
         }}
       />
@@ -388,7 +388,7 @@ export function KnowledgeExplorer({
           // Handle drill-down navigation
           if (type === 'category') {
             // Could switch to a specific view based on category
-            // eslint-disable-next-line no-console
+
             console.log('Drill down to category:', id);
           } else if (type === 'bucket') {
             // Switch to stale tab filtered by age bucket

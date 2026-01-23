@@ -218,7 +218,7 @@ export function VoiceInput({
         break;
 
       case 'warning':
-        // eslint-disable-next-line no-console
+
         console.warn('Voice warning:', data.message);
         break;
     }
