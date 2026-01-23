@@ -773,20 +773,30 @@ class FallbackOAuthStateStore(OAuthStateStore):
             elif store is self._sqlite_store:
                 logger.warning(f"SQLite validate failed: {e}")
                 self._sqlite_failed = True
+            elif store is self._jwt_store:
+                logger.warning(f"JWT validate failed: {e}")
+            else:
+                logger.warning(f"OAuth store validate failed: {e}")
 
         # Check fallback stores for state created during previous backend's availability
+        # This handles migration from old state formats to new JWT format
         if store is not self._sqlite_store and self._sqlite_store and not self._sqlite_failed:
             try:
                 result = self._sqlite_store.validate_and_consume(state)
                 if result:
+                    logger.info("OAuth state validated from SQLite fallback (migration)")
                     return result
             except Exception as e:  # noqa: BLE001 - Fallback to next store
                 logger.debug(f"SQLite OAuth store fallback: {e}")
 
         if store is not self._memory_store:
-            result = self._memory_store.validate_and_consume(state)
-            if result:
-                return result
+            try:
+                result = self._memory_store.validate_and_consume(state)
+                if result:
+                    logger.info("OAuth state validated from memory fallback (migration)")
+                    return result
+            except Exception as e:  # noqa: BLE001 - Final fallback
+                logger.debug(f"Memory OAuth store fallback: {e}")
 
         return None
 
@@ -884,9 +894,16 @@ def validate_oauth_state(state: str) -> Optional[dict[str, Any]]:
     Returns dict with state data if valid, None otherwise.
     """
     store = get_oauth_state_store()
+    logger.debug(
+        f"Validating OAuth state (backend: {store.backend_name}, state_len: {len(state)}, has_dot: {'.' in state})"
+    )
     result = store.validate_and_consume(state)
     if result is None:
+        logger.debug(
+            f"OAuth state validation failed (state_prefix: {state[:20] if len(state) > 20 else state}...)"
+        )
         return None
+    logger.debug("OAuth state validation succeeded")
     return result.to_dict()
 
 
