@@ -191,7 +191,7 @@ async def handle_generate_sbom(
 async def handle_scan_vulnerabilities(
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Scan dependencies for known vulnerabilities.
 
@@ -218,7 +218,7 @@ async def handle_scan_vulnerabilities(
         vulnerabilities = await analyzer.check_vulnerabilities(tree)
 
         # Group by severity
-        by_severity = {
+        by_severity: dict[str, list[dict[str, Any]]] = {
             "critical": [],
             "high": [],
             "medium": [],
@@ -268,7 +268,7 @@ async def handle_scan_vulnerabilities(
 async def handle_check_licenses(
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Check license compatibility of dependencies.
 
@@ -340,7 +340,7 @@ async def handle_check_licenses(
 
 async def handle_clear_cache(
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Clear the dependency analysis cache.
 

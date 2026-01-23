@@ -44,7 +44,7 @@ _platform_credentials: dict[str, dict[str, Any]] = {}
 _platform_connectors: dict[str, Any] = {}
 
 
-SUPPORTED_PLATFORMS = {
+SUPPORTED_PLATFORMS: dict[str, dict[str, Any]] = {
     "hubspot": {
         "name": "HubSpot",
         "description": "All-in-one CRM with marketing, sales, and service hubs",
