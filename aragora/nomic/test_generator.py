@@ -449,8 +449,10 @@ class TestCodeGenerator:
         # Test body
         if tc.expected_exception:
             lines.append(f"        with pytest.raises({tc.expected_exception}):")
-            lines.append("            # Call function that should raise")
-            lines.append("            pass  # TODO: Add function call")
+            # Build the function call that should raise
+            args = ", ".join(f"{k}={repr(v)}" for k, v in tc.input_values.items())
+            func_name = tc.function_under_test.split(".")[-1]
+            lines.append(f"            {func_name}({args})")
         else:
             # Build function call
             args = ", ".join(f"{k}={repr(v)}" for k, v in tc.input_values.items())

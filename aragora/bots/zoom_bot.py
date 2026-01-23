@@ -246,10 +246,51 @@ class AragoraZoomBot:
 
         logger.info(f"Meeting ended: {meeting_id} (host: {host_email})")
 
-        # TODO: Could trigger post-meeting summary generation
-        # if configured to do so
+        # Trigger post-meeting summary generation if configured
+        if self.config.get("enable_post_meeting_summary", False):
+            await self._generate_post_meeting_summary(meeting_id, host_email, payload)
 
         return {"status": "ok"}
+
+    async def _generate_post_meeting_summary(
+        self,
+        meeting_id: str,
+        host_email: str,
+        payload: Dict[str, Any],
+    ) -> None:
+        """Generate and send post-meeting summary using debate analysis."""
+        try:
+            import aiohttp
+
+            meeting_data = payload.get("object", {})
+            topic = meeting_data.get("topic", "Untitled Meeting")
+            duration = meeting_data.get("duration", 0)
+            participant_count = meeting_data.get("participant_count", 0)
+
+            # Request summary generation from Aragora API
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{API_BASE}/api/v1/meetings/summary",
+                    json={
+                        "meeting_id": meeting_id,
+                        "topic": topic,
+                        "duration_minutes": duration,
+                        "participant_count": participant_count,
+                        "host_email": host_email,
+                        "platform": "zoom",
+                    },
+                    headers={"Content-Type": "application/json"},
+                ) as resp:
+                    if resp.status == 200:
+                        logger.info(f"Post-meeting summary generated for {meeting_id}")
+                    else:
+                        logger.warning(
+                            f"Failed to generate summary for {meeting_id}: {resp.status}"
+                        )
+        except ImportError:
+            logger.warning("aiohttp not available for post-meeting summary")
+        except Exception as e:
+            logger.error(f"Error generating post-meeting summary: {e}")
 
     async def _send_chat_message(
         self,

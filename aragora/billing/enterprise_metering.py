@@ -916,10 +916,58 @@ class EnterpriseMeter:
                     f"Budget alert for tenant {tenant_id}: " f"{alert_level.value} ({percent:.1f}%)"
                 )
 
-                # TODO: Send email notifications
-                # await self._send_budget_alert_email(config, alert_level, percent)
+                # Send email notifications to configured alert recipients
+                if config.alert_emails:
+                    await self._send_budget_alert_emails(
+                        tenant_id=tenant_id,
+                        config=config,
+                        alert_level=alert_level,
+                        current_spend=current_spend,
+                        percent=percent,
+                    )
 
         return alert_level
+
+    async def _send_budget_alert_emails(
+        self,
+        tenant_id: str,
+        config: "BudgetConfig",
+        alert_level: "BudgetAlertLevel",
+        current_spend: Decimal,
+        percent: float,
+    ) -> None:
+        """Send budget alert emails to all configured recipients."""
+        try:
+            from aragora.billing.notifications import get_billing_notifier
+
+            notifier = get_billing_notifier()
+            sent_count = 0
+            failed_count = 0
+
+            for email in config.alert_emails:
+                result = notifier.notify_budget_alert(
+                    tenant_id=tenant_id,
+                    email=email,
+                    alert_level=alert_level.value,
+                    current_spend=f"${current_spend:.2f}",
+                    budget_limit=f"${config.monthly_budget:.2f}",
+                    percent_used=percent,
+                )
+
+                if result.success:
+                    sent_count += 1
+                else:
+                    failed_count += 1
+                    logger.warning(f"Failed to send budget alert to {email}: {result.error}")
+
+            if sent_count > 0:
+                logger.info(f"Sent {sent_count} budget alert email(s) for tenant {tenant_id}")
+            if failed_count > 0:
+                logger.warning(
+                    f"Failed to send {failed_count} budget alert email(s) for tenant {tenant_id}"
+                )
+        except Exception as e:
+            logger.error(f"Error sending budget alert emails: {e}")
 
     async def forecast_usage(
         self,

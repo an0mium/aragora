@@ -568,10 +568,34 @@ async def handle_get_inbox_messages(
                     # Apply tag filter (not in store query)
                     if tag:
                         messages_data = [m for m in messages_data if tag in m.get("tags", [])]
+
+                    # Get total count by querying with no limit
+                    # This is more accurate than returning len(messages_data)
+                    total_count = len(messages_data)
+                    if len(messages_data) == limit or offset > 0:
+                        # There might be more messages - query for total
+                        try:
+                            all_messages = store.get_inbox_messages(
+                                inbox_id=inbox_id,
+                                status=status,
+                                assigned_to=assigned_to,
+                                limit=10000,  # Large limit to get all
+                                offset=0,
+                            )
+                            if all_messages is not None:
+                                if tag:
+                                    all_messages = [
+                                        m for m in all_messages if tag in m.get("tags", [])
+                                    ]
+                                total_count = len(all_messages)
+                        except Exception:
+                            # Fall back to page count + offset
+                            total_count = offset + len(messages_data)
+
                     return {
                         "success": True,
                         "messages": messages_data,
-                        "total": len(messages_data),  # TODO: get actual total from store
+                        "total": total_count,
                         "limit": limit,
                         "offset": offset,
                     }

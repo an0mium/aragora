@@ -592,6 +592,155 @@ Need help? Contact support@aragora.ai
         )
         return NotificationResult(success=True, method="log")
 
+    def notify_budget_alert(
+        self,
+        tenant_id: str,
+        email: str,
+        alert_level: str,
+        current_spend: str,
+        budget_limit: str,
+        percent_used: float,
+        org_name: Optional[str] = None,
+    ) -> NotificationResult:
+        """
+        Send budget alert notification.
+
+        Args:
+            tenant_id: Tenant identifier
+            email: Email address to notify
+            alert_level: Alert level (info, warning, critical, exceeded)
+            current_spend: Current spend amount (formatted string)
+            budget_limit: Monthly budget limit (formatted string)
+            percent_used: Percentage of budget used
+            org_name: Optional organization name
+
+        Returns:
+            NotificationResult indicating success/failure
+        """
+        display_name = org_name or tenant_id
+
+        # Customize messaging based on alert level
+        level_config = {
+            "info": {
+                "emoji": "ℹ️",
+                "title": "Budget Update",
+                "urgency": "For your information",
+                "color": "#3498db",
+            },
+            "warning": {
+                "emoji": "⚠️",
+                "title": "Budget Warning",
+                "urgency": "Please review your usage",
+                "color": "#f39c12",
+            },
+            "critical": {
+                "emoji": "🚨",
+                "title": "Critical Budget Alert",
+                "urgency": "Immediate attention required",
+                "color": "#e74c3c",
+            },
+            "exceeded": {
+                "emoji": "🛑",
+                "title": "Budget Exceeded",
+                "urgency": "Budget limit exceeded",
+                "color": "#c0392b",
+            },
+        }
+
+        config = level_config.get(alert_level, level_config["warning"])
+
+        subject = f"{config['emoji']} Aragora {config['title']}: {percent_used:.0f}% of Budget Used"
+
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: {config['color']}; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0;">{config['emoji']} {config['title']}</h1>
+            </div>
+
+            <div style="padding: 30px; background: #f9f9f9;">
+                <p>Hi,</p>
+
+                <p>This is an automated alert for <strong>{display_name}</strong>.</p>
+
+                <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid {config['color']};">
+                    <h3 style="margin-top: 0;">{config['urgency']}</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Current Spend:</strong></td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{current_spend}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Monthly Budget:</strong></td>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{budget_limit}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Usage:</strong></td>
+                            <td style="padding: 8px 0; text-align: right; font-size: 1.2em; color: {config['color']};">{percent_used:.1f}%</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <p>
+                    <a href="https://aragora.ai/dashboard/billing" style="display: inline-block; background: {config['color']}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+                        View Billing Dashboard
+                    </a>
+                </p>
+
+                <p style="color: #666; font-size: 0.9em;">
+                    You can adjust your budget alerts in your billing settings.
+                </p>
+            </div>
+
+            <div style="padding: 20px; text-align: center; color: #999; font-size: 0.8em;">
+                <p>Aragora - Multi-Agent Debate Platform</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_body = f"""
+{config['title']} - {config['urgency']}
+
+Organization: {display_name}
+Current Spend: {current_spend}
+Monthly Budget: {budget_limit}
+Usage: {percent_used:.1f}%
+
+View your billing dashboard: https://aragora.ai/dashboard/billing
+
+You can adjust your budget alerts in your billing settings.
+        """
+
+        # Try to send email first
+        result = self._send_email(email, subject, html_body, text_body)
+        if result.success:
+            return result
+
+        # Fall back to webhook
+        webhook_result = self._send_webhook(
+            {
+                "event": "budget_alert",
+                "tenant_id": tenant_id,
+                "org_name": org_name,
+                "email": email,
+                "alert_level": alert_level,
+                "current_spend": current_spend,
+                "budget_limit": budget_limit,
+                "percent_used": percent_used,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        if webhook_result.success:
+            return webhook_result
+
+        # Log as final fallback
+        logger.warning(
+            f"BUDGET_ALERT: tenant={tenant_id} email={email} level={alert_level} "
+            f"spend={current_spend} budget={budget_limit} percent={percent_used:.1f}%"
+        )
+        return NotificationResult(success=True, method="log")
+
 
 # Default notifier instance
 _default_notifier: Optional[BillingNotifier] = None

@@ -414,8 +414,73 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
 
             if callback_id == "start_debate_modal":
                 # Parse submitted values and start debate
-                _values = view.get("state", {}).get("values", {})  # noqa: F841
-                # TODO: Extract task, agents, etc. from _values and start debate
+                values = view.get("state", {}).get("values", {})
+
+                # Extract task from task_block
+                task = values.get("task_block", {}).get("task_input", {}).get("value", "")
+
+                # Extract agents from agents_block (multi-select returns list)
+                agents_data = (
+                    values.get("agents_block", {})
+                    .get("agents_select", {})
+                    .get("selected_options", [])
+                )
+                agents = [opt.get("value", "") for opt in agents_data]
+
+                # Extract rounds from rounds_block
+                rounds_str = (
+                    values.get("rounds_block", {})
+                    .get("rounds_select", {})
+                    .get("selected_option", {})
+                    .get("value", "5")
+                )
+                rounds = int(rounds_str) if rounds_str.isdigit() else 5
+
+                if not task:
+                    return json_response(
+                        {
+                            "response_action": "errors",
+                            "errors": {"task_block": "Please enter a debate task"},
+                        }
+                    )
+
+                if not agents:
+                    return json_response(
+                        {
+                            "response_action": "errors",
+                            "errors": {"agents_block": "Please select at least one agent"},
+                        }
+                    )
+
+                # Generate debate ID and store in active debates
+                import uuid
+
+                debate_id = str(uuid.uuid4())
+
+                # Map agent values to display names
+                agent_names = {
+                    "claude": "Claude",
+                    "gpt4": "GPT-4",
+                    "gemini": "Gemini",
+                    "mistral": "Mistral",
+                    "deepseek": "DeepSeek",
+                }
+                agent_display_names = [agent_names.get(a, a) for a in agents]
+
+                _active_debates[debate_id] = {
+                    "task": task,
+                    "agents": agent_display_names,
+                    "rounds": rounds,
+                    "current_round": 1,
+                    "status": "running",
+                    "user_id": user.get("id"),
+                }
+
+                logger.info(
+                    f"Started debate {debate_id} from Slack modal: "
+                    f"task='{task[:50]}...', agents={agents}, rounds={rounds}"
+                )
+
                 return json_response({"response_action": "clear"})
 
         return json_response({"ok": True})
