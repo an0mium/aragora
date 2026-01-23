@@ -29,6 +29,7 @@ from aiohttp import web
 
 from aragora.server.handlers.base import (
     BaseHandler,
+    HandlerResult,
     api_endpoint,
     require_auth,
     rate_limit,
@@ -74,7 +75,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=30)
     @validate_body(required_fields=["url"])
-    async def check_url(self, request: web.Request) -> web.Response:
+    async def check_url(self, request: web.Request) -> HandlerResult:
         """
         Check a URL for threats.
 
@@ -129,7 +130,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=10)
     @validate_body(required_fields=["urls"])
-    async def check_urls_batch(self, request: web.Request) -> web.Response:
+    async def check_urls_batch(self, request: web.Request) -> HandlerResult:
         """
         Check multiple URLs for threats.
 
@@ -204,7 +205,7 @@ class ThreatIntelHandler(BaseHandler):
     )
     @require_auth
     @rate_limit(requests_per_minute=60)
-    async def check_ip(self, request: web.Request) -> web.Response:
+    async def check_ip(self, request: web.Request) -> HandlerResult:
         """
         Check IP address reputation.
 
@@ -246,7 +247,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=20)
     @validate_body(required_fields=["ips"])
-    async def check_ips_batch(self, request: web.Request) -> web.Response:
+    async def check_ips_batch(self, request: web.Request) -> HandlerResult:
         """
         Check multiple IP addresses.
 
@@ -299,7 +300,7 @@ class ThreatIntelHandler(BaseHandler):
     )
     @require_auth
     @rate_limit(requests_per_minute=30)
-    async def check_hash(self, request: web.Request) -> web.Response:
+    async def check_hash(self, request: web.Request) -> HandlerResult:
         """
         Check file hash for malware.
 
@@ -341,7 +342,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=10)
     @validate_body(required_fields=["hashes"])
-    async def check_hashes_batch(self, request: web.Request) -> web.Response:
+    async def check_hashes_batch(self, request: web.Request) -> HandlerResult:
         """
         Check multiple file hashes.
 
@@ -395,7 +396,7 @@ class ThreatIntelHandler(BaseHandler):
     @require_auth
     @rate_limit(requests_per_minute=20)
     @validate_body(required_fields=["body"])
-    async def scan_email_content(self, request: web.Request) -> web.Response:
+    async def scan_email_content(self, request: web.Request) -> HandlerResult:
         """
         Scan email content for threats.
 
@@ -449,7 +450,7 @@ class ThreatIntelHandler(BaseHandler):
         description="Check which threat intelligence sources are available",
     )
     @require_auth
-    async def get_status(self, request: web.Request) -> web.Response:
+    async def get_status(self, request: web.Request) -> HandlerResult:
         """
         Get threat intelligence service status.
 

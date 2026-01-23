@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.decorators import has_permission
 
@@ -192,7 +193,7 @@ class CRMHandler(SecureHandler):
         "/api/v1/crm/search",
     ]
 
-    def _check_permission(self, request: Any, permission: str) -> dict[str, Any] | None:
+    def _check_permission(self, request: Any, permission: str) -> HandlerResult | None:
         """Check if user has the required permission."""
         user = self.get_current_user(request)
         if user:
@@ -320,7 +321,7 @@ class CRMHandler(SecureHandler):
 
         return self._error_response(404, "Endpoint not found")
 
-    async def _list_platforms(self, request: Any) -> dict[str, Any]:
+    async def _list_platforms(self, request: Any) -> HandlerResult:
         """List all supported CRM platforms and connection status."""
         platforms = []
         for platform_id, meta in SUPPORTED_PLATFORMS.items():
@@ -345,7 +346,7 @@ class CRMHandler(SecureHandler):
             },
         )
 
-    async def _connect_platform(self, request: Any) -> dict[str, Any]:
+    async def _connect_platform(self, request: Any) -> HandlerResult:
         """Connect a CRM platform with credentials."""
         try:
             body = await self._get_json_body(request)
@@ -397,7 +398,7 @@ class CRMHandler(SecureHandler):
             },
         )
 
-    async def _disconnect_platform(self, request: Any, platform: str) -> dict[str, Any]:
+    async def _disconnect_platform(self, request: Any, platform: str) -> HandlerResult:
         """Disconnect a CRM platform."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -422,7 +423,7 @@ class CRMHandler(SecureHandler):
 
     # Contact operations
 
-    async def _list_all_contacts(self, request: Any) -> dict[str, Any]:
+    async def _list_all_contacts(self, request: Any) -> HandlerResult:
         """List contacts from all connected platforms."""
         limit = int(request.query.get("limit", 100))
         email = request.query.get("email")
@@ -478,7 +479,7 @@ class CRMHandler(SecureHandler):
 
         return []
 
-    async def _list_platform_contacts(self, request: Any, platform: str) -> dict[str, Any]:
+    async def _list_platform_contacts(self, request: Any, platform: str) -> HandlerResult:
         """List contacts from a specific platform."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -497,7 +498,7 @@ class CRMHandler(SecureHandler):
             },
         )
 
-    async def _get_contact(self, request: Any, platform: str, contact_id: str) -> dict[str, Any]:
+    async def _get_contact(self, request: Any, platform: str, contact_id: str) -> HandlerResult:
         """Get a specific contact."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -516,7 +517,7 @@ class CRMHandler(SecureHandler):
 
         return self._error_response(400, "Unsupported platform")
 
-    async def _create_contact(self, request: Any, platform: str) -> dict[str, Any]:
+    async def _create_contact(self, request: Any, platform: str) -> HandlerResult:
         """Create a new contact."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -556,7 +557,7 @@ class CRMHandler(SecureHandler):
         request: Any,
         platform: str,
         contact_id: str,
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """Update an existing contact."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -597,7 +598,7 @@ class CRMHandler(SecureHandler):
 
     # Company operations
 
-    async def _list_all_companies(self, request: Any) -> dict[str, Any]:
+    async def _list_all_companies(self, request: Any) -> HandlerResult:
         """List companies from all connected platforms."""
         limit = int(request.query.get("limit", 100))
 
@@ -644,7 +645,7 @@ class CRMHandler(SecureHandler):
 
         return []
 
-    async def _list_platform_companies(self, request: Any, platform: str) -> dict[str, Any]:
+    async def _list_platform_companies(self, request: Any, platform: str) -> HandlerResult:
         """List companies from a specific platform."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -661,7 +662,7 @@ class CRMHandler(SecureHandler):
             },
         )
 
-    async def _get_company(self, request: Any, platform: str, company_id: str) -> dict[str, Any]:
+    async def _get_company(self, request: Any, platform: str, company_id: str) -> HandlerResult:
         """Get a specific company."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -680,7 +681,7 @@ class CRMHandler(SecureHandler):
 
         return self._error_response(400, "Unsupported platform")
 
-    async def _create_company(self, request: Any, platform: str) -> dict[str, Any]:
+    async def _create_company(self, request: Any, platform: str) -> HandlerResult:
         """Create a new company."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -715,7 +716,7 @@ class CRMHandler(SecureHandler):
 
     # Deal operations
 
-    async def _list_all_deals(self, request: Any) -> dict[str, Any]:
+    async def _list_all_deals(self, request: Any) -> HandlerResult:
         """List deals from all connected platforms."""
         limit = int(request.query.get("limit", 100))
         stage = request.query.get("stage")
@@ -767,7 +768,7 @@ class CRMHandler(SecureHandler):
 
         return []
 
-    async def _list_platform_deals(self, request: Any, platform: str) -> dict[str, Any]:
+    async def _list_platform_deals(self, request: Any, platform: str) -> HandlerResult:
         """List deals from a specific platform."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -785,7 +786,7 @@ class CRMHandler(SecureHandler):
             },
         )
 
-    async def _get_deal(self, request: Any, platform: str, deal_id: str) -> dict[str, Any]:
+    async def _get_deal(self, request: Any, platform: str, deal_id: str) -> HandlerResult:
         """Get a specific deal."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -804,7 +805,7 @@ class CRMHandler(SecureHandler):
 
         return self._error_response(400, "Unsupported platform")
 
-    async def _create_deal(self, request: Any, platform: str) -> dict[str, Any]:
+    async def _create_deal(self, request: Any, platform: str) -> HandlerResult:
         """Create a new deal."""
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
@@ -839,7 +840,7 @@ class CRMHandler(SecureHandler):
 
     # Pipeline
 
-    async def _get_pipeline(self, request: Any) -> dict[str, Any]:
+    async def _get_pipeline(self, request: Any) -> HandlerResult:
         """Get sales pipeline summary."""
         platform = request.query.get("platform")
 
@@ -908,7 +909,7 @@ class CRMHandler(SecureHandler):
 
     # Lead sync
 
-    async def _sync_lead(self, request: Any) -> dict[str, Any]:
+    async def _sync_lead(self, request: Any) -> HandlerResult:
         """Sync a lead from an external source (e.g., LinkedIn Ads, form submission)."""
         try:
             body = await self._get_json_body(request)
@@ -962,7 +963,7 @@ class CRMHandler(SecureHandler):
 
     # Enrichment
 
-    async def _enrich_contact(self, request: Any) -> dict[str, Any]:
+    async def _enrich_contact(self, request: Any) -> HandlerResult:
         """Enrich contact data using available sources."""
         try:
             body = await self._get_json_body(request)
@@ -986,7 +987,7 @@ class CRMHandler(SecureHandler):
 
     # Search
 
-    async def _search_crm(self, request: Any) -> dict[str, Any]:
+    async def _search_crm(self, request: Any) -> HandlerResult:
         """Search across CRM data."""
         try:
             body = await self._get_json_body(request)

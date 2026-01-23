@@ -153,12 +153,12 @@ patterns = extractor.get_winning_patterns(min_occurrences=3)
 ## Phase 3: Evidence & Resilience
 
 ### MemoryStream
-**File:** `aragora/memory/stream.py`
+**File:** `aragora/memory/streams.py`
 
 Per-agent persistent memory that survives across debates.
 
 ```python
-from aragora.memory.stream import MemoryStream
+from aragora.memory.streams import MemoryStream
 
 stream = MemoryStream(db_path="streams.db")
 stream.add_memory("anthropic-api", "User prefers functional style")
@@ -193,12 +193,12 @@ if orchestrator.detect_deadlock(messages):
 ```
 
 ### CapabilityProber
-**File:** `aragora/agents/prober.py`
+**File:** `aragora/modes/prober.py`
 
 Tests agent capabilities to ensure quality.
 
 ```python
-from aragora.agents.prober import CapabilityProber
+from aragora.modes.prober import CapabilityProber
 
 prober = CapabilityProber()
 results = await prober.probe_agent(agent, tests=["code_generation", "critique"])
@@ -317,12 +317,12 @@ new_prompt = evolver.evolve(agent_name)
 ```
 
 ### Tournament
-**File:** `aragora/competition/tournament.py`
+**File:** `aragora/tournaments/tournament.py`
 
 Periodic competitive benchmarking between agents.
 
 ```python
-from aragora.competition.tournament import Tournament
+from aragora.tournaments.tournament import Tournament
 
 tournament = Tournament(agents=["anthropic-api", "codex", "gemini"])
 results = await tournament.run(tasks=benchmark_tasks)
@@ -348,12 +348,12 @@ if status.converged:
 ```
 
 ### MetaCritiqueAnalyzer
-**File:** `aragora/meta/critique.py`
+**File:** `aragora/debate/meta.py`
 
 Analyzes the debate process itself and provides recommendations.
 
 ```python
-from aragora.meta.critique import MetaCritiqueAnalyzer
+from aragora.debate.meta import MetaCritiqueAnalyzer
 
 analyzer = MetaCritiqueAnalyzer()
 analysis = analyzer.analyze_debate(result)
@@ -374,24 +374,24 @@ rating = elo.get_rating("anthropic-api")
 ```
 
 ### AgentSelector
-**File:** `aragora/selection/selector.py`
+**File:** `aragora/routing/selection.py`
 
 Smart agent team selection based on task requirements.
 
 ```python
-from aragora.selection.selector import AgentSelector
+from aragora.routing.selection import AgentSelector
 
 selector = AgentSelector(elo_system=elo, persona_manager=personas)
 team = selector.select(task="Design authentication", team_size=3)
 ```
 
 ### RiskRegister
-**File:** `aragora/risk/register.py`
+**File:** `aragora/pipeline/risk_register.py`
 
 Tracks items with low consensus for future attention.
 
 ```python
-from aragora.risk.register import RiskRegister
+from aragora.pipeline.risk_register import RiskRegister
 
 register = RiskRegister(db_path="risks.db")
 register.add_risk("SQL injection vectors", confidence=0.4, severity="high")

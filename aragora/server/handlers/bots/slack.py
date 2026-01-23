@@ -612,13 +612,13 @@ def get_debate_vote_counts(debate_id: str) -> dict[str, int]:
 def register_slack_routes(router: Any) -> None:
     """Register Slack routes with the server router."""
 
-    async def events_handler(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def events_handler(request: Any) -> HandlerResult:
         return await handle_slack_events(request)
 
-    async def interactions_handler(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def interactions_handler(request: Any) -> HandlerResult:
         return await handle_slack_interactions(request)
 
-    async def commands_handler(request: Any) -> tuple[str, int, dict[str, str]]:
+    async def commands_handler(request: Any) -> HandlerResult:
         return await handle_slack_commands(request)
 
     # Register routes
