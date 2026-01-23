@@ -8,6 +8,7 @@ debate protocols and consensus mechanisms.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from collections import deque
 from functools import lru_cache
@@ -2043,15 +2044,17 @@ class Arena:
         # Create environment with security context
         env = Environment(
             task=question,
-            context={
-                "security_event_id": event.id,
-                "security_event_type": event.event_type.value,
-                "repository": event.repository,
-                "scan_id": event.scan_id,
-                "source": event.source,
-                "findings": [f.to_dict() for f in event.findings],
-                "severity": event.severity.value,
-            },
+            context=json.dumps(
+                {
+                    "security_event_id": event.id,
+                    "security_event_type": event.event_type.value,
+                    "repository": event.repository,
+                    "scan_id": event.scan_id,
+                    "source": event.source,
+                    "findings": [f.to_dict() for f in event.findings],
+                    "severity": event.severity.value,
+                }
+            ),
         )
 
         # Create security-focused protocol
@@ -2131,10 +2134,10 @@ class Arena:
 
         # Fallback: create agents directly
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
             agents.append(
-                AnthropicAgent(
+                AnthropicAPIAgent(
                     name="security-auditor",
                     model="claude-sonnet-4-20250514",
                     system_prompt=(
@@ -2147,10 +2150,10 @@ class Arena:
             logger.debug(f"Could not create Anthropic agent: {e}")
 
         try:
-            from aragora.agents.api_agents.openai import OpenAIAgent
+            from aragora.agents.api_agents.openai import OpenAIAPIAgent
 
             agents.append(
-                OpenAIAgent(
+                OpenAIAPIAgent(
                     name="compliance-auditor",
                     model="gpt-4o",
                     system_prompt=(

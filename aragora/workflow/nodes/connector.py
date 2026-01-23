@@ -400,7 +400,7 @@ class ConnectorStep(BaseStep):
             get_retry_delay,
         )
 
-        last_error = None
+        last_error: Optional[Exception] = None
         for attempt in range(max_retries + 1):
             try:
                 result = await asyncio.wait_for(
@@ -414,7 +414,7 @@ class ConnectorStep(BaseStep):
                 last_error = TimeoutError(f"Operation timed out after {timeout}s")
                 if not retry_on_error or attempt >= max_retries:
                     raise last_error
-                delay = get_retry_delay(attempt)
+                delay = get_retry_delay(last_error)
                 logger.warning(f"[ConnectorStep] {self._name}: Timeout, retrying in {delay}s...")
                 await asyncio.sleep(delay)
 
@@ -422,7 +422,7 @@ class ConnectorStep(BaseStep):
                 last_error = e
                 if not retry_on_error or not is_retryable_error(e) or attempt >= max_retries:
                     raise
-                delay = get_retry_delay(attempt)
+                delay = get_retry_delay(e)
                 logger.warning(f"[ConnectorStep] {self._name}: {e}, retrying in {delay}s...")
                 await asyncio.sleep(delay)
 

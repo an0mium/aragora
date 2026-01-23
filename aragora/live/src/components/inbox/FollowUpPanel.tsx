@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 interface FollowUpItem {
   followup_id: string;
@@ -31,13 +32,28 @@ export function FollowUpPanel({
   onRefresh,
   className = '',
 }: FollowUpPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [followups, setFollowups] = useState<FollowUpItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
   const [showResolved, setShowResolved] = useState(false);
 
+  const getAuthHeaders = useCallback((): HeadersInit => {
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+    return headers;
+  }, [tokens?.access_token]);
+
   const fetchFollowups = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -45,7 +61,9 @@ export function FollowUpPanel({
         include_resolved: showResolved.toString(),
         sort_by: 'urgency',
       });
-      const res = await fetch(`/api/v1/email/followups/pending?${params}`);
+      const res = await fetch(`/api/v1/email/followups/pending?${params}`, {
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       if (data.status === 'success') {
         setFollowups(data.data.followups);
@@ -57,18 +75,20 @@ export function FollowUpPanel({
     } finally {
       setLoading(false);
     }
-  }, [showResolved]);
+  }, [showResolved, isAuthenticated, authLoading, getAuthHeaders]);
 
   useEffect(() => {
     fetchFollowups();
   }, [fetchFollowups]);
 
   const handleResolve = async (followupId: string, status: string) => {
+    if (!tokens?.access_token) return;
+
     try {
       setResolving(followupId);
       const res = await fetch(`/api/v1/email/followups/${followupId}/resolve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status }),
       });
       const data = await res.json();
@@ -84,10 +104,13 @@ export function FollowUpPanel({
   };
 
   const handleCheckReplies = async () => {
+    if (!tokens?.access_token) return;
+
     try {
       setLoading(true);
       const res = await fetch('/api/v1/email/followups/check-replies', {
         method: 'POST',
+        headers: getAuthHeaders(),
       });
       const data = await res.json();
       if (data.status === 'success' && data.data.replied.length > 0) {
@@ -102,11 +125,13 @@ export function FollowUpPanel({
   };
 
   const handleAutoDetect = async () => {
+    if (!tokens?.access_token) return;
+
     try {
       setLoading(true);
       const res = await fetch('/api/v1/email/followups/auto-detect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ days_back: 7 }),
       });
       const data = await res.json();

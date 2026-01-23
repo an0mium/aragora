@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { StreamEvent } from '@/types/events';
+import { useAuth } from '@/context/AuthContext';
 
 interface RiskWarning {
   domain: string;
@@ -25,6 +26,7 @@ const severityColors: Record<string, string> = {
 };
 
 export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [apiWarnings, setApiWarnings] = useState<RiskWarning[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,28 +57,38 @@ export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPan
     ];
   }, [apiWarnings, eventWarnings]);
 
-  useEffect(() => {
-    const fetchWarnings = async () => {
-      try {
-        const response = await fetch(`${apiBase}/api/consensus/risk-warnings`);
-        if (response.ok) {
-          const data = await response.json();
-          setApiWarnings(data.warnings || data || []);
-        } else {
-          setError('Failed to fetch risk warnings');
-        }
-      } catch {
-        setError('Network error');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchWarnings = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
 
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`${apiBase}/api/consensus/risk-warnings`, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setApiWarnings(data.warnings || data || []);
+      } else {
+        setError('Failed to fetch risk warnings');
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
+
+  useEffect(() => {
     fetchWarnings();
     // Refresh every 60 seconds (reduced need with event subscription)
     const interval = setInterval(fetchWarnings, 60000);
     return () => clearInterval(interval);
-  }, [apiBase]);
+  }, [fetchWarnings]);
 
   const criticalCount = warnings.filter(w => w.severity === 'critical').length;
   const highCount = warnings.filter(w => w.severity === 'high').length;

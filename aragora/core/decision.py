@@ -110,6 +110,93 @@ def _import_metrics():
     _metrics_imported = True
 
 
+# Lazy import for audit logging
+_audit_imported = False
+_audit_log_decision_started = None
+_audit_log_decision_completed = None
+
+
+def _import_audit():
+    """Lazy import audit utilities."""
+    global _audit_imported, _audit_log_decision_started, _audit_log_decision_completed
+    if _audit_imported:
+        return
+    try:
+        from aragora.audit.unified import (
+            get_unified_audit_logger,
+            UnifiedAuditEvent,
+            UnifiedAuditCategory,
+            AuditOutcome,
+            AuditSeverity,
+        )
+
+        _logger = get_unified_audit_logger()
+
+        def log_decision_started(
+            request_id: str,
+            decision_type: str,
+            source: str,
+            user_id: str | None = None,
+            workspace_id: str | None = None,
+            content_preview: str | None = None,
+        ) -> None:
+            """Log decision request started."""
+            _logger.log(
+                UnifiedAuditEvent(
+                    category=UnifiedAuditCategory.DEBATE_STARTED,
+                    action=f"Decision {decision_type} started",
+                    actor_id=user_id,
+                    resource_type="decision",
+                    resource_id=request_id,
+                    workspace_id=workspace_id,
+                    details={
+                        "decision_type": decision_type,
+                        "source": source,
+                        "content_preview": (content_preview or "")[:200],
+                    },
+                )
+            )
+
+        def log_decision_completed(
+            request_id: str,
+            decision_type: str,
+            success: bool,
+            consensus_reached: bool,
+            confidence: float,
+            duration_seconds: float,
+            user_id: str | None = None,
+            workspace_id: str | None = None,
+            error: str | None = None,
+        ) -> None:
+            """Log decision request completed."""
+            _logger.log(
+                UnifiedAuditEvent(
+                    category=UnifiedAuditCategory.DEBATE_COMPLETED,
+                    action=f"Decision {decision_type} completed",
+                    outcome=AuditOutcome.SUCCESS if success else AuditOutcome.FAILURE,
+                    severity=AuditSeverity.INFO if success else AuditSeverity.WARNING,
+                    actor_id=user_id,
+                    resource_type="decision",
+                    resource_id=request_id,
+                    workspace_id=workspace_id,
+                    details={
+                        "decision_type": decision_type,
+                        "consensus_reached": consensus_reached,
+                        "confidence": confidence,
+                        "duration_seconds": duration_seconds,
+                        "error": error,
+                    },
+                )
+            )
+
+        global _audit_log_decision_started, _audit_log_decision_completed
+        _audit_log_decision_started = log_decision_started
+        _audit_log_decision_completed = log_decision_completed
+    except ImportError:
+        pass
+    _audit_imported = True
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -788,10 +875,11 @@ class DecisionRouter:
         Raises:
             PermissionDeniedError: If RBAC check fails
         """
-        # Initialize tracing, caching, and metrics if available
+        # Initialize tracing, caching, metrics, and audit if available
         _import_tracing()
         _import_cache()
         _import_metrics()
+        _import_audit()
 
         logger.info(
             f"Routing decision request {request.request_id} "
@@ -850,6 +938,20 @@ class DecisionRouter:
                 source=request.source.value,
                 priority=request.priority.value if request.priority else "normal",
             )
+
+        # Log audit trail: decision started
+        if _audit_log_decision_started:
+            try:
+                _audit_log_decision_started(
+                    request_id=request.request_id,
+                    decision_type=request.decision_type.value,
+                    source=request.source.value,
+                    user_id=request.context.user_id,
+                    workspace_id=request.context.workspace_id,
+                    content_preview=request.content[:200] if request.content else None,
+                )
+            except Exception as e:
+                logger.debug(f"Audit log (started) failed: {e}")
 
         # Check cache first
         cache_hit = False
@@ -963,6 +1065,23 @@ class DecisionRouter:
                     agent_count=agent_count,
                 )
 
+            # Log audit trail: decision completed (success)
+            if _audit_log_decision_completed:
+                try:
+                    _audit_log_decision_completed(
+                        request_id=request.request_id,
+                        decision_type=request.decision_type.value,
+                        success=result.success,
+                        consensus_reached=result.consensus_reached,
+                        confidence=result.confidence,
+                        duration_seconds=result.duration_seconds,
+                        user_id=request.context.user_id,
+                        workspace_id=request.context.workspace_id,
+                        error=result.error,
+                    )
+                except Exception as audit_err:
+                    logger.debug(f"Audit log (completed) failed: {audit_err}")
+
             # Cache the result
             if self._enable_caching and _decision_cache and result.success:
                 await _decision_cache.set(request, result, ttl_seconds=self._cache_ttl_seconds)
@@ -1005,6 +1124,23 @@ class DecisionRouter:
                     consensus_reached=False,
                     error_type=error_type,
                 )
+
+            # Log audit trail: decision completed (error)
+            if _audit_log_decision_completed:
+                try:
+                    _audit_log_decision_completed(
+                        request_id=request.request_id,
+                        decision_type=request.decision_type.value,
+                        success=False,
+                        consensus_reached=False,
+                        confidence=0.0,
+                        duration_seconds=error_duration,
+                        user_id=request.context.user_id,
+                        workspace_id=request.context.workspace_id,
+                        error=str(e),
+                    )
+                except Exception as audit_err:
+                    logger.debug(f"Audit log (error) failed: {audit_err}")
 
             error_result = DecisionResult(
                 request_id=request.request_id,
@@ -1060,7 +1196,20 @@ class DecisionRouter:
             from aragora.core_types import Environment
             from aragora.debate.protocol import DebateProtocol
 
-            env = Environment(task=request.content)
+            # Gather knowledge context if enabled
+            knowledge_context = ""
+            document_ids: list[str] = []
+            if request.config.use_knowledge_mound:
+                knowledge_context, document_ids = await self._gather_knowledge_context(
+                    query=request.content,
+                    workspace_id=request.context.workspace_id,
+                )
+
+            env = Environment(
+                task=request.content,
+                context=knowledge_context,
+                documents=document_ids,
+            )
             protocol = DebateProtocol(
                 rounds=request.config.rounds,
                 consensus=request.config.consensus,  # type: ignore[arg-type]
@@ -1278,6 +1427,78 @@ class DecisionRouter:
                     span_ctx.__exit__(None, None, None)
                 except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
                     logger.debug(f"Trace span cleanup error: {e}")
+
+    async def _gather_knowledge_context(
+        self,
+        query: str,
+        workspace_id: Optional[str] = None,
+        max_items: int = 5,
+    ) -> tuple[str, list[str]]:
+        """
+        Gather relevant knowledge context from Knowledge Mound for the debate.
+
+        Args:
+            query: The decision question/content
+            workspace_id: Optional workspace to scope the query
+            max_items: Maximum knowledge items to include
+
+        Returns:
+            Tuple of (context_string, document_ids)
+        """
+        try:
+            from aragora.knowledge.pipeline import KnowledgePipeline, PipelineConfig
+
+            # Create a lightweight pipeline for querying
+            config = PipelineConfig(
+                workspace_id=workspace_id or "default",
+                use_knowledge_mound=True,
+            )
+            pipeline = KnowledgePipeline(config)
+            await pipeline.start()
+
+            try:
+                # Query the knowledge mound for relevant context
+                mound_result = await pipeline.query_mound(
+                    query=query,
+                    limit=max_items,
+                )
+
+                if not mound_result or not mound_result.items:
+                    return "", []
+
+                # Build context string from knowledge items
+                context_parts = []
+                document_ids = []
+
+                for item in mound_result.items[:max_items]:
+                    content = getattr(item, "content", str(item))
+                    if len(content) > 500:
+                        content = content[:500] + "..."
+                    context_parts.append(f"[Knowledge] {content}")
+
+                    # Extract document IDs if available
+                    metadata = getattr(item, "metadata", {}) or {}
+                    if doc_id := metadata.get("document_id"):
+                        document_ids.append(doc_id)
+
+                context_string = "\n\n".join(context_parts)
+                if context_string:
+                    context_string = (
+                        "## Relevant Organizational Knowledge\n\n" f"{context_string}\n\n" "---\n"
+                    )
+
+                logger.info(f"Gathered {len(context_parts)} knowledge items for debate context")
+                return context_string, list(set(document_ids))
+
+            finally:
+                await pipeline.stop()
+
+        except ImportError:
+            logger.debug("Knowledge pipeline not available for context gathering")
+            return "", []
+        except Exception as e:
+            logger.warning(f"Failed to gather knowledge context: {e}")
+            return "", []
 
     def _get_tts_bridge(self) -> Optional[Any]:
         """Lazy-load TTS bridge for voice responses."""

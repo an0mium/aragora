@@ -393,6 +393,55 @@ async def init_opentelemetry() -> bool:
     return False
 
 
+async def init_otlp_exporter() -> bool:
+    """Initialize OpenTelemetry OTLP exporter for distributed tracing.
+
+    Configures trace export to external backends like Jaeger, Zipkin,
+    or Datadog via the OTLP protocol. This is separate from the basic
+    OpenTelemetry setup and provides more flexible backend options.
+
+    Environment Variables:
+        ARAGORA_OTLP_EXPORTER: Exporter type (none, jaeger, zipkin, otlp_grpc, otlp_http, datadog)
+        ARAGORA_OTLP_ENDPOINT: Collector endpoint URL
+        ARAGORA_SERVICE_NAME: Service name for traces (default: aragora)
+        ARAGORA_ENVIRONMENT: Deployment environment (default: development)
+        ARAGORA_TRACE_SAMPLE_RATE: Sampling rate 0.0-1.0 (default: 1.0)
+        See docs/ENVIRONMENT.md for full configuration reference.
+
+    Returns:
+        True if OTLP exporter was configured, False otherwise
+    """
+    try:
+        from aragora.observability.config import is_otlp_enabled
+        from aragora.observability.otlp_export import configure_otlp_exporter, get_otlp_config
+
+        if not is_otlp_enabled():
+            logger.debug(
+                "OTLP exporter disabled (set ARAGORA_OTLP_EXPORTER to jaeger/zipkin/otlp_grpc/otlp_http/datadog)"
+            )
+            return False
+
+        config = get_otlp_config()
+        provider = configure_otlp_exporter(config)
+
+        if provider:
+            logger.info(
+                f"OTLP exporter initialized: type={config.exporter_type.value}, "
+                f"endpoint={config.get_effective_endpoint()}"
+            )
+            return True
+        else:
+            logger.warning("OTLP exporter configuration failed")
+            return False
+
+    except ImportError as e:
+        logger.debug(f"OTLP exporter not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize OTLP exporter: {e}")
+
+    return False
+
+
 async def init_prometheus_metrics() -> bool:
     """Initialize Prometheus metrics server.
 
@@ -1267,6 +1316,7 @@ def _get_degraded_status() -> dict[str, Any]:
         "backend_connectivity": {"valid": False, "errors": ["Server in degraded mode"]},
         "error_monitoring": False,
         "opentelemetry": False,
+        "otlp_exporter": False,
         "prometheus": False,
         "circuit_breakers": 0,
         "background_tasks": False,
@@ -1394,6 +1444,7 @@ async def run_startup_sequence(
         "backend_connectivity": connectivity,
         "error_monitoring": False,
         "opentelemetry": False,
+        "otlp_exporter": False,
         "prometheus": False,
         "circuit_breakers": 0,
         "background_tasks": False,
@@ -1420,6 +1471,7 @@ async def run_startup_sequence(
     # Initialize in parallel where possible
     status["error_monitoring"] = await init_error_monitoring()
     status["opentelemetry"] = await init_opentelemetry()
+    status["otlp_exporter"] = await init_otlp_exporter()
     status["prometheus"] = await init_prometheus_metrics()
 
     # Sequential initialization for components with dependencies
@@ -1771,6 +1823,7 @@ __all__ = [
     "validate_backend_connectivity",
     "init_error_monitoring",
     "init_opentelemetry",
+    "init_otlp_exporter",
     "init_prometheus_metrics",
     "init_circuit_breaker_persistence",
     "init_background_tasks",

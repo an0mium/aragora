@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { logger } from '@/utils/logger';
 import type { StreamEvent } from '@/types/events';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface TournamentSummary {
   tournament_id: string;
@@ -30,6 +31,7 @@ interface TournamentPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: TournamentPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
   const [selectedTournament, setSelectedTournament] = useState<string | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
@@ -37,9 +39,19 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Tou
   const [error, setError] = useState<string | null>(null);
 
   const fetchTournaments = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const res = await fetch(`${apiBase}/api/tournaments`);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const res = await fetch(`${apiBase}/api/tournaments`, { headers });
       if (res.ok) {
         const data = await res.json();
         setTournaments(data.tournaments || []);
@@ -54,11 +66,20 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Tou
     } finally {
       setLoading(false);
     }
-  }, [apiBase, selectedTournament]);
+  }, [apiBase, selectedTournament, isAuthenticated, authLoading, tokens?.access_token]);
 
   const fetchStandings = useCallback(async (tournamentId: string) => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading || !tokens?.access_token) {
+      return;
+    }
+
     try {
-      const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/standings`);
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tokens.access_token}`,
+      };
+      const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/standings`, { headers });
       if (res.ok) {
         const data = await res.json();
         setStandings(data.standings || []);
@@ -66,7 +87,7 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Tou
     } catch (err) {
       logger.error('Failed to fetch standings:', err);
     }
-  }, [apiBase]);
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   // Use ref to store latest fetchTournaments to avoid interval recreation
   const fetchTournamentsRef = useRef(fetchTournaments);

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ErrorWithRetry } from './RetryButton';
 import { fetchWithRetry } from '@/utils/retry';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface MetricsData {
   uptime_seconds: number;
@@ -56,6 +57,7 @@ interface MetricsPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [cache, setCache] = useState<CacheData | null>(null);
@@ -72,14 +74,25 @@ export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) 
   }, [cache?.entries_by_prefix]);
 
   const fetchData = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+
     const results = await Promise.allSettled([
-      fetchWithRetry(`${apiBase}/api/metrics`, undefined, { maxRetries: 2 }),
-      fetchWithRetry(`${apiBase}/api/metrics/health`, undefined, { maxRetries: 2 }),
-      fetchWithRetry(`${apiBase}/api/metrics/cache`, undefined, { maxRetries: 2 }),
-      fetchWithRetry(`${apiBase}/api/metrics/system`, undefined, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/metrics`, { headers }, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/metrics/health`, { headers }, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/metrics/cache`, { headers }, { maxRetries: 2 }),
+      fetchWithRetry(`${apiBase}/api/metrics/system`, { headers }, { maxRetries: 2 }),
     ]);
 
     const [metricsResult, healthResult, cacheResult, systemResult] = results;
@@ -117,7 +130,7 @@ export function MetricsPanel({ apiBase = DEFAULT_API_BASE }: MetricsPanelProps) 
       setError('Some metrics failed to load. Partial results shown.');
     }
     setLoading(false);
-  }, [apiBase]);
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   const fetchDataRef = useRef(fetchData);
   fetchDataRef.current = fetchData;

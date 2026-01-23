@@ -774,14 +774,17 @@ class CircuitBreaker:
             self._single_failures = 0
             self._single_open_at = 0.0
             self._single_successes = 0
+            self._single_half_open_calls = 0
             self._failures.clear()
             self._circuit_open_at.clear()
             self._half_open_successes.clear()
+            self._half_open_calls.clear()
             logger.info("Circuit breaker reset all states")
         else:
             self._failures.pop(entity, None)
             self._circuit_open_at.pop(entity, None)
             self._half_open_successes.pop(entity, None)
+            self._half_open_calls.pop(entity, None)
             logger.info(f"Circuit breaker reset state for {entity}")
 
     def get_all_status(self) -> dict[str, dict]:

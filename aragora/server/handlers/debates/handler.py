@@ -39,6 +39,7 @@ from aragora.server.validation.schema import (
     DEBATE_UPDATE_SCHEMA,
     validate_against_schema,
 )
+from aragora.server.http_utils import run_async
 
 from ..base import (
     BaseHandler,
@@ -1018,6 +1019,11 @@ class DebatesHandler(
         if not validation_result.is_valid:
             return error_response(validation_result.error, 400)
 
+        # Spam check for debate content
+        spam_result = self._check_spam_content(body)
+        if spam_result:
+            return spam_result
+
         # Extract headers for correlation ID
         headers = {}
         if hasattr(handler, "headers"):
@@ -1341,3 +1347,67 @@ class DebatesHandler(
         except ValueError as e:
             logger.warning("Invalid update request for %s: %s", debate_id, e)
             return error_response(f"Invalid update data: {e}", 400)
+
+    def _check_spam_content(self, body: dict) -> Optional[HandlerResult]:
+        """
+        Check debate input content for spam.
+
+        Runs the spam moderation integration against the debate task/question
+        and context. Returns an error response if content should be blocked,
+        or None if content passes.
+
+        Args:
+            body: The request body containing task/question and context
+
+        Returns:
+            HandlerResult with 400 error if spam detected, None otherwise
+        """
+        try:
+            from aragora.moderation import check_debate_content, ContentModerationError
+
+            # Extract content to check
+            proposal = body.get("task") or body.get("question", "")
+            context = body.get("context", "")
+
+            if not proposal:
+                return None  # Let schema validation handle this
+
+            # Run async spam check
+            result = run_async(check_debate_content(proposal, context))
+
+            if result.should_block:
+                logger.warning(
+                    f"Spam content blocked: verdict={result.verdict.value}, "
+                    f"confidence={result.confidence:.2f}, "
+                    f"reasons={result.reasons[:3]}"
+                )
+                return error_response(
+                    "Content blocked by spam filter. Please revise your input.",
+                    400,
+                    extra={
+                        "verdict": result.verdict.value,
+                        "reasons": result.reasons[:3],
+                    },
+                )
+
+            if result.should_flag_for_review:
+                # Log suspicious content but allow it through
+                logger.info(
+                    f"Suspicious content flagged: verdict={result.verdict.value}, "
+                    f"confidence={result.confidence:.2f}"
+                )
+
+            return None  # Content passed
+
+        except ImportError:
+            # Moderation module not available - allow content through
+            logger.debug("Spam moderation not available, skipping check")
+            return None
+        except ContentModerationError as e:
+            # Moderation explicitly rejected content
+            logger.warning(f"Content moderation error: {e}")
+            return error_response(str(e), 400)
+        except Exception as e:
+            # Unexpected error - log but allow content through (fail-open)
+            logger.error(f"Spam check failed unexpectedly: {e}", exc_info=True)
+            return None

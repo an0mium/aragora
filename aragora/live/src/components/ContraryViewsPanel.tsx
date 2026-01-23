@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '../config';
+import { useAuth } from '@/context/AuthContext';
 
 interface ContraryView {
   agent: string;
@@ -16,6 +17,7 @@ interface ContraryViewsPanelProps {
 }
 
 export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [views, setViews] = useState<ContraryView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,28 +26,38 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
   // Use centralized config if no apiBase provided
   const baseUrl = apiBase || API_BASE_URL;
 
-  useEffect(() => {
-    const fetchViews = async () => {
-      try {
-        const response = await fetch(`${baseUrl}/api/consensus/contrarian-views`);
-        if (response.ok) {
-          const data = await response.json();
-          setViews(data.views || data || []);
-        } else {
-          setError('Failed to fetch contrary views');
-        }
-      } catch {
-        setError('Network error');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchViews = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
 
+    try {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`${baseUrl}/api/consensus/contrarian-views`, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setViews(data.views || data || []);
+      } else {
+        setError('Failed to fetch contrary views');
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setLoading(false);
+    }
+  }, [baseUrl, isAuthenticated, authLoading, tokens?.access_token]);
+
+  useEffect(() => {
     fetchViews();
     // Refresh every 30 seconds
     const interval = setInterval(fetchViews, 30000);
     return () => clearInterval(interval);
-  }, [baseUrl]);
+  }, [fetchViews]);
 
   if (!isExpanded) {
     return (

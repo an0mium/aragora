@@ -122,6 +122,13 @@ try:
 except ImportError:
     ACCOUNTING_HANDLER_AVAILABLE = False
 
+try:
+    from aragora.server.handlers.payments import register_payment_routes
+
+    PAYMENT_HANDLER_AVAILABLE = True
+except ImportError:
+    PAYMENT_HANDLER_AVAILABLE = False
+
 # Trusted proxies for X-Forwarded-For header validation
 # Only trust X-Forwarded-For if request comes from these IPs
 TRUSTED_PROXIES = frozenset(
@@ -1409,6 +1416,9 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         if ACCOUNTING_HANDLER_AVAILABLE:
             register_accounting_routes(app)
             logger.info("Registered accounting routes")
+        if PAYMENT_HANDLER_AVAILABLE:
+            register_payment_routes(app)
+            logger.info("Registered payment routes")
 
         # Start drain loop
         asyncio.create_task(self._drain_loop())

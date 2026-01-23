@@ -442,7 +442,7 @@ class CRMHandler(SecureHandler):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching contacts from {platform}: {result}")
                 continue
             all_contacts.extend(result)
@@ -616,7 +616,7 @@ class CRMHandler(SecureHandler):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching companies from {platform}: {result}")
                 continue
             all_companies.extend(result)
@@ -735,7 +735,7 @@ class CRMHandler(SecureHandler):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching deals from {platform}: {result}")
                 continue
             all_deals.extend(result)

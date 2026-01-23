@@ -762,7 +762,7 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_post(
+    async def handle_post(  # type: ignore[override]
         self,
         path: str,
         data: Optional[Dict[str, Any]] = None,
@@ -792,7 +792,7 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_put(
+    async def handle_put(  # type: ignore[override]
         self,
         path: str,
         data: Optional[Dict[str, Any]] = None,
@@ -806,7 +806,7 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_delete(
+    async def handle_delete(  # type: ignore[override]
         self,
         path: str,
     ) -> HandlerResult:

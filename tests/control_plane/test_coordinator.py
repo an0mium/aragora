@@ -665,3 +665,195 @@ class TestFactoryFunction:
         except ImportError:
             # Redis not installed - factory still works (uses in-memory fallback)
             pass
+
+
+# ============================================================================
+# Policy Sync on Startup Tests
+# ============================================================================
+
+
+class TestPolicySyncOnStartup:
+    """Tests for automatic policy sync on coordinator startup."""
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_called_on_connect(
+        self, mock_registry, mock_scheduler, mock_health_monitor
+    ):
+        """Test that _sync_policies_from_store is called during connect()."""
+        coordinator = ControlPlaneCoordinator(
+            registry=mock_registry,
+            scheduler=mock_scheduler,
+            health_monitor=mock_health_monitor,
+        )
+
+        # Mock the required async methods
+        mock_registry.connect = AsyncMock()
+        mock_scheduler.connect = AsyncMock()
+        mock_health_monitor.start = AsyncMock()
+
+        # Mock the sync method
+        coordinator._sync_policies_from_store = MagicMock(return_value=5)
+
+        await coordinator.connect()
+
+        # Verify _sync_policies_from_store was called
+        coordinator._sync_policies_from_store.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_returns_count(
+        self, mock_registry, mock_scheduler, mock_health_monitor
+    ):
+        """Test that _sync_policies_from_store returns the number of policies loaded."""
+        # Create a mock policy manager
+        mock_policy_manager = MagicMock()
+        mock_policy_manager.sync_from_compliance_store = MagicMock(return_value=3)
+
+        config = ControlPlaneConfig(enable_policy_sync=True)
+
+        coordinator = ControlPlaneCoordinator(
+            config=config,
+            registry=mock_registry,
+            scheduler=mock_scheduler,
+            health_monitor=mock_health_monitor,
+            policy_manager=mock_policy_manager,
+        )
+
+        # Set environment to production to enable sync
+        with patch.dict("os.environ", {"ARAGORA_ENV": "production"}):
+            result = coordinator._sync_policies_from_store()
+
+        assert result == 3
+        mock_policy_manager.sync_from_compliance_store.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_disabled_via_config(
+        self, mock_registry, mock_scheduler, mock_health_monitor
+    ):
+        """Test that policy sync is skipped when disabled in config."""
+        mock_policy_manager = MagicMock()
+        mock_policy_manager.sync_from_compliance_store = MagicMock(return_value=5)
+
+        config = ControlPlaneConfig(enable_policy_sync=False)
+
+        coordinator = ControlPlaneCoordinator(
+            config=config,
+            registry=mock_registry,
+            scheduler=mock_scheduler,
+            health_monitor=mock_health_monitor,
+            policy_manager=mock_policy_manager,
+        )
+
+        result = coordinator._sync_policies_from_store()
+
+        assert result == 0
+        mock_policy_manager.sync_from_compliance_store.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_disabled_via_env_var(
+        self, mock_registry, mock_scheduler, mock_health_monitor, monkeypatch
+    ):
+        """Test that ARAGORA_POLICY_SYNC_ON_STARTUP=false disables sync."""
+        monkeypatch.setenv("ARAGORA_POLICY_SYNC_ON_STARTUP", "false")
+
+        config = ControlPlaneConfig.from_env()
+        assert config.enable_policy_sync is False
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_enabled_via_env_var(
+        self, mock_registry, mock_scheduler, mock_health_monitor, monkeypatch
+    ):
+        """Test that ARAGORA_POLICY_SYNC_ON_STARTUP=true enables sync."""
+        monkeypatch.setenv("ARAGORA_POLICY_SYNC_ON_STARTUP", "true")
+
+        config = ControlPlaneConfig.from_env()
+        assert config.enable_policy_sync is True
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_backward_compat_env_var(
+        self, mock_registry, mock_scheduler, mock_health_monitor, monkeypatch
+    ):
+        """Test backward compatibility with CP_ENABLE_POLICY_SYNC env var."""
+        # When ARAGORA_POLICY_SYNC_ON_STARTUP is not set, fall back to CP_ENABLE_POLICY_SYNC
+        monkeypatch.delenv("ARAGORA_POLICY_SYNC_ON_STARTUP", raising=False)
+        monkeypatch.setenv("CP_ENABLE_POLICY_SYNC", "false")
+
+        config = ControlPlaneConfig.from_env()
+        assert config.enable_policy_sync is False
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_handles_exception_gracefully(
+        self, mock_registry, mock_scheduler, mock_health_monitor
+    ):
+        """Test that policy sync failure doesn't crash startup."""
+        mock_policy_manager = MagicMock()
+        mock_policy_manager.sync_from_compliance_store = MagicMock(
+            side_effect=Exception("Database connection failed")
+        )
+
+        config = ControlPlaneConfig(enable_policy_sync=True)
+
+        # Set environment to production to enable sync BEFORE creating coordinator
+        with patch.dict("os.environ", {"ARAGORA_ENV": "production"}):
+            coordinator = ControlPlaneCoordinator(
+                config=config,
+                registry=mock_registry,
+                scheduler=mock_scheduler,
+                health_monitor=mock_health_monitor,
+                policy_manager=mock_policy_manager,
+            )
+
+            # Should not raise, should return 0
+            result = coordinator._sync_policies_from_store()
+
+            assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_no_policy_manager(
+        self, mock_registry, mock_scheduler, mock_health_monitor
+    ):
+        """Test that sync returns 0 when no policy manager is configured."""
+        config = ControlPlaneConfig(enable_policy_sync=True)
+
+        coordinator = ControlPlaneCoordinator(
+            config=config,
+            registry=mock_registry,
+            scheduler=mock_scheduler,
+            health_monitor=mock_health_monitor,
+            policy_manager=None,
+        )
+
+        # Manually set _policy_manager to None to simulate HAS_POLICY=False scenario
+        coordinator._policy_manager = None
+
+        result = coordinator._sync_policies_from_store()
+
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_policy_sync_with_workspace(
+        self, mock_registry, mock_scheduler, mock_health_monitor
+    ):
+        """Test that policy sync passes workspace_id to compliance store."""
+        mock_policy_manager = MagicMock()
+        mock_policy_manager.sync_from_compliance_store = MagicMock(return_value=2)
+
+        config = ControlPlaneConfig(
+            enable_policy_sync=True,
+            policy_sync_workspace="test-workspace",
+        )
+
+        coordinator = ControlPlaneCoordinator(
+            config=config,
+            registry=mock_registry,
+            scheduler=mock_scheduler,
+            health_monitor=mock_health_monitor,
+            policy_manager=mock_policy_manager,
+        )
+
+        with patch.dict("os.environ", {"ARAGORA_ENV": "production"}):
+            coordinator._sync_policies_from_store()
+
+        mock_policy_manager.sync_from_compliance_store.assert_called_once_with(
+            workspace_id="test-workspace",
+            enabled_only=True,
+        )

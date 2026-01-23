@@ -736,6 +736,68 @@ trends = await pulse.get_trending()  # Returns combined trends from all sources
 | `Z3_TIMEOUT` | Optional | Z3 solver timeout (seconds) | `30` | Planned |
 | `LEAN_PATH` | Optional | Path to Lean 4 installation | Auto-detect | Planned |
 
+## OpenTelemetry OTLP Export
+
+Configure distributed tracing export to external backends like Jaeger, Zipkin, or Datadog.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_OTLP_EXPORTER` | Optional | Exporter type: `none`, `jaeger`, `zipkin`, `otlp_grpc`, `otlp_http`, `datadog` | `none` |
+| `ARAGORA_OTLP_ENDPOINT` | Optional | Collector/agent endpoint URL | Type-specific defaults |
+| `ARAGORA_SERVICE_NAME` | Optional | Service name for traces | `aragora` |
+| `ARAGORA_SERVICE_VERSION` | Optional | Service version string | `1.0.0` |
+| `ARAGORA_ENVIRONMENT` | Optional | Deployment environment | `development` |
+| `ARAGORA_TRACE_SAMPLE_RATE` | Optional | Sampling rate 0.0-1.0 (1.0 = 100%) | `1.0` |
+| `ARAGORA_OTLP_HEADERS` | Optional | JSON-encoded headers for authenticated endpoints | - |
+| `ARAGORA_OTLP_BATCH_SIZE` | Optional | Batch processor queue size | `512` |
+| `ARAGORA_OTLP_EXPORT_TIMEOUT_MS` | Optional | Export timeout in milliseconds | `30000` |
+| `ARAGORA_OTLP_INSECURE` | Optional | Allow insecure (non-TLS) connections | `false` |
+| `DATADOG_API_KEY` | Optional | Datadog API key (for datadog exporter) | - |
+
+**Default Endpoints by Exporter Type:**
+- `jaeger`: `localhost` (uses Jaeger agent UDP port 6831)
+- `zipkin`: `http://localhost:9411/api/v2/spans`
+- `otlp_grpc`: `http://localhost:4317`
+- `otlp_http`: `http://localhost:4318/v1/traces`
+- `datadog`: `http://localhost:4317` (Datadog Agent OTLP receiver)
+
+**Example Configurations:**
+
+```bash
+# Jaeger (local development)
+ARAGORA_OTLP_EXPORTER=jaeger
+ARAGORA_OTLP_ENDPOINT=localhost
+
+# Zipkin
+ARAGORA_OTLP_EXPORTER=zipkin
+ARAGORA_OTLP_ENDPOINT=http://zipkin.example.com:9411/api/v2/spans
+
+# OTLP gRPC (standard OpenTelemetry collector)
+ARAGORA_OTLP_EXPORTER=otlp_grpc
+ARAGORA_OTLP_ENDPOINT=http://otel-collector.example.com:4317
+
+# OTLP HTTP
+ARAGORA_OTLP_EXPORTER=otlp_http
+ARAGORA_OTLP_ENDPOINT=http://otel-collector.example.com:4318/v1/traces
+
+# Datadog (via Datadog Agent)
+ARAGORA_OTLP_EXPORTER=datadog
+ARAGORA_OTLP_ENDPOINT=http://localhost:4317
+DATADOG_API_KEY=your-datadog-api-key
+
+# Production with authentication
+ARAGORA_OTLP_EXPORTER=otlp_grpc
+ARAGORA_OTLP_ENDPOINT=https://otel.example.com:443
+ARAGORA_OTLP_HEADERS='{"Authorization": "Bearer your-token"}'
+ARAGORA_TRACE_SAMPLE_RATE=0.1  # 10% sampling for high traffic
+```
+
+**Required Packages:**
+- Jaeger: `pip install opentelemetry-exporter-jaeger`
+- Zipkin: `pip install opentelemetry-exporter-zipkin`
+- OTLP gRPC: `pip install opentelemetry-exporter-otlp-proto-grpc`
+- OTLP HTTP: `pip install opentelemetry-exporter-otlp-proto-http`
+
 ## Telemetry Configuration
 
 Controls observation levels for debug and production modes.

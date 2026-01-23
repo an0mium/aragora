@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useAsyncData } from '@/hooks/useAsyncData';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * Platform Health Widget
@@ -94,18 +95,28 @@ function StatBox({ label, value, color = 'green' }: StatBoxProps) {
 }
 
 export function PlatformHealthWidget() {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [expanded, setExpanded] = useState(false);
 
   const fetcher = useCallback(async (): Promise<PlatformHealthData> => {
-    const response = await fetch('/api/platform/health');
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      throw new Error('Not authenticated');
+    }
+
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+    const response = await fetch('/api/platform/health', { headers });
     if (!response.ok) {
       throw new Error(`Failed to fetch: ${response.status}`);
     }
     return response.json();
-  }, []);
+  }, [isAuthenticated, authLoading, tokens?.access_token]);
 
   const { data, loading, error, refetch } = useAsyncData<PlatformHealthData>(fetcher, {
-    immediate: true,
+    immediate: isAuthenticated && !authLoading,
     refreshInterval: 30000, // Refresh every 30s
   });
 

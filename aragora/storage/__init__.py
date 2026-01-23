@@ -74,6 +74,17 @@ from .redis_utils import (
     reset_redis_client,
     is_cluster_mode,
 )
+from .redis_ha import (
+    RedisMode,
+    RedisHAConfig,
+    get_redis_client as get_ha_redis_client,
+    get_async_redis_client as get_async_ha_redis_client,
+    get_cached_redis_client,
+    get_cached_async_redis_client,
+    reset_cached_clients,
+    check_redis_health,
+    check_async_redis_health,
+)
 from .gauntlet_run_store import (
     GauntletRunItem,
     GauntletRunStoreBackend,
@@ -156,10 +167,20 @@ __all__ = [
     "get_federation_registry_store",
     "set_federation_registry_store",
     "reset_federation_registry_store",
-    # Redis client utilities
+    # Redis client utilities (legacy)
     "get_redis_client",
     "reset_redis_client",
     "is_cluster_mode",
+    # Redis HA (High-Availability)
+    "RedisMode",
+    "RedisHAConfig",
+    "get_ha_redis_client",
+    "get_async_ha_redis_client",
+    "get_cached_redis_client",
+    "get_cached_async_redis_client",
+    "reset_cached_clients",
+    "check_redis_health",
+    "check_async_redis_health",
     # Gauntlet run storage
     "GauntletRunItem",
     "GauntletRunStoreBackend",

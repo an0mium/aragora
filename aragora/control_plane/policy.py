@@ -1555,8 +1555,8 @@ def _sync_from_compliance_store(
         Number of policies synced
     """
     if not hasattr(self, "_store_sync"):
-        self._store_sync = PolicyStoreSync(self)
-    return self._store_sync.sync_from_store(
+        self._store_sync = PolicyStoreSync(self)  # type: ignore[attr-defined]
+    return self._store_sync.sync_from_store(  # type: ignore[attr-defined]
         workspace_id=workspace_id,
         enabled_only=enabled_only,
         store=store,
@@ -1565,7 +1565,7 @@ def _sync_from_compliance_store(
 
 
 # Monkey-patch the method onto the class
-ControlPlanePolicyManager.sync_from_compliance_store = _sync_from_compliance_store
+ControlPlanePolicyManager.sync_from_compliance_store = _sync_from_compliance_store  # type: ignore[method-assign,assignment]
 
 
 __all__ = [

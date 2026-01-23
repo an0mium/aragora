@@ -206,36 +206,8 @@ class ControlPlaneCoordinator:
                 violation_callback=self._handle_policy_violation
             )
 
-        # Auto-sync policies from stores on startup
-        if self._policy_manager and self._config.enable_policy_sync:
-            # First, sync from control plane policy store (persistent policies)
-            try:
-                cp_synced = self._policy_manager.sync_from_store(
-                    workspace=self._config.policy_sync_workspace,
-                )
-                if cp_synced > 0:
-                    logger.info(
-                        "control_plane_policy_store_sync",
-                        synced_policies=cp_synced,
-                        workspace=self._config.policy_sync_workspace,
-                    )
-            except Exception as e:
-                logger.debug(f"Control plane policy store sync skipped: {e}")
-
-            # Then, sync from compliance store (derived policies)
-            try:
-                synced = self._policy_manager.sync_from_compliance_store(
-                    workspace_id=self._config.policy_sync_workspace,
-                    enabled_only=True,
-                )
-                if synced > 0:
-                    logger.info(
-                        "compliance_policy_sync",
-                        synced_policies=synced,
-                        workspace=self._config.policy_sync_workspace,
-                    )
-            except Exception as e:
-                logger.debug(f"Compliance policy sync skipped: {e}")
+        # Note: Policy sync is performed during connect() via _sync_policies_from_store()
+        # This ensures policies are loaded when the coordinator is ready to accept tasks
 
         self._registry = registry or AgentRegistry(
             redis_url=self._config.redis_url,
@@ -492,7 +464,7 @@ class ControlPlaneCoordinator:
         try:
             loaded = self._policy_manager.sync_from_compliance_store(
                 workspace_id=self._config.policy_sync_workspace,
-                enabled_only=True,
+                enabled_only=True,  # type: ignore[call-arg]
             )
 
             if loaded > 0:
@@ -507,7 +479,7 @@ class ControlPlaneCoordinator:
                     "policy_sync_complete",
                     policies_loaded=0,
                     workspace=self._config.policy_sync_workspace,
-                    message="No policies found in compliance store",
+                    note="No policies found in compliance store",
                 )
 
             return loaded
@@ -528,7 +500,7 @@ class ControlPlaneCoordinator:
                 error=str(e),
                 error_type=type(e).__name__,
                 workspace=self._config.policy_sync_workspace,
-                message="Startup will continue without synced policies",
+                note="Startup will continue without synced policies",
             )
             return 0
 
@@ -1444,8 +1416,8 @@ class ControlPlaneCoordinator:
 
             # If no agents provided, select from registry
             if not agents:
-                capabilities = (
-                    task.required_capabilities
+                capabilities: List[str | AgentCapability] = (
+                    task.required_capabilities  # type: ignore[assignment]
                     if hasattr(task, "required_capabilities")
                     else ["debate"]
                 )

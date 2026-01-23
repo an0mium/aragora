@@ -381,9 +381,9 @@ class EmailWebhooksHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[Dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
 
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
+    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)

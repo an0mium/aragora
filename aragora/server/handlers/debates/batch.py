@@ -107,6 +107,22 @@ class BatchOperationsMixin:
         # Validate and parse items
         items = []
         errors = []
+        spam_blocked_count = 0
+
+        # Import spam moderation (optional)
+        spam_moderation = None
+        try:
+            from aragora.moderation import get_spam_moderation
+            from aragora.server.http_utils import run_async
+
+            spam_moderation = get_spam_moderation()
+            if not spam_moderation._initialized:
+                run_async(spam_moderation.initialize())
+        except ImportError:
+            logger.debug("Spam moderation not available for batch validation")
+        except Exception as e:
+            logger.warning(f"Failed to initialize spam moderation for batch: {e}")
+
         for i, item_data in enumerate(items_data):
             if not isinstance(item_data, dict):
                 errors.append(f"Item {i}: must be an object")
@@ -120,6 +136,22 @@ class BatchOperationsMixin:
             if len(question) > 10000:
                 errors.append(f"Item {i}: question exceeds 10,000 characters")
                 continue
+
+            # Spam check for batch items
+            if spam_moderation and spam_moderation.enabled:
+                try:
+                    context = item_data.get("context", "")
+                    spam_result = run_async(spam_moderation.check_debate_input(question, context))
+                    if spam_result.should_block:
+                        spam_blocked_count += 1
+                        errors.append(
+                            f"Item {i}: blocked by spam filter "
+                            f"(confidence: {spam_result.confidence:.2f})"
+                        )
+                        continue
+                except Exception as e:
+                    logger.warning(f"Spam check failed for batch item {i}: {e}")
+                    # Continue processing on error (fail-open)
 
             try:
                 item = BatchItem.from_dict(item_data)

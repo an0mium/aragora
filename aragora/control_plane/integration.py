@@ -142,8 +142,14 @@ class IntegratedControlPlane:
                 "capabilities": [str(c) for c in agent.capabilities],
                 "tasks_completed": agent.tasks_completed,
                 "avg_response_time": agent.avg_latency_ms,
-                "error_rate": 1.0 - agent.success_rate if agent.success_rate else 0.0,
-                "last_active": agent.last_heartbeat.isoformat() if agent.last_heartbeat else None,
+                "error_rate": agent.tasks_failed / (agent.tasks_completed + agent.tasks_failed)
+                if (agent.tasks_completed + agent.tasks_failed) > 0
+                else 0.0,
+                "last_active": datetime.fromtimestamp(
+                    agent.last_heartbeat, tz=timezone.utc
+                ).isoformat()
+                if agent.last_heartbeat
+                else None,
                 "metadata": agent.metadata or {},
             }
             await self._shared_state.register_agent(agent_data)
@@ -560,9 +566,9 @@ class IntegratedControlPlane:
         def elo_callback(outcome: Any) -> None:
             """Feed deliberation outcome to ELO system."""
             try:
-                from aragora.ranking.elo import get_elo_system
+                from aragora.ranking.elo import get_elo_store
 
-                elo_system = get_elo_system()
+                elo_system = get_elo_store()
                 if not elo_system or not outcome.agent_performances:
                     return
 

@@ -11,6 +11,21 @@ Environment Variables:
     OTEL_SAMPLE_RATE: Trace sampling rate 0.0-1.0 (default: 1.0)
     METRICS_ENABLED: Enable/disable Prometheus metrics (default: true)
     METRICS_PORT: Port for metrics endpoint (default: 9090)
+
+OTLP Export Variables (for advanced distributed tracing):
+    ARAGORA_OTLP_EXPORTER: Exporter type (none, jaeger, zipkin, otlp_grpc, otlp_http, datadog)
+    ARAGORA_OTLP_ENDPOINT: Collector endpoint URL
+    ARAGORA_SERVICE_NAME: Service name for traces (default: aragora)
+    ARAGORA_SERVICE_VERSION: Service version (default: 1.0.0)
+    ARAGORA_ENVIRONMENT: Deployment environment (default: development)
+    ARAGORA_TRACE_SAMPLE_RATE: Sampling rate 0.0-1.0 (default: 1.0)
+    ARAGORA_OTLP_HEADERS: JSON-encoded headers for authenticated endpoints
+    ARAGORA_OTLP_BATCH_SIZE: Batch processor queue size (default: 512)
+    ARAGORA_OTLP_EXPORT_TIMEOUT_MS: Export timeout in milliseconds (default: 30000)
+    ARAGORA_OTLP_INSECURE: Allow insecure connections (default: false)
+    DATADOG_API_KEY: Datadog API key (for datadog exporter type)
+
+See docs/ENVIRONMENT.md for full configuration reference.
 """
 
 from __future__ import annotations
@@ -109,3 +124,14 @@ def is_tracing_enabled() -> bool:
 def is_metrics_enabled() -> bool:
     """Check if metrics are enabled."""
     return get_metrics_config().enabled
+
+
+def is_otlp_enabled() -> bool:
+    """Check if OTLP export is enabled.
+
+    Returns True if ARAGORA_OTLP_EXPORTER is set to a value other than 'none'.
+    """
+    from aragora.observability.otlp_export import OTLPExporterType, get_otlp_config
+
+    config = get_otlp_config()
+    return config.exporter_type != OTLPExporterType.NONE

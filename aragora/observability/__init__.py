@@ -36,7 +36,19 @@ from aragora.observability.config import (
     get_metrics_config,
     get_tracing_config,
     is_metrics_enabled,
+    is_otlp_enabled,
     is_tracing_enabled,
+)
+from aragora.observability.otlp_export import (
+    DEFAULT_ENDPOINTS,
+    OTLPConfig,
+    OTLPExporterType,
+    configure_otlp_exporter,
+    get_otlp_config,
+    get_tracer_provider,
+    reset_otlp_config,
+    set_otlp_config,
+    shutdown_otlp,
 )
 from aragora.observability.logging import (
     LogConfig,
@@ -190,6 +202,17 @@ __all__ = [
     "get_metrics_config",
     "is_tracing_enabled",
     "is_metrics_enabled",
+    "is_otlp_enabled",
+    # OTLP Export
+    "OTLPExporterType",
+    "OTLPConfig",
+    "DEFAULT_ENDPOINTS",
+    "configure_otlp_exporter",
+    "get_otlp_config",
+    "set_otlp_config",
+    "reset_otlp_config",
+    "get_tracer_provider",
+    "shutdown_otlp",
     # SIEM
     "SIEMBackend",
     "SIEMConfig",

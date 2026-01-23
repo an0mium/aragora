@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { HealthOverview, type SystemHealth } from './HealthOverview';
 import { CircuitBreakerStatus, type CircuitBreaker } from './CircuitBreakerStatus';
 import { TaskQueueMetrics, type QueueMetrics } from './TaskQueueMetrics';
+import { useAuth } from '@/context/AuthContext';
 
 export interface SystemHealthDashboardProps {
   /** API base URL for fetching health data */
@@ -32,6 +33,7 @@ export function SystemHealthDashboard({
   compact = false,
   className = '',
 }: SystemHealthDashboardProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [data, setData] = useState<HealthData>({
     system: null,
     breakers: [],
@@ -41,16 +43,27 @@ export function SystemHealthDashboard({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchHealthData = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+
     try {
       // Fetch system health
-      const healthRes = await fetch(`${apiUrl}/api/control-plane/health/detailed`);
+      const healthRes = await fetch(`${apiUrl}/api/control-plane/health/detailed`, { headers });
       let systemHealth: SystemHealth | null = null;
       if (healthRes.ok) {
         systemHealth = await healthRes.json();
       }
 
       // Fetch circuit breaker status
-      const breakersRes = await fetch(`${apiUrl}/api/control-plane/breakers`);
+      const breakersRes = await fetch(`${apiUrl}/api/control-plane/breakers`, { headers });
       let breakers: CircuitBreaker[] = [];
       if (breakersRes.ok) {
         const breakersData = await breakersRes.json();
@@ -58,7 +71,7 @@ export function SystemHealthDashboard({
       }
 
       // Fetch queue metrics
-      const queueRes = await fetch(`${apiUrl}/api/control-plane/queue/metrics`);
+      const queueRes = await fetch(`${apiUrl}/api/control-plane/queue/metrics`, { headers });
       let queue: QueueMetrics | null = null;
       if (queueRes.ok) {
         queue = await queueRes.json();
@@ -99,7 +112,7 @@ export function SystemHealthDashboard({
     } finally {
       setLoading(false);
     }
-  }, [apiUrl]);
+  }, [apiUrl, isAuthenticated, authLoading, tokens?.access_token]);
 
   useEffect(() => {
     fetchHealthData();

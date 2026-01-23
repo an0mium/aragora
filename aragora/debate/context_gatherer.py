@@ -55,6 +55,20 @@ EVIDENCE_TIMEOUT = float(os.getenv("ARAGORA_EVIDENCE_TIMEOUT", "30.0"))
 TRENDING_TIMEOUT = float(os.getenv("ARAGORA_TRENDING_TIMEOUT", "5.0"))
 KNOWLEDGE_MOUND_TIMEOUT = float(os.getenv("ARAGORA_KNOWLEDGE_MOUND_TIMEOUT", "10.0"))
 BELIEF_CRUX_TIMEOUT = float(os.getenv("ARAGORA_BELIEF_CRUX_TIMEOUT", "5.0"))
+THREAT_INTEL_TIMEOUT = float(os.getenv("ARAGORA_THREAT_INTEL_TIMEOUT", "10.0"))
+
+# Check for Threat Intelligence Enrichment availability
+try:
+    from aragora.security.threat_intel_enrichment import (
+        ThreatIntelEnrichment,
+        ENRICHMENT_ENABLED as THREAT_INTEL_ENABLED,
+    )
+
+    HAS_THREAT_INTEL = True
+except ImportError:
+    HAS_THREAT_INTEL = False
+    THREAT_INTEL_ENABLED = False
+    ThreatIntelEnrichment = None  # type: ignore[misc,assignment]
 
 
 class ContextGatherer:
@@ -93,6 +107,8 @@ class ContextGatherer:
         knowledge_mound: Optional[Any] = None,
         knowledge_workspace_id: Optional[str] = None,
         enable_belief_guidance: bool = True,
+        enable_threat_intel_enrichment: bool = True,
+        threat_intel_enrichment: Optional[Any] = None,
     ):
         """
         Initialize the context gatherer.
@@ -110,6 +126,8 @@ class ContextGatherer:
             knowledge_mound: Optional pre-configured KnowledgeMound instance.
             knowledge_workspace_id: Workspace ID for knowledge queries (default: 'debate').
             enable_belief_guidance: Whether to inject historical cruxes from similar debates.
+            enable_threat_intel_enrichment: Whether to enrich security topics with threat intel.
+            threat_intel_enrichment: Optional pre-configured ThreatIntelEnrichment instance.
         """
         self._evidence_store_callback = evidence_store_callback
         self._prompt_builder = prompt_builder
@@ -218,6 +236,28 @@ class ContextGatherer:
                 logger.warning(f"[belief] Failed to initialize belief analyzer: {e}")
                 self._enable_belief_guidance = False
 
+        # Threat intelligence enrichment for security topics
+        self._enable_threat_intel = (
+            enable_threat_intel_enrichment and HAS_THREAT_INTEL and THREAT_INTEL_ENABLED
+        )
+        self._threat_intel_enrichment = threat_intel_enrichment
+        if self._enable_threat_intel and ThreatIntelEnrichment is not None:
+            if not self._threat_intel_enrichment:
+                try:
+                    self._threat_intel_enrichment = ThreatIntelEnrichment()
+                    logger.info(
+                        "[threat_intel] ContextGatherer: Threat intel enrichment enabled "
+                        "for security topics"
+                    )
+                except (RuntimeError, ValueError, OSError) as e:
+                    logger.warning(f"[threat_intel] Failed to initialize enrichment: {e}")
+                    self._enable_threat_intel = False
+                except Exception as e:
+                    logger.warning(f"[threat_intel] Unexpected error initializing enrichment: {e}")
+                    self._enable_threat_intel = False
+            else:
+                logger.info("[threat_intel] ContextGatherer: Using provided enrichment instance")
+
     @property
     def evidence_pack(self) -> Optional[Any]:
         """Get the most recent cached evidence pack.
@@ -300,7 +340,10 @@ class ContextGatherer:
             # 6. Gather culture patterns for organizational learning
             culture_task = asyncio.create_task(self._gather_culture_with_timeout(task))
 
-            # 7. Gather additional evidence in parallel (fallback if Claude search weak)
+            # 7. Gather threat intelligence context for security topics
+            threat_intel_task = asyncio.create_task(self._gather_threat_intel_with_timeout(task))
+
+            # 8. Gather additional evidence in parallel (fallback if Claude search weak)
             if not claude_ctx or len(claude_ctx) < 500:
                 evidence_task = asyncio.create_task(self._gather_evidence_with_timeout(task))
                 results = await asyncio.gather(
@@ -309,12 +352,18 @@ class ContextGatherer:
                     knowledge_task,
                     belief_task,
                     culture_task,
+                    threat_intel_task,
                     return_exceptions=True,
                 )
             else:
-                # Still wait for trending, knowledge, belief, and culture even if Claude search succeeded
+                # Still wait for trending, knowledge, belief, culture, and threat intel
                 results = await asyncio.gather(
-                    trending_task, knowledge_task, belief_task, culture_task, return_exceptions=True
+                    trending_task,
+                    knowledge_task,
+                    belief_task,
+                    culture_task,
+                    threat_intel_task,
+                    return_exceptions=True,
                 )
 
             for result in results:
@@ -412,6 +461,74 @@ class ContextGatherer:
             )
         except asyncio.TimeoutError:
             logger.warning(f"Knowledge mound context timed out after {KNOWLEDGE_MOUND_TIMEOUT}s")
+            return None
+
+    async def _gather_threat_intel_with_timeout(self, task: str) -> Optional[str]:
+        """Gather threat intelligence context with timeout protection."""
+        try:
+            return await asyncio.wait_for(
+                self.gather_threat_intel_context(task), timeout=THREAT_INTEL_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Threat intel context timed out after {THREAT_INTEL_TIMEOUT}s")
+            return None
+
+    async def gather_threat_intel_context(self, task: str) -> Optional[str]:
+        """
+        Gather threat intelligence context for security-related topics.
+
+        When the debate topic involves security (vulnerabilities, CVEs, attacks, etc.),
+        this method enriches the context with relevant threat intelligence:
+        - CVE vulnerability details
+        - IP/domain/URL reputation
+        - File hash malware analysis
+        - Attack patterns and mitigations
+
+        Args:
+            task: The debate topic/task description.
+
+        Returns:
+            Formatted threat intelligence context, or None if not applicable.
+        """
+        if not self._enable_threat_intel or not self._threat_intel_enrichment:
+            return None
+
+        try:
+            # Check if the topic is security-related first (fast, local check)
+            if not self._threat_intel_enrichment.is_security_topic(task):
+                logger.debug("[threat_intel] Task is not security-related, skipping enrichment")
+                return None
+
+            # Enrich with threat intelligence
+            context = await self._threat_intel_enrichment.enrich_context(
+                topic=task,
+                existing_context="",  # Could include additional context if available
+            )
+
+            if context:
+                formatted = self._threat_intel_enrichment.format_for_debate(context)
+                indicator_count = len(context.indicators)
+                cve_count = len(context.relevant_cves)
+                logger.info(
+                    f"[threat_intel] Enriched security context with "
+                    f"{indicator_count} indicators and {cve_count} CVEs"
+                )
+                return formatted
+
+            logger.debug("[threat_intel] No enrichment data available for topic")
+            return None
+
+        except (ConnectionError, OSError) as e:
+            # Expected: network or API issues
+            logger.warning(f"[threat_intel] Enrichment network error: {e}")
+            return None
+        except (ValueError, KeyError, AttributeError) as e:
+            # Expected: data format or access issues
+            logger.warning(f"[threat_intel] Enrichment failed: {e}")
+            return None
+        except Exception as e:
+            # Unexpected error
+            logger.warning(f"[threat_intel] Unexpected error in enrichment: {e}")
             return None
 
     async def gather_aragora_context(self, task: str) -> Optional[str]:

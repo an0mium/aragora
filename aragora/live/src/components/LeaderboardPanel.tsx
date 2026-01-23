@@ -60,12 +60,13 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
     if (loopId) params.set('loop_id', loopId);
     if (selectedDomain) params.set('domain', selectedDomain);
 
+    // Build headers with auth token (outside try so it's accessible in catch)
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (tokens?.access_token) {
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    }
+
     try {
-      // Build headers with auth token
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`;
-      }
       // Single consolidated request instead of 6 separate calls
       const res = await fetch(`${apiBase}/api/leaderboard-view?${params}`, { headers });
 
@@ -122,7 +123,15 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
       }
     } catch (err) {
       // Fallback: consolidated endpoint failed, try legacy endpoints
-      console.warn('Consolidated endpoint failed, falling back to legacy:', err);
+      // But only if we have auth - otherwise don't make more unauthenticated requests
+      console.warn('Consolidated endpoint failed:', err);
+      if (!tokens?.access_token) {
+        console.warn('Skipping legacy fallback - no auth token');
+        setError('Authentication required');
+        setLoading(false);
+        return;
+      }
+      console.warn('Attempting legacy endpoints fallback');
       const errors: Record<string, string> = {};
       const endpoints = [
         { key: 'rankings', url: `${apiBase}/api/leaderboard?limit=10${loopId ? `&loop_id=${loopId}` : ''}${selectedDomain ? `&domain=${selectedDomain}` : ''}` },
@@ -134,7 +143,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
       ];
       const results = await Promise.allSettled(
         endpoints.map(async ({ key, url }) => {
-          const r = await fetch(url);
+          const r = await fetch(url, { headers });
           if (!r.ok) throw new Error(`${r.status}`);
           return { key, data: await r.json() };
         })
@@ -165,6 +174,15 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
   // Legacy fallback kept as separate function for testing
   const _fetchDataLegacy = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading || !tokens?.access_token) {
+      return;
+    }
+
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${tokens.access_token}`,
+    };
     const errors: Record<string, string> = {};
     const endpoints = [
       { key: 'rankings', url: `${apiBase}/api/leaderboard?limit=10${loopId ? `&loop_id=${loopId}` : ''}${selectedDomain ? `&domain=${selectedDomain}` : ''}` },
@@ -177,7 +195,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
 
     const results = await Promise.allSettled(
       endpoints.map(async ({ key, url }) => {
-        const res = await fetch(url);
+        const res = await fetch(url, { headers });
         if (!res.ok) throw new Error(`${res.status}`);
         return { key, data: await res.json() };
       })
@@ -221,7 +239,7 @@ function LeaderboardPanelComponent({ wsMessages = [], loopId, apiBase = DEFAULT_
     } else {
       setError(null);
     }
-  }, [apiBase, loopId, selectedDomain]);
+  }, [apiBase, loopId, selectedDomain, isAuthenticated, authLoading, tokens?.access_token]);
 
   // Use ref to store latest fetchData to avoid interval recreation on dependency changes
   const fetchDataRef = useRef(fetchData);

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface CalibrationMetrics {
   agents: Record<string, { calibration_bias: number; predictions: number }>;
@@ -74,30 +75,41 @@ function AgentBadge({ agent, metric, label }: { agent: string; metric: number; l
 }
 
 export function QualityDashboard() {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [data, setData] = useState<QualityMetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchMetrics() {
-      try {
-        const apiUrl = API_BASE_URL;
-        const response = await fetch(`${apiUrl}/api/dashboard/quality-metrics`);
-        if (!response.ok) throw new Error('Failed to fetch metrics');
-        const json = await response.json();
-        setData(json);
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
+  const fetchMetrics = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
     }
 
+    try {
+      const apiUrl = API_BASE_URL;
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`${apiUrl}/api/dashboard/quality-metrics`, { headers });
+      if (!response.ok) throw new Error('Failed to fetch metrics');
+      const json = await response.json();
+      setData(json);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, authLoading, tokens?.access_token]);
+
+  useEffect(() => {
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 60000); // Refresh every minute
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchMetrics]);
 
   if (loading) {
     return (

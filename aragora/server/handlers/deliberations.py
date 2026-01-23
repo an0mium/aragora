@@ -96,7 +96,7 @@ class DeliberationsHandler(BaseHandler):
 
         try:
             # Try to get from debate store
-            from aragora.server.handlers.debates import get_debate_store
+            from aragora.server.handlers.debates import get_debate_store  # type: ignore[attr-defined]
 
             store = get_debate_store()
             if store:
@@ -166,7 +166,7 @@ class DeliberationsHandler(BaseHandler):
             # Get completed today
             completed_today = 0
             try:
-                from aragora.server.handlers.debates import get_debate_store
+                from aragora.server.handlers.debates import get_debate_store  # type: ignore[attr-defined]
 
                 store = get_debate_store()
                 if store:
@@ -210,7 +210,7 @@ class DeliberationsHandler(BaseHandler):
 
             # Try debate store
             try:
-                from aragora.server.handlers.debates import get_debate_store
+                from aragora.server.handlers.debates import get_debate_store  # type: ignore[attr-defined]
 
                 store = get_debate_store()
                 if store:

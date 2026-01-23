@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '@/config';
+import { useAuth } from '@/context/AuthContext';
 
 interface Breakpoint {
   id: string;
@@ -20,6 +21,7 @@ interface BreakpointsPanelProps {
 }
 
 export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved }: BreakpointsPanelProps) {
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
   const [breakpoints, setBreakpoints] = useState<Breakpoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +29,18 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
   const [, _setSelectedAction] = useState<Record<string, string>>({});
 
   const fetchBreakpoints = useCallback(async () => {
+    // Skip if not authenticated
+    if (!isAuthenticated || authLoading) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch(`${apiBase}/api/breakpoints/pending`);
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+      const response = await fetch(`${apiBase}/api/breakpoints/pending`, { headers });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -40,7 +52,7 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
     } finally {
       setLoading(false);
     }
-  }, [apiBase]);
+  }, [apiBase, isAuthenticated, authLoading, tokens?.access_token]);
 
   useEffect(() => {
     fetchBreakpoints();
@@ -50,11 +62,16 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
   }, [fetchBreakpoints]);
 
   const resolveBreakpoint = async (id: string, action: string) => {
+    if (!tokens?.access_token) return;
+
     setResolving(id);
     try {
       const response = await fetch(`${apiBase}/api/breakpoints/${id}/resolve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokens.access_token}`,
+        },
         body: JSON.stringify({ action, reasoning: `User selected: ${action}` }),
       });
       if (!response.ok) {

@@ -512,8 +512,357 @@ class PostgresControlPlanePolicyStore:
             "CREATE INDEX IF NOT EXISTS idx_cp_pg_violations_status ON control_plane_violations(status)"
         )
 
-    # Implement same methods as SQLite version...
-    # (For brevity, delegating to SQLite implementation pattern)
+    def create_policy(self, policy: ControlPlanePolicy) -> ControlPlanePolicy:
+        """Create a new control plane policy."""
+        import json as json_module
+
+        self._backend.execute_write(
+            """
+            INSERT INTO control_plane_policies
+            (id, name, description, scope, task_types, capabilities, workspaces,
+             agent_allowlist, agent_blocklist, region_constraint, sla,
+             enforcement_level, enabled, priority, created_at, created_by, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            """,
+            (
+                policy.id,
+                policy.name,
+                policy.description,
+                policy.scope.value,
+                json_module.dumps(policy.task_types),
+                json_module.dumps(policy.capabilities),
+                json_module.dumps(policy.workspaces),
+                json_module.dumps(policy.agent_allowlist),
+                json_module.dumps(policy.agent_blocklist),
+                json_module.dumps(policy.region_constraint.to_dict())
+                if policy.region_constraint
+                else None,
+                json_module.dumps(policy.sla.to_dict()) if policy.sla else None,
+                policy.enforcement_level.value,
+                policy.enabled,
+                policy.priority,
+                policy.created_at.isoformat(),
+                policy.created_by,
+                json_module.dumps(policy.metadata),
+            ),
+        )
+        logger.info("control_plane_policy_created", policy_id=policy.id, name=policy.name)
+        return policy
+
+    def get_policy(self, policy_id: str) -> Optional[ControlPlanePolicy]:
+        """Get a policy by ID."""
+        rows = self._backend.execute_read(  # type: ignore[attr-defined]
+            "SELECT * FROM control_plane_policies WHERE id = $1",
+            (policy_id,),
+        )
+        if rows:
+            return self._row_to_policy(rows[0])
+        return None
+
+    def list_policies(
+        self,
+        enabled_only: bool = False,
+        workspace: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[ControlPlanePolicy]:
+        """List policies with optional filters."""
+        query = "SELECT * FROM control_plane_policies WHERE 1=1"
+        params: List[Any] = []
+        param_idx = 1
+
+        if enabled_only:
+            query += " AND enabled = TRUE"
+
+        query += (
+            f" ORDER BY priority DESC, created_at DESC LIMIT ${param_idx} OFFSET ${param_idx + 1}"
+        )
+        params.extend([limit, offset])
+
+        rows = self._backend.execute_read(query, tuple(params))  # type: ignore[attr-defined]
+        policies = [self._row_to_policy(row) for row in rows]
+
+        # Filter by workspace in Python (JSONB array contains)
+        if workspace:
+            policies = [p for p in policies if not p.workspaces or workspace in p.workspaces]
+
+        return policies
+
+    def update_policy(
+        self,
+        policy_id: str,
+        updates: Dict[str, Any],
+    ) -> Optional[ControlPlanePolicy]:
+        """Update a policy."""
+        import json as json_module
+
+        policy = self.get_policy(policy_id)
+        if not policy:
+            return None
+
+        # Build update query dynamically
+        set_clauses = []
+        params = []
+        param_idx = 1
+
+        field_mapping = {
+            "name": "name",
+            "description": "description",
+            "enabled": "enabled",
+            "priority": "priority",
+            "enforcement_level": "enforcement_level",
+        }
+
+        for key, column in field_mapping.items():
+            if key in updates:
+                set_clauses.append(f"{column} = ${param_idx}")
+                value = updates[key]
+                if key == "enforcement_level":
+                    value = value.value if hasattr(value, "value") else value
+                params.append(value)
+                param_idx += 1
+
+        # JSON fields
+        json_fields = [
+            "task_types",
+            "capabilities",
+            "workspaces",
+            "agent_allowlist",
+            "agent_blocklist",
+            "metadata",
+        ]
+        for field in json_fields:
+            if field in updates:
+                set_clauses.append(f"{field} = ${param_idx}")
+                params.append(json_module.dumps(updates[field]))
+                param_idx += 1
+
+        # Nested objects
+        if "region_constraint" in updates:
+            set_clauses.append(f"region_constraint = ${param_idx}")
+            rc = updates["region_constraint"]
+            params.append(json_module.dumps(rc.to_dict()) if rc else None)
+            param_idx += 1
+
+        if "sla" in updates:
+            set_clauses.append(f"sla = ${param_idx}")
+            sla = updates["sla"]
+            params.append(json_module.dumps(sla.to_dict()) if sla else None)
+            param_idx += 1
+
+        if not set_clauses:
+            return policy
+
+        params.append(policy_id)
+        self._backend.execute_write(
+            f"UPDATE control_plane_policies SET {', '.join(set_clauses)} WHERE id = ${param_idx}",
+            tuple(params),
+        )
+
+        logger.info("control_plane_policy_updated", policy_id=policy_id)
+        return self.get_policy(policy_id)
+
+    def delete_policy(self, policy_id: str) -> bool:
+        """Delete a policy."""
+        result = self._backend.execute_write(  # type: ignore[func-returns-value]
+            "DELETE FROM control_plane_policies WHERE id = $1",
+            (policy_id,),
+        )
+        deleted = result > 0 if isinstance(result, int) else True
+        if deleted:
+            logger.info("control_plane_policy_deleted", policy_id=policy_id)
+        return deleted
+
+    def toggle_policy(self, policy_id: str, enabled: bool) -> bool:
+        """Enable or disable a policy."""
+        result = self._backend.execute_write(  # type: ignore[func-returns-value]
+            "UPDATE control_plane_policies SET enabled = $1 WHERE id = $2",
+            (enabled, policy_id),
+        )
+        return result > 0 if isinstance(result, int) else True
+
+    def create_violation(self, violation: PolicyViolation) -> PolicyViolation:
+        """Record a policy violation."""
+        import json as json_module
+
+        self._backend.execute_write(
+            """
+            INSERT INTO control_plane_violations
+            (id, policy_id, policy_name, violation_type, description,
+             task_id, task_type, agent_id, region, workspace_id,
+             enforcement_level, timestamp, status, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            """,
+            (
+                violation.id,
+                violation.policy_id,
+                violation.policy_name,
+                violation.violation_type,
+                violation.description,
+                violation.task_id,
+                violation.task_type,
+                violation.agent_id,
+                violation.region,
+                violation.workspace_id,
+                violation.enforcement_level.value,
+                violation.timestamp.isoformat(),
+                "open",
+                json_module.dumps(violation.metadata),
+            ),
+        )
+        logger.info(
+            "control_plane_violation_recorded",
+            violation_id=violation.id,
+            policy_id=violation.policy_id,
+            type=violation.violation_type,
+        )
+        return violation
+
+    def list_violations(
+        self,
+        policy_id: Optional[str] = None,
+        violation_type: Optional[str] = None,
+        status: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """List violations with optional filters."""
+        query = "SELECT * FROM control_plane_violations WHERE 1=1"
+        params: List[Any] = []
+        param_idx = 1
+
+        if policy_id:
+            query += f" AND policy_id = ${param_idx}"
+            params.append(policy_id)
+            param_idx += 1
+
+        if violation_type:
+            query += f" AND violation_type = ${param_idx}"
+            params.append(violation_type)
+            param_idx += 1
+
+        if status:
+            query += f" AND status = ${param_idx}"
+            params.append(status)
+            param_idx += 1
+
+        if workspace_id:
+            query += f" AND workspace_id = ${param_idx}"
+            params.append(workspace_id)
+            param_idx += 1
+
+        query += f" ORDER BY timestamp DESC LIMIT ${param_idx} OFFSET ${param_idx + 1}"
+        params.extend([limit, offset])
+
+        rows = self._backend.execute_read(query, tuple(params))  # type: ignore[attr-defined]
+        return [self._row_to_violation_dict(row) for row in rows]
+
+    def count_violations(
+        self,
+        status: Optional[str] = None,
+        policy_id: Optional[str] = None,
+    ) -> Dict[str, int]:
+        """Count violations by type."""
+        query = """
+            SELECT violation_type, COUNT(*) as count
+            FROM control_plane_violations
+            WHERE 1=1
+        """
+        params: List[Any] = []
+        param_idx = 1
+
+        if status:
+            query += f" AND status = ${param_idx}"
+            params.append(status)
+            param_idx += 1
+
+        if policy_id:
+            query += f" AND policy_id = ${param_idx}"
+            params.append(policy_id)
+            param_idx += 1
+
+        query += " GROUP BY violation_type"
+
+        rows = self._backend.execute_read(query, tuple(params))  # type: ignore[attr-defined]
+        return {row["violation_type"]: row["count"] for row in rows}
+
+    def update_violation_status(
+        self,
+        violation_id: str,
+        status: str,
+        resolved_by: Optional[str] = None,
+        resolution_notes: Optional[str] = None,
+    ) -> bool:
+        """Update violation status."""
+        resolved_at = datetime.now(timezone.utc).isoformat() if status == "resolved" else None
+        result = self._backend.execute_write(  # type: ignore[func-returns-value]
+            """
+            UPDATE control_plane_violations
+            SET status = $1, resolved_at = $2, resolved_by = $3, resolution_notes = $4
+            WHERE id = $5
+            """,
+            (status, resolved_at, resolved_by, resolution_notes, violation_id),
+        )
+        return result > 0 if isinstance(result, int) else True
+
+    def _row_to_policy(self, row: Any) -> ControlPlanePolicy:
+        """Convert a database row to a ControlPlanePolicy."""
+        return ControlPlanePolicy.from_dict(
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "description": row["description"],
+                "scope": row["scope"],
+                "task_types": row["task_types"] if isinstance(row["task_types"], list) else [],
+                "capabilities": row["capabilities"]
+                if isinstance(row["capabilities"], list)
+                else [],
+                "workspaces": row["workspaces"] if isinstance(row["workspaces"], list) else [],
+                "agent_allowlist": row["agent_allowlist"]
+                if isinstance(row["agent_allowlist"], list)
+                else [],
+                "agent_blocklist": row["agent_blocklist"]
+                if isinstance(row["agent_blocklist"], list)
+                else [],
+                "region_constraint": row["region_constraint"] if row["region_constraint"] else None,
+                "sla": row["sla"] if row["sla"] else None,
+                "enforcement_level": row["enforcement_level"],
+                "enabled": bool(row["enabled"]),
+                "priority": row["priority"],
+                "created_at": row["created_at"].isoformat()
+                if hasattr(row["created_at"], "isoformat")
+                else row["created_at"],
+                "created_by": row["created_by"],
+                "metadata": row["metadata"] if isinstance(row["metadata"], dict) else {},
+            }
+        )
+
+    def _row_to_violation_dict(self, row: Any) -> Dict[str, Any]:
+        """Convert a database row to a violation dict."""
+        return {
+            "id": row["id"],
+            "policy_id": row["policy_id"],
+            "policy_name": row["policy_name"],
+            "violation_type": row["violation_type"],
+            "description": row["description"],
+            "task_id": row["task_id"],
+            "task_type": row["task_type"],
+            "agent_id": row["agent_id"],
+            "region": row["region"],
+            "workspace_id": row["workspace_id"],
+            "enforcement_level": row["enforcement_level"],
+            "timestamp": row["timestamp"].isoformat()
+            if hasattr(row["timestamp"], "isoformat")
+            else row["timestamp"],
+            "status": row["status"],
+            "resolved_at": row["resolved_at"].isoformat()
+            if row["resolved_at"] and hasattr(row["resolved_at"], "isoformat")
+            else row["resolved_at"],
+            "resolved_by": row["resolved_by"],
+            "resolution_notes": row["resolution_notes"],
+            "metadata": row["metadata"] if isinstance(row["metadata"], dict) else {},
+        }
 
 
 # Factory function
@@ -540,12 +889,16 @@ def get_control_plane_policy_store(
         pg_url = os.environ.get("ARAGORA_POSTGRES_URL") or os.environ.get("DATABASE_URL")
         if pg_url:
             logger.info("Using PostgreSQL backend for control plane policy store")
-            _pg_backend = PostgreSQLBackend(pg_url)  # noqa: F841 - Reserved for future use
-            # Return Postgres store when fully implemented
-            # For now, fall back to SQLite
-            logger.warning(
-                "PostgreSQL control plane policy store not fully implemented, using SQLite"
-            )
+            try:
+                pg_backend = PostgreSQLBackend(pg_url)
+                # Use a wrapper that matches SQLite store interface
+                _policy_store_instance = PostgresControlPlanePolicyStore(pg_backend)  # type: ignore[assignment]
+                logger.info("control_plane_policy_store_initialized", backend="postgres")
+                return _policy_store_instance  # type: ignore[return-value]
+            except Exception as e:
+                logger.warning(
+                    f"Failed to initialize PostgreSQL policy store: {e}, falling back to SQLite"
+                )
 
     _policy_store_instance = ControlPlanePolicyStore(db_path)
     logger.info(

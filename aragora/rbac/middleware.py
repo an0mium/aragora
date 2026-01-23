@@ -180,6 +180,33 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/v1/decisions?/([^/]+)$", "GET", "decisions.read", 1),
     RoutePermission(r"^/api/v1/decisions?/([^/]+)/status$", "GET", "decisions.read", 1),
     RoutePermission(r"^/api/v1/decisions?/([^/]+)/explain$", "GET", "decisions.read", 1),
+    # Policies - governance management
+    RoutePermission(r"^/api/v1/policies$", "GET", "policies.read"),
+    RoutePermission(r"^/api/v1/policies$", "POST", "policies.create"),
+    RoutePermission(r"^/api/v1/policies/([^/]+)$", "GET", "policies.read", 1),
+    RoutePermission(r"^/api/v1/policies/([^/]+)$", "PATCH", "policies.update", 1),
+    RoutePermission(r"^/api/v1/policies/([^/]+)$", "DELETE", "policies.delete", 1),
+    RoutePermission(r"^/api/v1/policies/([^/]+)/toggle$", "POST", "policies.update", 1),
+    RoutePermission(r"^/api/v1/policies/([^/]+)/violations$", "GET", "policies.read", 1),
+    # Compliance
+    RoutePermission(r"^/api/v1/compliance/violations$", "GET", "compliance.read"),
+    RoutePermission(r"^/api/v1/compliance/violations/([^/]+)$", "GET", "compliance.read", 1),
+    RoutePermission(r"^/api/v1/compliance/violations/([^/]+)$", "PATCH", "compliance.update", 1),
+    RoutePermission(r"^/api/v1/compliance/check$", "POST", "compliance.check"),
+    RoutePermission(r"^/api/v1/compliance/stats$", "GET", "compliance.read"),
+    # Control plane - task management
+    RoutePermission(r"^/api/v1/control-plane/tasks$", "GET", "control_plane.read"),
+    RoutePermission(r"^/api/v1/control-plane/tasks$", "POST", "control_plane.submit"),
+    RoutePermission(r"^/api/v1/control-plane/tasks/([^/]+)$", "GET", "control_plane.read", 1),
+    RoutePermission(
+        r"^/api/v1/control-plane/tasks/([^/]+)/cancel$", "POST", "control_plane.cancel", 1
+    ),
+    RoutePermission(r"^/api/v1/control-plane/agents$", "GET", "control_plane.read"),
+    RoutePermission(r"^/api/v1/control-plane/agents/([^/]+)$", "GET", "control_plane.read", 1),
+    RoutePermission(r"^/api/v1/control-plane/deliberations$", "GET", "control_plane.read"),
+    RoutePermission(r"^/api/v1/control-plane/deliberations$", "POST", "control_plane.deliberate"),
+    RoutePermission(r"^/api/v1/control-plane/stats$", "GET", "control_plane.read"),
+    RoutePermission(r"^/api/v1/control-plane/health$", "GET", "", allow_unauthenticated=True),
     # Audit findings workflow
     RoutePermission(r"^/api/audit/findings/bulk-action$", "POST", "findings.bulk"),
     RoutePermission(r"^/api/audit/findings/my-assignments$", "GET", "findings.read"),
