@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { MemberTable, Member } from '@/components/admin/MemberTable';
@@ -299,7 +299,7 @@ function OrgDetailModal({
   );
 }
 
-export default function OrganizationsAdminPage() {
+function OrganizationsAdminPageContent() {
   const { config: backendConfig } = useBackend();
   const { user, isAuthenticated, tokens } = useAuth();
   const searchParams = useSearchParams();
@@ -622,5 +622,13 @@ export default function OrganizationsAdminPage() {
         onLoadAPIKeys={loadOrgAPIKeys}
       />
     </AdminLayout>
+  );
+}
+
+export default function OrganizationsAdminPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center font-mono text-text-muted">Loading...</div>}>
+      <OrganizationsAdminPageContent />
+    </Suspense>
   );
 }
