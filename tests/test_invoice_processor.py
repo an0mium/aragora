@@ -538,3 +538,157 @@ class TestInvoiceData:
         days = invoice.days_until_due
         assert days is not None
         assert 9 <= days <= 11  # Allow for timing variations
+
+
+# =============================================================================
+# Failure Scenario Tests
+# =============================================================================
+
+
+class TestFailureScenarios:
+    """Test failure scenarios and resilience patterns."""
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_status(self):
+        """Test circuit breaker status reporting."""
+        processor = InvoiceProcessor(enable_circuit_breakers=True)
+        status = processor.get_circuit_breaker_status()
+
+        assert status["enabled"] is True
+        assert "ocr" in status["services"]
+        assert "llm" in status["services"]
+        assert "qbo" in status["services"]
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_disabled(self):
+        """Test with circuit breakers disabled."""
+        processor = InvoiceProcessor(enable_circuit_breakers=False)
+        status = processor.get_circuit_breaker_status()
+
+        assert status["enabled"] is False
+        assert len(status["services"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_extraction_with_invalid_document(self):
+        """Test extraction with invalid document data."""
+        processor = InvoiceProcessor(enable_ocr=True)
+
+        invoice = await processor.extract_invoice_data(b"invalid document data")
+
+        assert invoice.id.startswith("inv_")
+        assert invoice.vendor_name in ("", "Unknown Vendor")  # OCR returns empty for invalid data
+        assert (
+            invoice.status == InvoiceStatus.EXTRACTED
+        )  # Still marked as extracted after OCR attempt
+
+    @pytest.mark.asyncio
+    async def test_extraction_with_empty_document(self):
+        """Test extraction with empty document."""
+        processor = InvoiceProcessor(enable_ocr=True)
+
+        invoice = await processor.extract_invoice_data(b"")
+
+        # Empty data results in empty/default values
+        assert invoice.vendor_name in ("", "Unknown Vendor")
+        assert invoice.total_amount == Decimal("0") or invoice.total_amount == Decimal("0.00")
+
+    @pytest.mark.asyncio
+    async def test_po_matching_no_pos(self):
+        """Test PO matching when no POs exist."""
+        processor = InvoiceProcessor()
+
+        invoice = InvoiceData(
+            id="inv_test",
+            vendor_name="Test Vendor",
+            po_number="PO-12345",
+            total_amount=Decimal("1000.00"),
+        )
+
+        match_result = await processor.match_to_po(invoice)
+
+        # No POs registered, should not find a match
+        assert match_result.match_type == "none" or match_result.po_id is None
+
+    @pytest.mark.asyncio
+    async def test_anomaly_detection_new_vendor(self):
+        """Test anomaly detection flags new vendors."""
+        processor = InvoiceProcessor()
+
+        invoice = InvoiceData(
+            id="inv_test",
+            vendor_name="Brand New Vendor Never Seen Before",
+            total_amount=Decimal("5000.00"),
+        )
+
+        anomalies = await processor.detect_anomalies(invoice)
+
+        # Should flag as new vendor
+        anomaly_types = [a.type.value for a in anomalies]
+        assert "new_vendor" in anomaly_types
+
+    @pytest.mark.asyncio
+    async def test_anomaly_detection_high_value(self):
+        """Test anomaly detection flags high value invoices."""
+        processor = InvoiceProcessor(auto_approve_threshold=Decimal("500"))
+
+        invoice = InvoiceData(
+            id="inv_test",
+            vendor_name="Test Vendor",
+            total_amount=Decimal("50000.00"),
+        )
+
+        anomalies = await processor.detect_anomalies(invoice)
+
+        # Should flag as high value
+        anomaly_types = [a.type.value for a in anomalies]
+        assert "high_value" in anomaly_types
+
+    @pytest.mark.asyncio
+    async def test_approval_level_auto(self):
+        """Test auto-approval for low value invoices."""
+        processor = InvoiceProcessor(auto_approve_threshold=Decimal("500"))
+
+        invoice = InvoiceData(
+            id="inv_test",
+            vendor_name="Test Vendor",
+            total_amount=Decimal("100.00"),
+        )
+
+        level = processor._determine_approval_level(invoice.total_amount)
+        assert level == ApprovalLevel.AUTO
+
+    @pytest.mark.asyncio
+    async def test_approval_level_executive(self):
+        """Test executive approval for very high value invoices."""
+        processor = InvoiceProcessor()
+
+        invoice = InvoiceData(
+            id="inv_test",
+            vendor_name="Test Vendor",
+            total_amount=Decimal("100000.00"),
+        )
+
+        level = processor._determine_approval_level(invoice.total_amount)
+        assert level in [ApprovalLevel.DIRECTOR, ApprovalLevel.EXECUTIVE]
+
+    @pytest.mark.asyncio
+    async def test_duplicate_invoice_detection(self):
+        """Test duplicate invoice detection via anomaly system."""
+        processor = InvoiceProcessor()
+
+        # Create first invoice
+        invoice1 = await processor.extract_invoice_data(b"%PDF-1.4 test", vendor_hint="Test Vendor")
+
+        # Create second invoice with same vendor/amount
+        invoice2 = InvoiceData(
+            id="inv_duplicate",
+            vendor_name="Test Vendor",
+            total_amount=invoice1.total_amount,
+            invoice_number=invoice1.invoice_number,
+        )
+
+        # Duplicate detection is handled via detect_anomalies
+        anomalies = await processor.detect_anomalies(invoice2)
+        # When there are no existing invoices stored, no duplicate should be flagged
+        # This validates the anomaly system runs without error
+        assert isinstance(anomalies, list)

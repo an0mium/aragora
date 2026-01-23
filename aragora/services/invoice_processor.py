@@ -397,7 +397,7 @@ class InvoiceProcessor:
         return {
             "enabled": self._enable_circuit_breakers,
             "services": {
-                svc: {"status": cb.get_status(), "failures": cb.failure_count}
+                svc: {"status": cb.get_status(), "failures": cb._single_failures}
                 for svc, cb in self._circuit_breakers.items()
             },
         }

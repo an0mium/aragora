@@ -501,3 +501,146 @@ class TestExpenseRecord:
         assert key is not None
         assert "test vendor" in key.lower()
         assert "100.00" in key
+
+
+# =============================================================================
+# Failure Scenario Tests
+# =============================================================================
+
+
+class TestFailureScenarios:
+    """Test failure scenarios and resilience patterns."""
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_status(self):
+        """Test circuit breaker status reporting."""
+        tracker = ExpenseTracker(enable_circuit_breakers=True)
+        status = tracker.get_circuit_breaker_status()
+
+        assert status["enabled"] is True
+        assert "ocr" in status["services"]
+        assert "llm" in status["services"]
+        assert "qbo" in status["services"]
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_disabled(self):
+        """Test with circuit breakers disabled."""
+        tracker = ExpenseTracker(enable_circuit_breakers=False)
+        status = tracker.get_circuit_breaker_status()
+
+        assert status["enabled"] is False
+        assert len(status["services"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_ocr_failure_returns_defaults(self):
+        """Test that OCR failure returns default expense data."""
+        tracker = ExpenseTracker(enable_ocr=True)
+
+        # Process invalid image data
+        expense = await tracker.process_receipt(b"invalid image data")
+
+        assert expense.id.startswith("exp_")
+        assert expense.status == ExpenseStatus.PROCESSED  # Still marked as processed
+        assert expense.vendor_name in ("", "Unknown Vendor")  # Empty or default for invalid data
+
+    @pytest.mark.asyncio
+    async def test_llm_categorization_fallback(self):
+        """Test that LLM categorization falls back to pattern matching."""
+        tracker = ExpenseTracker(enable_llm_categorization=False)
+
+        expense = ExpenseRecord(
+            id="exp_test",
+            vendor_name="Starbucks Coffee",
+            amount=Decimal("15.00"),
+            date=datetime.now(),
+        )
+
+        category = await tracker.categorize_expense(expense)
+        assert category == ExpenseCategory.MEALS
+
+    @pytest.mark.asyncio
+    async def test_llm_categorization_fallback_to_other(self):
+        """Test that unknown vendors fall back to OTHER category."""
+        tracker = ExpenseTracker(enable_llm_categorization=False)
+
+        expense = ExpenseRecord(
+            id="exp_test",
+            vendor_name="Random Unknown Vendor XYZ",
+            amount=Decimal("100.00"),
+            date=datetime.now(),
+        )
+
+        category = await tracker.categorize_expense(expense)
+        assert category == ExpenseCategory.OTHER
+
+    @pytest.mark.asyncio
+    async def test_qbo_sync_without_connector(self):
+        """Test QBO sync without connector configured."""
+        tracker = ExpenseTracker(qbo_connector=None)
+
+        result = await tracker.sync_to_qbo()
+
+        assert isinstance(result, SyncResult)
+        assert result.success_count == 0
+        assert len(result.errors) > 0
+        assert "QBO connector not configured" in result.errors[0]["error"]
+
+    @pytest.mark.asyncio
+    async def test_process_empty_receipt(self):
+        """Test processing an empty receipt."""
+        tracker = ExpenseTracker(enable_ocr=True)
+
+        expense = await tracker.process_receipt(b"")
+
+        # Empty data results in empty/default values extracted
+        assert expense.vendor_name in ("", "Unknown Vendor")
+        assert expense.amount == Decimal("0") or expense.amount == Decimal("0.00")
+
+    @pytest.mark.asyncio
+    async def test_create_expense_without_category(self):
+        """Test creating expense without specifying category triggers auto-categorization."""
+        tracker = ExpenseTracker(enable_llm_categorization=False)
+
+        expense = await tracker.create_expense(
+            vendor_name="Amazon Web Services",
+            amount=150.00,
+            description="Cloud computing services",
+        )
+
+        # Should be categorized based on pattern matching
+        assert expense.category is not None
+
+    @pytest.mark.asyncio
+    async def test_duplicate_detection_tolerance(self):
+        """Test duplicate detection respects tolerance window."""
+        tracker = ExpenseTracker()
+
+        # Create first expense
+        expense1 = await tracker.create_expense(
+            vendor_name="Test Vendor",
+            amount=100.00,
+            date=datetime.now(),
+        )
+
+        # Create similar expense within tolerance
+        expense2_data = ExpenseRecord(
+            id="exp_test2",
+            vendor_name="Test Vendor",
+            amount=Decimal("100.00"),
+            date=datetime.now() + timedelta(days=1),
+        )
+
+        duplicates = await tracker.detect_duplicates(expense2_data)
+        assert len(duplicates) > 0
+
+        # Create similar expense outside tolerance
+        expense3_data = ExpenseRecord(
+            id="exp_test3",
+            vendor_name="Test Vendor",
+            amount=Decimal("100.00"),
+            date=datetime.now() + timedelta(days=10),
+        )
+
+        duplicates = await tracker.detect_duplicates(expense3_data, tolerance_days=3)
+        # Should not find duplicates outside tolerance
+        assert expense1.id not in [d.id for d in duplicates]
