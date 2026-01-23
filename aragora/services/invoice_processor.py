@@ -322,6 +322,7 @@ class InvoiceProcessor:
 
     Provides extraction, matching, anomaly detection, and
     payment scheduling for accounts payable automation.
+    Includes circuit breaker protection for external service calls.
     """
 
     def __init__(
@@ -330,6 +331,7 @@ class InvoiceProcessor:
         auto_approve_threshold: Decimal = Decimal("500"),
         enable_ocr: bool = True,
         enable_llm_extraction: bool = True,
+        enable_circuit_breakers: bool = True,
     ):
         """
         Initialize invoice processor.
@@ -339,11 +341,13 @@ class InvoiceProcessor:
             auto_approve_threshold: Amount below which invoices auto-approve
             enable_ocr: Enable OCR extraction
             enable_llm_extraction: Use LLM for data extraction
+            enable_circuit_breakers: Enable circuit breaker protection
         """
         self.qbo = qbo_connector
         self.auto_approve_threshold = auto_approve_threshold
         self.enable_ocr = enable_ocr
         self.enable_llm_extraction = enable_llm_extraction
+        self._enable_circuit_breakers = enable_circuit_breakers
 
         # In-memory storage (would be persisted in production)
         self._invoices: Dict[str, InvoiceData] = {}
@@ -356,6 +360,47 @@ class InvoiceProcessor:
         # Vendor history for anomaly detection
         self._vendor_history: Dict[str, List[float]] = {}
         self._known_vendors: Set[str] = set()
+
+        # Circuit breakers for external service resilience
+        self._circuit_breakers: Dict[str, Any] = {}
+        if enable_circuit_breakers:
+            from aragora.resilience import get_circuit_breaker
+
+            self._circuit_breakers = {
+                "ocr": get_circuit_breaker("invoice_processor_ocr", 3, 60.0),
+                "llm": get_circuit_breaker("invoice_processor_llm", 3, 60.0),
+                "qbo": get_circuit_breaker("invoice_processor_qbo", 5, 120.0),
+            }
+
+    def _check_circuit_breaker(self, service: str) -> bool:
+        """Check if circuit breaker allows the request."""
+        if service not in self._circuit_breakers:
+            return True
+        cb = self._circuit_breakers[service]
+        if not cb.can_proceed():
+            logger.warning(f"Circuit breaker open for {service}")
+            return False
+        return True
+
+    def _record_cb_success(self, service: str) -> None:
+        """Record successful external call."""
+        if service in self._circuit_breakers:
+            self._circuit_breakers[service].record_success()
+
+    def _record_cb_failure(self, service: str) -> None:
+        """Record failed external call."""
+        if service in self._circuit_breakers:
+            self._circuit_breakers[service].record_failure()
+
+    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+        """Get status of all circuit breakers."""
+        return {
+            "enabled": self._enable_circuit_breakers,
+            "services": {
+                svc: {"status": cb.get_status(), "failures": cb.failure_count}
+                for svc, cb in self._circuit_breakers.items()
+            },
+        }
 
     async def extract_invoice_data(
         self,

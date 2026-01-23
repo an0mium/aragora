@@ -215,6 +215,7 @@ class APAutomation:
     Service for automating accounts payable workflows.
 
     Handles payment optimization, batching, and cash forecasting.
+    Includes circuit breaker protection for external service calls.
     """
 
     def __init__(
@@ -222,6 +223,7 @@ class APAutomation:
         qbo_connector: Optional[QuickBooksConnector] = None,
         current_cash_balance: Decimal = Decimal("100000"),
         min_cash_reserve: Decimal = Decimal("20000"),
+        enable_circuit_breakers: bool = True,
     ):
         """
         Initialize AP automation service.
@@ -230,16 +232,58 @@ class APAutomation:
             qbo_connector: QuickBooks connector for sync
             current_cash_balance: Current cash balance
             min_cash_reserve: Minimum cash reserve to maintain
+            enable_circuit_breakers: Enable circuit breaker protection
         """
         self.qbo = qbo_connector
         self.current_cash_balance = current_cash_balance
         self.min_cash_reserve = min_cash_reserve
+        self._enable_circuit_breakers = enable_circuit_breakers
 
         # In-memory storage
         self._invoices: Dict[str, PayableInvoice] = {}
         self._batches: Dict[str, BatchPayment] = {}
         self._by_vendor: Dict[str, set] = {}
         self._expected_receivables: List[Tuple[datetime, Decimal]] = []
+
+        # Circuit breakers for external service resilience
+        self._circuit_breakers: Dict[str, Any] = {}
+        if enable_circuit_breakers:
+            from aragora.resilience import get_circuit_breaker
+
+            self._circuit_breakers = {
+                "qbo": get_circuit_breaker("ap_automation_qbo", 5, 120.0),
+                "payment": get_circuit_breaker("ap_automation_payment", 3, 60.0),
+            }
+
+    def _check_circuit_breaker(self, service: str) -> bool:
+        """Check if circuit breaker allows the request."""
+        if service not in self._circuit_breakers:
+            return True
+        cb = self._circuit_breakers[service]
+        if not cb.can_proceed():
+            logger.warning(f"Circuit breaker open for {service}")
+            return False
+        return True
+
+    def _record_cb_success(self, service: str) -> None:
+        """Record successful external call."""
+        if service in self._circuit_breakers:
+            self._circuit_breakers[service].record_success()
+
+    def _record_cb_failure(self, service: str) -> None:
+        """Record failed external call."""
+        if service in self._circuit_breakers:
+            self._circuit_breakers[service].record_failure()
+
+    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+        """Get status of all circuit breakers."""
+        return {
+            "enabled": self._enable_circuit_breakers,
+            "services": {
+                svc: {"status": cb.get_status(), "failures": cb.failure_count}
+                for svc, cb in self._circuit_breakers.items()
+            },
+        }
 
     async def add_invoice(
         self,
