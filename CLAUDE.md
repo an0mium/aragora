@@ -22,7 +22,7 @@ Context for Claude Code when working with the Aragora codebase.
 | Streaming | `aragora/connectors/enterprise/streaming/` | `kafka.py`, `rabbitmq.py` |
 | Chat routing | `aragora/server/` | `debate_origin.py`, `result_router.py` |
 | TTS/Voice | `aragora/server/stream/` | `tts_integration.py`, `voice_stream.py` |
-| Control Plane | `aragora/control_plane/` | `leader.py`, `registry.py`, `scheduler.py` |
+| Control Plane | `aragora/control_plane/` | `policy.py`, `scheduler.py`, `notifications.py` |
 | Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
 | KM Resilience | `aragora/knowledge/mound/` | `resilience.py` (retry, health, invalidation) |
 | RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |

@@ -47,6 +47,18 @@ class NotificationChannel(Enum):
     WEBHOOK = "webhook"
 
 
+class DeliveryStatus(Enum):
+    """Status of notification delivery."""
+
+    PENDING = "pending"  # Queued for delivery
+    SENT = "sent"  # Sent to provider
+    DELIVERED = "delivered"  # Confirmed delivered (if provider supports)
+    FAILED = "failed"  # Delivery failed
+    BOUNCED = "bounced"  # Email bounced
+    REJECTED = "rejected"  # Rejected by provider
+    RATE_LIMITED = "rate_limited"  # Hit rate limit
+
+
 class NotificationPriority(Enum):
     """Notification priority levels."""
 
@@ -223,6 +235,30 @@ class NotificationResult:
     message_id: Optional[str] = None
     error: Optional[str] = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Delivery confirmation fields
+    correlation_id: Optional[str] = None  # Correlation ID from request
+    delivery_status: DeliveryStatus = DeliveryStatus.PENDING
+    delivered_at: Optional[datetime] = None
+    provider_response: Optional[Dict[str, Any]] = None  # Raw provider response
+    retry_count: int = 0
+    next_retry_at: Optional[datetime] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "success": self.success,
+            "channel": self.channel.value,
+            "message_id": self.message_id,
+            "error": self.error,
+            "timestamp": self.timestamp.isoformat(),
+            "correlation_id": self.correlation_id,
+            "delivery_status": self.delivery_status.value,
+            "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
+            "provider_response": self.provider_response,
+            "retry_count": self.retry_count,
+            "next_retry_at": self.next_retry_at.isoformat() if self.next_retry_at else None,
+        }
 
 
 # =============================================================================
@@ -935,6 +971,7 @@ def create_sla_violation_notification(
 __all__ = [
     # Enums
     "NotificationChannel",
+    "DeliveryStatus",
     "NotificationPriority",
     "NotificationEventType",
     # Data Classes
