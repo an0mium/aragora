@@ -739,8 +739,19 @@ class FallbackOAuthStateStore(OAuthStateStore):
     ) -> str:
         """Generate state using active backend."""
         store = self._get_active_store()
+        store_type = type(store).__name__
+        logger.info(
+            f"OAuth state generate: backend={store_type}, use_jwt={self._use_jwt}, "
+            f"jwt_store_exists={self._jwt_store is not None}, use_redis={self._use_redis}, "
+            f"redis_failed={self._redis_failed}"
+        )
         try:
-            return store.generate(user_id, redirect_url, ttl_seconds)
+            state = store.generate(user_id, redirect_url, ttl_seconds)
+            logger.info(
+                f"OAuth state generated: len={len(state)}, has_dot={'.' in state}, "
+                f"prefix={state[:30]}..."
+            )
+            return state
         except Exception as e:
             if store is self._redis_store:
                 logger.warning(f"Redis generate failed, using SQLite fallback: {e}")
@@ -848,15 +859,17 @@ _oauth_state_store: Optional[FallbackOAuthStateStore] = None
 def get_oauth_state_store(
     sqlite_path: str = "aragora_oauth.db",
     use_sqlite: bool = True,
+    use_jwt: bool = True,
 ) -> FallbackOAuthStateStore:
     """Get the global OAuth state store instance.
 
     Args:
         sqlite_path: Path to SQLite database for persistent storage
         use_sqlite: Whether to use SQLite as fallback (default True)
+        use_jwt: Whether to use JWT as primary backend (default True)
 
     Returns:
-        Configured FallbackOAuthStateStore with Redis -> SQLite -> memory fallback
+        Configured FallbackOAuthStateStore with JWT -> Redis -> SQLite -> memory fallback
     """
     global _oauth_state_store
     if _oauth_state_store is None:
@@ -864,6 +877,7 @@ def get_oauth_state_store(
             redis_url=REDIS_URL,
             sqlite_path=sqlite_path,
             use_sqlite=use_sqlite,
+            use_jwt=use_jwt,
         )
         backend = _oauth_state_store.backend_name
         logger.info(f"OAuth state store initialized: {backend}")
