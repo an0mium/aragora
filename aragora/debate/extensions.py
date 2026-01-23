@@ -70,6 +70,11 @@ class ArenaExtensions:
     usage_sync_service: Any = None  # UsageSyncService instance
     auto_sync_usage: bool = False
 
+    # Notification dispatch (omnichannel delivery)
+    notification_dispatcher: Any = None  # NotificationDispatcher instance
+    auto_notify: bool = False  # Auto-emit notifications on debate completion
+    notify_min_confidence: float = 0.0  # Minimum confidence to notify (0 = always)
+
     # Internal state
     _initialized: bool = field(default=False, repr=False)
     _last_evaluation: Any = field(default=None, repr=False)  # Store last evaluation result
@@ -102,6 +107,11 @@ class ArenaExtensions:
     def has_usage_sync(self) -> bool:
         """Check if Stripe usage sync is configured."""
         return self.usage_sync_service is not None or self.auto_sync_usage
+
+    @property
+    def has_notifications(self) -> bool:
+        """Check if notification dispatch is configured."""
+        return self.notification_dispatcher is not None or self.auto_notify
 
     @property
     def last_evaluation(self) -> Optional[Any]:
@@ -139,6 +149,9 @@ class ArenaExtensions:
 
         # Sync KM adapters (expertise, patterns) learned during debate
         self._sync_km_adapters(ctx, result)
+
+        # Emit debate completion notifications (omnichannel delivery)
+        self._emit_debate_notifications(ctx, result)
 
         # Trigger broadcast if configured (not implemented here - kept in Arena for now)
         # The broadcast pipeline requires more complex integration
@@ -477,6 +490,125 @@ class ArenaExtensions:
         except Exception as e:
             logger.warning("evaluation_failed: %s", e)
 
+    def _emit_debate_notifications(
+        self,
+        ctx: "DebateContext",
+        result: "DebateResult",
+    ) -> None:
+        """Emit notifications for debate completion (omnichannel delivery).
+
+        Sends notifications to configured channels (Slack, Teams, Email, etc.)
+        when a debate completes. Emits both task completion and deliberation
+        consensus events.
+
+        Args:
+            ctx: The debate context with debate metadata
+            result: The final debate result
+        """
+        if not self.auto_notify:
+            return
+
+        # Check confidence threshold
+        confidence = getattr(result, "consensus_confidence", 0.0)
+        if confidence < self.notify_min_confidence:
+            logger.debug(
+                "notification_skipped confidence=%.2f threshold=%.2f",
+                confidence,
+                self.notify_min_confidence,
+            )
+            return
+
+        try:
+            # Import task event emitters
+            from aragora.control_plane.task_events import (
+                emit_task_completed,
+                get_task_event_dispatcher,
+                set_task_event_dispatcher,
+            )
+
+            # Use configured dispatcher or get default
+            if self.notification_dispatcher is not None:
+                set_task_event_dispatcher(self.notification_dispatcher)
+
+            # Get dispatcher (configured or default)
+            dispatcher = get_task_event_dispatcher()
+            if dispatcher is None:
+                logger.debug("notification_skipped: no dispatcher available")
+                return
+
+            # Calculate duration from context metadata
+            duration_seconds = 0.0
+            if hasattr(ctx, "metadata") and ctx.metadata:
+                start_time = ctx.metadata.get("start_time")
+                end_time = ctx.metadata.get("end_time")
+                if start_time and end_time:
+                    duration_seconds = (end_time - start_time).total_seconds()
+
+            # Emit task completion notification
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(
+                    emit_task_completed(
+                        task_id=ctx.debate_id,
+                        task_type="debate",
+                        agent_id=result.winner or "consensus",
+                        duration_seconds=duration_seconds,
+                        workspace_id=self.workspace_id or None,
+                    )
+                )
+            except RuntimeError:
+                # No running loop - skip async notification
+                logger.debug("notification_deferred: no running event loop")
+
+            # Emit deliberation consensus notification for high-confidence results
+            if confidence >= 0.7 and getattr(result, "consensus_reached", False):
+                try:
+                    from aragora.control_plane.channels import (
+                        NotificationEventType,
+                        NotificationPriority,
+                    )
+
+                    # Get the question from context
+                    question = ""
+                    if hasattr(ctx, "environment") and ctx.environment:
+                        question = getattr(ctx.environment, "task", "") or ""
+
+                    # Get the answer from result
+                    answer = getattr(result, "consensus_answer", "") or ""
+                    if not answer and result.messages:
+                        # Use final message as answer
+                        answer = result.messages[-1].content[:500]
+
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(
+                        dispatcher.dispatch(
+                            event_type=NotificationEventType.DELIBERATION_CONSENSUS,
+                            title="Deliberation Consensus Reached",
+                            body=f"**Question:** {question[:100]}...\n\n**Confidence:** {confidence:.0%}",
+                            priority=NotificationPriority.NORMAL,
+                            workspace_id=self.workspace_id or None,
+                            metadata={
+                                "debate_id": ctx.debate_id,
+                                "confidence": confidence,
+                                "question": question[:200],
+                                "answer": answer[:500],
+                            },
+                        )
+                    )
+                except RuntimeError:
+                    pass  # No running loop
+
+            logger.info(
+                "debate_notification_emitted debate_id=%s confidence=%.2f",
+                ctx.debate_id,
+                confidence,
+            )
+        except ImportError as e:
+            logger.debug("notification_skipped: import failed: %s", e)
+        except Exception as e:
+            # Don't fail the debate if notification fails
+            logger.warning("notification_emission_failed error=%s", e)
+
     def _export_training_data(
         self,
         ctx: "DebateContext",
@@ -554,6 +686,9 @@ class ExtensionsConfig:
     training_export_min_confidence: float = 0.75
     usage_sync_service: Any = None
     auto_sync_usage: bool = False
+    notification_dispatcher: Any = None
+    auto_notify: bool = False
+    notify_min_confidence: float = 0.0
 
     def create_extensions(self) -> ArenaExtensions:
         """Create ArenaExtensions from this configuration."""
@@ -575,6 +710,9 @@ class ExtensionsConfig:
             training_export_min_confidence=self.training_export_min_confidence,
             usage_sync_service=self.usage_sync_service,
             auto_sync_usage=self.auto_sync_usage,
+            notification_dispatcher=self.notification_dispatcher,
+            auto_notify=self.auto_notify,
+            notify_min_confidence=self.notify_min_confidence,
         )
 
 
