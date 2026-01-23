@@ -179,6 +179,7 @@ class TestCodebaseAuditHandler:
 class TestComprehensiveScan:
     """Tests for comprehensive scan."""
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_comprehensive_scan_default_path(self):
         """Test comprehensive scan with default path."""
@@ -199,6 +200,7 @@ class TestComprehensiveScan:
         assert b"scan" in result.body
         assert b"findings" in result.body
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_comprehensive_scan_with_path(self):
         """Test comprehensive scan with custom path."""
@@ -223,6 +225,7 @@ class TestComprehensiveScan:
 class TestIndividualScans:
     """Tests for individual scan types."""
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_sast_scan(self):
         """Test SAST-only scan."""
@@ -238,6 +241,7 @@ class TestIndividualScans:
         assert result.status_code == 200
         assert b"findings" in result.body
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_bug_scan(self):
         """Test bug detection scan."""
@@ -252,6 +256,7 @@ class TestIndividualScans:
         assert result is not None
         assert result.status_code == 200
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_secrets_scan(self):
         """Test secrets scan."""
@@ -266,6 +271,7 @@ class TestIndividualScans:
         assert result is not None
         assert result.status_code == 200
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_dependency_scan(self):
         """Test dependency scan."""
@@ -280,6 +286,7 @@ class TestIndividualScans:
         assert result is not None
         assert result.status_code == 200
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_metrics_analysis(self):
         """Test metrics analysis."""

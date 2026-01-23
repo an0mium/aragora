@@ -499,7 +499,8 @@ def mark_result_sent(debate_id: str) -> None:
         # Update Redis if available
         try:
             _store_origin_redis(origin)
-        except (ImportError, ConnectionError, TimeoutError) as e:
+        except Exception as e:
+            # Catch all Redis errors (including redis.exceptions.ConnectionError)
             logger.debug(f"Redis update skipped: {e}")
 
 
