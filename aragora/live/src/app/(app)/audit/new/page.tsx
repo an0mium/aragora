@@ -107,7 +107,7 @@ function NewAuditContent() {
         headers: { 'Authorization': `Bearer ${tokens?.access_token || ''}` },
       });
 
-      router.push(`/audit/${data.id}`);
+      router.push(`/audit/view?id=${data.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create audit');
     } finally {

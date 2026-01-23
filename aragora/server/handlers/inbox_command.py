@@ -352,16 +352,12 @@ class InboxCommandHandler:
             emails: List[Any] = []
             fetch_limit = limit + offset + 50  # Fetch extra for filtering
 
-            async for item in self.gmail_connector.sync():
+            # Use list_messages instead of sync_items for inbox fetching
+            messages = await self.gmail_connector.list_messages(max_results=fetch_limit)
+            for msg in messages:
                 if len(emails) >= fetch_limit:
                     break
-                # Extract email from sync item
-                if hasattr(item, "raw_data") and "message" in item.raw_data:
-                    emails.append(item.raw_data["message"])
-                elif hasattr(item, "message"):
-                    emails.append(item.message)
-                else:
-                    emails.append(item)
+                emails.append(msg)
 
             if not emails:
                 return []
@@ -515,6 +511,10 @@ class InboxCommandHandler:
             },
         ]
 
+        # Populate cache for bulk actions to work in demo mode
+        for email in demo_emails:
+            _email_cache[email["id"]] = email
+
         # Apply filters
         if priority_filter:
             demo_emails = [e for e in demo_emails if e["priority"] == priority_filter.lower()]
@@ -581,7 +581,7 @@ class InboxCommandHandler:
                     await self.prioritizer.record_user_action(
                         email_id=email_id,
                         action=action,
-                        email=email_data,
+                        email=email_data,  # type: ignore[arg-type]
                     )
 
             except Exception as e:
@@ -622,9 +622,9 @@ class InboxCommandHandler:
 
     async def _archive_email(self, email_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Archive an email via Gmail API."""
-        if self.gmail_connector:
+        if self.gmail_connector and hasattr(self.gmail_connector, "archive_message"):
             try:
-                await self.gmail_connector.archive_message(email_id)
+                await self.gmail_connector.archive_message(email_id)  # type: ignore[attr-defined]
                 logger.info(f"Archived email {email_id}")
                 return {"archived": True}
             except Exception as e:
@@ -799,18 +799,21 @@ class InboxCommandHandler:
                     sender_email=email,
                 )
                 if stats:
+                    avg_hours = (
+                        stats.avg_response_time_minutes / 60.0
+                        if stats.avg_response_time_minutes
+                        else None
+                    )
                     return {
                         "email": email,
-                        "name": stats.display_name or email.split("@")[0],
+                        "name": email.split("@")[0],
                         "isVip": stats.is_vip,
-                        "isInternal": stats.is_internal,
-                        "responseRate": stats.response_rate,
-                        "avgResponseTime": f"{stats.avg_response_time_hours:.1f}h"
-                        if stats.avg_response_time_hours
-                        else "N/A",
+                        "isInternal": False,
+                        "responseRate": stats.reply_rate,
+                        "avgResponseTime": f"{avg_hours:.1f}h" if avg_hours else "N/A",
                         "totalEmails": stats.total_emails,
-                        "lastContact": stats.last_interaction.strftime("%Y-%m-%d")
-                        if stats.last_interaction
+                        "lastContact": stats.last_email_date.strftime("%Y-%m-%d")
+                        if stats.last_email_date
                         else "Never",
                     }
             except Exception as e:
@@ -839,12 +842,12 @@ class InboxCommandHandler:
 
     async def _calculate_daily_digest(self) -> Dict[str, Any]:
         """Calculate daily digest statistics."""
-        # Try to get real stats from sender history
-        if self.sender_history:
+        # Try to get real stats from sender history (if method exists)
+        if self.sender_history and hasattr(self.sender_history, "get_daily_summary"):
             try:
-                today_stats = await self.sender_history.get_daily_summary(user_id="default")
+                today_stats = await self.sender_history.get_daily_summary(user_id="default")  # type: ignore[attr-defined]
                 if today_stats:
-                    return today_stats
+                    return today_stats  # type: ignore[return-value]
             except Exception as e:
                 logger.debug(f"Daily summary not available: {e}")
 
@@ -860,7 +863,7 @@ class InboxCommandHandler:
 
         top_senders = sorted(
             [{"name": k, "count": v} for k, v in sender_counts.items()],
-            key=lambda x: x["count"],
+            key=lambda x: int(x["count"]),  # type: ignore[arg-type]
             reverse=True,
         )[:5]
 
@@ -917,7 +920,7 @@ class InboxCommandHandler:
         if not emails_to_process:
             return {"count": 0, "changes": []}
 
-        changes = []
+        changes: List[Dict[str, Any]] = []
         # TODO: Actually call the prioritizer with force_tier option
         # For now, return the count indicating reprioritization was requested
         return {

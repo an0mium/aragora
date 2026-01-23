@@ -201,7 +201,7 @@ export function AuditSummaryWidget({
         <div className="p-3 border-t border-[var(--border)] bg-[var(--bg)]/50">
           <div className="text-xs text-[var(--text-muted)] mb-1">Latest:</div>
           <Link
-            href={`/audit/${summary.recent_session.id}`}
+            href={`/audit/view?id=${summary.recent_session.id}`}
             className="flex items-center justify-between hover:text-[var(--acid-green)] transition-colors"
           >
             <span className="text-sm font-mono truncate max-w-[150px]">

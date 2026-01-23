@@ -444,7 +444,7 @@ export default function AuditDashboardPage() {
                     <tr
                       key={session.id}
                       className="hover:bg-surface/50 cursor-pointer transition-colors"
-                      onClick={() => router.push(`/audit/${session.id}`)}
+                      onClick={() => router.push(`/audit/view?id=${session.id}`)}
                     >
                       <td className="p-3">
                         <div className="font-mono text-sm">{session.name || session.id.slice(0, 12)}</div>
@@ -499,7 +499,7 @@ export default function AuditDashboardPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/audit/${session.id}`);
+                              router.push(`/audit/view?id=${session.id}`);
                             }}
                             className="px-2 py-1 text-xs font-mono bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors"
                           >

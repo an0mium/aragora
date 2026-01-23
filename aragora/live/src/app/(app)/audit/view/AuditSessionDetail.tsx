@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
@@ -119,10 +119,10 @@ function formatDate(dateStr?: string): string {
 }
 
 export default function AuditSessionDetail() {
-  const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  // Handle optional catch-all params: id is string[] or undefined
-  const sessionId = (params.id as string[] | undefined)?.[0];
+  // Get session ID from query params: /audit/view?id=xxx
+  const sessionId = searchParams.get('id');
   const { config: backendConfig } = useBackend();
   const { tokens } = useAuth();
 
