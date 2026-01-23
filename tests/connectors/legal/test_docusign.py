@@ -13,6 +13,7 @@ Tests cover:
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
+from contextlib import asynccontextmanager
 import base64
 
 from aragora.connectors.legal.docusign import (
@@ -283,16 +284,64 @@ class TestDocuSignConnectorConfiguration:
 
 
 # =============================================================================
+# Async Mock Helpers for aiohttp
+# =============================================================================
+
+
+class MockResponse:
+    """Mock aiohttp response with async context manager support."""
+
+    def __init__(self, status: int = 200, json_data: dict = None, content: bytes = None):
+        self.status = status
+        self._json_data = json_data or {}
+        self._content = content or b""
+
+    async def json(self):
+        return self._json_data
+
+    async def text(self):
+        return str(self._json_data)
+
+    async def read(self):
+        return self._content
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
+class MockClientSession:
+    """Mock aiohttp.ClientSession with async context manager support."""
+
+    def __init__(self, response: MockResponse):
+        self._response = response
+
+    def request(self, *args, **kwargs):
+        return self._response
+
+    def get(self, *args, **kwargs):
+        return self._response
+
+    def post(self, *args, **kwargs):
+        return self._response
+
+    def put(self, *args, **kwargs):
+        return self._response
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
+# =============================================================================
 # Envelope Operation Tests
 # =============================================================================
 
-# Skip tests that need async context manager mock fixes
-SKIP_ASYNC_MOCK_FIX = pytest.mark.skip(
-    reason="Tests need async context manager mock updates for aiohttp"
-)
 
-
-@SKIP_ASYNC_MOCK_FIX
 class TestDocuSignConnectorEnvelopeOperations:
     """Tests for envelope operations."""
 
@@ -312,35 +361,22 @@ class TestDocuSignConnectorEnvelopeOperations:
         )
         return connector
 
-    @SKIP_ASYNC_MOCK_FIX
     @pytest.mark.asyncio
     async def test_create_envelope(self, authenticated_connector):
         """Test envelope creation."""
-        mock_response = {
+        mock_response_data = {
             "envelopeId": "new_env_123",
             "status": "sent",
             "statusDateTime": "2024-01-15T10:30:00Z",
         }
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            # Set up async context manager mock for response
-            mock_resp = AsyncMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(return_value=mock_response)
+        mock_response = MockResponse(status=200, json_data=mock_response_data)
+        mock_session = MockClientSession(mock_response)
 
-            # Set up async context manager mock for session.request()
-            mock_request_ctx = AsyncMock()
-            mock_request_ctx.__aenter__.return_value = mock_resp
-            mock_request_ctx.__aexit__.return_value = None
-
-            # Set up session mock
-            mock_session_instance = AsyncMock()
-            mock_session_instance.request.return_value = mock_request_ctx
-
-            # Set up session as async context manager
-            mock_session.return_value.__aenter__.return_value = mock_session_instance
-            mock_session.return_value.__aexit__.return_value = None
-
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             request = EnvelopeCreateRequest(
                 email_subject="Please sign",
                 recipients=[Recipient(email="signer@example.com", name="John Doe")],
@@ -360,7 +396,7 @@ class TestDocuSignConnectorEnvelopeOperations:
     @pytest.mark.asyncio
     async def test_get_envelope(self, authenticated_connector):
         """Test getting envelope details."""
-        mock_response = {
+        mock_response_data = {
             "envelopeId": "env_123",
             "status": "completed",
             "emailSubject": "Contract for signature",
@@ -372,12 +408,13 @@ class TestDocuSignConnectorEnvelopeOperations:
             },
         }
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.status = 200
-            mock_context.__aenter__.return_value.json = AsyncMock(return_value=mock_response)
-            mock_session.return_value.__aenter__.return_value.request.return_value = mock_context
+        mock_response = MockResponse(status=200, json_data=mock_response_data)
+        mock_session = MockClientSession(mock_response)
 
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             envelope = await authenticated_connector.get_envelope("env_123")
             assert envelope is not None
             assert envelope.envelope_id == "env_123"
@@ -386,37 +423,41 @@ class TestDocuSignConnectorEnvelopeOperations:
     @pytest.mark.asyncio
     async def test_get_envelope_not_found(self, authenticated_connector):
         """Test getting non-existent envelope."""
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.status = 404
-            mock_session.return_value.__aenter__.return_value.request.return_value = mock_context
+        mock_response = MockResponse(status=404)
+        mock_session = MockClientSession(mock_response)
 
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             envelope = await authenticated_connector.get_envelope("nonexistent")
             assert envelope is None
 
     @pytest.mark.asyncio
     async def test_void_envelope(self, authenticated_connector):
         """Test voiding an envelope."""
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.status = 200
-            mock_context.__aenter__.return_value.json = AsyncMock(return_value={})
-            mock_session.return_value.__aenter__.return_value.request.return_value = mock_context
+        mock_response = MockResponse(status=200, json_data={})
+        mock_session = MockClientSession(mock_response)
 
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             result = await authenticated_connector.void_envelope(
-                "env_123", reason="Contract cancelled"
+                "env_123", void_reason="Contract cancelled"
             )
             assert result is True
 
     @pytest.mark.asyncio
     async def test_resend_envelope(self, authenticated_connector):
         """Test resending envelope notifications."""
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.status = 200
-            mock_context.__aenter__.return_value.json = AsyncMock(return_value={})
-            mock_session.return_value.__aenter__.return_value.request.return_value = mock_context
+        mock_response = MockResponse(status=200, json_data={})
+        mock_session = MockClientSession(mock_response)
 
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             result = await authenticated_connector.resend_envelope("env_123")
             assert result is True
 
@@ -426,7 +467,6 @@ class TestDocuSignConnectorEnvelopeOperations:
 # =============================================================================
 
 
-@SKIP_ASYNC_MOCK_FIX
 class TestDocuSignConnectorDocumentOperations:
     """Tests for document operations."""
 
@@ -450,13 +490,13 @@ class TestDocuSignConnectorDocumentOperations:
     async def test_download_document(self, authenticated_connector):
         """Test downloading a signed document."""
         pdf_content = b"%PDF-1.4 signed document content"
+        mock_response = MockResponse(status=200, content=pdf_content)
+        mock_session = MockClientSession(mock_response)
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.status = 200
-            mock_context.__aenter__.return_value.read = AsyncMock(return_value=pdf_content)
-            mock_session.return_value.__aenter__.return_value.request.return_value = mock_context
-
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             content = await authenticated_connector.download_document("env_123", "doc_1")
             assert content == pdf_content
 
@@ -464,13 +504,13 @@ class TestDocuSignConnectorDocumentOperations:
     async def test_download_certificate(self, authenticated_connector):
         """Test downloading signing certificate."""
         cert_content = b"Certificate of Completion"
+        mock_response = MockResponse(status=200, content=cert_content)
+        mock_session = MockClientSession(mock_response)
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.status = 200
-            mock_context.__aenter__.return_value.read = AsyncMock(return_value=cert_content)
-            mock_session.return_value.__aenter__.return_value.request.return_value = mock_context
-
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=mock_session,
+        ):
             content = await authenticated_connector.download_certificate("env_123")
             assert content == cert_content
 

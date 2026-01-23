@@ -35,6 +35,11 @@ from aragora.server.handlers.features.codebase_audit import (
     ScanType,
     ScanStatus,
     FindingSeverity,
+    _get_mock_sast_findings,
+    _get_mock_bug_findings,
+    _get_mock_secrets_findings,
+    _get_mock_dependency_findings,
+    _get_mock_metrics,
 )
 from aragora.server.handlers.features.cross_platform_analytics import (
     CrossPlatformAnalyticsHandler,
@@ -46,6 +51,37 @@ from aragora.server.handlers.features.marketplace import (
     TemplateCategory,
     DeploymentStatus,
 )
+
+
+# Module-level fixture for mocking codebase scanners
+@pytest.fixture
+def mock_scanners():
+    """Mock scanner functions to return mock data (avoids resource-heavy real scans)."""
+    handler_module = "aragora.server.handlers.features.codebase_audit"
+
+    async def mock_sast(*args, **kwargs):
+        return _get_mock_sast_findings(args[1] if len(args) > 1 else "test_scan")
+
+    async def mock_bugs(*args, **kwargs):
+        return _get_mock_bug_findings(args[1] if len(args) > 1 else "test_scan")
+
+    async def mock_secrets(*args, **kwargs):
+        return _get_mock_secrets_findings(args[1] if len(args) > 1 else "test_scan")
+
+    async def mock_deps(*args, **kwargs):
+        return _get_mock_dependency_findings(args[1] if len(args) > 1 else "test_scan")
+
+    async def mock_metrics(*args, **kwargs):
+        return _get_mock_metrics()
+
+    with (
+        patch(f"{handler_module}.run_sast_scan", side_effect=mock_sast),
+        patch(f"{handler_module}.run_bug_scan", side_effect=mock_bugs),
+        patch(f"{handler_module}.run_secrets_scan", side_effect=mock_secrets),
+        patch(f"{handler_module}.run_dependency_scan", side_effect=mock_deps),
+        patch(f"{handler_module}.run_metrics_analysis", side_effect=mock_metrics),
+    ):
+        yield
 
 
 class TestUnifiedInboxWebhookIntegration:
@@ -254,9 +290,8 @@ class TestReconciliationWorkflow:
 class TestCodebaseAuditWorkflow:
     """Test codebase audit end-to-end workflow."""
 
-    @pytest.mark.skip(reason="Test times out in CI - needs optimization")
     @pytest.mark.asyncio
-    async def test_comprehensive_scan_to_issue_flow(self):
+    async def test_comprehensive_scan_to_issue_flow(self, mock_scanners):
         """Test scan -> findings -> create issue workflow."""
         tenant_id = "audit_tenant_1"
         handler = CodebaseAuditHandler()
@@ -299,9 +334,8 @@ class TestCodebaseAuditWorkflow:
         findings_result = await handler.handle(findings_request, "/api/v1/codebase/findings", "GET")
         assert findings_result.status_code == 200
 
-    @pytest.mark.skip(reason="Test times out in CI - needs optimization")
     @pytest.mark.asyncio
-    async def test_individual_scan_types(self):
+    async def test_individual_scan_types(self, mock_scanners):
         """Test individual scan type endpoints."""
         tenant_id = "audit_tenant_2"
         handler = CodebaseAuditHandler()
@@ -331,7 +365,7 @@ class TestCodebaseAuditWorkflow:
         assert metrics_result.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_scan_history_tracking(self):
+    async def test_scan_history_tracking(self, mock_scanners):
         """Test scan history is properly tracked."""
         tenant_id = "audit_tenant_3"
         handler = CodebaseAuditHandler()
@@ -509,7 +543,7 @@ class TestCrossHandlerIntegration:
     """Test integration across multiple handlers."""
 
     @pytest.mark.asyncio
-    async def test_audit_findings_to_analytics(self):
+    async def test_audit_findings_to_analytics(self, mock_scanners):
         """Test that audit findings appear in analytics."""
         tenant_id = "cross_tenant_1"
 
@@ -614,7 +648,7 @@ class TestTenantIsolation:
     """Test that handlers maintain tenant isolation."""
 
     @pytest.mark.asyncio
-    async def test_scan_data_isolation(self):
+    async def test_scan_data_isolation(self, mock_scanners):
         """Test that scan data is isolated by tenant."""
         handler = CodebaseAuditHandler()
 

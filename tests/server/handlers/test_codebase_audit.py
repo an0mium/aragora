@@ -176,16 +176,41 @@ class TestCodebaseAuditHandler:
         assert handler1 is handler2
 
 
-CI_CRASH_SKIP = pytest.mark.skip(reason="Test crashes xdist workers in CI - runs fine locally")
+@pytest.fixture
+def mock_scanners():
+    """Mock scanner functions to return mock data (avoids resource-heavy real scans)."""
+    handler_module = "aragora.server.handlers.features.codebase_audit"
+
+    async def mock_sast(*args, **kwargs):
+        return _get_mock_sast_findings(args[1] if len(args) > 1 else "test_scan")
+
+    async def mock_bugs(*args, **kwargs):
+        return _get_mock_bug_findings(args[1] if len(args) > 1 else "test_scan")
+
+    async def mock_secrets(*args, **kwargs):
+        return _get_mock_secrets_findings(args[1] if len(args) > 1 else "test_scan")
+
+    async def mock_deps(*args, **kwargs):
+        return _get_mock_dependency_findings(args[1] if len(args) > 1 else "test_scan")
+
+    async def mock_metrics(*args, **kwargs):
+        return _get_mock_metrics()
+
+    with (
+        patch(f"{handler_module}.run_sast_scan", side_effect=mock_sast),
+        patch(f"{handler_module}.run_bug_scan", side_effect=mock_bugs),
+        patch(f"{handler_module}.run_secrets_scan", side_effect=mock_secrets),
+        patch(f"{handler_module}.run_dependency_scan", side_effect=mock_deps),
+        patch(f"{handler_module}.run_metrics_analysis", side_effect=mock_metrics),
+    ):
+        yield
 
 
 class TestComprehensiveScan:
     """Tests for comprehensive scan."""
 
-    @CI_CRASH_SKIP
-    @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_comprehensive_scan_default_path(self):
+    async def test_comprehensive_scan_default_path(self, mock_scanners):
         """Test comprehensive scan with default path."""
         handler = CodebaseAuditHandler()
 
@@ -204,9 +229,8 @@ class TestComprehensiveScan:
         assert b"scan" in result.body
         assert b"findings" in result.body
 
-    @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_comprehensive_scan_with_path(self):
+    async def test_comprehensive_scan_with_path(self, mock_scanners):
         """Test comprehensive scan with custom path."""
         handler = CodebaseAuditHandler()
 
@@ -229,9 +253,8 @@ class TestComprehensiveScan:
 class TestIndividualScans:
     """Tests for individual scan types."""
 
-    @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_sast_scan(self):
+    async def test_sast_scan(self, mock_scanners):
         """Test SAST-only scan."""
         handler = CodebaseAuditHandler()
 
@@ -245,10 +268,8 @@ class TestIndividualScans:
         assert result.status_code == 200
         assert b"findings" in result.body
 
-    @CI_CRASH_SKIP
-    @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_bug_scan(self):
+    async def test_bug_scan(self, mock_scanners):
         """Test bug detection scan."""
         handler = CodebaseAuditHandler()
 
@@ -261,10 +282,8 @@ class TestIndividualScans:
         assert result is not None
         assert result.status_code == 200
 
-    @CI_CRASH_SKIP
-    @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_secrets_scan(self):
+    async def test_secrets_scan(self, mock_scanners):
         """Test secrets scan."""
         handler = CodebaseAuditHandler()
 
@@ -277,10 +296,8 @@ class TestIndividualScans:
         assert result is not None
         assert result.status_code == 200
 
-    @CI_CRASH_SKIP
-    @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_dependency_scan(self):
+    async def test_dependency_scan(self, mock_scanners):
         """Test dependency scan."""
         handler = CodebaseAuditHandler()
 
@@ -293,10 +310,8 @@ class TestIndividualScans:
         assert result is not None
         assert result.status_code == 200
 
-    @CI_CRASH_SKIP
-    @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_metrics_analysis(self):
+    async def test_metrics_analysis(self, mock_scanners):
         """Test metrics analysis."""
         handler = CodebaseAuditHandler()
 
