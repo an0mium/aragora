@@ -21,8 +21,8 @@ const DOC_MAP = {
   // =========================================================================
   // Getting Started
   // =========================================================================
+  'GETTING_STARTED.md': 'getting-started/overview.md',
   'DEVELOPER_QUICKSTART.md': 'getting-started/quickstart.md',
-  'INSTALLATION.md': 'getting-started/installation.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
 
@@ -40,7 +40,6 @@ const DOC_MAP = {
   'KNOWLEDGE_MOUND.md': 'core-concepts/knowledge-mound.md',
   'ARCHITECTURE.md': 'core-concepts/architecture.md',
   'REASONING.md': 'core-concepts/reasoning.md',
-  'PROVENANCE.md': 'core-concepts/provenance.md',
 
   // =========================================================================
   // Guides
@@ -94,9 +93,7 @@ const DOC_MAP = {
   'DATABASE_SCHEMA.md': 'deployment/database-schema.md',
   'DISASTER_RECOVERY.md': 'deployment/disaster-recovery.md',
   'DR_DRILL_PROCEDURES.md': 'deployment/dr-drills.md',
-  'MONITORING.md': 'deployment/monitoring.md',
-  'OBSERVABILITY.md': 'deployment/observability.md',
-  'INFRASTRUCTURE_STATUS.md': 'deployment/infrastructure.md',
+  'OBSERVABILITY.md': 'deployment/observability-setup.md',
 
   // =========================================================================
   // Operations / Runbooks
@@ -106,15 +103,12 @@ const DOC_MAP = {
   'runbooks/RUNBOOK_DATABASE_ISSUES.md': 'operations/runbook-database.md',
   'runbooks/RUNBOOK_PROVIDER_FAILURE.md': 'operations/runbook-provider.md',
   'ALERT_RUNBOOKS.md': 'operations/alert-runbooks.md',
-  'INCIDENT_MANAGEMENT.md': 'operations/incident-management.md',
-  'SLO_DEFINITIONS.md': 'operations/slo-definitions.md',
-  'SRE.md': 'operations/sre.md',
 
   // =========================================================================
   // Enterprise
   // =========================================================================
   'GOVERNANCE.md': 'enterprise/governance.md',
-  'MULTI_TENANCY.md': 'enterprise/multi-tenancy.md',
+  'CONTROL_PLANE.md': 'enterprise/control-plane-overview.md',
   'CONTROL_PLANE_GUIDE.md': 'enterprise/control-plane.md',
   'ENTERPRISE_FEATURES.md': 'enterprise/features.md',
   'ENTERPRISE_SUPPORT.md': 'enterprise/support.md',
@@ -128,8 +122,6 @@ const DOC_MAP = {
   // =========================================================================
   'SECURITY.md': 'security/overview.md',
   'AUTH_GUIDE.md': 'security/authentication.md',
-  'OIDC.md': 'security/oidc.md',
-  'RBAC.md': 'security/rbac.md',
   'COMPLIANCE.md': 'security/compliance.md',
   'DATA_CLASSIFICATION.md': 'security/data-classification.md',
   'DATA_RESIDENCY.md': 'security/data-residency.md',
@@ -138,27 +130,23 @@ const DOC_MAP = {
   'CI_CD_SECURITY.md': 'security/ci-cd.md',
   'REMOTE_WORK_SECURITY.md': 'security/remote-work.md',
   'DSAR_WORKFLOW.md': 'security/dsar.md',
-  'THREAT_MODEL.md': 'security/threat-model.md',
-  'TRUST_SAFETY.md': 'security/trust-safety.md',
 
   // =========================================================================
   // Admin & Management
   // =========================================================================
   'ADMIN.md': 'admin/overview.md',
   'A_B_TESTING.md': 'admin/ab-testing.md',
-  'TRAINING_MODE.md': 'admin/training-mode.md',
   'NOMIC_LOOP.md': 'admin/nomic-loop.md',
-  'FEATURE_FLAGS.md': 'admin/feature-flags.md',
 
   // =========================================================================
   // Advanced Topics
   // =========================================================================
-  'RLM.md': 'advanced/rlm.md',
-  'SEMANTIC_ROUTER.md': 'advanced/semantic-router.md',
-  'KNOWLEDGE_FEDERATION.md': 'advanced/knowledge-federation.md',
+  'RLM_GUIDE.md': 'advanced/rlm.md',
+  'RLM_USER_GUIDE.md': 'advanced/rlm-user.md',
+  'RLM_DEVELOPER_GUIDE.md': 'advanced/rlm-developer.md',
+  'INTEGRATION_RLM.md': 'advanced/rlm-integration.md',
   'CROSS_POLLINATION.md': 'advanced/cross-pollination.md',
   'CROSS_FUNCTIONAL_FEATURES.md': 'advanced/cross-functional.md',
-  'INTROSPECTION.md': 'advanced/introspection.md',
   'TRICKSTER.md': 'advanced/trickster.md',
   'FORMAL_VERIFICATION.md': 'advanced/formal-verification.md',
 
@@ -181,12 +169,10 @@ const DOC_MAP = {
   // Additional Missing Files (commonly referenced)
   // =========================================================================
   // Core
-  'OBSERVABILITY.md': 'deployment/observability-setup.md',
   'TROUBLESHOOTING.md': 'operations/troubleshooting.md',
   'QUEUE.md': 'guides/queue.md',
   'RATE_LIMITING.md': 'api/rate-limits.md',
   'SECRETS_MANAGEMENT.md': 'deployment/secrets-management.md',
-  'MEMORY.md': 'core-concepts/memory.md',
   'MEMORY_ANALYTICS.md': 'core-concepts/memory-analytics.md',
 
   // API
@@ -196,25 +182,16 @@ const DOC_MAP = {
   // Operations
   'PERFORMANCE_TARGETS.md': 'operations/performance-targets.md',
   'PRODUCTION_READINESS.md': 'operations/production-readiness.md',
-  'SRE.md': 'operations/sre.md',
 
   // Advanced
-  'RLM.md': 'advanced/rlm.md',
-  'SEMANTIC_ROUTER.md': 'advanced/semantic-router.md',
-  'INTROSPECTION.md': 'advanced/introspection.md',
   'GENESIS.md': 'advanced/genesis.md',
   'EVOLUTION_PATTERNS.md': 'advanced/evolution-patterns.md',
 
   // Admin
-  'TRAINING_MODE.md': 'admin/training-mode.md',
-  'FEATURE_FLAGS.md': 'admin/feature-flags.md',
 
   // Security
-  'THREAT_MODEL.md': 'security/threat-model.md',
-  'TRUST_SAFETY.md': 'security/trust-safety.md',
 
   // Integration / Enterprise
-  'KNOWLEDGE_FEDERATION.md': 'enterprise/knowledge-federation.md',
   'POSTGRESQL_MIGRATION.md': 'deployment/postgresql-migration.md',
 
   // Algorithms
@@ -222,7 +199,6 @@ const DOC_MAP = {
   'algorithms/ELO_CALIBRATION.md': 'core-concepts/elo-calibration.md',
 
   // Documents
-  'DOCUMENTS.md': 'guides/documents.md',
   'FEATURES.md': 'guides/features.md',
   'VERTICALS.md': 'guides/verticals.md',
   'OPERATIONS.md': 'operations/overview.md',
