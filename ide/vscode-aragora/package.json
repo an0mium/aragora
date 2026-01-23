@@ -425,6 +425,51 @@
         "mac": "cmd+shift+d",
         "win": "ctrl+shift+d",
         "linux": "ctrl+shift+d"
+      },
+      {
+        "command": "aragora.runDebate",
+        "key": "cmd+alt+d",
+        "mac": "cmd+alt+d",
+        "win": "ctrl+alt+d",
+        "linux": "ctrl+alt+d"
+      },
+      {
+        "command": "aragora.improveCode",
+        "key": "cmd+shift+i",
+        "mac": "cmd+shift+i",
+        "win": "ctrl+shift+i",
+        "linux": "ctrl+shift+i",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "aragora.quickReview",
+        "key": "cmd+alt+r",
+        "mac": "cmd+alt+r",
+        "win": "ctrl+alt+r",
+        "linux": "ctrl+alt+r",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "aragora.showControlPlane",
+        "key": "cmd+alt+c",
+        "mac": "cmd+alt+c",
+        "win": "ctrl+alt+c",
+        "linux": "ctrl+alt+c"
+      },
+      {
+        "command": "aragora.triggerDeliberation",
+        "key": "cmd+alt+n",
+        "mac": "cmd+alt+n",
+        "win": "ctrl+alt+n",
+        "linux": "ctrl+alt+n"
+      },
+      {
+        "command": "aragora.addToDebate",
+        "key": "cmd+shift+b",
+        "mac": "cmd+shift+b",
+        "win": "ctrl+shift+b",
+        "linux": "ctrl+shift+b",
+        "when": "editorHasSelection"
       }
     ]
   },

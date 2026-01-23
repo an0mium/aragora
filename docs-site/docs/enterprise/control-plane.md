@@ -124,6 +124,7 @@ curl http://localhost:8080/api/control-plane/tasks/\{task_id\}
 | `TASK_TIMEOUT` | `300` | Default task timeout (seconds) |
 | `MAX_TASK_RETRIES` | `3` | Maximum task retry attempts |
 | `CLEANUP_INTERVAL` | `60` | Stale agent cleanup interval (seconds) |
+| `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | `auto` | Policy source: `compliance`, `inprocess` |
 
 ### Programmatic Configuration
 

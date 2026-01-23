@@ -381,7 +381,7 @@ class EcommerceHandler(SecureHandler):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching orders from {platform}: {result}")
                 continue
             all_orders.extend(result)
@@ -501,7 +501,7 @@ class EcommerceHandler(SecureHandler):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for platform, result in zip(_platform_credentials.keys(), results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error fetching products from {platform}: {result}")
                 continue
             all_products.extend(result)
@@ -665,7 +665,7 @@ class EcommerceHandler(SecureHandler):
             return self._error_response(400, "Could not determine quantity")
 
         # Update inventory on target platforms
-        results = {}
+        results: dict[str, dict[str, Any]] = {}
         for platform in target_platforms:
             if platform == source_platform:
                 continue

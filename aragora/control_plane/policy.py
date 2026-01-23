@@ -31,6 +31,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -499,6 +500,116 @@ class ControlPlanePolicyManager:
 
         # Sort by priority (descending)
         return sorted(policies, key=lambda p: -p.priority)
+
+    def _extract_control_plane_policy(self, policy: Any) -> Optional[ControlPlanePolicy]:
+        """Extract a control plane policy from a compliance policy record."""
+        metadata = getattr(policy, "metadata", {}) or {}
+        payload = metadata.get("control_plane_policy") or metadata.get("control_plane")
+        if not payload:
+            return None
+
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                logger.warning("policy_payload_parse_failed", policy_id=getattr(policy, "id", ""))
+                return None
+
+        if not isinstance(payload, dict):
+            return None
+
+        data = dict(payload)
+        data.setdefault("id", getattr(policy, "id", f"policy_{uuid.uuid4().hex[:12]}"))
+        data.setdefault("name", getattr(policy, "name", "Unnamed policy"))
+        data.setdefault("description", getattr(policy, "description", ""))
+        data.setdefault("enabled", getattr(policy, "enabled", True))
+        if getattr(policy, "workspace_id", None) and not data.get("workspaces"):
+            data["workspaces"] = [policy.workspace_id]
+        data.setdefault("created_by", getattr(policy, "created_by", None))
+        if getattr(policy, "updated_at", None):
+            data.setdefault("created_at", policy.updated_at)
+
+        meta = dict(data.get("metadata") or {})
+        meta.setdefault("compliance_policy_id", getattr(policy, "id", None))
+        meta.setdefault("framework_id", getattr(policy, "framework_id", None))
+        meta.setdefault("vertical_id", getattr(policy, "vertical_id", None))
+        meta.setdefault("source", "compliance_policy_store")
+        data["metadata"] = meta
+
+        try:
+            return ControlPlanePolicy.from_dict(data)
+        except Exception as e:
+            logger.warning(
+                "policy_convert_failed",
+                policy_id=getattr(policy, "id", ""),
+                error=str(e),
+            )
+            return None
+
+    def sync_from_compliance_store(
+        self,
+        store: Optional[Any] = None,
+        replace: bool = True,
+        workspace_id: Optional[str] = None,
+    ) -> int:
+        """
+        Load control plane policies from the compliance policy store.
+
+        Policies are expected to include a `control_plane_policy` payload in
+        the compliance policy metadata.
+
+        Args:
+            store: Optional compliance policy store instance
+            replace: If True, replace existing policies before loading
+            workspace_id: Optional workspace filter for policy loading
+
+        Returns:
+            Number of policies loaded
+        """
+        try:
+            if store is None:
+                from aragora.compliance.policy_store import get_policy_store
+
+                store = get_policy_store()
+        except Exception as e:
+            logger.warning("policy_store_unavailable", error=str(e))
+            return 0
+
+        if replace:
+            self._policies = {}
+
+        loaded = 0
+        offset = 0
+        limit = 200
+
+        while True:
+            try:
+                policies = store.list_policies(
+                    workspace_id=workspace_id,
+                    enabled_only=True,
+                    limit=limit,
+                    offset=offset,
+                )
+            except Exception as e:
+                logger.warning("policy_store_list_failed", error=str(e))
+                break
+
+            if not policies:
+                break
+
+            for policy in policies:
+                cp_policy = self._extract_control_plane_policy(policy)
+                if not cp_policy:
+                    continue
+                self.add_policy(cp_policy)
+                loaded += 1
+
+            if len(policies) < limit:
+                break
+            offset += len(policies)
+
+        logger.info("policy_sync_completed", loaded=loaded)
+        return loaded
 
     def evaluate_task_dispatch(
         self,

@@ -197,6 +197,9 @@ Persists batch explainability job state.
 | `ARAGORA_EXPLAINABILITY_BATCH_TTL_SECONDS` | Optional | Batch job retention (seconds) | `3600` |
 | `ARAGORA_EXPLAINABILITY_DB` | Optional | SQLite path override | - |
 
+**Production default:** Redis with TTL. Use PostgreSQL only when long-term retention
+or audit requirements apply.
+
 **Backend Selection:**
 - `memory` - Fast but not persistent; use for testing only
 - `sqlite` - Default; persists to `ARAGORA_DATA_DIR/<store>.db`
@@ -241,6 +244,12 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 | `ARAGORA_POSTGRESQL_POOL_MAX_OVERFLOW` | Optional | Postgres overflow (storage backend) | `10` |
 | `ARAGORA_POLICY_STORE_BACKEND` | Optional | Policy store backend: `sqlite`, `postgres`, `postgresql` | Uses `ARAGORA_DB_BACKEND` |
 | `ARAGORA_AUDIT_STORE_BACKEND` | Optional | Audit log backend: `sqlite`, `postgres`, `postgresql` | Uses `ARAGORA_DB_BACKEND` |
+
+## Control Plane Policy Sync
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | Optional | Policy source: `compliance`, `inprocess` | Auto (compliance in production) |
 | `ARAGORA_REQUIRE_DISTRIBUTED` | Optional | Fail closed when stores fall back to local (prod default) | `auto` |
 | `ARAGORA_STORAGE_MODE` | Optional | Force storage mode: `postgres`, `redis`, `sqlite`, `file` | `auto` |
 

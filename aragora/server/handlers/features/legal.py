@@ -30,6 +30,7 @@ from ..base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    json_response,
     success_response,
 )
 
@@ -81,9 +82,9 @@ class LegalHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[Dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
 
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
+    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)
@@ -329,12 +330,15 @@ class LegalHandler(BaseHandler):
 
             logger.info(f"[Legal] Created envelope {envelope.envelope_id} for tenant {tenant_id}")
 
-            return success_response(
+            return json_response(
                 {
-                    "envelope": envelope.to_dict(),
-                    "message": "Envelope created successfully",
+                    "success": True,
+                    "data": {
+                        "envelope": envelope.to_dict(),
+                        "message": "Envelope created successfully",
+                    },
                 },
-                201,
+                status=201,
             )
 
         except Exception as e:
@@ -608,8 +612,8 @@ class LegalHandler(BaseHandler):
             )
 
             # If we have a server context with an emitter, emit the event
-            if self.server_context and "emitter" in self.server_context:
-                emitter = self.server_context["emitter"]
+            if self.ctx and "emitter" in self.ctx:  # type: ignore[operator]
+                emitter = self.ctx["emitter"]  # type: ignore[typeddict-item]
                 emitter.emit(
                     StreamEventType.CONNECTOR_DOCUSIGN_ENVELOPE_STATUS.value,
                     event_data,

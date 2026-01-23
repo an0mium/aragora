@@ -30,6 +30,7 @@ from typing import Any, Dict, Optional
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     json_response,
 )
@@ -51,7 +52,7 @@ class AuditTrailHandler(BaseHandler):
     _trails: Dict[str, Dict[str, Any]] = {}
     _receipts: Dict[str, Dict[str, Any]] = {}
 
-    def __init__(self, server_context: Dict[str, Any]):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
         super().__init__(server_context)
 
@@ -64,7 +65,7 @@ class AuditTrailHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         method: str,
         path: str,
@@ -183,27 +184,27 @@ class AuditTrailHandler(BaseHandler):
             if format_type == "json":
                 return HandlerResult(
                     status_code=200,
+                    content_type="application/json",
                     body=audit_trail.to_json().encode(),
                     headers={
-                        "Content-Type": "application/json",
                         "Content-Disposition": f'attachment; filename="{trail_id}.json"',
                     },
                 )
             elif format_type == "csv":
                 return HandlerResult(
                     status_code=200,
+                    content_type="text/csv",
                     body=audit_trail.to_csv().encode(),
                     headers={
-                        "Content-Type": "text/csv",
                         "Content-Disposition": f'attachment; filename="{trail_id}.csv"',
                     },
                 )
             elif format_type in ("md", "markdown"):
                 return HandlerResult(
                     status_code=200,
+                    content_type="text/markdown",
                     body=audit_trail.to_markdown().encode(),
                     headers={
-                        "Content-Type": "text/markdown",
                         "Content-Disposition": f'attachment; filename="{trail_id}.md"',
                     },
                 )
@@ -216,9 +217,9 @@ class AuditTrailHandler(BaseHandler):
 
             return HandlerResult(
                 status_code=200,
+                content_type="application/json",
                 body=json.dumps(trail, indent=2).encode(),
                 headers={
-                    "Content-Type": "application/json",
                     "Content-Disposition": f'attachment; filename="{trail_id}.json"',
                 },
             )

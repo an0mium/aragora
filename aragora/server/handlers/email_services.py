@@ -790,14 +790,15 @@ class EmailServicesHandler(BaseHandler):
         """Route email services endpoint requests."""
         return None
 
-    async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:
+    async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:  # type: ignore[override]
         """Handle POST requests."""
         if path == "/api/v1/email/followups/mark":
             return await handle_mark_followup(data)
         elif path == "/api/v1/email/followups/check-replies":
-            return await handle_check_replies(data)
+            return await handle_check_replies()
         elif path == "/api/v1/email/followups/auto-detect":
-            return await handle_auto_detect_followups(data)
+            days_back = data.get("days_back", 7)
+            return await handle_auto_detect_followups(days_back=days_back)
         elif path.endswith("/resolve"):
             parts = path.split("/")
             if len(parts) >= 5:
@@ -818,7 +819,7 @@ class EmailServicesHandler(BaseHandler):
         if path == "/api/v1/email/followups/pending":
             return await handle_get_pending_followups(
                 user_id=user_id,
-                include_stats=query_params.get("include_stats", "false").lower() == "true",
+                include_resolved=query_params.get("include_resolved", "false").lower() == "true",
             )
         elif path == "/api/v1/email/snoozed":
             return await handle_get_snoozed_emails(user_id=user_id)
@@ -827,10 +828,12 @@ class EmailServicesHandler(BaseHandler):
         elif "snooze-suggestions" in path:
             parts = path.split("/")
             if len(parts) >= 5:
-                return await handle_get_snooze_suggestions(parts[-2], user_id=user_id)
+                return await handle_get_snooze_suggestions(
+                    parts[-2], data=query_params, user_id=user_id
+                )
         return error_response("Not found", status=404)
 
-    async def handle_delete(self, path: str, query_params: dict[str, Any]) -> HandlerResult:
+    async def handle_delete(self, path: str, query_params: dict[str, Any]) -> HandlerResult:  # type: ignore[override]
         """Handle DELETE requests."""
         if "/snooze" in path:
             parts = path.split("/")

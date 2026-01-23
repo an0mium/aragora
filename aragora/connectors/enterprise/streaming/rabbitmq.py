@@ -209,18 +209,18 @@ class RabbitMQConnector(EnterpriseConnector):
                 self._connection = await aio_pika.connect_robust(url)
 
             # Create channel with QoS
-            self._channel = await self._connection.channel()  # type: ignore[union-attr]
-            await self._channel.set_qos(prefetch_count=self.config.prefetch_count)  # type: ignore[union-attr]
+            self._channel = await self._connection.channel()  # type: ignore[attr-defined]
+            await self._channel.set_qos(prefetch_count=self.config.prefetch_count)  # type: ignore[attr-defined]
 
             # Declare exchange if specified
             if self.config.exchange:
-                exchange = await self._channel.declare_exchange(  # type: ignore[union-attr]
+                exchange = await self._channel.declare_exchange(  # type: ignore[attr-defined]
                     self.config.exchange,
                     type=self.config.exchange_type,
                     durable=self.config.durable,
                 )
             else:
-                exchange = self._channel.default_exchange  # type: ignore[union-attr]
+                exchange = self._channel.default_exchange  # type: ignore[attr-defined]
 
             # Build queue arguments
             queue_args = {}
@@ -232,7 +232,7 @@ class RabbitMQConnector(EnterpriseConnector):
                 queue_args["x-message-ttl"] = self.config.message_ttl  # type: ignore[assignment]
 
             # Declare queue
-            self._queue = await self._channel.declare_queue(  # type: ignore[union-attr]
+            self._queue = await self._channel.declare_queue(  # type: ignore[attr-defined]
                 self.config.queue,
                 durable=self.config.durable,
                 auto_delete=self.config.auto_delete,
@@ -242,7 +242,7 @@ class RabbitMQConnector(EnterpriseConnector):
 
             # Bind queue to exchange if specified
             if self.config.exchange:
-                await self._queue.bind(  # type: ignore[union-attr]
+                await self._queue.bind(  # type: ignore[attr-defined]
                     exchange,
                     routing_key=self.config.routing_key or self.config.queue,
                 )
@@ -298,7 +298,7 @@ class RabbitMQConnector(EnterpriseConnector):
         messages_consumed = 0
 
         try:
-            async with self._queue.iterator() as queue_iter:  # type: ignore[union-attr]
+            async with self._queue.iterator() as queue_iter:  # type: ignore[attr-defined]
                 async for message in queue_iter:
                     try:
                         # Deserialize message
@@ -444,9 +444,9 @@ class RabbitMQConnector(EnterpriseConnector):
 
             # Get exchange
             if self.config.exchange:
-                exchange = await self._channel.get_exchange(self.config.exchange)  # type: ignore[union-attr]
+                exchange = await self._channel.get_exchange(self.config.exchange)  # type: ignore[attr-defined]
             else:
-                exchange = self._channel.default_exchange  # type: ignore[union-attr]
+                exchange = self._channel.default_exchange  # type: ignore[attr-defined]
 
             # Publish
             await exchange.publish(

@@ -220,6 +220,10 @@ class SendMessageResponse:
     metadata: dict = field(default_factory=dict)
 
 
+# Alias for backwards compatibility
+MessageSendResult = SendMessageResponse
+
+
 @dataclass
 class WebhookEvent:
     """Generic webhook event from any platform."""

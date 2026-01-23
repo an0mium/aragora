@@ -110,6 +110,7 @@ At least one required for debates to function.
 | `ARAGORA_EXPLAINABILITY_STORE_BACKEND` | `auto` | Explainability batch store backend: `redis`, `postgres`, `sqlite`, `memory` |
 | `ARAGORA_EXPLAINABILITY_BATCH_TTL_SECONDS` | `3600` | Explainability batch retention (seconds) |
 | `ARAGORA_EXPLAINABILITY_DB` | - | SQLite path override for explainability batch jobs |
+| `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | `auto` | Control plane policy source: `compliance`, `inprocess` |
 
 **PostgreSQL Connection String Examples:**
 ```bash

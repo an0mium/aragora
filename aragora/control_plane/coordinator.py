@@ -311,6 +311,7 @@ class ControlPlaneCoordinator:
             await self._registry.connect()
             await self._scheduler.connect()
             await self._health_monitor.start()
+            self._sync_policies_from_store()
 
             self._connected = True
             latency_ms = (time.monotonic() - start) * 1000
@@ -414,6 +415,29 @@ class ControlPlaneCoordinator:
                 )
         except Exception as e:
             logger.debug("policy_notification_failed", error=str(e))
+
+    def _should_sync_policies_from_store(self) -> bool:
+        """Determine whether to sync policies from the compliance store."""
+        source = os.environ.get("ARAGORA_CONTROL_PLANE_POLICY_SOURCE", "").lower()
+        if source in ("inprocess", "local", "memory"):
+            return False
+        if source in ("compliance", "store", "policy_store"):
+            return True
+
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        return env in ("production", "prod", "staging", "stage")
+
+    def _sync_policies_from_store(self) -> None:
+        """Sync policies from compliance store if configured."""
+        if not self._policy_manager or not HAS_POLICY:
+            return
+        if not self._should_sync_policies_from_store():
+            return
+        try:
+            loaded = self._policy_manager.sync_from_compliance_store()
+            logger.info("policy_store_sync_complete", loaded=loaded)
+        except Exception as e:
+            logger.warning("policy_store_sync_failed", error=str(e))
 
     # =========================================================================
     # Agent Operations

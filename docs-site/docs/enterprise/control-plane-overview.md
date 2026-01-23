@@ -341,6 +341,7 @@ python scripts/demo_control_plane.py --simulate-load
 | `CONTROL_PLANE_HEARTBEAT_INTERVAL` | `30` | Heartbeat interval in seconds |
 | `CONTROL_PLANE_AGENT_TIMEOUT` | `90` | Agent timeout in seconds |
 | `CONTROL_PLANE_MAX_RETRIES` | `3` | Maximum task retries |
+| `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | `auto` | Policy source: `compliance`, `inprocess` |
 
 ### YAML Configuration
 

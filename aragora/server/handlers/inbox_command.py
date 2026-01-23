@@ -34,6 +34,7 @@ from aragora.services import (
     SenderHistoryService,
 )
 from aragora.cache import HybridTTLCache, register_cache
+from aragora.utils.redis_cache import RedisTTLCache
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -53,7 +54,7 @@ class IterableTTLCache(Generic[T]):
     """
 
     def __init__(self, name: str, maxsize: int, ttl_seconds: float) -> None:
-        self._cache: HybridTTLCache[T] = HybridTTLCache(
+        self._cache: RedisTTLCache[T] = HybridTTLCache(
             prefix=name,
             maxsize=maxsize,
             ttl_seconds=ttl_seconds,
@@ -600,7 +601,7 @@ class InboxCommandHandler:
 
         # Populate cache for bulk actions to work in demo mode
         for email in demo_emails:
-            _email_cache[email["id"]] = email
+            _email_cache[str(email["id"])] = email
 
         # Apply filters
         if priority_filter:
@@ -948,9 +949,12 @@ class InboxCommandHandler:
             sender = email.get("from", "unknown")
             sender_counts[sender] = sender_counts.get(sender, 0) + 1
 
+        sender_list: List[Dict[str, Any]] = [
+            {"name": k, "count": v} for k, v in sender_counts.items()
+        ]
         top_senders = sorted(
-            [{"name": k, "count": v} for k, v in sender_counts.items()],
-            key=lambda x: int(x["count"]),  # type: ignore[arg-type]
+            sender_list,
+            key=lambda x: x["count"],
             reverse=True,
         )[:5]
 

@@ -123,6 +123,19 @@ Distributed leader election for multi-node deployments.
 
 Uses Redis-based locking for leader election with automatic failover.
 
+### 4.1 Policy Sync
+
+In production, control plane policies are loaded from the compliance policy
+store. Policies should include a `control_plane_policy` payload in their
+metadata to be applied at dispatch time.
+
+Override behavior for testing with:
+
+```bash
+# Force in-process policies only (skip store sync)
+export ARAGORA_CONTROL_PLANE_POLICY_SOURCE=inprocess
+```
+
 ### 5. NotificationDispatcher
 
 Resilient notification delivery for control plane events and outputs.

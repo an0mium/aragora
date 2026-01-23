@@ -102,23 +102,23 @@ class RedisBatchJobStore(BatchJobStore):
         key = self._key(batch_id)
         data = self._redis.get(key)
         if data:
-            return BatchJob.from_dict(json.loads(data))
+            return BatchJob.from_dict(json.loads(data))  # type: ignore[arg-type]
         return None
 
     async def delete_job(self, batch_id: str) -> bool:
         key = self._key(batch_id)
-        return self._redis.delete(key) > 0
+        return self._redis.delete(key) > 0  # type: ignore[operator]
 
     async def list_jobs(self, status: Optional[str] = None, limit: int = 100) -> List[BatchJob]:
         # Scan for keys and filter
-        jobs = []
-        cursor = 0
+        jobs: List[BatchJob] = []
+        cursor: int = 0
         while len(jobs) < limit:
-            cursor, keys = self._redis.scan(cursor, match=f"{self._prefix}*", count=100)
+            cursor, keys = self._redis.scan(cursor, match=f"{self._prefix}*", count=100)  # type: ignore[misc]
             for key in keys:
                 data = self._redis.get(key)
                 if data:
-                    job = BatchJob.from_dict(json.loads(data))
+                    job = BatchJob.from_dict(json.loads(data))  # type: ignore[arg-type]
                     if status is None or job.status == status:
                         jobs.append(job)
                         if len(jobs) >= limit:
@@ -316,7 +316,7 @@ class DatabaseBatchJobStore(BatchJobStore):
         job = self._row_to_job(row)
         expires_at = None
         if hasattr(row, "keys"):
-            expires_at = row["expires_at"]
+            expires_at = row["expires_at"]  # type: ignore[call-overload]
         else:
             expires_at = row[-1]
 
@@ -369,12 +369,12 @@ class DatabaseBatchJobStore(BatchJobStore):
 
         jobs: List[BatchJob] = []
         for row in rows:
-            expires_at = row["expires_at"] if hasattr(row, "keys") else row[-1]
+            expires_at = row["expires_at"] if hasattr(row, "keys") else row[-1]  # type: ignore[call-overload]
             if self._is_expired(expires_at):
                 try:
                     self._backend.execute_write(
                         f"DELETE FROM {self._TABLE_NAME} WHERE batch_id = ?",
-                        (row["batch_id"] if hasattr(row, "keys") else row[0],),
+                        (row["batch_id"] if hasattr(row, "keys") else row[0],),  # type: ignore[call-overload]
                     )
                 except Exception:
                     pass
@@ -504,20 +504,6 @@ def get_batch_job_store() -> BatchJobStore:
                 return _batch_store
     except Exception as e:
         logger.debug("redis_batch_store_unavailable", extra={"error": str(e)})
-
-    database_url = (
-        os.environ.get("DATABASE_URL")
-        or os.environ.get("ARAGORA_DATABASE_URL")
-        or os.environ.get("ARAGORA_POSTGRES_DSN")
-    )
-    db_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-    if database_url and db_backend in ("postgres", "postgresql"):
-        try:
-            _batch_store = PostgresBatchJobStore(database_url, ttl_seconds=ttl_seconds)
-            logger.info("batch_job_store_initialized", extra={"backend": "postgresql"})
-            return _batch_store
-        except Exception as e:
-            logger.warning("postgres_batch_store_unavailable", extra={"error": str(e)})
 
     # Fallback to SQLite, then memory
     try:

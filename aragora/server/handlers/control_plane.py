@@ -6,6 +6,7 @@ Provides REST API endpoints for the enterprise control plane:
 - Task submission and status
 - Health monitoring
 - Control plane statistics and metrics
+- Policy violations management
 
 Endpoints:
     - GET  /api/control-plane/agents - List registered agents (also /api/v1/control-plane/agents)
@@ -31,6 +32,11 @@ Endpoints:
     - GET  /api/control-plane/stats - Control plane statistics
     - GET  /api/control-plane/queue - Job queue (pending/running tasks)
     - GET  /api/control-plane/metrics - Dashboard metrics
+
+    - GET  /api/control-plane/policies/violations - List policy violations
+    - GET  /api/control-plane/policies/violations/stats - Policy violation statistics
+    - GET  /api/control-plane/policies/violations/:id - Get violation details
+    - PATCH /api/control-plane/policies/violations/:id - Update violation status
 """
 
 from __future__ import annotations
@@ -229,6 +235,19 @@ class ControlPlaneHandler(BaseHandler):
         # /api/control-plane/audit/verify
         if path == "/api/control-plane/audit/verify":
             return self._handle_verify_audit_integrity(query_params, handler)
+
+        # /api/control-plane/policies/violations/stats
+        if path == "/api/control-plane/policies/violations/stats":
+            return self._handle_get_policy_violation_stats(handler)
+
+        # /api/control-plane/policies/violations
+        if path == "/api/control-plane/policies/violations":
+            return self._handle_list_policy_violations(query_params, handler)
+
+        # /api/control-plane/policies/violations/:id
+        if path.startswith("/api/control-plane/policies/violations/") and path.count("/") == 5:
+            violation_id = path.split("/")[-1]
+            return self._handle_get_policy_violation(violation_id, handler)
 
         return None
 

@@ -132,6 +132,11 @@ AnalyticsPlatformsHandler: HandlerType = None
 CRMHandler: HandlerType = None
 SupportHandler: HandlerType = None
 EcommerceHandler: HandlerType = None
+ReconciliationHandler: HandlerType = None
+UnifiedInboxHandler: HandlerType = None
+CodebaseAuditHandler: HandlerType = None
+LegalHandler: HandlerType = None
+DevOpsHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -400,6 +405,21 @@ try:
     from aragora.server.handlers.features import (
         EcommerceHandler as _EcommerceHandler,
     )
+    from aragora.server.handlers.features import (
+        ReconciliationHandler as _ReconciliationHandler,
+    )
+    from aragora.server.handlers.features import (
+        UnifiedInboxHandler as _UnifiedInboxHandler,
+    )
+    from aragora.server.handlers.features import (
+        CodebaseAuditHandler as _CodebaseAuditHandler,
+    )
+    from aragora.server.handlers.features import (
+        LegalHandler as _LegalHandler,
+    )
+    from aragora.server.handlers.features import (
+        DevOpsHandler as _DevOpsHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -489,6 +509,11 @@ try:
     CRMHandler = _CRMHandler
     SupportHandler = _SupportHandler
     EcommerceHandler = _EcommerceHandler
+    ReconciliationHandler = _ReconciliationHandler
+    UnifiedInboxHandler = _UnifiedInboxHandler
+    CodebaseAuditHandler = _CodebaseAuditHandler
+    LegalHandler = _LegalHandler
+    DevOpsHandler = _DevOpsHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -591,6 +616,11 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_crm_handler", CRMHandler),
     ("_support_handler", SupportHandler),
     ("_ecommerce_handler", EcommerceHandler),
+    ("_reconciliation_handler", ReconciliationHandler),
+    ("_unified_inbox_handler", UnifiedInboxHandler),
+    ("_codebase_audit_handler", CodebaseAuditHandler),
+    ("_legal_handler", LegalHandler),
+    ("_devops_handler", DevOpsHandler),
 ]
 
 
