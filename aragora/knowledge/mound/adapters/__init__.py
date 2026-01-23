@@ -65,6 +65,12 @@ from .control_plane_adapter import (
     AgentCapabilityRecord,
     CrossWorkspaceInsight,
 )
+from .receipt_adapter import (
+    ReceiptAdapter,
+    ReceiptAdapterError,
+    ReceiptNotFoundError,
+    ReceiptIngestionResult,
+)
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -110,6 +116,11 @@ __all__ = [
     "TaskOutcome",
     "AgentCapabilityRecord",
     "CrossWorkspaceInsight",
+    # Receipt adapter (Decision → Knowledge Mound)
+    "ReceiptAdapter",
+    "ReceiptAdapterError",
+    "ReceiptNotFoundError",
+    "ReceiptIngestionResult",
     # Factory for auto-creating adapters
     "AdapterFactory",
     "AdapterSpec",
