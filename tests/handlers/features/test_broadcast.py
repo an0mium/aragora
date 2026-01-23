@@ -1,8 +1,8 @@
 """Tests for broadcast generation handler.
 
 Tests the broadcast API endpoints including:
-- POST /api/debates/{id}/broadcast - Generate podcast audio from debate trace
-- POST /api/debates/{id}/broadcast/full - Run full broadcast pipeline
+- POST /api/v1/debates/{id}/broadcast - Generate podcast audio from debate trace
+- POST /api/v1/debates/{id}/broadcast/full - Run full broadcast pipeline
 - GET /api/podcast/feed.xml - Get RSS podcast feed
 """
 
@@ -85,14 +85,14 @@ class TestBroadcastHandlerInit:
 
     def test_can_handle_broadcast_path(self, broadcast_handler):
         """Test can_handle recognizes broadcast paths."""
-        assert broadcast_handler.can_handle("/api/debates/abc123/broadcast")
-        assert broadcast_handler.can_handle("/api/debates/abc123/broadcast/full")
+        assert broadcast_handler.can_handle("/api/v1/debates/abc123/broadcast")
+        assert broadcast_handler.can_handle("/api/v1/debates/abc123/broadcast/full")
         # Note: /api/podcast/feed.xml is handled by AudioHandler, not BroadcastHandler
 
     def test_cannot_handle_other_paths(self, broadcast_handler):
         """Test can_handle rejects non-broadcast paths."""
         assert not broadcast_handler.can_handle("/api/debates")
-        assert not broadcast_handler.can_handle("/api/debates/abc123")
+        assert not broadcast_handler.can_handle("/api/v1/debates/abc123")
         assert not broadcast_handler.can_handle("/api/users")
         assert not broadcast_handler.can_handle("/api/podcast")
 
@@ -247,15 +247,17 @@ class TestPathExtraction:
     """Tests for debate ID extraction from paths."""
 
     def test_extracts_debate_id_from_broadcast_path(self, broadcast_handler):
-        """Extracts debate ID from /api/debates/{id}/broadcast."""
-        result = broadcast_handler.handle_post("/api/debates/test-123/broadcast", {}, MockHandler())
+        """Extracts debate ID from /api/v1/debates/{id}/broadcast."""
+        result = broadcast_handler.handle_post(
+            "/api/v1/debates/test-123/broadcast", {}, MockHandler()
+        )
         # Will fail due to missing modules but ID extraction should work
         assert result is not None
 
     def test_extracts_debate_id_from_full_path(self, broadcast_handler):
-        """Extracts debate ID from /api/debates/{id}/broadcast/full."""
+        """Extracts debate ID from /api/v1/debates/{id}/broadcast/full."""
         result = broadcast_handler.handle_post(
-            "/api/debates/abc-xyz/broadcast/full", {}, MockHandler()
+            "/api/v1/debates/abc-xyz/broadcast/full", {}, MockHandler()
         )
         # Will fail due to missing modules but ID extraction should work
         assert result is not None
@@ -264,7 +266,7 @@ class TestPathExtraction:
         """Rejects debate IDs with invalid characters."""
         # Path traversal attempt
         result = broadcast_handler.handle_post(
-            "/api/debates/../../../etc/passwd/broadcast", {}, MockHandler()
+            "/api/v1/debates/../../../etc/passwd/broadcast", {}, MockHandler()
         )
         # Should either reject or return error
         assert result is not None
@@ -283,7 +285,7 @@ class TestHandleMethods:
 
     def test_handle_returns_none_for_non_rss(self, broadcast_handler):
         """Handle returns None for non-RSS GET requests."""
-        result = broadcast_handler.handle("/api/debates/test/broadcast", {}, None)
+        result = broadcast_handler.handle("/api/v1/debates/test/broadcast", {}, None)
         assert result is None
 
     def test_handle_post_routes_to_full_pipeline(self, broadcast_handler):
@@ -291,7 +293,9 @@ class TestHandleMethods:
         with patch.object(
             broadcast_handler, "_run_full_pipeline", return_value=MagicMock(status_code=200)
         ) as mock_pipeline:
-            broadcast_handler.handle_post("/api/debates/test-123/broadcast/full", {}, MockHandler())
+            broadcast_handler.handle_post(
+                "/api/v1/debates/test-123/broadcast/full", {}, MockHandler()
+            )
             mock_pipeline.assert_called_once()
 
     def test_handle_post_routes_to_basic_broadcast(self, broadcast_handler):
@@ -299,7 +303,7 @@ class TestHandleMethods:
         with patch.object(
             broadcast_handler, "_generate_broadcast", return_value=MagicMock(status_code=200)
         ) as mock_gen:
-            broadcast_handler.handle_post("/api/debates/test-123/broadcast", {}, MockHandler())
+            broadcast_handler.handle_post("/api/v1/debates/test-123/broadcast", {}, MockHandler())
             mock_gen.assert_called_once()
 
     def test_handle_post_returns_none_for_unmatched(self, broadcast_handler):
