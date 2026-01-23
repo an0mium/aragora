@@ -18,7 +18,9 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 | Deploy to production | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Troubleshoot issues | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | Prioritize inbox | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
+| Manage shared inbox | [SHARED_INBOX.md](SHARED_INBOX.md) |
 | Analyze codebase health | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
+| Track costs | [COST_VISIBILITY.md](COST_VISIBILITY.md) |
 | Automate PR reviews | [GITHUB_PR_REVIEW.md](GITHUB_PR_REVIEW.md) |
 | Generate tests | [CODING_ASSISTANCE.md](CODING_ASSISTANCE.md) |
 
@@ -48,6 +50,12 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 - [CHANNELS.md](CHANNELS.md)
 - [BOT_INTEGRATIONS.md](BOT_INTEGRATIONS.md)
 - [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md)
+- [SHARED_INBOX.md](SHARED_INBOX.md)
+
+### Costs & Billing
+
+- [BILLING.md](BILLING.md)
+- [COST_VISIBILITY.md](COST_VISIBILITY.md)
 
 ### Analysis & Code Health
 
@@ -122,7 +130,7 @@ replacement docs. See [deprecated/README.md](deprecated/README.md).
 
 ## Inventory & Maintenance
 
-- Markdown files under `docs/`: 258 (includes deprecated)
+- Markdown files under `docs/`: 260 (includes deprecated)
 - Sync to docs-site: `node docs-site/scripts/sync-docs.js`
 - API endpoint list: `python scripts/generate_api_docs.py --output docs/API_ENDPOINTS.md`
 - OpenAPI export: `python scripts/export_openapi.py --output-dir docs/api`

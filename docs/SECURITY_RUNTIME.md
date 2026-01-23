@@ -90,6 +90,19 @@ ARAGORA_AUDIT_ENABLED=true
 ARAGORA_AUDIT_RETENTION_DAYS=90
 ```
 
+## Security Event Debates
+
+Critical findings can trigger a remediation debate via the security events
+emitter. This is managed by `aragora/events/security_events.py` and used by
+codebase security scans.
+
+Defaults:
+- Auto-debate threshold: critical severity
+- Debate timeout: 300 seconds
+- Consensus: majority with convergence detection
+
+Disable auto-debate by constructing `SecurityEventEmitter(enable_auto_debate=False)`.
+
 ## Secret Management
 
 ### API Key Rotation

@@ -17,6 +17,7 @@ integration map and points to the detailed setup docs.
 | Automation platforms | n8n/Zapier style workflows | `docs/AUTOMATION_INTEGRATIONS.md` |
 | Webhooks | Event notifications and receipts | This doc (see below) |
 | Developer workflows | PR review + code feedback | `docs/GITHUB_PR_REVIEW.md` |
+| Inbox ops | Shared inbox + routing rules | `docs/SHARED_INBOX.md` |
 
 ## Available Integrations (Modules)
 
@@ -35,6 +36,7 @@ integration map and points to the detailed setup docs.
 | n8n | `aragora/integrations/n8n.py` | Workflow automation |
 | Twilio Voice | `aragora/integrations/twilio_voice.py` | Voice calls |
 | GitHub PR review API | `aragora/server/handlers/github/pr_review.py` | Automated pull request review |
+| Shared inbox APIs | `aragora/server/handlers/shared_inbox.py` | Collaborative inbox workflows |
 
 ## Webhook Notifications (Slack + Discord)
 

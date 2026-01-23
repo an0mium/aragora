@@ -66,6 +66,20 @@ Codebase security and metrics endpoints live under `/api/v1/codebase` and
 | GET | `/api/v1/codebase/\{repo\}/duplicates` | Code duplication summary |
 | GET | `/api/v1/codebase/\{repo\}/metrics/file/\{file_path\}` | File-level metrics |
 
+Additional codebase analysis endpoints:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/codebase/analyze-dependencies` | Analyze dependencies |
+| POST | `/api/v1/codebase/scan-vulnerabilities` | Scan repo for CVEs |
+| POST | `/api/v1/codebase/check-licenses` | License compatibility |
+| POST | `/api/v1/codebase/sbom` | Generate SBOM |
+| POST | `/api/v1/codebase/\{repo\}/scan/secrets` | Trigger secrets scan |
+| GET | `/api/v1/codebase/\{repo\}/scan/secrets/latest` | Latest secrets scan |
+| GET | `/api/v1/codebase/\{repo\}/scan/secrets/\{scan_id\}` | Secrets scan by ID |
+| GET | `/api/v1/codebase/\{repo\}/secrets` | Secrets list |
+| GET | `/api/v1/codebase/\{repo\}/scans/secrets` | Secrets scan history |
+
 ## GitHub PR Review API
 
 GitHub pull request review endpoints live under `/api/v1/github/pr`. For full
@@ -80,6 +94,73 @@ routes in the unified server.
 | GET | `/api/v1/github/pr/review/\{review_id\}` | Get review status/result |
 | GET | `/api/v1/github/pr/\{pr_number\}/reviews` | List reviews for a PR |
 | POST | `/api/v1/github/pr/\{pr_number\}/review` | Submit review to GitHub |
+
+## Shared Inbox API
+
+Shared inbox endpoints live under `/api/v1/inbox`. For workflow details, see
+`docs/SHARED_INBOX.md`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/inbox/shared` | Create shared inbox |
+| GET | `/api/v1/inbox/shared` | List shared inboxes |
+| GET | `/api/v1/inbox/shared/\{id\}` | Get inbox details |
+| GET | `/api/v1/inbox/shared/\{id\}/messages` | List inbox messages |
+| POST | `/api/v1/inbox/shared/\{id\}/messages/\{msg_id\}/assign` | Assign message |
+| POST | `/api/v1/inbox/shared/\{id\}/messages/\{msg_id\}/status` | Update status |
+| POST | `/api/v1/inbox/shared/\{id\}/messages/\{msg_id\}/tag` | Add tag |
+| POST | `/api/v1/inbox/routing/rules` | Create routing rule |
+| GET | `/api/v1/inbox/routing/rules` | List routing rules |
+| PATCH | `/api/v1/inbox/routing/rules/\{id\}` | Update routing rule |
+| DELETE | `/api/v1/inbox/routing/rules/\{id\}` | Delete routing rule |
+| POST | `/api/v1/inbox/routing/rules/\{id\}/test` | Test routing rule |
+
+## Inbox Command Center API
+
+Command center endpoints power the inbox UI quick actions and daily digest.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/inbox/command` | Fetch prioritized inbox |
+| POST | `/api/inbox/actions` | Execute quick action |
+| POST | `/api/inbox/bulk-actions` | Execute bulk action |
+| POST | `/api/inbox/reprioritize` | Trigger AI re-prioritization |
+| GET | `/api/inbox/sender-profile` | Sender profile |
+| GET | `/api/inbox/daily-digest` | Daily digest |
+| GET | `/api/v1/inbox/daily-digest` | Daily digest (v1 alias) |
+| GET | `/api/email/daily-digest` | Daily digest (email alias) |
+
+## Email Services API
+
+Follow-up tracking, snooze, and category APIs live under `/api/v1/email`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/email/followups/mark` | Mark follow-up |
+| GET | `/api/v1/email/followups/pending` | List pending follow-ups |
+| POST | `/api/v1/email/followups/\{id\}/resolve` | Resolve follow-up |
+| POST | `/api/v1/email/followups/check-replies` | Check for replies |
+| POST | `/api/v1/email/followups/auto-detect` | Auto-detect follow-ups |
+| GET | `/api/v1/email/\{id\}/snooze-suggestions` | Snooze suggestions |
+| POST | `/api/v1/email/\{id\}/snooze` | Apply snooze |
+| DELETE | `/api/v1/email/\{id\}/snooze` | Cancel snooze |
+| GET | `/api/v1/email/snoozed` | List snoozed emails |
+| GET | `/api/v1/email/categories` | List categories |
+| POST | `/api/v1/email/categories/learn` | Category feedback |
+
+## Cost Visibility API
+
+Cost endpoints live under `/api/costs`. See `docs/COST_VISIBILITY.md` for
+dashboard context.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/costs` | Cost dashboard summary |
+| GET | `/api/costs/breakdown` | Cost breakdown |
+| GET | `/api/costs/timeline` | Usage timeline |
+| GET | `/api/costs/alerts` | Budget alerts |
+| POST | `/api/costs/budget` | Set budget limits |
+| POST | `/api/costs/alerts/\{alert_id\}/dismiss` | Dismiss alert |
 
 ### New Endpoints (2026-01-22)
 
@@ -96,6 +177,10 @@ routes in the unified server.
 | `GET /api/v1/github/pr/review/:review_id` | Get review status | NEW |
 | `GET /api/v1/github/pr/:pr_number/reviews` | List PR reviews | NEW |
 | `POST /api/v1/github/pr/:pr_number/review` | Submit review to GitHub | NEW |
+| `POST /api/v1/inbox/shared` | Create shared inbox | NEW |
+| `GET /api/v1/inbox/shared` | List shared inboxes | NEW |
+| `POST /api/v1/inbox/routing/rules` | Create routing rule | NEW |
+| `GET /api/costs` | Cost dashboard summary | NEW |
 
 ### New Endpoints (2026-01-09)
 

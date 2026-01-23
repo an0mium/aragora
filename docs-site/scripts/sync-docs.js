@@ -61,6 +61,8 @@ const DOC_MAP = {
   'GAUNTLET.md': 'guides/gauntlet.md',
   'AUTOMATION_INTEGRATIONS.md': 'guides/automation.md',
   'EMAIL_PRIORITIZATION.md': 'guides/email-prioritization.md',
+  'SHARED_INBOX.md': 'guides/shared-inbox.md',
+  'COST_VISIBILITY.md': 'guides/cost-visibility.md',
   'CODING_ASSISTANCE.md': 'guides/coding-assistance.md',
   'BROADCAST.md': 'guides/broadcast.md',
   'PULSE.md': 'guides/pulse.md',

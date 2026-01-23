@@ -16,6 +16,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Composite](#composite)
 - [Consensus](#consensus)
 - [Control Plane](#control-plane)
+- [Costs](#costs)
 - [Critique](#critique)
 - [Cross Pollination](#cross-pollination)
 - [Decision](#decision)
@@ -31,7 +32,9 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Gallery](#gallery)
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
+- [Inbox Command](#inbox-command)
 - [Introspection](#introspection)
+- [KnowledgeChat](#knowledgechat)
 - [Laboratory](#laboratory)
 - [Metrics](#metrics)
 - [Ml](#ml)
@@ -64,6 +67,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Metrics](#metrics)
 - [Quick Scan](#quick-scan)
 - [Security](#security)
+- [Audit Bridge](#audit-bridge)
 - [Pr Review](#pr-review)
 
 ---
@@ -405,6 +409,32 @@ Unregister agent (also /api/v1/control-plane/agents/:id)
 ### `POST` `/api/control-plane/agents/:id/heartbeat`
 
 Send heartbeat
+
+---
+
+## Costs
+
+Cost Visibility API Handler.
+
+### `GET` `/api/costs`
+
+Get cost dashboard data
+
+### `GET` `/api/costs/breakdown`
+
+Get detailed cost breakdown
+
+### `GET` `/api/costs/timeline`
+
+Get usage timeline
+
+### `GET` `/api/costs/alerts`
+
+Get budget alerts
+
+### `POST` `/api/costs/budget`
+
+Set budget limits
 
 ---
 
@@ -886,6 +916,36 @@ Get single genome details
 
 ---
 
+## Inbox Command
+
+Inbox Command Center API Handler.
+
+### `GET` `/api/inbox/command`
+
+Fetch prioritized inbox
+
+### `POST` `/api/inbox/actions`
+
+Execute quick action
+
+### `POST` `/api/inbox/bulk-actions`
+
+Execute bulk action
+
+### `GET` `/api/inbox/sender-profile`
+
+Get sender profile
+
+### `GET` `/api/inbox/daily-digest`
+
+Get daily digest
+
+### `POST` `/api/inbox/reprioritize`
+
+Trigger AI re-prioritization
+
+---
+
 ## Introspection
 
 Introspection endpoint handlers.
@@ -905,6 +965,24 @@ List available agents
 ### `GET` `/api/introspection/agents/{name}`
 
 Get introspection for specific agent
+
+---
+
+## KnowledgeChat
+
+HTTP handler for Knowledge + Chat bridge endpoints.
+
+### `GET` `/api/v1/chat/knowledge/search`
+
+GET /api/v1/chat/knowledge/search
+
+### `GET` `/api/v1/chat/knowledge/inject`
+
+GET /api/v1/chat/knowledge/inject
+
+### `GET` `/api/v1/chat/knowledge/store`
+
+GET /api/v1/chat/knowledge/store
 
 ---
 
@@ -1897,6 +1975,32 @@ List all vulnerabilities
 ### `GET` `/api/v1/cve/{cve_id}`
 
 Get CVE details
+
+---
+
+## Audit Bridge
+
+Audit-to-GitHub Bridge Handler.
+
+### `POST` `/api/v1/github/audit/issues`
+
+Create issues from findings
+
+### `POST` `/api/v1/github/audit/issues/bulk`
+
+Bulk create issues
+
+### `POST` `/api/v1/github/audit/pr`
+
+Create PR with fixes
+
+### `GET` `/api/v1/github/audit/sync/{session_id}`
+
+Get sync status
+
+### `POST` `/api/v1/github/audit/sync/{session_id}`
+
+Sync session to GitHub
 
 ---
 

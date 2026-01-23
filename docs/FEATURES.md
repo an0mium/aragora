@@ -2093,6 +2093,40 @@ analyzer = CodeMetricsAnalyzer()
 report = analyzer.analyze_repository("/path/to/repo", scan_id="metrics_001")
 ```
 
+### Dependency Intelligence
+**File:** `aragora/server/handlers/dependency_analysis.py`
+
+API endpoints for dependency graph analysis, SBOM export, CVE scanning, and
+license compatibility checks.
+
+```python
+import httpx
+
+async def run_dependency_analysis():
+    async with httpx.AsyncClient(base_url="http://localhost:8080") as client:
+        await client.post("/api/v1/codebase/analyze-dependencies", json={
+            "repo_path": "/path/to/repo",
+            "include_dev": True,
+        })
+```
+
+### SecretsScanner
+**File:** `aragora/analysis/codebase/secrets_scanner.py`
+
+Detects hardcoded secrets and credentials during codebase scans.
+
+### Security Event Debates
+**File:** `aragora/events/security_events.py`
+
+Emits security events from scans and can auto-trigger remediation debates for
+critical findings.
+
+### Code Intelligence & Call Graph
+**File:** `aragora/analysis/code_intelligence.py`, `aragora/analysis/call_graph.py`
+
+Tree-sitter based symbol extraction and call graph construction for deeper code
+understanding.
+
 ### SenderHistoryService
 **File:** `aragora/services/sender_history.py`
 
@@ -2129,6 +2163,18 @@ from aragora.services.snooze_recommender import SnoozeRecommender
 
 recommender = SnoozeRecommender()
 ```
+
+### Shared Inbox & Routing Rules
+**File:** `aragora/server/handlers/shared_inbox.py`
+
+Collaborative inbox management with message assignment, status tracking, and
+routing rules.
+
+### Cost Visibility Dashboard
+**File:** `aragora/server/handlers/costs.py`
+
+Spend tracking, budget alerts, and provider/feature breakdowns with a dedicated
+UI dashboard under `/costs`.
 
 ---
 

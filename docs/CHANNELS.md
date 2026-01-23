@@ -60,6 +60,7 @@ Aragora is the control plane for multi-agent deliberation across organizational 
 | **WhatsApp** | `/api/bots/whatsapp/webhook` | Cloud API integration |
 | **Google Chat** | `/api/bots/google-chat/webhook` | Space messages |
 | **Email (Gmail)** | `/api/v1/email/inbox` | Gmail ingestion + prioritization |
+| **Shared Inbox** | `/api/v1/inbox/shared` | Collaborative inbox triage |
 
 ### Configuration
 

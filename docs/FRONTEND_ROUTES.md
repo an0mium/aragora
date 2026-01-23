@@ -45,6 +45,8 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [PULSE](./PULSE.md)
 - `/repository` - Repository indexing and knowledge graph explorer.
   - Related docs: [KNOWLEDGE_MOUND](./KNOWLEDGE_MOUND.md), [ARCHITECTURE](./ARCHITECTURE.md)
+- `/security-scan` - Codebase security scans and dependency intelligence.
+  - Related docs: [CODEBASE_ANALYSIS](./CODEBASE_ANALYSIS.md)
 - `/network` - Agent relationship network visualization.
   - Related docs: [FEATURES](./FEATURES.md), [AGENT_SELECTION](./AGENT_SELECTION.md)
 - `/tournaments` - Agent tournaments and rankings dashboard.
@@ -83,6 +85,8 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [ENVIRONMENT](./ENVIRONMENT.md), [INTEGRATIONS](./INTEGRATIONS.md)
 - `/inbox` - AI smart inbox with prioritization and Gmail sync.
   - Related docs: [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md)
+- `/shared-inbox` - Shared inbox dashboard for team triage and routing rules.
+  - Related docs: [SHARED_INBOX](./SHARED_INBOX.md), [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md)
 - `/organization` - Organization profile settings (name, tier, limits).
   - Related docs: [BILLING](./BILLING.md), [SSO_SETUP](./SSO_SETUP.md)
 - `/organization/members` - Member invites, roles, and removal.
@@ -93,6 +97,8 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [BILLING](./BILLING.md), [STRIPE_SETUP](./STRIPE_SETUP.md)
 - `/billing/success` - Post-checkout confirmation.
   - Related docs: [BILLING](./BILLING.md)
+- `/costs` - Cost visibility dashboard (usage, budgets, alerts).
+  - Related docs: [COST_VISIBILITY](./COST_VISIBILITY.md), [BILLING](./BILLING.md)
 - `/api-explorer` - Interactive API explorer for live endpoint testing.
   - Related docs: [API_REFERENCE](./API_REFERENCE.md), [API_ENDPOINTS](./API_ENDPOINTS.md)
 - `/admin` - Admin console for system health, rate limits, and diagnostics.

@@ -18,6 +18,12 @@ The billing module consists of four components:
 | `stripe_client.py` | Stripe API integration |
 | `usage.py` | Usage tracking and cost calculation |
 
+## Cost Visibility
+
+Aragora exposes a cost visibility API and dashboard for tracking spend and
+budgets. See [COST_VISIBILITY.md](../guides/cost-visibility) for endpoints and UI
+details.
+
 ## Quick Start
 
 ### Enable Billing

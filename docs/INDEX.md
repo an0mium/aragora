@@ -19,9 +19,11 @@ Use this index for fast navigation. For a fuller map, see
 | Production deployment | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | Email prioritization | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
+| Shared inbox | [SHARED_INBOX.md](SHARED_INBOX.md) |
 | Codebase analysis | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
 | GitHub PR review API | [GITHUB_PR_REVIEW.md](GITHUB_PR_REVIEW.md) |
 | Coding assistance | [CODING_ASSISTANCE.md](CODING_ASSISTANCE.md) |
+| Cost visibility | [COST_VISIBILITY.md](COST_VISIBILITY.md) |
 
 ## Core Concepts
 
@@ -44,6 +46,7 @@ Use this index for fast navigation. For a fuller map, see
 - Channels overview: [CHANNELS.md](CHANNELS.md)
 - Bot integrations: [BOT_INTEGRATIONS.md](BOT_INTEGRATIONS.md)
 - Email prioritization: [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md)
+- Shared inbox: [SHARED_INBOX.md](SHARED_INBOX.md)
 
 ## Analysis & Code Health
 
@@ -67,6 +70,11 @@ Use this index for fast navigation. For a fuller map, see
 - Authentication guide: [AUTH_GUIDE.md](AUTH_GUIDE.md)
 - SSO setup: [SSO_SETUP.md](SSO_SETUP.md)
 
+## Costs & Billing
+
+- Billing overview: [BILLING.md](BILLING.md)
+- Cost visibility: [COST_VISIBILITY.md](COST_VISIBILITY.md)
+
 ## Development
 
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -86,5 +94,5 @@ Deprecated docs are archived in `docs/deprecated/`. See
 
 ## Inventory
 
-- Markdown files under `docs/`: 258 (includes deprecated)
+- Markdown files under `docs/`: 260 (includes deprecated)
 - Last updated: 2026-01-22

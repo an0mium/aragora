@@ -18,6 +18,9 @@ The codebase analysis stack includes:
   dependencies.
 - **Metrics Analyzer**: Computes complexity, maintainability, hotspots, and
   duplication signals.
+- **Dependency Intelligence**: SBOM generation and license compatibility checks.
+- **Secrets Scanner**: Detects exposed secrets and emits security events.
+- **Code Intelligence**: Tree-sitter parsing and call-graph construction.
 
 Core modules live under `aragora/analysis/codebase/` with HTTP handlers in
 `aragora/server/handlers/codebase/`.
@@ -36,6 +39,35 @@ Core modules live under `aragora/analysis/codebase/` with HTTP handlers in
 | GET | `/api/v1/codebase/package/\{ecosystem\}/\{package\}/vulnerabilities` | Package advisories |
 | GET | `/api/v1/cve/\{cve_id\}` | CVE details |
 
+### Secrets Scanning
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/codebase/\{repo\}/scan/secrets` | Trigger secrets scan |
+| GET | `/api/v1/codebase/\{repo\}/scan/secrets/latest` | Latest secrets scan |
+| GET | `/api/v1/codebase/\{repo\}/scan/secrets/\{scan_id\}` | Secrets scan by ID |
+| GET | `/api/v1/codebase/\{repo\}/secrets` | Secrets list |
+| GET | `/api/v1/codebase/\{repo\}/scans/secrets` | Secrets scan history |
+
+### Dependency Intelligence
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/codebase/analyze-dependencies` | Analyze dependency graph |
+| POST | `/api/v1/codebase/scan-vulnerabilities` | Scan repo for CVEs |
+| POST | `/api/v1/codebase/check-licenses` | License compatibility |
+| POST | `/api/v1/codebase/sbom` | Generate SBOM |
+
+## UI Surfaces
+
+The codebase analysis UI is available under `/security-scan` with a dependency
+panel for SBOM and license checks.
+
+Key components:
+
+- `aragora/live/src/app/(app)/security-scan/page.tsx`
+- `aragora/live/src/components/codebase/DependencySecurityPanel.tsx`
+
 Example:
 
 ```http
@@ -46,6 +78,18 @@ Content-Type: application/json
   "repo_path": "/Users/armand/Development/aragora",
   "branch": "main",
   "commit_sha": "abc123"
+}
+```
+
+### Secrets Scan Example
+
+```http
+POST /api/v1/codebase/aragora/scan/secrets
+Content-Type: application/json
+
+{
+  "repo_path": "/Users/armand/Development/aragora",
+  "branch": "main"
 }
 ```
 
@@ -88,6 +132,18 @@ result = await scanner.scan_repository("/path/to/repo")
 print(result.critical_count, result.high_count)
 ```
 
+### Dependency Intelligence Example
+
+```http
+POST /api/v1/codebase/analyze-dependencies
+Content-Type: application/json
+
+{
+  "repo_path": "/Users/armand/Development/aragora",
+  "include_dev": true
+}
+```
+
 ### CVE Lookup
 
 ```python
@@ -105,6 +161,34 @@ from aragora.analysis.codebase import CodeMetricsAnalyzer
 analyzer = CodeMetricsAnalyzer()
 report = analyzer.analyze_repository("/path/to/repo", scan_id="metrics_001")
 print(report.avg_complexity)
+```
+
+## Security Event Debates
+
+Codebase security scans emit security events that can trigger a remediation
+debate when critical findings are detected.
+
+Relevant modules:
+
+- `aragora/events/security_events.py`
+- `aragora/server/handlers/codebase/security.py`
+
+## Code Intelligence & Call Graph
+
+Tree-sitter based code intelligence and call-graph analysis live under
+`aragora/analysis/code_intelligence.py` and `aragora/analysis/call_graph.py`.
+
+```python
+from aragora.analysis.code_intelligence import CodeIntelligence
+from aragora.analysis.call_graph import CallGraphBuilder
+
+intel = CodeIntelligence()
+analysis = intel.analyze_file("aragora/core/decision.py")
+print(len(analysis.functions), len(analysis.classes))
+
+builder = CallGraphBuilder(code_intel=intel)
+graph = builder.build_from_directory("aragora")
+print(graph.node_count, graph.edge_count)
 ```
 
 ## Configuration

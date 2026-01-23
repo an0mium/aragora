@@ -107,6 +107,31 @@ All endpoints are served under `/api/v1/email` unless otherwise noted.
 | POST | `/api/v1/email/gmail/oauth/callback` | Handle Gmail callback |
 | GET | `/api/v1/email/gmail/status` | Gmail connection status |
 | GET | `/api/v1/email/context/boost` | Cross-channel context boost |
+| GET | `/api/email/daily-digest` | Daily digest stats (alias: `/api/inbox/daily-digest`) |
+| POST | `/api/v1/email/followups/mark` | Mark follow-up |
+| GET | `/api/v1/email/followups/pending` | List pending follow-ups |
+| POST | `/api/v1/email/followups/\{id\}/resolve` | Resolve follow-up |
+| POST | `/api/v1/email/followups/check-replies` | Check for replies |
+| POST | `/api/v1/email/followups/auto-detect` | Auto-detect follow-ups |
+| GET | `/api/v1/email/\{id\}/snooze-suggestions` | Snooze suggestions |
+| POST | `/api/v1/email/\{id\}/snooze` | Apply snooze |
+| DELETE | `/api/v1/email/\{id\}/snooze` | Cancel snooze |
+| GET | `/api/v1/email/snoozed` | List snoozed emails |
+| GET | `/api/v1/email/categories` | List categories |
+| POST | `/api/v1/email/categories/learn` | Category feedback |
+
+### Inbox Command Center APIs
+
+The inbox command center exposes endpoints for quick actions and bulk
+operations:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/inbox/command` | Fetch prioritized inbox |
+| POST | `/api/inbox/actions` | Execute quick action |
+| POST | `/api/inbox/bulk-actions` | Execute bulk action |
+| POST | `/api/inbox/reprioritize` | Trigger AI re-prioritization |
+| GET | `/api/inbox/sender-profile` | Sender profile |
 
 ### Score Single Email
 ```http
@@ -202,6 +227,12 @@ and sender-level insights:
   provides single-email and bulk actions (archive, snooze, reprioritize).
 - `SenderInsightsPanel` (`aragora/live/src/components/inbox/SenderInsightsPanel.tsx`)
   surfaces sender profile statistics, AI analysis, and quick actions.
+
+## Shared Inbox & Routing Rules
+
+Collaborative inbox workflows (assignment, status, routing rules) are exposed via
+the shared inbox API and UI. See [SHARED_INBOX.md](./shared-inbox) for the
+endpoints and workflow model.
 
 ## Sender History Service
 

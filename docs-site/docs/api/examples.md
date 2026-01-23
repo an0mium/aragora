@@ -245,6 +245,43 @@ async def github_pr_review():
 asyncio.run(github_pr_review())
 ```
 
+### Cost Visibility
+
+```python
+async def cost_visibility():
+    """Fetch cost summary and set a budget."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        summary = await client.get("/api/costs", params={"range": "30d"})
+        print(summary.json())
+
+        await client.post("/api/costs/budget", json={
+            "budget": 1500,
+            "workspace_id": "default",
+        })
+
+asyncio.run(cost_visibility())
+```
+
+### Shared Inbox
+
+```python
+async def shared_inbox_example():
+    """Create a shared inbox and list routing rules."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        await client.post("/api/v1/inbox/shared", json={
+            "workspace_id": "default",
+            "name": "Support",
+            "email_address": "support@company.com",
+        })
+
+        rules = await client.get("/api/v1/inbox/routing/rules", params={
+            "workspace_id": "default",
+        })
+        print(rules.json())
+
+asyncio.run(shared_inbox_example())
+```
+
 ### Gauntlet Compliance Audit
 
 ```python
