@@ -191,8 +191,12 @@ class DebatesHandler(
 
     def _requires_auth(self, path: str) -> bool:
         """Check if the given path requires authentication."""
+        # Normalize path for consistent checking
+        normalized = path.replace("/api/v1/", "/api/").replace("/api/v2/", "/api/")
         for pattern in self.AUTH_REQUIRED_ENDPOINTS:
-            if pattern in path:
+            # Also normalize the pattern for comparison
+            norm_pattern = pattern.replace("/api/v1/", "/api/").replace("/api/v2/", "/api/")
+            if norm_pattern in normalized:
                 return True
         return False
 
@@ -274,24 +278,36 @@ class DebatesHandler(
         return None
 
     def can_handle(self, path: str) -> bool:
-        """Check if this handler can process the given path."""
-        if path == "/api/v1/debate":
-            return True  # POST - create debate
-        if path == "/api/v1/debates":
+        """Check if this handler can process the given path.
+
+        Note: Paths may be normalized (version stripped) by handler_registry,
+        so we check both versioned and unversioned variants.
+        """
+        # Normalize to unversioned for consistent checking
+        normalized = path.replace("/api/v1/", "/api/").replace("/api/v2/", "/api/")
+
+        if normalized in ("/api/debate", "/api/debates"):
+            return True  # POST - create debate, GET - list debates
+        if normalized == "/api/search":
             return True
-        if path == "/api/v1/search":
-            return True
-        if path.startswith("/api/v1/debates/"):
+        if normalized.startswith("/api/debates/"):
             return True
         # Also handle /api/debate/{id}/meta-critique and /api/debate/{id}/graph/stats
-        if path.startswith("/api/v1/debate/") and (
-            path.endswith("/meta-critique") or path.endswith("/graph/stats")
+        if normalized.startswith("/api/debate/") and (
+            normalized.endswith("/meta-critique") or normalized.endswith("/graph/stats")
         ):
             return True
         return False
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
-        """Route debate requests to appropriate handler methods."""
+        """Route debate requests to appropriate handler methods.
+
+        Note: Paths may be normalized (version stripped) by handler_registry,
+        so we normalize to unversioned for consistent route matching.
+        """
+        # Normalize to unversioned for consistent checking
+        normalized = path.replace("/api/v1/", "/api/").replace("/api/v2/", "/api/")
+
         # Check authentication for protected endpoints
         if self._requires_auth(path):
             auth_error = self._check_auth(handler)
@@ -299,7 +315,7 @@ class DebatesHandler(
                 return auth_error
 
         # Search endpoint
-        if path == "/api/v1/search":
+        if normalized == "/api/search":
             query = query_params.get("q", query_params.get("query", ""))
             if isinstance(query, list):
                 query = query[0] if query else ""
@@ -311,55 +327,55 @@ class DebatesHandler(
             return self._search_debates(query, limit, offset, org_id)
 
         # Queue status endpoint
-        if path == "/api/v1/debates/queue/status":
+        if normalized == "/api/debates/queue/status":
             return self._get_queue_status()
 
         # Batch status endpoint (GET /api/debates/batch/{id}/status)
-        if path.startswith("/api/v1/debates/batch/") and path.endswith("/status"):
-            parts = path.split("/")
+        if normalized.startswith("/api/debates/batch/") and normalized.endswith("/status"):
+            parts = normalized.split("/")
             if len(parts) >= 5:
-                batch_id = parts[4]
+                batch_id = parts[3]  # Index 3 for unversioned paths
                 return self._get_batch_status(batch_id)
 
         # List batches (GET /api/debates/batch)
-        if path in ("/api/v1/debates/batch", "/api/v1/debates/batch/"):
+        if normalized in ("/api/debates/batch", "/api/debates/batch/"):
             limit = min(get_int_param(query_params, "limit", 50), 100)
             status_filter = query_params.get("status")
             return self._list_batches(limit, status_filter)
 
         # Batch export endpoints
-        if path.startswith("/api/v1/debates/export/batch"):
-            return self._handle_batch_export(path, query_params, handler)
+        if normalized.startswith("/api/debates/export/batch"):
+            return self._handle_batch_export(normalized, query_params, handler)
 
-        # Exact path matches
-        if path == "/api/v1/debates":
+        # Exact path matches - list debates
+        if normalized == "/api/debates":
             limit = min(get_int_param(query_params, "limit", 20), 100)
             # Get authenticated user for org-scoped results
             user = self.get_current_user(handler)
             org_id = user.org_id if user else None
             return self._list_debates(limit, org_id)
 
-        if path.startswith("/api/v1/debates/slug/"):
-            slug = path.split("/")[-1]
+        if normalized.startswith("/api/debates/slug/"):
+            slug = normalized.split("/")[-1]
             return self._get_debate_by_slug(handler, slug)
 
         # Dispatch suffix-based routes (impasse, convergence, citations, messages, etc.)
-        result = self._dispatch_suffix_route(path, query_params, handler)
+        result = self._dispatch_suffix_route(normalized, query_params, handler)
         if result:
             return result
 
         # Export route (special handling for format/table validation)
-        # URL: /api/v1/debates/{id}/export/{format}
-        # Parts: ['', 'api', 'v1', 'debates', '{id}', 'export', '{format}']
-        if "/export/" in path:
-            parts = path.split("/")
-            if len(parts) >= 7:
-                debate_id = parts[4]  # Index 4 for v1 routes
+        # URL: /api/debates/{id}/export/{format}
+        # Parts: ['', 'api', 'debates', '{id}', 'export', '{format}']
+        if "/export/" in normalized:
+            parts = normalized.split("/")
+            if len(parts) >= 6:
+                debate_id = parts[3]  # Index 3 for unversioned paths
                 # Validate debate ID for export
                 is_valid, err = validate_debate_id(debate_id)
                 if not is_valid:
                     return error_response(err, 400)
-                export_format = parts[6]  # Index 6 for v1 routes
+                export_format = parts[5]  # Index 5 for unversioned paths
                 # Validate export format
                 if export_format not in self.ALLOWED_EXPORT_FORMATS:
                     return error_response(
@@ -376,25 +392,29 @@ class DebatesHandler(
                 return self._export_debate(handler, debate_id, export_format, table)
 
         # Default: treat as slug lookup
-        if path.startswith("/api/v1/debates/"):
-            slug = path.split("/")[-1]
+        if normalized.startswith("/api/debates/"):
+            slug = normalized.split("/")[-1]
             if slug and slug not in ("impasse", "convergence"):
                 return self._get_debate_by_slug(handler, slug)
 
         return None
 
     def _extract_debate_id(self, path: str) -> tuple[Optional[str], Optional[str]]:
-        """Extract and validate debate ID from path like /api/v1/debates/{id}/impasse.
+        """Extract and validate debate ID from path like /api/debates/{id}/impasse.
+
+        Handles both versioned (/api/v1/debates/{id}) and unversioned (/api/debates/{id}) paths.
 
         Returns:
             Tuple of (debate_id, error_message). If error_message is set, debate_id is None.
         """
-        parts = path.split("/")
-        if len(parts) < 5:
+        # Normalize to unversioned path
+        normalized = path.replace("/api/v1/", "/api/").replace("/api/v2/", "/api/")
+        parts = normalized.split("/")
+        if len(parts) < 4:
             return None, "Invalid path"
 
-        # For v1 routes: ['', 'api', 'v1', 'debates', '{id}', ...]
-        debate_id = parts[4]
+        # For unversioned routes: ['', 'api', 'debates', '{id}', ...]
+        debate_id = parts[3]
         is_valid, err = validate_debate_id(debate_id)
         if not is_valid:
             return None, err
@@ -408,8 +428,11 @@ class DebatesHandler(
         """Route batch export requests to appropriate methods."""
         from aragora.server.http_utils import run_async
 
+        # Normalize to unversioned for consistent checking
+        normalized = path.replace("/api/v1/", "/api/").replace("/api/v2/", "/api/")
+
         # POST /api/debates/export/batch - start batch export
-        if path in ("/api/v1/debates/export/batch", "/api/v1/debates/export/batch/"):
+        if normalized in ("/api/debates/export/batch", "/api/debates/export/batch/"):
             body = self.read_json_body(handler)
             if not body:
                 return error_response("Invalid or missing JSON body", 400)
@@ -418,16 +441,16 @@ class DebatesHandler(
             return self._start_batch_export(handler, debate_ids, format)  # type: ignore[misc]
 
         # GET /api/debates/export/batch - list export jobs
-        if path == "/api/v1/debates/export/batch":
+        if normalized == "/api/debates/export/batch":
             limit = min(get_int_param(query_params, "limit", 50), 100)
             return self._list_batch_exports(limit)  # type: ignore[misc]
 
-        # Extract job ID from path
-        parts = path.split("/")
-        if len(parts) < 6:
+        # Extract job ID from normalized path
+        parts = normalized.split("/")
+        if len(parts) < 5:
             return error_response("Invalid batch export path", 400)
 
-        job_id = parts[5]
+        job_id = parts[4]
 
         # GET /api/debates/export/batch/{job_id}/status
         if path.endswith("/status"):
