@@ -9,10 +9,8 @@ Backends:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-import os
 import sqlite3
 import threading
 from abc import ABC, abstractmethod
@@ -1620,14 +1618,14 @@ def get_unified_inbox_store() -> UnifiedInboxStoreBackend:
     """
     Get the unified inbox store.
 
-    Backend selection:
-    - ARAGORA_INBOX_STORE_BACKEND (preferred per-store override)
-    - ARAGORA_DB_BACKEND (global default)
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. SQLite (fallback, with production warning)
 
-    Backends:
-    - "memory": In-memory (testing only)
-    - "sqlite": SQLite-backed (default for development)
-    - "postgres" or "postgresql": PostgreSQL-backed (preferred for production)
+    Override via:
+    - ARAGORA_INBOX_STORE_BACKEND: "memory", "sqlite", "postgres", or "supabase"
+    - ARAGORA_DB_BACKEND: Global override
     """
     global _unified_inbox_store
 
@@ -1638,39 +1636,15 @@ def get_unified_inbox_store() -> UnifiedInboxStoreBackend:
         if _unified_inbox_store is not None:
             return _unified_inbox_store
 
-        backend = os.getenv("ARAGORA_INBOX_STORE_BACKEND")
-        if not backend:
-            backend = os.getenv("ARAGORA_DB_BACKEND", "sqlite")
-        backend = backend.lower()
+        from aragora.storage.connection_factory import create_persistent_store
 
-        try:
-            from aragora.config.legacy import DATA_DIR
-
-            data_dir = DATA_DIR
-        except Exception:
-            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-            data_dir = Path(env_dir or ".nomic")
-
-        db_path = data_dir / DEFAULT_DB_NAME
-
-        if backend == "memory":
-            logger.info("Using in-memory unified inbox store")
-            _unified_inbox_store = InMemoryUnifiedInboxStore()
-        elif backend in ("postgres", "postgresql"):
-            logger.info("Using PostgreSQL unified inbox store")
-            try:
-                from aragora.storage.postgres_store import get_postgres_pool
-
-                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-                store = PostgresUnifiedInboxStore(pool)
-                asyncio.get_event_loop().run_until_complete(store.initialize())
-                _unified_inbox_store = store
-            except Exception as e:
-                logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-                _unified_inbox_store = SQLiteUnifiedInboxStore(db_path)
-        else:
-            logger.info(f"Using SQLite unified inbox store: {db_path}")
-            _unified_inbox_store = SQLiteUnifiedInboxStore(db_path)
+        _unified_inbox_store = create_persistent_store(
+            store_name="inbox",
+            sqlite_class=SQLiteUnifiedInboxStore,
+            postgres_class=PostgresUnifiedInboxStore,
+            db_filename=DEFAULT_DB_NAME,
+            memory_class=InMemoryUnifiedInboxStore,
+        )
 
         return _unified_inbox_store
 

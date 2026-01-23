@@ -36,13 +36,22 @@ logger = logging.getLogger(__name__)
 
 
 class StorageMode(str, Enum):
-    """Storage backend modes."""
+    """Storage backend modes.
 
-    POSTGRES = "postgres"
-    REDIS = "redis"
-    SQLITE = "sqlite"
-    FILE = "file"
-    MEMORY = "memory"
+    Preference order for persistent data:
+    1. SUPABASE - Preferred (managed PostgreSQL with extras)
+    2. POSTGRES - Self-hosted PostgreSQL (fallback)
+    3. REDIS - For caching/sessions only
+    4. SQLITE - Last resort (dev/test only)
+    5. FILE/MEMORY - Testing only
+    """
+
+    SUPABASE = "supabase"  # Preferred for persistent data
+    POSTGRES = "postgres"  # Self-hosted fallback
+    REDIS = "redis"  # Caching, rate limiting, sessions
+    SQLITE = "sqlite"  # Last resort (local only)
+    FILE = "file"  # File-based (testing)
+    MEMORY = "memory"  # In-memory (testing)
 
 
 class EnvironmentMode(str, Enum):
@@ -222,6 +231,7 @@ def require_distributed_store(
 
 def validate_store_config(
     store_name: str,
+    supabase_dsn: Optional[str] = None,
     postgres_url: Optional[str] = None,
     redis_url: Optional[str] = None,
     fallback_mode: StorageMode = StorageMode.SQLITE,
@@ -229,13 +239,20 @@ def validate_store_config(
     """
     Validate and determine storage mode for a store.
 
+    Preference order for persistent data:
+    1. Supabase PostgreSQL (preferred)
+    2. Self-hosted PostgreSQL (fallback)
+    3. Redis (for caching/sessions only)
+    4. SQLite (last resort, dev/test only)
+
     In production, this ensures a distributed backend is available.
     In development, falls back gracefully to local storage.
 
     Args:
         store_name: Name of the store
-        postgres_url: PostgreSQL connection URL (if available)
-        redis_url: Redis connection URL (if available)
+        supabase_dsn: Supabase PostgreSQL connection DSN (preferred)
+        postgres_url: Self-hosted PostgreSQL connection URL (fallback)
+        redis_url: Redis connection URL (for caching stores)
         fallback_mode: Mode to use if distributed storage unavailable
 
     Returns:
@@ -255,21 +272,27 @@ def validate_store_config(
         )
         return explicit_mode
 
-    # Try PostgreSQL first
+    # 1. Try Supabase first (preferred for persistent data)
+    if supabase_dsn:
+        logger.info(f"Store '{store_name}' using Supabase PostgreSQL (preferred)")
+        return StorageMode.SUPABASE
+
+    # 2. Try self-hosted PostgreSQL (fallback)
     if postgres_url:
-        logger.info(f"Store '{store_name}' using PostgreSQL backend")
+        logger.info(f"Store '{store_name}' using self-hosted PostgreSQL")
         return StorageMode.POSTGRES
 
-    # Try Redis
+    # 3. Try Redis (for caching/session stores)
     if redis_url:
         logger.info(f"Store '{store_name}' using Redis backend")
         return StorageMode.REDIS
 
-    # Fall back to local storage
+    # 4. Fall back to local storage (with production guard)
     require_distributed_store(
         store_name,
         fallback_mode,
-        "No PostgreSQL or Redis URL configured (DATABASE_URL, ARAGORA_REDIS_URL)",
+        "No Supabase, PostgreSQL, or Redis configured. "
+        "Set SUPABASE_URL + SUPABASE_DB_PASSWORD, DATABASE_URL, or ARAGORA_REDIS_URL.",
     )
 
     logger.info(f"Store '{store_name}' using {fallback_mode.value} backend (fallback)")

@@ -1400,12 +1400,15 @@ def get_integration_store() -> IntegrationStoreBackend:
     """
     Get or create the integration store.
 
-    Uses environment variables to configure:
-    - ARAGORA_DB_BACKEND: "sqlite" or "postgres" (selects database backend)
-    - ARAGORA_INTEGRATION_STORE_BACKEND: "memory", "sqlite", "postgres", or "redis"
-    - ARAGORA_DATA_DIR: Directory for SQLite database
-    - ARAGORA_REDIS_URL: Redis connection URL (for redis backend)
-    - ARAGORA_POSTGRES_DSN or DATABASE_URL: PostgreSQL connection string
+    Backend selection (in preference order):
+    1. Supabase PostgreSQL (if SUPABASE_URL + SUPABASE_DB_PASSWORD configured)
+    2. Self-hosted PostgreSQL (if DATABASE_URL or ARAGORA_POSTGRES_DSN configured)
+    3. Redis (if ARAGORA_INTEGRATION_STORE_BACKEND=redis and ARAGORA_REDIS_URL configured)
+    4. SQLite (fallback, with production warning)
+
+    Override via:
+    - ARAGORA_INTEGRATION_STORE_BACKEND: "memory", "sqlite", "postgres", "supabase", or "redis"
+    - ARAGORA_DB_BACKEND: Global override
 
     Returns:
         Configured IntegrationStoreBackend instance
@@ -1414,46 +1417,34 @@ def get_integration_store() -> IntegrationStoreBackend:
     if _integration_store is not None:
         return _integration_store
 
-    # Check store-specific backend first, then global database backend
-    backend_type = os.environ.get("ARAGORA_INTEGRATION_STORE_BACKEND")
-    if not backend_type:
-        # Fall back to global database backend setting
-        backend_type = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
-    backend_type = backend_type.lower()
+    # Check store-specific backend first
+    backend_type = os.environ.get("ARAGORA_INTEGRATION_STORE_BACKEND", "").lower()
 
-    # Get data directory for SQLite
-    try:
-        from aragora.config.legacy import DATA_DIR
-
-        data_dir = DATA_DIR
-    except ImportError:
-        env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-        data_dir = Path(env_dir or ".nomic")
-
-    db_path = data_dir / "integrations.db"
-
-    if backend_type == "memory":
-        logger.info("Using in-memory integration store (not persistent)")
-        _integration_store = InMemoryIntegrationStore()
-    elif backend_type == "postgres" or backend_type == "postgresql":
-        logger.info("Using PostgreSQL integration store")
+    # Handle Redis explicitly (not part of standard persistent store preference)
+    if backend_type == "redis":
+        # Get data directory for SQLite fallback
         try:
-            from aragora.storage.postgres_store import get_postgres_pool
+            from aragora.config.legacy import DATA_DIR
 
-            # Initialize PostgreSQL store with connection pool
-            pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
-            store = PostgresIntegrationStore(pool)
-            asyncio.get_event_loop().run_until_complete(store.initialize())
-            _integration_store = store
-        except Exception as e:
-            logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
-            _integration_store = SQLiteIntegrationStore(db_path)
-    elif backend_type == "redis":
+            data_dir = DATA_DIR
+        except ImportError:
+            env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
+            data_dir = Path(env_dir or ".nomic")
+        db_path = data_dir / "integrations.db"
         logger.info("Using Redis integration store with SQLite fallback")
         _integration_store = RedisIntegrationStore(db_path)
-    else:  # Default: sqlite
-        logger.info(f"Using SQLite integration store: {db_path}")
-        _integration_store = SQLiteIntegrationStore(db_path)
+        return _integration_store
+
+    # Use unified connection factory for persistent storage
+    from aragora.storage.connection_factory import create_persistent_store
+
+    _integration_store = create_persistent_store(
+        store_name="integration",
+        sqlite_class=SQLiteIntegrationStore,
+        postgres_class=PostgresIntegrationStore,
+        db_filename="integrations.db",
+        memory_class=InMemoryIntegrationStore,
+    )
 
     return _integration_store
 
