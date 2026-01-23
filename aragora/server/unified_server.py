@@ -124,6 +124,14 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
                 "/api/v1/docs/",
                 "/api/v1/openapi",
                 "/api/v1/openapi.json",
+                # GraphQL endpoints (GraphiQL playground in dev mode)
+                "/graphql",
+                "/graphiql",
+                "/api/graphql",
+                "/api/v1/graphql",
+                "/graphql/schema",
+                "/api/graphql/schema",
+                "/api/v1/graphql/schema",
                 # Auth endpoints (must be accessible before authentication)
                 "/api/v1/auth/register",
                 "/api/v1/auth/login",
@@ -421,9 +429,11 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     )
 
     # Path prefixes exempt from authentication (OAuth callbacks, read-only data)
+    # Note: These endpoints bypass the legacy API token check (ARAGORA_API_TOKEN).
+    # JWT authentication is still enforced via RBAC middleware for protected endpoints.
     AUTH_EXEMPT_PREFIXES = (
-        "/api/auth/oauth/",  # OAuth flow (login, callback)
-        "/api/v1/auth/oauth/",  # OAuth flow v1 routes
+        "/api/auth/",  # All auth endpoints (JWT auth via RBAC, not API token)
+        "/api/v1/auth/",  # All v1 auth endpoints (JWT auth via RBAC, not API token)
         "/api/agent/",  # Agent profiles (read-only)
         "/api/v1/agent/",  # Agent profiles v1 routes
         "/api/routing/",  # Domain detection and routing (read-only)
@@ -1044,6 +1054,10 @@ class UnifiedServer:
 
             ControlPlaneHandler.coordinator = self._control_plane_coordinator
             logger.info("Control Plane coordinator wired to handler")
+
+        # Log GraphQL status
+        if startup_status.get("graphql"):
+            logger.info("GraphQL API enabled at /graphql")
 
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
