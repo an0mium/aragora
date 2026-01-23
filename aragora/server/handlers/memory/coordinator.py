@@ -63,6 +63,9 @@ class CoordinatorHandler(BaseHandler):
                 501,
             )
 
+        # Debug: Log path matching for troubleshooting
+        logger.debug(f"Coordinator handler path: {path!r}")
+
         if path == "/api/v1/memory/coordinator/metrics":
             return self._get_metrics()
         if path == "/api/v1/memory/coordinator/config":

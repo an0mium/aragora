@@ -37,6 +37,7 @@ Rate limiting is applied via the @rate_limit decorator from utils.rate_limit.
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -217,6 +218,9 @@ __all__ = [
     "require_storage",
     "require_feature",
     "require_permission",
+    "api_endpoint",
+    "rate_limit",
+    "validate_body",
     "has_permission",
     "PERMISSION_MATRIX",
     "deprecated_endpoint",
@@ -656,6 +660,103 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
     return decorator
 
 
+def api_endpoint(
+    *,
+    method: str,
+    path: str,
+    summary: str = "",
+    description: str = "",
+) -> Callable[[Callable], Callable]:
+    """Attach API metadata to a handler method."""
+
+    def decorator(func: Callable) -> Callable:
+        setattr(
+            func,
+            "_api_metadata",
+            {
+                "method": method,
+                "path": path,
+                "summary": summary,
+                "description": description,
+            },
+        )
+        return func
+
+    return decorator
+
+
+def rate_limit(*args, **kwargs) -> Callable[[Callable], Callable]:
+    """Async-friendly wrapper around middleware rate limiting."""
+    from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit
+
+    decorator = _rate_limit(*args, **kwargs)
+
+    def wrapper(func: Callable) -> Callable:
+        decorated = decorator(func)
+        if inspect.iscoroutinefunction(func):
+
+            @wraps(func)
+            async def async_wrapper(*wrapper_args, **wrapper_kwargs):
+                result = decorated(*wrapper_args, **wrapper_kwargs)
+                if inspect.isawaitable(result):
+                    return await result
+                return result
+
+            return async_wrapper
+        return decorated
+
+    return wrapper
+
+
+def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
+    """Validate JSON request body has required fields for async handlers."""
+
+    def decorator(func: Callable) -> Callable:
+        if inspect.iscoroutinefunction(func):
+
+            @wraps(func)
+            async def async_wrapper(self, request, *args, **kwargs):
+                try:
+                    body = await request.json()
+                except Exception:
+                    if hasattr(self, "error_response"):
+                        return self.error_response("Invalid JSON body", status=400)
+                    return error_response("Invalid JSON body", status=400)
+
+                missing = [field for field in required_fields if field not in body]
+                if missing:
+                    message = f"Missing required fields: {', '.join(missing)}"
+                    if hasattr(self, "error_response"):
+                        return self.error_response(message, status=400)
+                    return error_response(message, status=400)
+
+                return await func(self, request, *args, **kwargs)
+
+            return async_wrapper
+
+        @wraps(func)
+        def sync_wrapper(self, request, *args, **kwargs):
+            try:
+                body = request.json() if callable(getattr(request, "json", None)) else None
+            except Exception:
+                if hasattr(self, "error_response"):
+                    return self.error_response("Invalid JSON body", status=400)
+                return error_response("Invalid JSON body", status=400)
+
+            missing = [field for field in required_fields if field not in (body or {})]
+            if missing:
+                message = f"Missing required fields: {', '.join(missing)}"
+                if hasattr(self, "error_response"):
+                    return self.error_response(message, status=400)
+                return error_response(message, status=400)
+
+            return func(self, request, *args, **kwargs)
+
+        return sync_wrapper
+
+    return decorator
+
+
 # =============================================================================
 # Handler Mixins
 # =============================================================================
@@ -966,6 +1067,24 @@ class BaseHandler:
         """
         status_code = status.value if isinstance(status, HTTPStatus) else status
         return json_response(data, status=status_code)
+
+    def success_response(
+        self,
+        data: Any,
+        status: Union[int, HTTPStatus] = HTTPStatus.OK,
+    ) -> HandlerResult:
+        """Create a standard success response."""
+        status_code = status.value if isinstance(status, HTTPStatus) else status
+        return success_response(data, status=status_code)
+
+    def error_response(
+        self,
+        message: str,
+        status: Union[int, HTTPStatus] = HTTPStatus.BAD_REQUEST,
+    ) -> HandlerResult:
+        """Create a standard error response."""
+        status_code = status.value if isinstance(status, HTTPStatus) else status
+        return error_response(message, status=status_code)
 
     def json_error(
         self,
