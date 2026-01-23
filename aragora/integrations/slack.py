@@ -412,6 +412,354 @@ class SlackIntegration:
         message = SlackMessage(text=text, blocks=blocks)
         return await self._send_message(message)
 
+    async def post_debate_with_voting(
+        self,
+        debate_id: str,
+        task: str,
+        agents: list[str],
+        current_round: int,
+        total_rounds: int,
+        thread_ts: Optional[str] = None,
+    ) -> Optional[str]:
+        """Post a debate message with interactive voting buttons.
+
+        Args:
+            debate_id: Unique debate identifier
+            task: The debate task/question
+            agents: List of participating agent names
+            current_round: Current round number
+            total_rounds: Total number of rounds
+            thread_ts: Optional thread timestamp for threaded replies
+
+        Returns:
+            Message timestamp (ts) for threading, or None on failure
+        """
+        blocks = self._build_debate_with_voting_blocks(
+            debate_id, task, agents, current_round, total_rounds
+        )
+
+        text = f"Active debate: {task[:50]}..."
+        message = SlackMessage(text=text, blocks=blocks)
+
+        # Note: For interactive messages, you need Slack Bot API, not webhooks
+        # This is a simplified version using webhooks
+        success = await self._send_message(message)
+        return debate_id if success else None
+
+    def _build_debate_with_voting_blocks(
+        self,
+        debate_id: str,
+        task: str,
+        agents: list[str],
+        current_round: int,
+        total_rounds: int,
+    ) -> list[dict[str, Any]]:
+        """Build Block Kit blocks for debate with voting."""
+        blocks: list[dict[str, Any]] = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": ":speech_balloon: Active Debate",
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Task:* {task}",
+                },
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Agents:*\n{', '.join(agents)}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Progress:*\nRound {current_round}/{total_rounds}",
+                    },
+                ],
+            },
+            {"type": "divider"},
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Cast your vote:* Your vote will be counted in the final consensus.",
+                },
+            },
+        ]
+
+        # Add voting buttons for each agent (max 5 due to Slack limits)
+        buttons = []
+        for i, agent in enumerate(agents[:5]):
+            btn: dict[str, Any] = {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"Vote {agent}",
+                    "emoji": True,
+                },
+                "action_id": f"vote_{debate_id}_{agent}",
+                "value": f'{{"debate_id":"{debate_id}","agent":"{agent}"}}',
+            }
+            if i == 0:
+                btn["style"] = "primary"
+            buttons.append(btn)
+
+        blocks.append(
+            {
+                "type": "actions",
+                "elements": buttons,
+            }
+        )
+
+        # Add view/provenance buttons
+        blocks.append(
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": ":mag: View Summary",
+                            "emoji": True,
+                        },
+                        "action_id": f"summary_{debate_id}",
+                        "value": debate_id,
+                    },
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": ":lock: Audit Trail",
+                            "emoji": True,
+                        },
+                        "action_id": f"provenance_{debate_id}",
+                        "value": debate_id,
+                    },
+                ],
+            }
+        )
+
+        # Footer
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f":robot_face: Aragora | Debate `{debate_id[:8]}...` | {datetime.now().strftime('%H:%M UTC')}",
+                    },
+                ],
+            }
+        )
+
+        return blocks
+
+    async def update_debate_progress(
+        self,
+        debate_id: str,
+        current_round: int,
+        total_rounds: int,
+        latest_argument: Optional[str] = None,
+        agent_name: Optional[str] = None,
+    ) -> bool:
+        """Update debate progress in Slack thread.
+
+        Args:
+            debate_id: Debate identifier
+            current_round: Current round number
+            total_rounds: Total rounds
+            latest_argument: Preview of latest argument
+            agent_name: Name of agent who made the argument
+
+        Returns:
+            True if update was sent successfully
+        """
+        blocks: list[dict[str, Any]] = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f":arrows_counterclockwise: *Round {current_round}/{total_rounds}*",
+                },
+            },
+        ]
+
+        if agent_name and latest_argument:
+            preview = latest_argument[:200]
+            if len(latest_argument) > 200:
+                preview += "..."
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*{agent_name}:*\n_{preview}_",
+                    },
+                }
+            )
+
+        text = f"Round {current_round}/{total_rounds}"
+        message = SlackMessage(text=text, blocks=blocks)
+        return await self._send_message(message)
+
+    async def post_consensus_with_votes(
+        self,
+        debate_id: str,
+        result: "DebateResult",
+        user_votes: dict[str, int],
+    ) -> bool:
+        """Post consensus result including user votes from Slack.
+
+        Args:
+            debate_id: Debate identifier
+            result: The debate result
+            user_votes: Dict of agent -> vote count from Slack users
+
+        Returns:
+            True if message was sent successfully
+        """
+        blocks = self._build_consensus_with_votes_blocks(debate_id, result, user_votes)
+
+        status = "reached" if result.consensus_reached else "not reached"
+        text = f"Debate completed: Consensus {status}"
+
+        message = SlackMessage(text=text, blocks=blocks)
+        return await self._send_message(message)
+
+    def _build_consensus_with_votes_blocks(
+        self,
+        debate_id: str,
+        result: "DebateResult",
+        user_votes: dict[str, int],
+    ) -> list[dict[str, Any]]:
+        """Build consensus result blocks with user vote counts."""
+        status_emoji = ":white_check_mark:" if result.consensus_reached else ":x:"
+        status_text = "Consensus Reached" if result.consensus_reached else "No Consensus"
+
+        blocks: list[dict[str, Any]] = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"{status_emoji} {status_text}",
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Task:* {result.task}",
+                },
+            },
+        ]
+
+        # Results
+        confidence = getattr(result, "confidence", 0.0)
+        fields = [
+            {"type": "mrkdwn", "text": f"*Confidence:*\n{confidence:.0%}"},
+            {"type": "mrkdwn", "text": f"*Rounds:*\n{result.rounds_used}"},
+        ]
+
+        if result.winner:
+            fields.append({"type": "mrkdwn", "text": f"*Winner:*\n{result.winner}"})
+
+        blocks.append(
+            {
+                "type": "section",
+                "fields": fields,
+            }
+        )
+
+        # User votes section
+        if user_votes:
+            total_votes = sum(user_votes.values())
+            vote_lines = []
+            for agent, count in sorted(user_votes.items(), key=lambda x: -x[1]):
+                pct = (count / total_votes * 100) if total_votes > 0 else 0
+                vote_lines.append(
+                    f"• {agent}: {count} vote{'s' if count != 1 else ''} ({pct:.0f}%)"
+                )
+
+            blocks.append({"type": "divider"})
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*:busts_in_silhouette: User Votes ({total_votes} total):*\n"
+                        + "\n".join(vote_lines),
+                    },
+                }
+            )
+
+        # Final answer preview
+        if result.consensus_reached and result.final_answer:
+            preview = result.final_answer[:400]
+            if len(result.final_answer) > 400:
+                preview += "..."
+
+            blocks.append({"type": "divider"})
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*Final Decision:*\n```{preview}```",
+                    },
+                }
+            )
+
+        # Action buttons
+        blocks.append(
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": ":page_facing_up: Full Report",
+                            "emoji": True,
+                        },
+                        "url": f"https://aragora.ai/debate/{debate_id}",
+                    },
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": ":lock: Audit Trail",
+                            "emoji": True,
+                        },
+                        "url": f"https://aragora.ai/debates/provenance?debate={debate_id}",
+                    },
+                ],
+            }
+        )
+
+        # Footer
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f":robot_face: Aragora Control Plane | {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}",
+                    },
+                ],
+            }
+        )
+
+        return blocks
+
 
 __all__ = [
     "SlackConfig",

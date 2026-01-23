@@ -199,6 +199,96 @@ describe('ControlPlanePage', () => {
       expect(screen.getByRole('button', { name: /QUEUE/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /SETTINGS/i })).toBeInTheDocument();
     });
+
+    it('renders deliberation console', async () => {
+      render(<ControlPlanePage />);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+      });
+
+      expect(screen.getByText('Deliberation Console')).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText('Describe the decision to deliberate...')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('submits a deliberation request', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/control-plane/deliberations')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              request_id: 'req-test-1',
+              status: 'queued',
+              task_id: 'task-test-1',
+            }),
+        });
+      }
+      if (url.includes('/api/control-plane/agents')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ agents: [] }),
+        });
+      }
+      if (url.includes('/api/control-plane/queue')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ jobs: [] }),
+        });
+      }
+      if (url.includes('/api/control-plane/metrics')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              active_jobs: 0,
+              queued_jobs: 0,
+              agents_available: 0,
+              agents_busy: 0,
+              documents_processed_today: 0,
+              audits_completed_today: 0,
+              tokens_used_today: 0,
+            }),
+        });
+      }
+      if (url.includes('/api/verticals')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([]),
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({ error: 'Unknown endpoint' }),
+      });
+    });
+
+    const user = userEvent.setup();
+    render(<ControlPlanePage />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+    });
+
+    await user.type(
+      screen.getByPlaceholderText('Describe the decision to deliberate...'),
+      'Assess migration risk for service X'
+    );
+
+    await user.click(screen.getByRole('button', { name: /RUN DELIBERATION/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/control-plane/deliberations',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    expect(screen.getByText(/Request ID:/)).toBeInTheDocument();
+    expect(screen.getByText(/Status:/)).toBeInTheDocument();
   });
 
   describe('data fetching', () => {

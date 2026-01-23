@@ -11,6 +11,14 @@ Example:
 """
 
 from aragora_client.client import AragoraClient
+from aragora_client.control_plane import (
+    AgentHealth,
+    ControlPlaneAPI,
+    ControlPlaneStatus,
+    RegisteredAgent,
+    ResourceUtilization,
+    Task,
+)
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
     AragoraConnectionError,
@@ -72,4 +80,11 @@ __all__ = [
     # WebSocket
     "DebateStream",
     "stream_debate",
+    # Control Plane
+    "ControlPlaneAPI",
+    "RegisteredAgent",
+    "AgentHealth",
+    "Task",
+    "ControlPlaneStatus",
+    "ResourceUtilization",
 ]

@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from aragora_client.control_plane import ControlPlaneAPI
 from aragora_client.exceptions import (
     AragoraAuthenticationError,
     AragoraConnectionError,
@@ -463,6 +464,7 @@ class AragoraClient:
         self.memory = MemoryAPI(self)
         self.selection = SelectionAPI(self)
         self.replays = ReplaysAPI(self)
+        self.control_plane = ControlPlaneAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""

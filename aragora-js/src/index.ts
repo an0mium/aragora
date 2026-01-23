@@ -1,63 +1,59 @@
 /**
- * Aragora SDK
+ * Aragora TypeScript SDK
  *
- * TypeScript/JavaScript SDK for the Aragora multi-agent debate framework.
+ * A TypeScript client for the Aragora control plane for multi-agent deliberation.
  *
  * @example
  * ```typescript
- * import { AragoraClient, streamDebate } from '@aragora/sdk';
+ * import { AragoraClient } from '@aragora/client';
  *
- * // Create client
- * const client = new AragoraClient({
- *   baseUrl: 'http://localhost:8080',
- *   apiKey: 'your-api-key',
- * });
+ * const client = new AragoraClient('http://localhost:8080');
  *
  * // Run a debate
- * const debate = await client.debates.run({
- *   task: 'Should we use microservices?',
- *   agents: ['anthropic-api', 'openai-api'],
- * });
- * console.log('Consensus:', debate.consensus?.conclusion);
+ * const debate = await client.debates.run('Should we use microservices?');
+ * console.log(debate.consensus?.conclusion);
  *
- * // Stream debate events
- * const stream = streamDebate('ws://localhost:8765/ws', debate.debate_id);
- * for await (const event of stream) {
- *   console.log(event.type, event.data);
- * }
- *
- * // Verify a claim
- * const result = await client.verification.verify({
- *   claim: 'All primes > 2 are odd',
- *   backend: 'z3',
- * });
- * console.log('Valid:', result.status === 'valid');
- *
- * // Graph debate with branching
- * const graphResult = await client.graphDebates.create({
- *   task: 'Design a distributed cache',
- *   max_branches: 5,
- * });
- *
- * // Matrix debate with scenarios
- * const matrixResult = await client.matrixDebates.create({
- *   task: 'Evaluate database options',
- *   scenarios: [
- *     { name: 'read_heavy', parameters: { read_ratio: 0.9 } },
- *     { name: 'write_heavy', parameters: { read_ratio: 0.1 } },
- *   ],
- * });
+ * // Use control plane
+ * const agents = await client.controlPlane.listAgents();
+ * const taskId = await client.controlPlane.submitTask('debate', { topic: 'test' });
+ * const task = await client.controlPlane.waitForTask(taskId);
  * ```
- *
- * @packageDocumentation
  */
 
 // Client
-export { AragoraClient, AragoraError } from './client';
-export { default } from './client';
+export { AragoraClient, AragoraError, DebatesAPI, AgentsAPI } from './client';
+export type { AragoraClientOptions } from './client';
+
+// Control Plane
+export { ControlPlaneAPI } from './control-plane';
 
 // WebSocket
 export { DebateStream, streamDebate } from './websocket';
 
 // Types
-export * from './types';
+export type {
+  // Common types
+  DebateStatus,
+  AgentStatus,
+  TaskStatus,
+  TaskPriority,
+  ConsensusResult,
+  AgentMessage,
+  Debate,
+  AgentProfile,
+  HealthStatus,
+  // Control plane types
+  RegisteredAgent,
+  AgentHealth,
+  Task,
+  ControlPlaneStatus,
+  ResourceUtilization,
+  // Request types
+  CreateDebateRequest,
+  SubmitTaskRequest,
+  RegisterAgentRequest,
+  // WebSocket types
+  DebateEvent,
+  DebateEventType,
+  WebSocketOptions,
+} from './types';

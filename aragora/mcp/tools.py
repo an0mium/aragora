@@ -68,6 +68,18 @@ from aragora.mcp.tools_module import (
     list_integrations_tool,
     test_integration_tool,
     get_integration_events_tool,
+    # Control plane tools
+    register_agent_tool,
+    unregister_agent_tool,
+    list_registered_agents_tool,
+    get_agent_health_tool,
+    submit_task_tool,
+    get_task_status_tool,
+    cancel_task_tool,
+    list_pending_tasks_tool,
+    get_control_plane_status_tool,
+    trigger_health_check_tool,
+    get_resource_utilization_tool,
 )
 
 logger = logging.getLogger(__name__)
@@ -533,6 +545,100 @@ TOOLS_METADATA = [
             "platform": {"type": "string", "required": True},
         },
     },
+    # Control plane tools
+    {
+        "name": "register_agent",
+        "description": "Register an agent with the control plane",
+        "function": register_agent_tool,
+        "parameters": {
+            "agent_id": {"type": "string", "required": True},
+            "capabilities": {"type": "string", "default": "debate"},
+            "model": {"type": "string", "default": "unknown"},
+            "provider": {"type": "string", "default": "unknown"},
+        },
+    },
+    {
+        "name": "unregister_agent",
+        "description": "Unregister an agent from the control plane",
+        "function": unregister_agent_tool,
+        "parameters": {
+            "agent_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "list_registered_agents",
+        "description": "List all agents registered with the control plane",
+        "function": list_registered_agents_tool,
+        "parameters": {
+            "capability": {"type": "string", "default": ""},
+            "only_available": {"type": "boolean", "default": True},
+        },
+    },
+    {
+        "name": "get_agent_health",
+        "description": "Get detailed health status for a specific agent",
+        "function": get_agent_health_tool,
+        "parameters": {
+            "agent_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "submit_task",
+        "description": "Submit a task to the control plane for execution",
+        "function": submit_task_tool,
+        "parameters": {
+            "task_type": {"type": "string", "required": True},
+            "payload": {"type": "string", "default": "{}"},
+            "required_capabilities": {"type": "string", "default": ""},
+            "priority": {"type": "string", "default": "normal"},
+            "timeout_seconds": {"type": "integer", "default": 300},
+        },
+    },
+    {
+        "name": "get_task_status",
+        "description": "Get the status of a task in the control plane",
+        "function": get_task_status_tool,
+        "parameters": {
+            "task_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "cancel_task",
+        "description": "Cancel a pending or running task",
+        "function": cancel_task_tool,
+        "parameters": {
+            "task_id": {"type": "string", "required": True},
+        },
+    },
+    {
+        "name": "list_pending_tasks",
+        "description": "List tasks in the pending queue",
+        "function": list_pending_tasks_tool,
+        "parameters": {
+            "task_type": {"type": "string", "default": ""},
+            "limit": {"type": "integer", "default": 20},
+        },
+    },
+    {
+        "name": "get_control_plane_status",
+        "description": "Get overall control plane health and status",
+        "function": get_control_plane_status_tool,
+        "parameters": {},
+    },
+    {
+        "name": "trigger_health_check",
+        "description": "Trigger a health check for an agent or all agents",
+        "function": trigger_health_check_tool,
+        "parameters": {
+            "agent_id": {"type": "string", "default": ""},
+        },
+    },
+    {
+        "name": "get_resource_utilization",
+        "description": "Get resource utilization metrics for the control plane",
+        "function": get_resource_utilization_tool,
+        "parameters": {},
+    },
 ]
 
 
@@ -592,5 +698,17 @@ __all__ = [
     "list_integrations_tool",
     "test_integration_tool",
     "get_integration_events_tool",
+    # Control plane tools
+    "register_agent_tool",
+    "unregister_agent_tool",
+    "list_registered_agents_tool",
+    "get_agent_health_tool",
+    "submit_task_tool",
+    "get_task_status_tool",
+    "cancel_task_tool",
+    "list_pending_tasks_tool",
+    "get_control_plane_status_tool",
+    "trigger_health_check_tool",
+    "get_resource_utilization_tool",
     "TOOLS_METADATA",
 ]

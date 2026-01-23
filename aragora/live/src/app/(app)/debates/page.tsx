@@ -69,6 +69,12 @@ export default function DebatesPage() {
           >
             MATRIX VIEW
           </Link>
+          <Link
+            href="/debates/provenance"
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+          >
+            PROVENANCE
+          </Link>
         </div>
       ),
     });

@@ -547,6 +547,148 @@ class TestControlPlaneHandlerSubmitTask:
         assert result.status_code == 400
 
 
+class TestControlPlaneHandlerDeliberations:
+    """Test deliberation endpoints."""
+
+    def test_submit_deliberation_requires_auth(self, control_plane_handler, mock_coordinator):
+        """Test submitting a deliberation requires authentication."""
+        ControlPlaneHandler.coordinator = mock_coordinator
+        handler = create_request_body({"content": "Test deliberation"})
+
+        result = control_plane_handler.handle_post(
+            "/api/v1/control-plane/deliberations", {}, handler
+        )
+
+        assert result is not None
+        assert result.status_code == 401
+
+    def test_submit_deliberation_missing_content(self, control_plane_handler, mock_coordinator):
+        """Test submitting a deliberation without content returns error."""
+        ControlPlaneHandler.coordinator = mock_coordinator
+        handler = create_auth_request_body({"decision_type": "debate"})
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
+        ):
+            result = control_plane_handler.handle_post(
+                "/api/v1/control-plane/deliberations", {}, handler
+            )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    def test_submit_deliberation_async_success(self, control_plane_handler, mock_coordinator):
+        """Test submitting an async deliberation succeeds."""
+        ControlPlaneHandler.coordinator = mock_coordinator
+        handler = create_auth_request_body(
+            {
+                "request_id": "req-123",
+                "content": "Test deliberation",
+                "decision_type": "debate",
+                "async": True,
+            }
+        )
+        auth_ctx = MagicMock(authenticated=True, user_id="user-1", org_id="org-1")
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
+        ):
+            with patch("aragora.billing.auth.extract_user_from_request", return_value=auth_ctx):
+                result = control_plane_handler.handle_post(
+                    "/api/v1/control-plane/deliberations", {}, handler
+                )
+
+        assert result is not None
+        assert result.status_code == 202
+        body = json.loads(result.body)
+        assert body.get("request_id") == "req-123"
+        assert body.get("status") == "queued"
+        assert body.get("task_id") == "task-123"
+
+    def test_submit_deliberation_sync_success(self, control_plane_handler, mock_coordinator):
+        """Test submitting a sync deliberation succeeds."""
+        ControlPlaneHandler.coordinator = mock_coordinator
+        handler = create_auth_request_body(
+            {
+                "request_id": "req-sync-1",
+                "content": "Test deliberation",
+                "decision_type": "debate",
+            }
+        )
+        auth_ctx = MagicMock(authenticated=True, user_id="user-1", org_id="org-1")
+        result_payload = MagicMock(
+            success=True,
+            decision_type=MagicMock(value="debate"),
+            answer="Approved",
+            confidence=0.82,
+            consensus_reached=True,
+            reasoning="Consensus achieved.",
+            evidence_used=["doc-1"],
+            duration_seconds=2.1,
+            error=None,
+        )
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
+        ):
+            with patch("aragora.billing.auth.extract_user_from_request", return_value=auth_ctx):
+                with patch(
+                    "aragora.control_plane.deliberation.run_deliberation",
+                    new=AsyncMock(return_value=result_payload),
+                ):
+                    result = control_plane_handler.handle_post(
+                        "/api/v1/control-plane/deliberations", {}, handler
+                    )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body.get("status") == "completed"
+        assert body.get("decision_type") == "debate"
+
+    def test_get_deliberation_success(self, control_plane_handler, mock_http_handler):
+        """Test fetching deliberation results."""
+        mock_http_handler.headers = {"Authorization": "Bearer test-token"}
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
+        ):
+            with patch(
+                "aragora.core.decision_results.get_decision_result",
+                return_value={"request_id": "req-123", "status": "completed"},
+            ):
+                result = control_plane_handler.handle(
+                    "/api/v1/control-plane/deliberations/req-123", {}, mock_http_handler
+                )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body.get("request_id") == "req-123"
+
+    def test_get_deliberation_status_success(self, control_plane_handler, mock_http_handler):
+        """Test fetching deliberation status."""
+        mock_http_handler.headers = {"Authorization": "Bearer test-token"}
+
+        with patch.object(
+            control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
+        ):
+            with patch(
+                "aragora.core.decision_results.get_decision_status",
+                return_value={"request_id": "req-123", "status": "queued"},
+            ):
+                result = control_plane_handler.handle(
+                    "/api/v1/control-plane/deliberations/req-123/status",
+                    {},
+                    mock_http_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body.get("status") == "queued"
+
+
 class TestControlPlaneHandlerCompleteTask:
     """Test POST /api/control-plane/tasks/:id/complete endpoint."""
 

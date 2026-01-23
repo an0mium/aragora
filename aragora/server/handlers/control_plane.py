@@ -78,6 +78,14 @@ class ControlPlaneHandler(BaseHandler):
         """Get the control plane stream server for event emissions."""
         return self.ctx.get("control_plane_stream")
 
+    def _normalize_path(self, path: str) -> str:
+        """Normalize versioned control plane paths to legacy form."""
+        if path.startswith("/api/v1/control-plane/"):
+            return path.replace("/api/v1/control-plane", "/api/control-plane", 1)
+        if path == "/api/v1/control-plane":
+            return "/api/control-plane"
+        return path
+
     def _emit_event(
         self,
         emit_method: str,
@@ -131,7 +139,7 @@ class ControlPlaneHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/v1/control-plane/")
+        return self._normalize_path(path).startswith("/api/control-plane/")
 
     # =========================================================================
     # GET Handlers
@@ -141,48 +149,63 @@ class ControlPlaneHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle GET requests."""
-        # /api/v1/control-plane/deliberations/:id[/status]
-        if path.startswith("/api/v1/control-plane/deliberations/"):
+        path = self._normalize_path(path)
+
+        # /api/control-plane/deliberations/:id[/status]
+        if path.startswith("/api/control-plane/deliberations/"):
             parts = path.split("/")
-            if len(parts) >= 6:
-                request_id = parts[5]
-                if len(parts) >= 7 and parts[6] == "status":
+            if len(parts) >= 5:
+                request_id = parts[4]
+                if len(parts) >= 6 and parts[5] == "status":
                     return self._handle_get_deliberation_status(request_id, handler)
                 return self._handle_get_deliberation(request_id, handler)
 
-        # /api/v1/control-plane/agents
-        if path == "/api/v1/control-plane/agents":
+        # /api/control-plane/agents
+        if path == "/api/control-plane/agents":
             return self._handle_list_agents(query_params)
 
-        # /api/v1/control-plane/agents/:id
-        if path.startswith("/api/v1/control-plane/agents/") and path.count("/") == 5:
+        # /api/control-plane/agents/:id
+        if path.startswith("/api/control-plane/agents/") and path.count("/") == 4:
             agent_id = path.split("/")[-1]
             return self._handle_get_agent(agent_id)
 
-        # /api/v1/control-plane/tasks/:id
-        if path.startswith("/api/v1/control-plane/tasks/") and path.count("/") == 5:
+        # /api/control-plane/tasks/:id
+        if path.startswith("/api/control-plane/tasks/") and path.count("/") == 4:
             task_id = path.split("/")[-1]
             return self._handle_get_task(task_id)
 
-        # /api/v1/control-plane/health
-        if path == "/api/v1/control-plane/health":
+        # /api/control-plane/health
+        if path == "/api/control-plane/health":
             return self._handle_system_health()
 
-        # /api/v1/control-plane/health/:agent_id
-        if path.startswith("/api/v1/control-plane/health/") and path.count("/") == 5:
-            agent_id = path.split("/")[-1]
-            return self._handle_agent_health(agent_id)
+        # /api/control-plane/health/detailed
+        if path == "/api/control-plane/health/detailed":
+            return self._handle_detailed_health()
 
-        # /api/v1/control-plane/stats
-        if path == "/api/v1/control-plane/stats":
+        # /api/control-plane/breakers
+        if path == "/api/control-plane/breakers":
+            return self._handle_circuit_breakers()
+
+        # /api/control-plane/queue/metrics
+        if path == "/api/control-plane/queue/metrics":
+            return self._handle_queue_metrics()
+
+        # /api/control-plane/health/:agent_id
+        if path.startswith("/api/control-plane/health/") and path.count("/") == 4:
+            agent_id = path.split("/")[-1]
+            if agent_id != "detailed":
+                return self._handle_agent_health(agent_id)
+
+        # /api/control-plane/stats
+        if path == "/api/control-plane/stats":
             return self._handle_stats()
 
-        # /api/v1/control-plane/queue
-        if path == "/api/v1/control-plane/queue":
+        # /api/control-plane/queue
+        if path == "/api/control-plane/queue":
             return self._handle_get_queue(query_params)
 
-        # /api/v1/control-plane/metrics
-        if path == "/api/v1/control-plane/metrics":
+        # /api/control-plane/metrics
+        if path == "/api/control-plane/metrics":
             return self._handle_get_metrics()
 
         return None
@@ -312,6 +335,160 @@ class ControlPlaneHandler(BaseHandler):
             return json_response(health.to_dict())
         except Exception as e:
             logger.error(f"Error getting agent health {agent_id}: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
+    def _handle_detailed_health(self) -> HandlerResult:
+        """Get detailed system health with component status."""
+        coordinator = self._get_coordinator()
+
+        try:
+            import time
+
+            start_time = getattr(self, "_start_time", time.time())
+            uptime = int(time.time() - start_time)
+
+            components = []
+
+            # Check coordinator/scheduler health
+            if coordinator:
+                components.append(
+                    {
+                        "name": "Coordinator",
+                        "status": "healthy",
+                        "latency_ms": 0,
+                    }
+                )
+
+                if hasattr(coordinator, "_scheduler"):
+                    components.append(
+                        {
+                            "name": "Scheduler",
+                            "status": "healthy",
+                            "latency_ms": 0,
+                        }
+                    )
+
+            # Check Redis if available
+            try:
+                from aragora.control_plane.shared_state import get_shared_state_sync
+
+                state = get_shared_state_sync()
+                if state and hasattr(state, "redis"):
+                    start = time.time()
+                    _run_async(state.redis.ping())
+                    latency = int((time.time() - start) * 1000)
+                    components.append(
+                        {
+                            "name": "Redis",
+                            "status": "healthy",
+                            "latency_ms": latency,
+                        }
+                    )
+            except Exception:
+                components.append(
+                    {
+                        "name": "Redis",
+                        "status": "unhealthy",
+                        "error": "Not connected",
+                    }
+                )
+
+            # Check database if available
+            try:
+                from aragora.db.database import Database
+
+                db = Database()
+                if db.is_connected():
+                    components.append(
+                        {
+                            "name": "Database",
+                            "status": "healthy",
+                            "latency_ms": 10,
+                        }
+                    )
+            except Exception:
+                pass  # Database not configured
+
+            # Overall status
+            unhealthy = any(c["status"] == "unhealthy" for c in components)
+            degraded = any(c["status"] == "degraded" for c in components)
+            status = "unhealthy" if unhealthy else ("degraded" if degraded else "healthy")
+
+            return json_response(
+                {
+                    "status": status,
+                    "uptime_seconds": uptime,
+                    "version": "2.1.0",
+                    "components": components,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error getting detailed health: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
+    def _handle_circuit_breakers(self) -> HandlerResult:
+        """Get circuit breaker states."""
+        try:
+            breakers = []
+
+            # Try to get circuit breakers from resilience module
+            try:
+                from aragora.resilience import get_circuit_breakers
+
+                for name, breaker in get_circuit_breakers().items():
+                    breakers.append(
+                        {
+                            "name": name,
+                            "state": breaker.state.value
+                            if hasattr(breaker.state, "value")
+                            else str(breaker.state),
+                            "failure_count": getattr(breaker, "failure_count", 0),
+                            "success_count": getattr(breaker, "success_count", 0),
+                            "last_failure": getattr(breaker, "last_failure_time", None),
+                            "reset_timeout_ms": getattr(breaker, "reset_timeout", 30) * 1000,
+                        }
+                    )
+            except (ImportError, AttributeError):
+                # Resilience module not available or no breakers
+                pass
+
+            return json_response({"breakers": breakers})
+        except Exception as e:
+            logger.error(f"Error getting circuit breakers: {e}")
+            return error_response(safe_error_message(e, "control plane"), 500)
+
+    def _handle_queue_metrics(self) -> HandlerResult:
+        """Get task queue performance metrics."""
+        coordinator = self._get_coordinator()
+
+        try:
+            stats = {}
+            if coordinator and hasattr(coordinator, "_scheduler"):
+                _scheduler = coordinator._scheduler  # noqa: F841
+                scheduler_stats = _run_async(coordinator.get_stats())
+                stats = {
+                    "pending": scheduler_stats.get("pending_tasks", 0),
+                    "running": scheduler_stats.get("running_tasks", 0),
+                    "completed_today": scheduler_stats.get("completed_tasks", 0),
+                    "failed_today": scheduler_stats.get("failed_tasks", 0),
+                    "avg_wait_time_ms": scheduler_stats.get("avg_wait_time_ms", 0),
+                    "avg_execution_time_ms": scheduler_stats.get("avg_execution_time_ms", 0),
+                    "throughput_per_minute": scheduler_stats.get("throughput_per_minute", 0),
+                }
+            else:
+                stats = {
+                    "pending": 0,
+                    "running": 0,
+                    "completed_today": 0,
+                    "failed_today": 0,
+                    "avg_wait_time_ms": 0,
+                    "avg_execution_time_ms": 0,
+                    "throughput_per_minute": 0,
+                }
+
+            return json_response(stats)
+        except Exception as e:
+            logger.error(f"Error getting queue metrics: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
     def _handle_stats(self) -> HandlerResult:
@@ -450,21 +627,23 @@ class ControlPlaneHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
-        # /api/v1/control-plane/deliberations
-        if path == "/api/v1/control-plane/deliberations":
+        path = self._normalize_path(path)
+
+        # /api/control-plane/deliberations
+        if path == "/api/control-plane/deliberations":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_submit_deliberation(body, handler)
 
-        # /api/v1/control-plane/agents
-        if path == "/api/v1/control-plane/agents":
+        # /api/control-plane/agents
+        if path == "/api/control-plane/agents":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_register_agent(body, handler)
 
-        # /api/v1/control-plane/agents/:id/heartbeat
+        # /api/control-plane/agents/:id/heartbeat
         if path.endswith("/heartbeat") and "/agents/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
@@ -474,14 +653,14 @@ class ControlPlaneHandler(BaseHandler):
                     return err
                 return self._handle_heartbeat(agent_id, body, handler)
 
-        # /api/v1/control-plane/tasks
-        if path == "/api/v1/control-plane/tasks":
+        # /api/control-plane/tasks
+        if path == "/api/control-plane/tasks":
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
             return self._handle_submit_task(body, handler)
 
-        # /api/v1/control-plane/tasks/:id/complete
+        # /api/control-plane/tasks/:id/complete
         if path.endswith("/complete") and "/tasks/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
@@ -491,7 +670,7 @@ class ControlPlaneHandler(BaseHandler):
                     return err
                 return self._handle_complete_task(task_id, body, handler)
 
-        # /api/v1/control-plane/tasks/:id/fail
+        # /api/control-plane/tasks/:id/fail
         if path.endswith("/fail") and "/tasks/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
@@ -501,14 +680,14 @@ class ControlPlaneHandler(BaseHandler):
                     return err
                 return self._handle_fail_task(task_id, body, handler)
 
-        # /api/v1/control-plane/tasks/:id/cancel
+        # /api/control-plane/tasks/:id/cancel
         if path.endswith("/cancel") and "/tasks/" in path:
             parts = path.split("/")
             if len(parts) >= 5:
                 task_id = parts[-2]
                 return self._handle_cancel_task(task_id, handler)
 
-        # /api/v1/control-plane/tasks/:id/claim
+        # /api/control-plane/tasks/:id/claim
         if path.endswith("/claim") and "/tasks/" in path:
             body, err = self.read_json_body_validated(handler)
             if err:
@@ -948,8 +1127,10 @@ class ControlPlaneHandler(BaseHandler):
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle DELETE requests."""
-        # /api/v1/control-plane/agents/:id
-        if path.startswith("/api/v1/control-plane/agents/") and path.count("/") == 5:
+        path = self._normalize_path(path)
+
+        # /api/control-plane/agents/:id
+        if path.startswith("/api/control-plane/agents/") and path.count("/") == 4:
             agent_id = path.split("/")[-1]
             return self._handle_unregister_agent(agent_id, handler)
 

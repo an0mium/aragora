@@ -77,6 +77,19 @@ from aragora.mcp.tools_module.integrations import (
     test_integration_tool,
     get_integration_events_tool,
 )
+from aragora.mcp.tools_module.control_plane import (
+    register_agent_tool,
+    unregister_agent_tool,
+    list_registered_agents_tool,
+    get_agent_health_tool,
+    submit_task_tool,
+    get_task_status_tool,
+    cancel_task_tool,
+    list_pending_tasks_tool,
+    get_control_plane_status_tool,
+    trigger_health_check_tool,
+    get_resource_utilization_tool,
+)
 
 __all__ = [
     # Debate tools
@@ -136,4 +149,16 @@ __all__ = [
     "list_integrations_tool",
     "test_integration_tool",
     "get_integration_events_tool",
+    # Control plane tools
+    "register_agent_tool",
+    "unregister_agent_tool",
+    "list_registered_agents_tool",
+    "get_agent_health_tool",
+    "submit_task_tool",
+    "get_task_status_tool",
+    "cancel_task_tool",
+    "list_pending_tasks_tool",
+    "get_control_plane_status_tool",
+    "trigger_health_check_tool",
+    "get_resource_utilization_tool",
 ]

@@ -143,6 +143,68 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     'Is GraphQL or REST better for real-time collaborative APIs?',
     'What authentication strategy balances security with UX?',
     'Should we use TypeScript or JavaScript for this project?',
+
+    // Business Strategy
+    'When should a startup prioritize market share over profitability?',
+    'What factors should drive a build vs. buy decision for core infrastructure?',
+    'How should a B2B company approach pricing for a new product category?',
+    'When is the right time for a startup to expand internationally?',
+    'Should we pursue a platform strategy or stay focused on our core product?',
+    'What are the trade-offs between vertical and horizontal market expansion?',
+    'How should we evaluate potential acquisition targets vs. organic growth?',
+    'When should a company pivot its business model vs. double down?',
+    'What metrics should drive enterprise sales team compensation?',
+    'How do you balance customer customization requests with product roadmap?',
+    'Should we open-source our core technology to accelerate adoption?',
+    'What is the optimal balance between self-serve and sales-led growth?',
+
+    // Enterprise & Compliance
+    'How should we approach SOC 2 certification for a fast-moving startup?',
+    'What is the best strategy for GDPR compliance in a multi-tenant SaaS?',
+    'How do we balance security controls with developer productivity?',
+    'What vendor evaluation criteria matter most for enterprise software?',
+    'How should we structure our compliance program to satisfy multiple frameworks?',
+    'When should a company hire a dedicated security team vs. outsource?',
+    'What is the ROI calculation for investing in compliance automation?',
+    'How do we prepare for enterprise customer security questionnaires at scale?',
+    'Should we pursue FedRAMP certification for government sales?',
+    'How do we implement least-privilege access without slowing down engineering?',
+
+    // Financial Services & FinTech
+    'What are the trade-offs between real-time and batch processing for payments?',
+    'How should we approach AML/KYC compliance for a new fintech product?',
+    'What is the optimal architecture for a high-frequency trading system?',
+    'How do we balance fraud prevention with customer experience?',
+    'Should we build our own payment rails or use existing infrastructure?',
+    'What is the best approach to regulatory reporting automation?',
+    'How should we handle PCI-DSS compliance in a cloud-native architecture?',
+    'What are the trade-offs between centralized and decentralized finance?',
+
+    // Healthcare
+    'How should we approach HIPAA compliance for a healthcare AI product?',
+    'What are the trade-offs between HL7 FHIR and legacy healthcare APIs?',
+    'How do we balance clinical decision support accuracy with explainability?',
+    'What is the best approach to patient data governance in a multi-provider system?',
+    'Should healthcare AI systems require human oversight for all decisions?',
+    'How do we handle clinical trial data in compliance with FDA 21 CFR Part 11?',
+
+    // Legal & Contracts
+    'Should legal teams adopt AI for contract review, and what are the risks?',
+    'How do we approach IP protection for AI-generated innovations?',
+    'What is the optimal approach to compliance monitoring across jurisdictions?',
+    'How should companies prepare for AI regulation like the EU AI Act?',
+    'What are the trade-offs between in-house counsel and outside firms?',
+    'How do we automate legal operations without sacrificing quality?',
+
+    // SaaS & Platform
+    'What is the best multi-tenancy architecture for enterprise SaaS?',
+    'How should we approach usage-based pricing for an API product?',
+    'What are the trade-offs between API-first and UI-first product development?',
+    'How do we balance platform openness with quality control?',
+    'What is the optimal approach to customer success for enterprise accounts?',
+    'How should we handle data residency requirements for global customers?',
+    'When should a SaaS company add professional services?',
+    'What is the best approach to managing technical debt while scaling?',
   ];
 
   // Select random placeholder on mount (stable across re-renders)
@@ -339,9 +401,9 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
         <div className="flex items-center gap-2 flex-wrap mt-1">
           {[
             { label: 'Technical', icon: '</>', question: 'What are the tradeoffs between microservices and monoliths for a startup?' },
+            { label: 'Business', icon: '$', question: 'What factors should drive a build vs. buy decision for core infrastructure?' },
             { label: 'Philosophy', icon: '?', question: 'Can AI systems develop genuine understanding, or only simulate it?' },
             { label: 'Ethics', icon: '!', question: 'Should autonomous AI agents have the right to refuse unethical requests?' },
-            { label: 'Business', icon: '$', question: 'When should a startup prioritize growth over profitability?' },
             { label: 'Creative', icon: '*', question: 'What makes a story truly compelling to readers across cultures?' },
             { label: 'Life', icon: '♡', question: 'What does it mean to live a meaningful life in the age of AI?' },
           ].map((cat) => (

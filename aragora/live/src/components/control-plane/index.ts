@@ -160,3 +160,39 @@ export {
   type DeliberationStatus,
   type DeliberationAgent,
 } from './DeliberationTracker';
+
+// System Health Dashboard
+export {
+  SystemHealthDashboard,
+  HealthOverview,
+  CircuitBreakerStatus,
+  TaskQueueMetrics,
+  type SystemHealthDashboardProps,
+  type HealthOverviewProps,
+  type SystemHealth,
+  type CircuitBreakerStatusProps,
+  type CircuitBreaker,
+  type TaskQueueMetricsProps,
+  type QueueMetrics,
+} from './SystemHealthDashboard';
+
+// Outbound Channels Panel
+export {
+  OutboundChannelsPanel,
+  ChannelCard,
+  ChannelConfigModal,
+  DeliveryLog,
+  type OutboundChannelsPanelProps,
+  type ChannelFilter as OutboundChannelFilter,
+  type PanelTab as OutboundPanelTab,
+  type ChannelCardProps,
+  type OutboundChannel,
+  type OutboundChannelType,
+  type ChannelStatus,
+  type ChannelStats,
+  type ChannelConfigModalProps,
+  type ChannelConfigField,
+  type DeliveryLogProps,
+  type DeliveryLogEntry,
+  type DeliveryStatus,
+} from './OutboundChannelsPanel';
