@@ -68,6 +68,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Training](#training)
 - [Transcription](#transcription)
 - [Uncertainty](#uncertainty)
+- [UsageMetering](#usagemetering)
 - [Verticals](#verticals)
 - [Webhook](#webhook)
 - [Workflow Templates](#workflow-templates)
@@ -760,11 +761,11 @@ GET /api/v1/decisions/*
 
 ## Deliberations
 
-Handler for robust decisionmaking dashboard endpoints.
+Handler for vetted decisionmaking dashboard endpoints.
 
 ### `GET` `/api/v1/deliberations/active`
 
-Fetch active robust decisionmaking sessions from the debate store
+Fetch active vetted decisionmaking sessions from the debate store
 
 ### `GET` `/api/v1/deliberations/stats`
 
@@ -876,7 +877,7 @@ Update prioritization config
 
 ## EmailDebate
 
-Handler for email robust decisionmaking API endpoints.
+Handler for email vetted decisionmaking API endpoints.
 
 ### `GET` `/api/v1/email/prioritize`
 
@@ -1534,11 +1535,11 @@ Unified Orchestration Handler for Aragora Control Plane.
 
 ### `POST` `/api/v1/orchestration/deliberate`
 
-Unified robust decisionmaking endpoint
+Unified vetted decisionmaking endpoint
 
 ### `GET` `/api/v1/orchestration/status/:id`
 
-Get robust decisionmaking status
+Get vetted decisionmaking status
 
 ### `GET` `/api/v1/orchestration/templates`
 
@@ -1546,7 +1547,7 @@ List available templates
 
 ### `POST` `/api/v1/orchestration/deliberate/sync`
 
-Synchronous robust decisionmaking
+Synchronous vetted decisionmaking
 
 ---
 
@@ -2151,6 +2152,32 @@ Get agent calibration profile
 ### `POST` `/api/uncertainty/followups`
 
 Generate follow-up suggestions from cruxes
+
+---
+
+## UsageMetering
+
+Handler for usage metering endpoints.
+
+### `GET` `/api/v1/billing/usage` 🔒
+
+Export usage data as CSV
+
+### `GET` `/api/v1/billing/usage/breakdown` 🔒
+
+Get detailed usage breakdown for billing
+
+### `GET` `/api/v1/billing/limits` 🔒
+
+Get current usage limits and utilization percentages
+
+### `GET` `/api/v1/billing/usage/summary`
+
+GET /api/v1/billing/usage/summary
+
+### `GET` `/api/v1/billing/usage/export` 🔒
+
+Export usage data as CSV
 
 ---
 

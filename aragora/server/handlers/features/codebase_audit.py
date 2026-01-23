@@ -744,7 +744,7 @@ class CodebaseAuditHandler(BaseHandler):
             all_findings: List[Finding] = []
             metrics: Dict[str, Any] = {}
 
-            tasks = []
+            tasks: List[tuple[str, Any]] = []
             if "sast" in scan_types:
                 tasks.append(("sast", run_sast_scan(target_path, scan_id, tenant_id, languages)))
             if "bugs" in scan_types:

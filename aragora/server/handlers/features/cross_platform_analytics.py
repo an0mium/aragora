@@ -461,9 +461,11 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[Dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
 
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
+    async def handle(  # type: ignore[override]
+        self, request: Any, path: str, method: str
+    ) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)
@@ -661,7 +663,7 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
         days = 7 if time_range == "7d" else 30 if time_range == "30d" else 24
         base_date = datetime.now(timezone.utc)
 
-        trends = {
+        trends: Dict[str, Any] = {
             "metric": metric,
             "time_range": time_range,
             "data_points": [],
@@ -785,7 +787,7 @@ class CrossPlatformAnalyticsHandler(BaseHandler):
         correlation_matrix = []
 
         for m1 in metrics:
-            row = {"metric": m1}
+            row: Dict[str, Any] = {"metric": m1}
             for m2 in metrics:
                 if m1 == m2:
                     row[m2] = 1.0
