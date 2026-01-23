@@ -2231,6 +2231,12 @@ UI dashboard under `/costs`.
 QuickBooks Online integration for receivables, customer insights, and financial
 reporting under `/accounting`.
 
+### Plaid Bank Connector
+**File:** `aragora/connectors/accounting/plaid.py`
+
+Plaid Link + transaction sync for bank feeds, with categorization and anomaly
+detection hooks for accounting workflows.
+
 ---
 
 ## Phase 23: Coding & Review (2026-01-22)

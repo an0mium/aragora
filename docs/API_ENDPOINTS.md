@@ -55,6 +55,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Selection](#selection)
 - [Shared Inbox](#shared-inbox)
 - [Template Marketplace](#template-marketplace)
+- [Threat Intel](#threat-intel)
 - [Tournaments](#tournaments)
 - [Training](#training)
 - [Transcription](#transcription)
@@ -1612,6 +1613,44 @@ Get trending templates
 ### `GET` `/api/marketplace/categories`
 
 Get marketplace categories
+
+---
+
+## Threat Intel
+
+Threat Intelligence API Handlers.
+
+### `POST` `/api/v1/threat/url`
+
+Check URL for threats
+
+### `POST` `/api/v1/threat/urls`
+
+Batch check URLs
+
+### `GET` `/api/v1/threat/ip/{ip_address}`
+
+Check IP reputation
+
+### `POST` `/api/v1/threat/ips`
+
+Batch check IPs
+
+### `GET` `/api/v1/threat/hash/{hash_value}`
+
+Check file hash reputation
+
+### `POST` `/api/v1/threat/hashes`
+
+Batch check hashes
+
+### `POST` `/api/v1/threat/email`
+
+Scan email content
+
+### `GET` `/api/v1/threat/status`
+
+Get service status
 
 ---
 

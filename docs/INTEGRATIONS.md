@@ -13,7 +13,7 @@ integration map and points to the detailed setup docs.
 | Webhooks | Event notifications and receipts | This doc (see below) |
 | Developer workflows | PR review + code feedback | `docs/GITHUB_PR_REVIEW.md` |
 | Inbox ops | Shared inbox + routing rules | `docs/SHARED_INBOX.md` |
-| Accounting/ERP | QuickBooks Online dashboards | `docs/API_REFERENCE.md` |
+| Accounting/ERP | QuickBooks Online dashboards + Plaid bank feeds | `docs/API_REFERENCE.md` |
 
 ## Available Integrations (Modules)
 
@@ -36,6 +36,7 @@ integration map and points to the detailed setup docs.
 | GitHub audit bridge | `aragora/server/handlers/github/audit_bridge.py` | Sync audit findings to GitHub |
 | Knowledge chat bridge | `aragora/services/knowledge_chat_bridge.py` | Chat-to-knowledge context search |
 | Accounting (QuickBooks) | `aragora/server/handlers/accounting.py` | QBO dashboards + reports |
+| Accounting (Plaid) | `aragora/connectors/accounting/plaid.py` | Bank account sync + transaction feeds |
 | Threat intelligence | `aragora/services/threat_intelligence.py` | VirusTotal/AbuseIPDB/PhishTank feeds |
 | Shared inbox APIs | `aragora/server/handlers/shared_inbox.py` | Collaborative inbox workflows |
 

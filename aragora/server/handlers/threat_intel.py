@@ -7,6 +7,16 @@ Provides REST API endpoints for threat intelligence operations:
 - File hash lookup (VirusTotal)
 - Email content scanning
 
+Endpoints:
+- POST /api/v1/threat/url - Check URL for threats
+- POST /api/v1/threat/urls - Batch check URLs
+- GET /api/v1/threat/ip/{ip_address} - Check IP reputation
+- POST /api/v1/threat/ips - Batch check IPs
+- GET /api/v1/threat/hash/{hash_value} - Check file hash reputation
+- POST /api/v1/threat/hashes - Batch check hashes
+- POST /api/v1/threat/email - Scan email content
+- GET /api/v1/threat/status - Get service status
+
 All endpoints require authentication.
 """
 
