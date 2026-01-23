@@ -451,7 +451,7 @@ class GustoConnector:
         endpoint: str,
         data: Optional[Dict[str, Any]] = None,
         access_token: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> Any:
         """Make authenticated API request."""
         token = access_token
         if not token:

@@ -87,8 +87,12 @@ class Source:
             source_type=data.get("sourceDefinitionId", data.get("source_definition_id", "")),
             workspace_id=data.get("workspaceId", data.get("workspace_id", "")),
             enabled=data.get("enabled", True),
-            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00")) if data.get("createdAt") else None,
-            updated_at=datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00")) if data.get("updatedAt") else None,
+            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
+            if data.get("createdAt")
+            else None,
+            updated_at=datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00"))
+            if data.get("updatedAt")
+            else None,
             write_key=data.get("writeKey") or data.get("write_key"),
         )
 
@@ -112,9 +116,13 @@ class Destination:
             id=data.get("id", ""),
             name=data.get("name", ""),
             source_id=data.get("sourceId", data.get("source_id", "")),
-            destination_type=data.get("destinationDefinitionId", data.get("destination_definition_id", "")),
+            destination_type=data.get(
+                "destinationDefinitionId", data.get("destination_definition_id", "")
+            ),
             enabled=data.get("enabled", True),
-            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00")) if data.get("createdAt") else None,
+            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
+            if data.get("createdAt")
+            else None,
             settings=data.get("settings", {}),
         )
 
@@ -252,8 +260,12 @@ class Audience:
             name=data.get("name", ""),
             space_id=data.get("spaceId", data.get("space_id", "")),
             description=data.get("description"),
-            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00")) if data.get("createdAt") else None,
-            updated_at=datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00")) if data.get("updatedAt") else None,
+            created_at=datetime.fromisoformat(data["createdAt"].replace("Z", "+00:00"))
+            if data.get("createdAt")
+            else None,
+            updated_at=datetime.fromisoformat(data["updatedAt"].replace("Z", "+00:00"))
+            if data.get("updatedAt")
+            else None,
             size=data.get("size"),
         )
 
@@ -277,8 +289,12 @@ class Profile:
             user_id=data.get("user_id"),
             anonymous_id=data.get("anonymous_id"),
             traits=data.get("traits", {}),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else None,
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else None,
         )
 
 
@@ -314,6 +330,7 @@ class SegmentConnector:
         """Get tracking API client (uses write key)."""
         if self._tracking_client is None:
             import base64
+
             auth = base64.b64encode(f"{self.credentials.write_key}:".encode()).decode()
             self._tracking_client = httpx.AsyncClient(
                 headers={
@@ -552,7 +569,9 @@ class SegmentConnector:
         if user_id:
             endpoint = f"spaces/{space_id}/collections/users/profiles/user_id:{user_id}/traits"
         else:
-            endpoint = f"spaces/{space_id}/collections/users/profiles/anonymous_id:{anonymous_id}/traits"
+            endpoint = (
+                f"spaces/{space_id}/collections/users/profiles/anonymous_id:{anonymous_id}/traits"
+            )
 
         data = await self._profiles_request("GET", endpoint)
         return Profile.from_api(data)
