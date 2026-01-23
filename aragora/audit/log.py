@@ -40,6 +40,7 @@ import hashlib
 import json
 import logging
 import os
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
@@ -297,6 +298,39 @@ class SQLiteBackend:
 
     def __init__(self, db_path: Path):
         self.db_path = db_path
+        self._conn: Optional[sqlite3.Connection] = None
+
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get or create database connection."""
+        if self._conn is None:
+            self._conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.row_factory = sqlite3.Row
+        return self._conn
+
+    def execute_write(self, sql: str, params: tuple = ()) -> None:
+        """Execute a write operation."""
+        conn = self._get_connection()
+        conn.execute(sql, params)
+        conn.commit()
+
+    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[Any]:
+        """Execute query and fetch single row."""
+        conn = self._get_connection()
+        cursor = conn.execute(sql, params)
+        return cursor.fetchone()
+
+    def fetch_all(self, sql: str, params: tuple = ()) -> list:
+        """Execute query and fetch all rows."""
+        conn = self._get_connection()
+        cursor = conn.execute(sql, params)
+        return cursor.fetchall()
+
+    def close(self) -> None:
+        """Close database connection."""
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
 
 
 class PostgreSQLBackend:
