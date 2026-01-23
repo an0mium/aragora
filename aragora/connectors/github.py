@@ -513,3 +513,141 @@ class GitHubConnector(BaseConnector):
 
         self._cache_put(evidence.id, evidence)
         return evidence
+
+    async def fetch_pr_diff(self, pr_url: str) -> Optional[str]:
+        """
+        Fetch the diff for a pull request.
+
+        Args:
+            pr_url: GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)
+
+        Returns:
+            Diff string if successful, None otherwise
+        """
+        # Parse PR URL
+        match = re.match(r"https?://github\.com/([^/]+/[^/]+)/pull/(\d+)", pr_url)
+        if not match:
+            logger.warning(f"Invalid PR URL format: {pr_url}")
+            return None
+
+        repo = match.group(1)
+        pr_number = match.group(2)
+
+        if not self._validate_repo(repo) or not self._validate_number(pr_number):
+            logger.warning(f"Invalid repo/number in PR URL: {pr_url}")
+            return None
+
+        args = [
+            "pr",
+            "diff",
+            pr_number,
+            "--repo",
+            repo,
+        ]
+
+        diff = await self._run_gh(args)
+        return diff
+
+    async def fetch_pr_files(self, pr_url: str) -> Optional[list[dict]]:
+        """
+        Fetch list of files changed in a pull request.
+
+        Args:
+            pr_url: GitHub PR URL
+
+        Returns:
+            List of file change dicts with path, additions, deletions
+        """
+        match = re.match(r"https?://github\.com/([^/]+/[^/]+)/pull/(\d+)", pr_url)
+        if not match:
+            return None
+
+        repo = match.group(1)
+        pr_number = match.group(2)
+
+        if not self._validate_repo(repo) or not self._validate_number(pr_number):
+            return None
+
+        args = [
+            "pr",
+            "view",
+            pr_number,
+            "--repo",
+            repo,
+            "--json",
+            "files",
+        ]
+
+        output = await self._run_gh(args)
+        if not output:
+            return None
+
+        try:
+            data = json.loads(output)
+            return data.get("files", [])
+        except json.JSONDecodeError:
+            return None
+
+    async def post_pr_review(
+        self,
+        pr_url: str,
+        body: str,
+        event: str = "COMMENT",
+        comments: Optional[list[dict]] = None,
+    ) -> bool:
+        """
+        Post a review to a pull request.
+
+        Args:
+            pr_url: GitHub PR URL
+            body: Main review body
+            event: Review event type (APPROVE, REQUEST_CHANGES, COMMENT)
+            comments: List of inline comments with path, line, body
+
+        Returns:
+            True if successful
+        """
+        match = re.match(r"https?://github\.com/([^/]+/[^/]+)/pull/(\d+)", pr_url)
+        if not match:
+            return False
+
+        repo = match.group(1)
+        pr_number = match.group(2)
+
+        if not self._validate_repo(repo) or not self._validate_number(pr_number):
+            return False
+
+        # Use gh api to post review
+        review_data = {
+            "body": body,
+            "event": event,
+        }
+
+        if comments:
+            review_data["comments"] = comments
+
+        # Write review data to temp file
+        import tempfile
+        import os
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(review_data, f)
+            temp_path = f.name
+
+        try:
+            args = [
+                "api",
+                f"repos/{repo}/pulls/{pr_number}/reviews",
+                "--method",
+                "POST",
+                "--input",
+                temp_path,
+            ]
+
+            output = await self._run_gh(args)
+            return output is not None
+        finally:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
