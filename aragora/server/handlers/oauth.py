@@ -720,7 +720,15 @@ class OAuthHandler(SecureHandler):
                 org_id=user.org_id,
                 role=user.role,
             )
-            logger.info("OAuth callback: token pair created successfully")
+            # Log token fingerprint for debugging (correlates with validation logs)
+            import hashlib
+
+            token_fingerprint = hashlib.sha256(tokens.access_token.encode()).hexdigest()[:8]
+            logger.info(
+                f"OAuth callback: token pair created successfully "
+                f"(access_token fingerprint={token_fingerprint}, "
+                f"user_id={user.id}, org_id={user.org_id})"
+            )
         except Exception as e:
             logger.error(f"OAuth callback: create_token_pair failed: {e}", exc_info=True)
             raise

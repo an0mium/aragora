@@ -10,7 +10,7 @@ from __future__ import annotations
 # Version components
 VERSION_MAJOR = 2
 VERSION_MINOR = 1
-VERSION_PATCH = 10
+VERSION_PATCH = 13
 VERSION_SUFFIX = ""  # e.g., "a1", "b2", "rc1", or "" for final
 
 # Construct version string
@@ -20,7 +20,7 @@ if VERSION_SUFFIX:
     __version__ += VERSION_SUFFIX
 
 # Release date (ISO 8601 format)
-RELEASE_DATE = "2026-01-21"
+RELEASE_DATE = "2026-01-23"
 
 # Package metadata
 PACKAGE_NAME = "aragora"

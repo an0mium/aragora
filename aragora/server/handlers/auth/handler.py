@@ -562,7 +562,12 @@ class AuthHandler(SecureHandler):
         """Get current user information."""
         # Get current user
         user_store = self._get_user_store()
+        logger.info(f"[AUTH_ME_DEBUG] user_store available: {user_store is not None}")
         auth_ctx = extract_user_from_request(handler, user_store)
+        logger.info(
+            f"[AUTH_ME_DEBUG] auth_ctx: authenticated={auth_ctx.is_authenticated}, "
+            f"user_id={auth_ctx.user_id}, error_reason={auth_ctx.error_reason}"
+        )
         if not auth_ctx.is_authenticated:
             return error_response("Not authenticated", 401)
 
