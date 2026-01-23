@@ -22,12 +22,16 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [GRAPH_DEBATES](./GRAPH_DEBATES.md)
 - `/debates/matrix` - Scenario matrix runner and comparison grid.
   - Related docs: [MATRIX_DEBATES](./MATRIX_DEBATES.md)
+- `/deliberations` - Control plane deliberations dashboard and live status.
+  - Related docs: [CONTROL_PLANE](./CONTROL_PLANE.md), [CONTROL_PLANE_GUIDE](./CONTROL_PLANE_GUIDE.md)
 - `/gauntlet/[id]` - Live gauntlet run viewer (adversarial stress-test).
   - Related docs: [GAUNTLET](./GAUNTLET.md), [GAUNTLET_ARCHITECTURE](./GAUNTLET_ARCHITECTURE.md)
 - `/replays` - Replay browser to review historical debates and fork at checkpoints.
   - Related docs: [API_USAGE](./API_USAGE.md), [FEATURES](./FEATURES.md)
 - `/reviews` - Shareable multi-agent code reviews and consensus summaries.
   - Related docs: [CLI_REFERENCE](./CLI_REFERENCE.md), [README](../README.md)
+- `/control-plane` - Control plane dashboard (agents, queue, deliberations).
+  - Related docs: [CONTROL_PLANE](./CONTROL_PLANE.md), [CONTROL_PLANE_GUIDE](./CONTROL_PLANE_GUIDE.md)
 
 ## Analysis, Insights, and Memory
 
@@ -39,6 +43,8 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [MEMORY_STRATEGY](./MEMORY_STRATEGY.md), [MEMORY_ANALYTICS](./MEMORY_ANALYTICS.md)
 - `/pulse` - Pulse scheduler for automated trending-topic debates.
   - Related docs: [PULSE](./PULSE.md)
+- `/repository` - Repository indexing and knowledge graph explorer.
+  - Related docs: [KNOWLEDGE_MOUND](./KNOWLEDGE_MOUND.md), [ARCHITECTURE](./ARCHITECTURE.md)
 - `/network` - Agent relationship network visualization.
   - Related docs: [FEATURES](./FEATURES.md), [AGENT_SELECTION](./AGENT_SELECTION.md)
 - `/tournaments` - Agent tournaments and rankings dashboard.
@@ -75,6 +81,8 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
   - Related docs: [SDK_GUIDE](./SDK_GUIDE.md), [SDK_TYPESCRIPT](./SDK_TYPESCRIPT.md)
 - `/settings` - User preferences, integrations, and API configuration.
   - Related docs: [ENVIRONMENT](./ENVIRONMENT.md), [INTEGRATIONS](./INTEGRATIONS.md)
+- `/inbox` - AI smart inbox with prioritization and Gmail sync.
+  - Related docs: [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md)
 - `/organization` - Organization profile settings (name, tier, limits).
   - Related docs: [BILLING](./BILLING.md), [SSO_SETUP](./SSO_SETUP.md)
 - `/organization/members` - Member invites, roles, and removal.

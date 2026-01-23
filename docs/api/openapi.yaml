@@ -79,6 +79,10 @@
       "description": "Document upload and export"
     },
     {
+      "name": "Codebase",
+      "description": "Codebase security scans and metrics"
+    },
+    {
       "name": "Media",
       "description": "Audio/video and podcast"
     },
@@ -13096,6 +13100,2009 @@
           }
         }
       }
+    },
+    "/api/v1/codebase/{repo}/scan": {
+      "post": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Run dependency vulnerability scan",
+        "description": "Trigger a dependency vulnerability scan for a repository.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "repo_path"
+                ],
+                "properties": {
+                  "repo_path": {
+                    "type": "string"
+                  },
+                  "branch": {
+                    "type": "string"
+                  },
+                  "commit_sha": {
+                    "type": "string"
+                  },
+                  "workspace_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scan started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseScanStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/scan/latest": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Get latest scan",
+        "description": "Fetch the most recent dependency scan result.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest scan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseScanResultResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/scan/{scan_id}": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Get scan by ID",
+        "description": "Fetch a specific scan result by scan ID.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseScanResultResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/scans": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "List scans",
+        "description": "List scan history for a repository.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseScanListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/vulnerabilities": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "List vulnerabilities",
+        "description": "List vulnerabilities from the latest scan.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "package",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ecosystem",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vulnerability list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseVulnerabilityListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/package/{ecosystem}/{package}/vulnerabilities": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Query package vulnerabilities",
+        "description": "Query advisories for a package and ecosystem.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "ecosystem",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "package",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package vulnerabilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebasePackageVulnerabilityResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cve/{cve_id}": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Get CVE details",
+        "description": "Fetch CVE details from vulnerability databases.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "cve_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CVE details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseCVEResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/metrics/analyze": {
+      "post": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Run metrics analysis",
+        "description": "Analyze code complexity and duplication for a repository.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "repo_path"
+                ],
+                "properties": {
+                  "repo_path": {
+                    "type": "string"
+                  },
+                  "include_patterns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "exclude_patterns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "complexity_warning": {
+                    "type": "integer"
+                  },
+                  "complexity_error": {
+                    "type": "integer"
+                  },
+                  "duplication_threshold": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metrics analysis started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseMetricsStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/metrics": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Get latest metrics",
+        "description": "Fetch the latest metrics report.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metrics report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseMetricsReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/metrics/{analysis_id}": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Get metrics by ID",
+        "description": "Fetch a metrics report by analysis ID.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metrics report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseMetricsReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/metrics/history": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Metrics history",
+        "description": "List metrics analyses for a repository.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metrics history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseMetricsHistoryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/hotspots": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Complexity hotspots",
+        "description": "List complexity hotspots from the latest analysis.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min_complexity",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 5
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hotspots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseHotspotListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/duplicates": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "Code duplicates",
+        "description": "List duplicate code blocks from the latest analysis.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min_lines",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 6
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Duplicates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseDuplicateListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/codebase/{repo}/metrics/file/{file_path}": {
+      "get": {
+        "tags": [
+          "Codebase"
+        ],
+        "summary": "File metrics",
+        "description": "Get metrics for a specific file (URL-encoded path).",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file_path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodebaseFileMetricsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/anthropics/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -14726,6 +16733,447 @@
           },
           "agents": {
             "type": "object"
+          }
+        }
+      },
+      "VulnerabilityReference": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "VulnerabilityFinding": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "cvss_score": {
+            "type": "number",
+            "nullable": true
+          },
+          "package_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "package_ecosystem": {
+            "type": "string",
+            "nullable": true
+          },
+          "vulnerable_versions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patched_versions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "type": "string"
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VulnerabilityReference"
+            }
+          },
+          "cwe_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fix_available": {
+            "type": "boolean"
+          },
+          "recommended_version": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DependencyInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "ecosystem": {
+            "type": "string"
+          },
+          "direct": {
+            "type": "boolean"
+          },
+          "dev_dependency": {
+            "type": "boolean"
+          },
+          "license": {
+            "type": "string",
+            "nullable": true
+          },
+          "vulnerabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VulnerabilityFinding"
+            }
+          },
+          "has_vulnerabilities": {
+            "type": "boolean"
+          },
+          "highest_severity": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CodebaseScanSummary": {
+        "type": "object",
+        "properties": {
+          "total_dependencies": {
+            "type": "integer"
+          },
+          "vulnerable_dependencies": {
+            "type": "integer"
+          },
+          "critical_count": {
+            "type": "integer"
+          },
+          "high_count": {
+            "type": "integer"
+          },
+          "medium_count": {
+            "type": "integer"
+          },
+          "low_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "CodebaseScanResult": {
+        "type": "object",
+        "properties": {
+          "scan_id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string",
+            "nullable": true
+          },
+          "commit_sha": {
+            "type": "string",
+            "nullable": true
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DependencyInfo"
+            }
+          },
+          "vulnerabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VulnerabilityFinding"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/CodebaseScanSummary"
+          }
+        }
+      },
+      "CodebaseScanStartResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "scan_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseScanResultResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "scan_result": {
+            "$ref": "#/components/schemas/CodebaseScanResult"
+          }
+        }
+      },
+      "CodebaseScanListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "scans": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          }
+        }
+      },
+      "CodebaseVulnerabilityListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "vulnerabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VulnerabilityFinding"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "scan_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebasePackageVulnerabilityResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "package": {
+            "type": "string"
+          },
+          "ecosystem": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "nullable": true
+          },
+          "vulnerabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VulnerabilityFinding"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "CodebaseCVEResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "vulnerability": {
+            "$ref": "#/components/schemas/VulnerabilityFinding"
+          }
+        }
+      },
+      "CodebaseMetricsStartResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "analysis_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseMetricsReportResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "report": {
+            "type": "object"
+          }
+        }
+      },
+      "CodebaseHotspot": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string"
+          },
+          "function_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "class_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "start_line": {
+            "type": "integer"
+          },
+          "end_line": {
+            "type": "integer"
+          },
+          "complexity": {
+            "type": "number"
+          },
+          "lines_of_code": {
+            "type": "integer"
+          },
+          "risk_score": {
+            "type": "number"
+          }
+        }
+      },
+      "CodebaseHotspotListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "hotspots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodebaseHotspot"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "analysis_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseDuplicateListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "duplicates": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "analysis_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseFileMetricsResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "file": {
+            "type": "object"
+          },
+          "analysis_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseMetricsHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "analyses": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
           }
         }
       },

@@ -2,7 +2,9 @@
 
 Get up and running with Aragora in 5 minutes.
 
-Aragora is the AI red team for high-stakes decisions. Gauntlet is the fastest path to a decision stress-test.
+Aragora is the control plane for multi-agent deliberation across organizational
+knowledge and channels. Gauntlet is the fastest path to a decision stress-test,
+and the decision router is the fastest path to a deliberation.
 
 ## Installation
 
@@ -98,6 +100,17 @@ HIGH ISSUES:
 Duration: 45.2s
 Agents: anthropic-api, openai-api, gemini
 ```
+
+---
+
+## Your First Deliberation (API)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/decisions \\
+  -H \"Content-Type: application/json\" \\
+  -d '{\n    \"content\": \"Should we migrate to microservices this quarter?\",\n    \"decision_type\": \"debate\"\n  }'\n```
+
+Use `/api/control-plane/deliberations` for queued, multi-agent workflows.
 
 ---
 

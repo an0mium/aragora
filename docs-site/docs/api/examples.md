@@ -5,7 +5,7 @@ description: API Examples
 
 # API Examples
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-22
 
 Practical examples for using the Aragora HTTP and WebSocket APIs.
 
@@ -157,7 +157,7 @@ async def control_plane_deliberation():
         # Poll for completion
         while True:
             status_response = await client.get(
-                f"/api/control-plane/deliberations/{request_id}/status"
+                f"/api/control-plane/deliberations/\{request_id\}/status"
             )
             status = status_response.json()
             if status["status"] in ("completed", "failed"):
@@ -165,6 +165,64 @@ async def control_plane_deliberation():
             await asyncio.sleep(1)
 
 asyncio.run(control_plane_deliberation())
+```
+
+### Decision Router (Unified API)
+
+```python
+async def decision_router_example():
+    """Submit a decision request via the unified router."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        response = await client.post("/api/v1/decisions", json={
+            "content": "Should we adopt a service mesh this quarter?",
+            "decision_type": "debate",
+            "response_channels": [{"platform": "http_api"}],
+        })
+        result = response.json()
+        request_id = result["request_id"]
+
+        status = await client.get(f"/api/v1/decisions/\{request_id\}/status")
+        print(status.json())
+
+asyncio.run(decision_router_example())
+```
+
+### Codebase Security Scan
+
+```python
+async def codebase_security_scan():
+    """Trigger a dependency vulnerability scan and fetch results."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        scan = await client.post("/api/v1/codebase/aragora/scan", json={
+            "repo_path": "/Users/armand/Development/aragora",
+            "branch": "main",
+        })
+        scan_data = scan.json()
+        scan_id = scan_data["scan_id"]
+
+        result = await client.get(f"/api/v1/codebase/aragora/scan/\{scan_id\}")
+        print(result.json())
+
+asyncio.run(codebase_security_scan())
+```
+
+### Codebase Metrics Analysis
+
+```python
+async def codebase_metrics():
+    """Run code metrics analysis and fetch hotspots."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        analysis = await client.post("/api/v1/codebase/aragora/metrics/analyze", json={
+            "repo_path": "/Users/armand/Development/aragora",
+            "complexity_warning": 10,
+            "complexity_error": 20,
+        })
+        analysis_id = analysis.json()["analysis_id"]
+
+        hotspots = await client.get("/api/v1/codebase/aragora/hotspots")
+        print(hotspots.json())
+
+asyncio.run(codebase_metrics())
 ```
 
 ### Gauntlet Compliance Audit

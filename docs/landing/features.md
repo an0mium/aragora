@@ -2,119 +2,58 @@
 
 ## Core Features
 
-### 1. Gauntlet Mode (Decision Stress-Test)
-**Adversarial validation pipeline with configurable attack categories**
+### 1. Control Plane for Deliberation
+**Orchestrate agent fleets, queues, and governance** across high-stakes decisions.
+
+- Agent registry + health monitoring
+- Priority task queues
+- Policy enforcement and audit logging
+- Deliberations as first-class tasks
+
+---
+
+### 2. Multi-Agent Deliberation Engine
+**Heterogeneous AI perspectives prevent blind spots** by design.
+
+Agents debate, critique, and synthesize outputs with evidence chains and
+confidence scoring.
+
+---
+
+### 3. Omnivorous Ingestion + Multi-Channel Delivery
+**Ingest anything, deliver anywhere.**
+
+- 25+ document formats + databases + APIs
+- Email, chat, voice, and web inputs
+- Results routed back to Slack, Teams, email, or voice
+
+---
+
+### 4. Decision Receipts
+**Audit-ready documentation for every decision.**
+
+Each deliberation produces a tamper-evident receipt with evidence trails,
+dissent tracking, and provenance metadata.
+
+---
+
+### 5. Gauntlet Mode (Decision Stress-Test)
+**Adversarial validation pipeline with configurable attack categories.**
 
 Subject any decision artifact to systematic stress-testing:
-- Product specifications
-- System architectures
-- Security policies
-- Legal contracts
-- Business strategies
-
-**Attack Categories:**
-- Security (injection, privilege escalation)
-- Compliance (GDPR, HIPAA, AI Act)
-- Logic (edge cases, assumptions, stakeholder conflicts)
-- Architecture (scalability, performance, dependencies)
-
-**Output:**
-- Risk heatmap showing category x severity
-- Ranked findings with mitigation recommendations
-- Confidence-scored verdict (Pass / Conditional / Fail)
+- Product specs, architectures, policies, contracts
+- Security, compliance, logic, performance
+- Risk heatmaps + remediation recommendations
 
 ---
 
-### 2. Regulatory Stress-Testing
-**Pre-configured personas for compliance validation**
-
-Built-in regulatory personas simulate how auditors will challenge your systems:
-
-| Persona | Regulation | Focus Areas |
-|---|---|---|
-| **GDPR Auditor** | EU GDPR | Data minimization, consent, right to erasure |
-| **HIPAA Inspector** | US HIPAA | PHI protection, access controls, audit logs |
-| **AI Act Assessor** | EU AI Act | High-risk classification, transparency, human oversight |
-| **Security Researcher** | OWASP/CWE | Injection, auth bypass, data exposure |
-
-**Value:** Identify compliance gaps before regulators do. Avoid EUR10M+ fines.
+### 6. Formal Verification
+**Z3-backed proofs** for claims that must be mathematically certain.
 
 ---
 
-### 3. Audit-Ready Decision Receipts
-**Tamper-evident documentation for every validation**
-
-Each Gauntlet run generates a Decision Receipt:
-
-```
-DECISION RECEIPT
-================
-Receipt ID: receipt-abc123def456
-Input Hash: SHA256:a1b2c3d4...
-Timestamp: 2026-01-11T12:00:00Z (signed)
-
-Verdict: APPROVED_WITH_CONDITIONS
-Confidence: 87%
-
-Findings Summary:
-- Critical: 0
-- High: 2
-- Medium: 5
-- Low: 8
-
-Attacks Attempted: 47
-Attacks Successful: 7
-Probes Run: 24
-Vulnerabilities Found: 15
-
-Integrity Check: sha256:...
-```
-
-**Value:** Prove due diligence in audits, litigation, and board reviews.
-
----
-
-### 4. Adversarial Engine (Debate Under the Hood)
-**Heterogeneous AI perspectives prevent blind spots**
-
-Unlike single-LLM tools, Aragora orchestrates debates between:
-- Claude (Anthropic)
-- GPT-4 (OpenAI)
-- Gemini (Google)
-- Grok (xAI)
-- Mistral (Mistral AI)
-- DeepSeek
-- Qwen (Alibaba)
-- And more...
-
-Each agent attacks from a different angle. Consensus requires surviving all perspectives.
-
-Debate is internal; the product is a verdict, findings, and an audit-ready receipt.
-
----
-
-### 5. Formal Verification
-**Z3 SMT solver for provable claims**
-
-For claims that must be mathematically certain, Aragora attempts formal proofs:
-- Logical consistency
-- Invariant preservation
-- Policy completeness
-
-**Output:** Proof status (verified, falsified, undecidable) with proof hash.
-
----
-
-### 6. Real-Time Streaming
-**Watch debates unfold live**
-
-WebSocket-based streaming shows:
-- Agent reasoning in real-time
-- Attack attempts and defenses
-- Consensus formation
-- Confidence evolution
-
-Integrate with Slack, Discord, or custom dashboards.
+### 7. Real-Time Streaming
+**Watch deliberations unfold live** with WebSocket updates and dashboards.
 
 ---
 
@@ -128,20 +67,18 @@ aragora gauntlet spec.md --persona gdpr
 
 ### API
 ```python
-from aragora.gauntlet import GauntletRunner
+from aragora.control_plane import ControlPlaneCoordinator
 
-runner = GauntletRunner(config)
-result = await runner.run(spec_content)
-print(result.verdict)
+coordinator = ControlPlaneCoordinator()
+# submit tasks or deliberations via API
 ```
 
 ### Webhooks
 ```json
 {
-  "event": "gauntlet.completed",
-  "gauntlet_id": "gauntlet-abc123",
-  "verdict": "approved_with_conditions",
-  "findings_count": 15
+  "event": "deliberation.completed",
+  "deliberation_id": "delib-abc123",
+  "confidence": 0.87
 }
 ```
 

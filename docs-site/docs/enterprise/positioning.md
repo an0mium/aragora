@@ -1,6 +1,6 @@
 ---
 title: "Aragora: Commercial Positioning & Value Proposition"
-description: "Control plane for multi-agent deliberation across org knowledge and channels"
+description: "Aragora: Commercial Positioning & Value Proposition"
 ---
 
 # Aragora: Commercial Positioning & Value Proposition
@@ -13,9 +13,9 @@ description: "Control plane for multi-agent deliberation across org knowledge an
 
 ## Executive Summary
 
-Aragora is the control plane for multi-agent deliberation—orchestrating 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike single-model chatbots, Aragora builds institutional memory with full audit trails.
+Aragora is the control plane for multi-agent deliberation—orchestrating 15+ AI models to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike chatbots and single-model wrappers, Aragora builds institutional memory with full audit trails.
 
-**Key Value:** Replace "the AI said so" with decision assurance backed by multi-agent consensus, evidence chains, and compliance-ready artifacts. Decisions delivered wherever your team works.
+**Key Value:** Replace expensive human expert review ($15K-$100K per decision) with orchestrated multi-agent deliberation that runs in 15-45 minutes, produces compliance-ready Decision Receipts, and builds organizational knowledge over time.
 
 ---
 

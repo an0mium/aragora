@@ -22,6 +22,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Deliberations](#deliberations)
 - [Docs](#docs)
 - [Email](#email)
+- [EmailDebate](#emaildebate)
 - [Evaluation](#evaluation)
 - [Explainability](#explainability)
 - [External Integrations](#external-integrations)
@@ -47,6 +48,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Reviews](#reviews)
 - [RLMContext](#rlmcontext)
 - [Selection](#selection)
+- [Shared Inbox](#shared-inbox)
 - [Template Marketplace](#template-marketplace)
 - [Tournaments](#tournaments)
 - [Training](#training)
@@ -57,6 +59,8 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Workflow Templates](#workflow-templates)
 - [Workflow](#workflow)
 - [Workspace](#workspace)
+- [Metrics](#metrics)
+- [Security](#security)
 
 ---
 
@@ -549,6 +553,24 @@ Get prioritization config
 ### `PUT` `/api/email/config`
 
 Update prioritization config
+
+---
+
+## EmailDebate
+
+Handler for email deliberation API endpoints.
+
+### `GET` `/api/v1/email/prioritize`
+
+Prioritize multiple emails
+
+### `GET` `/api/v1/email/prioritize/batch`
+
+Prioritize multiple emails
+
+### `GET` `/api/v1/email/triage`
+
+Full inbox triage with categorization and sorting
 
 ---
 
@@ -1342,6 +1364,60 @@ Get information about a specific team selector
 
 ---
 
+## Shared Inbox
+
+HTTP API Handlers for Shared Inbox Management.
+
+### `POST` `/api/v1/inbox/shared`
+
+Create shared inbox
+
+### `GET` `/api/v1/inbox/shared`
+
+List shared inboxes
+
+### `GET` `/api/v1/inbox/shared/:id`
+
+Get shared inbox details
+
+### `GET` `/api/v1/inbox/shared/:id/messages`
+
+Get messages in inbox
+
+### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/assign`
+
+Assign message
+
+### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/status`
+
+Update status
+
+### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/tag`
+
+Add tag
+
+### `POST` `/api/v1/inbox/routing/rules`
+
+Create routing rule
+
+### `GET` `/api/v1/inbox/routing/rules`
+
+List routing rules
+
+### `PATCH` `/api/v1/inbox/routing/rules/:id`
+
+Update routing rule
+
+### `DELETE` `/api/v1/inbox/routing/rules/:id`
+
+Delete routing rule
+
+### `POST` `/api/v1/inbox/routing/rules/:id/test`
+
+Test routing rule
+
+---
+
 ## Template Marketplace
 
 Template Marketplace API Handler.
@@ -1683,6 +1759,58 @@ Generate compliance report
 ### `GET` `/api/audit/verify`
 
 Verify audit log integrity
+
+---
+
+## Metrics
+
+HTTP API Handlers for Codebase Metrics Analysis.
+
+### `POST` `/api/v1/codebase/{repo}/metrics/analyze`
+
+Run metrics analysis
+
+### `GET` `/api/v1/codebase/{repo}/metrics`
+
+Get latest metrics
+
+### `GET` `/api/v1/codebase/{repo}/metrics/{analysis_id}`
+
+Get specific analysis
+
+### `GET` `/api/v1/codebase/{repo}/hotspots`
+
+Get complexity hotspots
+
+### `GET` `/api/v1/codebase/{repo}/duplicates`
+
+Get code duplicates
+
+---
+
+## Security
+
+HTTP API Handlers for Codebase Security Analysis.
+
+### `POST` `/api/v1/codebase/{repo}/scan`
+
+Trigger security scan
+
+### `GET` `/api/v1/codebase/{repo}/scan/latest`
+
+Get latest scan result
+
+### `GET` `/api/v1/codebase/{repo}/scan/{scan_id}`
+
+Get specific scan result
+
+### `GET` `/api/v1/codebase/{repo}/vulnerabilities`
+
+List all vulnerabilities
+
+### `GET` `/api/v1/cve/{cve_id}`
+
+Get CVE details
 
 ---
 

@@ -21,7 +21,7 @@ Aragora is the control plane for multi-agent deliberation across organizational 
 ┌─────────────────────────────────────────────────────────────────┐
 │                     INBOUND CHANNELS                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  Slack │ Discord │ Teams │ Telegram │ WhatsApp │ Voice │ API   │
+│  Slack │ Discord │ Teams │ Telegram │ WhatsApp │ Email │ Voice │ API │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
@@ -41,7 +41,7 @@ Aragora is the control plane for multi-agent deliberation across organizational 
 ┌─────────────────────────────────────────────────────────────────┐
 │                    OUTBOUND CHANNELS                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  Slack │ Discord │ Teams │ Telegram │ WhatsApp │ Voice │ API   │
+│  Slack │ Discord │ Teams │ Telegram │ WhatsApp │ Email │ Voice │ API │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -59,6 +59,7 @@ Aragora is the control plane for multi-agent deliberation across organizational 
 | **Telegram** | `/api/bots/telegram/webhook` | Bot commands, inline queries |
 | **WhatsApp** | `/api/bots/whatsapp/webhook` | Cloud API integration |
 | **Google Chat** | `/api/bots/google-chat/webhook` | Space messages |
+| **Email (Gmail)** | `/api/v1/email/inbox` | Gmail ingestion + prioritization |
 
 ### Configuration
 
@@ -82,6 +83,10 @@ export TELEGRAM_BOT_TOKEN=...
 # WhatsApp
 export WHATSAPP_ACCESS_TOKEN=...
 export WHATSAPP_PHONE_NUMBER_ID=...
+
+# Gmail (email ingestion + prioritization)
+export GMAIL_CLIENT_ID=...
+export GMAIL_CLIENT_SECRET=...
 ```
 
 ### Unified Chat Router

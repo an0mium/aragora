@@ -3839,6 +3839,692 @@
       ]
     },
     {
+      "name": "Codebase",
+      "description": "Codebase security scans and metrics",
+      "item": [
+        {
+          "name": "Run dependency vulnerability scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scan",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scan"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Trigger a dependency vulnerability scan for a repository.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get latest scan",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scan/latest",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scan",
+                "latest"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Fetch the most recent dependency scan result."
+          },
+          "response": []
+        },
+        {
+          "name": "Get scan by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scan/:scan_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scan",
+                ":scan_id"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                },
+                {
+                  "key": "scan_id",
+                  "value": "",
+                  "description": "Path parameter: scan_id"
+                }
+              ]
+            },
+            "description": "Fetch a specific scan result by scan ID."
+          },
+          "response": []
+        },
+        {
+          "name": "List scans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/scans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "scans"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List scan history for a repository."
+          },
+          "response": []
+        },
+        {
+          "name": "List vulnerabilities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "vulnerabilities"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "package",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "ecosystem",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List vulnerabilities from the latest scan."
+          },
+          "response": []
+        },
+        {
+          "name": "Query package vulnerabilities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/package/:ecosystem/:package/vulnerabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                "package",
+                ":ecosystem",
+                ":package",
+                "vulnerabilities"
+              ],
+              "variable": [
+                {
+                  "key": "ecosystem",
+                  "value": "",
+                  "description": "Path parameter: ecosystem"
+                },
+                {
+                  "key": "package",
+                  "value": "",
+                  "description": "Path parameter: package"
+                }
+              ],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Query advisories for a package and ecosystem."
+          },
+          "response": []
+        },
+        {
+          "name": "Get CVE details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cve/:cve_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cve",
+                ":cve_id"
+              ],
+              "variable": [
+                {
+                  "key": "cve_id",
+                  "value": "",
+                  "description": "Path parameter: cve_id"
+                }
+              ]
+            },
+            "description": "Fetch CVE details from vulnerability databases."
+          },
+          "response": []
+        },
+        {
+          "name": "Run metrics analysis",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/metrics/analyze",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "metrics",
+                "analyze"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Analyze code complexity and duplication for a repository.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get latest metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/metrics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "metrics"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ]
+            },
+            "description": "Fetch the latest metrics report."
+          },
+          "response": []
+        },
+        {
+          "name": "Get metrics by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/metrics/:analysis_id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "metrics",
+                ":analysis_id"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                },
+                {
+                  "key": "analysis_id",
+                  "value": "",
+                  "description": "Path parameter: analysis_id"
+                }
+              ]
+            },
+            "description": "Fetch a metrics report by analysis ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Metrics history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/metrics/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "metrics",
+                "history"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List metrics analyses for a repository."
+          },
+          "response": []
+        },
+        {
+          "name": "Complexity hotspots",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/hotspots",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "hotspots"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ],
+              "query": [
+                {
+                  "key": "min_complexity",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List complexity hotspots from the latest analysis."
+          },
+          "response": []
+        },
+        {
+          "name": "Code duplicates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/duplicates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "duplicates"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                }
+              ],
+              "query": [
+                {
+                  "key": "min_lines",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List duplicate code blocks from the latest analysis."
+          },
+          "response": []
+        },
+        {
+          "name": "File metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/codebase/:repo/metrics/file/:file_path",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "codebase",
+                ":repo",
+                "metrics",
+                "file",
+                ":file_path"
+              ],
+              "variable": [
+                {
+                  "key": "repo",
+                  "value": "",
+                  "description": "Path parameter: repo"
+                },
+                {
+                  "key": "file_path",
+                  "value": "",
+                  "description": "Path parameter: file_path"
+                }
+              ]
+            },
+            "description": "Get metrics for a specific file (URL-encoded path)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Media",
       "description": "Audio/video and podcast",
       "item": [

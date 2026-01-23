@@ -38,6 +38,29 @@ The canonical spec is produced by `aragora/server/openapi` and
 `aragora/server/openapi_impl.py`. If you add or change endpoints, update the
 OpenAPI endpoint definitions and re-export the docs.
 
+## Codebase Analysis API
+
+Codebase security and metrics endpoints live under `/api/v1/codebase` and
+`/api/v1/cve`. For full examples and response shapes, see
+`docs/CODEBASE_ANALYSIS.md`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/codebase/{repo}/scan` | Run dependency vulnerability scan |
+| GET | `/api/v1/codebase/{repo}/scan/latest` | Latest scan result |
+| GET | `/api/v1/codebase/{repo}/scan/{scan_id}` | Scan by ID |
+| GET | `/api/v1/codebase/{repo}/scans` | List scan history |
+| GET | `/api/v1/codebase/{repo}/vulnerabilities` | Vulnerabilities list |
+| GET | `/api/v1/codebase/package/{ecosystem}/{package}/vulnerabilities` | Package advisories |
+| GET | `/api/v1/cve/{cve_id}` | CVE details |
+| POST | `/api/v1/codebase/{repo}/metrics/analyze` | Run metrics analysis |
+| GET | `/api/v1/codebase/{repo}/metrics` | Latest metrics report |
+| GET | `/api/v1/codebase/{repo}/metrics/{analysis_id}` | Metrics report by ID |
+| GET | `/api/v1/codebase/{repo}/metrics/history` | Metrics history |
+| GET | `/api/v1/codebase/{repo}/hotspots` | Complexity hotspots |
+| GET | `/api/v1/codebase/{repo}/duplicates` | Code duplication summary |
+| GET | `/api/v1/codebase/{repo}/metrics/file/{file_path}` | File-level metrics |
+
 ### New Endpoints (2026-01-22)
 
 | Endpoint | Description | Status |

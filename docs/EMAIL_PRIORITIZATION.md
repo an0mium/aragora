@@ -1,18 +1,21 @@
-# Email Prioritization System
+# Email Prioritization & Inbox Operations
 
-Intelligent, multi-tier email prioritization using AI-powered analysis.
+Intelligent inbox management powered by multi-agent deliberation, sender history,
+and cross-channel context.
 
 ## Overview
 
-The Email Prioritization System helps users manage their inbox by automatically scoring and ranking emails based on importance, urgency, and historical patterns. It uses a 3-tier scoring system that balances speed and accuracy.
+The Email Prioritization system scores and ranks emails based on urgency,
+importance, and historical behavior. It supports real-time inbox ranking,
+follow-up tracking, and snooze recommendations to help teams focus on the
+highest-impact messages.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Email Prioritization                         │
+│                    EMAIL PRIORITIZATION                         │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
 │  │   Tier 1    │    │   Tier 2    │    │   Tier 3    │         │
 │  │  Rule-Based │───▶│  Lightweight│───▶│ Multi-Agent │         │
@@ -33,7 +36,12 @@ The Email Prioritization System helps users manage their inbox by automatically 
 │  │  - Calendar integration                           │          │
 │  │  - Google Drive relevance                         │          │
 │  └──────────────────────────────────────────────────┘          │
-│                                                                  │
+│                           │                                      │
+│  ┌──────────────────────────────────────────────────┐          │
+│  │    Follow-Up Tracker + Snooze Recommender         │          │
+│  │  - Awaiting replies                               │          │
+│  │  - Smart snooze suggestions                       │          │
+│  └──────────────────────────────────────────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -66,17 +74,38 @@ Single-agent analysis for ambiguous cases:
 ### Tier 3: Multi-Agent Debate (< 5s)
 Full debate-based prioritization for complex decisions:
 - Multiple specialized agents
-- Sender Reputation Agent
-- Content Urgency Agent
-- Context Relevance Agent
-- Billing/Legal Agent
-- Timeline Agent
+- Sender reputation
+- Content urgency
+- Context relevance
+- Timeline and compliance perspectives
 
 ## API Endpoints
 
+All endpoints are served under `/api/v1/email` unless otherwise noted.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/email/prioritize` | Score a single email |
+| POST | `/api/v1/email/prioritize/batch` | Score multiple emails |
+| POST | `/api/v1/email/rank-inbox` | Rank a provided list |
+| GET | `/api/v1/email/inbox` | Fetch + rank inbox (Gmail) |
+| POST | `/api/v1/email/feedback` | Record a user action |
+| POST | `/api/v1/email/feedback/batch` | Batch feedback |
+| GET | `/api/v1/email/config` | Fetch per-user config |
+| PUT | `/api/v1/email/config` | Update per-user config |
+| POST | `/api/v1/email/vip` | Add VIP sender |
+| DELETE | `/api/v1/email/vip` | Remove VIP sender |
+| POST | `/api/v1/email/categorize` | Categorize a single email |
+| POST | `/api/v1/email/categorize/batch` | Categorize multiple emails |
+| POST | `/api/v1/email/categorize/apply-label` | Apply category label |
+| POST | `/api/v1/email/gmail/oauth/url` | Start Gmail OAuth |
+| POST | `/api/v1/email/gmail/oauth/callback` | Handle Gmail callback |
+| GET | `/api/v1/email/gmail/status` | Gmail connection status |
+| GET | `/api/v1/email/context/boost` | Cross-channel context boost |
+
 ### Score Single Email
 ```http
-POST /api/email/prioritize
+POST /api/v1/email/prioritize
 Content-Type: application/json
 
 {
@@ -87,7 +116,7 @@ Content-Type: application/json
     "body_text": "Please review by EOD...",
     "labels": ["INBOX"]
   },
-  "force_tier": null  // Optional: 1, 2, or 3
+  "force_tier": null
 }
 ```
 
@@ -100,8 +129,8 @@ Response:
     "priority": "high",
     "confidence": 0.85,
     "score": 0.78,
-    "tier_used": 1,
-    "rationale": "Urgency keywords detected; sender is in your frequent contacts",
+    "tier_used": "tier_1_rules",
+    "rationale": "Urgency keywords detected; sender is VIP",
     "processing_time_ms": 45
   }
 }
@@ -109,7 +138,7 @@ Response:
 
 ### Rank Inbox
 ```http
-POST /api/email/rank-inbox
+POST /api/v1/email/rank-inbox
 Content-Type: application/json
 
 {
@@ -118,45 +147,20 @@ Content-Type: application/json
 }
 ```
 
-### Fetch and Rank (Gmail Connected)
+### Fetch + Rank (Gmail Connected)
 ```http
-GET /api/email/inbox?user_id=default&limit=50&labels=INBOX
+GET /api/v1/email/inbox?user_id=default&limit=50&labels=INBOX
 ```
 
 ### Record Feedback
 ```http
-POST /api/email/feedback
+POST /api/v1/email/feedback
 Content-Type: application/json
 
 {
   "email_id": "msg_123",
-  "action": "replied",  // opened, archived, deleted, replied, starred
-  "email": {...}  // Optional: full email for context
-}
-```
-
-### VIP Management
-```http
-# Add VIP
-POST /api/email/vip
-{"sender_email": "important@company.com"}
-
-# Remove VIP
-DELETE /api/email/vip
-{"sender_email": "important@company.com"}
-```
-
-### Configuration
-```http
-# Get config
-GET /api/email/config
-
-# Update config
-PUT /api/email/config
-{
-  "vip_addresses": ["ceo@company.com"],
-  "auto_archive_senders": ["noreply@marketing.com"],
-  "tier_1_threshold": 0.8
+  "action": "replied",
+  "email": {...}
 }
 ```
 
@@ -164,7 +168,7 @@ PUT /api/email/config
 
 ### 1. Get OAuth URL
 ```http
-POST /api/email/gmail/oauth-url
+POST /api/v1/email/gmail/oauth/url
 {
   "user_id": "user_123",
   "redirect_uri": "https://app.example.com/inbox/callback"
@@ -173,7 +177,7 @@ POST /api/email/gmail/oauth-url
 
 ### 2. Handle Callback
 ```http
-POST /api/email/gmail/callback
+POST /api/v1/email/gmail/oauth/callback
 {
   "code": "auth_code_from_google",
   "state": "user_123",
@@ -186,7 +190,7 @@ POST /api/email/gmail/callback
 Tracks sender reputation and interaction patterns:
 
 ```python
-from aragora.services import SenderHistoryService
+from aragora.services.sender_history import SenderHistoryService
 
 service = SenderHistoryService(db_path="sender_history.db")
 await service.initialize()
@@ -218,96 +222,49 @@ print(f"Category: {reputation.category}")  # vip, important, normal, low_priorit
 | Recency | 20% | Bonus for recent interactions |
 | VIP Status | +0.3 | Manual VIP designation |
 | Fast Responder | +0.1 | Avg response < 30 mins |
-| High Delete Rate | -0.15 | > 50% emails deleted |
 
-## Cross-Channel Context
+## Follow-Up Tracker
 
-Integrates signals from other platforms:
-
-```python
-from aragora.services import CrossChannelContextService
-
-service = CrossChannelContextService(
-    slack_connector=slack,
-    knowledge_mound=mound,
-)
-
-# Get sender context
-context = await service.get_user_context("sender@company.com")
-
-print(f"Slack online: {context.slack.is_online}")
-print(f"Activity score: {context.overall_activity_score}")
-```
-
-### Signal Types
-
-- **Slack Activity**: Online status, active channels, urgent threads
-- **Calendar**: Meeting density, availability windows
-- **Drive**: Recent document activity, shared files
-
-## Configuration Options
+Tracks sent emails that are awaiting replies and surfaces overdue follow-ups.
 
 ```python
-from aragora.services import EmailPrioritizationConfig
+from datetime import datetime, timedelta
+from aragora.services.followup_tracker import FollowUpTracker
 
-config = EmailPrioritizationConfig(
-    # VIP settings
-    vip_domains={"important-company.com"},
-    vip_addresses={"ceo@company.com"},
+tracker = FollowUpTracker()
 
-    # Internal domain boost
-    internal_domains={"mycompany.com"},
-
-    # Auto-archive
-    auto_archive_senders={"noreply@marketing.com"},
-
-    # Tier thresholds
-    tier_1_confidence_threshold=0.8,  # Stay in Tier 1 if confidence >= 0.8
-    tier_2_confidence_threshold=0.5,  # Escalate to Tier 3 if < 0.5
-
-    # Cross-channel
-    enable_slack_signals=True,
-    enable_calendar_signals=True,
-
-    # Urgent keywords
-    urgent_keywords=["urgent", "asap", "critical", "deadline"],
+item = await tracker.mark_awaiting_reply(
+    email_id="msg_123",
+    thread_id="thread_456",
+    subject="Vendor security review",
+    recipient="security@vendor.com",
+    expected_by=datetime.now() + timedelta(days=3),
 )
+
+pending = await tracker.get_pending_followups(user_id="default")
 ```
 
-## Web UI
+Notes:
+- The follow-up tracker uses in-memory storage by default.
+- For production, persist follow-ups to a durable store.
 
-The inbox view is available at `/inbox` and includes:
+## Snooze Recommender
 
-1. **Gmail Connection**: OAuth-based authentication
-2. **Priority Inbox**: AI-ranked email list with priority badges
-3. **Tier Summary**: Shows T1/T2/T3 distribution
-4. **Priority Filters**: Filter by priority level
-5. **Feedback Buttons**: Thumbs up/down for learning
-6. **Config Panel**: VIP management, context toggles
+Provides smart snooze suggestions based on sender patterns, work schedule,
+and optional calendar availability.
 
-## Testing
+```python
+from aragora.services.snooze_recommender import SnoozeRecommender
 
-Run tests with:
-```bash
-pytest aragora/tests/services/test_email_prioritization.py -v
-pytest aragora/tests/services/test_sender_history.py -v
+recommender = SnoozeRecommender(sender_history=service)
+recommendation = await recommender.recommend_snooze(email, priority_result)
+
+for suggestion in recommendation.suggestions:
+    print(suggestion.label, suggestion.snooze_until, suggestion.reason.value)
 ```
 
-## Performance Targets
+## Notes on Persistence
 
-| Operation | Target | Notes |
-|-----------|--------|-------|
-| Tier 1 scoring | < 200ms | Rule-based only |
-| Tier 2 scoring | < 500ms | Single agent call |
-| Tier 3 scoring | < 5s | Full debate |
-| Inbox ranking (50 emails) | < 2s | Batch processing |
-| Reputation lookup | < 10ms | Cached |
-
-## Future Enhancements
-
-- [ ] Slack connector integration for real-time signals
-- [ ] Calendar integration for meeting-aware prioritization
-- [ ] Response time prediction
-- [ ] Custom rules engine
-- [ ] Email summarization
-- [ ] Smart reply suggestions
+- Sender history uses SQLite for local persistence.
+- Follow-ups and snooze recommendations are in-memory by default.
+- For multi-instance deployments, use a shared store for user state.

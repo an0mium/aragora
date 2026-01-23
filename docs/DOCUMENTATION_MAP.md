@@ -17,6 +17,8 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 | Use the API | [API_REFERENCE.md](API_REFERENCE.md) |
 | Deploy to production | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Troubleshoot issues | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
+| Prioritize inbox | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
+| Analyze codebase health | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
 
 ## Canonical Areas
 
@@ -38,6 +40,17 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 - [WORKFLOW_ENGINE.md](WORKFLOW_ENGINE.md)
 - [KNOWLEDGE_MOUND.md](KNOWLEDGE_MOUND.md)
 - [MEMORY_TIERS.md](MEMORY_TIERS.md)
+
+### Channels & Inbox
+
+- [CHANNELS.md](CHANNELS.md)
+- [BOT_INTEGRATIONS.md](BOT_INTEGRATIONS.md)
+- [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md)
+
+### Analysis & Code Health
+
+- [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md)
+- [ANALYSIS.md](ANALYSIS.md)
 
 ### API & SDK
 
@@ -102,7 +115,7 @@ replacement docs. See [deprecated/README.md](deprecated/README.md).
 
 ## Inventory & Maintenance
 
-- Markdown files under `docs/`: 255 (includes deprecated)
+- Markdown files under `docs/`: 258 (includes deprecated)
 - Sync to docs-site: `node docs-site/scripts/sync-docs.js`
 - API endpoint list: `python scripts/generate_api_docs.py --output docs/API_ENDPOINTS.md`
 - OpenAPI export: `python scripts/export_openapi.py --output-dir docs/api`

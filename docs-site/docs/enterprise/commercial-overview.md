@@ -1,6 +1,6 @@
 ---
 title: Aragora - Control Plane for Multi-Agent Deliberation
-description: Control plane for multi-agent deliberation across org knowledge and channels
+description: Aragora - Control Plane for Multi-Agent Deliberation
 ---
 
 # Aragora - Control Plane for Multi-Agent Deliberation
@@ -9,9 +9,9 @@ description: Control plane for multi-agent deliberation across org knowledge and
 
 ## Executive Summary
 
-Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels**. It orchestrates 15+ AI models (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) to debate your organization's knowledge and deliver defensible decisions to any channel—Slack, Teams, Discord, Telegram, WhatsApp, or voice.
+Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
-**Deliberation is the engine. Decision assurance with receipts is the product.**
+Unlike chatbots, Aragora builds institutional memory with full audit trails. **Deliberation is the engine. The product is a defensible decision record.**
 
 ---
 

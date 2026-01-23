@@ -5,10 +5,10 @@ description: Aragora API Reference
 
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-20 (added Explainability, Workflow Templates, Gauntlet Receipts endpoints)
+> **Last Updated:** 2026-01-22 (control plane deliberations + decision endpoints)
 
-
-This document describes the HTTP and WebSocket APIs for the Aragora AI red team / decision stress-test platform.
+This document describes the HTTP and WebSocket APIs for Aragora's control plane
+for multi-agent deliberation across organizational knowledge and channels.
 
 ## Related Documentation
 
@@ -23,26 +23,59 @@ This document describes the HTTP and WebSocket APIs for the Aragora AI red team 
 
 ## Endpoint Usage Status
 
-**Last audited:** 2026-01-15
+Endpoint counts vary by deployment and enabled handlers. To audit the current
+surface area, run:
 
-| Category | Count | Notes |
-|----------|-------|-------|
-| **Total Endpoints** | 330 | All API routes from 79+ handler modules |
-| **Actively Used** | ~55 | Called from frontend components |
-| **Ready to Wire** | ~10 | High-value, not yet connected to frontend |
-| **Advanced/Analytics** | ~251 | Specialized features, plugins, analytics |
+```bash
+python scripts/generate_api_docs.py --format json
+```
 
 ## OpenAPI Specification
 
-The generated OpenAPI spec lives in `docs/api/openapi.json` and `docs/api/openapi.yaml`.
-Regenerate them with:
+The generated OpenAPI spec lives in `docs/api/openapi.json` and
+`docs/api/openapi.yaml` (JSON-formatted for compatibility). Regenerate them with:
 
 ```bash
 python scripts/export_openapi.py --output-dir docs/api
 ```
 
-The contract tests use `aragora/server/openapi.yaml` as the canonical spec. If you
-add or change endpoints, update both to keep tests and docs in sync.
+The canonical spec is produced by `aragora/server/openapi` and
+`aragora/server/openapi_impl.py`. If you add or change endpoints, update the
+OpenAPI endpoint definitions and re-export the docs.
+
+## Codebase Analysis API
+
+Codebase security and metrics endpoints live under `/api/v1/codebase` and
+`/api/v1/cve`. For full examples and response shapes, see
+`docs/CODEBASE_ANALYSIS.md`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/codebase/\{repo\}/scan` | Run dependency vulnerability scan |
+| GET | `/api/v1/codebase/\{repo\}/scan/latest` | Latest scan result |
+| GET | `/api/v1/codebase/\{repo\}/scan/\{scan_id\}` | Scan by ID |
+| GET | `/api/v1/codebase/\{repo\}/scans` | List scan history |
+| GET | `/api/v1/codebase/\{repo\}/vulnerabilities` | Vulnerabilities list |
+| GET | `/api/v1/codebase/package/\{ecosystem\}/\{package\}/vulnerabilities` | Package advisories |
+| GET | `/api/v1/cve/\{cve_id\}` | CVE details |
+| POST | `/api/v1/codebase/\{repo\}/metrics/analyze` | Run metrics analysis |
+| GET | `/api/v1/codebase/\{repo\}/metrics` | Latest metrics report |
+| GET | `/api/v1/codebase/\{repo\}/metrics/\{analysis_id\}` | Metrics report by ID |
+| GET | `/api/v1/codebase/\{repo\}/metrics/history` | Metrics history |
+| GET | `/api/v1/codebase/\{repo\}/hotspots` | Complexity hotspots |
+| GET | `/api/v1/codebase/\{repo\}/duplicates` | Code duplication summary |
+| GET | `/api/v1/codebase/\{repo\}/metrics/file/\{file_path\}` | File-level metrics |
+
+### New Endpoints (2026-01-22)
+
+| Endpoint | Description | Status |
+|----------|-------------|--------|
+| `POST /api/control-plane/deliberations` | Run or queue a deliberation | NEW |
+| `GET /api/control-plane/deliberations/:id` | Get deliberation result | NEW |
+| `GET /api/control-plane/deliberations/:id/status` | Get deliberation status | NEW |
+| `POST /api/v1/decisions` | Create a decision request | NEW |
+| `GET /api/v1/decisions/:id` | Get decision result | NEW |
+| `GET /api/v1/decisions/:id/status` | Get decision status | NEW |
 
 ### New Endpoints (2026-01-09)
 

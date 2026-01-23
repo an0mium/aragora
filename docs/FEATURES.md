@@ -1,6 +1,6 @@
 # Aragora Feature Documentation
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-22
 
 
 This document provides detailed documentation for all 65+ features implemented in aragora through 21 phases of self-improvement.
@@ -18,6 +18,7 @@ This document provides detailed documentation for all 65+ features implemented i
 - [Phase 9-19: Truth Grounding, Modes, Infrastructure](#phase-9-truth-grounding-recent)
 - [Phase 20: Demo Fixtures & Search](#phase-20-demo-fixtures--search-2026-01)
 - [Phase 21: Feature Integration](#phase-21-feature-integration-2026-01-09)
+- [Phase 22: Inbox Ops & Codebase Analysis](#phase-22-inbox-ops--codebase-analysis-2026-01-22)
 
 ---
 
@@ -204,17 +205,19 @@ if results.passed:
     print(f"Agent scored {results.score}")
 ```
 
-### DebateTemplates
-**File:** `aragora/debate/templates.py`
+### DeliberationTemplates
+**File:** `aragora/deliberation/templates/`
 
-Structured formats for different debate types.
+Structured deliberation templates for common workflows.
 
 ```python
-from aragora.debate.templates import DebateTemplates
+from aragora.deliberation.templates import get_template
 
-templates = DebateTemplates()
-template = templates.get("code_review")
-structured_task = template.format(code=code_snippet)
+template = get_template("code_review")
+request = template.merge_with_request({
+    "question": "Review this API change",
+    "knowledge_sources": ["github:owner/repo/pr/123"],
+})
 ```
 
 ### AgentCircuitBreaker
@@ -2044,6 +2047,87 @@ result = await coordinator.execute(
 Intelligent agent selection and load balancing for optimal task assignment.
 
 See [AGENT_SELECTION.md](./AGENT_SELECTION.md) for routing strategies.
+
+---
+
+## Phase 22: Inbox Ops & Codebase Analysis (2026-01-22)
+
+### DependencyScanner
+**File:** `aragora/analysis/codebase/scanner.py`
+
+Scans dependency lock files and queries vulnerability databases (NVD, OSV,
+GitHub) for CVEs with remediation guidance.
+
+```python
+from aragora.analysis.codebase import DependencyScanner
+
+scanner = DependencyScanner()
+result = await scanner.scan_repository("/path/to/repo")
+print(result.critical_count, result.high_count)
+```
+
+### CVEClient
+**File:** `aragora/analysis/codebase/cve_client.py`
+
+Async CVE lookup client with caching, circuit breaker, and multi-source
+fallback (NVD -> OSV -> GitHub advisory).
+
+```python
+from aragora.analysis.codebase import CVEClient
+
+client = CVEClient()
+finding = await client.get_cve("CVE-2023-12345")
+```
+
+### Code Metrics Analysis
+**File:** `aragora/analysis/codebase/metrics.py`
+
+Computes code complexity metrics, hotspots, and duplication signals for
+repository health dashboards.
+
+```python
+from aragora.analysis.codebase import CodeMetricsAnalyzer
+
+analyzer = CodeMetricsAnalyzer()
+report = analyzer.analyze_repository("/path/to/repo", scan_id="metrics_001")
+```
+
+### SenderHistoryService
+**File:** `aragora/services/sender_history.py`
+
+Tracks sender reputation, response patterns, and engagement scores to inform
+email prioritization decisions.
+
+```python
+from aragora.services.sender_history import SenderHistoryService
+
+service = SenderHistoryService(db_path="sender_history.db")
+await service.initialize()
+```
+
+### FollowUpTracker
+**File:** `aragora/services/followup_tracker.py`
+
+Tracks sent emails awaiting replies and surfaces overdue follow-ups.
+
+```python
+from aragora.services.followup_tracker import FollowUpTracker
+
+tracker = FollowUpTracker()
+pending = await tracker.get_pending_followups()
+```
+
+### SnoozeRecommender
+**File:** `aragora/services/snooze_recommender.py`
+
+Suggests optimal snooze times based on sender history, work schedule, and
+optional calendar context.
+
+```python
+from aragora.services.snooze_recommender import SnoozeRecommender
+
+recommender = SnoozeRecommender()
+```
 
 ---
 

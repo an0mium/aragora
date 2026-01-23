@@ -159,6 +159,23 @@ regions:
 
 ---
 
+## Demo Script
+
+Use the control plane demo to validate orchestration, queues, and channel routing:
+
+```bash
+python scripts/demo_control_plane.py
+python scripts/demo_control_plane.py --quick
+python scripts/demo_control_plane.py --agents 5
+python scripts/demo_control_plane.py --simulate-load
+```
+
+Requirements:
+- Redis running locally (for task queue)
+- Optional: `SLACK_WEBHOOK_URL` for demo notifications
+
+---
+
 ## REST API
 
 The control plane API is versioned under `/api/v1/control-plane` with legacy

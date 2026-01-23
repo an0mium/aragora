@@ -5,9 +5,9 @@ description: Bot Integrations Guide
 
 # Bot Integrations Guide
 
-> **Last Updated:** 2026-01-20
+> **Last Updated:** 2026-01-22
 
-Aragora is **omnivorous by design**—it communicates bidirectionally across multiple channels. Query from wherever you work; get multi-agent consensus delivered back to you.
+Aragora is the **control plane for multi-agent deliberation across organizational knowledge and channels**. It is **omnivorous by design**—communicating bidirectionally across multiple channels. Query from wherever you work; get defensible decisions delivered back to you.
 
 **Output Channels**: Web, Slack, Discord, Microsoft Teams, Zoom, WhatsApp Business, Telegram, API.
 

@@ -23,6 +23,15 @@ The Aragora Control Plane provides centralized coordination for AI agents with:
 
 ## Quick Start
 
+### Demo Script
+
+```bash
+python scripts/demo_control_plane.py
+```
+
+Use `--quick` for a 2-minute walkthrough and `--simulate-load` to stress the
+queue. See `docs/CONTROL_PLANE.md` for full options.
+
 ### Python API
 
 ```python

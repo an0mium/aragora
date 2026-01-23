@@ -18,6 +18,8 @@ Use this index for fast navigation. For a fuller map, see
 | API examples | [API_EXAMPLES.md](API_EXAMPLES.md) |
 | Production deployment | [DEPLOYMENT.md](DEPLOYMENT.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
+| Email prioritization | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
+| Codebase analysis | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
 
 ## Core Concepts
 
@@ -34,6 +36,17 @@ Use this index for fast navigation. For a fuller map, see
 - Operations runbook: [OPERATIONS.md](OPERATIONS.md)
 - Production readiness: [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md)
 - Observability: [OBSERVABILITY.md](OBSERVABILITY.md)
+
+## Channels & Inbox
+
+- Channels overview: [CHANNELS.md](CHANNELS.md)
+- Bot integrations: [BOT_INTEGRATIONS.md](BOT_INTEGRATIONS.md)
+- Email prioritization: [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md)
+
+## Analysis & Code Health
+
+- Codebase analysis: [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md)
+- Document analysis: [ANALYSIS.md](ANALYSIS.md)
 
 ## API & SDK
 
@@ -66,5 +79,5 @@ Deprecated docs are archived in `docs/deprecated/`. See
 
 ## Inventory
 
-- Markdown files under `docs/`: 255 (includes deprecated)
+- Markdown files under `docs/`: 258 (includes deprecated)
 - Last updated: 2026-01-22

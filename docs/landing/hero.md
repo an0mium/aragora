@@ -3,16 +3,18 @@
 ## Above-the-Fold Content
 
 ### Headline
-**Stress-test high-stakes decisions before they break your business**
+**Control plane for multi-agent deliberation across organizational knowledge**
 
 ### Subheadline
-12+ AI adversaries find the flaws humans miss. Gauntlet Mode subjects your specs, architectures, and policies to adversarial validation in hours, not weeks.
+Orchestrate 15+ AI models to debate your documents, data, and APIs, then deliver
+**defensible decisions** to Slack, Teams, email, or voice. Built for teams where
+"the AI said so" is not enough.
 
 ### Primary CTA
-**Try Gauntlet Mode Free** - No credit card required
+**Request Enterprise Demo** - See the control plane in action
 
 ### Secondary CTA
-**Watch 5-Minute Demo** - See a $2M architecture decision stress-tested live
+**Try Gauntlet Mode** - Stress-test a decision in minutes
 
 ---
 
@@ -27,20 +29,21 @@ Trusted by CTOs at:    [Logo] [Logo] [Logo] [Logo]
 
 ## Value Props (3 columns)
 
-### 1. Multi-Agent Adversarial Testing
-**12+ hostile AI perspectives** attack your decisions from every angle. No groupthink, no blind spots.
+### 1. Deliberation Control Plane
+**Coordinate agents, queues, and policies** across every decision workflow.
 
-### 2. Formal Verification
-**Z3-backed proofs** for claims that must be mathematically certain. Not just opinions.
+### 2. Omnivorous Ingestion
+**25+ formats, 24 connectors** — docs, databases, email, and voice.
 
 ### 3. Audit-Ready Receipts
-**Court-ready documentation** with tamper-evident timestamps. Prove your due diligence.
+**Evidence trails and dissent** with compliance-grade Decision Receipts.
 
 ---
 
 ## The "Holy Sh*t" Moment
 
-> "Aragora found a distributed tracing bottleneck that would have cost us $500K to fix 6 months later. It paid for itself in one session."
+> "Aragora found a distributed tracing bottleneck that would have cost us $500K
+to fix 6 months later. It paid for itself in one session."
 >
 > — CTO, Series C FinTech (Name available on request)
 
@@ -48,18 +51,18 @@ Trusted by CTOs at:    [Logo] [Logo] [Logo] [Logo]
 
 ## Comparison Table (below fold)
 
-| | Manual Red Team | Single-LLM Tools | **Aragora** |
+| | Manual Review | Single-LLM Tools | **Aragora** |
 |---|---|---|---|
-| Perspectives | 3-5 humans | 1 AI | **12+ AIs** |
-| Time | 2-4 weeks | Hours | **Hours** |
-| Cost | $50K+ | $100s | **$5K** |
-| Verification | None | None | **Z3 proofs** |
-| Audit Trail | PDF report | Chat logs | **Decision Receipt** |
+| Perspectives | 3-5 humans | 1 AI | **15+ AIs** |
+| Time | 2-4 weeks | Hours | **Minutes** |
+| Delivery | Docs only | Chat UI | **Any channel** |
+| Verification | None | None | **Receipts + evidence** |
+| Control plane | No | No | **Yes** |
 
 ---
 
 ## Technical Credibility
 
-- **Open-source core** - Inspect the validation logic
+- **Open-source core** - Inspect the deliberation engine
 - **Self-hostable** - Your data never leaves your infrastructure
-- **API-first** - Integrate into CI/CD, Slack, or custom workflows
+- **API-first** - Integrate with workflows, chat, and automation

@@ -28,6 +28,15 @@ The Aragora Control Plane provides centralized coordination for AI agents with:
 
 ## Quick Start
 
+### Demo Script
+
+```bash
+python scripts/demo_control_plane.py
+```
+
+Use `--quick` for a 2-minute walkthrough and `--simulate-load` to stress the
+queue. See `docs/CONTROL_PLANE.md` for full options.
+
 ### Python API
 
 ```python
@@ -61,6 +70,13 @@ await coordinator.shutdown()
 ```
 
 ### REST API
+
+All endpoints are available under `/api/v1/control-plane` with legacy aliases
+under `/api/control-plane`. Examples below use the legacy path for brevity.
+
+Authentication is required. Task and deliberation operations require the
+`controlplane:tasks` permission; agent registration and management require
+`controlplane:agents`.
 
 ```bash
 # Register an agent

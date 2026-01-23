@@ -216,6 +216,7 @@ The CI pipeline includes:
 - **Bandit**: Static security analysis for Python
 - **Safety**: Dependency vulnerability scanning
 - **Ruff**: Linting includes security rules
+- **Codebase scanning**: Dependency and CVE lookup via `aragora.analysis.codebase`
 
 ### Manual Testing
 

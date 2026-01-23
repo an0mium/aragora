@@ -1,6 +1,6 @@
 # API Examples
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-22
 
 Practical examples for using the Aragora HTTP and WebSocket APIs.
 
@@ -180,6 +180,44 @@ async def decision_router_example():
         print(status.json())
 
 asyncio.run(decision_router_example())
+```
+
+### Codebase Security Scan
+
+```python
+async def codebase_security_scan():
+    """Trigger a dependency vulnerability scan and fetch results."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        scan = await client.post("/api/v1/codebase/aragora/scan", json={
+            "repo_path": "/Users/armand/Development/aragora",
+            "branch": "main",
+        })
+        scan_data = scan.json()
+        scan_id = scan_data["scan_id"]
+
+        result = await client.get(f"/api/v1/codebase/aragora/scan/{scan_id}")
+        print(result.json())
+
+asyncio.run(codebase_security_scan())
+```
+
+### Codebase Metrics Analysis
+
+```python
+async def codebase_metrics():
+    """Run code metrics analysis and fetch hotspots."""
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        analysis = await client.post("/api/v1/codebase/aragora/metrics/analyze", json={
+            "repo_path": "/Users/armand/Development/aragora",
+            "complexity_warning": 10,
+            "complexity_error": 20,
+        })
+        analysis_id = analysis.json()["analysis_id"]
+
+        hotspots = await client.get("/api/v1/codebase/aragora/hotspots")
+        print(hotspots.json())
+
+asyncio.run(codebase_metrics())
 ```
 
 ### Gauntlet Compliance Audit

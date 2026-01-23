@@ -60,6 +60,7 @@ const DOC_MAP = {
   'MATRIX_DEBATES.md': 'guides/matrix-debates.md',
   'GAUNTLET.md': 'guides/gauntlet.md',
   'AUTOMATION_INTEGRATIONS.md': 'guides/automation.md',
+  'EMAIL_PRIORITIZATION.md': 'guides/email-prioritization.md',
   'BROADCAST.md': 'guides/broadcast.md',
   'PULSE.md': 'guides/pulse.md',
   'WEBSOCKET_EVENTS.md': 'guides/websocket-events.md',
@@ -161,6 +162,7 @@ const DOC_MAP = {
   // Analysis & Metrics
   // =========================================================================
   'ANALYSIS.md': 'analysis/overview.md',
+  'CODEBASE_ANALYSIS.md': 'analysis/codebase.md',
   'BENCHMARK_RESULTS.md': 'analysis/benchmarks.md',
 
   // =========================================================================
