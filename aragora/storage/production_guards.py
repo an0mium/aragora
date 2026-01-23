@@ -72,6 +72,7 @@ class StorageGuardConfig:
             self.fail_open_stores = {
                 "cache_store",  # Ephemeral cache
                 "session_store",  # Short-lived sessions
+                "workflow_store",  # Workflow definitions (static config, not dynamic state)
             }
 
 

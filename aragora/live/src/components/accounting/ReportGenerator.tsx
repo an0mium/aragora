@@ -16,10 +16,55 @@ interface AgingBucket {
   customers: number;
 }
 
-interface ReportData {
-  type: ReportType;
+interface IncomeExpenseSection {
+  items: LineItem[];
+  total: number;
+}
+
+interface ProfitLossData {
+  income: IncomeExpenseSection;
+  expenses: IncomeExpenseSection;
+  netIncome: number;
+}
+
+interface AssetSection {
+  total: number;
+  current: IncomeExpenseSection;
+  fixed: IncomeExpenseSection;
+}
+
+interface BalanceSheetData {
+  asOf?: string;
+  assets: AssetSection;
+  liabilities: IncomeExpenseSection;
+  equity: IncomeExpenseSection;
+}
+
+interface AgingData {
+  asOf?: string;
+  buckets: AgingBucket[];
+  total: number;
+}
+
+interface CashFlowData {
+  operating: IncomeExpenseSection;
+  investing: IncomeExpenseSection;
+  financing: IncomeExpenseSection;
+  netChange: number;
+}
+
+type ReportDataByType = {
+  profit_loss: ProfitLossData;
+  balance_sheet: BalanceSheetData;
+  ar_aging: AgingData;
+  ap_aging: AgingData;
+  cash_flow: CashFlowData;
+};
+
+interface ReportData<T extends ReportType = ReportType> {
+  type: T;
   period?: { start: string; end: string };
-  data: Record<string, unknown>;
+  data: ReportDataByType[T];
 }
 
 interface ReportConfig {
@@ -290,154 +335,163 @@ export function ReportGenerator() {
           </div>
 
           {/* Profit & Loss Report */}
-          {reportData.type === 'profit_loss' && (
-            <div className="p-4 space-y-6">
-              {/* Income Section */}
-              <div>
-                <h4 className="text-sm font-mono text-[var(--acid-green)] mb-3">Income</h4>
-                <div className="space-y-2">
-                  {reportData.data.income.items.map((item: LineItem) => (
-                    <div key={item.name} className="flex justify-between text-sm">
-                      <span className="text-[var(--text-muted)]">{item.name}</span>
+          {reportData.type === 'profit_loss' && (() => {
+            const plData = reportData.data as ProfitLossData;
+            return (
+              <div className="p-4 space-y-6">
+                {/* Income Section */}
+                <div>
+                  <h4 className="text-sm font-mono text-[var(--acid-green)] mb-3">Income</h4>
+                  <div className="space-y-2">
+                    {plData.income.items.map((item: LineItem) => (
+                      <div key={item.name} className="flex justify-between text-sm">
+                        <span className="text-[var(--text-muted)]">{item.name}</span>
+                        <span className="font-mono text-[var(--acid-green)]">
+                          ${item.amount.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
+                      <span>Total Income</span>
                       <span className="font-mono text-[var(--acid-green)]">
-                        ${item.amount.toLocaleString()}
+                        ${plData.income.total.toLocaleString()}
                       </span>
                     </div>
-                  ))}
-                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
-                    <span>Total Income</span>
-                    <span className="font-mono text-[var(--acid-green)]">
-                      ${reportData.data.income.total.toLocaleString()}
-                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Expenses Section */}
-              <div>
-                <h4 className="text-sm font-mono text-red-400 mb-3">Expenses</h4>
-                <div className="space-y-2">
-                  {reportData.data.expenses.items.map((item: LineItem) => (
-                    <div key={item.name} className="flex justify-between text-sm">
-                      <span className="text-[var(--text-muted)]">{item.name}</span>
+                {/* Expenses Section */}
+                <div>
+                  <h4 className="text-sm font-mono text-red-400 mb-3">Expenses</h4>
+                  <div className="space-y-2">
+                    {plData.expenses.items.map((item: LineItem) => (
+                      <div key={item.name} className="flex justify-between text-sm">
+                        <span className="text-[var(--text-muted)]">{item.name}</span>
+                        <span className="font-mono text-red-400">
+                          ${item.amount.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
+                      <span>Total Expenses</span>
                       <span className="font-mono text-red-400">
-                        ${item.amount.toLocaleString()}
+                        ${plData.expenses.total.toLocaleString()}
                       </span>
                     </div>
-                  ))}
-                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
-                    <span>Total Expenses</span>
-                    <span className="font-mono text-red-400">
-                      ${reportData.data.expenses.total.toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Net Income */}
+                <div className="pt-4 border-t-2 border-[var(--acid-green)]">
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Net Income</span>
+                    <span className={`font-mono ${plData.netIncome >= 0 ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+                      ${plData.netIncome.toLocaleString()}
                     </span>
                   </div>
                 </div>
               </div>
+            );
+          })()}
 
-              {/* Net Income */}
-              <div className="pt-4 border-t-2 border-[var(--acid-green)]">
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Net Income</span>
-                  <span className={`font-mono ${reportData.data.netIncome >= 0 ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
-                    ${reportData.data.netIncome.toLocaleString()}
+          {/* Balance Sheet Report */}
+          {reportData.type === 'balance_sheet' && (() => {
+            const bsData = reportData.data as BalanceSheetData;
+            return (
+              <div className="p-4 grid grid-cols-2 gap-6">
+                {/* Assets */}
+                <div>
+                  <h4 className="text-sm font-mono text-[var(--acid-green)] mb-3">Assets</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="text-xs text-[var(--text-muted)] mb-2">Current Assets</h5>
+                      {bsData.assets.current.items.map((item: LineItem) => (
+                        <div key={item.name} className="flex justify-between text-sm py-1">
+                          <span className="text-[var(--text-muted)]">{item.name}</span>
+                          <span className="font-mono">${item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <h5 className="text-xs text-[var(--text-muted)] mb-2">Fixed Assets</h5>
+                      {bsData.assets.fixed.items.map((item: LineItem) => (
+                        <div key={item.name} className="flex justify-between text-sm py-1">
+                          <span className="text-[var(--text-muted)]">{item.name}</span>
+                          <span className="font-mono">${item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
+                      <span>Total Assets</span>
+                      <span className="font-mono text-[var(--acid-green)]">
+                        ${bsData.assets.total.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Liabilities & Equity */}
+                <div>
+                  <h4 className="text-sm font-mono text-red-400 mb-3">Liabilities & Equity</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="text-xs text-[var(--text-muted)] mb-2">Liabilities</h5>
+                      {bsData.liabilities.items.map((item: LineItem) => (
+                        <div key={item.name} className="flex justify-between text-sm py-1">
+                          <span className="text-[var(--text-muted)]">{item.name}</span>
+                          <span className="font-mono">${item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <h5 className="text-xs text-[var(--text-muted)] mb-2">Equity</h5>
+                      {bsData.equity.items.map((item: LineItem) => (
+                        <div key={item.name} className="flex justify-between text-sm py-1">
+                          <span className="text-[var(--text-muted)]">{item.name}</span>
+                          <span className="font-mono">${item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
+                      <span>Total L&E</span>
+                      <span className="font-mono">
+                        ${(bsData.liabilities.total + bsData.equity.total).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* AR/AP Aging Report */}
+          {(reportData.type === 'ar_aging' || reportData.type === 'ap_aging') && (() => {
+            const agingData = reportData.data as AgingData;
+            return (
+              <div className="p-4 space-y-4">
+                {/* Summary Buckets */}
+                <div className="grid grid-cols-5 gap-2">
+                  {agingData.buckets.map((bucket: AgingBucket) => (
+                    <div key={bucket.label} className="p-3 bg-[var(--bg)] rounded text-center">
+                      <div className="text-xs text-[var(--text-muted)]">{bucket.label}</div>
+                      <div className="text-lg font-mono text-[var(--text)]">
+                        ${bucket.amount.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-[var(--text-muted)]">{bucket.customers} accts</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Total */}
+                <div className="flex justify-between items-center p-3 bg-[var(--acid-green)]/10 rounded">
+                  <span className="font-mono">Total {reportData.type === 'ar_aging' ? 'Receivables' : 'Payables'}</span>
+                  <span className="text-xl font-mono text-[var(--acid-green)]">
+                    ${agingData.total.toLocaleString()}
                   </span>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Balance Sheet Report */}
-          {reportData.type === 'balance_sheet' && (
-            <div className="p-4 grid grid-cols-2 gap-6">
-              {/* Assets */}
-              <div>
-                <h4 className="text-sm font-mono text-[var(--acid-green)] mb-3">Assets</h4>
-                <div className="space-y-4">
-                  <div>
-                    <h5 className="text-xs text-[var(--text-muted)] mb-2">Current Assets</h5>
-                    {reportData.data.assets.current.items.map((item: LineItem) => (
-                      <div key={item.name} className="flex justify-between text-sm py-1">
-                        <span className="text-[var(--text-muted)]">{item.name}</span>
-                        <span className="font-mono">${item.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <h5 className="text-xs text-[var(--text-muted)] mb-2">Fixed Assets</h5>
-                    {reportData.data.assets.fixed.items.map((item: LineItem) => (
-                      <div key={item.name} className="flex justify-between text-sm py-1">
-                        <span className="text-[var(--text-muted)]">{item.name}</span>
-                        <span className="font-mono">${item.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
-                    <span>Total Assets</span>
-                    <span className="font-mono text-[var(--acid-green)]">
-                      ${reportData.data.assets.total.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Liabilities & Equity */}
-              <div>
-                <h4 className="text-sm font-mono text-red-400 mb-3">Liabilities & Equity</h4>
-                <div className="space-y-4">
-                  <div>
-                    <h5 className="text-xs text-[var(--text-muted)] mb-2">Liabilities</h5>
-                    {reportData.data.liabilities.items.map((item: LineItem) => (
-                      <div key={item.name} className="flex justify-between text-sm py-1">
-                        <span className="text-[var(--text-muted)]">{item.name}</span>
-                        <span className="font-mono">${item.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <h5 className="text-xs text-[var(--text-muted)] mb-2">Equity</h5>
-                    {reportData.data.equity.items.map((item: LineItem) => (
-                      <div key={item.name} className="flex justify-between text-sm py-1">
-                        <span className="text-[var(--text-muted)]">{item.name}</span>
-                        <span className="font-mono">${item.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-[var(--border)]">
-                    <span>Total L&E</span>
-                    <span className="font-mono">
-                      ${(reportData.data.liabilities.total + reportData.data.equity.total).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* AR/AP Aging Report */}
-          {(reportData.type === 'ar_aging' || reportData.type === 'ap_aging') && (
-            <div className="p-4 space-y-4">
-              {/* Summary Buckets */}
-              <div className="grid grid-cols-5 gap-2">
-                {reportData.data.buckets.map((bucket: AgingBucket) => (
-                  <div key={bucket.label} className="p-3 bg-[var(--bg)] rounded text-center">
-                    <div className="text-xs text-[var(--text-muted)]">{bucket.label}</div>
-                    <div className="text-lg font-mono text-[var(--text)]">
-                      ${bucket.amount.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-[var(--text-muted)]">{bucket.customers} accts</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Total */}
-              <div className="flex justify-between items-center p-3 bg-[var(--acid-green)]/10 rounded">
-                <span className="font-mono">Total {reportData.type === 'ar_aging' ? 'Receivables' : 'Payables'}</span>
-                <span className="text-xl font-mono text-[var(--acid-green)]">
-                  ${reportData.data.total.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
     </div>
