@@ -218,9 +218,9 @@ def get_snooze_store(db_path: str | None = None) -> SnoozeStore:
     """Get or create the snooze store singleton."""
     global _store_instance
     if _store_instance is None:
-        from aragora.config import get_data_dir
+        from aragora.config.legacy import get_db_path
 
         if db_path is None:
-            db_path = str(get_data_dir() / "snoozes.db")
+            db_path = str(get_db_path("snoozes.db"))
         _store_instance = SnoozeStore(db_path)
     return _store_instance

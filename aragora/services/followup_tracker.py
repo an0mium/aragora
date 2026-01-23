@@ -312,10 +312,8 @@ class FollowUpTracker:
 
                     # Look for replies after sent_at
                     for msg in messages:
-                        msg_date = datetime.fromisoformat(
-                            msg.get("date", datetime.now().isoformat())
-                        )
-                        msg_from = msg.get("from_address", "").lower()
+                        msg_date = msg.date if msg.date else datetime.now()
+                        msg_from = (msg.from_address or "").lower()
 
                         # Check if this is a reply (from recipient, after our send)
                         if msg_date > item.sent_at and item.recipient.lower() in msg_from:

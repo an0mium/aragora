@@ -598,18 +598,19 @@ class MailchimpConnector:
         title: str | None = None,
     ) -> Campaign:
         """Create a new campaign."""
+        settings: dict[str, str] = {
+            "subject_line": subject_line,
+            "from_name": from_name,
+            "reply_to": reply_to,
+        }
+        if title:
+            settings["title"] = title
+
         json_data = {
             "type": campaign_type.value,
             "recipients": {"list_id": list_id},
-            "settings": {
-                "subject_line": subject_line,
-                "from_name": from_name,
-                "reply_to": reply_to,
-            },
+            "settings": settings,
         }
-
-        if title:
-            json_data["settings"]["title"] = title
 
         data = await self._request("POST", "campaigns", json_data=json_data)
         return Campaign.from_api(data)

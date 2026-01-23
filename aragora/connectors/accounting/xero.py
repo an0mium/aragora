@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date as Date, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any
@@ -276,8 +276,8 @@ class Invoice:
     status: InvoiceStatus = InvoiceStatus.DRAFT
     contact_id: str | None = None
     contact_name: str | None = None
-    date: date | None = None
-    due_date: date | None = None
+    date: Date | None = None
+    due_date: Date | None = None
     line_items: list[LineItem] = field(default_factory=list)
     sub_total: Decimal = Decimal("0")
     total_tax: Decimal = Decimal("0")
@@ -360,7 +360,7 @@ class BankTransaction:
     contact_name: str | None = None
     bank_account_id: str | None = None
     bank_account_code: str | None = None
-    date: date | None = None
+    date: Date | None = None
     reference: str | None = None
     line_items: list[LineItem] = field(default_factory=list)
     sub_total: Decimal = Decimal("0")
@@ -404,7 +404,7 @@ class Payment:
     invoice_id: str | None = None
     invoice_number: str | None = None
     account_id: str | None = None
-    date: date | None = None
+    date: Date | None = None
     amount: Decimal = Decimal("0")
     currency_rate: Decimal = Decimal("1")
     reference: str | None = None
@@ -461,7 +461,7 @@ class ManualJournal:
 
     manual_journal_id: str | None = None
     narration: str = ""
-    date: date | None = None
+    date: Date | None = None
     status: str = "DRAFT"
     journal_lines: list[JournalLine] = field(default_factory=list)
     url: str | None = None
@@ -689,8 +689,8 @@ class XeroConnector:
         contact_id: str,
         line_items: list[LineItem],
         invoice_type: InvoiceType = InvoiceType.ACCREC,
-        invoice_date: date | None = None,
-        due_date: date | None = None,
+        invoice_date: Date | None = None,
+        due_date: Date | None = None,
         reference: str | None = None,
         status: InvoiceStatus = InvoiceStatus.DRAFT,
         line_amount_types: str = "Exclusive",
@@ -801,7 +801,7 @@ class XeroConnector:
         contact_id: str,
         line_items: list[LineItem],
         transaction_type: BankTransactionType = BankTransactionType.SPEND,
-        transaction_date: date | None = None,
+        transaction_date: Date | None = None,
         reference: str | None = None,
     ) -> BankTransaction:
         """Create a bank transaction."""
@@ -840,7 +840,7 @@ class XeroConnector:
         invoice_id: str,
         account_id: str,
         amount: Decimal,
-        payment_date: date | None = None,
+        payment_date: Date | None = None,
         reference: str | None = None,
     ) -> Payment:
         """Create a payment against an invoice."""
@@ -872,7 +872,7 @@ class XeroConnector:
         self,
         narration: str,
         journal_lines: list[JournalLine],
-        journal_date: date | None = None,
+        journal_date: Date | None = None,
         status: str = "DRAFT",
     ) -> ManualJournal:
         """Create a manual journal entry."""
@@ -938,7 +938,7 @@ def _parse_xero_datetime(value: str | None) -> datetime | None:
         return None
 
 
-def _parse_xero_date(value: str | None) -> date | None:
+def _parse_xero_date(value: str | None) -> Date | None:
     """Parse Xero date format."""
     if not value:
         return None
@@ -957,7 +957,7 @@ def get_mock_invoice() -> Invoice:
         type=InvoiceType.ACCREC,
         status=InvoiceStatus.AUTHORISED,
         contact_name="Test Customer",
-        date=date.today(),
+        date=Date.today(),
         total=Decimal("1000.00"),
         amount_due=Decimal("1000.00"),
     )

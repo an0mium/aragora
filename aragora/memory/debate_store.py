@@ -44,7 +44,7 @@ class DebateStore:
 
     def __init__(self, db_path: Optional[Path] = None):
         """Initialize the debate store with the given database path."""
-        self.db_path = db_path or get_db_path(DatabaseType.MEMORY)
+        self.db_path = db_path or get_db_path(DatabaseType.DEBATES)
         self._ensure_schema()
 
     @contextmanager

@@ -247,7 +247,7 @@ class AragoraZoomBot:
         logger.info(f"Meeting ended: {meeting_id} (host: {host_email})")
 
         # Trigger post-meeting summary generation if configured
-        if self.config.get("enable_post_meeting_summary", False):
+        if getattr(self.config, "enable_post_meeting_summary", False):
             await self._generate_post_meeting_summary(meeting_id, host_email, payload)
 
         return {"status": "ok"}

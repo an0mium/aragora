@@ -328,19 +328,19 @@ class SnoozeRecommender:
         now: datetime,
     ) -> List[SnoozeSuggestion]:
         """Get suggestions based on sender patterns."""
-        suggestions = []
+        suggestions: List[SnoozeSuggestion] = []
 
         if not self.sender_history or not sender_email:
             return suggestions
 
         try:
             # Get sender stats
-            stats = await self.sender_history.get_stats(sender_email)
+            stats = await self.sender_history.get_stats(sender_email)  # type: ignore[call-arg]
             if not stats:
                 return suggestions
 
             # If user typically responds within X hours, suggest that
-            avg_response = stats.get("avg_response_time_hours", 24)
+            avg_response: float = getattr(stats, "avg_response_time_hours", 24.0)  # type: ignore[assignment]
 
             if avg_response < 4:
                 # Quick responder - suggest soon

@@ -746,8 +746,7 @@ class CodeReviewOrchestrator:
         # Review the diff
         result = await self.review_diff(
             diff=diff,
-            review_types=review_types,
-            context=f"GitHub PR: {pr_url}",
+            pr_url=pr_url,
         )
 
         # Update PR URL in result
@@ -846,10 +845,10 @@ class CodeReviewOrchestrator:
 
         Returns list of (file_path, added_lines, removed_lines)
         """
-        files = []
-        current_file = None
-        added_lines = []
-        removed_lines = []
+        files: list[tuple[str, list[str], list[str]]] = []
+        current_file: str | None = None
+        added_lines: list[str] = []
+        removed_lines: list[str] = []
 
         for line in diff.split("\n"):
             if line.startswith("diff --git"):

@@ -562,8 +562,8 @@ async def _get_security_debate_agents() -> List[Any]:
     except ImportError:
         # Fall back to basic agent creation
         try:
-            from aragora.agents.api_agents.anthropic import AnthropicAgent
-            from aragora.agents.api_agents.openai import OpenAIAgent
+            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent as AnthropicAgent
+            from aragora.agents.api_agents.openai import OpenAIAPIAgent as OpenAIAgent
 
             agents = []
 

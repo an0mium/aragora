@@ -1043,7 +1043,7 @@ class ControlPlaneCoordinator:
                     if hasattr(task, "required_capabilities")
                     else ["debate"]
                 )
-                selected_agents = []
+                selected_agents: list[Any] = []
                 for _ in range(task.sla.min_agents if hasattr(task, "sla") else 2):
                     agent_info = await self.select_agent(
                         capabilities=capabilities,

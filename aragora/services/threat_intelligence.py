@@ -1748,8 +1748,10 @@ class ThreatIntelligenceService:
                     if result is None:
                         continue
 
+                    # At this point result is a dict, not an exception
+                    result_dict: dict[str, Any] = result
                     source_results[source_name] = self._parse_source_result(
-                        source_name, result, threat_types_found
+                        source_name, result_dict, threat_types_found
                     )
 
         elif target_type == "ip":

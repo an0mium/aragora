@@ -436,9 +436,9 @@ class EmailCategorizer:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Handle any exceptions
-        final_results = []
+        final_results: list[CategorizationResult] = []
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Categorization failed for email {i}: {result}")
                 final_results.append(
                     CategorizationResult(

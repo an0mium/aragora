@@ -923,7 +923,7 @@ class EnterpriseMeter:
                         config=config,
                         alert_level=alert_level,
                         current_spend=current_spend,
-                        percent=percent,
+                        percent=float(percent),
                     )
 
         return alert_level
