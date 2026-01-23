@@ -195,6 +195,13 @@ AD_PERFORMANCE_REVIEW_TEMPLATE: dict[str, Any] = {
             },
         },
     ],
+    "transitions": [
+        {"from": "data_collection", "to": "performance_analysis"},
+        {"from": "performance_analysis", "to": "audience_analysis"},
+        {"from": "audience_analysis", "to": "budget_recommendations"},
+        {"from": "budget_recommendations", "to": "creative_recommendations"},
+        {"from": "creative_recommendations", "to": "generate_report"},
+    ],
     "outputs": {
         "report": "Performance analysis report",
         "recommendations": "List of actionable recommendations",
@@ -332,6 +339,14 @@ LEAD_TO_CRM_SYNC_TEMPLATE: dict[str, Any] = {
                 "template": "new_leads_synced",
             },
         },
+    ],
+    "transitions": [
+        {"from": "fetch_leads", "to": "deduplicate"},
+        {"from": "deduplicate", "to": "enrich_leads"},
+        {"from": "enrich_leads", "to": "qualify_leads"},
+        {"from": "qualify_leads", "to": "create_contacts"},
+        {"from": "create_contacts", "to": "assign_leads"},
+        {"from": "assign_leads", "to": "notify"},
     ],
     "outputs": {
         "leads_synced": "Number of leads synced to CRM",
@@ -490,6 +505,12 @@ CROSS_PLATFORM_ANALYTICS_TEMPLATE: dict[str, Any] = {
             },
         },
     ],
+    "transitions": [
+        {"from": "collect_analytics", "to": "attribution_analysis"},
+        {"from": "attribution_analysis", "to": "funnel_analysis"},
+        {"from": "funnel_analysis", "to": "roi_calculation"},
+        {"from": "roi_calculation", "to": "generate_dashboard"},
+    ],
     "outputs": {
         "dashboard": "Unified analytics dashboard",
         "attribution_report": "Cross-channel attribution report",
@@ -627,6 +648,14 @@ SUPPORT_TICKET_TRIAGE_TEMPLATE: dict[str, Any] = {
             },
         },
     ],
+    "transitions": [
+        {"from": "fetch_tickets", "to": "categorize_tickets"},
+        {"from": "categorize_tickets", "to": "prioritize_tickets"},
+        {"from": "prioritize_tickets", "to": "suggest_responses"},
+        {"from": "suggest_responses", "to": "route_tickets"},
+        {"from": "route_tickets", "to": "update_tickets"},
+        {"from": "update_tickets", "to": "notify_teams"},
+    ],
     "outputs": {
         "tickets_triaged": "Number of tickets processed",
         "priority_breakdown": "Tickets by priority",
@@ -752,6 +781,13 @@ ECOMMERCE_ORDER_SYNC_TEMPLATE: dict[str, Any] = {
                 "value": True,
             },
         },
+    ],
+    "transitions": [
+        {"from": "fetch_orders", "to": "validate_orders"},
+        {"from": "validate_orders", "to": "map_to_accounting"},
+        {"from": "map_to_accounting", "to": "create_invoices"},
+        {"from": "create_invoices", "to": "reconcile"},
+        {"from": "reconcile", "to": "mark_synced"},
     ],
     "outputs": {
         "orders_synced": "Number of orders synced",
