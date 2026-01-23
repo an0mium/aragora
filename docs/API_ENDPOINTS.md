@@ -52,6 +52,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Orchestration](#orchestration)
 - [Organizations](#organizations)
 - [Partner](#partner)
+- [Payments](#payments)
 - [Persona](#persona)
 - [Policy](#policy)
 - [Privacy](#privacy)
@@ -1632,6 +1633,76 @@ Configure webhook
 ### `GET` `/api/partners/limits`
 
 Get rate limits
+
+---
+
+## Payments
+
+Payment processing handlers for Stripe and Authorize.net.
+
+### `POST` `/api/payments/charge`
+
+Process a payment
+
+### `POST` `/api/payments/authorize`
+
+Authorize a payment (capture later)
+
+### `POST` `/api/payments/capture`
+
+Capture an authorized payment
+
+### `POST` `/api/payments/refund`
+
+Refund a payment
+
+### `POST` `/api/payments/void`
+
+Void a transaction
+
+### `GET` `/api/payments/transaction/{id}`
+
+Get transaction details
+
+### `POST` `/api/payments/customer`
+
+Create customer profile
+
+### `GET` `/api/payments/customer/{id}`
+
+Get customer profile
+
+### `PUT` `/api/payments/customer/{id}`
+
+Update customer profile
+
+### `DELETE` `/api/payments/customer/{id}`
+
+Delete customer profile
+
+### `POST` `/api/payments/subscription`
+
+Create subscription
+
+### `GET` `/api/payments/subscription/{id}`
+
+Get subscription
+
+### `PUT` `/api/payments/subscription/{id}`
+
+Update subscription
+
+### `DELETE` `/api/payments/subscription/{id}`
+
+Cancel subscription
+
+### `POST` `/api/payments/webhook/stripe`
+
+Stripe webhook endpoint
+
+### `POST` `/api/payments/webhook/authnet`
+
+Authorize.net webhook endpoint
 
 ---
 

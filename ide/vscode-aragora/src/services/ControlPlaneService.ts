@@ -218,7 +218,7 @@ export class ControlPlaneService implements vscode.Disposable {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch deliberations:', error);
+        console.error('Failed to fetch vetted decisionmaking sessions:', error);
       }
     }
 

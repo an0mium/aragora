@@ -65,8 +65,9 @@ GET  /api/v1/inbox/stats            - Inbox health metrics
 Notes:
 - Gmail OAuth tokens are persisted in `GmailTokenStore`; Outlook tokens are stored
   via the integration store under the `outlook_email` integration type.
-- Unified inbox messages are cached in-memory by default; configure Redis/Postgres
-  sync backends for production-grade durability.
+- Unified inbox accounts, messages, and triage results are persisted via the
+  Unified Inbox store. Default backend is SQLite; for production use PostgreSQL
+  by setting `ARAGORA_INBOX_STORE_BACKEND=postgres` and `DATABASE_URL`.
 - OAuth credentials are read from environment variables (see `OAUTH_SETUP.md`).
 
 ## Priority Levels

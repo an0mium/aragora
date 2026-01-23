@@ -640,7 +640,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
                     message.get("sender_name"),
                     json.dumps(message.get("recipients") or []),
                     json.dumps(message.get("cc") or []),
-                    _format_dt(message.get("received_at") or now),
+                    _format_dt(message.get("received_at") or now),  # type: ignore[arg-type]
                     message.get("snippet"),
                     message.get("body_preview"),
                     is_read,
@@ -688,7 +688,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
                 message.get("sender_name"),
                 json.dumps(message.get("recipients") or []),
                 json.dumps(message.get("cc") or []),
-                _format_dt(message.get("received_at") or now),
+                _format_dt(message.get("received_at") or now),  # type: ignore[arg-type]
                 message.get("snippet"),
                 message.get("body_preview"),
                 is_read,

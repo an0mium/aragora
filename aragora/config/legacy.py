@@ -220,9 +220,12 @@ DEBATE_TIMEOUT_SECONDS = _env_int("ARAGORA_DEBATE_TIMEOUT", 900)  # 15 minutes
 AGENT_TIMEOUT_SECONDS = _env_int("ARAGORA_AGENT_TIMEOUT", 240)  # 4 minutes per agent call
 
 # Concurrency limits to prevent API rate limit exhaustion
+MAX_CONCURRENT_PROPOSALS = _env_int("ARAGORA_MAX_CONCURRENT_PROPOSALS", 5)
 MAX_CONCURRENT_CRITIQUES = _env_int("ARAGORA_MAX_CONCURRENT_CRITIQUES", 10)
 MAX_CONCURRENT_REVISIONS = _env_int("ARAGORA_MAX_CONCURRENT_REVISIONS", 5)
 MAX_CONCURRENT_STREAMING = _env_int("ARAGORA_MAX_CONCURRENT_STREAMING", 3)
+# Legacy stagger delay for proposal phase (0.0 = disabled, use semaphore instead)
+PROPOSAL_STAGGER_SECONDS = _env_float("ARAGORA_PROPOSAL_STAGGER_SECONDS", 0.0)
 
 # Heartbeat and timeout configuration
 HEARTBEAT_INTERVAL_SECONDS = _env_int("ARAGORA_HEARTBEAT_INTERVAL", 15)

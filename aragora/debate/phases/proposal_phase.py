@@ -18,7 +18,11 @@ import asyncio
 import logging
 from typing import Any, Callable, Optional
 
-from aragora.config import AGENT_TIMEOUT_SECONDS
+from aragora.config import (
+    AGENT_TIMEOUT_SECONDS,
+    MAX_CONCURRENT_PROPOSALS,
+    PROPOSAL_STAGGER_SECONDS,
+)
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.types import AgentType, DebateContextType
 from aragora.server.stream.arena_hooks import streaming_task_context
@@ -190,25 +194,34 @@ class ProposalPhase:
     async def _generate_proposals_parallel(
         self, ctx: "DebateContextType", proposers: list["AgentType"]
     ) -> None:
-        """Generate proposals in parallel."""
+        """Generate proposals in parallel with bounded concurrency."""
 
         if not proposers:
             logger.warning("No proposers available for proposal phase")
             return
 
-        # Create tasks with staggered starts to avoid API burst
-        # When all agents start simultaneously, API rate limits trigger 429 errors
-        # and OpenRouter fallback delays of 20-30 seconds
-        PROPOSAL_STAGGER_SECONDS = 2.0
-        tasks = []
-        for idx, agent in enumerate(proposers):
-            if idx > 0:
-                await asyncio.sleep(PROPOSAL_STAGGER_SECONDS)
-            task = asyncio.create_task(
-                self._generate_single_proposal(ctx, agent), name=f"proposal_{agent.name}"
+        # Use semaphore for bounded concurrency (matching critique/revision phases)
+        # Legacy stagger mode available via PROPOSAL_STAGGER_SECONDS > 0
+        proposal_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PROPOSALS)
+
+        async def generate_proposal_bounded(
+            idx: int, agent: "AgentType"
+        ) -> tuple["AgentType", Any]:
+            """Generate proposal with semaphore-bounded concurrency."""
+            # Optional stagger delay for backward compatibility
+            if PROPOSAL_STAGGER_SECONDS > 0 and idx > 0:
+                await asyncio.sleep(PROPOSAL_STAGGER_SECONDS * idx)
+            async with proposal_semaphore:
+                logger.info(f"proposal_started agent={agent.name} idx={idx}")
+                return await self._generate_single_proposal(ctx, agent)
+
+        # Create all tasks immediately (semaphore controls actual concurrency)
+        tasks = [
+            asyncio.create_task(
+                generate_proposal_bounded(idx, agent), name=f"proposal_{agent.name}"
             )
-            tasks.append(task)
-            logger.info(f"proposal_started agent={agent.name} stagger_idx={idx}")
+            for idx, agent in enumerate(proposers)
+        ]
 
         # Wait for all proposals and process as they complete
         for completed_task in asyncio.as_completed(tasks):

@@ -392,7 +392,7 @@ class KMWebSocketBridge:
                     event_enum = StreamEventType.KM_BATCH
 
             # Create stream event
-            stream_event = StreamEvent(event_type=event_enum, data=data)  # type: ignore[arg-type]
+            stream_event = StreamEvent(event_type=event_enum, data=data)  # type: ignore[arg-type,call-arg]
 
             # Schedule async broadcast
             if self._loop and self._loop.is_running():

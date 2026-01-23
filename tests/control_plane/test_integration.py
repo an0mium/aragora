@@ -6,6 +6,7 @@ with SharedControlPlaneState.
 """
 
 import asyncio
+import time
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -75,9 +76,10 @@ class TestIntegratedControlPlane:
         mock_agent.status = AgentStatus.READY
         mock_agent.capabilities = [AgentCapability.DEBATE]
         mock_agent.tasks_completed = 5
+        mock_agent.tasks_failed = 0
         mock_agent.avg_latency_ms = 100.0
         mock_agent.success_rate = 0.95
-        mock_agent.last_heartbeat = datetime.now(timezone.utc)
+        mock_agent.last_heartbeat = time.time()
         mock_agent.metadata = {}
 
         mock_coordinator.register_agent.return_value = mock_agent
@@ -298,9 +300,10 @@ class TestSyncLoop:
         mock_agent.status = AgentStatus.READY
         mock_agent.capabilities = []
         mock_agent.tasks_completed = 0
+        mock_agent.tasks_failed = 0
         mock_agent.avg_latency_ms = 0.0
         mock_agent.success_rate = 1.0
-        mock_agent.last_heartbeat = datetime.now(timezone.utc)
+        mock_agent.last_heartbeat = time.time()
         mock_agent.metadata = {}
 
         mock_coordinator.list_agents = AsyncMock(return_value=[mock_agent])

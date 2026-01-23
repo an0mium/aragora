@@ -252,6 +252,7 @@ class RedTeamMode:
         red_team_agents: list[Any],
         run_agent_fn: Callable,
         max_rounds: int = 4,
+        proposer_agent: Optional[Any] = None,
     ) -> RedTeamResult:
         """
         Run a complete red-team session.
@@ -262,6 +263,7 @@ class RedTeamMode:
             red_team_agents: Agents that will attack
             run_agent_fn: Function to run an agent with a prompt
             max_rounds: Maximum attack/defend cycles
+            proposer_agent: Optional agent to execute defense (if None, defense skipped)
         """
         session_id = f"redteam-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         rounds: list[RedTeamRound] = []
@@ -294,16 +296,25 @@ class RedTeamMode:
                 all_attacks.extend(attacks)
 
             # Defense phase - proposer defends
-            if round_result.attacks:
-                self.protocol.generate_defend_prompt(
+            if round_result.attacks and proposer_agent is not None:
+                defend_prompt = self.protocol.generate_defend_prompt(
                     current_proposal,
                     round_result.attacks,
                     round_num,
                 )
 
-                # Would call proposer agent here
-                # For now, mark as requiring defense
+                # Execute defense with proposer agent
+                defense_response = await run_agent_fn(proposer_agent, defend_prompt)
+                defenses = self._parse_defenses(defense_response, proposer, round_result.attacks)
+                round_result.defenses.extend(defenses)
+                all_defenses.extend(defenses)
                 round_result.phase = "defend"
+
+                # Update proposal with defense for next round
+                current_proposal = f"{current_proposal}\n\nDefense:\n{defense_response}"
+            elif round_result.attacks:
+                # No proposer agent provided - mark as attack-only
+                round_result.phase = "attack_only"
 
             # Steelman round (if enabled and first round)
             if self.protocol.include_steelman and round_num == 1:

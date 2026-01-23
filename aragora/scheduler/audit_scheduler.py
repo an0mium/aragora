@@ -201,8 +201,8 @@ class CronParser:
                 return list(range(start, max_val + 1, step))
 
         if "-" in field:
-            start, end = field.split("-")
-            return list(range(int(start), int(end) + 1))  # type: ignore[assignment]
+            range_start, range_end = field.split("-")
+            return list(range(int(range_start), int(range_end) + 1))
 
         if "," in field:
             return [int(v) for v in field.split(",")]

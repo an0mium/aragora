@@ -307,6 +307,10 @@ class UnifiedInboxHandler(BaseHandler):
         super().__init__(server_context or {})  # type: ignore[arg-type]
         self._store = get_unified_inbox_store()
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can process the given path."""
+        return path.startswith("/api/v1/inbox")
+
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:

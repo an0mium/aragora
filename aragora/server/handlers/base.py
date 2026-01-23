@@ -1075,7 +1075,7 @@ class BaseHandler:
     ) -> HandlerResult:
         """Create a standard success response."""
         status_code = status.value if isinstance(status, HTTPStatus) else status
-        return success_response(data, status=status_code)
+        return json_response(data, status=status_code)
 
     def error_response(
         self,

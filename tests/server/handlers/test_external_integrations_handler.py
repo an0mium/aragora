@@ -10,6 +10,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import importlib
 import json
 from dataclasses import dataclass
 from io import BytesIO
@@ -17,6 +18,27 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+# ===========================================================================
+# Test Isolation Fixture
+# ===========================================================================
+
+
+@pytest.fixture(autouse=True)
+def reset_rbac_module_state():
+    """Reset RBAC module state between tests to ensure isolation.
+
+    This prevents test pollution when tests modify RBAC_AVAILABLE or
+    other module-level state.
+    """
+    # Reload the module to reset all module-level state
+    import aragora.server.handlers.external_integrations as ext_int_module
+
+    importlib.reload(ext_int_module)
+    yield
+    # Reload again after test to clean up any modifications
+    importlib.reload(ext_int_module)
 
 
 # ===========================================================================

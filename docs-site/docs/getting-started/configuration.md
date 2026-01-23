@@ -105,6 +105,7 @@ At least one required for debates to function.
 | `ARAGORA_SQLITE_PATH` | `aragora.db` | SQLite file path |
 | `ARAGORA_POLICY_STORE_BACKEND` | `auto` | Policy store backend: `sqlite` or `postgres` (defaults to `ARAGORA_DB_BACKEND`) |
 | `ARAGORA_AUDIT_STORE_BACKEND` | `auto` | Audit log backend: `sqlite` or `postgres` (defaults to `ARAGORA_DB_BACKEND`) |
+| `ARAGORA_INBOX_STORE_BACKEND` | `auto` | Unified inbox backend: `memory`, `sqlite`, `postgres` (defaults to `ARAGORA_DB_BACKEND`) |
 | `ARAGORA_REQUIRE_DISTRIBUTED` | `auto` | Enforce distributed stores in production (fail closed on SQLite/file) |
 | `ARAGORA_STORAGE_MODE` | `auto` | Force storage mode: `postgres`, `redis`, `sqlite`, `file` |
 | `ARAGORA_EXPLAINABILITY_STORE_BACKEND` | `auto` | Explainability batch store backend: `redis`, `postgres`, `sqlite`, `memory` |

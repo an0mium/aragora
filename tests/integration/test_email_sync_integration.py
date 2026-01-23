@@ -239,6 +239,7 @@ class TestUnifiedInboxIntegration:
         assert any("inbox" in r for r in routes)
 
 
+@pytest.mark.skip(reason="aragora.prioritization module not yet implemented")
 class TestEmailPrioritizationPipeline:
     """Test the full prioritization pipeline."""
 

@@ -176,6 +176,14 @@ Persists Gmail OAuth tokens and sync job state.
 |----------|----------|-------------|---------|
 | `ARAGORA_GMAIL_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `postgres`, `redis` | `sqlite` |
 
+### Unified Inbox Store
+
+Persists unified inbox accounts, messages, and triage results.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_INBOX_STORE_BACKEND` | Optional | Backend: `memory`, `sqlite`, `postgres` | `sqlite` |
+
 ### Finding Workflow Store
 
 Persists audit finding workflow state, assignments, and history.

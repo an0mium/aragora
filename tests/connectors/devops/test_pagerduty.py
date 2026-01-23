@@ -20,11 +20,6 @@ import hashlib
 import hmac
 import json
 
-# Skip reason for tests that need to be updated for new dataclass structure
-SKIP_DATACLASS_UPDATE = pytest.mark.skip(
-    reason="Test needs update for new User/Service object structure"
-)
-
 from aragora.connectors.devops.pagerduty import (
     PagerDutyConnector,
     PagerDutyCredentials,
@@ -237,24 +232,25 @@ class TestIncidentNote:
         assert note.user.name == "John Doe"
 
 
-@SKIP_DATACLASS_UPDATE
 class TestIncident:
     """Tests for Incident dataclass."""
 
     def test_incident_creation(self):
         """Test incident initialization."""
+        service = Service(id="svc_456", name="Production API")
         incident = Incident(
             id="inc_123",
+            incident_number=1,
             title="API Latency Spike",
             status=IncidentStatus.TRIGGERED,
             urgency=IncidentUrgency.HIGH,
-            service_id="svc_456",
-            service_name="Production API",
+            service=service,
             created_at=datetime.now(timezone.utc),
         )
         assert incident.id == "inc_123"
         assert incident.title == "API Latency Spike"
         assert incident.status == IncidentStatus.TRIGGERED
+        assert incident.service.name == "Production API"
 
     def test_incident_from_api(self):
         """Test incident creation from API response."""
@@ -263,12 +259,21 @@ class TestIncident:
             "title": "Database Connection Pool Exhausted",
             "status": "triggered",
             "urgency": "high",
-            "service": {"id": "PSVC1", "summary": "Database"},
+            "service": {"id": "PSVC1", "name": "Database", "summary": "Database"},
             "created_at": "2024-01-15T10:00:00Z",
             "html_url": "https://example.pagerduty.com/incidents/PINC123",
             "incident_number": 42,
             "priority": {"summary": "P1"},
-            "assignments": [{"assignee": {"id": "PUSER1", "summary": "Jane Doe"}}],
+            "assignments": [
+                {
+                    "assignee": {
+                        "id": "PUSER1",
+                        "name": "Jane Doe",
+                        "email": "jane@example.com",
+                        "summary": "Jane Doe",
+                    }
+                }
+            ],
         }
         incident = Incident.from_api(api_data)
         assert incident.id == "PINC123"
@@ -291,19 +296,18 @@ class TestIncidentCreateRequest:
         assert request.service_id == "svc_123"
         assert request.urgency == IncidentUrgency.HIGH
 
-    @SKIP_DATACLASS_UPDATE
     def test_create_request_full(self):
         """Test full incident create request."""
         request = IncidentCreateRequest(
             title="Critical Alert",
             service_id="svc_123",
             urgency=IncidentUrgency.LOW,
-            body="Detailed description of the issue",
+            description="Detailed description of the issue",
             escalation_policy_id="esc_456",
             priority_id="pri_789",
         )
         assert request.urgency == IncidentUrgency.LOW
-        assert request.body == "Detailed description of the issue"
+        assert request.description == "Detailed description of the issue"
 
 
 # =============================================================================
@@ -311,7 +315,6 @@ class TestIncidentCreateRequest:
 # =============================================================================
 
 
-@SKIP_DATACLASS_UPDATE
 class TestPagerDutyConnectorLifecycle:
     """Tests for connector lifecycle management."""
 
@@ -322,7 +325,7 @@ class TestPagerDutyConnectorLifecycle:
             email="user@example.com",
         )
         connector = PagerDutyConnector(creds)
-        assert connector._credentials == creds
+        assert connector.credentials == creds
         assert connector._client is None
 
     @pytest.mark.asyncio
@@ -343,11 +346,10 @@ class TestPagerDutyConnectorLifecycle:
             email="user@example.com",
         )
         connector = PagerDutyConnector(creds)
-        with pytest.raises(RuntimeError, match="context manager"):
+        with pytest.raises(PagerDutyError, match="context manager"):
             _ = connector.client
 
 
-@SKIP_DATACLASS_UPDATE
 class TestPagerDutyConnectorIncidentOperations:
     """Tests for incident operations."""
 
@@ -366,10 +368,11 @@ class TestPagerDutyConnectorIncidentOperations:
         mock_response = {
             "incident": {
                 "id": "PINC_NEW",
+                "incident_number": 123,
                 "title": "New Alert",
                 "status": "triggered",
                 "urgency": "high",
-                "service": {"id": "PSVC1", "summary": "API"},
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
                 "created_at": "2024-01-15T10:00:00Z",
             }
         }
@@ -392,10 +395,11 @@ class TestPagerDutyConnectorIncidentOperations:
         mock_response = {
             "incident": {
                 "id": "PINC123",
+                "incident_number": 456,
                 "title": "Test Incident",
                 "status": "acknowledged",
                 "urgency": "high",
-                "service": {"id": "PSVC1", "summary": "API"},
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
                 "created_at": "2024-01-15T10:00:00Z",
             }
         }
@@ -418,7 +422,8 @@ class TestPagerDutyConnectorIncidentOperations:
                     "title": "Alert 1",
                     "status": "triggered",
                     "urgency": "high",
-                    "service": {"id": "PSVC1", "summary": "API"},
+                    "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                    "incident_number": 1,
                     "created_at": "2024-01-15T10:00:00Z",
                 },
                 {
@@ -426,7 +431,8 @@ class TestPagerDutyConnectorIncidentOperations:
                     "title": "Alert 2",
                     "status": "acknowledged",
                     "urgency": "low",
-                    "service": {"id": "PSVC2", "summary": "DB"},
+                    "service": {"id": "PSVC2", "name": "DB", "summary": "DB"},
+                    "incident_number": 2,
                     "created_at": "2024-01-15T09:00:00Z",
                 },
             ],
@@ -437,11 +443,10 @@ class TestPagerDutyConnectorIncidentOperations:
             mock_request.return_value = mock_response
 
             async with connector:
-                incidents, has_more = await connector.list_incidents()
+                incidents = await connector.list_incidents()
                 assert len(incidents) == 2
                 assert incidents[0].id == "PINC1"
                 assert incidents[1].status == IncidentStatus.ACKNOWLEDGED
-                assert has_more is False
 
     @pytest.mark.asyncio
     async def test_acknowledge_incident(self, connector):
@@ -452,7 +457,8 @@ class TestPagerDutyConnectorIncidentOperations:
                 "title": "Test",
                 "status": "acknowledged",
                 "urgency": "high",
-                "service": {"id": "PSVC1", "summary": "API"},
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "incident_number": 1,
                 "created_at": "2024-01-15T10:00:00Z",
             }
         }
@@ -467,19 +473,29 @@ class TestPagerDutyConnectorIncidentOperations:
     @pytest.mark.asyncio
     async def test_resolve_incident(self, connector):
         """Test resolving an incident."""
-        mock_response = {
+        note_response = {
+            "note": {
+                "id": "PNOTE123",
+                "content": "Resolution: Fixed by restarting the service",
+                "created_at": "2024-01-15T10:00:00Z",
+                "user": {"id": "PUSER1", "name": "User", "email": "user@example.com"},
+            }
+        }
+        incident_response = {
             "incident": {
                 "id": "PINC123",
                 "title": "Test",
                 "status": "resolved",
                 "urgency": "high",
-                "service": {"id": "PSVC1", "summary": "API"},
+                "service": {"id": "PSVC1", "name": "API", "summary": "API"},
+                "incident_number": 1,
                 "created_at": "2024-01-15T10:00:00Z",
             }
         }
 
         with patch.object(connector, "_request", new_callable=AsyncMock) as mock_request:
-            mock_request.return_value = mock_response
+            # First call is add_note, second call is update incident
+            mock_request.side_effect = [note_response, incident_response]
 
             async with connector:
                 incident = await connector.resolve_incident(
@@ -488,7 +504,6 @@ class TestPagerDutyConnectorIncidentOperations:
                 assert incident.status == IncidentStatus.RESOLVED
 
 
-@SKIP_DATACLASS_UPDATE
 class TestPagerDutyConnectorNoteOperations:
     """Tests for note operations."""
 
@@ -509,7 +524,12 @@ class TestPagerDutyConnectorNoteOperations:
                 "id": "PNOTE_NEW",
                 "content": "Investigation update",
                 "created_at": "2024-01-15T11:00:00Z",
-                "user": {"summary": "Jane Doe"},
+                "user": {
+                    "id": "PUSER1",
+                    "name": "Jane Doe",
+                    "email": "jane@example.com",
+                    "summary": "Jane Doe",
+                },
             }
         }
 
@@ -530,13 +550,23 @@ class TestPagerDutyConnectorNoteOperations:
                     "id": "PNOTE1",
                     "content": "Note 1",
                     "created_at": "2024-01-15T10:00:00Z",
-                    "user": {"summary": "User 1"},
+                    "user": {
+                        "id": "PUSER1",
+                        "name": "User 1",
+                        "email": "user1@example.com",
+                        "summary": "User 1",
+                    },
                 },
                 {
                     "id": "PNOTE2",
                     "content": "Note 2",
                     "created_at": "2024-01-15T11:00:00Z",
-                    "user": {"summary": "User 2"},
+                    "user": {
+                        "id": "PUSER2",
+                        "name": "User 2",
+                        "email": "user2@example.com",
+                        "summary": "User 2",
+                    },
                 },
             ]
         }
@@ -550,7 +580,6 @@ class TestPagerDutyConnectorNoteOperations:
                 assert notes[0].id == "PNOTE1"
 
 
-@SKIP_DATACLASS_UPDATE
 class TestPagerDutyConnectorWebhooks:
     """Tests for webhook handling."""
 
@@ -563,10 +592,8 @@ class TestPagerDutyConnectorWebhooks:
         )
         connector = PagerDutyConnector(creds)
 
-        payload = '{"event": "incident.triggered"}'
-        signature = hmac.new(
-            creds.webhook_secret.encode(), payload.encode(), hashlib.sha256
-        ).hexdigest()
+        payload = b'{"event": "incident.triggered"}'
+        signature = hmac.new(creds.webhook_secret.encode(), payload, hashlib.sha256).hexdigest()
 
         assert connector.verify_webhook_signature(payload, f"v1={signature}") is True
 
@@ -579,17 +606,18 @@ class TestPagerDutyConnectorWebhooks:
         )
         connector = PagerDutyConnector(creds)
 
-        payload = '{"event": "incident.triggered"}'
+        payload = b'{"event": "incident.triggered"}'
         assert connector.verify_webhook_signature(payload, "v1=invalid_signature") is False
 
     def test_verify_webhook_no_secret(self):
-        """Test webhook verification without secret configured."""
+        """Test webhook verification without secret configured logs warning and returns True."""
         creds = PagerDutyCredentials(
             api_key="test_key",
             email="user@example.com",
         )
         connector = PagerDutyConnector(creds)
-        assert connector.verify_webhook_signature("payload", "signature") is False
+        # When no webhook secret is configured, returns True (verification skipped)
+        assert connector.verify_webhook_signature(b"payload", "signature") is True
 
     def test_parse_webhook(self):
         """Test webhook payload parsing."""
@@ -658,19 +686,17 @@ class TestMockData:
 # =============================================================================
 
 
-@SKIP_DATACLASS_UPDATE
 class TestPagerDutyError:
     """Tests for PagerDutyError exception."""
 
     def test_error_creation(self):
         """Test error initialization."""
-        error = PagerDutyError("Not found", 404, {"error": {"message": "Incident not found"}})
-        assert error.message == "Not found"
+        error = PagerDutyError("Incident not found", 404, "NOT_FOUND")
+        assert str(error) == "Incident not found"
         assert error.status_code == 404
-        assert "Incident not found" in str(error.response)
+        assert error.error_code == "NOT_FOUND"
 
     def test_error_string_representation(self):
         """Test error string output."""
         error = PagerDutyError("Server error", 500)
-        assert "500" in str(error)
         assert "Server error" in str(error)

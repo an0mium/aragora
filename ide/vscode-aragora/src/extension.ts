@@ -1185,7 +1185,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
   });
 
-  // Trigger Deliberation command - triggers a new deliberation from selected text
+  // Trigger Vetted Decisionmaking command - triggers a new session from selected text
   const triggerDeliberationCmd = vscode.commands.registerCommand('aragora.triggerDeliberation', async () => {
     const editor = vscode.window.activeTextEditor;
 
@@ -1198,7 +1198,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (!question) {
       question = await vscode.window.showInputBox({
-        prompt: 'Enter the question for multi-agent deliberation',
+        prompt: 'Enter the question for multi-agent vetted decisionmaking',
         placeHolder: 'What is the best approach for...',
       });
     }
@@ -1209,7 +1209,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (deliberationId) {
       const action = await vscode.window.showInformationMessage(
-        `Deliberation started: ${deliberationId}`,
+        `Vetted decisionmaking started: ${deliberationId}`,
         'Watch Live'
       );
 
@@ -1224,7 +1224,7 @@ export function activate(context: vscode.ExtensionContext) {
     const deliberations = await controlPlaneService.getActiveDeliberations();
 
     if (deliberations.length === 0) {
-      vscode.window.showInformationMessage('No active deliberations');
+      vscode.window.showInformationMessage('No active vetted decisionmaking sessions');
       return;
     }
 
@@ -1235,7 +1235,7 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
     const selected = await vscode.window.showQuickPick(items, {
-      placeHolder: 'Select a deliberation to watch',
+      placeHolder: 'Select a vetted decisionmaking session to watch',
     });
 
     if (selected) {

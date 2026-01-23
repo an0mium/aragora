@@ -29,7 +29,7 @@ export default function DeliberationsPage() {
   const fetchDeliberations = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/v1/deliberations/active`);
-      if (!response.ok) throw new Error('Failed to fetch deliberations');
+      if (!response.ok) throw new Error('Failed to fetch vetted decisionmaking sessions');
       const data = await response.json();
       setDeliberations(data.deliberations || []);
 

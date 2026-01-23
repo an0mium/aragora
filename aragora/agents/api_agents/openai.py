@@ -39,7 +39,7 @@ WEB_SEARCH_INDICATORS = [
     env_vars="OPENAI_API_KEY",
     accepts_api_key=True,
 )
-class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
+class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):  # type: ignore[misc]
     """Agent that uses OpenAI API directly.
 
     Includes automatic fallback to OpenRouter when OpenAI quota is exceeded (429 error).

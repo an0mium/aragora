@@ -77,6 +77,10 @@ class ReconciliationHandler(BaseHandler):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can process the given path."""
+        return path.startswith("/api/v1/reconciliation")
+
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
         try:

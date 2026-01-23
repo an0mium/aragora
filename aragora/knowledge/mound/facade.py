@@ -79,7 +79,7 @@ from aragora.knowledge.mound.ops.extraction import ExtractionMixin
 from aragora.knowledge.mound.types import MoundConfig
 
 
-class KnowledgeMound(
+class KnowledgeMound(  # type: ignore[misc]
     CRUDOperationsMixin,
     QueryOperationsMixin,
     RLMOperationsMixin,

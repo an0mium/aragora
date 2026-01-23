@@ -316,7 +316,10 @@ class TestRegisterAgent:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
 
         assert result.status_code == 201
         data = json.loads(result.body)
@@ -328,7 +331,10 @@ class TestRegisterAgent:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post("/api/control-plane/agents", {}, mock_http_handler)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -347,9 +353,10 @@ class TestUnregisterAgent:
         asyncio.run(mock_coordinator.register_agent("agent-1", ["debate"]))
 
         with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-            result = handler.handle_delete(
-                "/api/control-plane/agents/agent-1", {}, mock_http_handler
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle_delete(
+                    "/api/control-plane/agents/agent-1", {}, mock_http_handler
+                )
 
         assert result is not None
         data = json.loads(result.body)
@@ -358,9 +365,10 @@ class TestUnregisterAgent:
     def test_unregister_agent_not_found(self, handler, mock_http_handler, mock_user):
         """Test unregistering non-existent agent."""
         with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-            result = handler.handle_delete(
-                "/api/control-plane/agents/nonexistent", {}, mock_http_handler
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle_delete(
+                    "/api/control-plane/agents/nonexistent", {}, mock_http_handler
+                )
 
         assert result.status_code == 404
 
@@ -379,12 +387,15 @@ class TestAgentHeartbeat:
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
-                    "aragora.control_plane.registry.AgentStatus",
-                    MagicMock(return_value="available"),
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
                 ):
-                    result = handler.handle_post(
-                        "/api/control-plane/agents/agent-1/heartbeat", {}, mock_http_handler
-                    )
+                    with patch(
+                        "aragora.control_plane.registry.AgentStatus",
+                        MagicMock(return_value="available"),
+                    ):
+                        result = handler.handle_post(
+                            "/api/control-plane/agents/agent-1/heartbeat", {}, mock_http_handler
+                        )
 
         assert result is not None
         data = json.loads(result.body)
@@ -397,14 +408,17 @@ class TestAgentHeartbeat:
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
-                    "aragora.control_plane.registry.AgentStatus",
-                    MagicMock(return_value="available"),
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
                 ):
-                    result = handler.handle_post(
-                        "/api/control-plane/agents/nonexistent/heartbeat",
-                        {},
-                        mock_http_handler,
-                    )
+                    with patch(
+                        "aragora.control_plane.registry.AgentStatus",
+                        MagicMock(return_value="available"),
+                    ):
+                        result = handler.handle_post(
+                            "/api/control-plane/agents/nonexistent/heartbeat",
+                            {},
+                            mock_http_handler,
+                        )
 
         assert result.status_code == 404
 
@@ -423,10 +437,15 @@ class TestSubmitTask:
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
-                    "aragora.control_plane.scheduler.TaskPriority",
-                    MagicMock(NORMAL="normal"),
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
                 ):
-                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+                    with patch(
+                        "aragora.control_plane.scheduler.TaskPriority",
+                        MagicMock(NORMAL="normal"),
+                    ):
+                        result = handler.handle_post(
+                            "/api/control-plane/tasks", {}, mock_http_handler
+                        )
 
         assert result.status_code == 201
         data = json.loads(result.body)
@@ -438,7 +457,10 @@ class TestSubmitTask:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -480,9 +502,12 @@ class TestCompleteTask:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post(
-                    f"/api/control-plane/tasks/{task_id}/complete", {}, mock_http_handler
-                )
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post(
+                        f"/api/control-plane/tasks/{task_id}/complete", {}, mock_http_handler
+                    )
 
         assert result is not None
         data = json.loads(result.body)
@@ -494,9 +519,12 @@ class TestCompleteTask:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post(
-                    "/api/control-plane/tasks/nonexistent/complete", {}, mock_http_handler
-                )
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post(
+                        "/api/control-plane/tasks/nonexistent/complete", {}, mock_http_handler
+                    )
 
         assert result.status_code == 404
 
@@ -514,9 +542,12 @@ class TestFailTask:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post(
-                    f"/api/control-plane/tasks/{task_id}/fail", {}, mock_http_handler
-                )
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post(
+                        f"/api/control-plane/tasks/{task_id}/fail", {}, mock_http_handler
+                    )
 
         assert result is not None
         data = json.loads(result.body)
@@ -533,9 +564,10 @@ class TestCancelTask:
         task_id = asyncio.run(mock_coordinator.submit_task("debate", {"topic": "AI"}))
 
         with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-            result = handler.handle_post(
-                f"/api/control-plane/tasks/{task_id}/cancel", {}, mock_http_handler
-            )
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
+                result = handler.handle_post(
+                    f"/api/control-plane/tasks/{task_id}/cancel", {}, mock_http_handler
+                )
 
         assert result is not None
         data = json.loads(result.body)
@@ -607,9 +639,12 @@ class TestClaimTask:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post(
-                    "/api/control-plane/tasks/any/claim", {}, mock_http_handler
-                )
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post(
+                        "/api/control-plane/tasks/any/claim", {}, mock_http_handler
+                    )
 
         assert result is not None
         data = json.loads(result.body)
@@ -622,9 +657,12 @@ class TestClaimTask:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post(
-                    "/api/control-plane/tasks/any/claim", {}, mock_http_handler
-                )
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post(
+                        "/api/control-plane/tasks/any/claim", {}, mock_http_handler
+                    )
 
         data = json.loads(result.body)
         assert data["task"] is None
@@ -635,9 +673,12 @@ class TestClaimTask:
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-                result = handler.handle_post(
-                    "/api/control-plane/tasks/any/claim", {}, mock_http_handler
-                )
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle_post(
+                        "/api/control-plane/tasks/any/claim", {}, mock_http_handler
+                    )
 
         assert result.status_code == 400
         data = json.loads(result.body)

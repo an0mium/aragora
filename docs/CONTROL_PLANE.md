@@ -446,7 +446,7 @@ await router.configure_channel(ChannelConfig(
 - `task.failed` - Task failed after retries
 - `deliberation.started` - Vetted decisionmaking session began
 - `deliberation.consensus` - Consensus was reached
-- `deliberation.failed` - No consensus reached or deliberation failed
+- `deliberation.failed` - No consensus reached or vetted decisionmaking failed
 
 ---
 

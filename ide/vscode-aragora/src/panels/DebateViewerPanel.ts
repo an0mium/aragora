@@ -567,7 +567,7 @@ export class DebateViewerPanel {
         <div class="actions">
           <button onclick="copyResult()">Copy Content</button>
           <button onclick="disconnect()">Disconnect</button>
-          <button onclick="listDeliberations()">Switch Debate</button>
+          <button onclick="listDeliberations()">Switch Session</button>
         </div>
       \`;
 
@@ -579,7 +579,7 @@ export class DebateViewerPanel {
       const list = document.getElementById('deliberations-list');
 
       if (deliberations.length === 0) {
-        list.innerHTML = '<p>No active deliberations.</p>';
+        list.innerHTML = '<p>No active vetted decisionmaking sessions.</p>';
       } else {
         list.innerHTML = deliberations.map(d => \`
           <div style="margin-bottom: 8px; padding: 8px; border: 1px solid var(--vscode-panel-border); border-radius: 4px; cursor: pointer;"
@@ -681,8 +681,8 @@ export function registerDebateViewerCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('aragora.connectToDeliberation', async () => {
       const deliberationId = await vscode.window.showInputBox({
-        prompt: 'Enter deliberation ID',
-        placeHolder: 'deliberation-id',
+        prompt: 'Enter vetted decisionmaking session ID',
+        placeHolder: 'decisionmaking-id',
       });
 
       if (deliberationId) {
@@ -703,7 +703,7 @@ export function registerDebateViewerCommands(
         question = editor.document.getText(editor.selection);
       } else {
         const input = await vscode.window.showInputBox({
-          prompt: 'Enter the question to debate',
+          prompt: 'Enter the question for vetted decisionmaking',
           placeHolder: 'What is the best approach for...',
         });
         question = input || '';

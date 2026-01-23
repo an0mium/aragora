@@ -29,7 +29,9 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult, SyncState
+from aragora.connectors.base import Evidence
+from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
+from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -367,6 +369,16 @@ class WooCommerceConnector(EnterpriseConnector):
         self._client: Any = None
 
     @property
+    def name(self) -> str:
+        """Human-readable name for this connector."""
+        return "WooCommerce"
+
+    @property
+    def source_type(self) -> SourceType:
+        """The source type for this connector."""
+        return SourceType.EXTERNAL_API
+
+    @property
     def base_url(self) -> str:
         """Get API base URL."""
         return f"{self._woo_credentials.store_url}/wp-json/{self._woo_credentials.api_version}"
@@ -573,6 +585,129 @@ class WooCommerceConnector(EnterpriseConnector):
             logger.error(f"Failed to update order {order_id}: {e}")
             return False
 
+    async def create_order(
+        self,
+        customer_id: Optional[int] = None,
+        billing: Optional[WooAddress] = None,
+        shipping: Optional[WooAddress] = None,
+        line_items: Optional[List[Dict[str, Any]]] = None,
+        payment_method: str = "",
+        payment_method_title: str = "",
+        set_paid: bool = False,
+        note: Optional[str] = None,
+    ) -> Optional[WooOrder]:
+        """Create a new order.
+
+        Args:
+            customer_id: Customer ID (0 for guest)
+            billing: Billing address
+            shipping: Shipping address
+            line_items: List of line items [{"product_id": 123, "quantity": 1}]
+            payment_method: Payment method ID
+            payment_method_title: Payment method title
+            set_paid: Mark order as paid
+            note: Customer note
+
+        Returns:
+            Created WooOrder or None on failure
+        """
+        try:
+            order_data: Dict[str, Any] = {
+                "payment_method": payment_method,
+                "payment_method_title": payment_method_title,
+                "set_paid": set_paid,
+            }
+
+            if customer_id is not None:
+                order_data["customer_id"] = customer_id
+            if billing:
+                order_data["billing"] = {
+                    "first_name": billing.first_name or "",
+                    "last_name": billing.last_name or "",
+                    "company": billing.company or "",
+                    "address_1": billing.address_1 or "",
+                    "address_2": billing.address_2 or "",
+                    "city": billing.city or "",
+                    "state": billing.state or "",
+                    "postcode": billing.postcode or "",
+                    "country": billing.country or "",
+                    "email": billing.email or "",
+                    "phone": billing.phone or "",
+                }
+            if shipping:
+                order_data["shipping"] = {
+                    "first_name": shipping.first_name or "",
+                    "last_name": shipping.last_name or "",
+                    "company": shipping.company or "",
+                    "address_1": shipping.address_1 or "",
+                    "address_2": shipping.address_2 or "",
+                    "city": shipping.city or "",
+                    "state": shipping.state or "",
+                    "postcode": shipping.postcode or "",
+                    "country": shipping.country or "",
+                }
+            if line_items:
+                order_data["line_items"] = line_items
+            if note:
+                order_data["customer_note"] = note
+
+            data = await self._request("POST", "orders", json_data=order_data)
+            return self._parse_order(data)
+        except Exception as e:
+            logger.error(f"Failed to create order: {e}")
+            return None
+
+    async def get_order_stats(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Get order statistics.
+
+        Args:
+            start_date: Start of date range
+            end_date: End of date range
+
+        Returns:
+            Dictionary with order statistics
+        """
+        total_orders = 0
+        total_revenue = Decimal("0.00")
+        completed_orders = 0
+        cancelled_orders = 0
+        refunded_orders = 0
+        status_counts: Dict[str, int] = {}
+
+        async for order in self.sync_orders(since=start_date):
+            if end_date and order.date_created > end_date:
+                continue
+
+            total_orders += 1
+            total_revenue += order.total
+
+            status = order.status.value
+            status_counts[status] = status_counts.get(status, 0) + 1
+
+            if order.status == WooOrderStatus.COMPLETED:
+                completed_orders += 1
+            elif order.status == WooOrderStatus.CANCELLED:
+                cancelled_orders += 1
+            elif order.status == WooOrderStatus.REFUNDED:
+                refunded_orders += 1
+
+        return {
+            "total_orders": total_orders,
+            "total_revenue": str(total_revenue),
+            "completed_orders": completed_orders,
+            "cancelled_orders": cancelled_orders,
+            "refunded_orders": refunded_orders,
+            "completion_rate": completed_orders / total_orders if total_orders > 0 else 0,
+            "average_order_value": str(total_revenue / total_orders)
+            if total_orders > 0
+            else "0.00",
+            "status_breakdown": status_counts,
+        }
+
     # =========================================================================
     # Products
     # =========================================================================
@@ -700,6 +835,87 @@ class WooCommerceConnector(EnterpriseConnector):
                     low_stock.append(product)
         return low_stock
 
+    async def sync_product_variations(
+        self,
+        product_id: int,
+        per_page: int = 100,
+    ) -> AsyncIterator[WooProductVariation]:
+        """Sync variations for a variable product.
+
+        Args:
+            product_id: Parent product ID
+            per_page: Page size
+
+        Yields:
+            WooProductVariation objects
+        """
+        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+
+        while True:
+            data = await self._request("GET", f"products/{product_id}/variations", params=params)
+
+            if not data:
+                break
+
+            for variation_data in data:
+                yield self._parse_variation(variation_data)
+
+            if len(data) < per_page:
+                break
+
+            params["page"] += 1
+
+    def _parse_variation(self, data: Dict[str, Any]) -> WooProductVariation:
+        """Parse variation from API response."""
+        return WooProductVariation(
+            id=data["id"],
+            sku=data.get("sku"),
+            price=Decimal(str(data.get("price", "0") or "0")),
+            regular_price=Decimal(str(data.get("regular_price", "0") or "0")),
+            sale_price=Decimal(str(data["sale_price"])) if data.get("sale_price") else None,
+            stock_quantity=data.get("stock_quantity"),
+            stock_status=WooStockStatus(data.get("stock_status", "instock")),
+            manage_stock=data.get("manage_stock", False),
+            attributes=data.get("attributes", []),
+            image=data.get("image", {}).get("src") if data.get("image") else None,
+        )
+
+    async def update_variation_stock(
+        self,
+        product_id: int,
+        variation_id: int,
+        quantity: int,
+        stock_status: Optional[WooStockStatus] = None,
+    ) -> bool:
+        """Update variation stock.
+
+        Args:
+            product_id: Parent product ID
+            variation_id: Variation ID
+            quantity: New stock quantity
+            stock_status: Optional stock status
+
+        Returns:
+            True if successful
+        """
+        try:
+            update_data: Dict[str, Any] = {
+                "stock_quantity": quantity,
+                "manage_stock": True,
+            }
+            if stock_status:
+                update_data["stock_status"] = stock_status.value
+
+            await self._request(
+                "PUT",
+                f"products/{product_id}/variations/{variation_id}",
+                json_data=update_data,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update variation stock {variation_id}: {e}")
+            return False
+
     # =========================================================================
     # Customers
     # =========================================================================
@@ -753,6 +969,576 @@ class WooCommerceConnector(EnterpriseConnector):
             total_spent=Decimal(str(data.get("total_spent", "0"))),
             avatar_url=data.get("avatar_url"),
         )
+
+    # =========================================================================
+    # Refunds
+    # =========================================================================
+
+    async def create_refund(
+        self,
+        order_id: int,
+        amount: Optional[Decimal] = None,
+        reason: str = "",
+        line_items: Optional[List[Dict[str, Any]]] = None,
+        restock_items: bool = True,
+    ) -> Optional[Dict[str, Any]]:
+        """Create a refund for an order.
+
+        Args:
+            order_id: Order ID to refund
+            amount: Refund amount (if None, refunds full order)
+            reason: Reason for refund
+            line_items: Specific line items to refund [{"id": 123, "quantity": 1}]
+            restock_items: Whether to restock items
+
+        Returns:
+            Refund data or None on failure
+        """
+        try:
+            refund_data: Dict[str, Any] = {
+                "reason": reason,
+                "restock_items": restock_items,
+            }
+
+            if amount is not None:
+                refund_data["amount"] = str(amount)
+            if line_items:
+                refund_data["line_items"] = line_items
+
+            data = await self._request(
+                "POST",
+                f"orders/{order_id}/refunds",
+                json_data=refund_data,
+            )
+            return data
+        except Exception as e:
+            logger.error(f"Failed to create refund for order {order_id}: {e}")
+            return None
+
+    async def get_refunds(self, order_id: int) -> List[Dict[str, Any]]:
+        """Get refunds for an order.
+
+        Args:
+            order_id: Order ID
+
+        Returns:
+            List of refund data
+        """
+        try:
+            data = await self._request("GET", f"orders/{order_id}/refunds")
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            logger.error(f"Failed to get refunds for order {order_id}: {e}")
+            return []
+
+    # =========================================================================
+    # Coupons
+    # =========================================================================
+
+    async def get_coupons(
+        self,
+        per_page: int = 100,
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Sync coupons from WooCommerce.
+
+        Args:
+            per_page: Page size
+
+        Yields:
+            Coupon data dictionaries
+        """
+        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+
+        while True:
+            data = await self._request("GET", "coupons", params=params)
+
+            if not data:
+                break
+
+            for coupon in data:
+                yield coupon
+
+            if len(data) < per_page:
+                break
+
+            params["page"] += 1
+
+    async def create_coupon(
+        self,
+        code: str,
+        discount_type: str = "percent",
+        amount: str = "0",
+        description: str = "",
+        date_expires: Optional[datetime] = None,
+        individual_use: bool = False,
+        usage_limit: Optional[int] = None,
+        product_ids: Optional[List[int]] = None,
+        excluded_product_ids: Optional[List[int]] = None,
+        minimum_amount: Optional[str] = None,
+        maximum_amount: Optional[str] = None,
+        free_shipping: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """Create a new coupon.
+
+        Args:
+            code: Coupon code
+            discount_type: Type (percent, fixed_cart, fixed_product)
+            amount: Discount amount
+            description: Coupon description
+            date_expires: Expiration date
+            individual_use: Cannot be combined with other coupons
+            usage_limit: Total usage limit
+            product_ids: Products coupon applies to
+            excluded_product_ids: Products coupon doesn't apply to
+            minimum_amount: Minimum order amount
+            maximum_amount: Maximum order amount
+            free_shipping: Whether coupon grants free shipping
+
+        Returns:
+            Created coupon data or None on failure
+        """
+        try:
+            coupon_data: Dict[str, Any] = {
+                "code": code,
+                "discount_type": discount_type,
+                "amount": amount,
+                "description": description,
+                "individual_use": individual_use,
+                "free_shipping": free_shipping,
+            }
+
+            if date_expires:
+                coupon_data["date_expires"] = date_expires.isoformat()
+            if usage_limit is not None:
+                coupon_data["usage_limit"] = usage_limit
+            if product_ids:
+                coupon_data["product_ids"] = product_ids
+            if excluded_product_ids:
+                coupon_data["excluded_product_ids"] = excluded_product_ids
+            if minimum_amount:
+                coupon_data["minimum_amount"] = minimum_amount
+            if maximum_amount:
+                coupon_data["maximum_amount"] = maximum_amount
+
+            data = await self._request("POST", "coupons", json_data=coupon_data)
+            return data
+        except Exception as e:
+            logger.error(f"Failed to create coupon {code}: {e}")
+            return None
+
+    async def delete_coupon(self, coupon_id: int, force: bool = True) -> bool:
+        """Delete a coupon.
+
+        Args:
+            coupon_id: Coupon ID
+            force: Permanently delete (vs trash)
+
+        Returns:
+            True if successful
+        """
+        try:
+            await self._request(
+                "DELETE",
+                f"coupons/{coupon_id}",
+                params={"force": force},
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete coupon {coupon_id}: {e}")
+            return False
+
+    # =========================================================================
+    # Webhooks
+    # =========================================================================
+
+    async def get_webhooks(self) -> List[Dict[str, Any]]:
+        """Get all registered webhooks.
+
+        Returns:
+            List of webhook data
+        """
+        try:
+            data = await self._request("GET", "webhooks")
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            logger.error(f"Failed to get webhooks: {e}")
+            return []
+
+    async def create_webhook(
+        self,
+        name: str,
+        topic: str,
+        delivery_url: str,
+        secret: str = "",
+        status: str = "active",
+    ) -> Optional[Dict[str, Any]]:
+        """Register a new webhook.
+
+        Args:
+            name: Webhook name
+            topic: Event topic (e.g., order.created, product.updated)
+            delivery_url: URL to receive webhook payloads
+            secret: Secret for payload signing
+            status: Webhook status (active, paused, disabled)
+
+        Returns:
+            Created webhook data or None on failure
+        """
+        try:
+            webhook_data = {
+                "name": name,
+                "topic": topic,
+                "delivery_url": delivery_url,
+                "secret": secret,
+                "status": status,
+            }
+            data = await self._request("POST", "webhooks", json_data=webhook_data)
+            return data
+        except Exception as e:
+            logger.error(f"Failed to create webhook {name}: {e}")
+            return None
+
+    async def delete_webhook(self, webhook_id: int, force: bool = True) -> bool:
+        """Delete a webhook.
+
+        Args:
+            webhook_id: Webhook ID
+            force: Permanently delete
+
+        Returns:
+            True if successful
+        """
+        try:
+            await self._request(
+                "DELETE",
+                f"webhooks/{webhook_id}",
+                params={"force": force},
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete webhook {webhook_id}: {e}")
+            return False
+
+    def verify_webhook_signature(
+        self,
+        payload: bytes,
+        signature: str,
+        secret: str,
+    ) -> bool:
+        """Verify webhook payload signature.
+
+        Args:
+            payload: Raw webhook payload bytes
+            signature: X-WC-Webhook-Signature header value
+            secret: Webhook secret
+
+        Returns:
+            True if signature is valid
+        """
+        import base64
+        import hashlib
+        import hmac
+
+        expected = base64.b64encode(
+            hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+        ).decode()
+        return hmac.compare_digest(expected, signature)
+
+    # =========================================================================
+    # Shipping
+    # =========================================================================
+
+    async def get_shipping_zones(self) -> List[Dict[str, Any]]:
+        """Get all shipping zones.
+
+        Returns:
+            List of shipping zone data
+        """
+        try:
+            data = await self._request("GET", "shipping/zones")
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            logger.error(f"Failed to get shipping zones: {e}")
+            return []
+
+    async def get_shipping_methods(self, zone_id: int) -> List[Dict[str, Any]]:
+        """Get shipping methods for a zone.
+
+        Args:
+            zone_id: Shipping zone ID
+
+        Returns:
+            List of shipping method data
+        """
+        try:
+            data = await self._request("GET", f"shipping/zones/{zone_id}/methods")
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            logger.error(f"Failed to get shipping methods for zone {zone_id}: {e}")
+            return []
+
+    # =========================================================================
+    # Tax
+    # =========================================================================
+
+    async def get_tax_classes(self) -> List[Dict[str, Any]]:
+        """Get all tax classes.
+
+        Returns:
+            List of tax class data
+        """
+        try:
+            data = await self._request("GET", "taxes/classes")
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            logger.error(f"Failed to get tax classes: {e}")
+            return []
+
+    async def get_tax_rates(self, per_page: int = 100) -> AsyncIterator[Dict[str, Any]]:
+        """Get tax rates.
+
+        Args:
+            per_page: Page size
+
+        Yields:
+            Tax rate data dictionaries
+        """
+        params: Dict[str, Any] = {"per_page": per_page, "page": 1}
+
+        while True:
+            data = await self._request("GET", "taxes", params=params)
+
+            if not data:
+                break
+
+            for rate in data:
+                yield rate
+
+            if len(data) < per_page:
+                break
+
+            params["page"] += 1
+
+    # =========================================================================
+    # Reports
+    # =========================================================================
+
+    async def get_sales_report(
+        self,
+        period: str = "month",
+        date_min: Optional[str] = None,
+        date_max: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get sales report.
+
+        Args:
+            period: Report period (week, month, last_month, year)
+            date_min: Start date (YYYY-MM-DD)
+            date_max: End date (YYYY-MM-DD)
+
+        Returns:
+            Sales report data
+        """
+        params: Dict[str, Any] = {"period": period}
+        if date_min:
+            params["date_min"] = date_min
+        if date_max:
+            params["date_max"] = date_max
+
+        try:
+            data = await self._request("GET", "reports/sales", params=params)
+            return data[0] if isinstance(data, list) and data else {}
+        except Exception as e:
+            logger.error(f"Failed to get sales report: {e}")
+            return {}
+
+    async def get_top_sellers_report(
+        self,
+        period: str = "month",
+    ) -> List[Dict[str, Any]]:
+        """Get top selling products report.
+
+        Args:
+            period: Report period (week, month, last_month, year)
+
+        Returns:
+            List of top selling product data
+        """
+        try:
+            data = await self._request(
+                "GET",
+                "reports/top_sellers",
+                params={"period": period},
+            )
+            return data if isinstance(data, list) else []
+        except Exception as e:
+            logger.error(f"Failed to get top sellers report: {e}")
+            return []
+
+    # =========================================================================
+    # BaseConnector abstract methods
+    # =========================================================================
+
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        **kwargs,
+    ) -> List[Evidence]:
+        """Search WooCommerce for relevant data.
+
+        Searches across orders, products, and customers.
+
+        Args:
+            query: Search query string
+            limit: Maximum results to return
+            **kwargs: Additional search options (entity_type: str)
+
+        Returns:
+            List of Evidence objects
+        """
+        results: List[Evidence] = []
+        entity_type = kwargs.get("entity_type", "all")
+
+        try:
+            # Search products
+            if entity_type in ("all", "product"):
+                params = {"search": query, "per_page": min(limit, 100)}
+                products = await self._request("GET", "products", params=params)
+                for p in products[:limit]:
+                    results.append(
+                        Evidence(
+                            id=f"woo-product-{p['id']}",
+                            source_type=self.source_type,
+                            source_id=str(p["id"]),
+                            content=f"{p['name']}: {p.get('short_description', '')}",
+                            title=p["name"],
+                            url=p.get("permalink"),
+                            metadata={"type": "product", "sku": p.get("sku")},
+                        )
+                    )
+
+            # Search customers
+            if entity_type in ("all", "customer"):
+                params = {"search": query, "per_page": min(limit, 100)}
+                customers = await self._request("GET", "customers", params=params)
+                for c in customers[:limit]:
+                    results.append(
+                        Evidence(
+                            id=f"woo-customer-{c['id']}",
+                            source_type=self.source_type,
+                            source_id=str(c["id"]),
+                            content=f"{c.get('first_name', '')} {c.get('last_name', '')} - {c.get('email', '')}",
+                            title=f"Customer: {c.get('email', 'unknown')}",
+                            metadata={"type": "customer"},
+                        )
+                    )
+
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+
+        return results[:limit]
+
+    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+        """Fetch a specific piece of evidence by ID.
+
+        Args:
+            evidence_id: Evidence ID (format: woo-{type}-{id})
+
+        Returns:
+            Evidence object or None if not found
+        """
+        try:
+            parts = evidence_id.split("-")
+            if len(parts) < 3 or parts[0] != "woo":
+                return None
+
+            entity_type = parts[1]
+            entity_id = parts[2]
+
+            if entity_type == "order":
+                order = await self.get_order(int(entity_id))
+                if order:
+                    return Evidence(
+                        id=evidence_id,
+                        source_type=self.source_type,
+                        source_id=str(order.id),
+                        content=f"Order #{order.number} - {order.status.value} - ${order.total}",
+                        title=f"Order #{order.number}",
+                        metadata={"type": "order", "data": order.to_dict()},
+                    )
+
+            elif entity_type == "product":
+                product = await self.get_product(int(entity_id))
+                if product:
+                    return Evidence(
+                        id=evidence_id,
+                        source_type=self.source_type,
+                        source_id=str(product.id),
+                        content=f"{product.name}: {product.description or ''}",
+                        title=product.name,
+                        metadata={"type": "product", "data": product.to_dict()},
+                    )
+
+            elif entity_type == "customer":
+                data = await self._request("GET", f"customers/{entity_id}")
+                customer = self._parse_customer(data)
+                return Evidence(
+                    id=evidence_id,
+                    source_type=self.source_type,
+                    source_id=str(customer.id),
+                    content=f"{customer.first_name} {customer.last_name} - {customer.email}",
+                    title=f"Customer: {customer.email}",
+                    metadata={"type": "customer", "data": customer.to_dict()},
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to fetch {evidence_id}: {e}")
+
+        return None
+
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
+        """Sync items from WooCommerce for Knowledge Mound.
+
+        Args:
+            state: Sync state with cursor/timestamp
+            batch_size: Number of items per batch
+
+        Yields:
+            SyncItem objects for orders, products, customers
+        """
+        since = state.last_sync_at
+
+        # Sync orders
+        async for order in self.sync_orders(since=since, per_page=batch_size):
+            yield SyncItem(
+                id=f"woo-order-{order.id}",
+                content=f"Order #{order.number} - {order.status.value} - ${order.total}",
+                metadata=order.to_dict(),
+                timestamp=order.date_modified,
+            )
+
+        # Sync products
+        async for product in self.sync_products(since=since, per_page=batch_size):
+            yield SyncItem(
+                id=f"woo-product-{product.id}",
+                content=f"{product.name}: {product.short_description or ''}",
+                metadata=product.to_dict(),
+                timestamp=product.date_modified,
+            )
+
+        # Sync customers
+        async for customer in self.sync_customers(since=since, per_page=batch_size):
+            yield SyncItem(
+                id=f"woo-customer-{customer.id}",
+                content=f"{customer.first_name} {customer.last_name} - {customer.email}",
+                metadata=customer.to_dict(),
+                timestamp=customer.date_modified,
+            )
 
     # =========================================================================
     # EnterpriseConnector implementation

@@ -256,7 +256,7 @@ class MatrixDebatesHandler(BaseHandler):
             matrix_id = str(uuid.uuid4())
 
             # Run all scenarios in parallel
-            results = cast(MatrixResultProtocol, await runner.run_all(max_rounds=max_rounds))
+            results = await runner.run_all(max_rounds=max_rounds)
 
             # Build response
             return json_response(
