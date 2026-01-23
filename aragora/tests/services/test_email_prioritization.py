@@ -50,14 +50,14 @@ class MockEmailMessage:
         self.subject = subject
         self.from_address = from_address
         self.to_addresses = to_addresses or ["recipient@example.com"]
-        self.cc_addresses = []
-        self.bcc_addresses = []
+        self.cc_addresses: list[str] = []
+        self.bcc_addresses: list[str] = []
         self.body_text = body_text
         self.body_html = ""
         self.snippet = snippet
         self.labels = labels or ["INBOX"]
-        self.headers = {}
-        self.attachments = []
+        self.headers: dict[str, str] = {}
+        self.attachments: list[str] = []
         self.is_read = is_read
         self.is_starred = is_starred
         self.is_important = is_important
@@ -339,10 +339,7 @@ class TestInboxRanking:
     @pytest.mark.asyncio
     async def test_rank_inbox_respects_limit(self, prioritizer):
         """rank_inbox should respect the limit parameter."""
-        emails = [
-            MockEmailMessage(id=f"email_{i}")
-            for i in range(10)
-        ]
+        emails = [MockEmailMessage(id=f"email_{i}") for i in range(10)]
 
         results = await prioritizer.rank_inbox(emails, limit=5)
 

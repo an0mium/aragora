@@ -499,104 +499,66 @@ class TestProductionRequirements:
                 os.environ.pop("ARAGORA_ENV", None)
 
 
-@pytest.mark.skip(reason="Tests reference internal APIs that were replaced by store abstraction")
 class TestExplainabilityBatchJobPersistence:
-    """Test explainability batch job storage."""
+    """Test explainability batch job storage using the store abstraction."""
 
-    def test_batch_job_stored_in_memory_without_redis(self):
-        """Test batch jobs use in-memory storage without Redis."""
+    def test_batch_job_save_and_retrieve(self):
+        """Test batch jobs can be saved and retrieved via store."""
         from aragora.server.handlers.explainability import (
             BatchJob,
             BatchStatus,
             _save_batch_job,
             _get_batch_job,
-            _batch_jobs_memory,
         )
 
-        original_redis = os.environ.get("REDIS_URL")
-        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
-        original_env = os.environ.get("ARAGORA_ENV")
+        # Create and save a batch job
+        job = BatchJob(
+            batch_id="test-batch-store-123",
+            debate_ids=["debate-1", "debate-2"],
+            status=BatchStatus.PROCESSING,
+            options={"format": "full"},
+        )
+        _save_batch_job(job)
 
-        try:
-            # Clear Redis URL to force in-memory
-            os.environ.pop("REDIS_URL", None)
-            os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
-            os.environ.pop("ARAGORA_ENV", None)
+        # Should be retrievable
+        retrieved = _get_batch_job("test-batch-store-123")
+        assert retrieved is not None
+        assert retrieved.batch_id == "test-batch-store-123"
+        assert len(retrieved.debate_ids) == 2
+        assert retrieved.status == BatchStatus.PROCESSING
 
-            # Reset module state
-            import aragora.server.handlers.explainability as exp
+    def test_batch_job_update(self):
+        """Test batch job status can be updated."""
+        from aragora.server.handlers.explainability import (
+            BatchJob,
+            BatchStatus,
+            _save_batch_job,
+            _get_batch_job,
+        )
 
-            exp._redis_client = None
-            exp._storage_warned = False
-            exp._batch_jobs_memory.clear()
+        # Create initial job
+        job = BatchJob(
+            batch_id="test-batch-update-456",
+            debate_ids=["debate-1"],
+            status=BatchStatus.PENDING,
+        )
+        _save_batch_job(job)
 
-            # Create and save a batch job
-            job = BatchJob(
-                batch_id="test-batch-123",
-                debate_ids=["debate-1", "debate-2"],
-                status=BatchStatus.PROCESSING,
-                options={"format": "full"},
-            )
-            _save_batch_job(job)
+        # Update status
+        job.status = BatchStatus.COMPLETED
+        _save_batch_job(job)
 
-            # Should be in memory
-            assert "test-batch-123" in _batch_jobs_memory
+        # Verify update
+        retrieved = _get_batch_job("test-batch-update-456")
+        assert retrieved is not None
+        assert retrieved.status == BatchStatus.COMPLETED
 
-            # Should be retrievable
-            retrieved = _get_batch_job("test-batch-123")
-            assert retrieved is not None
-            assert retrieved.batch_id == "test-batch-123"
-            assert len(retrieved.debate_ids) == 2
+    def test_batch_job_not_found(self):
+        """Test retrieving non-existent batch job returns None."""
+        from aragora.server.handlers.explainability import _get_batch_job
 
-        finally:
-            if original_redis is not None:
-                os.environ["REDIS_URL"] = original_redis
-            if original_multi is not None:
-                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
-            if original_env is not None:
-                os.environ["ARAGORA_ENV"] = original_env
-
-    def test_batch_job_requires_redis_in_multi_instance(self):
-        """Test batch jobs require Redis in multi-instance mode."""
-        original_redis = os.environ.get("REDIS_URL")
-        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
-
-        try:
-            os.environ.pop("REDIS_URL", None)
-            os.environ["ARAGORA_MULTI_INSTANCE"] = "true"
-
-            # Reset module state
-            import aragora.server.handlers.explainability as exp
-
-            exp._redis_client = None
-            exp._storage_warned = False
-
-            from aragora.server.handlers.explainability import (
-                BatchJob,
-                BatchStatus,
-                _save_batch_job,
-            )
-            from aragora.control_plane.leader import DistributedStateError
-
-            job = BatchJob(
-                batch_id="test-multi-123",
-                debate_ids=["debate-1"],
-                status=BatchStatus.PENDING,
-            )
-
-            # Should raise error in multi-instance mode without Redis
-            with pytest.raises(DistributedStateError):
-                _save_batch_job(job)
-
-        finally:
-            if original_redis is not None:
-                os.environ["REDIS_URL"] = original_redis
-            else:
-                os.environ.pop("REDIS_URL", None)
-            if original_multi is not None:
-                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
-            else:
-                os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
+        result = _get_batch_job("nonexistent-batch-id")
+        assert result is None
 
 
 class TestMarketplaceStorePersistence:

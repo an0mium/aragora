@@ -14,9 +14,13 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test         Run all tests"
-	@echo "  make test-fast    Run fast tests only (no slow/e2e)"
+	@echo "  make test-fast    Run fast tests only (no slow/e2e/integration)"
+	@echo "  make test-unit    Run unit tests only (fastest)"
+	@echo "  make test-core    Run core module tests (debate/core/memory)"
+	@echo "  make test-parallel Run tests in parallel (-n auto)"
 	@echo "  make test-cov     Run tests with coverage"
 	@echo "  make test-watch   Run tests in watch mode"
+	@echo "  make test-smoke   Quick import smoke test"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint         Run linter (ruff)"
@@ -54,13 +58,29 @@ test:
 	pytest tests/ -v --timeout=120
 
 test-fast:
-	pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load"
+	pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load" --ignore=tests/integration
+
+test-unit:
+	pytest tests/ -v --timeout=30 -m unit --ignore=tests/integration --ignore=tests/e2e -q
+
+test-core:
+	pytest tests/debate/ tests/core/ tests/memory/ -v --timeout=60
+
+test-parallel:
+	pytest tests/ -v --timeout=120 -n auto -m "not serial"
 
 test-cov:
 	pytest tests/ -v --timeout=120 --cov=aragora --cov-report=html --cov-report=term
 
 test-watch:
 	pytest tests/ -v --timeout=60 -f
+
+test-smoke:
+	@echo "Running smoke tests..."
+	python3 -c "from aragora.debate.orchestrator import Arena; from aragora.core import Environment; print('Core imports OK')"
+	python3 -c "from aragora.server.unified_server import run_unified_server; print('Server imports OK')"
+	python3 -c "from aragora.memory.continuum import ContinuumMemory; print('Memory imports OK')"
+	@echo "Smoke tests passed!"
 
 # Code Quality
 lint:

@@ -338,14 +338,18 @@ class TestRegisterAgent:
 class TestUnregisterAgent:
     """Test DELETE /api/control-plane/agents/:id."""
 
-    def test_unregister_agent_success(self, handler, mock_coordinator, mock_http_handler, mock_user):
+    def test_unregister_agent_success(
+        self, handler, mock_coordinator, mock_http_handler, mock_user
+    ):
         """Test unregistering an agent."""
         import asyncio
 
         asyncio.run(mock_coordinator.register_agent("agent-1", ["debate"]))
 
         with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
-            result = handler.handle_delete("/api/control-plane/agents/agent-1", {}, mock_http_handler)
+            result = handler.handle_delete(
+                "/api/control-plane/agents/agent-1", {}, mock_http_handler
+            )
 
         assert result is not None
         data = json.loads(result.body)
@@ -375,7 +379,8 @@ class TestAgentHeartbeat:
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
-                    "aragora.control_plane.registry.AgentStatus", MagicMock(return_value="available")
+                    "aragora.control_plane.registry.AgentStatus",
+                    MagicMock(return_value="available"),
                 ):
                     result = handler.handle_post(
                         "/api/control-plane/agents/agent-1/heartbeat", {}, mock_http_handler
@@ -392,7 +397,8 @@ class TestAgentHeartbeat:
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
             with patch.object(handler, "require_auth_or_error", return_value=(mock_user, None)):
                 with patch(
-                    "aragora.control_plane.registry.AgentStatus", MagicMock(return_value="available")
+                    "aragora.control_plane.registry.AgentStatus",
+                    MagicMock(return_value="available"),
                 ):
                     result = handler.handle_post(
                         "/api/control-plane/agents/nonexistent/heartbeat",
@@ -636,3 +642,324 @@ class TestClaimTask:
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "agent_id" in data["error"]
+
+
+# =============================================================================
+# Policy Violation Tests
+# =============================================================================
+
+
+class MockPolicyStore:
+    """Mock policy store for testing."""
+
+    def __init__(self):
+        self._violations = []
+
+    def list_violations(
+        self,
+        policy_id=None,
+        violation_type=None,
+        status=None,
+        workspace_id=None,
+        limit=100,
+        offset=0,
+    ):
+        """List violations with filtering."""
+        results = self._violations.copy()
+        if policy_id:
+            results = [v for v in results if v.get("policy_id") == policy_id]
+        if violation_type:
+            results = [v for v in results if v.get("violation_type") == violation_type]
+        if status:
+            results = [v for v in results if v.get("status") == status]
+        if workspace_id:
+            results = [v for v in results if v.get("workspace_id") == workspace_id]
+        return results[offset : offset + limit]
+
+    def count_violations(self, status=None, policy_id=None):
+        """Count violations by type."""
+        results = self._violations.copy()
+        if status:
+            results = [v for v in results if v.get("status") == status]
+        if policy_id:
+            results = [v for v in results if v.get("policy_id") == policy_id]
+        counts = {}
+        for v in results:
+            vtype = v.get("violation_type", "unknown")
+            counts[vtype] = counts.get(vtype, 0) + 1
+        return counts
+
+    def update_violation_status(
+        self, violation_id, status, resolved_by=None, resolution_notes=None
+    ):
+        """Update a violation's status."""
+        for v in self._violations:
+            if v.get("id") == violation_id:
+                v["status"] = status
+                if resolved_by:
+                    v["resolved_by"] = resolved_by
+                if resolution_notes:
+                    v["resolution_notes"] = resolution_notes
+                return True
+        return False
+
+    def add_violation(self, violation):
+        """Add a test violation."""
+        self._violations.append(violation)
+
+
+@pytest.fixture
+def mock_policy_store():
+    """Create a mock policy store with test violations."""
+    store = MockPolicyStore()
+    store.add_violation(
+        {
+            "id": "viol-1",
+            "policy_id": "policy-1",
+            "policy_name": "Agent Allowlist",
+            "violation_type": "agent_blocked",
+            "description": "Agent not in allowlist",
+            "task_id": "task-123",
+            "task_type": "debate",
+            "agent_id": "agent-blocked",
+            "region": None,
+            "workspace_id": "ws-1",
+            "enforcement_level": "hard",
+            "timestamp": "2024-01-01T00:00:00Z",
+            "status": "open",
+            "resolved_at": None,
+            "resolved_by": None,
+            "resolution_notes": None,
+            "metadata": {},
+        }
+    )
+    store.add_violation(
+        {
+            "id": "viol-2",
+            "policy_id": "policy-2",
+            "policy_name": "Region Constraint",
+            "violation_type": "region_violation",
+            "description": "Task executed in restricted region",
+            "task_id": "task-456",
+            "task_type": "analysis",
+            "agent_id": "agent-1",
+            "region": "eu-west-1",
+            "workspace_id": "ws-1",
+            "enforcement_level": "soft",
+            "timestamp": "2024-01-02T00:00:00Z",
+            "status": "resolved",
+            "resolved_at": "2024-01-02T01:00:00Z",
+            "resolved_by": "admin",
+            "resolution_notes": "Approved exception",
+            "metadata": {},
+        }
+    )
+    return store
+
+
+@pytest.fixture
+def admin_user():
+    """Create a mock admin user with policy permissions."""
+    user = MagicMock()
+    user.user_id = "admin-user"
+    user.id = "admin-user"
+    user.email = "admin@example.com"
+    user.role = "admin"
+    return user
+
+
+class TestListPolicyViolations:
+    """Test GET /api/control-plane/policies/violations."""
+
+    def test_list_violations_success(
+        self, handler, mock_http_handler, mock_policy_store, admin_user
+    ):
+        """Test listing policy violations."""
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle(
+                        "/api/control-plane/policies/violations", {}, mock_http_handler
+                    )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "violations" in data
+        assert data["total"] == 2
+
+    def test_list_violations_filter_by_status(
+        self, handler, mock_http_handler, mock_policy_store, admin_user
+    ):
+        """Test filtering violations by status."""
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle(
+                        "/api/control-plane/policies/violations",
+                        {"status": ["open"]},
+                        mock_http_handler,
+                    )
+
+        data = json.loads(result.body)
+        assert data["total"] == 1
+        assert data["violations"][0]["status"] == "open"
+
+    def test_list_violations_permission_denied(self, handler, mock_http_handler, admin_user):
+        """Test listing violations without permission."""
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=False):
+                result = handler.handle(
+                    "/api/control-plane/policies/violations", {}, mock_http_handler
+                )
+
+        assert result.status_code == 403
+        data = json.loads(result.body)
+        assert "Permission denied" in data["error"]
+
+
+class TestGetPolicyViolation:
+    """Test GET /api/control-plane/policies/violations/:id."""
+
+    def test_get_violation_success(self, handler, mock_http_handler, mock_policy_store, admin_user):
+        """Test getting a specific violation."""
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle(
+                        "/api/control-plane/policies/violations/viol-1", {}, mock_http_handler
+                    )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["violation"]["id"] == "viol-1"
+
+    def test_get_violation_not_found(
+        self, handler, mock_http_handler, mock_policy_store, admin_user
+    ):
+        """Test getting non-existent violation."""
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle(
+                        "/api/control-plane/policies/violations/nonexistent", {}, mock_http_handler
+                    )
+
+        assert result.status_code == 404
+
+
+class TestGetPolicyViolationStats:
+    """Test GET /api/control-plane/policies/violations/stats."""
+
+    def test_get_violation_stats(self, handler, mock_http_handler, mock_policy_store, admin_user):
+        """Test getting violation statistics."""
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                with patch(
+                    "aragora.server.handlers.control_plane.has_permission", return_value=True
+                ):
+                    result = handler.handle(
+                        "/api/control-plane/policies/violations/stats", {}, mock_http_handler
+                    )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "total" in data
+        assert "open" in data
+        assert "by_type" in data
+
+
+class TestUpdatePolicyViolation:
+    """Test PATCH /api/control-plane/policies/violations/:id."""
+
+    def test_update_violation_status(
+        self, handler, mock_http_handler, mock_policy_store, admin_user
+    ):
+        """Test updating a violation status."""
+        body = {"status": "resolved", "resolution_notes": "Verified and closed"}
+
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
+                with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                    with patch(
+                        "aragora.server.handlers.control_plane.has_permission", return_value=True
+                    ):
+                        result = handler.handle_patch(
+                            "/api/control-plane/policies/violations/viol-1", {}, mock_http_handler
+                        )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["updated"] is True
+        assert data["status"] == "resolved"
+
+    def test_update_violation_invalid_status(
+        self, handler, mock_http_handler, mock_policy_store, admin_user
+    ):
+        """Test updating with invalid status."""
+        body = {"status": "invalid_status"}
+
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
+                with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                    with patch(
+                        "aragora.server.handlers.control_plane.has_permission", return_value=True
+                    ):
+                        result = handler.handle_patch(
+                            "/api/control-plane/policies/violations/viol-1", {}, mock_http_handler
+                        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "Invalid status" in data["error"]
+
+    def test_update_violation_missing_status(
+        self, handler, mock_http_handler, mock_policy_store, admin_user
+    ):
+        """Test updating without status field."""
+        body = {"resolution_notes": "Notes without status"}
+
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
+                with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                    with patch(
+                        "aragora.server.handlers.control_plane.has_permission", return_value=True
+                    ):
+                        result = handler.handle_patch(
+                            "/api/control-plane/policies/violations/viol-1", {}, mock_http_handler
+                        )
+
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "status" in data["error"]
+
+    def test_update_violation_not_found(
+        self, handler, mock_http_handler, mock_policy_store, admin_user
+    ):
+        """Test updating non-existent violation."""
+        body = {"status": "resolved"}
+
+        with patch.object(handler, "require_auth_or_error", return_value=(admin_user, None)):
+            with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
+                with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
+                    with patch(
+                        "aragora.server.handlers.control_plane.has_permission", return_value=True
+                    ):
+                        result = handler.handle_patch(
+                            "/api/control-plane/policies/violations/nonexistent",
+                            {},
+                            mock_http_handler,
+                        )
+
+        assert result.status_code == 404

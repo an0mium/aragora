@@ -42,6 +42,15 @@ def mock_check_permission_denied(*args, **kwargs):
     return MockPermissionDecision(allowed=False, reason="Permission denied by test")
 
 
+@dataclass
+class MockUserInfo:
+    """Mock user info for RBAC testing."""
+
+    user_id: str = "user-123"
+    role: str = "viewer"
+    org_id: str = "org-123"
+
+
 # ===========================================================================
 # Test Fixtures
 # ===========================================================================
@@ -134,7 +143,9 @@ class MockN8nIntegration:
         return [MockN8nCredential()]
 
     def create_credential(self, workspace_id, api_url=None):
-        return MockN8nCredential(workspace_id=workspace_id, api_url=api_url or "http://localhost:5678")
+        return MockN8nCredential(
+            workspace_id=workspace_id, api_url=api_url or "http://localhost:5678"
+        )
 
     def delete_credential(self, cred_id):
         return cred_id == "cred-123"
@@ -174,7 +185,11 @@ def get_body(result) -> dict:
 @pytest.fixture
 def handler_context():
     """Create handler context with mocked integrations."""
-    return {"zapier": MockZapierIntegration(), "make": MockMakeIntegration(), "n8n": MockN8nIntegration()}
+    return {
+        "zapier": MockZapierIntegration(),
+        "make": MockMakeIntegration(),
+        "n8n": MockN8nIntegration(),
+    }
 
 
 @pytest.fixture
@@ -210,22 +225,28 @@ class TestExternalIntegrationsRBAC:
         assert result is None  # None means allowed
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_allowed)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_allowed,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_permission_check_allowed(self, mock_extract, integrations_handler):
         """Permission check should pass when RBAC allows."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["admin"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="admin")
         handler = make_mock_handler()
 
         result = integrations_handler._check_permission(handler, "integrations.read")
         assert result is None  # None means allowed
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_denied,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_permission_check_denied(self, mock_extract, integrations_handler):
         """Permission check should return error when RBAC denies."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["viewer"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="viewer")
         handler = make_mock_handler()
 
         result = integrations_handler._check_permission(handler, "integrations.create")
@@ -243,11 +264,14 @@ class TestZapierRBACIntegration:
     """Tests for RBAC integration in Zapier handlers."""
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_allowed)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_allowed,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_list_zapier_apps_checks_permission(self, mock_extract, integrations_handler):
         """List Zapier apps should check integrations.read permission."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["admin"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="admin")
         handler = make_mock_handler()
 
         result = integrations_handler._handle_list_zapier_apps({}, handler)
@@ -258,11 +282,14 @@ class TestZapierRBACIntegration:
         assert "apps" in body
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_denied,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_list_zapier_apps_denied(self, mock_extract, integrations_handler):
         """List Zapier apps should deny when permission not granted."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["viewer"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="viewer")
         handler = make_mock_handler()
 
         result = integrations_handler._handle_list_zapier_apps({}, handler)
@@ -271,11 +298,14 @@ class TestZapierRBACIntegration:
         assert get_status(result) == 403
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_allowed)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_allowed,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_create_zapier_app_checks_permission(self, mock_extract, integrations_handler):
         """Create Zapier app should check integrations.create permission."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["admin"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="admin")
         handler = make_mock_handler()
 
         result = integrations_handler._handle_create_zapier_app({"workspace_id": "ws-123"}, handler)
@@ -287,11 +317,14 @@ class TestZapierRBACIntegration:
         assert "api_key" in body["app"]  # API key is returned
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_denied,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_create_zapier_app_denied(self, mock_extract, integrations_handler):
         """Create Zapier app should deny when permission not granted."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["viewer"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="viewer")
         handler = make_mock_handler()
 
         result = integrations_handler._handle_create_zapier_app({"workspace_id": "ws-123"}, handler)
@@ -300,11 +333,14 @@ class TestZapierRBACIntegration:
         assert get_status(result) == 403
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_allowed)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_allowed,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_delete_zapier_app_checks_permission(self, mock_extract, integrations_handler):
         """Delete Zapier app should check integrations.delete permission."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["admin"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="admin")
         handler = make_mock_handler()
 
         result = integrations_handler._handle_delete_zapier_app("app-123", handler)
@@ -322,14 +358,19 @@ class TestMakeRBACIntegration:
     """Tests for RBAC integration in Make handlers."""
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_allowed)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_allowed,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_create_make_connection_checks_permission(self, mock_extract, integrations_handler):
         """Create Make connection should check integrations.create permission."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["admin"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="admin")
         handler = make_mock_handler()
 
-        result = integrations_handler._handle_create_make_connection({"workspace_id": "ws-123"}, handler)
+        result = integrations_handler._handle_create_make_connection(
+            {"workspace_id": "ws-123"}, handler
+        )
 
         assert result is not None
         assert get_status(result) == 201
@@ -338,11 +379,14 @@ class TestMakeRBACIntegration:
         assert "api_key" in body["connection"]
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_denied,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_delete_make_connection_denied(self, mock_extract, integrations_handler):
         """Delete Make connection should deny when permission not granted."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["viewer"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="viewer")
         handler = make_mock_handler()
 
         result = integrations_handler._handle_delete_make_connection("conn-123", handler)
@@ -360,14 +404,19 @@ class TestN8nRBACIntegration:
     """Tests for RBAC integration in n8n handlers."""
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_allowed)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_allowed,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_create_n8n_credential_checks_permission(self, mock_extract, integrations_handler):
         """Create n8n credential should check integrations.create permission."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["admin"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="admin")
         handler = make_mock_handler()
 
-        result = integrations_handler._handle_create_n8n_credential({"workspace_id": "ws-123"}, handler)
+        result = integrations_handler._handle_create_n8n_credential(
+            {"workspace_id": "ws-123"}, handler
+        )
 
         assert result is not None
         assert get_status(result) == 201
@@ -376,11 +425,14 @@ class TestN8nRBACIntegration:
         assert "api_key" in body["credential"]
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.external_integrations.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.external_integrations.check_permission",
+        mock_check_permission_denied,
+    )
     @patch("aragora.server.handlers.external_integrations.extract_user_from_request")
     def test_list_n8n_credentials_denied(self, mock_extract, integrations_handler):
         """List n8n credentials should deny when permission not granted."""
-        mock_extract.return_value = {"user_id": "user-123", "roles": ["viewer"]}
+        mock_extract.return_value = MockUserInfo(user_id="user-123", role="viewer")
         handler = make_mock_handler()
 
         result = integrations_handler._handle_list_n8n_credentials({}, handler)
