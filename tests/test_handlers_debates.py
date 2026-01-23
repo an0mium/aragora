@@ -124,43 +124,42 @@ def clear_caches():
 
 
 class TestDebatesHandlerRouting:
-    """Tests for route matching."""
+    """Tests for route matching (v1 API routes)."""
 
-    @pytest.mark.skip(reason="can_handle returns False for /api/debates route in CI")
     def test_can_handle_debates_list(self, debates_handler):
-        """Should handle /api/debates."""
-        assert debates_handler.can_handle("/api/debates") is True
+        """Should handle /api/v1/debates."""
+        assert debates_handler.can_handle("/api/v1/debates") is True
 
     def test_can_handle_debate_by_slug(self, debates_handler):
-        """Should handle /api/debates/{slug}."""
-        assert debates_handler.can_handle("/api/debates/ai-safety-debate") is True
+        """Should handle /api/v1/debates/{slug}."""
+        assert debates_handler.can_handle("/api/v1/debates/ai-safety-debate") is True
 
     def test_can_handle_debate_slug_pattern(self, debates_handler):
-        """Should handle /api/debates/slug/{slug}."""
-        assert debates_handler.can_handle("/api/debates/slug/ai-safety-debate") is True
+        """Should handle /api/v1/debates/slug/{slug}."""
+        assert debates_handler.can_handle("/api/v1/debates/slug/ai-safety-debate") is True
 
     def test_can_handle_debate_export(self, debates_handler):
-        """Should handle /api/debates/{id}/export/{format}."""
-        assert debates_handler.can_handle("/api/debates/debate-001/export/json") is True
-        assert debates_handler.can_handle("/api/debates/debate-001/export/csv") is True
-        assert debates_handler.can_handle("/api/debates/debate-001/export/html") is True
+        """Should handle /api/v1/debates/{id}/export/{format}."""
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/export/json") is True
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/export/csv") is True
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/export/html") is True
 
     def test_can_handle_debate_impasse(self, debates_handler):
-        """Should handle /api/debates/{id}/impasse."""
-        assert debates_handler.can_handle("/api/debates/debate-001/impasse") is True
+        """Should handle /api/v1/debates/{id}/impasse."""
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/impasse") is True
 
     def test_can_handle_debate_convergence(self, debates_handler):
-        """Should handle /api/debates/{id}/convergence."""
-        assert debates_handler.can_handle("/api/debates/debate-001/convergence") is True
+        """Should handle /api/v1/debates/{id}/convergence."""
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/convergence") is True
 
     def test_can_handle_debate_citations(self, debates_handler):
-        """Should handle /api/debates/{id}/citations."""
-        assert debates_handler.can_handle("/api/debates/debate-001/citations") is True
+        """Should handle /api/v1/debates/{id}/citations."""
+        assert debates_handler.can_handle("/api/v1/debates/debate-001/citations") is True
 
     def test_cannot_handle_unknown_route(self, debates_handler):
         """Should not handle unknown routes."""
-        assert debates_handler.can_handle("/api/agents") is False
-        assert debates_handler.can_handle("/api/unknown") is False
+        assert debates_handler.can_handle("/api/v1/agents") is False
+        assert debates_handler.can_handle("/api/v1/unknown") is False
 
 
 # ============================================================================
