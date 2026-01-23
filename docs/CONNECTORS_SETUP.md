@@ -507,6 +507,364 @@ ARAGORA_FHIR_CLIENT_SECRET=your-client-secret
 ARAGORA_FHIR_ACCESS_TOKEN=your-token
 ```
 
+## Accounting Connectors
+
+Aragora provides connectors for accounting and financial services to enable intelligent financial data analysis and multi-agent deliberation on financial decisions.
+
+| Connector | Purpose | Features |
+|-----------|---------|----------|
+| **QuickBooks Online** | Accounting platform | Customers, invoices, transactions, accounts |
+| **Plaid** | Bank connectivity | Account aggregation, transactions, categories |
+| **Gusto** | Payroll services | Employees, payroll runs, journal entries |
+| **Xero** | Cloud accounting | Contacts, invoices, payments, bank transactions |
+
+### QuickBooks Online (QBO)
+
+```python
+from aragora.connectors.accounting import (
+    QuickBooksConnector,
+    QBOCredentials,
+    QBOEnvironment,
+)
+
+# Create credentials
+credentials = QBOCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    access_token="your-access-token",
+    refresh_token="your-refresh-token",
+    realm_id="your-company-id",  # QBO company ID
+    environment=QBOEnvironment.PRODUCTION,  # or SANDBOX
+)
+
+# Initialize connector
+qbo = QuickBooksConnector(credentials)
+
+# Fetch customers
+customers = await qbo.get_customers()
+for customer in customers:
+    print(f"{customer.id}: {customer.display_name} - {customer.email}")
+
+# Fetch transactions
+transactions = await qbo.get_transactions(
+    start_date=datetime(2024, 1, 1),
+    end_date=datetime(2024, 12, 31),
+)
+
+# Fetch chart of accounts
+accounts = await qbo.get_accounts()
+```
+
+**OAuth2 Setup:**
+
+1. Create an app at [Intuit Developer](https://developer.intuit.com/)
+2. Configure OAuth 2.0 redirect URIs
+3. Run OAuth flow to obtain tokens:
+
+```python
+from aragora.connectors.accounting.qbo import get_oauth_url, exchange_code
+
+# Get authorization URL
+auth_url = get_oauth_url(
+    client_id="your-client-id",
+    redirect_uri="http://localhost:8080/oauth/callback",
+    scope=["com.intuit.quickbooks.accounting"],
+)
+print(f"Visit: {auth_url}")
+
+# Exchange code for tokens (after user authorizes)
+tokens = await exchange_code(
+    code="authorization-code",
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://localhost:8080/oauth/callback",
+)
+print(f"Access token: {tokens['access_token']}")
+print(f"Refresh token: {tokens['refresh_token']}")
+print(f"Realm ID: {tokens['realm_id']}")
+```
+
+**Environment Variables:**
+```bash
+ARAGORA_QBO_CLIENT_ID=your-client-id
+ARAGORA_QBO_CLIENT_SECRET=your-client-secret
+ARAGORA_QBO_ACCESS_TOKEN=your-access-token
+ARAGORA_QBO_REFRESH_TOKEN=your-refresh-token
+ARAGORA_QBO_REALM_ID=your-company-id
+ARAGORA_QBO_ENVIRONMENT=production  # or sandbox
+```
+
+### Plaid (Bank Connectivity)
+
+```python
+from aragora.connectors.accounting import (
+    PlaidConnector,
+    PlaidCredentials,
+    PlaidEnvironment,
+)
+
+# Create credentials
+credentials = PlaidCredentials(
+    access_token="access-sandbox-xxxxx",
+    item_id="item-xxxxx",
+    institution_id="ins_123456",
+    institution_name="Chase",
+    user_id="user-123",
+    tenant_id="tenant-456",
+)
+
+# Initialize connector
+plaid = PlaidConnector(
+    client_id="your-client-id",
+    secret="your-secret",
+    environment=PlaidEnvironment.SANDBOX,  # SANDBOX, DEVELOPMENT, PRODUCTION
+)
+
+# Get linked bank accounts
+accounts = await plaid.get_accounts(credentials)
+for account in accounts:
+    print(f"{account.name}: ${account.current_balance} ({account.account_type})")
+
+# Fetch transactions
+transactions = await plaid.get_transactions(
+    credentials,
+    start_date=datetime(2024, 1, 1),
+    end_date=datetime(2024, 12, 31),
+)
+
+# Categorize transactions
+for txn in transactions:
+    print(f"{txn.date}: {txn.name} - ${txn.amount} ({txn.category})")
+```
+
+**Plaid Link Integration:**
+
+```python
+# Create Link token for frontend
+link_token = await plaid.create_link_token(
+    user_id="user-123",
+    products=["transactions", "auth"],
+)
+
+# After user completes Link flow, exchange public token
+credentials = await plaid.exchange_public_token(
+    public_token="public-sandbox-xxxxx",
+    user_id="user-123",
+    tenant_id="tenant-456",
+)
+```
+
+**Environment Variables:**
+```bash
+ARAGORA_PLAID_CLIENT_ID=your-client-id
+ARAGORA_PLAID_SECRET=your-secret
+ARAGORA_PLAID_ENVIRONMENT=sandbox  # sandbox, development, production
+```
+
+### Gusto (Payroll)
+
+```python
+from aragora.connectors.accounting import (
+    GustoConnector,
+    GustoCredentials,
+)
+
+# Create credentials
+credentials = GustoCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    access_token="your-access-token",
+    refresh_token="your-refresh-token",
+    company_id="company-uuid",
+)
+
+# Initialize connector
+gusto = GustoConnector(credentials)
+
+# Fetch employees
+employees = await gusto.get_employees()
+for emp in employees:
+    print(f"{emp.id}: {emp.first_name} {emp.last_name} - {emp.employment_type}")
+
+# Fetch payroll runs
+payrolls = await gusto.get_payroll_runs(
+    start_date=datetime(2024, 1, 1),
+    end_date=datetime(2024, 12, 31),
+)
+
+# Generate journal entries for accounting
+for payroll in payrolls:
+    journal = gusto.generate_journal_entry(payroll)
+    print(f"Payroll {payroll.pay_period_start}: {len(journal.lines)} lines")
+```
+
+**OAuth2 Setup:**
+
+```python
+from aragora.connectors.accounting.gusto import get_oauth_url, exchange_code
+
+# Get authorization URL
+auth_url = get_oauth_url(
+    client_id="your-client-id",
+    redirect_uri="http://localhost:8080/oauth/callback",
+)
+print(f"Visit: {auth_url}")
+
+# Exchange code for tokens
+tokens = await exchange_code(
+    code="authorization-code",
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://localhost:8080/oauth/callback",
+)
+```
+
+**Environment Variables:**
+```bash
+ARAGORA_GUSTO_CLIENT_ID=your-client-id
+ARAGORA_GUSTO_CLIENT_SECRET=your-client-secret
+ARAGORA_GUSTO_ACCESS_TOKEN=your-access-token
+ARAGORA_GUSTO_REFRESH_TOKEN=your-refresh-token
+ARAGORA_GUSTO_COMPANY_ID=company-uuid
+```
+
+### Xero (Cloud Accounting)
+
+```python
+from aragora.connectors.accounting import (
+    XeroConnector,
+    XeroCredentials,
+)
+
+# Create credentials
+credentials = XeroCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    access_token="your-access-token",
+    refresh_token="your-refresh-token",
+    tenant_id="your-tenant-id",  # Xero organization ID
+)
+
+# Initialize connector
+xero = XeroConnector(credentials=credentials)
+
+# Fetch contacts (customers/suppliers)
+contacts = await xero.get_contacts()
+for contact in contacts:
+    print(f"{contact.contact_id}: {contact.name} ({contact.status})")
+
+# Fetch invoices
+invoices = await xero.get_invoices(
+    modified_since=datetime(2024, 1, 1),
+)
+for invoice in invoices:
+    print(f"{invoice.invoice_number}: ${invoice.total} - {invoice.status}")
+
+# Fetch bank transactions
+bank_txns = await xero.get_bank_transactions()
+
+# Fetch payments
+payments = await xero.get_payments()
+
+# Create invoice
+new_invoice = await xero.create_invoice(
+    contact_id="contact-uuid",
+    line_items=[
+        XeroLineItem(
+            description="Consulting services",
+            quantity=10,
+            unit_amount=150.00,
+            account_code="200",
+        ),
+    ],
+)
+
+# Create manual journal
+journal = await xero.create_manual_journal(
+    narration="Monthly depreciation",
+    journal_lines=[
+        JournalLine(account_code="720", debit=1000.00),
+        JournalLine(account_code="180", credit=1000.00),
+    ],
+)
+```
+
+**OAuth2 Setup:**
+
+```python
+from aragora.connectors.accounting.xero import get_oauth_url, exchange_code
+
+# Get authorization URL
+auth_url = get_oauth_url(
+    client_id="your-client-id",
+    redirect_uri="http://localhost:8080/oauth/callback",
+    scope=["openid", "profile", "email", "accounting.transactions", "accounting.contacts"],
+)
+print(f"Visit: {auth_url}")
+
+# Exchange code for tokens
+tokens = await exchange_code(
+    code="authorization-code",
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://localhost:8080/oauth/callback",
+)
+```
+
+**Environment Variables:**
+```bash
+ARAGORA_XERO_CLIENT_ID=your-client-id
+ARAGORA_XERO_CLIENT_SECRET=your-client-secret
+ARAGORA_XERO_ACCESS_TOKEN=your-access-token
+ARAGORA_XERO_REFRESH_TOKEN=your-refresh-token
+ARAGORA_XERO_TENANT_ID=your-tenant-id
+```
+
+### Multi-Account Financial Analysis
+
+Combine multiple accounting connectors for comprehensive analysis:
+
+```python
+from aragora.connectors.accounting import (
+    QuickBooksConnector,
+    PlaidConnector,
+    GustoConnector,
+)
+from aragora.debate import Arena, Environment, DebateProtocol
+
+# Connect to all financial sources
+qbo = QuickBooksConnector(qbo_credentials)
+plaid = PlaidConnector(client_id, secret, PlaidEnvironment.PRODUCTION)
+gusto = GustoConnector(gusto_credentials)
+
+# Aggregate financial data
+ar_aging = await qbo.get_ar_aging_report()
+bank_balances = await plaid.get_accounts(plaid_credentials)
+payroll_costs = await gusto.get_payroll_summary(year=2024)
+
+# Use multi-agent debate for financial analysis
+env = Environment(
+    task="Analyze cash flow and recommend working capital optimization",
+    context={
+        "ar_aging": ar_aging,
+        "bank_balances": bank_balances,
+        "payroll_costs": payroll_costs,
+    },
+)
+
+arena = Arena(env, agents, DebateProtocol(rounds=3))
+analysis = await arena.run()
+```
+
+### Accounting Connector Best Practices
+
+1. **Token Refresh**: Implement automatic token refresh before expiration
+2. **Rate Limiting**: Respect API rate limits (especially for QBO and Plaid)
+3. **Data Validation**: Validate financial data before processing
+4. **Audit Logging**: Log all financial data access for compliance
+5. **Error Handling**: Handle API errors gracefully with retries
+6. **Sandbox Testing**: Always test in sandbox/development environments first
+
 ## Sync Scheduling
 
 ### Basic Scheduling
