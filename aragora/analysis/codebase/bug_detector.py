@@ -694,6 +694,253 @@ class LogicErrorPattern(BugPattern):
         return bugs
 
 
+class RaceConditionPattern(BugPattern):
+    """Detect potential race conditions in concurrent code."""
+
+    name = "race_condition"
+    bug_type = BugType.RACE_CONDITION
+    default_severity = BugSeverity.HIGH
+    languages = ["python"]
+
+    def detect(
+        self,
+        content: str,
+        file_path: str,
+        ast_tree: Optional[ast.AST] = None,
+    ) -> List[BugFinding]:
+        bugs = []
+        lines = content.split("\n")
+
+        # Track shared state access patterns
+        has_threading = "import threading" in content or "from threading" in content
+        has_asyncio = "import asyncio" in content or "async def" in content
+
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+
+            # Check-then-act on shared state without lock
+            if has_threading:
+                # Accessing shared variable then modifying
+                if re.match(r"if\s+self\.\w+\s*[><=!]", stripped):
+                    # Look for subsequent modification
+                    for j in range(i, min(i + 5, len(lines))):
+                        if re.match(r"\s*self\.\w+\s*[+\-*/]?=", lines[j]):
+                            bugs.append(
+                                BugFinding(
+                                    bug_id=f"race_check_{i}_{file_path[-20:]}",
+                                    bug_type=self.bug_type,
+                                    severity=self.default_severity,
+                                    file_path=file_path,
+                                    line_number=i,
+                                    message="Check-then-act pattern without lock",
+                                    snippet=stripped,
+                                    confidence=0.6,
+                                    suggested_fix="Protect with Lock or use atomic operations",
+                                )
+                            )
+                            break
+
+            # Async code writing to shared state
+            if has_asyncio and re.match(r"\s*self\.\w+\s*=", stripped):
+                # Check if inside async function
+                func_start = self._find_function_start(lines, i)
+                if func_start and "async def" in lines[func_start]:
+                    bugs.append(
+                        BugFinding(
+                            bug_id=f"race_async_{i}_{file_path[-20:]}",
+                            bug_type=self.bug_type,
+                            severity=BugSeverity.MEDIUM,
+                            file_path=file_path,
+                            line_number=i,
+                            message="Shared state modification in async function",
+                            snippet=stripped,
+                            confidence=0.5,
+                            suggested_fix="Consider using asyncio.Lock for shared state",
+                        )
+                    )
+
+            # Global variable modification without lock
+            if re.match(r"global\s+\w+", stripped) and has_threading:
+                bugs.append(
+                    BugFinding(
+                        bug_id=f"race_global_{i}_{file_path[-20:]}",
+                        bug_type=self.bug_type,
+                        severity=BugSeverity.HIGH,
+                        file_path=file_path,
+                        line_number=i,
+                        message="Global variable in threaded code without explicit lock",
+                        snippet=stripped,
+                        confidence=0.7,
+                    )
+                )
+
+        return bugs
+
+    def _find_function_start(self, lines: List[str], line_num: int) -> Optional[int]:
+        """Find the start of the function containing the line."""
+        for i in range(line_num - 1, -1, -1):
+            if re.match(r"^\s*(async\s+)?def\s+\w+", lines[i]):
+                return i
+        return None
+
+
+class TypeErrorPattern(BugPattern):
+    """Detect potential type-related errors."""
+
+    name = "type_error"
+    bug_type = BugType.TYPE_ERROR
+    default_severity = BugSeverity.MEDIUM
+    languages = ["python"]
+
+    def detect(
+        self,
+        content: str,
+        file_path: str,
+        ast_tree: Optional[ast.AST] = None,
+    ) -> List[BugFinding]:
+        bugs = []
+        lines = content.split("\n")
+
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+
+            # String + non-string concatenation attempts
+            if re.search(r'"\s*\+\s*\d+|str.*\+.*int|\+\s*"', stripped):
+                bugs.append(
+                    BugFinding(
+                        bug_id=f"type_concat_{i}_{file_path[-20:]}",
+                        bug_type=self.bug_type,
+                        severity=self.default_severity,
+                        file_path=file_path,
+                        line_number=i,
+                        message="Potential string/integer concatenation without conversion",
+                        snippet=stripped,
+                        confidence=0.6,
+                    )
+                )
+
+            # Comparing incompatible types
+            if re.search(r'None\s*[<>]|[<>]\s*None|"\w+"\s*[<>]\s*\d', stripped):
+                bugs.append(
+                    BugFinding(
+                        bug_id=f"type_cmp_{i}_{file_path[-20:]}",
+                        bug_type=self.bug_type,
+                        severity=BugSeverity.HIGH,
+                        file_path=file_path,
+                        line_number=i,
+                        message="Comparison between incompatible types",
+                        snippet=stripped,
+                        confidence=0.8,
+                    )
+                )
+
+            # Calling methods on potentially wrong type
+            if re.search(r"\.split\(\)", stripped) and "str" not in stripped:
+                # Check if variable comes from dict.get or similar
+                var_match = re.match(r"(\w+)\.split\(\)", stripped)
+                if var_match:
+                    var_name = var_match.group(1)
+                    # Look for .get() assignment
+                    for j in range(max(0, i - 10), i):
+                        if f"{var_name} = " in lines[j] and ".get(" in lines[j]:
+                            bugs.append(
+                                BugFinding(
+                                    bug_id=f"type_method_{i}_{file_path[-20:]}",
+                                    bug_type=self.bug_type,
+                                    severity=BugSeverity.HIGH,
+                                    file_path=file_path,
+                                    line_number=i,
+                                    message=f"Calling .split() on {var_name} which may be None",
+                                    snippet=stripped,
+                                    confidence=0.7,
+                                    suggested_fix=f"Add None check: 'if {var_name}: {var_name}.split()'",
+                                )
+                            )
+                            break
+
+            # Division that might fail
+            if re.search(r"/\s*\w+[^/]", stripped) and "//" not in stripped:
+                # Look for potential division by variable
+                div_match = re.search(r"/\s*(\w+)", stripped)
+                if div_match:
+                    divisor = div_match.group(1)
+                    if divisor not in ("2", "10", "100", "1000"):  # Common safe divisors
+                        bugs.append(
+                            BugFinding(
+                                bug_id=f"type_div_{i}_{file_path[-20:]}",
+                                bug_type=self.bug_type,
+                                severity=BugSeverity.LOW,
+                                file_path=file_path,
+                                line_number=i,
+                                message=f"Division by variable '{divisor}' - may be zero or wrong type",
+                                snippet=stripped,
+                                confidence=0.4,
+                            )
+                        )
+
+        return bugs
+
+
+class DeprecatedAPIPattern(BugPattern):
+    """Detect usage of deprecated APIs and patterns."""
+
+    name = "deprecated_api"
+    bug_type = BugType.DEPRECATED_API
+    default_severity = BugSeverity.LOW
+    languages = ["python"]
+
+    # Deprecated patterns: (regex, message, suggested replacement)
+    DEPRECATED_PATTERNS = [
+        (r"\.has_key\(", "dict.has_key() is deprecated", "Use 'key in dict' instead"),
+        (r"execfile\(", "execfile() is removed in Python 3", "Use exec(open().read())"),
+        (r"print\s+['\"]", "print statement syntax", "Use print() function"),
+        (
+            r"from collections import.*Callable",
+            "Importing Callable from collections",
+            "Import from collections.abc",
+        ),
+        (r"\.encode\(['\"]hex['\"]\)", "hex encoding string", "Use .hex() method"),
+        (r"cgi\.escape\(", "cgi.escape is deprecated", "Use html.escape()"),
+        (r"optparse\.", "optparse is deprecated", "Use argparse instead"),
+        (r"imp\.", "imp module is deprecated", "Use importlib instead"),
+        (
+            r"asyncio\.get_event_loop\(\)",
+            "get_event_loop() deprecated in async context",
+            "Use asyncio.get_running_loop()",
+        ),
+        (r"@asyncio\.coroutine", "@asyncio.coroutine is deprecated", "Use 'async def' instead"),
+        (r"yield from", "yield from is legacy", "Use 'await' in async functions"),
+    ]
+
+    def detect(
+        self,
+        content: str,
+        file_path: str,
+        ast_tree: Optional[ast.AST] = None,
+    ) -> List[BugFinding]:
+        bugs = []
+        lines = content.split("\n")
+
+        for i, line in enumerate(lines, 1):
+            for pattern, message, fix in self.DEPRECATED_PATTERNS:
+                if re.search(pattern, line):
+                    bugs.append(
+                        BugFinding(
+                            bug_id=f"dep_{i}_{pattern[:10]}_{file_path[-20:]}",
+                            bug_type=self.bug_type,
+                            severity=self.default_severity,
+                            file_path=file_path,
+                            line_number=i,
+                            message=message,
+                            snippet=line.strip(),
+                            confidence=0.9,
+                            suggested_fix=fix,
+                        )
+                    )
+
+        return bugs
+
+
 class BugDetector:
     """
     Multi-pattern bug detection with confidence scoring.
@@ -709,6 +956,9 @@ class BugDetector:
         DeadCodePattern(),
         ExceptionHandlingPattern(),
         LogicErrorPattern(),
+        RaceConditionPattern(),
+        TypeErrorPattern(),
+        DeprecatedAPIPattern(),
     ]
 
     # File extensions to scan
