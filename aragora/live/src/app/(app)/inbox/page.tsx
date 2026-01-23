@@ -6,6 +6,8 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { GmailConnectionCard } from '@/components/inbox/GmailConnectionCard';
+import { OutlookConnectionCard } from '@/components/inbox/OutlookConnectionCard';
+import { MultiAccountSelector, type EmailAccount, type AccountType } from '@/components/inbox/MultiAccountSelector';
 import { SyncProgressBar } from '@/components/inbox/SyncProgressBar';
 import { PriorityInboxList } from '@/components/inbox/PriorityInboxList';
 import { InboxQueryPanel } from '@/components/inbox/InboxQueryPanel';
@@ -15,7 +17,7 @@ import { FollowUpPanel } from '@/components/inbox/FollowUpPanel';
 import { SnoozePanel } from '@/components/inbox/SnoozePanel';
 import { useAuth } from '@/context/AuthContext';
 
-interface GmailStatus {
+interface EmailStatus {
   connected: boolean;
   configured: boolean;
   email_address?: string;
@@ -41,29 +43,57 @@ interface PrioritizationConfig {
 export default function InboxPage() {
   const { config: backendConfig } = useBackend();
   const { user, tokens } = useAuth();
-  const [status, setStatus] = useState<GmailStatus | null>(null);
+  const [gmailStatus, setGmailStatus] = useState<EmailStatus | null>(null);
+  const [outlookStatus, setOutlookStatus] = useState<EmailStatus | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [priConfig, setPriConfig] = useState<PrioritizationConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showConfig, setShowConfig] = useState(false);
+  const [showAccountPanel, setShowAccountPanel] = useState(false);
   const [newVip, setNewVip] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all');
 
   // Use user ID or default
   const userId = user?.id || 'default';
 
+  // Build accounts list
+  const accounts: EmailAccount[] = [];
+  if (gmailStatus?.connected) {
+    accounts.push({
+      id: 'gmail',
+      type: 'gmail',
+      email: gmailStatus.email_address || 'Gmail Account',
+      connected: true,
+      indexed_count: gmailStatus.indexed_count || 0,
+      last_sync: gmailStatus.last_sync,
+    });
+  }
+  if (outlookStatus?.connected) {
+    accounts.push({
+      id: 'outlook',
+      type: 'outlook',
+      email: outlookStatus.email_address || 'Outlook Account',
+      connected: true,
+      indexed_count: outlookStatus.indexed_count || 0,
+      last_sync: outlookStatus.last_sync,
+    });
+  }
+
+  const hasAnyConnection = gmailStatus?.connected || outlookStatus?.connected;
+
   const fetchStatus = useCallback(async () => {
     try {
-      // Try new email API first
-      const response = await fetch(
+      // Fetch Gmail status
+      const gmailResponse = await fetch(
         `${backendConfig.api}/api/email/config?user_id=${userId}`,
         {
           headers: { Authorization: `Bearer ${tokens?.access_token || ''}` },
         }
       );
-      if (response.ok) {
-        const data = await response.json();
-        setStatus({
+      if (gmailResponse.ok) {
+        const data = await gmailResponse.json();
+        setGmailStatus({
           connected: data.gmail_connected || false,
           configured: true,
           email_address: data.email_address,
@@ -87,11 +117,27 @@ export default function InboxPage() {
         );
         if (legacyResponse.ok) {
           const data = await legacyResponse.json();
-          setStatus(data);
+          setGmailStatus(data);
         }
       }
+
+      // Fetch Outlook status
+      try {
+        const outlookResponse = await fetch(
+          `${backendConfig.api}/api/outlook/status?user_id=${userId}`,
+          {
+            headers: { Authorization: `Bearer ${tokens?.access_token || ''}` },
+          }
+        );
+        if (outlookResponse.ok) {
+          const data = await outlookResponse.json();
+          setOutlookStatus(data);
+        }
+      } catch {
+        // Outlook may not be configured, that's OK
+      }
     } catch {
-      setError('Failed to fetch Gmail status');
+      setError('Failed to fetch email status');
     } finally {
       setLoading(false);
     }
@@ -128,9 +174,8 @@ export default function InboxPage() {
     return () => clearInterval(interval);
   }, [fetchStatus, fetchSyncStatus, syncStatus?.job_status]);
 
-  const handleConnect = useCallback(async () => {
+  const handleConnectGmail = useCallback(async () => {
     try {
-      // Use new email API OAuth endpoint
       const response = await fetch(`${backendConfig.api}/api/email/gmail/oauth/url`, {
         method: 'POST',
         headers: {
@@ -146,7 +191,6 @@ export default function InboxPage() {
 
       if (response.ok) {
         const data = await response.json();
-        // Redirect to OAuth URL
         window.location.href = data.url;
       } else {
         // Fallback to legacy endpoint
@@ -177,7 +221,41 @@ export default function InboxPage() {
     }
   }, [backendConfig.api, userId, tokens?.access_token]);
 
-  const handleDisconnect = useCallback(async () => {
+  const handleConnectOutlook = useCallback(async () => {
+    try {
+      const response = await fetch(`${backendConfig.api}/api/outlook/oauth/url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokens?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          redirect_uri: `${window.location.origin}/inbox/callback?provider=outlook`,
+          state: `${userId}:outlook`,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        window.location.href = data.url;
+      } else {
+        setError('Failed to start Outlook connection. Please try again.');
+      }
+    } catch {
+      setError('Failed to connect to Outlook. Please check your connection and try again.');
+    }
+  }, [backendConfig.api, userId, tokens?.access_token]);
+
+  const handleAddAccount = useCallback((type: AccountType) => {
+    if (type === 'gmail') {
+      handleConnectGmail();
+    } else {
+      handleConnectOutlook();
+    }
+  }, [handleConnectGmail, handleConnectOutlook]);
+
+  const handleDisconnectGmail = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/gmail/disconnect`, {
         method: 'POST',
@@ -189,13 +267,32 @@ export default function InboxPage() {
       });
 
       if (response.ok) {
-        setStatus({ connected: false, configured: status?.configured || false });
+        setGmailStatus({ connected: false, configured: gmailStatus?.configured || false });
         setSyncStatus(null);
       }
     } catch {
-      setError('Failed to disconnect');
+      setError('Failed to disconnect Gmail');
     }
-  }, [backendConfig.api, userId, tokens?.access_token, status?.configured]);
+  }, [backendConfig.api, userId, tokens?.access_token, gmailStatus?.configured]);
+
+  const handleDisconnectOutlook = useCallback(async () => {
+    try {
+      const response = await fetch(`${backendConfig.api}/api/outlook/disconnect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokens?.access_token || ''}`,
+        },
+        body: JSON.stringify({ user_id: userId }),
+      });
+
+      if (response.ok) {
+        setOutlookStatus({ connected: false, configured: outlookStatus?.configured || false });
+      }
+    } catch {
+      setError('Failed to disconnect Outlook');
+    }
+  }, [backendConfig.api, userId, tokens?.access_token, outlookStatus?.configured]);
 
   const handleSync = useCallback(async (fullSync: boolean = false) => {
     try {
@@ -282,19 +379,36 @@ export default function InboxPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-mono text-acid-green">{'>'} AI SMART INBOX</h1>
+          {accounts.length > 0 && (
+            <span className="text-xs text-text-muted font-mono">
+              {accounts.length} account{accounts.length !== 1 ? 's' : ''} connected
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          {status?.connected && (
-            <button
-              onClick={() => setShowConfig(!showConfig)}
-              className={`px-3 py-1 text-xs font-mono border rounded ${
-                showConfig
-                  ? 'bg-acid-green/20 border-acid-green text-acid-green'
-                  : 'bg-transparent border-acid-green/40 text-acid-green hover:bg-acid-green/10'
-              }`}
-            >
-              Config
-            </button>
+          {hasAnyConnection && (
+            <>
+              <button
+                onClick={() => setShowAccountPanel(!showAccountPanel)}
+                className={`px-3 py-1 text-xs font-mono border rounded ${
+                  showAccountPanel
+                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
+                    : 'bg-transparent border-acid-green/40 text-acid-green hover:bg-acid-green/10'
+                }`}
+              >
+                Accounts
+              </button>
+              <button
+                onClick={() => setShowConfig(!showConfig)}
+                className={`px-3 py-1 text-xs font-mono border rounded ${
+                  showConfig
+                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
+                    : 'bg-transparent border-acid-green/40 text-acid-green hover:bg-acid-green/10'
+                }`}
+              >
+                Config
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -317,7 +431,7 @@ export default function InboxPage() {
                   href="/auth/login"
                   className="inline-flex items-center gap-2 text-accent hover:text-accent/80"
                 >
-                  <span>→</span>
+                  <span>-&gt;</span>
                   <span>Login to continue</span>
                 </Link>
               </div>
@@ -325,19 +439,59 @@ export default function InboxPage() {
           </div>
         )}
 
-        {/* Connection Status */}
-        <PanelErrorBoundary panelName="Gmail Connection">
-          <GmailConnectionCard
-            status={status}
-            loading={loading}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-          />
-        </PanelErrorBoundary>
+        {/* Account Management Panel */}
+        {showAccountPanel && (
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-1">
+              <MultiAccountSelector
+                accounts={accounts}
+                selectedAccountId={selectedAccountId}
+                onSelectAccount={setSelectedAccountId}
+                onAddAccount={handleAddAccount}
+              />
+            </div>
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <PanelErrorBoundary panelName="Gmail Connection">
+                <GmailConnectionCard
+                  status={gmailStatus}
+                  loading={loading}
+                  onConnect={handleConnectGmail}
+                  onDisconnect={handleDisconnectGmail}
+                />
+              </PanelErrorBoundary>
+              <PanelErrorBoundary panelName="Outlook Connection">
+                <OutlookConnectionCard
+                  status={outlookStatus}
+                  loading={loading}
+                  onConnect={handleConnectOutlook}
+                  onDisconnect={handleDisconnectOutlook}
+                />
+              </PanelErrorBoundary>
+            </div>
+          </div>
+        )}
+
+        {/* Connection Status (simple view when account panel is hidden) */}
+        {!showAccountPanel && hasAnyConnection && (
+          <div className="mb-4 flex items-center gap-4">
+            {gmailStatus?.connected && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-[var(--surface)] border border-[var(--border)] rounded text-xs">
+                <span className="w-2 h-2 bg-green-400 rounded-full" />
+                <span className="font-mono">{gmailStatus.email_address}</span>
+              </div>
+            )}
+            {outlookStatus?.connected && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-[var(--surface)] border border-[var(--border)] rounded text-xs">
+                <span className="w-2 h-2 bg-[#0078D4] rounded-full" />
+                <span className="font-mono">{outlookStatus.email_address}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Prioritization Config Panel */}
         {showConfig && priConfig && (
-          <div className="mt-4 border border-acid-green/30 bg-surface/50 p-4 rounded">
+          <div className="mb-6 border border-acid-green/30 bg-surface/50 p-4 rounded">
             <h3 className="text-acid-green font-mono text-sm mb-4">Prioritization Settings</h3>
 
             {/* VIP Senders */}
@@ -371,7 +525,7 @@ export default function InboxPage() {
                       onClick={() => handleRemoveVip(sender)}
                       className="hover:text-acid-red"
                     >
-                      ×
+                      x
                     </button>
                   </span>
                 ))}
@@ -386,13 +540,13 @@ export default function InboxPage() {
               <div className="p-3 border border-acid-green/20 rounded">
                 <span className="text-text-muted text-xs font-mono">Slack Context</span>
                 <div className={`text-sm font-mono mt-1 ${priConfig.enable_slack_context ? 'text-acid-green' : 'text-text-muted'}`}>
-                  {priConfig.enable_slack_context ? '✓ Enabled' : '○ Disabled'}
+                  {priConfig.enable_slack_context ? 'Enabled' : 'Disabled'}
                 </div>
               </div>
               <div className="p-3 border border-acid-green/20 rounded">
                 <span className="text-text-muted text-xs font-mono">Calendar Context</span>
                 <div className={`text-sm font-mono mt-1 ${priConfig.enable_calendar_context ? 'text-acid-green' : 'text-text-muted'}`}>
-                  {priConfig.enable_calendar_context ? '✓ Enabled' : '○ Disabled'}
+                  {priConfig.enable_calendar_context ? 'Enabled' : 'Disabled'}
                 </div>
               </div>
             </div>
@@ -400,12 +554,12 @@ export default function InboxPage() {
         )}
 
         {/* Sync Progress */}
-        {status?.connected && syncStatus && (
+        {hasAnyConnection && syncStatus && (
           <PanelErrorBoundary panelName="Sync Progress">
             <SyncProgressBar
               syncStatus={syncStatus}
-              indexedCount={status.indexed_count || 0}
-              lastSync={status.last_sync}
+              indexedCount={(gmailStatus?.indexed_count || 0) + (outlookStatus?.indexed_count || 0)}
+              lastSync={gmailStatus?.last_sync || outlookStatus?.last_sync}
               onSync={() => handleSync(false)}
               onFullSync={() => handleSync(true)}
             />
@@ -413,7 +567,7 @@ export default function InboxPage() {
         )}
 
         {/* Main Content */}
-        {status?.connected && (
+        {hasAnyConnection && (
           <>
             {/* Stats Overview */}
             <div className="mt-6">
@@ -482,32 +636,32 @@ export default function InboxPage() {
         )}
 
         {/* Not Connected State */}
-        {!loading && !status?.connected && (
+        {!loading && !hasAnyConnection && (
           <div className="mt-8 text-center">
             <div className="text-6xl mb-4">📬</div>
             <h2 className="text-xl font-mono text-accent mb-2">
-              Connect Your Gmail
+              Connect Your Email
             </h2>
             <p className="text-muted font-mono text-sm mb-6 max-w-md mx-auto">
-              Connect your Gmail account to get AI-powered email prioritization
+              Connect your Gmail or Outlook account to get AI-powered email prioritization
               with our 3-tier scoring system. Critical emails float to the top,
               newsletters and bulk mail sink to the bottom.
             </p>
             <div className="flex flex-wrap justify-center gap-4 mb-6 text-xs font-mono">
               <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded text-red-400">
-                🔴 Critical - Needs immediate attention
+                Critical - Needs immediate attention
               </div>
               <div className="px-3 py-2 bg-orange-500/10 border border-orange-500/30 rounded text-orange-400">
-                🟠 High - Important, respond today
+                High - Important, respond today
               </div>
               <div className="px-3 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400">
-                🟡 Medium - Standard priority
+                Medium - Standard priority
               </div>
               <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded text-blue-400">
-                🔵 Low - Can wait
+                Low - Can wait
               </div>
               <div className="px-3 py-2 bg-gray-500/10 border border-gray-500/30 rounded text-gray-400">
-                ⚪ Defer - Newsletters, bulk mail
+                Defer - Newsletters, bulk mail
               </div>
             </div>
 
@@ -515,36 +669,42 @@ export default function InboxPage() {
             {!user && (
               <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg max-w-md mx-auto">
                 <p className="text-amber-400 font-mono text-sm mb-3">
-                  🔐 Login required to connect Gmail
+                  Login required to connect email
                 </p>
                 <p className="text-muted text-xs mb-4">
-                  You need to be logged in to connect your Gmail account. This ensures your emails are securely linked to your account.
+                  You need to be logged in to connect your email accounts. This ensures your emails are securely linked to your account.
                 </p>
                 <Link
                   href="/auth/login"
                   className="inline-flex items-center gap-2 px-6 py-2.5 bg-accent/20 hover:bg-accent/30 border border-accent/40 rounded-md text-accent font-mono text-sm transition-colors"
                 >
-                  <span>→</span>
+                  <span>-&gt;</span>
                   <span>Login</span>
                 </Link>
               </div>
             )}
 
-            {/* Connect button (only when authenticated) */}
-            {user && status?.configured !== false && (
-              <button
-                onClick={handleConnect}
-                className="btn btn-primary px-8 py-3"
-              >
-                Connect Gmail Account
-              </button>
-            )}
-
-            {/* Not configured message */}
-            {user && status?.configured === false && (
-              <div className="text-muted font-mono text-sm">
-                Gmail integration is not configured. Set GMAIL_CLIENT_ID and
-                GMAIL_CLIENT_SECRET environment variables.
+            {/* Connect buttons (only when authenticated) */}
+            {user && (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button
+                  onClick={handleConnectGmail}
+                  className="inline-flex items-center justify-center gap-3 px-6 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[#EA4335]/50 transition-colors"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#EA4335">
+                    <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/>
+                  </svg>
+                  <span className="font-mono text-sm">Connect Gmail</span>
+                </button>
+                <button
+                  onClick={handleConnectOutlook}
+                  className="inline-flex items-center justify-center gap-3 px-6 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[#0078D4]/50 transition-colors"
+                >
+                  <svg className="w-5 h-5 text-[#0078D4]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55-.22-.33-.33-.75-.1-.42-.1-.86t.1-.87q.1-.43.34-.76.22-.34.59-.54.36-.2.87-.2t.86.2q.35.21.57.55.22.34.31.77.1.43.1.88zM24 12v9.38q0 .46-.33.8-.33.32-.8.32H7.13q-.46 0-.8-.33-.32-.33-.32-.8V18H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7Q.58 6 1 6h6.13V2.55q0-.44.3-.75.3-.3.7-.3h12.74q.41 0 .7.3.3.3.3.75V11q0 .41-.3.7-.29.3-.7.3H19.8v.8h3.4q.4 0 .7.3.3.3.3.7v.2h-5.6v-.1l-.2-.4V12zm-17.54-.5q0-.93-.26-1.64-.26-.72-.75-1.22-.48-.5-1.18-.76-.69-.27-1.57-.27-.9 0-1.61.26-.7.27-1.2.77-.5.51-.76 1.22-.27.71-.27 1.64 0 .92.27 1.63.26.72.76 1.23.5.51 1.2.78.72.27 1.61.27.88 0 1.57-.27.69-.27 1.18-.78.49-.51.75-1.23.26-.71.26-1.63zm17.14 5.5v-4H7.8v4h15.8z"/>
+                  </svg>
+                  <span className="font-mono text-sm">Connect Outlook</span>
+                </button>
               </div>
             )}
           </div>
