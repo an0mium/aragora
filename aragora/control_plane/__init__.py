@@ -132,6 +132,43 @@ from aragora.control_plane.deliberation_chain import (
     create_draft_review_chain,
     create_research_synthesis_chain,
 )
+from aragora.control_plane.channels import (
+    ChannelConfig,
+    ChannelProvider,
+    NotificationChannel,
+    NotificationEventType,
+    NotificationManager,
+    NotificationMessage,
+    NotificationPriority,
+    NotificationResult,
+    create_task_completed_notification,
+    create_deliberation_consensus_notification,
+    create_sla_violation_notification,
+)
+from aragora.control_plane.notifications import (
+    EmailProvider,
+    NotificationDispatcher,
+    NotificationDispatcherConfig,
+    QueuedNotification,
+    RetryConfig,
+    create_notification_dispatcher,
+    on_notification_event,
+)
+from aragora.control_plane.policy import (
+    ControlPlanePolicy,
+    ControlPlanePolicyManager,
+    EnforcementLevel,
+    PolicyDecision,
+    PolicyEvaluationResult,
+    PolicyScope,
+    PolicyViolation,
+    RegionConstraint,
+    SLARequirements,
+    create_agent_tier_policy,
+    create_production_policy,
+    create_sensitive_data_policy,
+    create_sla_policy,
+)
 
 __all__ = [
     # Registry
@@ -207,4 +244,38 @@ __all__ = [
     "create_code_review_chain",
     "create_draft_review_chain",
     "create_research_synthesis_chain",
+    # Channels
+    "ChannelConfig",
+    "ChannelProvider",
+    "NotificationChannel",
+    "NotificationEventType",
+    "NotificationManager",
+    "NotificationMessage",
+    "NotificationPriority",
+    "NotificationResult",
+    "create_task_completed_notification",
+    "create_deliberation_consensus_notification",
+    "create_sla_violation_notification",
+    # Notifications (Dispatcher)
+    "EmailProvider",
+    "NotificationDispatcher",
+    "NotificationDispatcherConfig",
+    "QueuedNotification",
+    "RetryConfig",
+    "create_notification_dispatcher",
+    "on_notification_event",
+    # Policy
+    "ControlPlanePolicy",
+    "ControlPlanePolicyManager",
+    "EnforcementLevel",
+    "PolicyDecision",
+    "PolicyEvaluationResult",
+    "PolicyScope",
+    "PolicyViolation",
+    "RegionConstraint",
+    "SLARequirements",
+    "create_agent_tier_policy",
+    "create_production_policy",
+    "create_sensitive_data_policy",
+    "create_sla_policy",
 ]

@@ -455,6 +455,199 @@ class IntegratedControlPlane:
         return await self._coordinator.wait_for_result(task_id, timeout)
 
     # =========================================================================
+    # Deliberation Operations (first-class task type)
+    # =========================================================================
+
+    async def submit_deliberation(
+        self,
+        question: str,
+        context: Optional[str] = None,
+        agents: Optional[List[str]] = None,
+        priority: str = "normal",
+        timeout_seconds: float = 300.0,
+        max_rounds: int = 5,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Submit a deliberation as a first-class control plane task.
+
+        Deliberations are routed through the scheduler with SLA tracking
+        and ELO updates on completion.
+
+        Args:
+            question: The question to deliberate
+            context: Optional context for the deliberation
+            agents: Specific agents to use (optional)
+            priority: Task priority (low, normal, high, urgent)
+            timeout_seconds: SLA timeout
+            max_rounds: Maximum debate rounds
+            metadata: Additional metadata
+
+        Returns:
+            Task ID for tracking
+        """
+        from aragora.control_plane.deliberation import (
+            DeliberationManager,
+        )
+
+        # Create deliberation manager with ELO callback
+        manager = DeliberationManager(
+            coordinator=self._coordinator,
+            elo_callback=self._create_elo_callback(),
+            notification_callback=self._create_notification_callback(),
+        )
+
+        task_id = await manager.submit_deliberation(
+            question=question,
+            context=context,
+            agents=agents,
+            priority=priority,
+            timeout_seconds=timeout_seconds,
+            max_rounds=max_rounds,
+            metadata=metadata,
+        )
+
+        # Broadcast deliberation started event
+        await self._shared_state._broadcast_event(
+            {
+                "type": "deliberation_started",
+                "task_id": task_id,
+                "question_preview": question[:100],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+        return task_id
+
+    async def wait_for_deliberation(
+        self,
+        task_id: str,
+        timeout: Optional[float] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Wait for a deliberation to complete.
+
+        Args:
+            task_id: Deliberation task ID
+            timeout: Optional timeout override
+
+        Returns:
+            Deliberation outcome dict or None
+        """
+        from aragora.control_plane.deliberation import DeliberationManager
+
+        manager = DeliberationManager(
+            coordinator=self._coordinator,
+            elo_callback=self._create_elo_callback(),
+        )
+
+        outcome = await manager.wait_for_outcome(task_id, timeout)
+        if outcome:
+            return {
+                "task_id": outcome.task_id,
+                "success": outcome.success,
+                "consensus_reached": outcome.consensus_reached,
+                "consensus_confidence": outcome.consensus_confidence,
+                "winning_position": outcome.winning_position,
+                "duration_seconds": outcome.duration_seconds,
+                "sla_compliant": outcome.sla_compliant,
+            }
+        return None
+
+    def _create_elo_callback(self) -> Callable[[Any], None]:
+        """Create callback to update ELO on deliberation completion."""
+
+        def elo_callback(outcome: Any) -> None:
+            """Feed deliberation outcome to ELO system."""
+            try:
+                from aragora.ranking.elo import get_elo_system
+
+                elo_system = get_elo_system()
+                if not elo_system or not outcome.agent_performances:
+                    return
+
+                # Extract participating agents and their performance
+                agents = list(outcome.agent_performances.keys())
+                if len(agents) < 2:
+                    return
+
+                # Calculate scores based on consensus contribution
+                scores: Dict[str, float] = {}
+                for agent_id, perf in outcome.agent_performances.items():
+                    score = 0.5  # Base score
+                    if perf.contributed_to_consensus:
+                        score += 0.3
+                    if perf.final_position_correct:
+                        score += 0.2
+                    scores[agent_id] = score
+
+                # Record match with confidence weighting
+                confidence_weight = outcome.consensus_confidence or 0.5
+                elo_system.record_match(
+                    debate_id=outcome.task_id,
+                    participants=agents,
+                    scores=scores,
+                    domain="deliberation",
+                    confidence_weight=confidence_weight,
+                )
+
+                logger.debug(f"Updated ELO for deliberation {outcome.task_id}: {scores}")
+
+            except ImportError:
+                logger.debug("ELO system not available")
+            except Exception as e:
+                logger.error(f"Failed to update ELO: {e}")
+
+        return elo_callback
+
+    def _create_notification_callback(self) -> Callable[[str, Dict[str, Any]], None]:
+        """Create callback for deliberation notifications."""
+
+        def notification_callback(event_type: str, data: Dict[str, Any]) -> None:
+            """Handle deliberation SLA notifications."""
+            try:
+                from aragora.control_plane.notifications import (
+                    create_notification_dispatcher,
+                )
+                from aragora.control_plane.channels import (
+                    NotificationEventType,
+                    NotificationPriority,
+                )
+
+                # Create dispatcher (will use any configured channels)
+                dispatcher = create_notification_dispatcher()
+
+                if event_type == "sla_warning":
+                    asyncio.create_task(
+                        dispatcher.dispatch(
+                            event_type=NotificationEventType.SLA_WARNING,
+                            title="Deliberation SLA Warning",
+                            body=f"Deliberation {data['task_id'][:8]}... approaching timeout "
+                            f"({data['elapsed_seconds']:.0f}s / {data['timeout_seconds']:.0f}s)",
+                            priority=NotificationPriority.HIGH,
+                            metadata=data,
+                        )
+                    )
+                elif event_type == "sla_violated":
+                    asyncio.create_task(
+                        dispatcher.dispatch(
+                            event_type=NotificationEventType.SLA_VIOLATION,
+                            title="Deliberation SLA Violation",
+                            body=f"Deliberation {data['task_id'][:8]}... exceeded timeout "
+                            f"({data['elapsed_seconds']:.0f}s > {data['timeout_seconds']:.0f}s)",
+                            priority=NotificationPriority.URGENT,
+                            metadata=data,
+                        )
+                    )
+
+            except ImportError:
+                logger.debug("Notification dispatcher not available")
+            except Exception as e:
+                logger.error(f"Failed to send notification: {e}")
+
+        return notification_callback
+
+    # =========================================================================
     # Metrics (aggregated from both systems)
     # =========================================================================
 

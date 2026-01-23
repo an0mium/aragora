@@ -491,10 +491,17 @@ class AuditLog:
 
         Args:
             query: Query to filter logs
-            format: Export format (json, csv)
+            format: Export format (json, csv, syslog, soc2, iso27001)
 
         Returns:
             Exported data as string
+
+        Supported formats:
+        - json: Standard JSON array
+        - csv: Comma-separated values
+        - syslog: RFC 5424 syslog format
+        - soc2: SOC 2 compliance report format
+        - iso27001: ISO 27001 audit evidence format
         """
         entries = await self.query(query)
 
@@ -511,8 +518,253 @@ class AuditLog:
                     f"{e.resource_type},{e.resource_id},{e.outcome}"
                 )
             return "\n".join(lines)
+        elif format == "syslog":
+            return self._export_syslog(entries)
+        elif format == "soc2":
+            return self._export_soc2(entries, query)
+        elif format == "iso27001":
+            return self._export_iso27001(entries, query)
         else:
             raise ValueError(f"Unsupported export format: {format}")
+
+    def _export_syslog(self, entries: List[AuditEntry]) -> str:
+        """Export in RFC 5424 syslog format."""
+        lines = []
+        for e in entries:
+            # RFC 5424: <priority>version timestamp hostname app-name procid msgid structured-data msg
+            severity = 6 if e.outcome == "success" else 4  # INFO or WARNING
+            facility = 10  # security/authorization
+            priority = facility * 8 + severity
+
+            structured_data = (
+                f'[aragora@1 action="{e.action.value}" '
+                f'actor="{e.actor.actor_id}" '
+                f'resource="{e.resource_type}/{e.resource_id}" '
+                f'outcome="{e.outcome}"]'
+            )
+
+            lines.append(
+                f"<{priority}>1 {e.timestamp.isoformat()} aragora control-plane "
+                f"{e.entry_id} - {structured_data} {e.action.value}: {e.outcome}"
+            )
+
+        return "\n".join(lines)
+
+    def _export_soc2(self, entries: List[AuditEntry], query: AuditQuery) -> str:
+        """Export in SOC 2 compliance report format."""
+        # Group entries by control category
+        controls: Dict[str, List[AuditEntry]] = {
+            "CC6.1": [],  # Logical and physical access controls
+            "CC6.2": [],  # System operations
+            "CC6.3": [],  # Change management
+            "CC7.1": [],  # Monitoring
+            "CC7.2": [],  # Incident response
+        }
+
+        for e in entries:
+            if e.action.value.startswith("auth."):
+                controls["CC6.1"].append(e)
+            elif e.action.value.startswith("agent.") or e.action.value.startswith("task."):
+                controls["CC6.2"].append(e)
+            elif e.action.value.startswith("config.") or e.action.value.startswith("policy."):
+                controls["CC6.3"].append(e)
+            elif e.action.value.startswith("deliberation."):
+                controls["CC7.1"].append(e)
+            elif e.action.value.startswith("system."):
+                controls["CC7.2"].append(e)
+
+        # Build report
+        report = {
+            "report_type": "SOC 2 Type II Audit Evidence",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "period": {
+                "start": query.start_time.isoformat() if query.start_time else None,
+                "end": query.end_time.isoformat() if query.end_time else None,
+            },
+            "summary": {
+                "total_events": len(entries),
+                "by_outcome": {
+                    "success": sum(1 for e in entries if e.outcome == "success"),
+                    "failure": sum(1 for e in entries if e.outcome == "failure"),
+                    "partial": sum(1 for e in entries if e.outcome == "partial"),
+                },
+            },
+            "controls": {
+                ctrl: {
+                    "description": self._get_soc2_control_description(ctrl),
+                    "event_count": len(events),
+                    "events": [e.to_dict() for e in events[:100]],  # Limit per control
+                }
+                for ctrl, events in controls.items()
+                if events
+            },
+        }
+
+        return json.dumps(report, indent=2, default=str)
+
+    def _get_soc2_control_description(self, control: str) -> str:
+        """Get SOC 2 control description."""
+        descriptions = {
+            "CC6.1": "Logical and Physical Access Controls",
+            "CC6.2": "System Operations",
+            "CC6.3": "Change Management",
+            "CC7.1": "System Monitoring",
+            "CC7.2": "Incident Response",
+        }
+        return descriptions.get(control, "Unknown Control")
+
+    def _export_iso27001(self, entries: List[AuditEntry], query: AuditQuery) -> str:
+        """Export in ISO 27001 audit evidence format."""
+        # Group by ISO 27001 control domains
+        domains: Dict[str, List[AuditEntry]] = {
+            "A.9": [],  # Access control
+            "A.12": [],  # Operations security
+            "A.14": [],  # System acquisition, development and maintenance
+            "A.16": [],  # Information security incident management
+            "A.18": [],  # Compliance
+        }
+
+        for e in entries:
+            if e.action.value.startswith("auth."):
+                domains["A.9"].append(e)
+            elif e.action.value.startswith("task.") or e.action.value.startswith("agent."):
+                domains["A.12"].append(e)
+            elif e.action.value.startswith("config."):
+                domains["A.14"].append(e)
+            elif e.action.value.startswith("system.") or e.outcome == "failure":
+                domains["A.16"].append(e)
+            elif e.action.value.startswith("policy."):
+                domains["A.18"].append(e)
+
+        report = {
+            "standard": "ISO/IEC 27001:2022",
+            "report_type": "Audit Evidence Export",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "organization": "Aragora Control Plane",
+            "audit_period": {
+                "start": query.start_time.isoformat() if query.start_time else None,
+                "end": query.end_time.isoformat() if query.end_time else None,
+            },
+            "executive_summary": {
+                "total_log_entries": len(entries),
+                "security_events": sum(1 for e in entries if e.outcome == "failure"),
+                "compliance_rate": (
+                    sum(1 for e in entries if e.outcome == "success") / len(entries) * 100
+                    if entries
+                    else 100
+                ),
+            },
+            "control_domains": {
+                domain: {
+                    "name": self._get_iso27001_domain_name(domain),
+                    "evidence_count": len(events),
+                    "evidence_samples": [e.to_dict() for e in events[:50]],
+                }
+                for domain, events in domains.items()
+                if events
+            },
+        }
+
+        return json.dumps(report, indent=2, default=str)
+
+    def _get_iso27001_domain_name(self, domain: str) -> str:
+        """Get ISO 27001 domain name."""
+        names = {
+            "A.9": "Access Control",
+            "A.12": "Operations Security",
+            "A.14": "System Acquisition, Development and Maintenance",
+            "A.16": "Information Security Incident Management",
+            "A.18": "Compliance",
+        }
+        return names.get(domain, "Unknown Domain")
+
+    async def enforce_retention(self) -> int:
+        """
+        Enforce retention policy by removing entries older than retention_days.
+
+        Returns:
+            Number of entries removed
+        """
+        if not self._redis:
+            # Local mode: filter entries
+            cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            from datetime import timedelta
+
+            cutoff = cutoff - timedelta(days=self._retention_days)
+
+            original_count = len(self._local_entries)
+            self._local_entries = [e for e in self._local_entries if e.timestamp >= cutoff]
+            removed = original_count - len(self._local_entries)
+            logger.info(f"Retention enforcement removed {removed} local entries")
+            return removed
+
+        # Redis mode: use XTRIM with MINID
+        try:
+            from datetime import timedelta
+
+            cutoff = datetime.now(timezone.utc) - timedelta(days=self._retention_days)
+            cutoff_ms = int(cutoff.timestamp() * 1000)
+
+            # Get count before
+            info_before = await self._redis.xinfo_stream(self._stream_key)
+            count_before = info_before.get("length", 0)
+
+            # Trim entries older than cutoff
+            await self._redis.xtrim(
+                self._stream_key,
+                minid=f"{cutoff_ms}-0",
+            )
+
+            # Get count after
+            info_after = await self._redis.xinfo_stream(self._stream_key)
+            count_after = info_after.get("length", 0)
+
+            removed = count_before - count_after
+            logger.info(f"Retention enforcement removed {removed} Redis entries")
+            return removed
+
+        except Exception as e:
+            logger.error(f"Failed to enforce retention: {e}")
+            return 0
+
+    async def get_retention_status(self) -> Dict[str, Any]:
+        """Get retention policy status."""
+        total_entries = 0
+        oldest_entry: Optional[datetime] = None
+
+        if self._redis:
+            try:
+                info = await self._redis.xinfo_stream(self._stream_key)
+                total_entries = info.get("length", 0)
+
+                # Get oldest entry
+                oldest = await self._redis.xrange(self._stream_key, count=1)
+                if oldest:
+                    _, data = oldest[0]
+                    entry_data = json.loads(data.get("data", "{}"))
+                    oldest_entry = datetime.fromisoformat(entry_data.get("timestamp", ""))
+            except Exception as e:
+                logger.error(f"Failed to get retention status: {e}")
+        else:
+            total_entries = len(self._local_entries)
+            if self._local_entries:
+                oldest_entry = min(e.timestamp for e in self._local_entries)
+
+        from datetime import timedelta
+
+        retention_cutoff = datetime.now(timezone.utc) - timedelta(days=self._retention_days)
+
+        return {
+            "retention_days": self._retention_days,
+            "total_entries": total_entries,
+            "oldest_entry": oldest_entry.isoformat() if oldest_entry else None,
+            "retention_cutoff": retention_cutoff.isoformat(),
+            "entries_eligible_for_removal": (
+                sum(1 for e in self._local_entries if e.timestamp < retention_cutoff)
+                if not self._redis
+                else None
+            ),
+        }
 
     def get_stats(self) -> Dict[str, Any]:
         """Get audit log statistics."""
