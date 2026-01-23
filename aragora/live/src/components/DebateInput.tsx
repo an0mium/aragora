@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_AGENTS, DEFAULT_ROUNDS } from '@/config';
 import { VerticalSelector } from './VerticalSelector';
+import { useAuth } from '@/context/AuthContext';
 
 interface DebateInputProps {
   apiBase: string;
@@ -78,6 +79,7 @@ function detectDomain(text: string): string {
 
 export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputProps) {
   const router = useRouter();
+  const { tokens } = useAuth();
   const [question, setQuestion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -301,11 +303,15 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
 
     try {
       const modeConfig = DEBATE_MODES[debateMode];
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
       const response = await fetch(`${apiBase}${modeConfig.endpoint}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           question: trimmedQuestion,
           agents: agents.split(',').map(a => a.trim()).filter(Boolean),
