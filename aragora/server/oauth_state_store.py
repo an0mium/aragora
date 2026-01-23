@@ -462,11 +462,157 @@ class RedisOAuthStateStore(OAuthStateStore):
             return 0
 
 
+class JWTOAuthStateStore(OAuthStateStore):
+    """JWT-based OAuth state store that requires no server-side storage.
+
+    Uses signed JWTs to encode state data, allowing state validation on any
+    server instance without shared storage (Redis, SQLite, etc.).
+
+    This is ideal for multi-instance deployments where shared storage is
+    not available or practical.
+    """
+
+    def __init__(self, secret_key: Optional[str] = None):
+        """Initialize with a secret key for signing JWTs.
+
+        Args:
+            secret_key: Secret for signing. If not provided, uses OAUTH_JWT_SECRET
+                       or ARAGORA_SECRET_KEY environment variables.
+        """
+        self._secret = secret_key or os.environ.get(
+            "OAUTH_JWT_SECRET", os.environ.get("ARAGORA_SECRET_KEY", "")
+        )
+        if not self._secret:
+            # Generate a random secret (will be different per instance, but that's OK
+            # since we'll use this as fallback only when no persistent secret is set)
+            import hashlib
+
+            # Use a semi-stable secret based on machine identity
+            machine_id = os.environ.get("HOSTNAME", "") + os.environ.get("USER", "")
+            self._secret = hashlib.sha256(f"aragora-oauth-{machine_id}".encode()).hexdigest()
+            logger.warning(
+                "OAuth JWT store: No OAUTH_JWT_SECRET or ARAGORA_SECRET_KEY set. "
+                "Using derived secret. For multi-instance deployments, set a shared secret."
+            )
+        self._used_nonces: set[str] = set()  # Simple replay protection
+        self._nonce_cleanup_threshold = 10000
+
+    def generate(
+        self,
+        user_id: Optional[str] = None,
+        redirect_url: Optional[str] = None,
+        ttl_seconds: int = OAUTH_STATE_TTL_SECONDS,
+    ) -> str:
+        """Generate a signed JWT state token."""
+        import base64
+        import hashlib
+        import hmac
+
+        now = time.time()
+        nonce = secrets.token_urlsafe(16)
+
+        # Build payload
+        payload = {
+            "n": nonce,  # Nonce for replay protection
+            "u": user_id,  # User ID (if linking)
+            "r": redirect_url,  # Redirect URL
+            "e": now + ttl_seconds,  # Expiration timestamp
+            "c": now,  # Created timestamp
+        }
+
+        # Encode payload as JSON, then base64
+        payload_json = json.dumps(payload, separators=(",", ":"))
+        payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).rstrip(b"=").decode()
+
+        # Sign with HMAC-SHA256
+        signature = hmac.new(self._secret.encode(), payload_b64.encode(), hashlib.sha256).digest()
+        sig_b64 = base64.urlsafe_b64encode(signature).rstrip(b"=").decode()
+
+        # State = payload.signature
+        return f"{payload_b64}.{sig_b64}"
+
+    def validate_and_consume(self, state: str) -> Optional[OAuthState]:
+        """Validate JWT state token and mark as consumed."""
+        import base64
+        import hashlib
+        import hmac
+
+        # Parse state
+        parts = state.split(".")
+        if len(parts) != 2:
+            logger.debug("JWT state: invalid format (expected 2 parts)")
+            return None
+
+        payload_b64, sig_b64 = parts
+
+        # Verify signature
+        expected_sig = hmac.new(
+            self._secret.encode(), payload_b64.encode(), hashlib.sha256
+        ).digest()
+
+        # Add padding back for base64 decode
+        sig_b64_padded = sig_b64 + "=" * (4 - len(sig_b64) % 4)
+        try:
+            actual_sig = base64.urlsafe_b64decode(sig_b64_padded)
+        except Exception:
+            logger.debug("JWT state: invalid signature encoding")
+            return None
+
+        if not hmac.compare_digest(expected_sig, actual_sig):
+            logger.debug("JWT state: signature mismatch")
+            return None
+
+        # Decode payload
+        payload_b64_padded = payload_b64 + "=" * (4 - len(payload_b64) % 4)
+        try:
+            payload_json = base64.urlsafe_b64decode(payload_b64_padded).decode()
+            payload = json.loads(payload_json)
+        except Exception as e:
+            logger.debug(f"JWT state: payload decode failed: {e}")
+            return None
+
+        # Check expiration
+        expires_at = payload.get("e", 0)
+        if time.time() > expires_at:
+            logger.debug("JWT state: expired")
+            return None
+
+        # Check replay (nonce already used)
+        nonce = payload.get("n", "")
+        if nonce in self._used_nonces:
+            logger.warning("JWT state: replay detected (nonce reused)")
+            return None
+
+        # Mark nonce as used (simple in-memory tracking)
+        self._used_nonces.add(nonce)
+
+        # Cleanup old nonces periodically
+        if len(self._used_nonces) > self._nonce_cleanup_threshold:
+            # Just clear old nonces - expired states won't validate anyway
+            self._used_nonces.clear()
+
+        return OAuthState(
+            user_id=payload.get("u"),
+            redirect_url=payload.get("r"),
+            expires_at=expires_at,
+            created_at=payload.get("c", 0),
+        )
+
+    def cleanup_expired(self) -> int:
+        """JWT states are self-expiring, no cleanup needed."""
+        return 0
+
+    def size(self) -> int:
+        """Return count of tracked nonces (for replay protection)."""
+        return len(self._used_nonces)
+
+
 class FallbackOAuthStateStore(OAuthStateStore):
-    """OAuth state store with automatic fallback chain: Redis -> SQLite -> In-memory.
+    """OAuth state store with automatic fallback chain: JWT -> Redis -> SQLite -> In-memory.
 
     Priority:
-    1. Redis (if REDIS_URL configured and available) - for multi-instance deployments
+    1. JWT (stateless, works on any instance) - for multi-instance without shared storage
+    2. Redis (if REDIS_URL configured and available) - for multi-instance deployments
     2. SQLite (persistent) - for single-instance with persistence across restarts
     3. In-memory (volatile) - last resort fallback
     """
@@ -477,15 +623,23 @@ class FallbackOAuthStateStore(OAuthStateStore):
         sqlite_path: str = "aragora_oauth.db",
         max_memory_size: int = MAX_OAUTH_STATES,
         use_sqlite: bool = True,
+        use_jwt: bool = True,
     ):
+        self._jwt_store: Optional[JWTOAuthStateStore] = None
         self._redis_store: Optional[RedisOAuthStateStore] = None
         self._sqlite_store: Optional[SQLiteOAuthStateStore] = None
         self._memory_store = InMemoryOAuthStateStore(max_size=max_memory_size)
         self._redis_url = redis_url
         self._use_redis = bool(redis_url)
         self._use_sqlite = use_sqlite
+        self._use_jwt = use_jwt
         self._redis_failed = False
         self._sqlite_failed = False
+
+        # JWT is the preferred backend for multi-instance deployments
+        # It works without any shared storage
+        if self._use_jwt:
+            self._jwt_store = JWTOAuthStateStore()
 
         if self._use_redis:
             self._redis_store = RedisOAuthStateStore(redis_url)
@@ -502,7 +656,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
 
     def _get_active_store(self) -> OAuthStateStore:
         """Get the active storage backend."""
-        # Try Redis first (best for multi-instance)
+        # Try Redis first (best for multi-instance with proper shared state)
         if self._use_redis and not self._redis_failed and self._redis_store:
             try:
                 redis_client = self._redis_store._get_redis()
@@ -511,7 +665,12 @@ class FallbackOAuthStateStore(OAuthStateStore):
             except Exception as e:
                 logger.debug(f"Redis connectivity check failed: {e}")
             self._redis_failed = True
-            logger.warning("OAuth state store: Redis unavailable, falling back to SQLite storage.")
+            logger.warning("OAuth state store: Redis unavailable, using JWT backend.")
+
+        # Use JWT (stateless, works across all instances without shared storage)
+        # This is the recommended fallback for multi-instance deployments
+        if self._use_jwt and self._jwt_store:
+            return self._jwt_store
 
         # Try SQLite (good for single-instance with persistence)
         if self._use_sqlite and not self._sqlite_failed and self._sqlite_store:
@@ -547,15 +706,27 @@ class FallbackOAuthStateStore(OAuthStateStore):
         return self._use_redis and not self._redis_failed
 
     @property
+    def is_using_jwt(self) -> bool:
+        """Check if JWT is currently being used."""
+        return self._use_jwt and self._jwt_store is not None and not self.is_using_redis
+
+    @property
     def is_using_sqlite(self) -> bool:
         """Check if SQLite is currently being used."""
-        return self._use_sqlite and not self._sqlite_failed and not self.is_using_redis
+        return (
+            self._use_sqlite
+            and not self._sqlite_failed
+            and not self.is_using_redis
+            and not self.is_using_jwt
+        )
 
     @property
     def backend_name(self) -> str:
         """Get the name of the active backend."""
         if self.is_using_redis:
             return "redis"
+        if self.is_using_jwt:
+            return "jwt"
         if self.is_using_sqlite:
             return "sqlite"
         return "memory"
@@ -725,6 +896,7 @@ __all__ = [
     "InMemoryOAuthStateStore",
     "SQLiteOAuthStateStore",
     "RedisOAuthStateStore",
+    "JWTOAuthStateStore",
     "FallbackOAuthStateStore",
     "get_oauth_state_store",
     "reset_oauth_state_store",
