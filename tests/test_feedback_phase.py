@@ -704,3 +704,153 @@ class TestFeedbackPhaseIntegration:
 
         # Should not raise
         await feedback.execute(ctx)
+
+
+# ============================================================================
+# Knowledge Extraction Tests
+# ============================================================================
+
+
+class TestKnowledgeExtraction:
+    """Tests for knowledge extraction from debates."""
+
+    @pytest.mark.asyncio
+    async def test_extraction_disabled_by_default(self):
+        """Should not extract when enable_knowledge_extraction is False."""
+        knowledge_mound = MagicMock()
+        knowledge_mound.extract_from_debate = AsyncMock()
+
+        feedback = FeedbackPhase(
+            knowledge_mound=knowledge_mound,
+            enable_knowledge_extraction=False,  # Default
+        )
+
+        ctx = DebateContext(env=MockEnvironment(), debate_id="d1")
+        ctx.result = MockDebateResult(
+            confidence=0.9,
+            messages=[MockMessage(agent="claude", content="Test claim")],
+        )
+
+        await feedback.execute(ctx)
+
+        # Should not call extraction
+        knowledge_mound.extract_from_debate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_extraction_enabled_extracts_claims(self):
+        """Should extract when enabled and confidence meets threshold."""
+        # Mock extraction result
+        mock_extraction_result = MagicMock()
+        mock_extraction_result.claims = [MagicMock(content="Claim 1")]
+        mock_extraction_result.relationships = []
+
+        knowledge_mound = MagicMock()
+        knowledge_mound.extract_from_debate = AsyncMock(return_value=mock_extraction_result)
+        knowledge_mound.promote_extracted_knowledge = AsyncMock(return_value=1)
+
+        feedback = FeedbackPhase(
+            knowledge_mound=knowledge_mound,
+            enable_knowledge_extraction=True,
+            extraction_min_confidence=0.3,
+            extraction_promote_threshold=0.6,
+        )
+
+        ctx = DebateContext(env=MockEnvironment(task="Test topic"), debate_id="d1")
+        ctx.result = MockDebateResult(
+            confidence=0.85,
+            consensus_reached=True,
+            final_answer="Consensus answer",
+            messages=[
+                MockMessage(agent="claude", content="I believe X is true"),
+                MockMessage(agent="gpt4", content="I agree, X is true"),
+            ],
+        )
+
+        await feedback.execute(ctx)
+
+        # Should call extraction
+        knowledge_mound.extract_from_debate.assert_called_once()
+        call_kwargs = knowledge_mound.extract_from_debate.call_args[1]
+        assert call_kwargs["debate_id"] == "d1"
+        assert call_kwargs["topic"] == "Test topic"
+        assert call_kwargs["consensus_text"] == "Consensus answer"
+        assert len(call_kwargs["messages"]) == 2
+
+        # Should promote claims
+        knowledge_mound.promote_extracted_knowledge.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_extraction_skipped_low_confidence(self):
+        """Should skip extraction when debate confidence is below threshold."""
+        knowledge_mound = MagicMock()
+        knowledge_mound.extract_from_debate = AsyncMock()
+
+        feedback = FeedbackPhase(
+            knowledge_mound=knowledge_mound,
+            enable_knowledge_extraction=True,
+            extraction_min_confidence=0.5,  # Higher threshold
+        )
+
+        ctx = DebateContext(env=MockEnvironment(), debate_id="d1")
+        ctx.result = MockDebateResult(
+            confidence=0.3,  # Below threshold
+            messages=[MockMessage(agent="claude", content="Test")],
+        )
+
+        await feedback.execute(ctx)
+
+        # Should not call extraction due to low confidence
+        knowledge_mound.extract_from_debate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_extraction_handles_errors_gracefully(self):
+        """Should handle extraction errors without failing feedback phase."""
+        knowledge_mound = MagicMock()
+        knowledge_mound.extract_from_debate = AsyncMock(
+            side_effect=RuntimeError("Extraction failed")
+        )
+
+        feedback = FeedbackPhase(
+            knowledge_mound=knowledge_mound,
+            enable_knowledge_extraction=True,
+            extraction_min_confidence=0.3,
+        )
+
+        ctx = DebateContext(env=MockEnvironment(), debate_id="d1")
+        ctx.result = MockDebateResult(
+            confidence=0.9,
+            messages=[MockMessage(agent="claude", content="Test")],
+        )
+
+        # Should not raise - errors are caught and logged
+        await feedback.execute(ctx)
+
+    @pytest.mark.asyncio
+    async def test_extraction_no_consensus_text_when_not_reached(self):
+        """Should not pass consensus_text when consensus_reached is False."""
+        mock_extraction_result = MagicMock()
+        mock_extraction_result.claims = []
+        mock_extraction_result.relationships = []
+
+        knowledge_mound = MagicMock()
+        knowledge_mound.extract_from_debate = AsyncMock(return_value=mock_extraction_result)
+
+        feedback = FeedbackPhase(
+            knowledge_mound=knowledge_mound,
+            enable_knowledge_extraction=True,
+            extraction_min_confidence=0.3,
+        )
+
+        ctx = DebateContext(env=MockEnvironment(), debate_id="d1")
+        ctx.result = MockDebateResult(
+            confidence=0.5,
+            consensus_reached=False,  # No consensus
+            final_answer="Some answer",
+            messages=[MockMessage(agent="claude", content="Test")],
+        )
+
+        await feedback.execute(ctx)
+
+        # consensus_text should be None when consensus not reached
+        call_kwargs = knowledge_mound.extract_from_debate.call_args[1]
+        assert call_kwargs["consensus_text"] is None

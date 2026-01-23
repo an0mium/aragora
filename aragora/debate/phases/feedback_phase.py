@@ -25,6 +25,7 @@ Arena._run_inner() method, handling post-debate updates:
 20. Training data emission (Tinker integration)
 21. Coordinated memory writes (cross-system atomic)
 22. Selection feedback loop (performance → selection)
+23. Knowledge extraction (claims, relationships from debates)
 """
 
 import asyncio
@@ -140,6 +141,10 @@ class FeedbackPhase:
         post_debate_workflow: Optional[Any] = None,  # Workflow DAG to trigger after debates
         enable_post_debate_workflow: bool = False,  # Auto-trigger workflow after debates
         post_debate_workflow_threshold: float = 0.7,  # Min confidence to trigger workflow
+        # Knowledge extraction from debates (auto-extract claims/relationships)
+        enable_knowledge_extraction: bool = False,  # Extract structured knowledge from debates
+        extraction_min_confidence: float = 0.3,  # Min debate confidence to trigger extraction
+        extraction_promote_threshold: float = 0.6,  # Min claim confidence to promote to mound
     ):
         """
         Initialize the feedback phase.
@@ -215,6 +220,11 @@ class FeedbackPhase:
         self.post_debate_workflow = post_debate_workflow
         self.enable_post_debate_workflow = enable_post_debate_workflow
         self.post_debate_workflow_threshold = post_debate_workflow_threshold
+
+        # Knowledge extraction from debates
+        self.enable_knowledge_extraction = enable_knowledge_extraction
+        self.extraction_min_confidence = extraction_min_confidence
+        self.extraction_promote_threshold = extraction_promote_threshold
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -332,22 +342,25 @@ class FeedbackPhase:
         # 21. Ingest debate outcome into Knowledge Mound
         await self._ingest_knowledge_outcome(ctx)
 
-        # 22. Store collected evidence in Knowledge Mound via EvidenceBridge
+        # 22. Extract structured knowledge from debate (claims, relationships)
+        await self._extract_knowledge_from_debate(ctx)
+
+        # 23. Store collected evidence in Knowledge Mound via EvidenceBridge
         await self._store_evidence_in_mound(ctx)
 
-        # 23. Observe debate for culture patterns
+        # 24. Observe debate for culture patterns
         await self._observe_debate_culture(ctx)
 
-        # 24. Auto-trigger broadcast for high-quality debates
+        # 25. Auto-trigger broadcast for high-quality debates
         await self._maybe_trigger_broadcast(ctx)
 
-        # 25. Execute coordinated memory writes (alternative to individual writes)
+        # 26. Execute coordinated memory writes (alternative to individual writes)
         await self._execute_coordinated_writes(ctx)
 
-        # 26. Update selection feedback loop with debate outcome
+        # 27. Update selection feedback loop with debate outcome
         await self._update_selection_feedback(ctx)
 
-        # 27. Trigger post-debate workflow for high-quality debates
+        # 28. Trigger post-debate workflow for high-quality debates
         await self._maybe_trigger_workflow(ctx)
 
     async def _maybe_trigger_workflow(self, ctx: "DebateContext") -> None:
@@ -556,6 +569,96 @@ class FeedbackPhase:
             await self._ingest_debate_outcome(result)
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning("[knowledge_mound] Failed to ingest outcome: %s", e)
+
+    async def _extract_knowledge_from_debate(self, ctx: "DebateContext") -> None:
+        """Extract structured knowledge (claims, relationships) from debate.
+
+        Uses the Knowledge Mound's extraction capabilities to identify:
+        - Facts and definitions stated by agents
+        - Relationships between concepts
+        - Consensus-backed conclusions (boosted confidence)
+
+        Extracted knowledge is optionally promoted to the mound if it meets
+        the promotion threshold.
+        """
+        if not self.knowledge_mound or not self.enable_knowledge_extraction:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Check minimum confidence threshold
+        confidence = getattr(result, "confidence", 0.0)
+        if confidence < self.extraction_min_confidence:
+            logger.debug(
+                "[knowledge_extraction] Skipping: confidence %.2f < threshold %.2f",
+                confidence,
+                self.extraction_min_confidence,
+            )
+            return
+
+        # Convert messages to extraction format
+        messages = getattr(result, "messages", [])
+        if not messages:
+            return
+
+        extraction_messages = []
+        for msg in messages:
+            extraction_messages.append(
+                {
+                    "agent_id": getattr(msg, "agent", None),
+                    "content": getattr(msg, "content", ""),
+                    "round": getattr(msg, "round", 0),
+                }
+            )
+
+        # Get consensus text if available
+        consensus_text = getattr(result, "final_answer", None) if result.consensus_reached else None
+
+        # Get topic from environment
+        topic = getattr(ctx.env, "task", None)
+
+        try:
+            # Extract knowledge using mound's extraction mixin
+            extraction_result = await self.knowledge_mound.extract_from_debate(
+                debate_id=ctx.debate_id,
+                messages=extraction_messages,
+                consensus_text=consensus_text,
+                topic=topic,
+            )
+
+            claims_count = len(extraction_result.claims) if extraction_result.claims else 0
+            rels_count = (
+                len(extraction_result.relationships) if extraction_result.relationships else 0
+            )
+
+            logger.info(
+                "[knowledge_extraction] Extracted %d claims and %d relationships from debate %s",
+                claims_count,
+                rels_count,
+                ctx.debate_id,
+            )
+
+            # Optionally promote high-confidence claims to mound
+            if claims_count > 0 and hasattr(self.knowledge_mound, "promote_extracted_knowledge"):
+                workspace_id = getattr(ctx, "workspace_id", "default")
+                promoted = await self.knowledge_mound.promote_extracted_knowledge(
+                    workspace_id=workspace_id,
+                    claims=extraction_result.claims,
+                    min_confidence=self.extraction_promote_threshold,
+                )
+                if promoted > 0:
+                    logger.info(
+                        "[knowledge_extraction] Promoted %d claims to Knowledge Mound",
+                        promoted,
+                    )
+
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.warning("[knowledge_extraction] Failed to extract knowledge: %s", e)
+        except Exception as e:
+            # Catch-all for unexpected errors; don't fail the feedback phase
+            logger.error("[knowledge_extraction] Unexpected error during extraction: %s", e)
 
     async def _store_evidence_in_mound(self, ctx: "DebateContext") -> None:
         """Store collected evidence in Knowledge Mound via EvidenceBridge.
