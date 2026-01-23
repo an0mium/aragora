@@ -8,7 +8,7 @@
   },
   "bot": {
     "username": "Aragora",
-    "description": "Multi-agent deliberation control plane bot"
+    "description": "Multi-agent robust decisionmaking control plane bot"
   },
   "install_params": {
     "scopes": ["bot", "applications.commands"],
