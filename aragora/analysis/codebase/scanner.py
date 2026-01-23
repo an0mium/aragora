@@ -81,6 +81,7 @@ class DependencyScanner:
             "requirements.txt": self._parse_requirements,
             "Pipfile.lock": self._parse_pipfile_lock,
             "poetry.lock": self._parse_poetry_lock,
+            "pyproject.toml": self._parse_pyproject_toml,
             "go.mod": self._parse_go_mod,
             "go.sum": self._parse_go_sum,
             "Cargo.lock": self._parse_cargo_lock,
@@ -589,6 +590,232 @@ class DependencyScanner:
                 )
 
         return deps
+
+    def _parse_pyproject_toml(self, content: str, file_path: str) -> List[DependencyInfo]:
+        """Parse pyproject.toml (PEP 621 and Poetry formats)."""
+        deps: List[DependencyInfo] = []
+
+        # Simple TOML parsing without external library
+        # Handle both PEP 621 [project.dependencies] and Poetry [tool.poetry.dependencies]
+
+        in_project_deps = False
+        in_poetry_deps = False
+        in_poetry_dev_deps = False
+        in_optional_deps = False
+        _optional_group = ""
+
+        for line in content.split("\n"):
+            stripped = line.strip()
+
+            # Check for section headers
+            if stripped == "[project]":
+                # PEP 621 project section - dependencies are a key within this section
+                in_project_deps = True
+                in_poetry_deps = False
+                in_poetry_dev_deps = False
+                in_optional_deps = False
+                continue
+            elif stripped == "[tool.poetry.dependencies]":
+                in_poetry_deps = True
+                in_project_deps = False
+                in_poetry_dev_deps = False
+                in_optional_deps = False
+                continue
+            elif stripped.startswith("[tool.poetry.group.") and stripped.endswith(".dependencies]"):
+                # Poetry group dependencies (e.g., [tool.poetry.group.dev.dependencies])
+                group_name = stripped.replace("[tool.poetry.group.", "").replace(
+                    ".dependencies]", ""
+                )
+                in_poetry_dev_deps = group_name in ("dev", "test", "development")
+                in_poetry_deps = False
+                in_project_deps = False
+                in_optional_deps = False
+                continue
+            elif stripped == "[tool.poetry.dev-dependencies]":
+                in_poetry_dev_deps = True
+                in_poetry_deps = False
+                in_project_deps = False
+                in_optional_deps = False
+                continue
+            elif stripped.startswith("[project.optional-dependencies"):
+                in_optional_deps = True
+                in_project_deps = False
+                in_poetry_deps = False
+                in_poetry_dev_deps = False
+                # Extract group name if present (for future use)
+                if "." in stripped.replace("[project.optional-dependencies", ""):
+                    _optional_group = stripped.split(".")[-1].rstrip("]")
+                continue
+            elif stripped.startswith("[") and stripped.endswith("]"):
+                # New section, reset all
+                in_project_deps = False
+                in_poetry_deps = False
+                in_poetry_dev_deps = False
+                in_optional_deps = False
+                continue
+
+            # Parse dependencies line in project section
+            if in_project_deps and stripped.startswith("dependencies"):
+                # Handle dependencies = ["pkg>=1.0", "pkg2"]
+                if "=" in stripped:
+                    deps_str = stripped.split("=", 1)[1].strip()
+                    if deps_str.startswith("["):
+                        # Inline array
+                        deps_list = self._parse_toml_array(deps_str, content, line)
+                        for dep_spec in deps_list:
+                            parsed = self._parse_pep508_dependency(dep_spec)
+                            if parsed:
+                                deps.append(
+                                    DependencyInfo(
+                                        name=parsed[0],
+                                        version=parsed[1],
+                                        ecosystem="pypi",
+                                        direct=True,
+                                        dev_dependency=False,
+                                        file_path=file_path,
+                                    )
+                                )
+                continue
+
+            # Parse Poetry-style dependencies
+            if in_poetry_deps or in_poetry_dev_deps:
+                if "=" in stripped and not stripped.startswith("#"):
+                    parts = stripped.split("=", 1)
+                    name = parts[0].strip().strip('"').strip("'")
+
+                    # Skip python version constraint
+                    if name.lower() == "python":
+                        continue
+
+                    version_part = parts[1].strip()
+
+                    # Handle different version formats
+                    version = "unknown"
+                    if version_part.startswith('"') or version_part.startswith("'"):
+                        # Simple version: name = "^1.0.0"
+                        version = version_part.strip('"').strip("'").lstrip("^~>=<!")
+                    elif version_part.startswith("{"):
+                        # Complex: name = {version = "^1.0.0", ...}
+                        match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', version_part)
+                        if match:
+                            version = match.group(1).lstrip("^~>=<!")
+
+                    deps.append(
+                        DependencyInfo(
+                            name=name,
+                            version=version,
+                            ecosystem="pypi",
+                            direct=True,
+                            dev_dependency=in_poetry_dev_deps,
+                            file_path=file_path,
+                        )
+                    )
+
+            # Parse optional dependencies
+            if in_optional_deps:
+                if "=" in stripped and not stripped.startswith("#"):
+                    parts = stripped.split("=", 1)
+                    group_key = parts[0].strip()
+                    deps_str = parts[1].strip()
+                    if deps_str.startswith("["):
+                        deps_list = self._parse_toml_array(deps_str, content, line)
+                        for dep_spec in deps_list:
+                            parsed = self._parse_pep508_dependency(dep_spec)
+                            if parsed:
+                                deps.append(
+                                    DependencyInfo(
+                                        name=parsed[0],
+                                        version=parsed[1],
+                                        ecosystem="pypi",
+                                        direct=True,
+                                        dev_dependency=group_key in ("dev", "test", "development"),
+                                        file_path=file_path,
+                                    )
+                                )
+
+        return deps
+
+    def _parse_toml_array(self, start_str: str, full_content: str, start_line: str) -> List[str]:
+        """Parse a TOML array that may span multiple lines."""
+        items: List[str] = []
+
+        # Handle single-line array
+        if start_str.endswith("]"):
+            array_content = start_str[1:-1]  # Remove [ and ]
+            for item in array_content.split(","):
+                item = item.strip().strip('"').strip("'")
+                if item:
+                    items.append(item)
+            return items
+
+        # Multi-line array - find closing bracket
+        in_array = True
+        lines = full_content.split("\n")
+        found_start = False
+
+        for line in lines:
+            if start_line in line:
+                found_start = True
+                # Parse rest of start line
+                if "[" in line:
+                    rest = line.split("[", 1)[1]
+                    for item in rest.split(","):
+                        item = item.strip().strip('"').strip("'").rstrip("]")
+                        if item:
+                            items.append(item)
+                continue
+
+            if found_start and in_array:
+                stripped = line.strip()
+                if stripped.endswith("]"):
+                    # Last line of array
+                    for item in stripped.rstrip("]").split(","):
+                        item = item.strip().strip('"').strip("'")
+                        if item:
+                            items.append(item)
+                    break
+                elif stripped and not stripped.startswith("#"):
+                    for item in stripped.split(","):
+                        item = item.strip().strip('"').strip("'")
+                        if item:
+                            items.append(item)
+
+        return items
+
+    def _parse_pep508_dependency(self, dep_spec: str) -> Optional[tuple]:
+        """Parse a PEP 508 dependency specification."""
+        # Format: name[extras]>=version,<version;markers
+        # Extract name and version
+
+        # Remove markers
+        if ";" in dep_spec:
+            dep_spec = dep_spec.split(";")[0].strip()
+
+        # Remove extras
+        name = dep_spec
+        if "[" in name:
+            name = name.split("[")[0]
+
+        # Extract version
+        version = "unknown"
+        for op in [">=", "<=", "==", "~=", "!=", ">", "<"]:
+            if op in dep_spec:
+                parts = dep_spec.split(op, 1)
+                name = parts[0].strip()
+                if "[" in name:
+                    name = name.split("[")[0]
+                version_part = parts[1].strip()
+                # Handle version ranges (take first version)
+                if "," in version_part:
+                    version_part = version_part.split(",")[0].strip()
+                version = version_part.strip()
+                break
+
+        name = name.strip()
+        if not name:
+            return None
+
+        return (name.lower(), version)
 
     def _parse_go_mod(self, content: str, file_path: str) -> List[DependencyInfo]:
         """Parse go.mod."""

@@ -315,3 +315,185 @@ COMPLIANCE_AUDIT_TEMPLATE: Dict[str, Any] = {
         {"from": "report_generation", "to": "archive"},
     ],
 }
+
+# =============================================================================
+# E-Signature Workflow (DocuSign Integration)
+# =============================================================================
+
+E_SIGNATURE_WORKFLOW_TEMPLATE: Dict[str, Any] = {
+    "name": "Contract E-Signature Workflow",
+    "description": "End-to-end contract signing workflow with DocuSign integration",
+    "category": "legal",
+    "version": "1.0",
+    "tags": ["legal", "contracts", "e-signature", "docusign"],
+    "connectors": ["docusign"],
+    "steps": [
+        {
+            "id": "document_preparation",
+            "type": "task",
+            "name": "Prepare Document",
+            "description": "Prepare contract document for signature",
+            "config": {
+                "task_type": "transform",
+                "input_key": "contract_document",
+                "output_key": "prepared_document",
+            },
+        },
+        {
+            "id": "contract_review",
+            "type": "debate",
+            "name": "Contract Review",
+            "description": "Multi-agent review of contract terms",
+            "config": {
+                "agents": ["contract_analyst", "compliance_officer"],
+                "rounds": 2,
+                "topic_template": "Review contract for signing: {prepared_document}",
+            },
+        },
+        {
+            "id": "signature_placement",
+            "type": "task",
+            "name": "Configure Signature Fields",
+            "description": "Define signature tab placements for each signer",
+            "config": {
+                "task_type": "function",
+                "function_name": "configure_signature_tabs",
+                "output_key": "signature_config",
+            },
+        },
+        {
+            "id": "legal_approval",
+            "type": "human_checkpoint",
+            "name": "Legal Approval",
+            "description": "Legal team approval before sending for signature",
+            "config": {
+                "approval_type": "sign_off",
+                "required_role": "legal_counsel",
+                "checklist": [
+                    "Contract terms verified",
+                    "Signers identified and validated",
+                    "Compliance requirements met",
+                ],
+            },
+        },
+        {
+            "id": "create_envelope",
+            "type": "connector",
+            "name": "Create DocuSign Envelope",
+            "description": "Create signature envelope via DocuSign API",
+            "config": {
+                "connector": "docusign",
+                "operation": "create_envelope",
+                "params": {
+                    "document": "{prepared_document}",
+                    "recipients": "{signers}",
+                    "signature_tabs": "{signature_config}",
+                    "email_subject": "{contract_subject}",
+                },
+                "output_key": "envelope",
+            },
+        },
+        {
+            "id": "monitor_status",
+            "type": "task",
+            "name": "Monitor Signing Status",
+            "description": "Poll envelope status until completion or timeout",
+            "config": {
+                "task_type": "poll",
+                "poll_interval_seconds": 300,
+                "timeout_hours": 72,
+                "condition": "envelope.status in ['completed', 'declined', 'voided']",
+            },
+        },
+        {
+            "id": "status_check",
+            "type": "decision",
+            "name": "Check Signing Status",
+            "description": "Route based on envelope status",
+            "config": {
+                "condition": "envelope.status == 'completed'",
+                "true_target": "download_signed",
+                "false_target": "handle_incomplete",
+            },
+        },
+        {
+            "id": "handle_incomplete",
+            "type": "task",
+            "name": "Handle Incomplete Signing",
+            "description": "Process declined or voided envelopes",
+            "config": {
+                "task_type": "function",
+                "function_name": "handle_signing_failure",
+            },
+        },
+        {
+            "id": "download_signed",
+            "type": "connector",
+            "name": "Download Signed Document",
+            "description": "Download fully executed contract from DocuSign",
+            "config": {
+                "connector": "docusign",
+                "operation": "download_document",
+                "params": {
+                    "envelope_id": "{envelope.envelope_id}",
+                    "document_id": "combined",
+                },
+                "output_key": "signed_document",
+            },
+        },
+        {
+            "id": "download_certificate",
+            "type": "connector",
+            "name": "Download Signing Certificate",
+            "description": "Download certificate of completion",
+            "config": {
+                "connector": "docusign",
+                "operation": "download_certificate",
+                "params": {
+                    "envelope_id": "{envelope.envelope_id}",
+                },
+                "output_key": "signing_certificate",
+            },
+        },
+        {
+            "id": "archive_contract",
+            "type": "memory_write",
+            "name": "Archive Executed Contract",
+            "description": "Store signed contract in knowledge base",
+            "config": {
+                "domain": "legal/contracts/executed",
+                "metadata": {
+                    "envelope_id": "{envelope.envelope_id}",
+                    "signed_date": "{envelope.completed_at}",
+                    "signers": "{envelope.recipients}",
+                },
+                "retention_years": 10,
+            },
+        },
+        {
+            "id": "notify_stakeholders",
+            "type": "task",
+            "name": "Notify Stakeholders",
+            "description": "Send notifications about completed signing",
+            "config": {
+                "task_type": "notify",
+                "channels": ["email", "slack"],
+                "template": "contract_signed_notification",
+            },
+        },
+    ],
+    "transitions": [
+        {"from": "document_preparation", "to": "contract_review"},
+        {"from": "contract_review", "to": "signature_placement"},
+        {"from": "signature_placement", "to": "legal_approval"},
+        {"from": "legal_approval", "to": "create_envelope", "condition": "approved"},
+        {"from": "legal_approval", "to": "document_preparation", "condition": "rejected"},
+        {"from": "create_envelope", "to": "monitor_status"},
+        {"from": "monitor_status", "to": "status_check"},
+        {"from": "status_check", "to": "handle_incomplete", "condition": "incomplete"},
+        {"from": "status_check", "to": "download_signed", "condition": "completed"},
+        {"from": "download_signed", "to": "download_certificate"},
+        {"from": "download_certificate", "to": "archive_contract"},
+        {"from": "archive_contract", "to": "notify_stakeholders"},
+    ],
+}

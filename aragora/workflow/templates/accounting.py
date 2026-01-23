@@ -394,3 +394,241 @@ SOX_COMPLIANCE_TEMPLATE: Dict[str, Any] = {
         {"from": "generate_report", "to": "archive"},
     ],
 }
+
+# =============================================================================
+# Bank Reconciliation Workflow (Plaid + QBO Integration)
+# =============================================================================
+
+BANK_RECONCILIATION_TEMPLATE: Dict[str, Any] = {
+    "name": "Bank Reconciliation",
+    "description": "Automated bank-to-book reconciliation with Plaid and QuickBooks integration",
+    "category": "accounting",
+    "version": "1.0",
+    "tags": ["accounting", "reconciliation", "plaid", "qbo", "banking"],
+    "connectors": ["plaid", "qbo"],
+    "steps": [
+        {
+            "id": "define_period",
+            "type": "task",
+            "name": "Define Reconciliation Period",
+            "description": "Set start and end dates for reconciliation",
+            "config": {
+                "task_type": "validate",
+                "validation_rules": [
+                    "start_date_valid",
+                    "end_date_valid",
+                    "period_not_future",
+                ],
+            },
+        },
+        {
+            "id": "fetch_bank_transactions",
+            "type": "connector",
+            "name": "Fetch Bank Transactions",
+            "description": "Retrieve bank transactions from Plaid",
+            "config": {
+                "connector": "plaid",
+                "operation": "get_transactions",
+                "params": {
+                    "start_date": "{start_date}",
+                    "end_date": "{end_date}",
+                    "account_ids": "{selected_accounts}",
+                },
+                "output_key": "bank_transactions",
+            },
+        },
+        {
+            "id": "fetch_book_transactions",
+            "type": "connector",
+            "name": "Fetch Book Transactions",
+            "description": "Retrieve transactions from QuickBooks",
+            "config": {
+                "connector": "qbo",
+                "operation": "list_transactions",
+                "params": {
+                    "start_date": "{start_date}",
+                    "end_date": "{end_date}",
+                    "transaction_types": ["Invoice", "Expense", "Payment", "Transfer"],
+                },
+                "output_key": "book_transactions",
+            },
+        },
+        {
+            "id": "auto_match",
+            "type": "task",
+            "name": "Automated Matching",
+            "description": "Run automated transaction matching algorithm",
+            "config": {
+                "task_type": "function",
+                "function_name": "reconciliation_auto_match",
+                "params": {
+                    "bank_txns": "{bank_transactions}",
+                    "book_txns": "{book_transactions}",
+                    "tolerance_days": 3,
+                    "tolerance_amount": 0.01,
+                },
+                "output_key": "match_results",
+            },
+        },
+        {
+            "id": "check_discrepancies",
+            "type": "decision",
+            "name": "Check for Discrepancies",
+            "description": "Determine if there are unmatched transactions",
+            "config": {
+                "condition": "match_results.discrepancy_count > 0",
+                "true_target": "discrepancy_analysis",
+                "false_target": "generate_report",
+            },
+        },
+        {
+            "id": "discrepancy_analysis",
+            "type": "debate",
+            "name": "Discrepancy Analysis",
+            "description": "Multi-agent analysis of unmatched transactions",
+            "config": {
+                "agents": ["financial_auditor", "forensic_accountant", "internal_auditor"],
+                "rounds": 2,
+                "topic_template": "Analyze reconciliation discrepancies: {match_results.discrepancies}",
+            },
+        },
+        {
+            "id": "categorize_transactions",
+            "type": "debate",
+            "name": "Categorize Unmatched Transactions",
+            "description": "Determine proper categorization for unmatched bank transactions",
+            "config": {
+                "agents": ["financial_auditor", "tax_specialist"],
+                "rounds": 1,
+                "topic_template": "Suggest QBO account categorization for: {match_results.unmatched_bank}",
+            },
+        },
+        {
+            "id": "create_entries_decision",
+            "type": "decision",
+            "name": "Auto-Create Entries Decision",
+            "description": "Decide whether to auto-create QBO entries for unmatched bank transactions",
+            "config": {
+                "condition": "auto_create_entries_enabled and categorization_confidence >= 0.85",
+                "true_target": "create_qbo_entries",
+                "false_target": "accountant_review",
+            },
+        },
+        {
+            "id": "create_qbo_entries",
+            "type": "connector",
+            "name": "Create QBO Entries",
+            "description": "Create journal entries in QuickBooks for matched bank transactions",
+            "config": {
+                "connector": "qbo",
+                "operation": "create_journal_entries",
+                "params": {
+                    "entries": "{categorized_transactions}",
+                },
+                "output_key": "created_entries",
+            },
+        },
+        {
+            "id": "accountant_review",
+            "type": "human_checkpoint",
+            "name": "Accountant Review",
+            "description": "Manual review of discrepancies by staff accountant",
+            "config": {
+                "approval_type": "review",
+                "required_role": "staff_accountant",
+                "checklist": [
+                    "Review unmatched bank transactions",
+                    "Review unmatched book transactions",
+                    "Approve suggested categorizations",
+                    "Flag suspicious activity",
+                ],
+            },
+        },
+        {
+            "id": "anomaly_check",
+            "type": "decision",
+            "name": "Anomaly Detection Check",
+            "description": "Check for suspicious transactions",
+            "config": {
+                "condition": "any(t.is_anomaly for t in bank_transactions)",
+                "true_target": "fraud_investigation",
+                "false_target": "controller_approval",
+            },
+        },
+        {
+            "id": "fraud_investigation",
+            "type": "debate",
+            "name": "Fraud Investigation",
+            "description": "Multi-agent investigation of suspicious transactions",
+            "config": {
+                "agents": ["forensic_accountant", "internal_auditor", "compliance_officer"],
+                "rounds": 3,
+                "topic_template": "Investigate potential fraud: {anomalous_transactions}",
+                "urgent": True,
+            },
+        },
+        {
+            "id": "controller_approval",
+            "type": "human_checkpoint",
+            "name": "Controller Approval",
+            "description": "Final approval from accounting controller",
+            "config": {
+                "approval_type": "sign_off",
+                "required_role": "controller",
+                "checklist": [
+                    "All discrepancies resolved or explained",
+                    "Bank balance matches book balance",
+                    "No unexplained variances",
+                ],
+            },
+        },
+        {
+            "id": "generate_report",
+            "type": "task",
+            "name": "Generate Reconciliation Report",
+            "description": "Generate formal bank reconciliation report",
+            "config": {
+                "task_type": "transform",
+                "template": "bank_reconciliation_report",
+            },
+        },
+        {
+            "id": "archive",
+            "type": "memory_write",
+            "name": "Archive Reconciliation",
+            "description": "Store reconciliation in knowledge base",
+            "config": {
+                "domain": "accounting/reconciliation",
+                "retention_years": 7,
+            },
+        },
+    ],
+    "transitions": [
+        {"from": "define_period", "to": "fetch_bank_transactions"},
+        {"from": "fetch_bank_transactions", "to": "fetch_book_transactions"},
+        {"from": "fetch_book_transactions", "to": "auto_match"},
+        {"from": "auto_match", "to": "check_discrepancies"},
+        {
+            "from": "check_discrepancies",
+            "to": "discrepancy_analysis",
+            "condition": "has_discrepancies",
+        },
+        {"from": "check_discrepancies", "to": "generate_report", "condition": "no_discrepancies"},
+        {"from": "discrepancy_analysis", "to": "categorize_transactions"},
+        {"from": "categorize_transactions", "to": "create_entries_decision"},
+        {"from": "create_entries_decision", "to": "create_qbo_entries", "condition": "auto_create"},
+        {
+            "from": "create_entries_decision",
+            "to": "accountant_review",
+            "condition": "manual_review",
+        },
+        {"from": "create_qbo_entries", "to": "accountant_review"},
+        {"from": "accountant_review", "to": "anomaly_check"},
+        {"from": "anomaly_check", "to": "fraud_investigation", "condition": "anomalies_found"},
+        {"from": "anomaly_check", "to": "controller_approval", "condition": "no_anomalies"},
+        {"from": "fraud_investigation", "to": "controller_approval"},
+        {"from": "controller_approval", "to": "generate_report", "condition": "approved"},
+        {"from": "controller_approval", "to": "accountant_review", "condition": "rejected"},
+        {"from": "generate_report", "to": "archive"},
+    ],
+}

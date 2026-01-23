@@ -456,3 +456,278 @@ INFRASTRUCTURE_AUDIT_TEMPLATE: Dict[str, Any] = {
         {"from": "generate_report", "to": "store"},
     ],
 }
+
+# =============================================================================
+# PagerDuty Incident Management Workflow
+# =============================================================================
+
+PAGERDUTY_INCIDENT_WORKFLOW_TEMPLATE: Dict[str, Any] = {
+    "name": "PagerDuty Incident Management",
+    "description": "End-to-end incident management with PagerDuty integration",
+    "category": "devops",
+    "version": "1.0",
+    "tags": ["devops", "incident", "pagerduty", "alerting", "on-call"],
+    "connectors": ["pagerduty"],
+    "steps": [
+        {
+            "id": "receive_alert",
+            "type": "task",
+            "name": "Receive Alert",
+            "description": "Receive and parse incoming alert/finding",
+            "config": {
+                "task_type": "transform",
+                "input_key": "alert_data",
+                "output_key": "parsed_alert",
+            },
+        },
+        {
+            "id": "severity_assessment",
+            "type": "debate",
+            "name": "Severity Assessment",
+            "description": "Multi-agent assessment of incident severity",
+            "config": {
+                "agents": ["sre", "security_engineer", "devops_engineer"],
+                "rounds": 1,
+                "topic_template": "Assess severity of alert: {parsed_alert}",
+            },
+        },
+        {
+            "id": "urgency_decision",
+            "type": "decision",
+            "name": "Determine Urgency",
+            "description": "Route based on urgency level",
+            "config": {
+                "condition": "assessed_severity in ['critical', 'high']",
+                "true_target": "create_high_urgency_incident",
+                "false_target": "create_low_urgency_incident",
+            },
+        },
+        {
+            "id": "create_high_urgency_incident",
+            "type": "connector",
+            "name": "Create High Urgency Incident",
+            "description": "Create PagerDuty incident with high urgency",
+            "config": {
+                "connector": "pagerduty",
+                "operation": "create_incident",
+                "params": {
+                    "title": "{parsed_alert.title}",
+                    "service_id": "{service_id}",
+                    "urgency": "high",
+                    "body": "{parsed_alert.description}",
+                    "escalation_policy_id": "{escalation_policy}",
+                },
+                "output_key": "incident",
+            },
+        },
+        {
+            "id": "create_low_urgency_incident",
+            "type": "connector",
+            "name": "Create Low Urgency Incident",
+            "description": "Create PagerDuty incident with low urgency",
+            "config": {
+                "connector": "pagerduty",
+                "operation": "create_incident",
+                "params": {
+                    "title": "{parsed_alert.title}",
+                    "service_id": "{service_id}",
+                    "urgency": "low",
+                    "body": "{parsed_alert.description}",
+                },
+                "output_key": "incident",
+            },
+        },
+        {
+            "id": "get_on_call",
+            "type": "connector",
+            "name": "Get On-Call Responder",
+            "description": "Identify current on-call responder",
+            "config": {
+                "connector": "pagerduty",
+                "operation": "get_on_call",
+                "params": {
+                    "schedule_ids": "{on_call_schedules}",
+                },
+                "output_key": "on_call_responder",
+            },
+        },
+        {
+            "id": "add_context_note",
+            "type": "connector",
+            "name": "Add Context Note",
+            "description": "Add AI-generated context note to incident",
+            "config": {
+                "connector": "pagerduty",
+                "operation": "add_note",
+                "params": {
+                    "incident_id": "{incident.id}",
+                    "content": "AI Analysis:\n{severity_assessment_result}\n\nSuggested Actions:\n{suggested_actions}",
+                },
+            },
+        },
+        {
+            "id": "root_cause_investigation",
+            "type": "debate",
+            "name": "Root Cause Investigation",
+            "description": "Multi-agent root cause analysis",
+            "config": {
+                "agents": ["sre", "devops_engineer", "architect"],
+                "rounds": 3,
+                "topic_template": "Investigate root cause: {incident.title}\nContext: {incident_logs} {metrics}",
+            },
+        },
+        {
+            "id": "add_rca_note",
+            "type": "connector",
+            "name": "Add RCA Note",
+            "description": "Document root cause analysis findings",
+            "config": {
+                "connector": "pagerduty",
+                "operation": "add_note",
+                "params": {
+                    "incident_id": "{incident.id}",
+                    "content": "Root Cause Analysis:\n{rca_findings}",
+                },
+            },
+        },
+        {
+            "id": "mitigation_planning",
+            "type": "debate",
+            "name": "Mitigation Planning",
+            "description": "Generate mitigation strategies",
+            "config": {
+                "agents": ["sre", "devops_engineer", "security_engineer"],
+                "rounds": 2,
+                "topic_template": "Generate mitigation plan for: {rca_findings}",
+            },
+        },
+        {
+            "id": "human_approval",
+            "type": "human_checkpoint",
+            "name": "Mitigation Approval",
+            "description": "Incident commander approval for mitigation",
+            "config": {
+                "approval_type": "sign_off",
+                "required_role": "incident_commander",
+                "checklist": [
+                    "Root cause identified and documented",
+                    "Mitigation plan reviewed",
+                    "Rollback plan available",
+                    "Customer communication prepared",
+                ],
+            },
+        },
+        {
+            "id": "execute_mitigation",
+            "type": "task",
+            "name": "Execute Mitigation",
+            "description": "Apply mitigation steps",
+            "config": {
+                "task_type": "function",
+                "function_name": "execute_mitigation_plan",
+            },
+        },
+        {
+            "id": "verify_resolution",
+            "type": "task",
+            "name": "Verify Resolution",
+            "description": "Verify incident is resolved via health checks",
+            "config": {
+                "task_type": "function",
+                "function_name": "run_health_checks",
+                "output_key": "health_status",
+            },
+        },
+        {
+            "id": "resolution_check",
+            "type": "decision",
+            "name": "Resolution Check",
+            "description": "Verify incident is fully resolved",
+            "config": {
+                "condition": "health_status.all_healthy == True",
+                "true_target": "resolve_incident",
+                "false_target": "root_cause_investigation",
+            },
+        },
+        {
+            "id": "resolve_incident",
+            "type": "connector",
+            "name": "Resolve PagerDuty Incident",
+            "description": "Mark incident as resolved in PagerDuty",
+            "config": {
+                "connector": "pagerduty",
+                "operation": "resolve",
+                "params": {
+                    "incident_id": "{incident.id}",
+                    "resolution_note": "Resolved via mitigation plan.\n\nRoot Cause: {rca_findings}\nResolution: {mitigation_summary}",
+                },
+            },
+        },
+        {
+            "id": "postmortem_generation",
+            "type": "debate",
+            "name": "Generate Postmortem",
+            "description": "Create blameless postmortem document",
+            "config": {
+                "agents": ["sre", "technical_writer", "architect"],
+                "rounds": 2,
+                "topic_template": "Generate postmortem for incident {incident.incident_number}: {incident_timeline}",
+            },
+        },
+        {
+            "id": "action_items",
+            "type": "debate",
+            "name": "Generate Action Items",
+            "description": "Identify follow-up action items",
+            "config": {
+                "agents": ["sre", "product_manager", "engineering_lead"],
+                "rounds": 1,
+                "topic_template": "Generate action items from postmortem",
+            },
+        },
+        {
+            "id": "store_incident",
+            "type": "memory_write",
+            "name": "Archive Incident Record",
+            "description": "Store incident data in knowledge base",
+            "config": {
+                "domain": "devops/incidents",
+                "metadata": {
+                    "pagerduty_id": "{incident.id}",
+                    "incident_number": "{incident.incident_number}",
+                    "severity": "{assessed_severity}",
+                    "mttr_minutes": "{resolution_time_minutes}",
+                },
+            },
+        },
+    ],
+    "transitions": [
+        {"from": "receive_alert", "to": "severity_assessment"},
+        {"from": "severity_assessment", "to": "urgency_decision"},
+        {
+            "from": "urgency_decision",
+            "to": "create_high_urgency_incident",
+            "condition": "high_urgency",
+        },
+        {
+            "from": "urgency_decision",
+            "to": "create_low_urgency_incident",
+            "condition": "low_urgency",
+        },
+        {"from": "create_high_urgency_incident", "to": "get_on_call"},
+        {"from": "create_low_urgency_incident", "to": "get_on_call"},
+        {"from": "get_on_call", "to": "add_context_note"},
+        {"from": "add_context_note", "to": "root_cause_investigation"},
+        {"from": "root_cause_investigation", "to": "add_rca_note"},
+        {"from": "add_rca_note", "to": "mitigation_planning"},
+        {"from": "mitigation_planning", "to": "human_approval"},
+        {"from": "human_approval", "to": "execute_mitigation", "condition": "approved"},
+        {"from": "execute_mitigation", "to": "verify_resolution"},
+        {"from": "verify_resolution", "to": "resolution_check"},
+        {"from": "resolution_check", "to": "root_cause_investigation", "condition": "not_resolved"},
+        {"from": "resolution_check", "to": "resolve_incident", "condition": "resolved"},
+        {"from": "resolve_incident", "to": "postmortem_generation"},
+        {"from": "postmortem_generation", "to": "action_items"},
+        {"from": "action_items", "to": "store_incident"},
+    ],
+}
