@@ -43,7 +43,16 @@ class TestConnectorTypes:
 
     def test_connector_categories(self):
         """Test that connectors have valid categories."""
-        valid_categories = {"git", "documents", "database", "collaboration", "healthcare"}
+        valid_categories = {
+            "accounting",
+            "collaboration",
+            "database",
+            "devops",
+            "documents",
+            "git",
+            "healthcare",
+            "legal",
+        }
         for connector_id, config in CONNECTOR_TYPES.items():
             category = config.get("category")
             assert category in valid_categories, f"{connector_id} has invalid category: {category}"
