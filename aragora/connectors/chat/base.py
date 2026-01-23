@@ -20,6 +20,7 @@ from typing import Any, Optional
 
 from .models import (
     BotCommand,
+    ChannelContext,
     ChatChannel,
     ChatEvidence,
     ChatMessage,
@@ -906,6 +907,122 @@ class ChatPlatformConnector(ABC):
 
         matches = sum(1 for kw in keywords if kw in text_lower)
         return matches / len(keywords)
+
+    # ==========================================================================
+    # Channel Context for Deliberation
+    # ==========================================================================
+
+    async def fetch_context(
+        self,
+        channel_id: str,
+        lookback_minutes: int = 60,
+        max_messages: int = 50,
+        include_participants: bool = True,
+        thread_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> "ChannelContext":
+        """
+        Fetch recent context from a channel for deliberation.
+
+        This method retrieves recent messages and participants from a channel
+        to provide context for multi-agent deliberations. It's used by the
+        orchestration handler to auto-fetch context before starting debates.
+
+        Args:
+            channel_id: Channel to fetch context from
+            lookback_minutes: How far back to look for messages (default: 60)
+            max_messages: Maximum messages to retrieve (default: 50)
+            include_participants: Whether to extract participant info (default: True)
+            thread_id: Optional thread/conversation to focus on
+            **kwargs: Platform-specific options
+
+        Returns:
+            ChannelContext with messages and metadata
+
+        Example:
+            context = await slack.fetch_context("C123456", lookback_minutes=30)
+            deliberation_context = context.to_context_string()
+        """
+        from datetime import datetime, timedelta
+        from .models import ChannelContext
+
+        warnings = []
+
+        # Get channel info
+        channel = await self.get_channel_info(channel_id)
+        if not channel:
+            # Create a basic channel object if lookup failed
+            channel = ChatChannel(
+                id=channel_id,
+                platform=self.platform_name,
+            )
+            warnings.append(f"Could not fetch channel info for {channel_id}")
+
+        # Calculate timestamp for lookback
+        oldest_time = datetime.utcnow() - timedelta(minutes=lookback_minutes)
+
+        # Platform-specific oldest timestamp conversion
+        oldest_str = self._format_timestamp_for_api(oldest_time)
+
+        # Fetch messages
+        messages = await self.get_channel_history(
+            channel_id=channel_id,
+            limit=max_messages,
+            oldest=oldest_str,
+            **kwargs,
+        )
+
+        # Extract participants
+        participants = []
+        if include_participants and messages:
+            seen_users: dict[str, ChatUser] = {}
+            for msg in messages:
+                if msg.author.id not in seen_users:
+                    seen_users[msg.author.id] = msg.author
+            participants = list(seen_users.values())
+
+        # Calculate timestamps
+        oldest_timestamp = None
+        newest_timestamp = None
+        if messages:
+            oldest_timestamp = min(m.timestamp for m in messages)
+            newest_timestamp = max(m.timestamp for m in messages)
+
+        context = ChannelContext(
+            channel=channel,
+            messages=messages,
+            participants=participants,
+            oldest_timestamp=oldest_timestamp,
+            newest_timestamp=newest_timestamp,
+            message_count=len(messages),
+            participant_count=len(participants),
+            warnings=warnings,
+            metadata={
+                "lookback_minutes": lookback_minutes,
+                "max_messages": max_messages,
+                "thread_id": thread_id,
+            },
+        )
+
+        logger.debug(
+            f"Fetched context from {self.platform_name} channel {channel_id}: "
+            f"{len(messages)} messages, {len(participants)} participants"
+        )
+
+        return context
+
+    def _format_timestamp_for_api(self, timestamp: Any) -> Optional[str]:
+        """
+        Format a datetime for the platform's API.
+
+        Override in subclasses for platform-specific formatting.
+        Default returns ISO format.
+        """
+        from datetime import datetime
+
+        if isinstance(timestamp, datetime):
+            return timestamp.isoformat()
+        return str(timestamp) if timestamp else None
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(platform={self.platform_name})"

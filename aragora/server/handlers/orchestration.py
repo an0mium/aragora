@@ -639,9 +639,10 @@ class OrchestrationHandler(BaseHandler):
         """Fetch context from a knowledge source."""
         source_type = source.source_type.lower()
 
-        # Slack channel context
-        if source_type == "slack":
-            return await self._fetch_slack_context(source)
+        # Chat platform channels (Slack, Teams, Discord, Telegram, WhatsApp)
+        chat_platforms = {"slack", "teams", "discord", "telegram", "whatsapp", "google_chat"}
+        if source_type in chat_platforms:
+            return await self._fetch_chat_context(source_type, source)
 
         # Confluence page
         if source_type == "confluence":
@@ -662,34 +663,33 @@ class OrchestrationHandler(BaseHandler):
         logger.warning(f"Unknown knowledge source type: {source_type}")
         return None
 
-    async def _fetch_slack_context(self, source: KnowledgeContextSource) -> Optional[str]:
-        """Fetch recent messages from a Slack channel."""
+    async def _fetch_chat_context(
+        self, platform: str, source: KnowledgeContextSource
+    ) -> Optional[str]:
+        """
+        Fetch context from any chat platform using the registry.
+
+        Supports: Slack, Teams, Discord, Telegram, WhatsApp, Google Chat.
+        """
         try:
             from aragora.connectors.chat.registry import get_connector
 
-            connector = get_connector("slack")
-            if connector and hasattr(connector, "fetch_context"):
-                ctx = await connector.fetch_context(
-                    source.source_id,
-                    lookback_minutes=source.lookback_minutes,
-                    max_messages=source.max_items,
-                )
-                return ctx.content if ctx else None
+            connector = get_connector(platform)
+            if connector is None:
+                logger.warning(f"No {platform} connector available")
+                return None
 
-            # Fallback: Use Slack API directly
-            from aragora.connectors.slack import SlackConnector
-
-            slack = SlackConnector()
-            messages = await slack.get_channel_history(
-                source.source_id,
-                limit=source.max_items,
+            ctx = await connector.fetch_context(
+                channel_id=source.source_id,
+                lookback_minutes=source.lookback_minutes,
+                max_messages=source.max_items,
             )
-            if messages:
-                return "\n".join(
-                    f"{m.get('user', 'unknown')}: {m.get('text', '')}" for m in messages
-                )
+            if ctx and ctx.messages:
+                return ctx.to_context_string(max_messages=source.max_items)
+
+            return None
         except Exception as e:
-            logger.warning(f"Failed to fetch Slack context: {e}")
+            logger.warning(f"Failed to fetch {platform} context: {e}")
         return None
 
     async def _fetch_confluence_context(self, source: KnowledgeContextSource) -> Optional[str]:

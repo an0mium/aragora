@@ -322,6 +322,89 @@ class ChatEvidence:
             "metadata": self.metadata,
         }
 
+
+@dataclass
+class ChannelContext:
+    """
+    Context fetched from a chat channel for deliberation.
+
+    Used by the orchestration handler to auto-fetch context from
+    channels before starting a deliberation.
+    """
+
+    channel: ChatChannel
+    messages: list[ChatMessage] = field(default_factory=list)
+    participants: list[ChatUser] = field(default_factory=list)
+
+    # Time range of fetched messages
+    oldest_timestamp: Optional[datetime] = None
+    newest_timestamp: Optional[datetime] = None
+
+    # Summary statistics
+    message_count: int = 0
+    participant_count: int = 0
+
+    # Any errors or warnings during fetch
+    warnings: list[str] = field(default_factory=list)
+
+    # Metadata
+    fetched_at: datetime = field(default_factory=datetime.utcnow)
+    metadata: dict = field(default_factory=dict)
+
+    def to_context_string(self, max_messages: int = 50) -> str:
+        """
+        Convert to a string suitable for deliberation context.
+
+        Args:
+            max_messages: Maximum messages to include in context
+        """
+        lines = [
+            f"# Channel Context: {self.channel.name or self.channel.id}",
+            f"Platform: {self.channel.platform}",
+            f"Messages: {len(self.messages)} (showing last {min(len(self.messages), max_messages)})",
+            f"Participants: {len(self.participants)}",
+            "",
+            "## Recent Messages",
+            "",
+        ]
+
+        for msg in self.messages[-max_messages:]:
+            timestamp = msg.timestamp.strftime("%Y-%m-%d %H:%M")
+            author = msg.author.display_name or msg.author.username or msg.author.id
+            lines.append(f"[{timestamp}] **{author}**: {msg.content}")
+
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
+        return {
+            "channel": {
+                "id": self.channel.id,
+                "platform": self.channel.platform,
+                "name": self.channel.name,
+            },
+            "messages": [m.to_dict() for m in self.messages],
+            "participants": [
+                {
+                    "id": p.id,
+                    "username": p.username,
+                    "display_name": p.display_name,
+                }
+                for p in self.participants
+            ],
+            "message_count": len(self.messages),
+            "participant_count": len(self.participants),
+            "oldest_timestamp": self.oldest_timestamp.isoformat()
+            if self.oldest_timestamp
+            else None,
+            "newest_timestamp": self.newest_timestamp.isoformat()
+            if self.newest_timestamp
+            else None,
+            "fetched_at": self.fetched_at.isoformat(),
+            "warnings": self.warnings,
+            "metadata": self.metadata,
+        }
+
     @classmethod
     def from_message(
         cls,

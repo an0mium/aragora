@@ -2258,5 +2258,20 @@ class SlackConnector(ChatPlatformConnector):
             self._circuit_breaker.record_failure()
         return []
 
+    def _format_timestamp_for_api(self, timestamp: Any) -> Optional[str]:
+        """
+        Format a datetime for Slack's API (Unix timestamp).
+
+        Slack uses Unix timestamps (seconds since epoch) for
+        the oldest/latest parameters in conversations.history.
+        """
+        if timestamp is None:
+            return None
+
+        if isinstance(timestamp, datetime):
+            return str(timestamp.timestamp())
+
+        return str(timestamp)
+
 
 __all__ = ["SlackConnector"]
