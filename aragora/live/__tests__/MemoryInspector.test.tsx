@@ -391,7 +391,7 @@ describe('MemoryInspector', () => {
     });
 
     it('shows loading state during consolidation', async () => {
-      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      mockFetch.mockImplementation((url: string, _options?: RequestInit) => {
         if (url.includes('/api/memory/tier-stats')) {
           return Promise.resolve({ ok: true, json: () => Promise.resolve(mockTierStats) });
         }
@@ -460,7 +460,7 @@ describe('MemoryInspector', () => {
     });
 
     it('shows error on consolidation failure', async () => {
-      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      mockFetch.mockImplementation((url: string, _options?: RequestInit) => {
         if (url.includes('/api/memory/tier-stats')) {
           return Promise.resolve({ ok: true, json: () => Promise.resolve(mockTierStats) });
         }

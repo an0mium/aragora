@@ -11,7 +11,7 @@
  */
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { WorkspaceManager, type Workspace, type WorkspaceMember } from '../src/components/control-plane/WorkspaceManager/WorkspaceManager';
+import { WorkspaceManager, type Workspace } from '../src/components/control-plane/WorkspaceManager/WorkspaceManager';
 import type { Workspace as HookWorkspace } from '../src/hooks/useWorkspaces';
 
 // Mock the useWorkspaces hook

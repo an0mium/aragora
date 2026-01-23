@@ -14,7 +14,7 @@ interface FunctionMetrics {
   nested_depth: number;
 }
 
-interface FileMetrics {
+interface _FileMetrics {
   file_path: string;
   language: string;
   lines_of_code: number;
@@ -204,7 +204,7 @@ const getMIColor = (mi: number): string => {
 
 export function MetricsDashboard({
   apiBase,
-  workspaceId,
+  workspaceId: _workspaceId,
   repositoryId,
   authToken,
 }: MetricsDashboardProps) {

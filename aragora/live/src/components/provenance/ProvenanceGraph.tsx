@@ -81,7 +81,7 @@ const NODE_RADIUS: Record<NodeType, number> = {
   synthesis: 16,
 };
 
-const NODE_ICONS: Record<NodeType, string> = {
+const _NODE_ICONS: Record<NodeType, string> = {
   question: '?',
   agent: '',
   argument: '',
@@ -107,8 +107,8 @@ export function ProvenanceGraph({
   const [selectedNode, setSelectedNode] = useState<ProvenanceNode | null>(null);
   const [hoveredNode, setHoveredNode] = useState<ProvenanceNode | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, _setZoom] = useState(1);
+  const [pan, _setPan] = useState({ x: 0, y: 0 });
 
   // Fetch provenance data
   const fetchProvenance = useCallback(async () => {
@@ -403,7 +403,7 @@ export function ProvenanceGraph({
           ? 'Provenance chain verified successfully!'
           : `Verification failed: ${result.errors?.join(', ') || 'Unknown error'}`
       );
-    } catch (err) {
+    } catch {
       alert('Failed to verify provenance chain');
     }
   };
@@ -554,7 +554,7 @@ export function ProvenanceGraph({
             const color = NODE_COLORS[node.type] || '#6b7280';
             const isSelected = selectedNode?.id === node.id;
             const isHovered = hoveredNode?.id === node.id;
-            const isExpanded = expandedNodes.has(node.id);
+            const _isExpanded = expandedNodes.has(node.id);
 
             return (
               <g

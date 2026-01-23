@@ -80,9 +80,9 @@ export function PriorityInboxList({
   authToken,
   emails: controlledEmails,
   loading: controlledLoading,
-  selectedId,
-  onSelect,
-  onRefresh,
+  selectedId: _selectedId,
+  onSelect: _onSelect,
+  onRefresh: _onRefresh,
 }: PriorityInboxListProps) {
   // Use controlled mode if emails are provided
   const isControlled = controlledEmails !== undefined;

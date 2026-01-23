@@ -111,7 +111,7 @@ export function DependencySecurityPanel({
       } else {
         setError(data.message || 'Analysis failed');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to analyze dependencies');
     } finally {
       setLoading(false);
@@ -138,7 +138,7 @@ export function DependencySecurityPanel({
       } else {
         setError(data.message || 'Scan failed');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to scan for vulnerabilities');
     } finally {
       setLoading(false);
@@ -165,7 +165,7 @@ export function DependencySecurityPanel({
       } else {
         setError(data.message || 'License check failed');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to check licenses');
     } finally {
       setLoading(false);
@@ -196,7 +196,7 @@ export function DependencySecurityPanel({
       } else {
         setError(data.message || 'SBOM generation failed');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to generate SBOM');
     } finally {
       setLoading(false);

@@ -8,7 +8,7 @@
  * - Framework and violation callbacks
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { PolicyDashboard } from '../src/components/control-plane/PolicyDashboard/PolicyDashboard';
 
 // Mock the hooks - resolve immediately with empty data to trigger fallback

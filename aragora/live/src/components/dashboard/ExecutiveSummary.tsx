@@ -45,7 +45,7 @@ interface ExecutiveSummaryProps {
 }
 
 export function ExecutiveSummary({
-  apiBase = API_BASE_URL,
+  apiBase: _apiBase = API_BASE_URL,
   refreshInterval = 30000,
 }: ExecutiveSummaryProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);

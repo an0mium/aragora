@@ -125,13 +125,13 @@ export function SecurityScanWizard() {
       } else {
         throw new Error(data.error || 'Scan failed');
       }
-    } catch (err) {
+    } catch {
       // Use mock data for demo
       await simulateScan();
     }
   }, [config]);
 
-  const pollForResult = async (scanId: string) => {
+  const pollForResult = async (_scanId: string) => {
     const maxAttempts = 60; // 5 minutes max
     let attempts = 0;
 

@@ -94,7 +94,7 @@ test.describe('Workflow Builder Page', () => {
 
         // Should have at least one node on canvas
         await page.waitForTimeout(500);
-        const nodes = page.locator('.react-flow__node');
+        const _nodes = page.locator('.react-flow__node');
         // Node count might vary based on interaction
       }
     }
@@ -179,7 +179,7 @@ test.describe('Workflow Templates', () => {
 
       // Canvas should update with template nodes
       await page.waitForTimeout(500);
-      const nodes = page.locator('.react-flow__node');
+      const _nodes = page.locator('.react-flow__node');
       // Template should add nodes
     }
   });

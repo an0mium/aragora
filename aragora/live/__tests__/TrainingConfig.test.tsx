@@ -11,7 +11,7 @@
  */
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { TrainingConfig, type TrainingParameters } from '../src/components/control-plane/FineTuning/TrainingConfig';
+import { TrainingConfig } from '../src/components/control-plane/FineTuning/TrainingConfig';
 import type { AvailableModel } from '../src/components/control-plane/FineTuning/ModelSelector';
 
 const mockModel: AvailableModel = {

@@ -146,7 +146,7 @@ export function TriageRulesPanel({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [editingRule, setEditingRule] = useState<TriageRule | null>(null);
+  const [_editingRule, setEditingRule] = useState<TriageRule | null>(null);
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
 
   // New rule form state

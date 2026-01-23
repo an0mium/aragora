@@ -75,7 +75,7 @@ test.describe('WebSocket Connectivity', () => {
     let wsConnected = false;
 
     // Listen for WebSocket connections
-    page.on('websocket', (ws) => {
+    page.on('websocket', (_ws) => {
       wsConnected = true;
     });
 

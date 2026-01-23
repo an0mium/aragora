@@ -26,7 +26,7 @@ interface SharedInboxWidgetProps {
 export function SharedInboxWidget({
   apiBase,
   authToken,
-  userId = 'me',
+  userId: _userId = 'me',
   compact = false,
   refreshInterval = 60000,
 }: SharedInboxWidgetProps) {

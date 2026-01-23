@@ -99,7 +99,7 @@ test.describe('Single Debate View', () => {
     const messages = page.locator('[data-testid="message"], .message, [role="log"]');
 
     // Either messages exist or loading/error state
-    const hasMessages = await messages.count() > 0;
+    const _hasMessages = await messages.count() > 0;
     const hasContent = await page.locator('main').isVisible();
 
     expect(hasContent).toBeTruthy();

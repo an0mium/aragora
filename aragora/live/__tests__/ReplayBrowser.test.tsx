@@ -11,7 +11,7 @@
  * - Navigation between views
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ReplayBrowser } from '../src/components/ReplayBrowser';
 
 // Mock fetch
@@ -82,7 +82,7 @@ const mockReplayDetail = {
 };
 
 function setupSuccessfulFetch() {
-  mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+  mockFetch.mockImplementation((url: string, _options?: RequestInit) => {
     if (url.includes('/api/replays/') && url.includes('/fork')) {
       return Promise.resolve({
         ok: true,

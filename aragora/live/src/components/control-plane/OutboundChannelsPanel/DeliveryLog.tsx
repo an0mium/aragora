@@ -39,7 +39,7 @@ const CHANNEL_ICONS: Record<OutboundChannelType, string> = {
   webhook: '🔗',
 };
 
-function getStatusColor(status: DeliveryStatus): string {
+function _getStatusColor(status: DeliveryStatus): string {
   switch (status) {
     case 'delivered':
       return 'text-acid-green';

@@ -1,4 +1,4 @@
-import { test, expect, AragoraPage } from './fixtures';
+import { test, expect } from './fixtures';
 
 /**
  * E2E tests for the Aragora homepage and navigation.

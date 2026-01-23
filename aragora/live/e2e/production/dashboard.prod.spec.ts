@@ -282,7 +282,7 @@ test.describe('Dashboard - live.aragora.ai', () => {
       expect(loadTime).toBeLessThan(5000);
     });
 
-    test('should be interactive quickly', async ({ page, productionPage }) => {
+    test('should be interactive quickly', async ({ _page, productionPage }) => {
       const startTime = Date.now();
 
       await productionPage.goto(PRODUCTION_DOMAINS.dashboard);

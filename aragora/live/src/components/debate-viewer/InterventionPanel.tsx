@@ -42,7 +42,7 @@ export function InterventionPanel({
   const [injection, setInjection] = useState('');
   const [injecting, setInjecting] = useState(false);
   const [pauseLoading, setPauseLoading] = useState(false);
-  const [showWeights, setShowWeights] = useState(false);
+  const [_showWeights, _setShowWeights] = useState(false);
   const [agentWeights, setAgentWeights] = useState<AgentWeight[]>(
     agents.map((agent) => ({ agent, weight: 1.0 }))
   );

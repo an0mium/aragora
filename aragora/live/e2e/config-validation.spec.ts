@@ -59,11 +59,11 @@ test.describe('Configuration Validation', () => {
 
   test.describe('API Configuration', () => {
     test('should use configured API URL', async ({ page }) => {
-      let apiUrl: string | null = null;
+      let _apiUrl: string | null = null;
 
       // Intercept API calls to capture the URL being used
       await page.route('**/api/**', async (route) => {
-        apiUrl = route.request().url();
+        _apiUrl = route.request().url();
         await route.continue();
       });
 
@@ -168,7 +168,7 @@ test.describe('Configuration Validation', () => {
       expect(Array.isArray(logs)).toBe(true);
     });
 
-    test('should not use localhost in production config', async ({ page, aragoraPage }) => {
+    test('should not use localhost in production config', async ({ page, _aragoraPage }) => {
       // Get the configured API URL from the page
       const config = await page.evaluate(() => {
         // Try to read from window config if exposed

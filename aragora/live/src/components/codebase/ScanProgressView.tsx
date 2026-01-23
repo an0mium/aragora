@@ -121,7 +121,7 @@ export function ScanProgressView({ scanType }: ScanProgressViewProps) {
         {phases.map((phase, index) => {
           const isComplete = index < currentPhase;
           const isCurrent = index === currentPhase;
-          const isPending = index > currentPhase;
+          const _isPending = index > currentPhase;
 
           return (
             <div

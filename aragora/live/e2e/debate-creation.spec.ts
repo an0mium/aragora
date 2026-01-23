@@ -1,4 +1,4 @@
-import { test, expect, mockApiResponse, mockDebate, mockAgents } from './fixtures';
+import { test, expect, mockApiResponse, mockAgents } from './fixtures';
 
 // Check if we're on live.aragora.ai which shows dashboard instead of landing
 const isLiveProduction = () => {
@@ -219,7 +219,7 @@ test.describe('Debate Creation', () => {
 });
 
 test.describe('Debate Creation - Keyboard Navigation', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ _page }) => {
     // Skip on live.aragora.ai - shows dashboard not landing page
     test.skip(isLiveProduction(), 'Debate creation form only on landing page');
   });

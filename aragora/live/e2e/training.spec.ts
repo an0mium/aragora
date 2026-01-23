@@ -60,7 +60,7 @@ const mockFormats = {
 };
 
 // Mock export result
-const mockExportResult = {
+const _mockExportResult = {
   export_type: 'sft',
   total_records: 50,
   parameters: { min_confidence: 0.7, min_success_rate: 0.6, limit: 100 },

@@ -9,7 +9,7 @@ import { test, expect } from './fixtures';
 
 // Skip mode selection tests on live.aragora.ai - shows dashboard not landing page
 test.describe('Matrix Debate Mode Selection', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ _page }) => {
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || '';
     test.skip(baseUrl.includes('live.aragora.ai'), 'Mode selection only available on landing page');
   });
@@ -90,7 +90,7 @@ test.describe('Matrix Debate Mode Selection', () => {
 });
 
 test.describe('Matrix Debate Creation', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ _page }) => {
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || '';
     test.skip(baseUrl.includes('live.aragora.ai'), 'Debate creation only available on landing page');
   });
@@ -180,7 +180,7 @@ test.describe('Matrix Grid Display', () => {
 
     // Look for grid elements
     const grid = page.locator('[data-testid="scenario-grid"], .scenario-grid, table, [role="grid"]');
-    const hasGrid = await grid.isVisible().catch(() => false);
+    const _hasGrid = await grid.isVisible().catch(() => false);
 
     // Grid may only be visible when a matrix is selected
     expect(true).toBeTruthy(); // Page loads without error
@@ -208,7 +208,7 @@ test.describe('Matrix Grid Display', () => {
 
     // Look for percentage indicators
     const percentages = page.locator(':text("%")');
-    const hasPercentages = await percentages.count() > 0;
+    const _hasPercentages = await percentages.count() > 0;
 
     // Percentages should be present when matrix has results
     expect(true).toBeTruthy(); // Page loads
@@ -229,7 +229,7 @@ test.describe('Matrix Scenario Details', () => {
 
       // Should show details panel
       const detailsPanel = page.locator('[data-testid="scenario-details"], .scenario-details, [role="dialog"]');
-      const hasDetails = await detailsPanel.isVisible().catch(() => false);
+      const _hasDetails = await detailsPanel.isVisible().catch(() => false);
 
       // Details may appear
       expect(true).toBeTruthy();
@@ -245,7 +245,7 @@ test.describe('Matrix Filtering', () => {
 
     // Look for filter controls
     const filterSection = page.locator(':text("filter"), [data-testid="filters"], .filters');
-    const hasFilters = await filterSection.isVisible().catch(() => false);
+    const _hasFilters = await filterSection.isVisible().catch(() => false);
 
     // Filters should be present
     expect(true).toBeTruthy();
@@ -258,7 +258,7 @@ test.describe('Matrix Filtering', () => {
 
     // Look for consensus filter
     const consensusFilter = page.locator('input[type="checkbox"], [role="checkbox"]').filter({ hasText: /consensus/i });
-    const hasFilter = await consensusFilter.isVisible().catch(() => false);
+    const _hasFilter = await consensusFilter.isVisible().catch(() => false);
 
     expect(true).toBeTruthy();
   });
@@ -270,7 +270,7 @@ test.describe('Matrix Filtering', () => {
 
     // Look for confidence slider
     const slider = page.locator('input[type="range"], [role="slider"]');
-    const hasSlider = await slider.isVisible().catch(() => false);
+    const _hasSlider = await slider.isVisible().catch(() => false);
 
     expect(true).toBeTruthy();
   });
@@ -292,7 +292,7 @@ test.describe('Matrix Comparison Mode', () => {
 
       // Look for compare button
       const compareButton = page.getByRole('button', { name: /compare/i });
-      const hasCompare = await compareButton.isVisible().catch(() => false);
+      const _hasCompare = await compareButton.isVisible().catch(() => false);
 
       expect(true).toBeTruthy();
     }
@@ -307,7 +307,7 @@ test.describe('Matrix Statistics', () => {
 
     // Look for scenario count
     const count = page.locator(':text("scenario")');
-    const hasCount = await count.isVisible().catch(() => false);
+    const _hasCount = await count.isVisible().catch(() => false);
 
     expect(true).toBeTruthy();
   });
@@ -319,7 +319,7 @@ test.describe('Matrix Statistics', () => {
 
     // Look for consensus rate
     const rate = page.locator(':text("consensus"), :text("rate")');
-    const hasRate = await rate.isVisible().catch(() => false);
+    const _hasRate = await rate.isVisible().catch(() => false);
 
     expect(true).toBeTruthy();
   });
@@ -388,7 +388,7 @@ test.describe('Matrix Export', () => {
 
     // Look for export functionality
     const exportButton = page.getByRole('button', { name: /export/i });
-    const hasExport = await exportButton.isVisible().catch(() => false);
+    const _hasExport = await exportButton.isVisible().catch(() => false);
 
     expect(true).toBeTruthy();
   });
@@ -402,7 +402,7 @@ test.describe('Matrix Refresh', () => {
 
     const refreshButton = page.getByRole('button', { name: /refresh/i });
     // Refresh button may or may not be visible depending on page design
-    const hasRefresh = await refreshButton.isVisible().catch(() => false);
+    const _hasRefresh = await refreshButton.isVisible().catch(() => false);
     const mainContent = page.locator('main').first();
     await expect(mainContent).toBeVisible();
     // Test passes if page loads (refresh is optional)

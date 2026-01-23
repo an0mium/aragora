@@ -112,7 +112,7 @@ test.describe('Plugin Marketplace', () => {
         hasText: /install/i
       }).first();
 
-      const hasInstall = await installButton.isVisible({ timeout: 3000 }).catch(() => false);
+      const _hasInstall = await installButton.isVisible({ timeout: 3000 }).catch(() => false);
       // Test passes if page renders (install button may not exist)
       expect(true).toBeTruthy();
     }

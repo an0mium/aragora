@@ -275,7 +275,7 @@ type TabType = 'overview' | 'vulnerabilities' | 'dependencies' | 'hotspots';
 
 export function SecurityDashboard({
   apiBase,
-  workspaceId,
+  workspaceId: _workspaceId,
   repositoryId,
   authToken,
 }: SecurityDashboardProps) {

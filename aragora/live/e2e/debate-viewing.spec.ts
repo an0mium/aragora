@@ -3,7 +3,7 @@ import { test, expect, mockApiResponse, mockDebate } from './fixtures';
 test.describe('Debate Viewing', () => {
   const debateId = 'test-debate-123';
 
-  test.beforeEach(async ({ page, aragoraPage }) => {
+  test.beforeEach(async ({ page, _aragoraPage }) => {
     // Mock debate data endpoint
     await mockApiResponse(page, `**/api/debates/${debateId}`, mockDebate);
     await mockApiResponse(page, '**/api/health', { status: 'ok' });

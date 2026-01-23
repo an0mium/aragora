@@ -26,7 +26,7 @@ interface FollowUpPanelProps {
 }
 
 export function FollowUpPanel({
-  userId = 'default',
+  userId: _userId = 'default',
   onEmailSelect,
   onRefresh,
   className = '',
@@ -52,7 +52,7 @@ export function FollowUpPanel({
       } else {
         setError(data.message || 'Failed to load follow-ups');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to connect to server');
     } finally {
       setLoading(false);
@@ -76,7 +76,7 @@ export function FollowUpPanel({
         await fetchFollowups();
         onRefresh?.();
       }
-    } catch (err) {
+    } catch {
       setError('Failed to resolve follow-up');
     } finally {
       setResolving(null);
@@ -94,7 +94,7 @@ export function FollowUpPanel({
         await fetchFollowups();
         onRefresh?.();
       }
-    } catch (err) {
+    } catch {
       setError('Failed to check replies');
     } finally {
       setLoading(false);
@@ -114,7 +114,7 @@ export function FollowUpPanel({
         await fetchFollowups();
         onRefresh?.();
       }
-    } catch (err) {
+    } catch {
       setError('Failed to auto-detect');
     } finally {
       setLoading(false);

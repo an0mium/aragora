@@ -153,7 +153,7 @@ export function SharedInboxView({
   const [messages, setMessages] = useState<SharedInboxMessage[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<SharedInboxMessage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<MessageStatus | 'all'>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [showRulesPanel, setShowRulesPanel] = useState(false);

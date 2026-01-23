@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { PanelTemplate } from '@/components/shared/PanelTemplate';
 import { useApi } from '@/hooks/useApi';
 import { useBackend } from '@/components/BackendSelector';
-import { IngestionStatusCard, type ConnectorIngestionStatus, type IngestionStatus } from './IngestionStatusCard';
+import { IngestionStatusCard, type ConnectorIngestionStatus } from './IngestionStatusCard';
 import { KnowledgeAgeHistogram, type AgeDistribution } from './KnowledgeAgeHistogram';
 import { logger } from '@/utils/logger';
 

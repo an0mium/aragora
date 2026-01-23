@@ -18,7 +18,7 @@ interface SnoozedEmail {
   is_due: boolean;
 }
 
-interface SnoozeRecommendation {
+interface _SnoozeRecommendation {
   email_id: string;
   suggestions: SnoozeSuggestion[];
   recommended: SnoozeSuggestion | null;
@@ -89,7 +89,7 @@ export function SnoozePanel({
         // Use default suggestions if API fails
         setDefaultSuggestions();
       }
-    } catch (err) {
+    } catch {
       setDefaultSuggestions();
     } finally {
       setLoading(false);
@@ -171,7 +171,7 @@ export function SnoozePanel({
       } else {
         setError(data.message || 'Failed to apply snooze');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to apply snooze');
     } finally {
       setApplying(false);
@@ -372,13 +372,13 @@ interface SnoozedEmailsListProps {
 }
 
 export function SnoozedEmailsList({
-  userId = 'default',
+  userId: _userId = 'default',
   onWake,
   className = '',
 }: SnoozedEmailsListProps) {
   const [snoozed, setSnoozed] = useState<SnoozedEmail[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
 
   const fetchSnoozed = useCallback(async () => {
     try {
@@ -388,7 +388,7 @@ export function SnoozedEmailsList({
       if (data.status === 'success') {
         setSnoozed(data.data.snoozed);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load snoozed emails');
     } finally {
       setLoading(false);
@@ -409,7 +409,7 @@ export function SnoozedEmailsList({
         onWake?.(emailId);
         fetchSnoozed();
       }
-    } catch (err) {
+    } catch {
       setError('Failed to cancel snooze');
     }
   };

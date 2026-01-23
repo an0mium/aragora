@@ -38,7 +38,7 @@ const CONNECTOR_ICONS: Record<string, string> = {
   fhir: '🏥',
 };
 
-function getStatusColor(status: IngestionStatus): string {
+function _getStatusColor(status: IngestionStatus): string {
   switch (status) {
     case 'complete':
       return 'text-acid-green';

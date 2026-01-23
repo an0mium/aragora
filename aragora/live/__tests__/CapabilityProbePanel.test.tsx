@@ -332,7 +332,7 @@ describe('CapabilityProbePanel', () => {
     });
 
     it('shows loading state during probe', async () => {
-      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      mockFetch.mockImplementation((url: string, _options?: RequestInit) => {
         if (url.includes('/api/leaderboard')) {
           return Promise.resolve({
             ok: true,
@@ -481,7 +481,7 @@ describe('CapabilityProbePanel', () => {
 
   describe('Error Handling', () => {
     it('shows error on probe failure', async () => {
-      mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      mockFetch.mockImplementation((url: string, _options?: RequestInit) => {
         if (url.includes('/api/leaderboard')) {
           return Promise.resolve({
             ok: true,

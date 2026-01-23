@@ -38,7 +38,7 @@ interface Entity {
   };
 }
 
-interface GraphEntity {
+interface _GraphEntity {
   id: string;
   name: string;
   kind: string;

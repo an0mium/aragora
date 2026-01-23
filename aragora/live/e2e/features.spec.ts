@@ -1,4 +1,4 @@
-import { test, expect, selectors } from './fixtures';
+import { test, expect } from './fixtures';
 
 /**
  * E2E tests for feature availability and integration.

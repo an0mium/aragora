@@ -128,7 +128,7 @@ export function VerticalSelector({
 }: VerticalSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [suggestedVertical, setSuggestedVertical] = useState<string | null>(null);
-  const [loadingBackend, setLoadingBackend] = useState(false);
+  const [_loadingBackend, setLoadingBackend] = useState(false);
 
   // Get selected vertical config
   const currentVertical = INDUSTRY_VERTICALS.find(v => v.id === selectedVertical) || INDUSTRY_VERTICALS[0];

@@ -9,7 +9,7 @@ import { test, expect } from './fixtures';
 
 // Skip mode selection tests on live.aragora.ai - shows dashboard not landing page
 test.describe('Graph Debate Mode Selection', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ _page }) => {
     // Skip these tests on live.aragora.ai (dashboard instead of landing page)
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || '';
     test.skip(baseUrl.includes('live.aragora.ai'), 'Mode selection only available on landing page');
@@ -71,7 +71,7 @@ test.describe('Graph Debate Mode Selection', () => {
 });
 
 test.describe('Graph Debate Creation', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ _page }) => {
     // Skip on live.aragora.ai - shows dashboard not landing page
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || '';
     test.skip(baseUrl.includes('live.aragora.ai'), 'Debate creation only available on landing page');
@@ -165,8 +165,8 @@ test.describe('Graph Debate Visualization Page', () => {
     const graphContainer = page.locator('[data-testid="graph-container"]');
 
     // SVG or container should be present (even if empty)
-    const hasSvg = await svg.isVisible().catch(() => false);
-    const hasContainer = await graphContainer.isVisible().catch(() => false);
+    const _hasSvg = await svg.isVisible().catch(() => false);
+    const _hasContainer = await graphContainer.isVisible().catch(() => false);
 
     // Either visualization elements exist or page is in list mode
     expect(true).toBeTruthy(); // Page loads without error
@@ -186,8 +186,8 @@ test.describe('Graph Debate Interaction', () => {
 
     // These may only be visible when a debate is selected
     const hasZoomIn = await zoomIn.isVisible().catch(() => false);
-    const hasZoomOut = await zoomOut.isVisible().catch(() => false);
-    const hasReset = await reset.isVisible().catch(() => false);
+    const _hasZoomOut = await zoomOut.isVisible().catch(() => false);
+    const _hasReset = await reset.isVisible().catch(() => false);
 
     // If controls exist, they should be functional
     if (hasZoomIn) {
@@ -204,7 +204,7 @@ test.describe('Graph Debate Interaction', () => {
 
     const refreshButton = page.getByRole('button', { name: /refresh/i });
     // Refresh button may or may not be visible depending on page state
-    const hasRefresh = await refreshButton.isVisible().catch(() => false);
+    const _hasRefresh = await refreshButton.isVisible().catch(() => false);
     expect(true).toBeTruthy(); // Page loads
   });
 
@@ -219,7 +219,7 @@ test.describe('Graph Debate Interaction', () => {
     );
 
     // Status should be present somewhere
-    const hasStatus = await connectionStatus.isVisible().catch(() => false);
+    const _hasStatus = await connectionStatus.isVisible().catch(() => false);
     expect(true).toBeTruthy(); // Page loads without error
   });
 });
@@ -258,7 +258,7 @@ test.describe('Graph Debate Branch Filtering', () => {
     const branchFilter = page.locator('[data-testid="branch-filter"], :text("branches"), select, [role="listbox"]');
 
     // This is conditional on having a multi-branch debate loaded
-    const hasBranchFilter = await branchFilter.isVisible().catch(() => false);
+    const _hasBranchFilter = await branchFilter.isVisible().catch(() => false);
     expect(true).toBeTruthy(); // No crash is a pass
   });
 });

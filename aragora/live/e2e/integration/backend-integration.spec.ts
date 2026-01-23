@@ -7,11 +7,11 @@
  * Run with: npm run test:e2e:integration
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 // Backend API configuration
 const API_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8080';
-const WS_URL = process.env.PLAYWRIGHT_WS_URL || 'ws://localhost:8765';
+const _WS_URL = process.env.PLAYWRIGHT_WS_URL || 'ws://localhost:8765';
 
 // Helper to check if backend is available
 async function isBackendAvailable(): Promise<boolean> {
@@ -155,7 +155,7 @@ test.describe('WebSocket Integration', () => {
     });
 
     await page.goto('/');
-    const received = await heartbeatReceived;
+    const _received = await heartbeatReceived;
     // Heartbeat is optional, just verify connection works
     expect(true).toBeTruthy();
   });

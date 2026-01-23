@@ -405,7 +405,7 @@ test.describe('Navigation Link Consistency', () => {
         console.log(`  [${status}] ${link.text} -> ${url}`);
 
         expect(status).toBeLessThan(400);
-      } catch (error) {
+      } catch {
         console.log(`  [ERR] ${link.text} -> ${url}`);
         // Don't fail on timeout, just log
       }

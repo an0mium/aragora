@@ -1,4 +1,4 @@
-import { test, expect, AragoraPage } from './fixtures';
+import { test, expect } from './fixtures';
 
 test.describe('Landing Page', () => {
   test.beforeEach(async ({ page, aragoraPage }) => {
@@ -118,7 +118,7 @@ test.describe('Landing Page - CRT Effects', () => {
     await aragoraPage.dismissAllOverlays();
 
     // Check for scanlines element (usually a div with specific styling)
-    const scanlines = page.locator('[class*="scanline"], [class*="Scanline"]').first();
+    const _scanlines = page.locator('[class*="scanline"], [class*="Scanline"]').first();
     // Scanlines may be implemented differently, so we just check page renders
     await expect(page.locator('body')).toBeVisible();
   });

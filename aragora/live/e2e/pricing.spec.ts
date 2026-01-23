@@ -63,7 +63,7 @@ test.describe('Pricing Page', () => {
 
       // Should have some indication it's highlighted (border, background, or badge)
       const highlightBadge = page.locator('text=/popular|recommended|best value/i');
-      const hasHighlight = await highlightBadge.isVisible().catch(() => false);
+      const _hasHighlight = await highlightBadge.isVisible().catch(() => false);
 
       // At minimum, the plan should exist
       expect(await professionalCard.isVisible()).toBe(true);
@@ -137,9 +137,9 @@ test.describe('Pricing Page', () => {
       });
 
       // Mock checkout endpoint
-      let checkoutCalled = false;
+      let _checkoutCalled = false;
       await page.route('**/api/billing/checkout', async (route) => {
-        checkoutCalled = true;
+        _checkoutCalled = true;
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -272,7 +272,7 @@ test.describe('Pricing Page', () => {
       await aragoraPage.dismissAllOverlays();
 
       // May have link to billing dashboard
-      const billingLink = page.locator('a[href*="billing"]');
+      const _billingLink = page.locator('a[href*="billing"]');
       // This is optional - just check the page loads
       expect(await page.locator('body').isVisible()).toBe(true);
     });

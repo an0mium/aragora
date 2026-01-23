@@ -33,7 +33,7 @@ const DEFAULT_ACTION: Action = {
  * Visual builder for routing rules with IF/THEN logic.
  */
 export function RoutingRulesBuilder({
-  enableRealtime = true,
+  enableRealtime: _enableRealtime = true,
   className = '',
 }: RoutingRulesBuilderProps) {
   const { config: backendConfig } = useBackend();

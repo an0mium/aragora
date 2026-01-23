@@ -140,7 +140,7 @@ test.describe('Gauntlet Page', () => {
   test('should allow filtering by verdict', async ({ page }) => {
     // Find verdict filter buttons
     const passFilter = page.locator('button').filter({ hasText: /^PASS$/i }).first();
-    const failFilter = page.locator('button').filter({ hasText: /^FAIL$/i }).first();
+    const _failFilter = page.locator('button').filter({ hasText: /^FAIL$/i }).first();
 
     if (await passFilter.isVisible({ timeout: 2000 }).catch(() => false)) {
       await passFilter.click();

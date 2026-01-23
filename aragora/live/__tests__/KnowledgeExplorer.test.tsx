@@ -9,8 +9,7 @@
  * - Loading states
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import type { KnowledgeExplorerProps } from '../src/components/control-plane/KnowledgeExplorer/KnowledgeExplorer';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 
 // Mock the child components that use d3-force
 jest.mock('../src/components/control-plane/KnowledgeExplorer/GraphViewer', () => ({

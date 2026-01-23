@@ -1,6 +1,6 @@
 // Aragora Service Worker - Offline-first PWA support
 const CACHE_NAME = 'aragora-v1';
-const OFFLINE_URL = '/offline';
+const _OFFLINE_URL = '/offline';
 
 // Assets to cache immediately on install
 const PRECACHE_ASSETS = [
