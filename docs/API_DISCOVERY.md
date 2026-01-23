@@ -2,13 +2,18 @@
 
 > **Note:** For the complete API documentation, see **[API_REFERENCE.md](./API_REFERENCE.md)**. This guide focuses on powerful but underutilized endpoints that aren't yet integrated into the frontend.
 
-This guide documents powerful but underutilized API endpoints. These endpoints provide access to sophisticated capabilities that are fully implemented but not yet integrated into the frontend.
+This guide documents powerful but underutilized API endpoints. These endpoints
+provide access to capabilities that are implemented but not always integrated
+into the frontend. For control-plane deliberations and decision routing, see
+[CONTROL_PLANE_GUIDE.md](./CONTROL_PLANE_GUIDE.md) and
+[API_REFERENCE.md](./API_REFERENCE.md).
 
 ## Quick Reference
 
 | Endpoint | Category | Description |
 |----------|----------|-------------|
 | `GET /api/features/discover` | Discovery | List all available API endpoints |
+| `POST /api/control-plane/deliberations` | Control Plane | Run or queue deliberations programmatically |
 | `POST /api/verification/formal-verify` | Verification | Verify claims using Z3 SMT solver |
 | `GET /api/verify/history` | Verification | List verification history with pagination |
 | `GET /api/verify/history/{id}` | Verification | Get specific verification entry |
@@ -32,7 +37,7 @@ This guide documents powerful but underutilized API endpoints. These endpoints p
 
 Discover all available API endpoints with their categories, stability, and integration status.
 
-**Response:**
+**Response (counts vary by deployment):**
 ```json
 {
   "total_endpoints": 284,

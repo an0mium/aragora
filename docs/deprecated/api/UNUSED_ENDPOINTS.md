@@ -1,5 +1,8 @@
 # Unused API Endpoints
 
+> **Deprecated:** This inventory is historical. For current endpoint coverage,
+> see `docs/API_ENDPOINTS.md` and `docs/API_REFERENCE.md`.
+
 This document tracks API endpoints that are implemented but not yet used by the frontend.
 These are candidates for either:
 1. **UI Development** - Build frontend components to expose these features

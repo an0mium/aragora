@@ -6,21 +6,25 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 
 - [A2A](#a2a)
 - [Analytics](#analytics)
-- [AnalyticsDashboard](#analyticsdashboard)
+- [Analytics Dashboard](#analytics-dashboard)
+- [Audit Export](#audit-export)
+- [Audit Trail](#audit-trail)
 - [Auditing](#auditing)
 - [Belief](#belief)
 - [Breakpoints](#breakpoints)
 - [Checkpoints](#checkpoints)
 - [Composite](#composite)
 - [Consensus](#consensus)
+- [Control Plane](#control-plane)
 - [Critique](#critique)
 - [Cross Pollination](#cross-pollination)
 - [Decision](#decision)
+- [Deliberations](#deliberations)
 - [Docs](#docs)
 - [Email](#email)
 - [Evaluation](#evaluation)
 - [Explainability](#explainability)
-- [ExternalIntegrations](#externalintegrations)
+- [External Integrations](#external-integrations)
 - [Gallery](#gallery)
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
@@ -31,7 +35,9 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth](#oauth)
+- [Orchestration](#orchestration)
 - [Organizations](#organizations)
+- [Partner](#partner)
 - [Persona](#persona)
 - [Policy](#policy)
 - [Privacy](#privacy)
@@ -41,8 +47,8 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Reviews](#reviews)
 - [RLMContext](#rlmcontext)
 - [Selection](#selection)
-- [TemplateMarketplace](#templatemarketplace)
-- [Tournament](#tournament)
+- [Template Marketplace](#template-marketplace)
+- [Tournaments](#tournaments)
 - [Training](#training)
 - [Transcription](#transcription)
 - [Uncertainty](#uncertainty)
@@ -114,65 +120,109 @@ Get memory statistics
 
 ---
 
-## AnalyticsDashboard
+## Analytics Dashboard
 
-Handler for analytics dashboard endpoints.
+Analytics Dashboard endpoint handlers.
 
-### `GET` `/api/analytics/summary` 🔒
+### `GET` `/api/analytics/summary`
 
-Get flip detection summary for dashboard
+Dashboard summary
 
 ### `GET` `/api/analytics/trends/findings`
 
-GET /api/analytics/trends/findings
+Finding trends over time
 
-### `GET` `/api/analytics/remediation` 🔒
+### `GET` `/api/analytics/remediation`
 
-Get remediation performance metrics
+Remediation metrics
 
 ### `GET` `/api/analytics/agents`
 
-GET /api/analytics/agents
+Agent performance metrics
 
-### `GET` `/api/analytics/cost` 🔒
+### `GET` `/api/analytics/cost`
 
-Get cost analysis for audits
+Cost analysis
 
-### `GET` `/api/analytics/compliance` 🔒
+### `GET` `/api/analytics/compliance`
 
-Get compliance scorecard for specified frameworks
+Compliance scorecard
 
-### `GET` `/api/analytics/heatmap` 🔒
+### `GET` `/api/analytics/heatmap`
 
-Get risk heatmap data (category x severity)
+Risk heatmap data
 
-### `GET` `/api/analytics/tokens`
+### `GET` `/api/analytics/flips/summary`
 
-GET /api/analytics/tokens
+Flip detection summary
 
-### `GET` `/api/analytics/tokens/trends` 🔒
+### `GET` `/api/analytics/flips/recent`
 
-Get finding trends over time
+Recent flip events
 
-### `GET` `/api/analytics/tokens/providers`
+### `GET` `/api/analytics/flips/consistency`
 
-GET /api/analytics/tokens/providers
+Agent consistency scores
 
-### `GET` `/api/analytics/flips/summary` 🔒
+### `GET` `/api/analytics/flips/trends`
 
-Get flip detection summary for dashboard
+Flip trends over time
 
-### `GET` `/api/analytics/flips/recent` 🔒
+---
 
-Get recent flip events
+## Audit Export
 
-### `GET` `/api/analytics/flips/consistency` 🔒
+Audit Export API Handler.
 
-Get agent consistency scores
+### `GET` `/api/audit/events`
 
-### `GET` `/api/analytics/flips/trends` 🔒
+Query audit events
 
-Get finding trends over time
+### `GET` `/api/audit/stats`
+
+Audit log statistics
+
+### `POST` `/api/audit/export`
+
+Export audit log (JSON, CSV, SOC2)
+
+### `POST` `/api/audit/verify`
+
+Verify audit log integrity
+
+---
+
+## Audit Trail
+
+Audit Trail HTTP Handlers for Aragora.
+
+### `GET` `/api/v1/audit-trails`
+
+List recent audit trails
+
+### `GET` `/api/v1/audit-trails/:trail_id`
+
+Get specific audit trail
+
+### `GET` `/api/v1/audit-trails/:trail_id/export`
+
+Export (format=json|csv|md)
+
+### `POST` `/api/v1/audit-trails/:trail_id/verify`
+
+Verify integrity checksum
+
+### `GET` `/api/v1/receipts`
+
+List recent decision receipts
+
+### `GET` `/api/v1/receipts/:receipt_id`
+
+Get specific receipt
+
+### `POST` `/api/v1/receipts/:receipt_id/verify`
+
+Verify receipt integrity
 
 ---
 
@@ -276,17 +326,17 @@ Pause debate and create checkpoint
 
 Handler for composite API endpoints that aggregate multiple data sources.
 
-### `GET` `/api/debates/*/full-context`
+### `GET` `/api/v1/debates/*/full-context`
 
-GET /api/debates/*/full-context
+GET /api/v1/debates/*/full-context
 
-### `GET` `/api/agents/*/reliability`
+### `GET` `/api/v1/agents/*/reliability`
 
 Calculate overall reliability score (0-1)
 
-### `GET` `/api/debates/*/compression-analysis`
+### `GET` `/api/v1/debates/*/compression-analysis`
 
-GET /api/debates/*/compression-analysis
+GET /api/v1/debates/*/compression-analysis
 
 ---
 
@@ -321,6 +371,32 @@ Get risk warnings and edge cases
 ### `GET` `/api/consensus/domain/:domain`
 
 Get domain-specific history
+
+---
+
+## Control Plane
+
+Control Plane HTTP Handlers for Aragora.
+
+### `GET` `/api/control-plane/agents`
+
+List registered agents (also /api/v1/control-plane/agents)
+
+### `POST` `/api/control-plane/agents`
+
+Register an agent (also /api/v1/control-plane/agents)
+
+### `GET` `/api/control-plane/agents/:id`
+
+Get agent info (also /api/v1/control-plane/agents/:id)
+
+### `DELETE` `/api/control-plane/agents/:id`
+
+Unregister agent (also /api/v1/control-plane/agents/:id)
+
+### `POST` `/api/control-plane/agents/:id/heartbeat`
+
+Send heartbeat
 
 ---
 
@@ -372,13 +448,35 @@ Reset subscriber statistics
 
 Handler for unified decision-making API endpoints.
 
-### `GET` `/api/decisions`
+### `GET` `/api/v1/decisions`
 
 List recent decisions
 
-### `GET` `/api/decisions/*`
+### `GET` `/api/v1/decisions/*`
 
-GET /api/decisions/*
+GET /api/v1/decisions/*
+
+---
+
+## Deliberations
+
+Handler for deliberation dashboard endpoints.
+
+### `GET` `/api/v1/deliberations/active`
+
+Fetch active deliberations from the debate store
+
+### `GET` `/api/v1/deliberations/stats`
+
+Get deliberation statistics
+
+### `GET` `/api/v1/deliberations/stream`
+
+Handle WebSocket stream for real-time updates
+
+### `GET` `/api/v1/deliberations/{deliberation_id}`
+
+GET /api/v1/deliberations/{deliberation_id}
 
 ---
 
@@ -458,19 +556,19 @@ Update prioritization config
 
 Handler for LLM-as-Judge evaluation endpoints.
 
-### `GET` `/api/evaluate` 🔒
+### `GET` `/api/v1/evaluate` 🔒
+
+Evaluate a response using LLM-as-Judge
+
+### `GET` `/api/v1/evaluate/compare` 🔒
 
 Compare two responses using pairwise evaluation
 
-### `GET` `/api/evaluate/compare` 🔒
-
-Compare two responses using pairwise evaluation
-
-### `GET` `/api/evaluate/dimensions` 🔒
+### `GET` `/api/v1/evaluate/dimensions` 🔒
 
 List available evaluation dimensions
 
-### `GET` `/api/evaluate/profiles` 🔒
+### `GET` `/api/v1/evaluate/profiles` 🔒
 
 List available evaluation weight profiles
 
@@ -520,51 +618,91 @@ Get results of a completed batch job
 
 Compare explanations between multiple debates
 
-### `GET` `/api/debates/*/explanation`
+### `GET` `/api/v1/debates/*/explanation`
 
 Build explanation dictionary based on options
 
-### `GET` `/api/explain/*`
+### `GET` `/api/v1/explain/*`
 
-GET /api/explain/*
+GET /api/v1/explain/*
 
 ---
 
-## ExternalIntegrations
+## External Integrations
 
-Handler for external integration management.
+External Integrations API Handler.
+
+### `POST` `/api/integrations/zapier/apps`
+
+Create Zapier app
 
 ### `GET` `/api/integrations/zapier/apps`
 
-Handle POST /api/integrations/zapier/apps - create Zapier app
+List Zapier apps
+
+### `DELETE` `/api/integrations/zapier/apps/:id`
+
+Delete Zapier app
+
+### `POST` `/api/integrations/zapier/triggers`
+
+Subscribe to trigger
+
+### `DELETE` `/api/integrations/zapier/triggers/:id`
+
+Unsubscribe trigger
 
 ### `GET` `/api/integrations/zapier/triggers`
 
-Handle GET /api/integrations/zapier/triggers - list trigger types
+List trigger types
+
+### `POST` `/api/integrations/make/connections`
+
+Create Make connection
 
 ### `GET` `/api/integrations/make/connections`
 
-Handle POST /api/integrations/make/connections - create connection
+List Make connections
 
-### `GET` `/api/integrations/make/webhooks`
+### `DELETE` `/api/integrations/make/connections/:id`
 
-Handle POST /api/integrations/make/webhooks - register webhook
+Delete Make connection
+
+### `POST` `/api/integrations/make/webhooks`
+
+Register webhook
+
+### `DELETE` `/api/integrations/make/webhooks/:id`
+
+Unregister webhook
 
 ### `GET` `/api/integrations/make/modules`
 
-Handle GET /api/integrations/make/modules - list available modules
+List available modules
+
+### `POST` `/api/integrations/n8n/credentials`
+
+Create n8n credential
 
 ### `GET` `/api/integrations/n8n/credentials`
 
-Handle POST /api/integrations/n8n/credentials - create credential
+List n8n credentials
 
-### `GET` `/api/integrations/n8n/webhooks`
+### `DELETE` `/api/integrations/n8n/credentials/:id`
 
-Handle POST /api/integrations/n8n/webhooks - register webhook
+Delete n8n credential
+
+### `POST` `/api/integrations/n8n/webhooks`
+
+Register webhook
+
+### `DELETE` `/api/integrations/n8n/webhooks/:id`
+
+Unregister webhook
 
 ### `GET` `/api/integrations/n8n/nodes`
 
-Handle GET /api/integrations/n8n/nodes - get node definitions
+Get node definitions
 
 ---
 
@@ -590,31 +728,31 @@ Get embeddable debate summary
 
 Gauntlet endpoint handlers for adversarial stress-testing.
 
-### `POST` `/api/gauntlet/run` 🔒
+### `POST` `/api/gauntlet/run`
 
 Start a gauntlet stress-test
 
-### `GET` `/api/gauntlet/{id}` 🔒
+### `GET` `/api/gauntlet/{id}`
 
 Get gauntlet status/results
 
-### `GET` `/api/gauntlet/{id}/receipt` 🔒
+### `GET` `/api/gauntlet/{id}/receipt`
 
 Get decision receipt
 
-### `GET` `/api/gauntlet/{id}/heatmap` 🔒
+### `GET` `/api/gauntlet/{id}/heatmap`
 
 Get risk heatmap
 
-### `GET` `/api/gauntlet/personas` 🔒
+### `GET` `/api/gauntlet/personas`
 
 List available personas
 
-### `GET` `/api/gauntlet/results` 🔒
+### `GET` `/api/gauntlet/results`
 
 List recent results with pagination
 
-### `GET` `/api/gauntlet/{id}/compare/{id2}` 🔒
+### `GET` `/api/gauntlet/{id}/compare/{id2}`
 
 Compare two gauntlet runs
 
@@ -832,6 +970,28 @@ Unlink OAuth provider from account
 
 ---
 
+## Orchestration
+
+Unified Orchestration Handler for Aragora Control Plane.
+
+### `POST` `/api/v1/orchestration/deliberate`
+
+Unified deliberation endpoint
+
+### `GET` `/api/v1/orchestration/status/:id`
+
+Get deliberation status
+
+### `GET` `/api/v1/orchestration/templates`
+
+List available templates
+
+### `POST` `/api/v1/orchestration/deliberate/sync`
+
+Synchronous deliberation
+
+---
+
 ## Organizations
 
 Organization Management Handlers.
@@ -878,6 +1038,44 @@ Accept an invitation
 
 ---
 
+## Partner
+
+Partner API HTTP handlers.
+
+### `POST` `/api/partners/register`
+
+Register as a partner
+
+### `GET` `/api/partners/me`
+
+Get current partner profile
+
+### `POST` `/api/partners/keys`
+
+Create API key
+
+### `GET` `/api/partners/keys`
+
+List API keys
+
+### `DELETE` `/api/partners/keys/{key_id}`
+
+Revoke API key
+
+### `GET` `/api/partners/usage`
+
+Get usage statistics
+
+### `POST` `/api/partners/webhooks`
+
+Configure webhook
+
+### `GET` `/api/partners/limits`
+
+Get rate limits
+
+---
+
 ## Persona
 
 Persona-related endpoint handlers.
@@ -914,33 +1112,49 @@ Get position accuracy stats
 
 ## Policy
 
-Handler for policy and compliance endpoints.
+Policy and Compliance endpoint handlers.
 
 ### `GET` `/api/policies`
 
-List policies with optional filters
+List policies
 
-### `GET` `/api/policies/*`
+### `GET` `/api/policies/:id`
 
-GET /api/policies/*
+Get policy details
 
-### `GET` `/api/policies/*/toggle`
+### `POST` `/api/policies`
 
-Toggle a policy's enabled status
+Create policy
 
-### `GET` `/api/policies/*/violations`
+### `PATCH` `/api/policies/:id`
 
-Get violations for a specific policy
+Update policy
+
+### `DELETE` `/api/policies/:id`
+
+Delete policy
+
+### `POST` `/api/policies/:id/toggle`
+
+Toggle policy enabled status
+
+### `GET` `/api/policies/:id/violations`
+
+Get violations for a policy
 
 ### `GET` `/api/compliance/violations`
 
-Get violations for a specific policy
+List all violations
 
-### `GET` `/api/compliance/violations/*`
+### `GET` `/api/compliance/violations/:id`
 
-GET /api/compliance/violations/*
+Get violation details
 
-### `GET` `/api/compliance/check`
+### `PATCH` `/api/compliance/violations/:id`
+
+Update violation status
+
+### `POST` `/api/compliance/check`
 
 Run compliance check on content
 
@@ -1076,33 +1290,33 @@ List recent reviews
 
 Handler for RLM context compression and query endpoints.
 
-### `GET` `/api/rlm/stats`
+### `GET` `/api/v1/rlm/stats`
 
-GET /api/rlm/stats
+GET /api/v1/rlm/stats
 
-### `GET` `/api/rlm/strategies`
+### `GET` `/api/v1/rlm/strategies`
 
-GET /api/rlm/strategies
+GET /api/v1/rlm/strategies
 
-### `GET` `/api/rlm/compress`
+### `GET` `/api/v1/rlm/compress`
 
 Get or create the hierarchical compressor using factory
 
-### `GET` `/api/rlm/query`
+### `GET` `/api/v1/rlm/query`
 
 Simple fallback query when full RLM is not available
 
-### `GET` `/api/rlm/contexts`
+### `GET` `/api/v1/rlm/contexts`
 
-GET /api/rlm/contexts
+GET /api/v1/rlm/contexts
 
-### `GET` `/api/rlm/stream`
+### `GET` `/api/v1/rlm/stream`
 
-GET /api/rlm/stream
+GET /api/v1/rlm/stream
 
-### `GET` `/api/rlm/stream/modes`
+### `GET` `/api/v1/rlm/stream/modes`
 
-GET /api/rlm/stream/modes
+GET /api/v1/rlm/stream/modes
 
 ---
 
@@ -1110,81 +1324,105 @@ GET /api/rlm/stream/modes
 
 Handler for selection plugin endpoints.
 
-### `GET` `/api/selection/plugins` 🔒
+### `GET` `/api/v1/selection/plugins` 🔒
 
 List all available selection plugins
 
-### `GET` `/api/selection/defaults` 🔒
+### `GET` `/api/v1/selection/defaults` 🔒
 
 Get default plugin configuration
 
-### `GET` `/api/selection/score` 🔒
+### `GET` `/api/v1/selection/score` 🔒
 
 Get information about a specific scorer
 
-### `GET` `/api/selection/team` 🔒
+### `GET` `/api/v1/selection/team` 🔒
 
 Get information about a specific team selector
 
 ---
 
-## TemplateMarketplace
+## Template Marketplace
 
-Handler for template marketplace API endpoints.
+Template Marketplace API Handler.
 
-### `GET` `/api/marketplace/templates` 🔒
+### `GET` `/api/marketplace/templates`
 
-List marketplace templates with search and filters
+Browse marketplace templates
 
-### `GET` `/api/marketplace/templates/*`
+### `GET` `/api/marketplace/templates/:id`
 
-GET /api/marketplace/templates/*
+Get marketplace template details
 
-### `GET` `/api/marketplace/featured` 🔒
+### `POST` `/api/marketplace/templates`
 
-Get featured marketplace templates
+Publish template to marketplace
 
-### `GET` `/api/marketplace/trending` 🔒
+### `POST` `/api/marketplace/templates/:id/rate`
 
-Get trending marketplace templates
+Rate a template
 
-### `GET` `/api/marketplace/categories` 🔒
+### `GET` `/api/marketplace/templates/:id/reviews`
 
-Get marketplace categories with counts
+Get template reviews
+
+### `POST` `/api/marketplace/templates/:id/reviews`
+
+Submit a review
+
+### `POST` `/api/marketplace/templates/:id/import`
+
+Import to workspace
+
+### `GET` `/api/marketplace/featured`
+
+Get featured templates
+
+### `GET` `/api/marketplace/trending`
+
+Get trending templates
+
+### `GET` `/api/marketplace/categories`
+
+Get marketplace categories
 
 ---
 
-## Tournament
+## Tournaments
 
-Handler for tournament-related endpoints.
+Tournament-related endpoint handlers.
 
-### `GET` `/api/tournaments` 🔒
+### `GET` `/api/tournaments`
 
-List all available tournaments
+List all tournaments
 
-### `GET` `/api/tournaments/*`
+### `POST` `/api/tournaments`
 
-GET /api/tournaments/*
+Create new tournament
 
-### `GET` `/api/tournaments/*/standings` 🔒
+### `GET` `/api/tournaments/{id}`
 
-Get current tournament standings
+Get tournament details
 
-### `GET` `/api/tournaments/*/bracket` 🔒
+### `GET` `/api/tournaments/{id}/standings`
 
-Get tournament bracket structure
+Get tournament standings
 
-### `GET` `/api/tournaments/*/matches` 🔒
+### `GET` `/api/tournaments/{id}/bracket`
 
-Get tournament match history
+Get bracket structure
 
-### `GET` `/api/tournaments/*/advance` 🔒
+### `GET` `/api/tournaments/{id}/matches`
 
-Advance tournament to next round (for elimination brackets)
+Get match history
 
-### `GET` `/api/tournaments/*/matches/*/result` 🔒
+### `POST` `/api/tournaments/{id}/advance`
 
-Record a match result
+Advance to next round
+
+### `POST` `/api/tournaments/{id}/matches/{match_id}/result`
+
+Record match result
 
 ---
 
@@ -1192,29 +1430,29 @@ Record a match result
 
 Handler for training data export endpoints.
 
-### `GET` `/api/training/export/sft`
+### `GET` `/api/v1/training/export/sft`
 
 Get or create SFT exporter
 
-### `GET` `/api/training/export/dpo`
+### `GET` `/api/v1/training/export/dpo`
 
 Get or create DPO exporter
 
-### `GET` `/api/training/export/gauntlet`
+### `GET` `/api/v1/training/export/gauntlet`
 
 Get or create Gauntlet exporter
 
-### `GET` `/api/training/stats`
+### `GET` `/api/v1/training/stats`
 
-GET /api/training/stats
+GET /api/v1/training/stats
 
-### `GET` `/api/training/formats`
+### `GET` `/api/v1/training/formats`
 
-GET /api/training/formats
+GET /api/v1/training/formats
 
-### `GET` `/api/training/jobs`
+### `GET` `/api/v1/training/jobs`
 
-GET /api/training/jobs
+GET /api/v1/training/jobs
 
 ---
 
@@ -1233,6 +1471,14 @@ Extract and transcribe audio from video
 ### `POST` `/api/transcription/youtube`
 
 Transcribe YouTube video
+
+### `GET` `/api/transcription/status/:id`
+
+Get transcription job status
+
+### `GET` `/api/transcription/config`
+
+Get supported formats and limits
 
 ---
 
@@ -1270,6 +1516,10 @@ List available verticals
 
 Get vertical config
 
+### `PUT` `/api/verticals/:id/config`
+
+Update vertical configuration
+
 ### `GET` `/api/verticals/:id/tools`
 
 Get vertical tools
@@ -1296,15 +1546,15 @@ Suggest vertical for a task
 
 Handler for webhook management API endpoints.
 
-### `GET` `/api/webhooks`
+### `GET` `/api/v1/webhooks`
 
-Handle DELETE /api/webhooks/:id - delete webhook
+Handle GET /api/webhooks - list all webhooks
 
-### `GET` `/api/webhooks/events`
+### `GET` `/api/v1/webhooks/events`
 
 Handle GET /api/webhooks/events - list available event types
 
-### `GET` `/api/webhooks/slo/status`
+### `GET` `/api/v1/webhooks/slo/status`
 
 Handle GET /api/webhooks/slo/status - get SLO webhook status
 
@@ -1336,29 +1586,29 @@ Execute a template
 
 HTTP request handler for workflow API endpoints.
 
-### `GET` `/api/workflows`
+### `GET` `/api/v1/workflows`
 
-Handle POST /api/workflows
+Handle GET /api/workflows
 
-### `GET` `/api/workflows/*`
+### `GET` `/api/v1/workflows/*`
 
-GET /api/workflows/*
+GET /api/v1/workflows/*
 
-### `GET` `/api/workflow-templates`
+### `GET` `/api/v1/workflow-templates`
 
-Handle GET /api/workflow-templates
+GET /api/v1/workflow-templates
 
-### `GET` `/api/workflow-approvals`
+### `GET` `/api/v1/workflow-approvals`
 
-Handle GET /api/workflow-approvals
+GET /api/v1/workflow-approvals
 
-### `GET` `/api/workflow-approvals/*`
+### `GET` `/api/v1/workflow-approvals/*`
 
-GET /api/workflow-approvals/*
+GET /api/v1/workflow-approvals/*
 
-### `GET` `/api/workflow-executions`
+### `GET` `/api/v1/workflow-executions`
 
-Handle GET /api/workflow-executions
+GET /api/v1/workflow-executions
 
 ---
 

@@ -161,7 +161,8 @@ regions:
 
 ## REST API
 
-The control plane exposes 27 REST endpoints for management.
+The control plane API is versioned under `/api/v1/control-plane` with legacy
+aliases under `/api/control-plane` for backward compatibility.
 
 ### Agent Endpoints
 
@@ -178,16 +179,34 @@ The control plane exposes 27 REST endpoints for management.
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/control-plane/tasks` | Submit a task |
-| `GET` | `/api/control-plane/tasks` | List tasks |
 | `GET` | `/api/control-plane/tasks/{id}` | Get task status |
-| `DELETE` | `/api/control-plane/tasks/{id}` | Cancel a task |
+| `POST` | `/api/control-plane/tasks/{id}/complete` | Complete a task |
+| `POST` | `/api/control-plane/tasks/{id}/fail` | Fail a task |
+| `POST` | `/api/control-plane/tasks/{id}/cancel` | Cancel a task |
+| `POST` | `/api/control-plane/tasks/claim` | Claim the next task |
+
+### Deliberation Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/control-plane/deliberations` | Run or queue a deliberation |
+| `GET` | `/api/control-plane/deliberations/{id}` | Get deliberation result |
+| `GET` | `/api/control-plane/deliberations/{id}/status` | Get deliberation status |
 
 ### Queue Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/control-plane/queues` | List queues |
-| `GET` | `/api/control-plane/queues/{name}/stats` | Queue statistics |
+| `GET` | `/api/control-plane/queue` | Pending and running tasks |
+
+### Health & Metrics Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/control-plane/health` | System health |
+| `GET` | `/api/control-plane/health/{agent_id}` | Agent health |
+| `GET` | `/api/control-plane/stats` | Scheduler and registry stats |
+| `GET` | `/api/control-plane/metrics` | Dashboard metrics |
 
 ---
 

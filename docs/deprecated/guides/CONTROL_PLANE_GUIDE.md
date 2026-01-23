@@ -1,5 +1,8 @@
 # Control Plane Guide
 
+> **Deprecated:** This guide is superseded by `docs/CONTROL_PLANE_GUIDE.md`.
+> Use the main guide for current endpoints and permissions.
+
 The Enterprise Control Plane provides centralized management for distributed Aragora deployments, including agent orchestration, task scheduling, and health monitoring.
 
 ## Overview

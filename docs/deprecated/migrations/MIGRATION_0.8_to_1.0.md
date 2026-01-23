@@ -1,5 +1,8 @@
 # Migration Guide: Aragora 0.8.x to 1.0.0
 
+> **Deprecated:** Historical migration guide for v0.8 -> v1.0. For current
+> upgrade paths, see `docs/MIGRATION.md` and `docs/MIGRATION_V1_TO_V2.md`.
+
 This guide covers upgrading from Aragora 0.8.x to 1.0.0. The upgrade is designed to be backwards-compatible, with deprecated features continuing to work until July 2026.
 
 ---

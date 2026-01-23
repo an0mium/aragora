@@ -57,6 +57,13 @@ await coordinator.shutdown()
 
 ### REST API
 
+All endpoints are available under `/api/v1/control-plane` with legacy aliases
+under `/api/control-plane`. Examples below use the legacy path for brevity.
+
+Authentication is required. Task and deliberation operations require the
+`controlplane:tasks` permission; agent registration and management require
+`controlplane:agents`.
+
 ```bash
 # Register an agent
 curl -X POST http://localhost:8080/api/control-plane/agents \

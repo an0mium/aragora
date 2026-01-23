@@ -1,6 +1,8 @@
 # Aragora Documentation
 
-Welcome to Aragora's documentation. This index helps you find the right documentation for your needs.
+Welcome to Aragora's documentation. The `docs/` directory is the canonical
+source. The published site in `docs-site/` is synced from these files via
+`docs-site/scripts/sync-docs.js`.
 
 ## Quick Start
 
@@ -19,6 +21,8 @@ Welcome to Aragora's documentation. This index helps you find the right document
 | [REASONING](./REASONING.md) | Belief networks, provenance, and claims |
 | [WORKFLOW_ENGINE](./WORKFLOW_ENGINE.md) | DAG-based workflow execution |
 | [RESILIENCE](./RESILIENCE.md) | Circuit breaker and fault tolerance |
+| [CONTROL_PLANE](./CONTROL_PLANE.md) | Control plane architecture |
+| [CONTROL_PLANE_GUIDE](./CONTROL_PLANE_GUIDE.md) | Control plane operations guide |
 
 ## Using Aragora
 
@@ -141,16 +145,10 @@ Welcome to Aragora's documentation. This index helps you find the right document
 
 ## Archived/Historical Documents
 
-These documents are kept for historical reference but may contain outdated information:
+Deprecated and historical documents live under `docs/deprecated/`. These are
+kept for reference but are no longer maintained.
 
-| Document | Status | Notes |
-|----------|--------|-------|
-| [DATABASE_CONSOLIDATION](./DATABASE_CONSOLIDATION.md) | Historical | Migration complete, see DATABASE.md |
-| [GAUNTLET_GUIDE](./GAUNTLET_GUIDE.md) | Superseded | Content merged into GAUNTLET.md |
-| [GAUNTLET_ARCHITECTURE](./GAUNTLET_ARCHITECTURE.md) | Reference | Technical details, see GAUNTLET.md for usage |
-| [SECURITY_AUDIT](./SECURITY_AUDIT.md) | Historical | Point-in-time audit results |
-| [REFACTORING](./REFACTORING.md) | Historical | Completed refactoring notes |
-| [POSITIONING](./POSITIONING.md) | Marketing | Internal marketing document |
+See [docs/deprecated/README.md](./deprecated/README.md) for the full index.
 
 ---
 
@@ -159,6 +157,8 @@ These documents are kept for historical reference but may contain outdated infor
 - [OpenAPI Specification (YAML)](./api/openapi.yaml)
 - [OpenAPI Specification (JSON)](./api/openapi.json)
 - [Interactive Docs](./index.html) - Swagger UI
+  - `openapi.yaml` is JSON-formatted for compatibility; regenerate with
+    `python scripts/export_openapi.py --output-dir docs/api`.
 
 ---
 

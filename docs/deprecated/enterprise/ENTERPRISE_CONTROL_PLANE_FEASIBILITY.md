@@ -3,6 +3,9 @@
 
 **January 2026 - Updated Assessment**
 
+> **Deprecated:** Historical feasibility study. For current guidance, see
+> `docs/CONTROL_PLANE.md` and `docs/CONTROL_PLANE_GUIDE.md`.
+
 ---
 
 ## Executive Summary

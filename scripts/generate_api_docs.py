@@ -79,13 +79,13 @@ def extract_endpoints_from_module_docstring(module) -> list[tuple[str, str, str]
         return []
 
     endpoints = []
-    match = re.search(r"Endpoints:\s*\n((?:- [A-Z]+ /\S+.*\n?)+)", docstring)
+    match = re.search(r"Endpoints:\s*\n((?:\s*-?\s*[A-Z]+\s+/\S+.*\n?)+)", docstring)
     if not match:
         return []
 
     endpoint_block = match.group(1)
     for line in endpoint_block.strip().split("\n"):
-        endpoint_match = re.match(r"^-\s*([A-Z]+)\s+(/\S+)\s*(?:-\s*(.*))?$", line.strip())
+        endpoint_match = re.match(r"^\s*-?\s*([A-Z]+)\s+(/\S+)\s*(?:-\s*(.*))?$", line)
         if endpoint_match:
             method = endpoint_match.group(1)
             path = endpoint_match.group(2)

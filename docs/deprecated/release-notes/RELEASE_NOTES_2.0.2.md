@@ -1,5 +1,8 @@
 # Aragora 2.0.2 Release Notes
 
+> **Deprecated:** Historical release notes. See `docs/RELEASE_NOTES.md` for the
+> current release history.
+
 **Release Date:** January 19, 2026
 **Version:** 2.0.2
 **Codename:** UI Enhancement Release

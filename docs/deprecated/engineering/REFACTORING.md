@@ -1,5 +1,8 @@
 # Refactoring Plan: Database Manager Abstraction
 
+> **Deprecated:** Historical refactoring notes. For current architecture, see
+> `docs/ARCHITECTURE.md` and `docs/DATABASE.md`.
+
 ## Problem Statement
 
 The codebase has 21 duplicate `_init_db()` functions and 39 usages of `get_wal_connection()` spread across modules. This leads to:
