@@ -20,6 +20,8 @@ Use this index for fast navigation. For a fuller map, see
 | Troubleshooting | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
 | Email prioritization | [EMAIL_PRIORITIZATION.md](EMAIL_PRIORITIZATION.md) |
 | Codebase analysis | [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md) |
+| GitHub PR review API | [GITHUB_PR_REVIEW.md](GITHUB_PR_REVIEW.md) |
+| Coding assistance | [CODING_ASSISTANCE.md](CODING_ASSISTANCE.md) |
 
 ## Core Concepts
 
@@ -71,6 +73,11 @@ Use this index for fast navigation. For a fuller map, see
 - Frontend development: [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)
 - Testing: [TESTING.md](TESTING.md)
 - Deprecation policy: [DEPRECATION_POLICY.md](DEPRECATION_POLICY.md)
+
+## Coding & Review
+
+- Coding assistance: [CODING_ASSISTANCE.md](CODING_ASSISTANCE.md)
+- GitHub PR review API: [GITHUB_PR_REVIEW.md](GITHUB_PR_REVIEW.md)
 
 ## Deprecated & Historical
 
