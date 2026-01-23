@@ -14,16 +14,36 @@ from .models import (
     DependencyInfo,
     ScanResult,
     CodeMetric,
+    HotspotFinding,
+    MetricType,
 )
 from .cve_client import CVEClient
 from .scanner import DependencyScanner
+from .metrics import (
+    CodeMetricsAnalyzer,
+    MetricsReport,
+    FileMetrics,
+    FunctionMetrics,
+    DuplicateBlock,
+)
 
 __all__ = [
+    # Models
     "VulnerabilityFinding",
     "VulnerabilitySeverity",
     "DependencyInfo",
     "ScanResult",
     "CodeMetric",
+    "HotspotFinding",
+    "MetricType",
+    # CVE Client
     "CVEClient",
+    # Scanner
     "DependencyScanner",
+    # Metrics
+    "CodeMetricsAnalyzer",
+    "MetricsReport",
+    "FileMetrics",
+    "FunctionMetrics",
+    "DuplicateBlock",
 ]
