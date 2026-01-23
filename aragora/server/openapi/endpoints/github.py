@@ -140,6 +140,102 @@ GITHUB_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/github/audit/issues": {
+        "post": {
+            "tags": ["GitHub"],
+            "summary": "Create issues from findings",
+            "description": "Create GitHub issues from audit findings.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "object"}}},
+            },
+            "responses": {
+                "200": _ok_response("Issues created", "StandardSuccessResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/github/audit/issues/bulk": {
+        "post": {
+            "tags": ["GitHub"],
+            "summary": "Bulk create issues",
+            "description": "Bulk create GitHub issues from findings.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "object"}}},
+            },
+            "responses": {
+                "200": _ok_response("Issues created", "StandardSuccessResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/github/audit/pr": {
+        "post": {
+            "tags": ["GitHub"],
+            "summary": "Create PR with fixes",
+            "description": "Create a remediation PR from audit findings.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "object"}}},
+            },
+            "responses": {
+                "200": _ok_response("PR created", "StandardSuccessResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/github/audit/sync/{session_id}": {
+        "get": {
+            "tags": ["GitHub"],
+            "summary": "Get sync status",
+            "description": "Get status of a GitHub audit sync.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "session_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Sync status", "StandardSuccessResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "post": {
+            "tags": ["GitHub"],
+            "summary": "Sync findings",
+            "description": "Sync an audit session to GitHub.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "session_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Sync started", "StandardSuccessResponse"),
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
 }
 
 
