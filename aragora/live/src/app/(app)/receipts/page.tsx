@@ -6,6 +6,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
+import { DeliveryModal } from '@/components/receipts';
 
 interface GauntletResult {
   id: string;
@@ -86,6 +87,7 @@ export default function ReceiptsPage() {
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'PASS' | 'CONDITIONAL' | 'FAIL'>('all');
+  const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
 
   const fetchResults = useCallback(async () => {
     try {
@@ -292,6 +294,12 @@ export default function ReceiptsPage() {
               className="px-3 py-1 text-sm font-mono border border-border rounded hover:border-acid-green/50"
             >
               Back
+            </button>
+            <button
+              onClick={() => setDeliveryModalOpen(true)}
+              className="px-3 py-1 text-sm font-mono bg-blue-500/20 border border-blue-500 text-blue-400 rounded hover:bg-blue-500/30"
+            >
+              Deliver
             </button>
             <div className="relative group">
               <button className="px-3 py-1 text-sm font-mono bg-acid-green/20 border border-acid-green text-acid-green rounded">
@@ -520,6 +528,20 @@ export default function ReceiptsPage() {
           </div>
         )}
       </div>
+
+      {/* Delivery Modal */}
+      {selectedReceipt && (
+        <DeliveryModal
+          isOpen={deliveryModalOpen}
+          onClose={() => setDeliveryModalOpen(false)}
+          receiptId={selectedReceipt.receipt_id}
+          receiptSummary={selectedReceipt.input_summary}
+          apiUrl={backendUrl}
+          onDeliverySuccess={() => {
+            // Could refresh history or show notification
+          }}
+        />
+      )}
     </div>
   );
 }
