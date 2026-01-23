@@ -63,17 +63,19 @@ class RLMHandler(BaseHandler):
         return False
 
     def _extract_debate_id(self, path: str) -> Optional[str]:
-        """Extract debate ID from path like /api/debates/{id}/..."""
+        """Extract debate ID from path like /api/v1/debates/{id}/..."""
         parts = path.split("/")
-        if len(parts) >= 4 and parts[1] == "api" and parts[2] == "debates":
-            return parts[3]
+        # Path: /api/v1/debates/{id}/... - debate_id at index 4
+        if len(parts) >= 5 and parts[1] == "api" and parts[2] == "v1" and parts[3] == "debates":
+            return parts[4]
         return None
 
     def _extract_level(self, path: str) -> Optional[str]:
-        """Extract abstraction level from path like /api/debates/{id}/context/{level}."""
+        """Extract abstraction level from path like /api/v1/debates/{id}/context/{level}."""
         parts = path.split("/")
-        if len(parts) >= 6 and parts[4] == "context":
-            return parts[5].upper()
+        # Path: /api/v1/debates/{id}/context/{level} - context at index 5, level at index 6
+        if len(parts) >= 7 and parts[5] == "context":
+            return parts[6].upper()
         return None
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:

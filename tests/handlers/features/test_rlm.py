@@ -1,13 +1,13 @@
 """Tests for RLM (Recursive Language Model) handler.
 
 Tests the RLM API endpoints including:
-- POST /api/debates/{id}/query-rlm - Query debate using RLM
-- POST /api/debates/{id}/compress - Compress debate context
-- GET /api/debates/{id}/context/{level} - Get context at abstraction level
-- GET /api/debates/{id}/refinement-status - Get refinement progress
-- POST /api/knowledge/query-rlm - Query knowledge mound
-- GET /api/rlm/status - Get RLM system status
-- GET /api/metrics/rlm - Get RLM metrics
+- POST /api/v1/debates/{id}/query-rlm - Query debate using RLM
+- POST /api/v1/debates/{id}/compress - Compress debate context
+- GET /api/v1/debates/{id}/context/{level} - Get context at abstraction level
+- GET /api/v1/debates/{id}/refinement-status - Get refinement progress
+- POST /api/v1/knowledge/query-rlm - Query knowledge mound
+- GET /api/v1/rlm/status - Get RLM system status
+- GET /api/v1/metrics/rlm - Get RLM metrics
 """
 
 import asyncio
@@ -107,8 +107,8 @@ class TestPathExtraction:
 
     def test_extracts_debate_id(self, rlm_handler):
         """Extracts debate ID from path."""
-        assert rlm_handler._extract_debate_id("/api/debates/test-123/query-rlm") == "test-123"
-        assert rlm_handler._extract_debate_id("/api/debates/abc/compress") == "abc"
+        assert rlm_handler._extract_debate_id("/api/v1/debates/test-123/query-rlm") == "test-123"
+        assert rlm_handler._extract_debate_id("/api/v1/debates/abc/compress") == "abc"
 
     def test_returns_none_for_invalid_path(self, rlm_handler):
         """Returns None for invalid paths."""
@@ -117,12 +117,12 @@ class TestPathExtraction:
 
     def test_extracts_level(self, rlm_handler):
         """Extracts abstraction level from path."""
-        assert rlm_handler._extract_level("/api/debates/test/context/SUMMARY") == "SUMMARY"
-        assert rlm_handler._extract_level("/api/debates/test/context/abstract") == "ABSTRACT"
+        assert rlm_handler._extract_level("/api/v1/debates/test/context/SUMMARY") == "SUMMARY"
+        assert rlm_handler._extract_level("/api/v1/debates/test/context/abstract") == "ABSTRACT"
 
     def test_returns_none_for_missing_level(self, rlm_handler):
         """Returns None when level not in path."""
-        assert rlm_handler._extract_level("/api/debates/test/query-rlm") is None
+        assert rlm_handler._extract_level("/api/v1/debates/test/query-rlm") is None
 
 
 # =============================================================================
@@ -210,7 +210,7 @@ class TestQueryDebateRLM:
         while hasattr(original_method, "__wrapped__"):
             original_method = original_method.__wrapped__
         result = original_method(
-            rlm_handler, "/api/debates/test-123/query-rlm", mock_handler, user="test"
+            rlm_handler, "/api/v1/debates/test-123/query-rlm", mock_handler, user="test"
         )
         assert result.status_code == 400
 
@@ -218,7 +218,7 @@ class TestQueryDebateRLM:
         """Returns 400 when query parameter is missing."""
         mock_handler = MockHandler(_json_body={"strategy": "auto"})
         result = rlm_handler._query_debate_rlm.__wrapped__(
-            rlm_handler, "/api/debates/test-123/query-rlm", mock_handler, user="test"
+            rlm_handler, "/api/v1/debates/test-123/query-rlm", mock_handler, user="test"
         )
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -294,7 +294,7 @@ class TestGetContextLevel:
         """Returns 400 for invalid abstraction level."""
         mock_handler = MockHandler()
         result = rlm_handler._get_context_level.__wrapped__(
-            rlm_handler, "/api/debates/test-123/query-rlm", mock_handler, user="test"
+            rlm_handler, "/api/v1/debates/test-123/query-rlm", mock_handler, user="test"
         )
         assert result.status_code == 400
 
@@ -319,7 +319,7 @@ class TestRefinementStatus:
         """Returns status for valid debate ID."""
         mock_handler = MockHandler()
         result = rlm_handler._get_refinement_status.__wrapped__(
-            rlm_handler, "/api/debates/test-123/refinement-status", mock_handler, user="test"
+            rlm_handler, "/api/v1/debates/test-123/refinement-status", mock_handler, user="test"
         )
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -374,19 +374,19 @@ class TestHandleRouting:
     """Tests for request routing."""
 
     def test_handle_routes_to_status(self, rlm_handler):
-        """Handle routes /api/rlm/status to status method."""
+        """Handle routes /api/v1/rlm/status to status method."""
         with patch.object(
             rlm_handler, "_get_rlm_status", return_value=MagicMock(status_code=200)
         ) as mock_status:
-            rlm_handler.handle("/api/rlm/status", {}, None)
+            rlm_handler.handle("/api/v1/rlm/status", {}, None)
             mock_status.assert_called_once()
 
     def test_handle_routes_to_metrics(self, rlm_handler):
-        """Handle routes /api/metrics/rlm to metrics method."""
+        """Handle routes /api/v1/metrics/rlm to metrics method."""
         with patch.object(
             rlm_handler, "_get_rlm_metrics", return_value=MagicMock(status_code=200)
         ) as mock_metrics:
-            rlm_handler.handle("/api/metrics/rlm", {}, None)
+            rlm_handler.handle("/api/v1/metrics/rlm", {}, None)
             mock_metrics.assert_called_once()
 
     def test_handle_routes_context_requests(self, rlm_handler):
@@ -394,7 +394,7 @@ class TestHandleRouting:
         with patch.object(
             rlm_handler, "_get_context_level", return_value=MagicMock(status_code=200)
         ) as mock_context:
-            rlm_handler.handle("/api/debates/test-123/context/SUMMARY", {}, MockHandler())
+            rlm_handler.handle("/api/v1/debates/test-123/context/SUMMARY", {}, MockHandler())
             mock_context.assert_called_once()
 
     def test_handle_post_routes_query_rlm(self, rlm_handler):
@@ -402,7 +402,7 @@ class TestHandleRouting:
         with patch.object(
             rlm_handler, "_query_debate_rlm", return_value=MagicMock(status_code=200)
         ) as mock_query:
-            rlm_handler.handle_post("/api/debates/test-123/query-rlm", {}, MockHandler())
+            rlm_handler.handle_post("/api/v1/debates/test-123/query-rlm", {}, MockHandler())
             mock_query.assert_called_once()
 
     def test_handle_post_routes_compress(self, rlm_handler):
@@ -410,7 +410,7 @@ class TestHandleRouting:
         with patch.object(
             rlm_handler, "_compress_debate", return_value=MagicMock(status_code=200)
         ) as mock_compress:
-            rlm_handler.handle_post("/api/debates/test-123/compress", {}, MockHandler())
+            rlm_handler.handle_post("/api/v1/debates/test-123/compress", {}, MockHandler())
             mock_compress.assert_called_once()
 
     def test_handle_post_routes_knowledge_query(self, rlm_handler):
@@ -418,7 +418,7 @@ class TestHandleRouting:
         with patch.object(
             rlm_handler, "_query_knowledge_rlm", return_value=MagicMock(status_code=200)
         ) as mock_kq:
-            rlm_handler.handle_post("/api/knowledge/query-rlm", {}, MockHandler())
+            rlm_handler.handle_post("/api/v1/knowledge/query-rlm", {}, MockHandler())
             mock_kq.assert_called_once()
 
 
@@ -481,7 +481,7 @@ class TestErrorHandling:
             ):
                 result = rlm_handler._query_debate_rlm.__wrapped__(
                     rlm_handler,
-                    "/api/debates/test-123/query-rlm",
+                    "/api/v1/debates/test-123/query-rlm",
                     mock_handler,
                     user="test",
                 )
