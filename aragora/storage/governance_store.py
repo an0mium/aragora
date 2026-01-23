@@ -1820,9 +1820,34 @@ def get_governance_store(
             return _postgres_store
         except Exception as e:
             logger.warning(f"PostgreSQL not available, falling back to SQLite: {e}")
+
+            # Enforce distributed storage in production for RBAC policies
+            from aragora.storage.production_guards import (
+                require_distributed_store,
+                StorageMode,
+            )
+
+            require_distributed_store(
+                "governance_store",
+                StorageMode.SQLITE,
+                f"RBAC/governance policies must use distributed storage in production. "
+                f"PostgreSQL unavailable: {e}",
+            )
             # Fall through to SQLite
 
     if _default_store is None:
+        # Enforce distributed storage in production for RBAC policies
+        from aragora.storage.production_guards import (
+            require_distributed_store,
+            StorageMode,
+        )
+
+        require_distributed_store(
+            "governance_store",
+            StorageMode.SQLITE,
+            "RBAC/governance policies must use distributed storage in production. "
+            "Configure ARAGORA_DB_BACKEND=postgres.",
+        )
         _default_store = GovernanceStore(
             db_path=db_path,
             backend=backend,

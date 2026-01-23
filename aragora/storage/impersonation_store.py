@@ -759,6 +759,20 @@ def get_impersonation_store(
             database_url=database_url,
         )
 
+        # Enforce distributed storage in production for security-sensitive data
+        if _default_store.backend_type == "sqlite":
+            from aragora.storage.production_guards import (
+                require_distributed_store,
+                StorageMode,
+            )
+
+            require_distributed_store(
+                "impersonation_store",
+                StorageMode.SQLITE,
+                "Impersonation sessions must use distributed storage in production. "
+                "Configure DATABASE_URL for PostgreSQL.",
+            )
+
     return _default_store
 
 

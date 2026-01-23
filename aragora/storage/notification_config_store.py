@@ -751,6 +751,20 @@ def get_notification_config_store(
                     backend=backend,
                     database_url=database_url,
                 )
+
+                # Enforce distributed storage in production
+                if _notification_config_store.backend_type == "sqlite":
+                    from aragora.storage.production_guards import (
+                        require_distributed_store,
+                        StorageMode,
+                    )
+
+                    require_distributed_store(
+                        "notification_config_store",
+                        StorageMode.SQLITE,
+                        "Notification configs must use distributed storage in production. "
+                        "Configure DATABASE_URL for PostgreSQL.",
+                    )
     return _notification_config_store
 
 
