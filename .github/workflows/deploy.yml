@@ -376,7 +376,17 @@ jobs:
             # Configure environment via systemd override (secure - not written to .env file)
             echo "Configuring environment via systemd..."
             sudo mkdir -p /etc/systemd/system/aragora.service.d/
-            printf '[Service]\nEnvironment="ARAGORA_ENV=production"\nEnvironment="ARAGORA_USE_SECRETS_MANAGER=true"\nEnvironment="ARAGORA_SECRET_NAME=aragora/production"\nEnvironment="AWS_REGION=us-east-2"\nEnvironment="ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}"\nEnvironment="OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.ai,www.aragora.ai,live.aragora.ai"\nEnvironment="GOOGLE_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/google/callback"\nEnvironment="GITHUB_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/github/callback"\nEnvironment="OAUTH_SUCCESS_URL=https://aragora.ai/auth/callback"\nEnvironment="OAUTH_ERROR_URL=https://aragora.ai/auth/error"\n' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo '[Service]' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="ARAGORA_ENV=production"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="ARAGORA_USE_SECRETS_MANAGER=true"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="ARAGORA_SECRET_NAME=aragora/production"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="AWS_REGION=us-east-2"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.ai,www.aragora.ai,live.aragora.ai"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="GOOGLE_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/google/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="GITHUB_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/github/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="OAUTH_SUCCESS_URL=https://aragora.ai/auth/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="OAUTH_ERROR_URL=https://aragora.ai/auth/error"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo "Environment=\"ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}\"" | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             sudo systemctl daemon-reload
 
             # Configure nginx for WebSocket routing if nginx is installed (non-fatal)
@@ -627,7 +637,17 @@ jobs:
             # Configure environment via systemd override
             echo "Configuring environment via systemd..."
             sudo mkdir -p /etc/systemd/system/aragora.service.d/
-            printf '[Service]\nEnvironment="ARAGORA_ENV=production"\nEnvironment="ARAGORA_USE_SECRETS_MANAGER=true"\nEnvironment="ARAGORA_SECRET_NAME=aragora/production"\nEnvironment="AWS_REGION=us-east-2"\nEnvironment="ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}"\nEnvironment="OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.ai,www.aragora.ai,live.aragora.ai"\nEnvironment="GOOGLE_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/google/callback"\nEnvironment="GITHUB_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/github/callback"\nEnvironment="OAUTH_SUCCESS_URL=https://aragora.ai/auth/callback"\nEnvironment="OAUTH_ERROR_URL=https://aragora.ai/auth/error"\n' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo '[Service]' | sudo tee /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="ARAGORA_ENV=production"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="ARAGORA_USE_SECRETS_MANAGER=true"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="ARAGORA_SECRET_NAME=aragora/production"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="AWS_REGION=us-east-2"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="OAUTH_ALLOWED_REDIRECT_HOSTS=aragora.ai,www.aragora.ai,live.aragora.ai"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="GOOGLE_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/google/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="GITHUB_OAUTH_REDIRECT_URI=https://api.aragora.ai/api/auth/oauth/github/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="OAUTH_SUCCESS_URL=https://aragora.ai/auth/callback"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo 'Environment="OAUTH_ERROR_URL=https://aragora.ai/auth/error"' | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
+            echo "Environment=\"ARAGORA_API_TOKEN=${{ secrets.ARAGORA_API_TOKEN }}\"" | sudo tee -a /etc/systemd/system/aragora.service.d/env.conf > /dev/null
             sudo systemctl daemon-reload
 
             sudo systemctl stop aragora 2>/dev/null || true
