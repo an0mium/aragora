@@ -7,6 +7,9 @@ Tests graph building, dead code detection, and dependency analysis.
 import pytest
 from pathlib import Path
 
+# Skip all tests if networkx is not installed
+pytest.importorskip("networkx", reason="networkx is required for call graph tests")
+
 from aragora.analysis.call_graph import (
     CallGraph,
     CallGraphBuilder,
