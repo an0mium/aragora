@@ -40,7 +40,18 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
+      - name: Check Vercel credentials
+        id: check-vercel
+        run: |
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "has_credentials=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_credentials=false" >> $GITHUB_OUTPUT
+            echo "::warning::Vercel credentials not configured. Skipping deployment."
+          fi
+
       - name: Deploy to Vercel
+        if: steps.check-vercel.outputs.has_credentials == 'true'
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
