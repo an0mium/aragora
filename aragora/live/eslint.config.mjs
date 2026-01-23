@@ -57,7 +57,7 @@ export default [
       "react/prop-types": "off",
       "react/display-name": "off",
       "react/no-unescaped-entities": "off",
-      "react/no-unknown-property": ["error", { ignore: ["directory"] }],
+      "react/no-unknown-property": ["error", { ignore: ["directory", "jsx", "global"] }],
 
       // React Hooks rules
       "react-hooks/rules-of-hooks": "error",
