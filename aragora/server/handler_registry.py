@@ -108,6 +108,8 @@ WorkflowHandler: HandlerType = None
 AdminHandler: HandlerType = None
 SecurityHandler: HandlerType = None
 ControlPlaneHandler: HandlerType = None
+OrchestrationHandler: HandlerType = None
+DeliberationsHandler: HandlerType = None
 KnowledgeHandler: HandlerType = None
 KnowledgeMoundHandler: HandlerType = None
 PolicyHandler: HandlerType = None
@@ -136,6 +138,12 @@ try:
     )
     from aragora.server.handlers import (
         ControlPlaneHandler as _ControlPlaneHandler,
+    )
+    from aragora.server.handlers import (
+        OrchestrationHandler as _OrchestrationHandler,
+    )
+    from aragora.server.handlers import (
+        DeliberationsHandler as _DeliberationsHandler,
     )
     from aragora.server.handlers import (
         KnowledgeHandler as _KnowledgeHandler,
@@ -433,6 +441,8 @@ try:
     AdminHandler = _AdminHandler
     SecurityHandler = _SecurityHandler
     ControlPlaneHandler = _ControlPlaneHandler
+    OrchestrationHandler = _OrchestrationHandler
+    DeliberationsHandler = _DeliberationsHandler
     KnowledgeHandler = _KnowledgeHandler
     KnowledgeMoundHandler = _KnowledgeMoundHandler
     PolicyHandler = _PolicyHandler

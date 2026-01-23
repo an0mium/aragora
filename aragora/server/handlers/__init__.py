@@ -74,8 +74,10 @@ from .checkpoints import CheckpointHandler
 from .composite import CompositeHandler
 from .consensus import ConsensusHandler
 from .control_plane import ControlPlaneHandler
+from .orchestration import OrchestrationHandler
 from .decisions import DecisionExplainHandler
 from .decision import DecisionHandler
+from .deliberations import DeliberationsHandler
 from .critique import CritiqueHandler
 from .cross_pollination import (
     CrossPollinationStatsHandler,
@@ -219,6 +221,7 @@ ALL_HANDLERS = [
     DecisionExplainHandler,  # Decision explainability API
     DecisionHandler,  # Unified decision routing API
     ControlPlaneHandler,  # Enterprise control plane API
+    DeliberationsHandler,  # Multi-deliberation dashboard API
     CritiqueHandler,
     GenesisHandler,
     ReplaysHandler,
@@ -507,6 +510,7 @@ __all__ = [
     "ConsensusHandler",
     "BeliefHandler",
     "ControlPlaneHandler",
+    "OrchestrationHandler",
     "DecisionExplainHandler",
     "DecisionHandler",
     "CritiqueHandler",
