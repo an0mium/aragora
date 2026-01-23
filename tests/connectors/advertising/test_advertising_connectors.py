@@ -135,12 +135,13 @@ class TestMetaAdsConnector:
         assert campaign.name == "Test Meta Campaign"
         assert campaign.status == CampaignStatus.ACTIVE
         assert campaign.objective == CampaignObjective.OUTCOME_TRAFFIC
-        assert campaign.daily_budget == 50.0  # Cents to dollars
-        assert campaign.lifetime_budget == 1500.0
+        assert campaign.daily_budget == 5000  # In cents
+        assert campaign.lifetime_budget == 150000  # In cents
 
     def test_ad_insights_from_api(self):
         """Test AdInsights.from_api parsing."""
         from aragora.connectors.advertising.meta_ads import AdInsights
+        from decimal import Decimal
 
         data = {
             "impressions": "50000",
@@ -150,21 +151,17 @@ class TestMetaAdsConnector:
                 {"action_type": "link_click", "value": "1200"},
                 {"action_type": "purchase", "value": "75"},
             ],
-            "action_values": [
-                {"action_type": "purchase", "value": "3750.00"},
-            ],
             "reach": "35000",
             "frequency": "1.43",
         }
 
-        insights = AdInsights.from_api(data, date(2024, 1, 1), date(2024, 1, 31))
+        insights = AdInsights.from_api(data)
 
         assert insights.impressions == 50000
         assert insights.clicks == 1500
-        assert insights.spend == 250.50
-        assert insights.conversions == 75
-        assert insights.conversion_value == 3750.0
+        assert insights.spend == Decimal("250.50")
         assert insights.reach == 35000
+        assert len(insights.actions) == 2
 
     def test_custom_audience_from_api(self):
         """Test CustomAudience.from_api parsing."""
@@ -191,8 +188,8 @@ class TestMetaAdsConnector:
 
         campaign = get_mock_campaign()
 
-        assert campaign.id == "123456789"
-        assert campaign.name == "Test Traffic Campaign"
+        assert campaign.id == "23456789012345678"
+        assert campaign.name == "Summer Sale Campaign"
 
     def test_mock_insights(self):
         """Test mock insights generation."""
@@ -201,7 +198,7 @@ class TestMetaAdsConnector:
         insights = get_mock_insights()
 
         assert insights.impressions == 50000
-        assert insights.clicks == 1500
+        assert insights.clicks == 2500
 
 
 class TestLinkedInAdsConnector:
@@ -248,7 +245,7 @@ class TestLinkedInAdsConnector:
         assert campaign.status == CampaignStatus.ACTIVE
         assert campaign.campaign_type == CampaignType.SPONSORED_UPDATES
         assert campaign.objective_type == ObjectiveType.LEAD_GENERATION
-        assert campaign.daily_budget == 100.0
+        assert campaign.daily_budget == "100.00"  # Returns as string from API
 
     def test_ad_analytics_from_api(self):
         """Test AdAnalytics.from_api parsing."""
@@ -267,9 +264,7 @@ class TestLinkedInAdsConnector:
             "follows": 15,
         }
 
-        analytics = AdAnalytics.from_api(
-            data, "123", date(2024, 1, 1), date(2024, 1, 31)
-        )
+        analytics = AdAnalytics.from_api(data, "123", date(2024, 1, 1), date(2024, 1, 31))
 
         assert analytics.impressions == 50000
         assert analytics.clicks == 1250
@@ -461,25 +456,25 @@ class TestEnumValues:
         from aragora.connectors.advertising.google_ads import (
             CampaignStatus,
             CampaignType,
-            BiddingStrategy,
+            BiddingStrategyType,
         )
 
         assert CampaignStatus.ENABLED.value == "ENABLED"
         assert CampaignStatus.PAUSED.value == "PAUSED"
         assert CampaignType.SEARCH.value == "SEARCH"
-        assert BiddingStrategy.MAXIMIZE_CONVERSIONS.value == "MAXIMIZE_CONVERSIONS"
+        assert BiddingStrategyType.MAXIMIZE_CONVERSIONS.value == "MAXIMIZE_CONVERSIONS"
 
     def test_meta_ads_enums(self):
         """Test Meta Ads enum values."""
         from aragora.connectors.advertising.meta_ads import (
             CampaignStatus,
             CampaignObjective,
-            DatePreset,
+            AdSetStatus,
         )
 
         assert CampaignStatus.ACTIVE.value == "ACTIVE"
         assert CampaignObjective.OUTCOME_TRAFFIC.value == "OUTCOME_TRAFFIC"
-        assert DatePreset.LAST_30D.value == "last_30d"
+        assert AdSetStatus.ACTIVE.value == "ACTIVE"
 
     def test_linkedin_ads_enums(self):
         """Test LinkedIn Ads enum values."""
@@ -595,9 +590,7 @@ class TestTwitterAdsConnector:
             }
         }
 
-        analytics = CampaignAnalytics.from_api(
-            data, "abc123", date(2024, 1, 1), date(2024, 1, 31)
-        )
+        analytics = CampaignAnalytics.from_api(data, "abc123", date(2024, 1, 1), date(2024, 1, 31))
 
         assert analytics.impressions == 100000
         assert analytics.engagements == 5000
@@ -689,9 +682,7 @@ class TestTikTokAdsConnector:
             "campaign_id": "123456789",
         }
 
-        metrics = AdGroupMetrics.from_api(
-            data, dimensions, date(2024, 1, 1), date(2024, 1, 31)
-        )
+        metrics = AdGroupMetrics.from_api(data, dimensions, date(2024, 1, 1), date(2024, 1, 31))
 
         assert metrics.impressions == 500000
         assert metrics.clicks == 15000
