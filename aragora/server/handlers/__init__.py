@@ -171,6 +171,8 @@ from .workflow_templates import (
 )
 from .template_marketplace import TemplateMarketplaceHandler
 from .email import EmailHandler  # Email prioritization API
+from .email_services import EmailServicesHandler  # Email services (follow-up, snooze, categories)
+from .dependency_analysis import DependencyAnalysisHandler  # Dependency analysis API
 from .social import CollaborationHandlers, get_collaboration_handlers  # Moved to social/
 from .bots import (
     DiscordHandler,
@@ -302,6 +304,8 @@ ALL_HANDLERS = [
     TemplateMarketplaceHandler,  # Community template marketplace
     TrainingHandler,  # RLM training data collection API
     EmailHandler,  # Email prioritization API
+    EmailServicesHandler,  # Email services (follow-up, snooze, categories)
+    DependencyAnalysisHandler,  # Codebase dependency analysis API
     # Bot platform handlers
     DiscordHandler,  # Discord Interactions API
     GoogleChatHandler,  # Google Chat Cards API
@@ -445,6 +449,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "MonitoringHandler": Stability.EXPERIMENTAL,  # Trend and anomaly monitoring - Phase 5.3
     "AutonomousLearningHandler": Stability.EXPERIMENTAL,  # Continuous learning - Phase 5.2
     "EmailHandler": Stability.EXPERIMENTAL,  # Email prioritization API - new
+    "EmailServicesHandler": Stability.EXPERIMENTAL,  # Email services (follow-up, snooze) - new
+    "DependencyAnalysisHandler": Stability.EXPERIMENTAL,  # Dependency analysis API - new
 }
 
 
@@ -593,6 +599,8 @@ __all__ = [
     "TemplateMarketplaceHandler",
     "TrainingHandler",
     "EmailHandler",
+    "EmailServicesHandler",
+    "DependencyAnalysisHandler",
     # Collaboration handlers
     "CollaborationHandlers",
     "get_collaboration_handlers",

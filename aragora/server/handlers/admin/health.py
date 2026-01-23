@@ -1202,6 +1202,45 @@ class HealthHandler(BaseHandler):
         except Exception as e:
             checks["system_resources"] = {"healthy": True, "warning": str(e)[:80]}
 
+        # 10. Email Services (follow-up tracker, snooze recommender)
+        try:
+            from aragora.services.followup_tracker import FollowUpTracker
+            from aragora.services.snooze_recommender import SnoozeRecommender
+
+            # Check follow-up tracker - instantiate to verify module works
+            _tracker = FollowUpTracker()  # noqa: F841
+            checks["email_followup_tracker"] = {"healthy": True, "status": "available"}
+
+            # Check snooze recommender - instantiate to verify module works
+            _recommender = SnoozeRecommender()  # noqa: F841
+            checks["email_snooze_recommender"] = {"healthy": True, "status": "available"}
+
+        except ImportError as e:
+            checks["email_services"] = {"healthy": True, "status": f"not_available: {e}"}
+        except Exception as e:
+            checks["email_services"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+            all_healthy = False
+
+        # 11. Dependency Analyzer
+        try:
+            from aragora.audit.dependency_analyzer import DependencyAnalyzer
+
+            # Instantiate to verify module works
+            _analyzer = DependencyAnalyzer()  # noqa: F841
+            checks["dependency_analyzer"] = {"healthy": True, "status": "available"}
+
+        except ImportError as e:
+            checks["dependency_analyzer"] = {"healthy": True, "status": f"not_available: {e}"}
+        except Exception as e:
+            checks["dependency_analyzer"] = {
+                "healthy": False,
+                "error": f"{type(e).__name__}: {str(e)[:80]}",
+            }
+            all_healthy = False
+
         # Calculate response time
         response_time_ms = round((time.time() - start_time) * 1000, 2)
 

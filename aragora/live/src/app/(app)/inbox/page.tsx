@@ -9,6 +9,10 @@ import { GmailConnectionCard } from '@/components/inbox/GmailConnectionCard';
 import { SyncProgressBar } from '@/components/inbox/SyncProgressBar';
 import { PriorityInboxList } from '@/components/inbox/PriorityInboxList';
 import { InboxQueryPanel } from '@/components/inbox/InboxQueryPanel';
+import { InboxStatsCards } from '@/components/inbox/InboxStatsCards';
+import { DailyDigestWidget } from '@/components/inbox/DailyDigestWidget';
+import { FollowUpPanel } from '@/components/inbox/FollowUpPanel';
+import { SnoozePanel } from '@/components/inbox/SnoozePanel';
 import { useAuth } from '@/context/AuthContext';
 
 interface GmailStatus {
@@ -410,11 +414,11 @@ export default function InboxPage() {
 
         {/* Main Content */}
         {status?.connected && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-            {/* Priority Inbox List */}
-            <div className="lg:col-span-2">
-              <PanelErrorBoundary panelName="Priority Inbox">
-                <PriorityInboxList
+          <>
+            {/* Stats Overview */}
+            <div className="mt-6">
+              <PanelErrorBoundary panelName="Inbox Stats">
+                <InboxStatsCards
                   apiBase={backendConfig.api}
                   userId={userId}
                   authToken={tokens?.access_token}
@@ -422,17 +426,59 @@ export default function InboxPage() {
               </PanelErrorBoundary>
             </div>
 
-            {/* Q&A Panel */}
-            <div className="lg:col-span-1">
-              <PanelErrorBoundary panelName="Inbox Q&A">
-                <InboxQueryPanel
-                  apiBase={backendConfig.api}
-                  userId={userId}
-                  authToken={tokens?.access_token}
-                />
-              </PanelErrorBoundary>
+            {/* Main Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+              {/* Priority Inbox List */}
+              <div className="lg:col-span-2">
+                <PanelErrorBoundary panelName="Priority Inbox">
+                  <PriorityInboxList
+                    apiBase={backendConfig.api}
+                    userId={userId}
+                    authToken={tokens?.access_token}
+                  />
+                </PanelErrorBoundary>
+              </div>
+
+              {/* Right Sidebar */}
+              <div className="lg:col-span-1 space-y-6">
+                {/* Daily Digest */}
+                <PanelErrorBoundary panelName="Daily Digest">
+                  <DailyDigestWidget
+                    apiBase={backendConfig.api}
+                    userId={userId}
+                    authToken={tokens?.access_token}
+                  />
+                </PanelErrorBoundary>
+
+                {/* Q&A Panel */}
+                <PanelErrorBoundary panelName="Inbox Q&A">
+                  <InboxQueryPanel
+                    apiBase={backendConfig.api}
+                    userId={userId}
+                    authToken={tokens?.access_token}
+                  />
+                </PanelErrorBoundary>
+
+                {/* Follow-Up Tracking */}
+                <PanelErrorBoundary panelName="Follow-Up Tracking">
+                  <FollowUpPanel
+                    apiBase={backendConfig.api}
+                    userId={userId}
+                    authToken={tokens?.access_token}
+                  />
+                </PanelErrorBoundary>
+
+                {/* Snooze Management */}
+                <PanelErrorBoundary panelName="Snooze Management">
+                  <SnoozePanel
+                    apiBase={backendConfig.api}
+                    userId={userId}
+                    authToken={tokens?.access_token}
+                  />
+                </PanelErrorBoundary>
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Not Connected State */}

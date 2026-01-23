@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from aragora.server.handlers.base import (
+    BaseHandler,
+    HandlerResult,
     error_response,
     success_response,
 )
@@ -379,3 +381,49 @@ def get_dependency_analysis_routes() -> list[tuple[str, str, Any]]:
         ("POST", "/api/v1/codebase/check-licenses", handle_check_licenses),
         ("POST", "/api/v1/codebase/clear-cache", handle_clear_cache),
     ]
+
+
+class DependencyAnalysisHandler(BaseHandler):
+    """
+    HTTP handler for codebase dependency analysis endpoints.
+
+    Provides dependency tree resolution, SBOM generation, CVE scanning,
+    and license compatibility checking.
+    Integrates with the Aragora server routing system.
+    """
+
+    ROUTES = [
+        "/api/v1/codebase/analyze-dependencies",
+        "/api/v1/codebase/sbom",
+        "/api/v1/codebase/scan-vulnerabilities",
+        "/api/v1/codebase/check-licenses",
+        "/api/v1/codebase/clear-cache",
+    ]
+
+    def __init__(self, ctx: dict[str, Any]):
+        """Initialize with server context."""
+        super().__init__(ctx)  # type: ignore[arg-type]
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can handle the given path."""
+        return path in self.ROUTES
+
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route dependency analysis endpoint requests."""
+        return None
+
+    async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:
+        """Handle POST requests."""
+        if path == "/api/v1/codebase/analyze-dependencies":
+            return await handle_analyze_dependencies(data)
+        elif path == "/api/v1/codebase/sbom":
+            return await handle_generate_sbom(data)
+        elif path == "/api/v1/codebase/scan-vulnerabilities":
+            return await handle_scan_vulnerabilities(data)
+        elif path == "/api/v1/codebase/check-licenses":
+            return await handle_check_licenses(data)
+        elif path == "/api/v1/codebase/clear-cache":
+            return await handle_clear_cache()
+        return error_response("Not found", status=404)

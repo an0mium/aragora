@@ -27,6 +27,8 @@ from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from aragora.server.handlers.base import (
+    BaseHandler,
+    HandlerResult,
     error_response,
     success_response,
 )
@@ -731,3 +733,109 @@ def get_email_services_routes() -> list[tuple[str, str, Any]]:
         ("GET", "/api/v1/email/categories", handle_get_categories),
         ("POST", "/api/v1/email/categories/learn", handle_category_feedback),
     ]
+
+
+class EmailServicesHandler(BaseHandler):
+    """
+    HTTP handler for email services endpoints.
+
+    Provides follow-up tracking, snooze management, and categorization.
+    Integrates with the Aragora server routing system.
+    """
+
+    ROUTES = [
+        "/api/v1/email/followups/mark",
+        "/api/v1/email/followups/pending",
+        "/api/v1/email/followups/check-replies",
+        "/api/v1/email/followups/auto-detect",
+        "/api/v1/email/snoozed",
+        "/api/v1/email/snooze/process-due",
+        "/api/v1/email/categories",
+        "/api/v1/email/categories/learn",
+    ]
+
+    # Prefix routes for dynamic paths
+    ROUTE_PREFIXES = [
+        "/api/v1/email/followups/",
+    ]
+
+    # Pattern routes for specific path structures
+    ROUTE_PATTERNS = [
+        r"/api/v1/email/[^/]+/snooze-suggestions",
+        r"/api/v1/email/[^/]+/snooze",
+    ]
+
+    def __init__(self, ctx: dict[str, Any]):
+        """Initialize with server context."""
+        super().__init__(ctx)  # type: ignore[arg-type]
+        import re
+
+        self._compiled_patterns = [re.compile(p) for p in self.ROUTE_PATTERNS]
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can handle the given path."""
+        if path in self.ROUTES:
+            return True
+        for prefix in self.ROUTE_PREFIXES:
+            if path.startswith(prefix) and path != prefix.rstrip("/"):
+                return True
+        for pattern in self._compiled_patterns:
+            if pattern.match(path):
+                return True
+        return False
+
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route email services endpoint requests."""
+        return None
+
+    async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:
+        """Handle POST requests."""
+        if path == "/api/v1/email/followups/mark":
+            return await handle_mark_followup(data)
+        elif path == "/api/v1/email/followups/check-replies":
+            return await handle_check_replies(data)
+        elif path == "/api/v1/email/followups/auto-detect":
+            return await handle_auto_detect_followups(data)
+        elif path.endswith("/resolve"):
+            parts = path.split("/")
+            if len(parts) >= 5:
+                return await handle_resolve_followup(parts[-2], data)
+        elif path.endswith("/snooze") and "process-due" not in path:
+            parts = path.split("/")
+            if len(parts) >= 5:
+                return await handle_apply_snooze(parts[-2], data)
+        elif path == "/api/v1/email/snooze/process-due":
+            return await handle_process_due_snoozes()
+        elif path == "/api/v1/email/categories/learn":
+            return await handle_category_feedback(data)
+        return error_response("Not found", status=404)
+
+    async def handle_get(self, path: str, query_params: dict[str, Any]) -> HandlerResult:
+        """Handle GET requests."""
+        user_id = query_params.get("user_id", "default")
+        if path == "/api/v1/email/followups/pending":
+            return await handle_get_pending_followups(
+                user_id=user_id,
+                include_stats=query_params.get("include_stats", "false").lower() == "true",
+            )
+        elif path == "/api/v1/email/snoozed":
+            return await handle_get_snoozed_emails(user_id=user_id)
+        elif path == "/api/v1/email/categories":
+            return await handle_get_categories(user_id=user_id)
+        elif "snooze-suggestions" in path:
+            parts = path.split("/")
+            if len(parts) >= 5:
+                return await handle_get_snooze_suggestions(parts[-2], user_id=user_id)
+        return error_response("Not found", status=404)
+
+    async def handle_delete(self, path: str, query_params: dict[str, Any]) -> HandlerResult:
+        """Handle DELETE requests."""
+        if "/snooze" in path:
+            parts = path.split("/")
+            if len(parts) >= 5:
+                return await handle_cancel_snooze(
+                    parts[-2], user_id=query_params.get("user_id", "default")
+                )
+        return error_response("Not found", status=404)

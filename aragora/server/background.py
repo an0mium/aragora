@@ -603,4 +603,91 @@ def setup_default_tasks(
         run_on_startup=False,  # Don't run on startup (let KM settle first)
     )
 
+    # Snooze processor - runs every 5 minutes to wake up snoozed emails
+    def snooze_processor_task():
+        """Process due snoozed emails and return them to inbox."""
+        try:
+            import asyncio
+
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            async def process_snoozes():
+                try:
+                    from aragora.server.handlers.email_services import (
+                        handle_process_due_snoozes,
+                    )
+
+                    result = await handle_process_due_snoozes()
+                    if result.get("success") and result.get("data", {}).get("processed", 0) > 0:
+                        logger.info(
+                            "Snooze processor: woke up %d emails",
+                            result["data"]["processed"],
+                        )
+                except ImportError:
+                    logger.debug("Email services not available, skipping snooze processing")
+
+            if loop.is_running():
+                asyncio.create_task(process_snoozes())
+            else:
+                loop.run_until_complete(process_snoozes())
+
+        except Exception as e:
+            logger.warning("Snooze processing failed: %s", e)
+
+    manager.register_task(
+        name="snooze_processor",
+        interval_seconds=5 * 60,  # 5 minutes
+        callback=snooze_processor_task,
+        enabled=True,
+        run_on_startup=False,
+    )
+
+    # Follow-up checker - runs every 30 minutes to check for overdue follow-ups
+    def followup_checker_task():
+        """Check for overdue follow-ups and send reminders."""
+        try:
+            import asyncio
+
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            async def check_followups():
+                try:
+                    from aragora.services.followup_tracker import FollowUpTracker
+
+                    tracker = FollowUpTracker()
+                    overdue = await tracker.get_overdue_followups()
+                    if overdue:
+                        logger.info(
+                            "Follow-up checker: %d emails overdue for follow-up",
+                            len(overdue),
+                        )
+                except ImportError:
+                    logger.debug("Follow-up tracker not available, skipping check")
+
+            if loop.is_running():
+                asyncio.create_task(check_followups())
+            else:
+                loop.run_until_complete(check_followups())
+
+        except Exception as e:
+            logger.warning("Follow-up check failed: %s", e)
+
+    manager.register_task(
+        name="followup_checker",
+        interval_seconds=30 * 60,  # 30 minutes
+        callback=followup_checker_task,
+        enabled=True,
+        run_on_startup=False,
+    )
+
     logger.info("Default background tasks registered")
