@@ -1415,6 +1415,10 @@ async def get_checkpoint_store_async(
     This is the recommended function for async contexts as it properly
     initializes Postgres connection pools.
 
+    Environment Variables:
+    - ARAGORA_DB_BACKEND: If set to "postgres" or "postgresql", enables PostgreSQL preference
+    - ARAGORA_CHECKPOINT_STORE_BACKEND: Store-specific override ("postgres", "redis", "file")
+
     Priority order:
     1. Explicitly provided KnowledgeMound
     2. Default KnowledgeMound (if set via set_default_knowledge_mound)
@@ -1432,6 +1436,23 @@ async def get_checkpoint_store_async(
     Returns:
         CheckpointStore implementation
     """
+    # Check environment variables for backend preference
+    store_backend = os.environ.get("ARAGORA_CHECKPOINT_STORE_BACKEND", "").lower()
+    global_backend = os.environ.get("ARAGORA_DB_BACKEND", "").lower()
+
+    # Store-specific override takes precedence
+    if store_backend == "postgres" or store_backend == "postgresql":
+        prefer_postgres = True
+    elif store_backend == "redis":
+        prefer_redis = True
+        prefer_postgres = False
+    elif store_backend == "file":
+        prefer_redis = False
+        prefer_postgres = False
+    # Fall back to global backend if no store-specific setting
+    elif global_backend in ("postgres", "postgresql"):
+        prefer_postgres = True
+
     # Use explicitly provided mound
     if mound is not None:
         logger.debug("Using provided KnowledgeMound for checkpoints")
