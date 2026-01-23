@@ -96,6 +96,10 @@ class AgentDashboardHandler(BaseHandler):
         "/api/v1/agent-dashboard/health",
     ]
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can handle the given path."""
+        return path.startswith("/api/v1/control-plane/")
+
     async def handle_request(self, request: Any) -> Any:
         """Route request to appropriate handler."""
         method = request.method

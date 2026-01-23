@@ -66,6 +66,10 @@ class AuditSessionsHandler(BaseHandler):
         "/api/v1/audit/sessions/{session_id}/report",
     ]
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can handle the given path."""
+        return path.startswith("/api/v1/audit/")
+
     async def handle_request(self, request: Any) -> Any:
         """Route request to appropriate handler."""
         method = request.method

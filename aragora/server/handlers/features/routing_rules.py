@@ -65,6 +65,10 @@ class RoutingRulesHandler(BaseHandler):
         "/api/v1/routing-rules/templates",
     ]
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can handle the given path."""
+        return path.startswith("/api/v1/routing-rules/")
+
     async def handle_request(self, request: Any) -> Any:
         """Route request to appropriate handler."""
         method = request.method

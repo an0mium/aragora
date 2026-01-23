@@ -67,6 +67,10 @@ class FindingWorkflowHandler(BaseHandler):
         "/api/v1/audit/types",
     ]
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can handle the given path."""
+        return path.startswith("/api/v1/finding-workflow/")
+
     async def handle_request(self, request: Any) -> Any:
         """Route request to appropriate handler."""
         method = request.method

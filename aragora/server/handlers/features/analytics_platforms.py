@@ -140,6 +140,10 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 return self._error_response(403, f"Permission denied: {permission} required")
         return None
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can handle the given path."""
+        return path.startswith("/api/v1/analytics/")
+
     async def handle_request(self, request: Any) -> Any:
         """Route request to appropriate handler."""
         method = request.method

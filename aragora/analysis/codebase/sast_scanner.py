@@ -11,6 +11,8 @@ Features:
 - Custom rule support
 - Severity classification
 - False positive filtering via confidence scoring
+- Async scanning with progress reporting
+- SecurityEventEmitter integration for critical findings
 
 Usage:
     from aragora.analysis.codebase.sast_scanner import SASTScanner
@@ -27,6 +29,23 @@ Usage:
         path="/path/to/repo",
         rule_sets=["owasp-top-10", "cwe-top-25"],
     )
+
+    # Get available rulesets
+    rulesets = await scanner.get_available_rulesets()
+
+    # Scan with progress reporting
+    async def on_progress(current, total, message):
+        print(f"[{current}/{total}] {message}")
+
+    result = await scanner.scan_repository("/path/to/repo", progress_callback=on_progress)
+
+Semgrep Installation:
+    If Semgrep is not installed, install it with:
+        pip install semgrep
+    Or:
+        brew install semgrep  # macOS
+        python3 -m pip install semgrep  # Python
+    See: https://semgrep.dev/docs/getting-started/
 """
 
 from __future__ import annotations
@@ -36,12 +55,16 @@ import json
 import logging
 import os
 import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
+
+# Type alias for progress callback
+ProgressCallback = Callable[[int, int, str], Coroutine[Any, Any, None]]
 
 
 class SASTSeverity(Enum):
@@ -51,6 +74,36 @@ class SASTSeverity(Enum):
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
+
+    @property
+    def level(self) -> int:
+        """Get numeric severity level for comparison."""
+        levels = {"info": 0, "warning": 1, "error": 2, "critical": 3}
+        return levels.get(self.value, 0)
+
+    def __ge__(self, other: "SASTSeverity") -> bool:
+        """Compare severity levels."""
+        if isinstance(other, SASTSeverity):
+            return self.level >= other.level
+        return NotImplemented
+
+    def __gt__(self, other: "SASTSeverity") -> bool:
+        """Compare severity levels."""
+        if isinstance(other, SASTSeverity):
+            return self.level > other.level
+        return NotImplemented
+
+    def __le__(self, other: "SASTSeverity") -> bool:
+        """Compare severity levels."""
+        if isinstance(other, SASTSeverity):
+            return self.level <= other.level
+        return NotImplemented
+
+    def __lt__(self, other: "SASTSeverity") -> bool:
+        """Compare severity levels."""
+        if isinstance(other, SASTSeverity):
+            return self.level < other.level
+        return NotImplemented
 
 
 class OWASPCategory(Enum):
@@ -100,6 +153,9 @@ class SASTFinding:
     metadata: Dict[str, Any] = field(default_factory=dict)
     is_false_positive: bool = False
     triaged: bool = False
+
+    # Finding ID for tracking
+    finding_id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
@@ -237,6 +293,167 @@ class SASTConfig:
 
     # Performance
     max_concurrent_files: int = 10
+
+    # False positive filtering
+    min_confidence_threshold: float = 0.5  # Filter findings below this confidence
+    enable_false_positive_filtering: bool = True
+
+    # Security event integration
+    emit_security_events: bool = True
+    critical_finding_threshold: int = 1  # Emit event when this many critical findings
+
+
+# Available Semgrep rulesets with descriptions
+AVAILABLE_RULESETS: Dict[str, Dict[str, str]] = {
+    # OWASP rulesets
+    "p/owasp-top-ten": {
+        "name": "OWASP Top 10",
+        "description": "Rules covering OWASP Top 10 2021 vulnerabilities",
+        "category": "owasp",
+    },
+    "p/owasp-top-ten-2017": {
+        "name": "OWASP Top 10 2017",
+        "description": "Rules covering OWASP Top 10 2017 vulnerabilities",
+        "category": "owasp",
+    },
+    # Security rulesets
+    "p/security-audit": {
+        "name": "Security Audit",
+        "description": "Comprehensive security audit rules",
+        "category": "security",
+    },
+    "p/secrets": {
+        "name": "Secrets Detection",
+        "description": "Detection of hardcoded secrets and credentials",
+        "category": "security",
+    },
+    "p/supply-chain": {
+        "name": "Supply Chain",
+        "description": "Supply chain security vulnerabilities",
+        "category": "security",
+    },
+    # CWE rulesets
+    "p/cwe-top-25": {
+        "name": "CWE Top 25",
+        "description": "CWE Top 25 Most Dangerous Software Weaknesses",
+        "category": "cwe",
+    },
+    # Language-specific rulesets
+    "p/python": {
+        "name": "Python Security",
+        "description": "Python-specific security rules",
+        "category": "language",
+    },
+    "p/javascript": {
+        "name": "JavaScript Security",
+        "description": "JavaScript-specific security rules",
+        "category": "language",
+    },
+    "p/typescript": {
+        "name": "TypeScript Security",
+        "description": "TypeScript-specific security rules",
+        "category": "language",
+    },
+    "p/go": {
+        "name": "Go Security",
+        "description": "Go-specific security rules",
+        "category": "language",
+    },
+    "p/java": {
+        "name": "Java Security",
+        "description": "Java-specific security rules",
+        "category": "language",
+    },
+    "p/ruby": {
+        "name": "Ruby Security",
+        "description": "Ruby-specific security rules",
+        "category": "language",
+    },
+    # Framework-specific
+    "p/django": {
+        "name": "Django Security",
+        "description": "Django framework security rules",
+        "category": "framework",
+    },
+    "p/flask": {
+        "name": "Flask Security",
+        "description": "Flask framework security rules",
+        "category": "framework",
+    },
+    "p/react": {
+        "name": "React Security",
+        "description": "React framework security rules",
+        "category": "framework",
+    },
+    "p/nodejs": {
+        "name": "Node.js Security",
+        "description": "Node.js security rules",
+        "category": "framework",
+    },
+    # Additional rulesets
+    "p/insecure-transport": {
+        "name": "Insecure Transport",
+        "description": "Detection of insecure transport layer configurations",
+        "category": "security",
+    },
+    "p/jwt": {
+        "name": "JWT Security",
+        "description": "JSON Web Token security vulnerabilities",
+        "category": "security",
+    },
+    "p/sql-injection": {
+        "name": "SQL Injection",
+        "description": "SQL injection vulnerability detection",
+        "category": "injection",
+    },
+    "p/xss": {
+        "name": "XSS",
+        "description": "Cross-site scripting vulnerability detection",
+        "category": "injection",
+    },
+    "p/command-injection": {
+        "name": "Command Injection",
+        "description": "OS command injection vulnerability detection",
+        "category": "injection",
+    },
+}
+
+# Fix recommendations by CWE category
+CWE_FIX_RECOMMENDATIONS: Dict[str, str] = {
+    # Injection
+    "CWE-78": "Use parameterized commands or shell escaping. Avoid shell=True with user input.",
+    "CWE-79": "Sanitize user input before rendering. Use templating engines with auto-escaping.",
+    "CWE-89": "Use parameterized queries or an ORM. Never concatenate user input in SQL.",
+    "CWE-94": "Avoid eval/exec with user input. Use safe alternatives like ast.literal_eval.",
+    "CWE-95": "Never use eval() with untrusted data. Parse data using safe methods.",
+    # Cryptographic
+    "CWE-327": "Use strong cryptographic algorithms (AES-256, SHA-256+). Avoid MD5/SHA1 for security.",
+    "CWE-328": "Use bcrypt, scrypt, or Argon2 for password hashing. Never use MD5/SHA1.",
+    "CWE-330": "Use cryptographically secure random number generators (secrets module in Python).",
+    "CWE-338": "Replace weak PRNG with secrets.token_bytes() or os.urandom().",
+    # Authentication
+    "CWE-259": "Store credentials in environment variables or secure vaults, not in code.",
+    "CWE-287": "Implement proper authentication. Verify credentials on every request.",
+    "CWE-306": "Add authentication checks before accessing sensitive functionality.",
+    "CWE-798": "Move hardcoded credentials to environment variables or secret management.",
+    # Access Control
+    "CWE-22": "Validate and sanitize file paths. Use os.path.realpath() and check allowed directories.",
+    "CWE-284": "Implement proper access control checks. Follow principle of least privilege.",
+    "CWE-352": "Implement CSRF tokens for state-changing operations.",
+    "CWE-862": "Add authorization checks before accessing resources.",
+    # Data Integrity
+    "CWE-502": "Avoid deserializing untrusted data. Use safe serialization formats like JSON.",
+    "CWE-494": "Verify integrity of downloaded code using checksums or signatures.",
+    # Configuration
+    "CWE-16": "Review security configuration. Disable debug mode in production.",
+    "CWE-614": "Set Secure flag on cookies containing sensitive data.",
+    "CWE-1004": "Set HttpOnly flag on session cookies.",
+    # SSRF
+    "CWE-918": "Validate and whitelist allowed URLs. Block internal network ranges.",
+    # Logging
+    "CWE-117": "Sanitize user input before logging to prevent log injection.",
+    "CWE-532": "Avoid logging sensitive data. Mask or redact sensitive information.",
+}
 
 
 # CWE to OWASP mapping for common vulnerabilities
@@ -593,18 +810,57 @@ class SASTScanner:
 
     Integrates with Semgrep for comprehensive static analysis.
     Falls back to local pattern matching when Semgrep is unavailable.
+
+    Features:
+    - OWASP Top 10 rule pack support
+    - CWE ID mapping for all findings
+    - Multi-language support (Python, JavaScript, Go, Java, TypeScript)
+    - False positive filtering via confidence scores
+    - Async scanning with progress reporting
+    - SecurityEventEmitter integration for critical findings
     """
 
-    def __init__(self, config: Optional[SASTConfig] = None):
+    # Semgrep installation instructions
+    SEMGREP_INSTALL_INSTRUCTIONS = """
+Semgrep is not installed or not available in PATH.
+
+To install Semgrep, use one of the following methods:
+
+1. Using pip (recommended):
+   pip install semgrep
+
+2. Using Homebrew (macOS):
+   brew install semgrep
+
+3. Using Docker:
+   docker pull returntocorp/semgrep
+
+4. Using pipx (isolated installation):
+   pipx install semgrep
+
+For more information, visit: https://semgrep.dev/docs/getting-started/
+
+The scanner will fall back to local pattern matching until Semgrep is installed.
+"""
+
+    def __init__(
+        self,
+        config: Optional[SASTConfig] = None,
+        security_emitter: Optional[Any] = None,
+    ):
         """
         Initialize SAST scanner.
 
         Args:
             config: Scanner configuration
+            security_emitter: Optional SecurityEventEmitter for critical finding notifications
         """
         self.config = config or SASTConfig()
         self._semgrep_available: Optional[bool] = None
+        self._semgrep_version: Optional[str] = None
         self._compiled_patterns: Dict[str, re.Pattern] = {}
+        self._security_emitter = security_emitter
+        self._scan_progress: Dict[str, int] = {}
 
         # Compile local patterns
         for rule_id, rule_data in LOCAL_PATTERNS.items():
@@ -619,15 +875,25 @@ class SASTScanner:
     async def initialize(self) -> None:
         """Initialize scanner and check Semgrep availability."""
         if self.config.use_semgrep:
-            self._semgrep_available = await self._check_semgrep()
+            self._semgrep_available, self._semgrep_version = await self._check_semgrep()
             if self._semgrep_available:
-                logger.info("Semgrep is available, using Semgrep for scanning")
+                logger.info(f"Semgrep {self._semgrep_version} is available")
             else:
-                logger.info("Semgrep not available, using local patterns")
+                logger.warning("Semgrep not available, using local patterns")
+                logger.info(self.SEMGREP_INSTALL_INSTRUCTIONS)
         else:
             self._semgrep_available = False
 
-    async def _check_semgrep(self) -> bool:
+        # Initialize security emitter if configured
+        if self.config.emit_security_events and self._security_emitter is None:
+            try:
+                from aragora.events.security_events import get_security_emitter
+
+                self._security_emitter = get_security_emitter()
+            except ImportError:
+                logger.debug("SecurityEventEmitter not available")
+
+    async def _check_semgrep(self) -> tuple[bool, Optional[str]]:
         """Check if Semgrep is installed and accessible."""
         try:
             process = await asyncio.create_subprocess_exec(
@@ -637,16 +903,73 @@ class SASTScanner:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10)
-            return process.returncode == 0
+            if process.returncode == 0:
+                version = stdout.decode().strip().split("\n")[0]
+                return True, version
+            return False, None
         except Exception as e:
             logger.debug(f"Semgrep check failed: {e}")
-            return False
+            return False, None
+
+    def is_semgrep_available(self) -> bool:
+        """Check if Semgrep is available for scanning."""
+        return self._semgrep_available or False
+
+    def get_semgrep_version(self) -> Optional[str]:
+        """Get the installed Semgrep version."""
+        return self._semgrep_version
+
+    def get_install_instructions(self) -> str:
+        """Get Semgrep installation instructions."""
+        return self.SEMGREP_INSTALL_INSTRUCTIONS
+
+    async def get_available_rulesets(self) -> List[Dict[str, Any]]:
+        """
+        Get available Semgrep rulesets.
+
+        Returns:
+            List of available rulesets with name, description, and category
+        """
+        rulesets = []
+
+        for ruleset_id, ruleset_info in AVAILABLE_RULESETS.items():
+            rulesets.append(
+                {
+                    "id": ruleset_id,
+                    "name": ruleset_info["name"],
+                    "description": ruleset_info["description"],
+                    "category": ruleset_info["category"],
+                    "available": self._semgrep_available or False,
+                }
+            )
+
+        # If Semgrep is available, try to get additional rulesets from registry
+        if self._semgrep_available:
+            try:
+                additional = await self._fetch_registry_rulesets()
+                # Merge with existing, avoiding duplicates
+                existing_ids = {r["id"] for r in rulesets}
+                for ruleset in additional:
+                    if ruleset["id"] not in existing_ids:
+                        rulesets.append(ruleset)
+            except Exception as e:
+                logger.debug(f"Failed to fetch registry rulesets: {e}")
+
+        return rulesets
+
+    async def _fetch_registry_rulesets(self) -> List[Dict[str, Any]]:
+        """Fetch available rulesets from Semgrep registry."""
+        # This is a simplified implementation
+        # In production, you might want to cache this and refresh periodically
+        return []  # Registry fetch would go here
 
     async def scan_repository(
         self,
         repo_path: str,
         rule_sets: Optional[List[str]] = None,
         scan_id: Optional[str] = None,
+        progress_callback: Optional[ProgressCallback] = None,
+        min_confidence: Optional[float] = None,
     ) -> SASTScanResult:
         """
         Scan a repository for security issues.
@@ -655,12 +978,12 @@ class SASTScanner:
             repo_path: Path to repository
             rule_sets: Optional list of rule sets to use
             scan_id: Optional scan identifier
+            progress_callback: Optional async callback for progress updates
+            min_confidence: Minimum confidence threshold for findings (0.0-1.0)
 
         Returns:
             SASTScanResult with findings
         """
-        import uuid
-
         start_time = datetime.now()
         scan_id = scan_id or str(uuid.uuid4())[:8]
         repo_path = os.path.abspath(repo_path)
@@ -679,18 +1002,117 @@ class SASTScanner:
             )
 
         rule_sets = rule_sets or self.config.default_rule_sets
+        confidence_threshold = min_confidence or self.config.min_confidence_threshold
+
+        # Report initial progress
+        if progress_callback:
+            await progress_callback(0, 100, f"Starting scan of {os.path.basename(repo_path)}")
 
         # Try Semgrep first, fall back to local patterns
         if self._semgrep_available:
+            if progress_callback:
+                await progress_callback(10, 100, "Running Semgrep analysis...")
             result = await self._scan_with_semgrep(repo_path, rule_sets, scan_id)
         else:
-            result = await self._scan_with_local_patterns(repo_path, scan_id)
+            if progress_callback:
+                await progress_callback(10, 100, "Running local pattern analysis...")
+            result = await self._scan_with_local_patterns(repo_path, scan_id, progress_callback)
+
+        # Apply false positive filtering
+        if self.config.enable_false_positive_filtering:
+            original_count = len(result.findings)
+            result.findings = [f for f in result.findings if f.confidence >= confidence_threshold]
+            filtered_count = original_count - len(result.findings)
+            if filtered_count > 0:
+                logger.debug(
+                    f"Filtered {filtered_count} low-confidence findings "
+                    f"(threshold: {confidence_threshold})"
+                )
+
+        # Add fix recommendations based on CWE
+        for finding in result.findings:
+            if not finding.remediation and finding.cwe_ids:
+                for cwe_id in finding.cwe_ids:
+                    if cwe_id in CWE_FIX_RECOMMENDATIONS:
+                        finding.remediation = CWE_FIX_RECOMMENDATIONS[cwe_id]
+                        break
 
         # Calculate duration
         duration = (datetime.now() - start_time).total_seconds() * 1000
         result.scan_duration_ms = duration
 
+        # Report completion
+        if progress_callback:
+            await progress_callback(100, 100, f"Scan complete: {len(result.findings)} findings")
+
+        # Emit security events for critical findings
+        await self._emit_security_events(result, repo_path, scan_id)
+
         return result
+
+    async def _emit_security_events(
+        self,
+        result: SASTScanResult,
+        repo_path: str,
+        scan_id: str,
+    ) -> None:
+        """Emit security events for critical findings."""
+        if not self.config.emit_security_events or not self._security_emitter:
+            return
+
+        # Count critical and high severity findings
+        critical_findings = [f for f in result.findings if f.severity == SASTSeverity.CRITICAL]
+        _high_findings = [f for f in result.findings if f.severity == SASTSeverity.ERROR]
+
+        # Emit event if threshold is met
+        if len(critical_findings) >= self.config.critical_finding_threshold:
+            try:
+                from aragora.events.security_events import (
+                    SecurityEvent,
+                    SecurityEventType,
+                    SecuritySeverity,
+                    SecurityFinding,
+                )
+
+                # Convert SAST findings to security findings
+                security_findings = []
+                for f in critical_findings[:10]:  # Limit to top 10
+                    security_findings.append(
+                        SecurityFinding(
+                            id=f.finding_id,
+                            finding_type="vulnerability",
+                            severity=SecuritySeverity.CRITICAL,
+                            title=f.rule_name or f.rule_id,
+                            description=f.message,
+                            file_path=f.file_path,
+                            line_number=f.line_start,
+                            recommendation=f.remediation,
+                            metadata={
+                                "cwe_ids": f.cwe_ids,
+                                "owasp_category": f.owasp_category.value,
+                                "snippet": f.snippet[:200] if f.snippet else "",
+                                "source": f.source,
+                            },
+                        )
+                    )
+
+                event = SecurityEvent(
+                    event_type=SecurityEventType.CRITICAL_VULNERABILITY,
+                    severity=SecuritySeverity.CRITICAL,
+                    repository=os.path.basename(repo_path),
+                    scan_id=scan_id,
+                    findings=security_findings,
+                )
+
+                await self._security_emitter.emit(event)
+                logger.info(
+                    f"Emitted security event for {len(critical_findings)} critical findings"
+                )
+
+            except ImportError:
+                logger.debug("SecurityEventEmitter not available for event emission")
+            except Exception as e:
+                logger.warning(f"Failed to emit security event: {e}")
 
     async def _scan_with_semgrep(
         self,
@@ -857,6 +1279,7 @@ class SASTScanner:
         self,
         repo_path: str,
         scan_id: str,
+        progress_callback: Optional[ProgressCallback] = None,
     ) -> SASTScanResult:
         """Scan repository using local patterns (fallback)."""
         findings: List[SASTFinding] = []
@@ -864,6 +1287,9 @@ class SASTScanner:
         scanned_files = 0
         skipped_files = 0
         errors: List[str] = []
+
+        # First pass: count files for progress reporting
+        files_to_scan: List[tuple[str, str, str]] = []
 
         try:
             # Walk the repository
@@ -904,13 +1330,25 @@ class SASTScanner:
                     except OSError:
                         continue
 
-                    # Scan file
-                    file_findings = await self._scan_file_local(file_path, rel_path, language)
-                    findings.extend(file_findings)
-                    scanned_files += 1
+                    files_to_scan.append((file_path, rel_path, language))
 
-                    if file_findings:
-                        languages_detected.add(language)
+            total_files = len(files_to_scan)
+            if progress_callback and total_files > 0:
+                await progress_callback(15, 100, f"Scanning {total_files} files...")
+
+            # Second pass: scan files with progress
+            for idx, (file_path, rel_path, language) in enumerate(files_to_scan):
+                file_findings = await self._scan_file_local(file_path, rel_path, language)
+                findings.extend(file_findings)
+                scanned_files += 1
+
+                if file_findings:
+                    languages_detected.add(language)
+
+                # Report progress periodically
+                if progress_callback and total_files > 0 and idx % 10 == 0:
+                    progress = 15 + int((idx / total_files) * 80)
+                    await progress_callback(progress, 100, f"Scanned {idx + 1}/{total_files} files")
 
         except Exception as e:
             errors.append(f"Local scan error: {e}")
@@ -981,7 +1419,7 @@ class SASTScanner:
                     )
 
                     # Filter by severity
-                    if finding.severity.value >= self.config.min_severity.value:
+                    if finding.severity >= self.config.min_severity:
                         findings.append(finding)
 
         except Exception as e:
@@ -1001,6 +1439,7 @@ class SASTScanner:
         self,
         file_path: str,
         language: Optional[str] = None,
+        min_confidence: Optional[float] = None,
     ) -> List[SASTFinding]:
         """
         Scan a single file for security issues.
@@ -1008,6 +1447,7 @@ class SASTScanner:
         Args:
             file_path: Path to file
             language: Optional language override
+            min_confidence: Minimum confidence threshold for findings
 
         Returns:
             List of findings
@@ -1017,6 +1457,7 @@ class SASTScanner:
 
         language = language or self._detect_language(file_path)
         rel_path = os.path.basename(file_path)
+        confidence_threshold = min_confidence or self.config.min_confidence_threshold
 
         if self._semgrep_available:
             # Use Semgrep for single file
@@ -1025,9 +1466,23 @@ class SASTScanner:
                 self.config.default_rule_sets,
                 "single",
             )
-            return [f for f in result.findings if f.file_path.endswith(rel_path)]
+            findings = [f for f in result.findings if f.file_path.endswith(rel_path)]
         else:
-            return await self._scan_file_local(file_path, rel_path, language)
+            findings = await self._scan_file_local(file_path, rel_path, language)
+
+        # Apply confidence filtering
+        if self.config.enable_false_positive_filtering:
+            findings = [f for f in findings if f.confidence >= confidence_threshold]
+
+        # Add fix recommendations
+        for finding in findings:
+            if not finding.remediation and finding.cwe_ids:
+                for cwe_id in finding.cwe_ids:
+                    if cwe_id in CWE_FIX_RECOMMENDATIONS:
+                        finding.remediation = CWE_FIX_RECOMMENDATIONS[cwe_id]
+                        break
+
+        return findings
 
     async def get_owasp_summary(
         self,
@@ -1085,6 +1540,8 @@ class SASTScanner:
 async def scan_for_vulnerabilities(
     path: str,
     rule_sets: Optional[List[str]] = None,
+    min_confidence: float = 0.5,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> SASTScanResult:
     """
     Quick convenience function for SAST scanning.
@@ -1092,6 +1549,8 @@ async def scan_for_vulnerabilities(
     Args:
         path: Path to file or directory
         rule_sets: Optional rule sets
+        min_confidence: Minimum confidence threshold for findings
+        progress_callback: Optional async callback for progress updates
 
     Returns:
         SASTScanResult
@@ -1100,7 +1559,7 @@ async def scan_for_vulnerabilities(
     await scanner.initialize()
 
     if os.path.isfile(path):
-        findings = await scanner.scan_file(path)
+        findings = await scanner.scan_file(path, min_confidence=min_confidence)
         return SASTScanResult(
             repository_path=path,
             scan_id="quick",
@@ -1112,15 +1571,75 @@ async def scan_for_vulnerabilities(
             rules_used=rule_sets or ["local"],
         )
     else:
-        return await scanner.scan_repository(path, rule_sets)
+        return await scanner.scan_repository(
+            path,
+            rule_sets,
+            progress_callback=progress_callback,
+            min_confidence=min_confidence,
+        )
+
+
+async def get_available_rulesets() -> List[Dict[str, Any]]:
+    """
+    Get available Semgrep rulesets.
+
+    Returns:
+        List of available rulesets with metadata
+    """
+    scanner = SASTScanner()
+    await scanner.initialize()
+    return await scanner.get_available_rulesets()
+
+
+def check_semgrep_installation() -> Dict[str, Any]:
+    """
+    Check Semgrep installation status synchronously.
+
+    Returns:
+        Dictionary with installation status and instructions
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["semgrep", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return {
+                "installed": True,
+                "version": result.stdout.strip().split("\n")[0],
+                "message": "Semgrep is installed and available",
+            }
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        pass
+
+    return {
+        "installed": False,
+        "version": None,
+        "message": "Semgrep is not installed",
+        "instructions": SASTScanner.SEMGREP_INSTALL_INSTRUCTIONS,
+    }
 
 
 __all__ = [
+    # Main classes
     "SASTScanner",
     "SASTScanResult",
     "SASTFinding",
     "SASTSeverity",
     "SASTConfig",
     "OWASPCategory",
+    # Convenience functions
     "scan_for_vulnerabilities",
+    "get_available_rulesets",
+    "check_semgrep_installation",
+    # Type aliases
+    "ProgressCallback",
+    # Constants
+    "AVAILABLE_RULESETS",
+    "CWE_TO_OWASP",
+    "CWE_FIX_RECOMMENDATIONS",
 ]
