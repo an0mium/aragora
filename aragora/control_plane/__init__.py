@@ -117,6 +117,21 @@ from aragora.control_plane.shared_state import (
     get_shared_state_sync,
     set_shared_state,
 )
+from aragora.control_plane.deliberation_chain import (
+    ChainExecution,
+    ChainExecutor,
+    ChainStatus,
+    ChainStore,
+    DeliberationChain,
+    DeliberationStage,
+    StageResult,
+    StageStatus,
+    StageTransition,
+    TemplateEngine,
+    create_code_review_chain,
+    create_draft_review_chain,
+    create_research_synthesis_chain,
+)
 
 __all__ = [
     # Registry
@@ -178,4 +193,18 @@ __all__ = [
     "get_shared_state_sync",
     "set_shared_state",
     "close_shared_state",
+    # Deliberation Chaining
+    "DeliberationChain",
+    "DeliberationStage",
+    "ChainExecution",
+    "ChainExecutor",
+    "ChainStore",
+    "ChainStatus",
+    "StageStatus",
+    "StageTransition",
+    "StageResult",
+    "TemplateEngine",
+    "create_code_review_chain",
+    "create_draft_review_chain",
+    "create_research_synthesis_chain",
 ]
