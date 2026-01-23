@@ -57,7 +57,7 @@ def get_dependency_analyzer():
 async def handle_analyze_dependencies(
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Analyze project dependencies.
 
@@ -132,7 +132,7 @@ async def handle_analyze_dependencies(
 async def handle_generate_sbom(
     data: dict[str, Any],
     user_id: str = "default",
-) -> dict[str, Any]:
+) -> HandlerResult:
     """
     Generate Software Bill of Materials (SBOM).
 

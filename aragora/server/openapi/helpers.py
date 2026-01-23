@@ -156,7 +156,7 @@ ERROR_EXAMPLES: dict[str, dict[str, Any]] = {
                 "error": "An unexpected error occurred",
                 "code": "INTERNAL_ERROR",
                 "trace_id": "req_abc123xyz",
-                "support_url": "https://github.com/anthropics/aragora/issues",
+                "support_url": "https://github.com/an0mium/aragora/issues",
             },
         },
     },
