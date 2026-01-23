@@ -4,6 +4,24 @@ import { useState } from 'react';
 
 type ReportType = 'profit_loss' | 'balance_sheet' | 'ar_aging' | 'ap_aging' | 'cash_flow';
 
+// Report data types
+interface LineItem {
+  name: string;
+  amount: number;
+}
+
+interface AgingBucket {
+  label: string;
+  amount: number;
+  customers: number;
+}
+
+interface ReportData {
+  type: ReportType;
+  period?: { start: string; end: string };
+  data: Record<string, unknown>;
+}
+
 interface ReportConfig {
   id: ReportType;
   name: string;
@@ -137,7 +155,7 @@ export function ReportGenerator() {
     end: new Date().toISOString().split('T')[0],
   });
   const [generating, setGenerating] = useState(false);
-  const [reportData, setReportData] = useState<any>(null);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
 
   const generateReport = async () => {
     if (!selectedReport) return;
@@ -278,7 +296,7 @@ export function ReportGenerator() {
               <div>
                 <h4 className="text-sm font-mono text-[var(--acid-green)] mb-3">Income</h4>
                 <div className="space-y-2">
-                  {reportData.data.income.items.map((item: any) => (
+                  {reportData.data.income.items.map((item: LineItem) => (
                     <div key={item.name} className="flex justify-between text-sm">
                       <span className="text-[var(--text-muted)]">{item.name}</span>
                       <span className="font-mono text-[var(--acid-green)]">
@@ -299,7 +317,7 @@ export function ReportGenerator() {
               <div>
                 <h4 className="text-sm font-mono text-red-400 mb-3">Expenses</h4>
                 <div className="space-y-2">
-                  {reportData.data.expenses.items.map((item: any) => (
+                  {reportData.data.expenses.items.map((item: LineItem) => (
                     <div key={item.name} className="flex justify-between text-sm">
                       <span className="text-[var(--text-muted)]">{item.name}</span>
                       <span className="font-mono text-red-400">
@@ -337,7 +355,7 @@ export function ReportGenerator() {
                 <div className="space-y-4">
                   <div>
                     <h5 className="text-xs text-[var(--text-muted)] mb-2">Current Assets</h5>
-                    {reportData.data.assets.current.items.map((item: any) => (
+                    {reportData.data.assets.current.items.map((item: LineItem) => (
                       <div key={item.name} className="flex justify-between text-sm py-1">
                         <span className="text-[var(--text-muted)]">{item.name}</span>
                         <span className="font-mono">${item.amount.toLocaleString()}</span>
@@ -346,7 +364,7 @@ export function ReportGenerator() {
                   </div>
                   <div>
                     <h5 className="text-xs text-[var(--text-muted)] mb-2">Fixed Assets</h5>
-                    {reportData.data.assets.fixed.items.map((item: any) => (
+                    {reportData.data.assets.fixed.items.map((item: LineItem) => (
                       <div key={item.name} className="flex justify-between text-sm py-1">
                         <span className="text-[var(--text-muted)]">{item.name}</span>
                         <span className="font-mono">${item.amount.toLocaleString()}</span>
@@ -368,7 +386,7 @@ export function ReportGenerator() {
                 <div className="space-y-4">
                   <div>
                     <h5 className="text-xs text-[var(--text-muted)] mb-2">Liabilities</h5>
-                    {reportData.data.liabilities.items.map((item: any) => (
+                    {reportData.data.liabilities.items.map((item: LineItem) => (
                       <div key={item.name} className="flex justify-between text-sm py-1">
                         <span className="text-[var(--text-muted)]">{item.name}</span>
                         <span className="font-mono">${item.amount.toLocaleString()}</span>
@@ -377,7 +395,7 @@ export function ReportGenerator() {
                   </div>
                   <div>
                     <h5 className="text-xs text-[var(--text-muted)] mb-2">Equity</h5>
-                    {reportData.data.equity.items.map((item: any) => (
+                    {reportData.data.equity.items.map((item: LineItem) => (
                       <div key={item.name} className="flex justify-between text-sm py-1">
                         <span className="text-[var(--text-muted)]">{item.name}</span>
                         <span className="font-mono">${item.amount.toLocaleString()}</span>
@@ -400,7 +418,7 @@ export function ReportGenerator() {
             <div className="p-4 space-y-4">
               {/* Summary Buckets */}
               <div className="grid grid-cols-5 gap-2">
-                {reportData.data.buckets.map((bucket: any) => (
+                {reportData.data.buckets.map((bucket: AgingBucket) => (
                   <div key={bucket.label} className="p-3 bg-[var(--bg)] rounded text-center">
                     <div className="text-xs text-[var(--text-muted)]">{bucket.label}</div>
                     <div className="text-lg font-mono text-[var(--text)]">

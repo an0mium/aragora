@@ -149,6 +149,7 @@ export function PriorityInboxList({
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- state setters are stable
   }, [apiBase, userId, authToken]);
 
   useEffect(() => {

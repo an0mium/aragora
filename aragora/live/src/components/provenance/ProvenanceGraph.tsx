@@ -145,6 +145,7 @@ export function ProvenanceGraph({
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- generateDemoProvenance is stable
   }, [apiBase, debateId, viewMode, width, height]);
 
   useEffect(() => {

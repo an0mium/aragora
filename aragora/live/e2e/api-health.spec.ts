@@ -95,6 +95,7 @@ test.describe('WebSocket Connectivity', () => {
     // Close any WebSocket connections
     await page.evaluate(() => {
       // Force close any open WebSockets
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing runtime-injected property
       (window as any).__wsConnections?.forEach((ws: WebSocket) => ws.close());
     });
 

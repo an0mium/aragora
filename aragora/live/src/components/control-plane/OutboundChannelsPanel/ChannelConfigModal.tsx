@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { OutboundChannel, OutboundChannelType } from './ChannelCard';
 
 export interface ChannelConfigField {
@@ -114,7 +114,10 @@ export function ChannelConfigModal({
     }
   }, [isOpen, channel]);
 
-  const fields = channel ? CHANNEL_CONFIG_FIELDS[channel.type] || [] : [];
+  const fields = useMemo(
+    () => (channel ? CHANNEL_CONFIG_FIELDS[channel.type] || [] : []),
+    [channel]
+  );
 
   const handleChange = useCallback((key: string, value: unknown) => {
     setConfig((prev) => ({ ...prev, [key]: value }));

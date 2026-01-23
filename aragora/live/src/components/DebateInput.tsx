@@ -349,6 +349,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError }: DebateInputPr
     } finally {
       setIsSubmitting(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedVertical changes are handled separately
   }, [question, placeholder, agents, rounds, debateMode, debateFormat, apiBase, isSubmitting, onDebateStarted, onError, router]);
 
   const isDisabled = isSubmitting || apiStatus === 'offline' || apiStatus === 'checking';

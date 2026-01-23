@@ -70,6 +70,7 @@ test.describe('WebSocket Connectivity', () => {
       // Force close WebSocket connections
       await page.evaluate(() => {
         // Find and close all WebSockets
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-injected property
         const wsInstances = (window as any).__wsInstances || [];
         wsInstances.forEach((ws: WebSocket) => {
           if (ws && ws.readyState === WebSocket.OPEN) {

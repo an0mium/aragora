@@ -79,7 +79,7 @@ interface MetricsReport {
     value: number;
     unit: string;
     status: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }>;
 }
 

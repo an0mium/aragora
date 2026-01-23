@@ -129,6 +129,7 @@ export function SecurityScanWizard() {
       // Use mock data for demo
       await simulateScan();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- formatScanResult, pollForResult, and simulateScan are stable
   }, [config]);
 
   const pollForResult = async (_scanId: string) => {

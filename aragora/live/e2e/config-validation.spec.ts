@@ -137,6 +137,7 @@ test.describe('Configuration Validation', () => {
       // Check if dev mode is exposed (for debugging purposes)
       const isDevMode = await page.evaluate(() => {
         // The config exports IS_DEV_MODE
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-injected property
         return (window as any).__aragora_dev_mode;
       });
 
@@ -173,7 +174,9 @@ test.describe('Configuration Validation', () => {
       const config = await page.evaluate(() => {
         // Try to read from window config if exposed
         return {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-injected properties
           apiUrl: (window as any).__aragora_api_url,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime-injected properties
           isDevMode: (window as any).__aragora_dev_mode,
         };
       });
